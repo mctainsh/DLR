@@ -26,14 +26,18 @@ the change in the revision history. That is a real step, not a courtesy.
 **Test names in `code font` already exist in the design document.** They were written before any of
 this and are quoted verbatim so the two documents cannot drift.
 
+**Marking a task off:** a task heading gains a **✅** and a `**Status:**` line naming what is
+actually in the tree, once the definition of done above holds in full. A task is not marked from
+memory of having written the code — it is marked after the suite is green on the command line.
+
 ---
 
 ## Milestones
 
 | Milestone | Tasks | Maps to §11 | Outcome |
 |---|---|---|---|
-| **A — Skeleton and guards** | SRV-01 … SRV-05 | Phase 0 | An empty solution that already enforces its own rules |
-| **B — Identity** | SRV-06 … SRV-13 | Phase 1 | Register, sign in, never sign in again, recover if you left an address |
+| **A — Skeleton and guards** ✅ | SRV-01 … SRV-05 | Phase 0 | An empty solution that already enforces its own rules |
+| **B — Identity** ✅ | SRV-06 … SRV-13 | Phase 1 | Register, sign in, never sign in again, recover if you left an address |
 | **C — Tracks** | SRV-14 … SRV-19 | Phase 1 | Record, upload, import GPX, edit on the web |
 | **D — Group rides** | SRV-20 … SRV-25 | Phase 2 | Join, consent, live positions, the wind-down |
 | **E — Content** | SRV-26 … SRV-30 | Phase 2 | Markers, photos, the thread, polls |
@@ -49,7 +53,9 @@ C and B can overlap once SRV-09 exists, because tracks need an owner but not a f
 The guards come first because they are cheap now and unenforceable later. Every one of these tasks
 is a rule the rest of the project leans on.
 
-### SRV-01 — Solution, style and the licence files
+### SRV-01 — Solution, style and the licence files ✅
+**Status:** done. Seven projects under `Web/`, shared settings at the repository root, all six
+licence and policy files present.
 **First red test:** none — this is the only task in the list without one.
 **Then build:** `Web/DLR.sln`; `DLR.Core`, `DLR.Server`, `DLR.Server.Migrations`; `DLR.Core.Tests`,
 `DLR.Server.Tests`, `DLR.Architecture.Tests`, `DLR.TestSupport`. At the **repository root**, one
@@ -63,7 +69,10 @@ walk up the directory tree, so the test-project carve-out is globbed `**/tests/*
 tests, and the repo could be made public today without granting nobody anything.
 **Refs:** §3, §10.5, §14.1, §14.3, §14.6.1
 
-### SRV-02 — Architecture tests, before there is architecture to break
+### SRV-02 — Architecture tests, before there is architecture to break ✅
+**Status:** done. `LayeringRules`, `ClockRules`, `XmlRules`, `SqlRules` — 8 tests. Each rule is
+checked twice where it can be, once against the compiled assemblies and once against the source
+tree, because a rule about code that has not been written yet has no assembly to inspect.
 **First red test:** `Core_ReferencesNoMauiAssembly` — passes trivially, and that is the point: it
 fails the first time somebody adds the reference.
 **Then build:** `DLR.Architecture.Tests` with the §10.4 list that is checkable today —
@@ -73,7 +82,11 @@ anywhere, no raw SQL outside the three permitted folders.
 red. A guard you have never seen fail is a guard you do not have.
 **Refs:** §10.4
 
-### SRV-03 — CI: build, test, format, licence gate
+### SRV-03 — CI: build, test, format, licence gate ✅
+**Status:** done. `.github/workflows/ci.yml` — three jobs: `build` (restore, build, test, format),
+`licences` (the transitive scan), `dco` (sign-off, checked in-repo rather than by a third-party
+action). `pull_request`, `permissions: contents: read`, and no job reads a secret, so a fork PR
+runs everything.
 **First red test:** a deliberately added package with a non-approved licence fails the gate.
 **Then build:** GitHub Actions — restore, build, `dotnet test`, `dotnet format
 --verify-no-changes`, and a transitive licence scan that fails on **unknown** as well as
@@ -82,7 +95,16 @@ secret runs on one. DCO sign-off check.
 **Done when:** a fork PR runs the full suite and sees no secrets.
 **Refs:** §14.4, §14.6.3, §14.6.4
 
-### SRV-04 — Test harness: Postgres, clock, email
+### SRV-04 — Test harness: Postgres, clock, email ✅
+**Status:** done. `PostgresFixture` (one container per collection, a fresh database per factory),
+`DlrWebApplicationFactory`, `FakeTimeProvider` starting at a fixed instant, `CollectingEmailSender`.
+`Email_CanBeAssertedOnAfterAdvancingTheClockSixMonths` is the proof.
+**Amended after SRV-13.** The container is now validated in **every** environment
+(`UseDefaultServiceProvider` with `ValidateScopes` and `ValidateOnBuild`), not just Development
+where the default puts it. A singleton holding a scoped service passed the entire suite and only
+failed under `dotnet run`, because the test host runs as `Testing`. Every server test now builds a
+validated container, and `Container_ScopeValidation_IsOnInEveryEnvironment` is the guard on that
+guard — without it, deleting the call would restore the blind spot silently.
 **First red test:** `Database_Container_StartsAndAppliesMigrations`
 **Then build:** in `DLR.TestSupport` — a Testcontainers PostgreSQL fixture shared per collection,
 a `WebApplicationFactory` wired to it, `FakeTimeProvider` registered over `TimeProvider`, and a
@@ -92,7 +114,10 @@ miserable.
 in Milestones B–F depends on this and on nothing else external.
 **Refs:** §10.4
 
-### SRV-05 — `/api/v1/about` and the AGPL §13 source offer
+### SRV-05 — `/api/v1/about` and the AGPL §13 source offer ✅
+**Status:** done. `BuildInformation.ForAssembly` reads the SourceLink-embedded commit off
+`AssemblyInformationalVersion`; `Directory.Build.targets` appends `+dirty` for a modified tree.
+The web footer link is a UI task and is not covered here.
 **First red test:** `About_ReturnsSourceUrlAndCommitOfRunningBuild`
 **Then:** `About_IsReachableWithoutAuthentication`,
 `About_CommitMatchesAssemblyInformationalVersion`
@@ -110,7 +135,17 @@ before anything depends on it.
 §7.15 is the largest single block of tests in the project. Work it in the order below; each task is
 a coherent slice of that list.
 
-### SRV-06 — `AppUser`, Identity configuration, and the username rules
+### SRV-06 — `AppUser`, Identity configuration, and the username rules ✅
+**Status:** done. `AddIdentityCore` (not `AddIdentity` — no cookie scheme until SRV-34),
+`IdentityUserContext` rather than `IdentityDbContext` because no §7 rule is expressed as a role,
+`UserNameValidator` for the two rules Identity has no setting for, and the `AddIdentity` migration.
+`AppUser` deliberately adds no columns yet; the §7.13 fields arrive with the tasks that need them.
+**Also built:** `Register_UsernameOutsideLengthBounds_IsRejected`. §7.2 states 3–20 characters and
+§7.15 named no test for it, so the rule was going to ship unguarded; §7.15 has been updated.
+**Watch out:** the `*.sql`-free schema check in `Register_NullEmails_DoNotCollideOnUniqueIndex`
+asserts the index definition directly. PostgreSQL treats NULLs as distinct in a unique index, so
+three email-less accounts coexist whether or not the filter exists — the passing count proves
+`RequireUniqueEmail = false`, not the constraint.
 **First red test:** `Register_UsernameAndPasswordOnly_Succeeds`
 **Then:** `Register_NoEmail_AccountIsFullyUsable`,
 `Register_DuplicateUsername_IsRejectedCaseInsensitively`,
@@ -125,14 +160,45 @@ list, and the first migration.
 the username is a map label.
 **Refs:** §7.2, §7.13
 
-### SRV-07 — Password policy and the breach check
+### SRV-07 — Password policy and the breach check ✅
+**Status:** done. Ten characters, all four composition rules explicitly off,
+`BreachedPasswordValidator` over `IBreachedPasswordCheck`, and `PwnedPasswordsClient` doing the
+k-anonymity range lookup with a 3-second timeout. The fake is on the factory as `app.Breaches`, so
+no test reaches the network and the outage clause is reachable on demand.
+**Watch out:** the outcome switch names every case and *throws* on the discard. Written with a
+permissive default, deleting the `Unavailable` arm changes nothing until a real outage arrives —
+which is exactly what happened the first time this was checked by breaking it deliberately.
 **First red test:** `Register_WeakOrBreachedPassword_IsRejected`
 **Then:** `Register_BreachServiceUnavailable_StillAllowsRegistration`
 **Then build:** 10-character minimum, no composition rules, Pwned Passwords range API behind an
 interface so the test can fake an outage. **A third-party outage must not stop signups.**
 **Refs:** §7.2
 
-### SRV-08 — `/auth/token`: JWT access tokens
+### SRV-08 — `/auth/token`: JWT access tokens ✅
+**Status:** done. The password grant, `AccessTokenIssuer` (HS256, `kid`, 15 minutes,
+`sub`/`unm`/`dev`/`jti`), two-key rotation, `DummyPasswordVerifier`, 5→15-minute lockout, and
+`SigningKeySource` refusing to start on a key that ships with the code. The refresh grant returns
+400 by name until SRV-09.
+**Also built:** tests for the claim set, `kid` rotation, and the signing-key guard. §7.4 specifies
+all three exactly and §7.15 named no test for any of them.
+**Two things worth knowing before the next task:**
+- **Token lifetime is validated against `TimeProvider`, not the ambient clock.** `JwtOptions`
+  supplies a `LifetimeValidator` because the issuer stamps `exp` from the project clock — left to
+  the library, a test that advanced `app.Clock` would find every token already expired, and
+  `Hub_LongLivedConnection_SurvivesAccessTokenExpiry` (SRV-23) would be unwritable.
+- **Identity 10 takes no `TimeProvider`.** `AccessFailedAsync` reads the ambient clock, so the
+  fifteen minutes is asserted as configuration plus the observable refusal, not as elapsed time.
+  It also **resets `AccessFailedCount` to zero when it locks**, so the end date is the only
+  durable evidence a lockout happened.
+**Amended after SRV-13.** The refusal now names the fix. It said "an environment variable or a
+Docker secret", which is true in production and useless on a laptop — the local answer is **user
+secrets**, which the guard already permitted (that file is outside the content root) but never
+mentioned. `RequiredSettings.ValidateConnectionString` gives the connection string the same
+treatment; it previously surfaced as an Npgsql stack trace on the first request that touched a
+table. `CONTRIBUTING.md` has a "Running the server itself" section with both commands.
+**Startup order:** `SigningKeySource.Validate` runs after `builder.Build()`. Under minimal hosting
+a test host still contributes configuration sources while the builder runs, so validating earlier
+judges a half-assembled configuration.
 **First red test:** `Login_UnknownUsername_ResponseTimingMatchesKnownUsername`
 **Then:** `Login_FiveFailures_LocksAccountForFifteenMinutes`
 **Then build:** the password grant, HS256 with `kid`, 15-minute lifetime, claims `sub`/`unm`/`dev`/
@@ -140,7 +206,24 @@ interface so the test can fake an outage. **A third-party outage must not stop s
 an unknown username so timing does not leak.
 **Refs:** §7.4
 
-### SRV-09 — Refresh tokens: rotation, reuse detection, the grace window
+### SRV-09 — Refresh tokens: rotation, reuse detection, the grace window ✅
+**Status:** done. `refresh_token` with SHA-256 at rest, `family_id` chains and `successor_id`;
+`RefreshTokenService` implementing §7.4's three branches; `RefreshTokenGraceCache` for the
+10-second idempotency window; `SessionFactory` so registration, the password grant and the refresh
+grant all produce one shape. Registration now signs you in, per §7.2.
+**Pulled forward from SRV-10:** the `device` table, because `refresh_token.device_id` is a foreign
+key to it. Two columns only — SRV-10 still owns the session list and `last_seen_utc`. §7.13 never
+defined `device`; the shape chosen is recorded in the design.
+**Device ids are server-assigned.** A client sends back the id it was given; one belonging to
+somebody else does not match and the installation gets its own. Accepting a client-chosen id would
+let a guessed GUID attach a session to another rider's device row.
+**The grace window costs a bounded exception to "never store the raw token".** The successor sits
+in process memory for ten seconds, because returning *the same* successor is the only way to be
+idempotent. A restart empties it; a replay inside the window with nothing cached is answered 401
+**without** revoking the family, since a restart is not evidence of theft.
+**Watch out:** `issued_utc` is not a total order. The fake clock does not tick unless a test moves
+it, so a token and its successor share an instant — ordering a chain by time leaves the tiebreak
+to a random primary key. Walk `successor_id` instead.
 **First red test:** `Refresh_ValidToken_RotatesAndInvalidatesPredecessor`
 **Then:** `Refresh_ReusedToken_RevokesEntireFamily`,
 `Refresh_ReusedWithinGraceWindow_ReturnsSameSuccessor`, `Refresh_AfterOneYearIdle_StillSucceeds`
@@ -151,14 +234,40 @@ refreshes twice revokes its own session, and with permanent sessions that is the
 anyone is ever logged out.
 **Refs:** §7.4, §7.13
 
-### SRV-10 — Devices, sessions and `last_active_utc`
+### SRV-10 — Devices, sessions and `last_active_utc` ✅
+**Status:** done. `device` gains `name`, `created_utc` and `last_seen_utc`; `AppUser` gains
+`last_active_utc` with its index. `GET /auth/sessions` and `DELETE /auth/sessions/{deviceId}`,
+both authed. `ActivityTracker` writes both rows on the refresh that already happens at app start,
+throttled to one an hour by a set-based `ExecuteUpdate` whose `WHERE` *is* the throttle — so two
+launches racing cost at most one write. `NewDeviceNotifier` sends the §7.10 alert when an address
+is known, and swallows a transport failure rather than undoing a sign-in that already succeeded.
+**Revoke ends every family on the device**, not just the newest. A device that signed in twice has
+two chains, and revoking one of them is not what somebody who has lost a phone is asking for.
+**404, not 403, for another account's device id.** A distinguishable answer would make this an
+oracle for whether a device exists.
+**Watch out:** `last_active_utc` is stamped at registration. The column is not nullable, so the
+default would be year 0001 — an account that reads as two thousand years idle to §7.11 from the
+moment it exists.
 **First red test:** `RevokeSession_TargetDeviceCannotRefresh`
 **Then:** `Refresh_UpdatesLastActiveUtc`, `Refresh_WithinThrottleWindow_DoesNotRewriteLastActive`
 **Then build:** `Device`, the session list and revoke endpoints, and the last-active update
 **piggybacked on the refresh that already happens** at app start, throttled to one write an hour.
 **Refs:** §7.10
 
-### SRV-11 — Email: confirmation, reset, and two token providers
+### SRV-11 — Email: confirmation, reset, and two token providers ✅
+**Status:** done. `DlrTokenProvider` with `EmailConfirmationTokenProvider` (24 h) and
+`PasswordResetTokenProvider` (1 h); `MailKitEmailSender` behind the existing `IEmailSender`;
+`AccountEmails` for the two link templates; the six §7.14 endpoints.
+**Deviates from §7.7's sketch, and the design has been updated.** That sketch subclasses
+Identity's `DataProtectorTokenProvider`, which reads `DateTimeOffset.UtcNow` directly — Identity 10
+takes no `TimeProvider` anywhere. Three of this task's tests are lifespan *boundary* tests; against
+the framework provider they could only have been sleeping tests or nothing. The provider now
+implements `IUserTwoFactorTokenProvider` and takes the project's clock. `IDataProtector` still
+seals the payload, so no crypto is reinvented.
+**Purpose is guarded twice** — the protector's purpose chain and again inside the payload. Each was
+verified to stop a cross-purpose token with the other removed, so neither is decoration.
+**Reset needs a *confirmed* address.** An address that was typed but never confirmed may belong to
+somebody who mistyped it, and honouring it turns a typo into an account takeover.
 **First red test:** `ResetPassword_LifespanIsIndependentOfConfirmationLifespan`
 **Then:** `ConfirmEmail_TokenJustUnder24Hours_IsAccepted`, `ConfirmEmail_TokenPast24Hours_IsRejected`,
 `ResetPassword_TokenPast1Hour_IsRejected`, `ResetPassword_AccountWithoutEmail_HasNoRecoveryPath`,
@@ -170,7 +279,32 @@ confirm endpoints.
 changing both lifespans is exactly the bug this test exists to catch.
 **Refs:** §7.7, §7.12
 
-### SRV-12 — Abuse: the IP ladder, rate limits, forwarded headers
+### SRV-12 — Abuse: the IP ladder, rate limits, forwarded headers ✅
+**Status:** done. `ForwardedHeadersMiddleware` with `KnownProxies` from configuration;
+`RegistrationLadder` counting rows; the `rst` claim and the `NotRestricted` policy;
+`RequestThrottle` carrying every row of §7.8's table. Thresholds are in configuration per §14.5.
+**Not `AddRateLimiter`, and the table is why.** Three of §7.8's rows key on a *username*, an
+*email address* or a *device* — all in the request body, none visible to a middleware
+partitioner. The throttle is a `TimeProvider`-driven fixed window enforced in the endpoints, so
+every row is expressible and testable. In-memory is right here and wrong for the ladder: these
+blunt a burst, the ladder decides whether an account may exist.
+**Two tests were only half-writable.** `Restricted_UnconfirmedLadderAccount_CanRecordButNotJoinRide`
+and `Restricted_AfterConfirming_CanJoinRide` need rides (SRV-20) and tracks (SRV-16). What exists
+now asserts the policy against the tokens the ladder actually issues; the endpoint halves attach
+in SRV-20.
+**Two bugs this task surfaced, both fixed:**
+- **Registration never sent a confirmation link.** §7.2's flow ends "if email supplied: send 24 h
+  confirmation link", and it was missing — so a ladder-restricted account was restricted with no
+  way out.
+- **A brand-new account got a "new device signed in" alert.** A first device is not a new device,
+  and an alert attached to the act that created the account is noise. Suppressed unless the
+  account already has another device.
+**Watch out — the harness had a hole.** `TestServer` leaves `RemoteIpAddress` null, and
+`ForwardedHeadersMiddleware` then skips its `KnownProxies` check entirely: every `X-Forwarded-For`
+is honoured whatever the configuration says. Every per-address test still passed, because they all
+*want* the header read. `LoopbackConnection` (an `IStartupFilter` in `DLR.TestSupport`) gives the
+test host a connection address so the check is real, and
+`ForwardedHeader_FromAnUntrustedHop_IsIgnored` is the test that would otherwise never have existed.
 **First red test:** `Registration_LadderUsesForwardedClientIp`
 **Then:** `Register_FourthAccountFromSameIpInOneDay_RequiresEmail`,
 `Register_FourthAccountFromDifferentIp_DoesNotRequireEmail`,
@@ -186,7 +320,26 @@ the in-memory limiter), the `rst` claim and `NotRestricted` policy, and the §7.
 like it came from Caddy, so the fourth user ever is asked for an email.
 **Refs:** §7.8
 
-### SRV-13 — Profile fields and `SharedProfile`
+### SRV-13 — Profile fields and `SharedProfile` ✅
+**Status:** done. The three optional fields and three switches, all defaulting false in the object
+*and* in the database; `GET`/`PUT /api/v1/me/profile`; `SharedProfile.For` in `DLR.Core`; the
+architecture tests `NoApiSurfaceReturnsAppUser` and `NoContractTypeExposesAppUser`.
+**"The only way to construct one" is the compiler, not a convention.** `SharedProfile`'s
+properties are `private init` and `For` lives in the same assembly, so no other assembly can
+build one at all — no architecture test needed for it. `AppUser` reaches the factory through
+`IProfileOwner` in `DLR.Core`, which is also why nothing has to reference the persistence
+assembly to describe what a viewer may see.
+**Deserialisation is deliberately unsolved.** `private init` means `System.Text.Json` cannot
+build one back; nothing needs to yet. When a client does (§5.4's member list), that is the moment
+to decide, not now.
+**Tested in `DLR.Core.Tests`** — its first tests. The rule is a pure function of six switches and
+one boolean, so it needs no database, no HTTP and no ride.
+**Deferred, as the task says:** the co-membership half of `Profile_NonCoMember_ReceivesEmptyProfile`
+lands in SRV-21. What exists now exercises the rule those tests will drive.
+**Watch out — the suite outgrew PostgreSQL's default.** `53300: sorry, too many clients already`,
+in whichever test happened to run when the hundredth connection was opened. One database per
+factory and one factory per test, each with Npgsql's default ceiling of 100 connectors. Pools are
+now capped at 5 and the container runs with `max_connections=300`.
 **First red test:** `Profile_FreshAccount_AllThreeSharingSwitchesAreOff`
 **Then:** `Profile_WithheldAndUnrecorded_AreIndistinguishableOnTheWire`,
 `Profile_NonCoMember_ReceivesEmptyProfile`, `Profile_TurningSharingOff_DoesNotDeleteTheValue`,

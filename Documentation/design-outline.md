@@ -1211,7 +1211,15 @@ Reset requires a **confirmed email**. An account without one cannot be recovered
 
 #### Two lifespans need two token providers
 
-Email confirmation is valid **24 hours**; password reset **1 hour**. These cannot both come from configuration, because **`DataProtectionTokenProviderOptions.TokenLifespan` is global** — it governs *every* `DataProtectorTokenProvider` at once (confirm email, reset password, change email). Setting it to one hour for reset silently drops confirmation to one hour too, and nothing warns you. Identity's default happens to be 1 day, so 24-hour confirmation is the default; the shorter reset window is what needs its own provider:
+Email confirmation is valid **24 hours**; password reset **1 hour**. These cannot both come from configuration, because **`DataProtectionTokenProviderOptions.TokenLifespan` is global** — it governs *every* `DataProtectorTokenProvider` at once (confirm email, reset password, change email). Setting it to one hour for reset silently drops confirmation to one hour too, and nothing warns you.
+
+> **Implemented differently, and the reason is §10.4.** The sketch below subclasses Identity's `DataProtectorTokenProvider`. That type reads `DateTimeOffset.UtcNow` directly — ASP.NET Core Identity 10 takes **no `TimeProvider` anywhere**, the same limitation §7.8's lockout runs into — so the two lifespans could be asserted as configuration but never as behaviour, and `ConfirmEmail_TokenJustUnder24Hours_IsAccepted`, `ConfirmEmail_TokenPast24Hours_IsRejected` and `ResetPassword_TokenPast1Hour_IsRejected` are all boundary tests. Against the framework provider they could only have been written as sleeping tests or not at all.
+>
+> So `DlrTokenProvider` implements `IUserTwoFactorTokenProvider<AppUser>` directly and takes the project's clock. **Nothing cryptographic is reinvented**: the payload is sealed with `IDataProtector` — the same vetted primitive Identity uses — and carries the issue time, the user id, the purpose and the security stamp. The shape below is otherwise unchanged: two providers, two lifespans, `DlrPasswordReset` selected by name.
+>
+> The purpose ends up guarded **twice**, in the protector's purpose chain and again inside the payload. Each was verified to stop a cross-purpose token with the other removed. The chain is the stronger — a foreign token fails to decrypt rather than being decrypted and then judged — and the payload check is what survives somebody later collapsing the protector to a single purpose string.
+
+The sketch that shape came from:
 
 ```csharp
 public sealed class PasswordResetTokenProviderOptions : DataProtectionTokenProviderOptions
@@ -1292,7 +1300,9 @@ WHERE created_by_ip = @ip
 
 with `CREATE INDEX ix_users_created_ip ON asp_net_users (created_by_ip, created_utc)`. The registration IP is personal data, so the nightly job (§7.11) **nulls `created_by_ip` after 30 days** — long enough to be useful for throttling, short enough not to be a standing record of where people signed up.
 
-**Conventional rate limits** still apply on top, via the in-memory limiter:
+**Conventional rate limits** still apply on top, in memory — but *not* via `AddRateLimiter`, and the table below is the reason. Three of these rows are keyed on a **username**, an **email address** or a **device**, all of which arrive in the request body; a middleware partitioner sees the URL and the connection and nothing else, so it could have enforced only the two per-address rows. `RequestThrottle` is a `TimeProvider`-driven fixed window applied in the endpoints, where those keys are actually in hand.
+
+In-memory is right here and wrong one paragraph above, and the distinction is worth keeping straight: these limits blunt a burst, so losing them on deploy costs seconds of protection. The ladder decides whether an account may exist at all, so losing it on deploy is a bypass an attacker can simply wait for.
 
 | Endpoint | Limit |
 |---|---|
@@ -1456,6 +1466,21 @@ CREATE UNIQUE INDEX ux_users_email
 CREATE INDEX ix_users_created_ip	ON asp_net_users (created_by_ip, created_utc);
 CREATE INDEX ix_users_last_active	ON asp_net_users (last_active_utc);
 
+-- The device a refresh-token family belongs to (§7.10). The id is assigned by the
+-- server and never accepted from the client: a client sends back the id it was given,
+-- and one belonging to another account simply does not match, so the installation gets
+-- one of its own. Accepting a client-chosen id would let a guessed GUID attach a
+-- session to somebody else's device row.
+CREATE TABLE device (
+	id				uuid		PRIMARY KEY,
+	user_id			uuid		NOT NULL REFERENCES asp_net_users(id) ON DELETE CASCADE,
+	name			varchar(60)	NULL,		-- "iPhone 15"; client-supplied, never verified
+	created_utc		timestamptz	NOT NULL,
+	last_seen_utc	timestamptz	NOT NULL	-- throttled to one write an hour (§7.10)
+);
+
+CREATE INDEX ix_device_user ON device (user_id);
+
 CREATE TABLE refresh_token (
 	id				uuid		PRIMARY KEY,
 	user_id			uuid		NOT NULL REFERENCES asp_net_users(id) ON DELETE CASCADE,
@@ -1497,6 +1522,8 @@ CREATE UNIQUE INDEX ux_join_request_pending
 
 The raw refresh token is never stored — only its SHA-256. `successor_id` is what makes the idempotent replay window in §7.4 possible.
 
+**One bounded exception to that, and it is deliberate.** Returning *the same* successor to a replay means being able to reproduce a token the database only holds a hash of, so the successor is held in **process memory for the length of the grace window** — ten seconds, never written down. A restart empties it, and a replay arriving inside the window with nothing cached is answered `401` **without revoking the family**: a process restart is not evidence that a token exists in two places, and treating it as theft would sign people out for a deploy.
+
 ### 7.14 Endpoints
 
 ```
@@ -1536,6 +1563,7 @@ Register_ReservedUsername_IsRejected
 Register_MixedCaseUsername_IsStoredAndReturnedAsTyped
 Register_UsernameDifferingOnlyByCase_IsRejected
 Register_NonAsciiUsername_IsRejected
+Register_UsernameOutsideLengthBounds_IsRejected
 Username_CannotBeChangedByAnyEndpoint
 Register_CanReuseUsernameOfDeletedAccount
 Register_DuplicateEmail_ReturnsGenericSuccessAndNotifiesOwner
@@ -1550,6 +1578,9 @@ Restricted_UnconfirmedLadderAccount_CanRecordButNotJoinRide
 Restricted_AfterConfirming_CanJoinRide
 Login_UnknownUsername_ResponseTimingMatchesKnownUsername
 Login_FiveFailures_LocksAccountForFifteenMinutes
+Login_AccessTokenCarriesTheClaimsAndKeyIdFromSevenPointFour
+AccessToken_SignedWithTheOutgoingKey_StillValidatesDuringRotation
+SigningKey_InAFileThatShipsWithTheCode_RefusesToStart
 ConfirmEmail_TokenJustUnder24Hours_IsAccepted
 ConfirmEmail_TokenPast24Hours_IsRejected
 ResetPassword_TokenPast1Hour_IsRejected
@@ -1591,6 +1622,8 @@ Profile_DisplayNameNotShared_IsOmittedFromMemberList
 Profile_PhoneNotShared_IsOmittedFromMemberList
 Profile_EmailNotShared_IsOmittedFromMemberList
 Profile_WithheldAndUnrecorded_AreIndistinguishableOnTheWire
+Profile_EachSwitchGovernsOnlyItsOwnField
+Profile_BlankValues_AreTreatedAsAbsent
 Profile_NonCoMember_ReceivesEmptyProfile
 Profile_AfterLeavingRide_SharedFieldsAreNoLongerVisible
 Profile_AfterRideCompletes_SharedFieldsAreNoLongerVisible

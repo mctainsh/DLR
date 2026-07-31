@@ -6,6 +6,17 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<!-- Issues and validates the §7.4 access token. -->
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+		<!--
+			SMTP (§7.12). System.Net.Mail.SmtpClient is obsolete for new development, and
+			MailKit is what makes the eventual Zoho Mail → ZeptoMail move a configuration
+			change rather than a code change.
+		-->
+		<PackageReference Include="MailKit" Version="4.17.0" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\DLR.Core\DLR.Core.csproj" />
 		<ProjectReference Include="..\DLR.Server.Migrations\DLR.Server.Migrations.csproj" />
 	</ItemGroup>

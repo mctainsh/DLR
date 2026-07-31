@@ -19,7 +19,7 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Dlr
 	{
 		DbContextOptionsBuilder<DlrDbContext> options = new();
 
-		options.UseNpgsql("Host=localhost;Database=dlr_design_time;Username=dlr;Password=unused");
+		options.UseDlr("Host=localhost;Database=dlr_design_time;Username=dlr;Password=unused");
 
 		return new DlrDbContext(options.Options);
 	}

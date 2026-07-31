@@ -58,6 +58,35 @@ dotnet test Web/DLR.sln   # needs Docker running: tests spin up a throwaway Post
 Every test runs against a Testcontainers PostgreSQL instance and a fake email sender. That was
 chosen for test isolation and happens to be exactly what an outside contributor needs.
 
+## Running the server itself
+
+The test suite needs no configuration. **Running the server does**, and it will refuse to start
+until it has it — deliberately, because the alternative is a server that boots with a signing key
+somebody committed by accident.
+
+Both values go in [User Secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets).
+That file lives in your user profile rather than in the repository, which is exactly why it is
+allowed to hold them (§7.4):
+
+```bash
+cd Web/src/DLR.Server
+
+dotnet user-secrets set "Auth:SigningKey" "any-32-characters-or-more-will-do-here"
+dotnet user-secrets set "ConnectionStrings:Dlr" "Host=localhost;Database=dlr;Username=dlr;Password=…"
+
+cd ../../..
+dotnet run --project Web/src/DLR.Server
+```
+
+The signing key is checked at startup and the connection string on first use, so a missing key
+stops the server immediately and a missing connection string stops it at the first request that
+touches the database.
+
+In production both come from environment variables (`Auth__SigningKey` — **two** underscores; one
+is a different key and binds to nothing) or from Docker secrets. `appsettings.json` is refused for
+the signing key by a startup check rather than by convention, because a key that reaches git
+history is fixed by rotating it, not by deleting the line.
+
 ## How the work is done
 
 **Tests come first, and this is not a slogan.** No production type is introduced without a red test
