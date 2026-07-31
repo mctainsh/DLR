@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# Standard .NET
+# ---------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+TestResults/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.nupkg
+*.snupkg
+
+# ---------------------------------------------------------------------------
+# Secrets and local config (§14.3)
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Production.json
+appsettings.*.Local.json
+secrets.json
+**/Resources/values/secrets.xml
+google-services.json
+GoogleService-Info.plist
+
+# ---------------------------------------------------------------------------
+# Signing material — unrotatable, treat as radioactive (§14.2)
+# ---------------------------------------------------------------------------
+*.keystore
+*.jks
+*.p12
+*.p8
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+
+# ---------------------------------------------------------------------------
+# Infrastructure and data
+# ---------------------------------------------------------------------------
+docker-compose.override.yml
+*.pgdump
+*.sql.gz
+backups/
+logs/
+
+# Unanchored deliberately. A pattern with an interior slash matches only from
+# this file's directory, so deploy/*.pem would miss Web/deploy/ entirely — and
+# signing material is the one class of mistake here with no clean recovery.
+*.pem
+
+# pg_dump output is data; SQL under src/ and tests/ is source. §10.4 permits raw
+# SQL in three server folders, and a blanket *.sql makes git skip it in silence.
+*.sql
+!Web/src/**/*.sql
+!Web/tests/**/*.sql
+
+# ---------------------------------------------------------------------------
+# Build logs and OS noise
+# ---------------------------------------------------------------------------
+# A binlog embeds the whole environment block — connection string, signing key.
+*.binlog
+*.trx
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Real ride traces contain home addresses (§14.2)
+# ---------------------------------------------------------------------------
+**/fixtures/private/
+*.private.gpx

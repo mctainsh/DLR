@@ -1,0 +1,50 @@
+<Project>
+
+	<!--
+		A deploy from an unpushed or modified working tree is an AGPL §13 breach in
+		progress, so the build must be able to say so rather than pretend (§14.6.2).
+		SourceLink gives us the commit; it does not tell us whether the tree is clean.
+	-->
+	<Target Name="DlrMarkDirtyBuild"
+			BeforeTargets="AddSourceRevisionToInformationalVersion"
+			DependsOnTargets="InitializeSourceControlInformation"
+			Condition="'$(SourceRevisionId)' != '' AND '$(DlrSkipDirtyCheck)' != 'true'">
+
+		<Exec Command="git status --porcelain --untracked-files=no"
+			  WorkingDirectory="$(MSBuildThisFileDirectory)"
+			  ConsoleToMSBuild="true"
+			  StandardOutputImportance="low"
+			  ContinueOnError="true"
+			  IgnoreExitCode="true">
+			<Output TaskParameter="ConsoleOutput" PropertyName="_DlrWorkingTreeStatus" />
+		</Exec>
+
+		<PropertyGroup Condition="'$(_DlrWorkingTreeStatus)' != ''">
+			<SourceRevisionId>$(SourceRevisionId).dirty</SourceRevisionId>
+		</PropertyGroup>
+
+	</Target>
+
+	<!--
+		/api/v1/about reports when this build was compiled (§14.6.2). Only the server
+		needs it, and only the server pays for it: an attribute whose value changes on
+		every build forces the project carrying it to recompile every build.
+	-->
+	<Target Name="DlrEmbedBuildTimestamp"
+			BeforeTargets="GetAssemblyAttributes"
+			Condition="'$(MSBuildProjectName)' == 'DLR.Server'">
+
+		<PropertyGroup>
+			<DlrBuildUtc Condition="'$(DlrBuildUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))</DlrBuildUtc>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+				<_Parameter1>BuildUtc</_Parameter1>
+				<_Parameter2>$(DlrBuildUtc)</_Parameter2>
+			</AssemblyAttribute>
+		</ItemGroup>
+
+	</Target>
+
+</Project>

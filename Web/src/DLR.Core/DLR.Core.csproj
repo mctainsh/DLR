@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+		Domain, contracts, GPX codecs, track stats and the editor primitive (§3).
+		No platform dependencies, and no MAUI reference — enforced by
+		DLR.Architecture.Tests rather than by this comment.
+	-->
+	<PropertyGroup>
+		<RootNamespace>DLR.Core</RootNamespace>
+	</PropertyGroup>
+
+</Project>

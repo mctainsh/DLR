@@ -96,19 +96,25 @@ template code with Mapsui drawing into a raw Surface, since a head unit has no b
 **Prerequisites:** .NET 10 SDK, Docker (for PostgreSQL via Testcontainers), and the MAUI workloads
 if you are building the app.
 
+The repository root carries what is shared across the whole project — `.editorconfig`,
+`Directory.Build.props`, `global.json`, the tool manifest, the licence gate and the docs. The
+server and its solution live one level down in **`Web/`**. Run every command below from the
+repository root and name the solution explicitly, so the root-relative paths in the licence gate
+keep resolving:
+
 ```bash
 git clone <this repo>
 cd DLR
-dotnet restore
 dotnet tool restore
-dotnet test                 # needs Docker running; no credentials, no seed data
+dotnet restore Web/DLR.sln
+dotnet test Web/DLR.sln     # needs Docker running; no credentials, no seed data
 ```
 
 Two more gates run in CI and are worth running before you push:
 
 ```bash
-dotnet format --verify-no-changes
-dotnet nuget-license -i DLR.sln -t \
+dotnet format Web/DLR.sln --verify-no-changes
+dotnet nuget-license -i Web/DLR.sln -t \
   -a build/licences/allowed-licences.json \
   -mapping build/licences/licence-url-mappings.json
 ```

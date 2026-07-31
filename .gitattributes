@@ -1,0 +1,30 @@
+# .editorconfig declares end_of_line = crlf and `dotnet format --verify-no-changes`
+# enforces it. CI runs on Linux, so the checkout has to agree or the format gate
+# fails on every pull request for a reason nobody can see in the diff.
+* text=auto eol=crlf
+
+# Binary and generated content that must never be line-ending translated.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.p8 binary
+*.p12 binary
+*.jks binary
+*.keystore binary
+
+# The licence text is verbatim and diffing it is never useful.
+LICENSE linguist-vendored
+LICENSE.exceptions linguist-vendored
+
+# Shell scripts and container files are read by Linux tooling that will not
+# tolerate a carriage return, whatever the platform they were edited on.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+Caddyfile text eol=lf
+.env.example text eol=lf

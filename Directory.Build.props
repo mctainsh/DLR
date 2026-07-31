@@ -1,0 +1,48 @@
+<Project>
+
+	<!--
+		Shared build settings for every project in the solution (§3).
+		Platform-specific heads (DLR.App) override TargetFramework locally.
+	-->
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<InvariantGlobalization>true</InvariantGlobalization>
+	</PropertyGroup>
+
+	<!-- Code style is enforced by the build, not by review (§10.5). -->
+	<PropertyGroup>
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+		<AnalysisLevel>latest</AnalysisLevel>
+		<GenerateDocumentationFile>false</GenerateDocumentationFile>
+	</PropertyGroup>
+
+	<!-- Licence metadata (§14.6.1). AGPL-3.0-only plus the §7 store permission. -->
+	<PropertyGroup>
+		<Product>Dumb Luck Rides</Product>
+		<Authors>The Dumb Luck Rides authors</Authors>
+		<Copyright>Copyright (C) 2026 the Dumb Luck Rides authors</Copyright>
+		<PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/dumbluckrides/dlr</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/dumbluckrides/dlr</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<VersionPrefix>0.1.0</VersionPrefix>
+	</PropertyGroup>
+
+	<!--
+		SourceLink. The commit is embedded in InformationalVersion at build time and
+		never hand-maintained in a constant (§14.6.2) — /api/v1/about reads it back.
+		SourceLink for GitHub ships in the SDK from .NET 8, so there is no package to add.
+	-->
+	<PropertyGroup>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<DebugType>portable</DebugType>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+	</PropertyGroup>
+
+</Project>

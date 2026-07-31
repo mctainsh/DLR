@@ -1,0 +1,27 @@
+<Project>
+
+	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+	<!--
+		Everything under tests/ shares one assertion and mocking stack (§10.4).
+		Shouldly rather than FluentAssertions is a licence decision, not a taste one:
+		FluentAssertions v8+ needs a paid commercial licence, and a licence-gated test
+		dependency means every outside contributor must buy something before running
+		`dotnet test` (§14.6.3).
+	-->
+	<PropertyGroup>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="xunit" Version="2.9.3" />
+		<PackageReference Include="Shouldly" Version="4.3.0" />
+		<PackageReference Include="NSubstitute" Version="6.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Xunit" />
+		<Using Include="Shouldly" />
+	</ItemGroup>
+
+</Project>

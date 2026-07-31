@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+		Persistence: the DbContext, its entity configurations and the EF Core migrations.
+		Split out of DLR.Server so the migrations and the model they describe can live in
+		one assembly without a reference cycle — see the §3 note in the design outline.
+	-->
+	<PropertyGroup>
+		<RootNamespace>DLR.Server.Data</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\DLR.Core\DLR.Core.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!--
+			Pinned explicitly. The Npgsql provider and the design-time tools each bring
+			their own EF Core and the lower version wins by default, which is a CS1705 at
+			build time and would have been a puzzle at runtime.
+		-->
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+	</ItemGroup>
+
+</Project>

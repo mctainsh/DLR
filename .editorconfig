@@ -1,0 +1,43 @@
+root = true
+
+[*]
+indent_style = tab
+indent_size = 4
+end_of_line = crlf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# YAML forbids tab indentation outright.
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Leading tabs in Markdown are parsed as code blocks.
+[*.md]
+indent_style = space
+indent_size = 2
+
+# dotnet format handles the C# in a .razor file but not its markup (§10.5).
+# This entry exists so editors at least agree; CI cannot verify it.
+[*.razor]
+indent_style = tab
+indent_size = 4
+
+[*.cs]
+csharp_prefer_braces = true:warning
+dotnet_diagnostic.IDE0055.severity = warning
+
+# Namespaces match the folder they live in, and are file-scoped.
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_diagnostic.IDE0161.severity = warning
+
+# using directives outside the namespace, System first.
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_sort_system_directives_first = true
+
+# Analyzer noise that is not useful in test projects. The leading `**/` is load-bearing:
+# this file sits at the repository root and each solution lives one level down (Web/), so a
+# root-relative `tests/**` would match nothing.
+[**/tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none

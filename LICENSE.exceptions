@@ -1,0 +1,84 @@
+Dumb Luck Rides — additional permission under GNU AGPL version 3 section 7
+==========================================================================
+
+This file is part of the licensing terms of Dumb Luck Rides. It grants a
+permission *in addition to* those in `LICENSE`, and takes away nothing. The
+GNU Affero General Public License version 3 is the licence; this document
+does not modify it and must not be read as doing so. Where the two could be
+read as conflicting, `LICENSE` governs and this permission is void to the
+extent of the conflict.
+
+
+The permission
+--------------
+
+  As an additional permission under section 7 of the GNU Affero General
+  Public License version 3, the copyright holders grant permission to
+  distribute compiled binaries of the client application through
+  application distribution platforms (including the Apple App Store and
+  Google Play), subject to those platforms' terms, and to link the
+  application against the proprietary platform SDKs required to function
+  on the target device (including Google Play Services and Apple's CarPlay
+  framework). This permission applies to distribution of the compiled
+  application only; the Corresponding Source remains available under the
+  AGPL, and the network-use obligation of section 13 is unaffected.
+
+
+Why it exists
+-------------
+
+Unmodified AGPL terms and the Apple App Store do not coexist. The store's
+terms impose usage restrictions and device limits on users of the binary
+that GPL-family licences forbid adding — the reason VLC was pulled from the
+App Store. Google Play is less pointed but not clean either, and the app
+links Google Play Services for the Fused Location Provider, which is
+proprietary and is not a system library in the GPL sense.
+
+Section 7 exists for exactly this: the licensor may grant permissions
+*beyond* the licence's terms without forking the licence text. The
+alternative considered and rejected was split licensing — AGPL for the
+server, Apache-2.0 for the client — which would have put a licence boundary
+through `DLR.Core`, shared by both, to be policed forever by a test.
+
+
+What it does not do
+-------------------
+
+- It does not touch the server. Modifications to `DLR.Server` remain
+  AGPL-3.0-only in full.
+- It does not touch section 13. Anyone who lets users interact with a
+  modified version of this software over a network must still offer those
+  users the Corresponding Source of that running version. That clause is
+  the reason this project chose the AGPL, and nothing here erodes it.
+- It does not make the compiled application proprietary. The Corresponding
+  Source of any binary distributed under this permission remains available
+  under the AGPL.
+
+
+Who has it
+----------
+
+Everyone. The permission is part of the project's outbound terms, and
+contributions are accepted on inbound-equals-outbound terms
+(see `CONTRIBUTING.md`), so it travels with the code: a downstream fork can
+ship to the stores on the same footing as the original maintainers. A
+permission the maintainer alone enjoyed would be a proprietary carve-out
+wearing a section 7 hat, which is not the intent.
+
+
+Removing it
+-----------
+
+Section 7 permits a recipient to remove additional permissions from any
+copy they convey, or from any part of it. Nothing here obliges you to keep
+this file if you would rather ship under plain AGPL-3.0.
+
+
+A caveat, stated plainly
+------------------------
+
+This wording is engineering judgement about licence mechanics. It is not
+legal advice, and the App Store interaction in particular is an area where
+reasonable people have landed differently. If you are relying on this
+permission for something that matters to you, have it reviewed by someone
+qualified.
