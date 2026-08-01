@@ -105,6 +105,41 @@ public sealed class GroupRide
 	/// <summary>The §5.2 default.</summary>
 	public const int DefaultMemberCap = 50;
 
+	/// <summary>
+	/// Whether ordinary members may place markers (§5.8, §16.5).
+	/// <para>
+	/// <strong>Defaults to on, here and in the column.</strong> A group ride is a group of people
+	/// the organiser chose (§5.2); starting from silence would be a strange default for a product
+	/// whose point is riding together. These exist for the ride that needs them — a large public
+	/// charity ride, or one that has gone sideways.
+	/// </para>
+	/// <para>
+	/// The default lives on the property <em>and</em> on the column, the same way §7.3's sharing
+	/// switches do, so a row inserted by a path that never saw this class still gets it.
+	/// </para>
+	/// </summary>
+	public bool AllowMemberMarkers { get; set; } = true;
+
+	/// <summary>
+	/// Whether ordinary members may post to the thread (§5.8, §17).
+	/// <para>
+	/// Off stops <em>posting</em> only. Everyone can still read, react and vote — a reaction carries
+	/// no free text, no image and no storage cost worth naming, and switching off the ability to
+	/// answer a poll would break the poll rather than moderate it.
+	/// </para>
+	/// </summary>
+	public bool AllowMemberComments { get; set; } = true;
+
+	/// <summary>
+	/// Whether ordinary members may attach photographs (§5.8, §16.4).
+	/// <para>
+	/// <strong>Its own switch, not a consequence of the comment switch.</strong> Photos are the
+	/// expensive and awkward half — storage on a 40 GB disk (§9.1), moderation (§17.7) — and the
+	/// one thing an organiser is most likely to want to stop while leaving conversation alone.
+	/// </para>
+	/// </summary>
+	public bool AllowMemberPhotos { get; set; } = true;
+
 	/// <summary>When the ride was created.</summary>
 	public DateTimeOffset CreatedUtc { get; set; }
 

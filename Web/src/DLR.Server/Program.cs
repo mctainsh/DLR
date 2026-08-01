@@ -1,12 +1,20 @@
 using System.Reflection;
 using DLR.Server;
+using DLR.Server.Account;
 using DLR.Server.Api;
+using DLR.Server.Comments;
 using DLR.Server.Data;
 using DLR.Server.Hubs;
 using DLR.Server.Identity;
+using DLR.Server.Maintenance;
+using DLR.Server.Maps;
+using DLR.Server.Markers;
+using DLR.Server.Moderation;
+using DLR.Server.Photos;
 using DLR.Server.Positions;
 using DLR.Server.Rides;
 using DLR.Server.Tracks;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,6 +73,39 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<RideBroadcastService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<RideBroadcastService>());
 builder.Services.Configure<TrackEditOptions>(builder.Configuration.GetSection(TrackEditOptions.Section));
+builder.Services.Configure<MarkerOptions>(builder.Configuration.GetSection(MarkerOptions.Section));
+
+// The one image decode path (§16.4). Singleton and stateless — it holds the caps and nothing
+// else, so a second registration anywhere would be a second ingest, which is the thing the
+// architecture test exists to prevent.
+builder.Services.Configure<PhotoOptions>(builder.Configuration.GetSection(PhotoOptions.Section));
+builder.Services.AddSingleton<ImageIngest>();
+
+builder.Services.Configure<CommentOptions>(builder.Configuration.GetSection(CommentOptions.Section));
+
+// Singleton because the dirty set *is* the pending broadcast, and hosted from the same instance so
+// an endpoint marking a comment dirty and the timer draining it are the same object (§17.4).
+builder.Services.AddSingleton<ReactionBroadcastService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<ReactionBroadcastService>());
+
+// The one destructive timer (§7.11). Singleton and hosted from the same instance so an operator
+// endpoint — or a test — driving one run drives the object the timer drives, not a second copy
+// reading the same settings. Its defaults delete nothing until somebody turns DryRun off.
+builder.Services.Configure<MaintenanceOptions>(builder.Configuration.GetSection(MaintenanceOptions.Section));
+builder.Services.Configure<ModerationOptions>(builder.Configuration.GetSection(ModerationOptions.Section));
+builder.Services.AddSingleton<NightlyMaintenanceService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<NightlyMaintenanceService>());
+
+// The browser's half of §7.4 (§7.5). Antiforgery covers exactly one endpoint — the cookie-to-
+// access-token exchange — because that is the only place a cookie is presented as a credential,
+// and the whole cost of choosing a cookie over localStorage is that one endpoint's CSRF exposure.
+builder.Services.AddAntiforgery(options => options.HeaderName = "X-DLR-Antiforgery");
+builder.Services.AddSingleton<WebSessionCookie>();
+builder.Services.AddScoped<RegistrationService>();
+
+builder.Services.Configure<MapKitOptions>(builder.Configuration.GetSection(MapKitOptions.Section));
+builder.Services.AddSingleton<MapKitSigningKey>();
+
 builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.Section));
 builder.Services.Configure<AccountLinkOptions>(builder.Configuration.GetSection(AccountLinkOptions.Section));
@@ -72,8 +113,35 @@ builder.Services.AddDlrJwtBearer();
 
 builder.Services.AddSingleton(BuildInformation.ForAssembly(Assembly.GetExecutingAssembly()));
 builder.Services.Configure<AboutOptions>(builder.Configuration.GetSection(AboutOptions.Section));
+builder.Services.Configure<HealthOptions>(builder.Configuration.GetSection(HealthOptions.Section));
 
 var app = builder.Build();
+
+// First, and before the `--migrate` branch below, because that branch needs a database and this
+// is the setting that says where one is. It previously surfaced as an Npgsql stack trace on the
+// first request that touched a table.
+RequiredSettings.ValidateConnectionString(app.Configuration);
+
+// `--migrate` applies the schema and exits, without starting Kestrel (§9).
+//
+// A one-shot run of the same image rather than a Migrate() call on the way up. Migrating at
+// startup couples "is this server ready" to "has the schema moved", which is the coupling that
+// makes a rolling deploy or a second container an outage — and it also means a failed migration
+// presents as a crash loop rather than as a step that failed. Compose runs this to completion
+// before the server container starts, and /healthz reports the schema so that forgetting it
+// entirely is loud rather than silent (§9.1).
+//
+// The signing key is deliberately not validated first: applying a schema needs a database, not an
+// ability to issue tokens, and refusing to migrate over a missing Auth:SigningKey would make the
+// recovery order impossible for anybody setting a server up for the first time.
+if (args.Contains("--migrate", StringComparer.Ordinal))
+{
+	await using AsyncServiceScope migrationScope = app.Services.CreateAsyncScope();
+
+	await migrationScope.ServiceProvider.GetRequiredService<DlrDbContext>().Database.MigrateAsync();
+
+	return;
+}
 
 // Refuses to start on a missing, short, or committed signing key (§7.4). After Build
 // rather than before it, because that is the first point at which the configuration is
@@ -82,7 +150,6 @@ var app = builder.Build();
 // Still before the first request, so the failure is "this deployment is misconfigured"
 // rather than a 500 on somebody's first sign-in attempt.
 SigningKeySource.Validate(app.Configuration, app.Environment.ContentRootPath);
-RequiredSettings.ValidateConnectionString(app.Configuration);
 
 // Before anything that reads an address. Every per-address rule in §7.8 depends on
 // this having run, and the ladder in particular breaks registration outright without
@@ -96,17 +163,32 @@ app.UseResponseCompression();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// After authentication and authorization, which is where the framework requires it. The token
+// endpoint validates explicitly on top of this; the middleware is what makes the metadata on
+// form-post endpoints resolvable at all (§7.5).
+app.UseAntiforgery();
+
 app.MapAbout();
+app.MapHealth();
 app.MapRegistration();
 app.MapToken();
+app.MapWebAuth();
+app.MapMapKit();
 app.MapSessions();
 app.MapEmail();
 app.MapPasswords();
 app.MapProfile();
+app.MapAccount();
 app.MapTracks();
 app.MapTrackImport();
 app.MapTrackEditing();
 app.MapTrackPoints();
+app.MapTrackExport();
+app.MapMarkers();
+app.MapPhotos();
+app.MapComments();
+app.MapReactions();
+app.MapModeration();
 app.MapRides();
 app.MapMembership();
 app.MapPositions();

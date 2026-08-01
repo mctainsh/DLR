@@ -1,0 +1,32 @@
+# Keeps the build context small and, more importantly, keeps things out of the image.
+#
+# The name is the convention rather than a choice: BuildKit looks for `<dockerfile>.dockerignore`
+# beside the Dockerfile, and otherwise for `.dockerignore` at the *context* root. A plain
+# `.dockerignore` in this directory would be silently ignored — the build would still succeed and
+# quietly ship everything below, which is the failure mode worth naming.
+#
+# The context is the repository root (`docker build -f deploy/Dockerfile .`), so every path here is
+# relative to the root and not to this directory.
+
+**/bin/
+**/obj/
+**/node_modules/
+
+# Secrets, and the one class of mistake here with no clean recovery (§14.2, §14.3).
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.p8
+**/*.p12
+**/*.keystore
+
+# Data, not source (§14.3).
+backups/
+logs/
+**/*.pgdump
+**/*.binlog
+
+# NOT ignored, deliberately: .git. SourceLink reads the commit out of it at build time and
+# /api/v1/about hands it back at runtime, which is an AGPL §13 obligation rather than a nicety
+# (§14.6.2). A build without it produces a server that cannot say which commit it is.

@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using DLR.Core.Contracts.Comments;
+using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
 using DLR.Server.Data;
 using DLR.Server.Data.Rides;
@@ -32,6 +34,74 @@ public interface IRideClient
 	/// <summary>The ride moved through the §5.1 lifecycle.</summary>
 	/// <param name="state">Where it is now.</param>
 	Task RideStateChanged(RideStateDto state);
+
+	/// <summary>Somebody placed a marker (§16.6).</summary>
+	/// <param name="marker">The marker.</param>
+	Task MarkerAdded(MarkerDto marker);
+
+	/// <summary>A marker was edited.</summary>
+	/// <param name="marker">The marker as it now is.</param>
+	Task MarkerUpdated(MarkerDto marker);
+
+	/// <summary>A marker was removed.</summary>
+	/// <param name="markerId">Which one.</param>
+	Task MarkerRemoved(Guid markerId);
+
+	/// <summary>
+	/// The organiser changed what members may add (§5.8).
+	/// <para>
+	/// A courtesy so the UI does not lie — a client greys out the compose surface on this rather
+	/// than discovering the change when a post comes back 403. The server-side check is what makes
+	/// it true; this only makes it visible.
+	/// </para>
+	/// </summary>
+	/// <param name="permissions">The switches as they now stand.</param>
+	Task RidePermissionsChanged(RidePermissions permissions);
+
+	/// <summary>
+	/// Somebody posted to the thread (§17.8).
+	/// <para>
+	/// <strong>Delivering it is not notifying about it.</strong> The post arrives on every open
+	/// connection so the thread stays live; whether a phone is allowed to buzz is §17.1's table,
+	/// and during a `Live` ride the answer for an ordinary comment is no.
+	/// </para>
+	/// </summary>
+	/// <param name="comment">The post.</param>
+	Task CommentPosted(CommentDto comment);
+
+	/// <summary>A post was edited inside its window.</summary>
+	/// <param name="comment">The post as it now reads.</param>
+	Task CommentEdited(CommentDto comment);
+
+	/// <summary>A post was removed.</summary>
+	/// <param name="commentId">Which one.</param>
+	Task CommentRemoved(Guid commentId);
+
+	/// <summary>A post was pinned or unpinned (§17.6).</summary>
+	/// <param name="commentId">Which one.</param>
+	/// <param name="isPinned">Its new state.</param>
+	Task CommentPinChanged(Guid commentId, bool isPinned);
+
+	/// <summary>
+	/// A comment's reaction tally changed (§17.4).
+	/// <para>
+	/// <strong>Coalesced, never one message per tap.</strong> Twelve members thumbs-upping the same
+	/// photo, each tap relayed to the other eleven, is the O(n²) fan-out this hub already refused
+	/// for positions — for a payload that is a number.
+	/// </para>
+	/// <para>
+	/// <see cref="ReactionCounts.Mine"/> is null here of necessity: a group message has one body,
+	/// and "mine" is different for every connection in the group. Each client knows what it sent.
+	/// </para>
+	/// </summary>
+	/// <param name="commentId">Which comment.</param>
+	/// <param name="counts">The new tally.</param>
+	Task ReactionsUpdated(Guid commentId, ReactionCounts counts);
+
+	/// <summary>A poll's votes changed (§17.5). Coalesced on the same timer as reactions.</summary>
+	/// <param name="commentId">Which poll.</param>
+	/// <param name="results">Where it now stands. <c>MyOptionIds</c> is empty, for the same reason.</param>
+	Task PollUpdated(Guid commentId, PollResults results);
 }
 
 /// <summary>

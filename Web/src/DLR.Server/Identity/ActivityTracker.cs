@@ -36,11 +36,18 @@ public sealed class ActivityTracker(DlrDbContext database, TimeProvider clock)
 		// Set-based and guarded by the same predicate that decides whether to write, so two
 		// launches racing each other cost at most one UPDATE and never a read-then-write that
 		// disagrees with itself.
+		//
+		// The warning stamp is cleared in the same statement (§7.11). A rider who was warned at
+		// 150 days and then came back has answered the warning, and leaving the stamp set would
+		// mean the next quiet spell — a year later — ran to deletion with no warning at all,
+		// because the sweep would find an account it had already told.
 		await database
 			.Set<AppUser>()
 			.Where(user => user.Id == userId && user.LastActiveUtc <= stale)
 			.ExecuteUpdateAsync(
-				user => user.SetProperty(entity => entity.LastActiveUtc, now),
+				user => user
+					.SetProperty(entity => entity.LastActiveUtc, now)
+					.SetProperty(entity => entity.InactivityWarnedUtc, (DateTimeOffset?)null),
 				cancellationToken);
 
 		await database

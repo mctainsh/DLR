@@ -2,9 +2,11 @@ using System.Security.Claims;
 using DLR.Core.Contracts.Rides;
 using DLR.Server.Data;
 using DLR.Server.Data.Rides;
+using DLR.Server.Hubs;
 using DLR.Server.Identity;
 using DLR.Server.Positions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -34,6 +36,9 @@ public static class MembershipEndpoints
 
 	/// <summary>Route name for starting a ride.</summary>
 	public const string StartRouteName = "StartRide";
+
+	/// <summary>Route name for the content switches.</summary>
+	public const string PermissionsRouteName = "SetRidePermissions";
 
 	/// <summary>Maps the membership endpoints.</summary>
 	public static IEndpointRouteBuilder MapMembership(this IEndpointRouteBuilder endpoints)
@@ -71,6 +76,14 @@ public static class MembershipEndpoints
 			.RequireAuthorization()
 			.WithName(StartRouteName)
 			.WithSummary("Takes the ride Live, so positions begin flowing.");
+
+		// Changeable at any time during the ride's life (§5.8), which is why this is its own
+		// endpoint rather than a field on ride creation.
+		endpoints
+			.MapPut("/api/v1/group-rides/{id:guid}/permissions", SetPermissionsAsync)
+			.RequireAuthorization()
+			.WithName(PermissionsRouteName)
+			.WithSummary("Sets what ordinary members may add.");
 
 		return endpoints;
 	}
@@ -139,6 +152,72 @@ public static class MembershipEndpoints
 
 		return Results.NoContent();
 	}
+
+	/// <summary>
+	/// The organiser's three content switches (§5.8).
+	/// <para>
+	/// A whole-object PUT rather than three toggles, so the organiser's screen sends what it shows
+	/// and two switches changed in one gesture cannot half-apply.
+	/// </para>
+	/// </summary>
+	private static async Task<IResult> SetPermissionsAsync(
+		Guid id,
+		RidePermissions request,
+		ClaimsPrincipal caller,
+		DlrDbContext database,
+		IHubContext<RideHub, IRideClient> hub)
+	{
+		if (caller.UserId() is not { } userId)
+		{
+			return Results.Unauthorized();
+		}
+
+		GroupRideMember? membership = await database
+			.Set<GroupRideMember>()
+			.Include(member => member.Ride)
+			.SingleOrDefaultAsync(member => member.GroupRideId == id && member.UserId == userId);
+
+		// 404 rather than 403 for somebody who is not in the ride at all, the same way every other
+		// ride route answers: a ride id is shareable, so a distinguishable refusal is an oracle.
+		if (membership?.Ride is null)
+		{
+			return Results.NotFound();
+		}
+
+		if (membership.Role is not (GroupRideRole.Owner or GroupRideRole.Leader))
+		{
+			return Results.Problem(new ProblemDetails
+			{
+				Status = StatusCodes.Status403Forbidden,
+				Title = "Not yours to set",
+				Detail = "The organiser decides what members may add.",
+			});
+		}
+
+		GroupRide ride = membership.Ride;
+
+		// Nothing is deleted here, and that is the rule rather than an omission (§5.8). Turning a
+		// switch off stops new content; the markers and comments already posted stay exactly where
+		// they are. Same reasoning as §7.3's profile sharing — revoking a permission is not an
+		// instruction to destroy what was already permitted.
+		ride.AllowMemberMarkers = request.AllowMemberMarkers;
+		ride.AllowMemberComments = request.AllowMemberComments;
+		ride.AllowMemberPhotos = request.AllowMemberPhotos;
+
+		await database.SaveChangesAsync();
+
+		RidePermissions permissions = Describe(ride);
+
+		await hub.Clients.Group(RideHub.Group(id)).RidePermissionsChanged(permissions);
+
+		return Results.Ok(permissions);
+	}
+
+	/// <summary>A ride's switches as the wire sees them.</summary>
+	internal static RidePermissions Describe(GroupRide ride) => new(
+		ride.AllowMemberMarkers,
+		ride.AllowMemberComments,
+		ride.AllowMemberPhotos);
 
 	private static async Task<IResult> SetSharingAsync(
 		Guid id,

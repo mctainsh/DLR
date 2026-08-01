@@ -1,5 +1,7 @@
+using DLR.Server.Comments;
 using DLR.Server.Data;
 using DLR.Server.Identity;
+using DLR.Server.Maintenance;
 using DLR.Server.Positions;
 using DLR.TestSupport.Database;
 using DLR.TestSupport.Email;
@@ -10,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
 namespace DLR.TestSupport.Hosting;
@@ -53,6 +56,21 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 		["RateLimits:RefreshPerMinutePerDevice"] = "10000",
 	};
 
+	/// <summary>
+	/// The nightly job's timer, off for every test that is not about it (§7.11).
+	/// <para>
+	/// Its period is a day, and this suite advances the clock by a day — or by a year — all over
+	/// the place: token lifespans, undo windows, the archival horizon. Left on, a
+	/// <see cref="PeriodicTimer"/> would fire an unbounded number of destructive runs in the middle
+	/// of tests investigating something else, at a moment decided by a race. Tests that want a run
+	/// call <see cref="RunMaintenanceAsync"/>, which is the same code path with none of that.
+	/// </para>
+	/// </summary>
+	private static readonly Dictionary<string, string?> NoMaintenanceTimer = new()
+	{
+		["Maintenance:IntervalHours"] = "0",
+	};
+
 	private readonly string _connectionString;
 	private readonly Dictionary<string, string?> _overrides;
 
@@ -85,6 +103,9 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 
 	/// <summary>Everything the server has tried to email.</summary>
 	public CollectingEmailSender Emails { get; } = new();
+
+	/// <summary>Everything the server has logged. Read by the §7.11 dry-run test and nothing else.</summary>
+	public CapturedLogs Logs { get; } = new();
 
 	/// <summary>
 	/// The breach corpus, as this test decides it. Nothing here reaches Pwned Passwords —
@@ -167,6 +188,29 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	public Task FlushPositionsAsync() =>
 		Services.GetRequiredService<PositionFlushService>().FlushAsync(CancellationToken.None);
 
+	/// <summary>
+	/// Sends the coalesced reaction and poll messages, synchronously (§17.4).
+	/// <para>
+	/// Reactions mark a comment dirty and the hub message follows on a timer, so a test that wants
+	/// to assert on the <em>message</em> has to get one sent. Driving the flush directly is the same
+	/// code path with none of the flakiness — advancing a fake clock and waiting for a
+	/// <see cref="PeriodicTimer"/> is a race twice over, which SRV-22 already paid for.
+	/// </para>
+	/// </summary>
+	public Task FlushReactionsAsync() =>
+		Services.GetRequiredService<ReactionBroadcastService>().FlushAsync(CancellationToken.None);
+
+	/// <summary>
+	/// Runs the nightly job once, synchronously, and hands back what it did (§7.11).
+	/// <para>
+	/// The timer is off in tests — see <see cref="NoMaintenanceTimer"/> — so this is the only way a
+	/// run happens, which is also the only way a test can be certain a run it did not ask for did
+	/// not happen.
+	/// </para>
+	/// </summary>
+	public Task<MaintenanceReport> RunMaintenanceAsync() =>
+		Services.GetRequiredService<NightlyMaintenanceService>().RunAsync(CancellationToken.None);
+
 	/// <inheritdoc />
 	protected override void ConfigureWebHost(IWebHostBuilder builder)
 	{
@@ -191,6 +235,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 				["ForwardedHeaders:KnownProxies:1"] = "::1",
 			})
 			.AddInMemoryCollection(RelaxedLimits)
+			.AddInMemoryCollection(NoMaintenanceTimer)
 			.AddInMemoryCollection(_overrides));
 
 		builder.ConfigureServices(services =>
@@ -211,6 +256,8 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 
 			services.AddSingleton<IStartupFilter, LoopbackConnection>();
 		});
+
+		builder.ConfigureLogging(logging => logging.Services.AddSingleton<ILoggerProvider>(Logs));
 	}
 
 	private async Task MigrateAsync(CancellationToken cancellationToken)

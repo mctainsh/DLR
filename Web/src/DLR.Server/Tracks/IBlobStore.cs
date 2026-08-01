@@ -38,4 +38,23 @@ public interface IBlobStore
 	/// <param name="blobRef">What <see cref="PutAsync"/> returned.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
 	Task<bool> ExistsAsync(string blobRef, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Every blob in the store, with when it was written — the input to the orphan sweep (§7.11).
+	/// <para>
+	/// <c>ON DELETE CASCADE</c> reaches rows and not files, so the only way to find a blob nothing
+	/// points at is to enumerate what is there and subtract what is referenced. Streamed rather
+	/// than returned as a list because the answer is "everything on the volume".
+	/// </para>
+	/// </summary>
+	/// <param name="cancellationToken">Cancellation.</param>
+	IAsyncEnumerable<BlobEntry> ListAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>One stored blob, as the orphan sweep sees it.</summary>
+/// <param name="BlobRef">The reference, as a row would hold it.</param>
+/// <param name="WrittenUtc">
+/// When it was written. <strong>Read from the store, never from the database</strong> — the whole
+/// question the sweep is asking is what the database does not know about.
+/// </param>
+public readonly record struct BlobEntry(string BlobRef, DateTimeOffset WrittenUtc);

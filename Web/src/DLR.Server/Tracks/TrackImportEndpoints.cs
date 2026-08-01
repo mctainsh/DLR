@@ -4,6 +4,7 @@ using DLR.Core.Tracks;
 using DLR.Server.Data;
 using DLR.Server.Data.Tracks;
 using DLR.Server.Identity;
+using DLR.Server.Markers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -55,6 +56,8 @@ public static class TrackImportEndpoints
 		RequestThrottle throttle,
 		IOptions<TrackImportOptions> importOptions,
 		IOptions<RateLimitOptions> limits,
+		IOptions<MarkerOptions> markerOptions,
+		TimeProvider clock,
 		bool dryRun = false)
 	{
 		if (caller.UserId() is not { } ownerId)
@@ -199,6 +202,19 @@ public static class TrackImportEndpoints
 				results,
 				document.Waypoints.Count,
 				document.TracksTruncated));
+		}
+
+		// Waypoints are file-level rather than per-track, so they land on the first usable track —
+		// which is the ordinary case, a file holding one ride and the places along it (§16.6).
+		if (staged.Count > 0)
+		{
+			WaypointImporter.Stage(
+				database,
+				document.Waypoints,
+				staged[0].Id,
+				ownerId,
+				markerOptions.Value,
+				clock.GetUtcNow());
 		}
 
 		try

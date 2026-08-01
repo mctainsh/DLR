@@ -1,0 +1,87 @@
+# Dumb Luck Rides — the edge (§9).
+#
+# Caddy does TLS, HTTP/3 and compression, and it is the only thing that talks to the server
+# container. There is no CDN and that is a decision rather than an omission: a CX22 includes 20 TB
+# of egress a month and the whole workload is two to three orders of magnitude inside it (§9.1).
+
+{
+	email {$TLS_EMAIL}
+
+	# On by default in Caddy 2, and named here so nobody "tidies" the UDP port mapping out of
+	# docker-compose.yml and leaves an Alt-Svc header advertising a protocol nothing answers.
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+{$PUBLIC_DOMAIN} {
+	encode zstd gzip
+
+	# Every per-address rule in §7.8 depends on this, and so does the registration ladder — get it
+	# wrong and the fourth account ever is asked for an email because every signup looks like it
+	# came from this container. Caddy sets X-Forwarded-For itself; the server's KnownProxies must
+	# name this container's address for it to be believed (ForwardedHeaders__KnownProxies__0).
+	#
+	# Verify in staging before the first public signup. It is load-bearing for registration, not
+	# hygiene.
+	reverse_proxy server:8080 {
+		header_up X-Forwarded-Proto {scheme}
+
+		# The ride hub is a long-lived websocket carrying a two-hour ride (§5.3, §7.6). The
+		# default read timeout would close it mid-ride, which the client would recover from —
+		# repeatedly, all afternoon, at the cost of the rider's battery (§10.3).
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+
+	header {
+		# HSTS with a year and subdomains. Safe to commit to here because the refresh cookie is
+		# __Host- prefixed (§7.5), which already requires HTTPS to be stored at all.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# The map is the reason this is not simply 'none'. MapKit JS is loaded from Apple and OSM
+		# tiles from OpenStreetMap (§4.5); everything else is served from here.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.apple.com; script-src 'self' 'wasm-unsafe-eval' https://cdn.apple-mapkit.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.apple.com https://*.tile.openstreetmap.org; frame-ancestors 'none'"
+
+		# Caddy's default is to advertise itself. It is one fewer thing telling a scanner what to
+		# try.
+		-Server
+	}
+
+	# The WASM bundle is content-addressed by the framework, so it can be cached hard (§18.4).
+	@framework path /_framework/*
+	header @framework Cache-Control "public, max-age=31536000, immutable"
+
+	# The health endpoint must never be cached: a stale 200 is worse than no monitoring, because
+	# it is monitoring that says everything is fine (§9).
+	@health path /healthz
+	header @health Cache-Control "no-store"
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+
+		# §7.6 lifts the SignalR access token out of a query string, because a browser cannot set
+		# an Authorization header on a websocket. That makes the access log a place live
+		# credentials land — for weeks, across five rolled files — unless it is filtered here.
+		# Choosing JSON alone does not do it: every format logs request>uri intact.
+		#
+		# SRV-23 scoped that lift to /hubs/ride precisely so this is the only parameter to strip;
+		# if a second one is ever added, it needs a line here on the same day.
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete access_token
+				}
+			}
+		}
+	}
+}

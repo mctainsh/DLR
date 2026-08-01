@@ -195,13 +195,28 @@ public static class GpxFixtures
 			+ Footer();
 	}
 
-	/// <summary>Waypoints, which §16.6 turns into markers.</summary>
+	/// <summary>
+	/// A track <em>and</em> waypoints — the ordinary shape of a file somebody exports from a
+	/// mapping tool, and the only shape whose waypoints have a parent to attach to (§16.6).
+	/// </summary>
+	/// <param name="waypoints">How many waypoints.</param>
+	/// <param name="points">How many track points.</param>
+	public static string TrackWithWaypoints(int waypoints = 2, int points = 5)
+	{
+		string track = SingleTrack(points);
+
+		// Waypoints go before the <trk>, which is where the schema wants them and where every
+		// reader expects to find them.
+		return track.Replace("  <trk>", Waypoints(waypoints) + "  <trk>", StringComparison.Ordinal);
+	}
+
+	/// <summary>Waypoints alone, with no track for them to hang off.</summary>
 	/// <param name="count">How many.</param>
-	public static string WithWaypoints(int count = 2)
+	public static string WithWaypoints(int count = 2) => Header() + Waypoints(count) + Footer();
+
+	private static string Waypoints(int count)
 	{
 		StringBuilder gpx = new();
-
-		gpx.Append(Header());
 
 		for (int index = 0; index < count; index++)
 		{
@@ -215,8 +230,6 @@ public static class GpxFixtures
 
 				""");
 		}
-
-		gpx.Append(Footer());
 
 		return gpx.ToString();
 	}

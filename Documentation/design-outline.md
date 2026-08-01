@@ -116,6 +116,50 @@
 | **0.20** | **`DLR.Server.Migrations` holds the `DbContext` and its entity configurations**, not only the migration files (§3) | Found while building SRV-01. A migrations assembly must reference the model it describes, and the running server must load the migrations assembly — as two projects that is a reference cycle. Making the migrations project the persistence layer breaks it in the one direction that has no downside |
 | 0.20 | The `+dirty` marker is stored as `.dirty` in `SourceRevisionId` and **surfaced as `+dirty` on the `commit` field** (§14.6.2) | Semantic version build metadata is dot-separated, so `1.4.0+9f2c1ab.dirty` is well-formed and `1.4.0+9f2c1ab+dirty` is not. The wire format §14.6.2 specifies is unchanged |
 | 0.20 | `/api/v1/about`'s `sourceUrl` is **configuration, not a constant** (§14.6.2) | A fork running a modified server owes its users *its own* source. A hard-coded upstream URL would make every downstream deployment non-compliant by construction — the opposite of what §13 is for |
+| 0.20 | **An embedded ICC colour profile is metadata, and the re-encode has to drop it too** (§16.4) | Found in SRV-27 by `Photo_AllMetadata_IsAbsentAfterReEncode`. `SKBitmap.Copy` preserves the decoded colour space and the JPEG encoder writes it back out as an `APP2` segment — so the file was not metadata-free after all, on precisely the path a small upright photograph takes |
+| 0.20 | **A photo's two objects live on the blob volume, not in object storage** (§16.4, §16.6) | §16.4 still said object storage; v0.18 moved every blob to a Docker volume behind `IBlobStore`. Corrected rather than left for whoever writes the deletion sweep to discover |
+| 0.20 | New setting **`Photos:Quality`** (default 85), and `MaxUploadBytes` is checked against `Content-Length` **and** the read file (§16.4, §16.7) | Re-encoding is unconditional, so how hard it re-encodes an already-conformant photograph is a product decision and belongs in configuration. The header can lie, which is the reasoning §15.8's two caps already carry |
+| 0.20 | **`Marker.PhotoId` is `ON DELETE SET NULL`**, not a cascade (§16.7) | Losing the photograph must not silently take the marker with it — "gravel across the whole corner" is worth knowing without the picture, and a cascade would delete a hazard warning because a blob sweep ran |
+| 0.20 | **`AllowMemberPhotos` is enforced on the attach, not on the upload** (§5.8) | Settled in SRV-28. `POST /photos` is deliberately ride-less (§16.4), so it has no switch to consult; the check belongs where the image is bound to something in a ride |
+| 0.20 | The three switches go through **one `RideContentPermissions.Allows`**, and its unrecognised-content arm **throws** rather than allowing (§5.8) | Four write paths carrying one obligation is how one of them stops discharging it — the lesson SRV-21's four delete routes already taught. A permissive default would let a new content type ship ungated by omission |
+| 0.20 | `RideDetail` carries `Permissions`, sent to **every** member rather than only the organiser (§5.8) | Unlike the join code. A client that does not know a switch is off draws a compose surface that 403s when used, which reads as a broken app rather than a decision somebody made |
+| 0.20 | A comment's **edit window is measured from `PostedUtc`, not `CreatedUtc`** (§17.2, §17.3) | Settled in SRV-29. Measuring from the authored time makes a post composed offline four hours ago arrive already un-editable, which is the opposite of what the window is for |
+| 0.20 | `RideComment` gains a **`ClientGuid`** and a unique index on `(ride, author, clientGuid)` (§17.3, §17.9) | §17.3 already required an idempotent post; the schema block had nowhere to put the identifier. Checked *before* the throttle and the cap, so a flaky connection cannot spend a rider's own allowance re-sending |
+| 0.20 | A comment's photo **cascades**, where a marker's `SetNull`s (§17.9) | The `CHECK (body OR photo)` is the difference: a marker keeps a required title and survives losing its picture; a photo-only comment has nothing left and would violate the constraint the moment the column was nulled |
+| 0.20 | The thread cursor tiebreaks on **`Id` as well as `PostedUtc`** (§17.8) | Two comments genuinely share a receipt instant — the fake clock does not tick unless a test moves it, and a real one has finite resolution. A cursor keyed on time alone skips a post or serves it twice. Same trap as SRV-09's `issued_utc` |
+| 0.20 | A poll is created through **`POST …/comments` with a `poll` field**, not an endpoint of its own (§17.5, §17.8) | Settled in SRV-30. §17.5 already said a poll is a comment; making the API agree is what actually delivers the inheritance — idempotency, caps, rate limit, content switches and the archived rule, none of them written twice |
+| 0.20 | `ReactionsUpdated` carries **`Mine = null`** of necessity (§17.4) | A group message has one body and "mine" differs per connection. Written down so it is not later read as a bug |
+| 0.20 | A vote request is **the full set the voter now holds**, for single- and multi-select alike (§17.5) | One endpoint shape for both, and an empty list becomes the only way to un-vote. The `(option, user)` key cannot express single-select — that is a rule *across* a poll — so the endpoint owns it |
+| 0.20 | Coalescing **re-reads the tally**; it does not accumulate events (§17.4) | The distinction is invisible until two people react twice: replayed deltas would report reactions that had since been replaced. `Reaction_ManyInQuickSuccession…` now asserts the replaced keys are absent |
+| 0.20 | `ContentReport.TargetId` is **deliberately not a foreign key** (§17.7) | Settled in SRV-31. The report must outlive the content — a foreign key would either cascade the evidence away when an organiser deletes an abusive comment, or refuse the deletion. Both defeat the point of the snapshot |
+| 0.20 | Blocking hides a rider's **reactions and poll votes as well as their posts and markers** (§16.5, §17.7) | §17.7 said "reactions" and it is the half most likely to be skipped: a tally that still counted them is the one place their presence leaks through, and a poll whose names and numbers disagree reads as a bug |
+| 0.20 | The coalesced `ReactionsUpdated` / `PollUpdated` messages apply **no block list** (§17.4, §17.7) | Same reason `Mine` is null — a group message has one body, and whose content a connection should not see is per connection. The client already holds its own list |
+| 0.20 | §16.5's **"prevents future co-membership" is not built** and is now recorded as open (§16.5) | It is in no task's build list, needs a decision about direction, and a symmetric check would let one block keep a rider out of a fifty-person ride. Report-and-block — what review checks — is complete without it |
+| 0.20 | **`Maintenance:DryRun` gates every sweep, not only the account deletion** (§7.11) | Settled in SRV-32. §7.11 describes it in terms of accounts because that is the sweep worth reading the output of, but a dry run that still deleted refresh tokens, positions and photo blobs is a dry run in name only. An operator who turns it on has said "show me, do not touch it" |
+| 0.20 | New column **`asp_net_users.inactivity_warned_utc`**, cleared whenever the account is heard from (§7.11, §7.13) | The warning window is thirty days wide and the job is nightly, so "warn when idle ≥ 150 days" with nothing recorded emails the same person on thirty consecutive mornings. Clearing it on activity is what stops a rider who came back and went quiet again being deleted with no warning |
+| 0.20 | New table **`deleted_account_token`** — a hash-only tombstone for the accounts the sweep deletes (§7.11, §7.13) | §7.11 requires the next refresh to fail with a *distinguishable* reason, and the cascade takes `refresh_token` with the account, so there is nothing left to recognise. Keyed on the hash rather than the account: only the device that actually held the token gets the specific answer, so it is not an oracle |
+| 0.20 | The orphaned-blob sweep needs a **grace window** (`Maintenance:OrphanBlobGraceHours`, default 24) (§7.11, §16.6) | A blob is written before the row that points at it is committed, so for the width of one request every new upload is indistinguishable from an orphan. Without the window the sweep deletes photographs out from under the requests uploading them |
+| 0.20 | **`IBlobStore` stamps what it writes from `TimeProvider`** (§9.1, §7.11) | Caught by `ClockRules` in SRV-32. The grace window compares a file's timestamp against a horizon, so the two have to be in the same frame — an ambient write time beside a `TimeProvider` horizon makes every blob look ancient, which is the window silently not existing |
+| 0.20 | The sweep's set of blob-bearing columns is **declared once and resolved through the EF model** (§7.11, §16.6) | A blob column the sweep does not know about is not a missed tidy-up: every value in it looks unreferenced, so the next run deletes all of them. Resolving through the model makes a rename throw, and a model scan for anything blob-shaped is the test that catches an addition |
+| 0.20 | `Moderation:ReportRetentionDays` defaults to **90**, and only **resolved** reports age out (§17.7) | Ageing out an open report turns a backlog into a silent amnesty, and the operator's queue is exactly the thing that gets behind |
+| 0.20 | **`GET /me/export` returns a ZIP**, not a JSON body — `export.json` plus the tracks as GPX and the photographs as files (§6.3, §16.6) | Settled in SRV-33. §16.6 says the export includes markers *and their photos*; a response listing identifiers is not an export of anybody's photographs, and a track reduced to its distance is not an export of their ride |
+| 0.20 | The export carries the sharing **switches** as well as the profile values (§7.3, §6.3) | What a rider chose to share is a decision about their own privacy. A file showing a phone number without saying who could see it answers a different question |
+| 0.20 | The export **never carries a ride's join code** (§5.2, §6.3) | It is the ride's entire access control and goes only to the organiser. An export handed to a member that carried it would let any member re-share the curated group, through a file nobody thinks of as a sharing surface |
+| 0.20 | **`DELETE /me` requires the current password**, in the body (§6.3) | The one irreversible action in the API. A fifteen-minute access token lifted off a shared machine should not be enough to end an account, and §7.2 makes a password universal so this excludes nobody. A query string would put it in Caddy's access log |
+| 0.20 | Deleting an account **cascades the rides it organises**, and transfer of ownership is **not built** (§6.3, §10.2) | It follows from `group_ride.owner_id ON DELETE CASCADE`. Refusing the erasure instead is not defensible under applicable law, so the cascade stands and the warning is a UI obligation — recorded rather than discovered by an organiser |
+| 0.20 | New column **`device.kind`** (`Mobile` \| `Web`), and it is what decides session length (§7.5, §7.13, §18.5) | Settled in SRV-34. §18.5 already framed a browser as a device like any other, so the one thing it does *not* inherit belongs on the device row. Read from the device on every rotation rather than carried on the token — a successor with the wrong lifetime would turn a thirty-day session permanent on the call a client makes at every start-up |
+| 0.20 | `device.kind` is **server-decided, from the endpoint reached**, and a claimed device id must match on kind (§7.5) | A client-supplied value would let a browser ask for the permanent session the distinction exists to withhold — and a browser presenting a phone's device id would otherwise adopt that row and inherit its lifetime |
+| 0.20 | The web refresh cookie is **`__Host-`-prefixed and `SameSite=Strict`**, with `Secure` following the request (§7.5) | The prefix makes the attributes unforgeable by a subdomain, which a plain cookie name leaves open. `Secure` cannot be hard-coded on: over the plain-HTTP loopback a test host and a local `dotnet run` use, the browser would discard it — §7.5's named failure arriving by a different door |
+| 0.20 | Web responses **blank the refresh token in the body** (§7.5) | `HttpOnly` protects nothing if the same value sits in JSON the script just parsed, which is exactly where an XSS would read it |
+| 0.20 | **Antiforgery covers the token endpoint only**; the web login and register form posts decline it explicitly (§7.5) | §7.5 scopes the CSRF cost to "exactly one endpoint". The other two carry credentials in the body, so there is nothing to forge without the password — and minimal APIs add the metadata automatically for `[FromForm]`, so declining it has to be deliberate |
+| 0.20 | Browser sign-out **revokes the family server-side**, not only the cookie (§7.5, §18.5) | Clearing the cookie leaves a working token in whatever else kept a copy — which on the shared computer that made web sessions expire at all is the entire scenario |
+| 0.20 | New setting **`RateLimits:MapTokenPerHourPerAddress`** (default 60) (§4.5, §7.8) | Authentication is the main gate, but a token lasts half an hour and is cached client-side: a real browser needs a handful a day, and anything asking far more often is minting them for somewhere else |
+| 0.20 | An unconfigured or unreadable MapKit key answers **503 with a stated title**, never 500 (§4.5) | §4.5 requires a map that cannot get a token to show a stated error rather than a grey rectangle, and a client cannot draw the honest failure from a 500. The two cases answer alike because from a client's side they are the same situation |
+| 0.20 | **`GET /healthz` judges the schema and the disk**, not only the process, and answers 503 when either is wrong (§9, §9.1) | Settled in SRV-35. A container whose schema is a migration behind answers every request correctly until one touches the column that is not there yet, and a container on a full disk answers HTTP right up until PostgreSQL cannot write. The free uptime pinger already watching this URL therefore *is* §9's disk alert |
+| 0.20 | Migrations are applied by a **one-shot `--migrate` run of the same image**, never on the server's way up (§9) | Migrating at startup couples "is this server ready" to "has the schema moved": a failed migration becomes a crash loop and a second container becomes a race. As its own compose step it either succeeds or stops the deploy |
+| 0.20 | The Caddy access log **filters `access_token` out of the query string** (§7.6, §9) | §7.6 lifts the SignalR token into a query string because a browser cannot set an `Authorization` header on a websocket — so the default log writes live credentials into a file that rolls for weeks. Choosing a JSON format does not fix it; every format logs the URI intact |
+| 0.20 | The nightly run **emails its summary** (`Maintenance:AlertEmail`) (§7.11, §9) | §9 asks for an alert on the nightly run, and the dry-run log is only read by somebody who goes looking. Counts plus candidate usernames, which is what makes a week of dry runs something an operator does rather than intends to |
+| 0.20 | The `pg_dump` and the blob volume go into **one restic snapshot** (§9.1) | A database restored against blobs from another night gives tracks pointing at files that are not there. The retention numbers are also what §15.6's privacy copy refers to, so changing them changes a privacy statement |
 
 ---
 
@@ -874,6 +918,10 @@ The ride creator decides whether members may contribute markers, comments and ph
 
 **Enforcement is server-side; the UI merely agrees.** A member whose permission was revoked mid-compose gets a `403` with a distinguishable reason, and the client disables the compose surface on the `RidePermissionsChanged` hub message. The message is a courtesy so the UI does not lie; the check is what makes it true.
 
+**`AllowMemberPhotos` is enforced on the *attach*, not on the upload** *(settled in SRV-28)*. A photo is a standalone resource with no ride context — it is taken at the top of a hill and uploaded whenever there is signal, which is the whole reason §16.4 separates the two requests. `POST /photos` therefore has no ride whose switch it could consult, and the check lands where the image is bound to something in that ride: `PATCH /markers/{id}/photo`, and a comment carrying a `photoId`. The consequence worth knowing is that a member can still *upload* against their own quota while photos are off for a ride; they simply cannot attach it there.
+
+**All three checks go through one method**, `RideContentPermissions.Allows`, for the reason SRV-21 learned the hard way about the four delete paths: markers, comments and both photo attachments are separate write paths carrying the same obligation, and four copies of a rule is how one of them eventually stops applying it. The switch arm for an unrecognised content type **throws** rather than defaulting permissive — a new kind of content that nobody wired a switch to must not be allowed everywhere by omission (the same mistake §7.2's breach-outcome switch already made this project pay for once).
+
 ```csharp
 Task RidePermissionsChanged(RidePermissions permissions);   // → IRideClient, §5.3
 ```
@@ -989,8 +1037,10 @@ PUT    /api/v1/group-rides/{id}/permissions    owner/leader: { markers, comments
 GET    /api/v1/group-rides/{id}/positions      snapshot (awaits cache ready)
 PUT    /api/v1/group-rides/{id}/route          attach/replace planned route
 PUT    /api/v1/group-rides/{id}/sharing        { shareLocation } — false deletes the row
-GET    /api/v1/me/export                       full data export
-DELETE /api/v1/me                              account + data deletion
+GET    /api/v1/me/export                       full data export — a ZIP: export.json, tracks
+                                               as GPX, photographs as files (§16.6)
+DELETE /api/v1/me                              account + data deletion; body carries the
+                                               current password, and blobs go explicitly (§16.6)
 GET    /api/v1/maps/token                      authed → short-lived MapKit JS token (§4.5)
 GET    /api/v1/about                           licence, source URL, running commit — anon (§14.6.2)
 WS     /hubs/ride                              SignalR
@@ -1377,8 +1427,12 @@ AND NOT EXISTS (group_ride     WHERE owner_id = u.id)
 AND NOT EXISTS (group_ride_join_request WHERE user_id = u.id AND status = 'Pending')
 ```
 
-- **Warned at 150 days** by email, if a confirmed address is known. Without one there is no way to warn — the same gap as password recovery, and a further reason the §7.2 notice matters.
-- Hard delete. `ON DELETE CASCADE` clears devices, refresh tokens and any residual rows; there is nothing worth soft-deleting given the criteria.
+The comparison is **strict**. An account last active exactly 180 days ago is *at* the horizon, not past it, and the pair of boundary tests is written that way round deliberately.
+
+- **Warned at 150 days** by email, if a confirmed address is known. Without one there is no way to warn — the same gap as password recovery, and a further reason the §7.2 notice matters. **`asp_net_users.inactivity_warned_utc` records that it went**, because the window is thirty days wide and the job is nightly: without it the courtesy is thirty emails to the same person and a blocked sending domain. It is **cleared whenever the account is next heard from** (§7.10), so a rider who comes back and goes quiet a year later is warned again rather than deleted in silence. Stamped only on a successful send, so a transport failure is retried tomorrow instead of swallowing somebody's only notice.
+- The warning uses the **same emptiness predicate** as the deletion. Two predicates would mean an account either warned and then kept — noise — or deleted having been told nothing.
+- **The warning carries no link and no token.** Signing in is what saves the account, and an unsolicited "click here to keep your account" is indistinguishable from the phishing message somebody will eventually send in our name.
+- Hard delete. `ON DELETE CASCADE` clears devices, refresh tokens and any residual rows; there is nothing worth soft-deleting given the criteria. **One exception, and it is load-bearing:** `user_block.blocked_id` is `NO ACTION` rather than a cascade — two cascade paths into `asp_net_users` through one table is an error in PostgreSQL (§16.5) — so the sweep deletes those rows itself first. Nothing else in the project deletes an account, so nothing else has ever met that constraint, and an unhandled violation does not skip one account: it aborts the statement and the whole night's deletions with it.
 - **Batched** — at most `Maintenance:MaxDeletesPerRun` (default 500) per night, so one run can never take a long lock.
 - Username is released back to the pool on deletion. This does not undermine the permanence rule in §7.2, and the deletion criteria are what make it safe: an eligible account has **never joined a ride**, so it never appeared on anyone's map and no rider can have formed an association with that name. There is no reputation to inherit and nothing to impersonate. Names that were ever visible to another rider belong to accounts that are never auto-deleted.
 
@@ -1386,22 +1440,33 @@ AND NOT EXISTS (group_ride_join_request WHERE user_id = u.id AND status = 'Pendi
 
 **A destructive automated job needs brakes.** Two non-negotiables:
 
-- **`Maintenance:DryRun` defaults to `true`.** It logs exactly which accounts *would* go. Run it that way for at least a week and read the output before enabling deletion for real.
-- **A kill switch** (`Maintenance:DeleteInactiveAccounts`) that disables the sweep without a redeploy.
+- **`Maintenance:DryRun` defaults to `true`.** It logs exactly which accounts *would* go — **named, one per line, not counted**, because "seven accounts would be deleted" is not something anybody can check. Run it that way for at least a week and read the output before enabling deletion for real. **It gates every sweep in the table below, not only the account deletion**: an operator who turns it on has said *show me, do not touch it*, and a dry run that still deleted refresh tokens, positions and photo blobs would be a dry run in name only.
+- **A kill switch** (`Maintenance:DeleteInactiveAccounts`) that disables the 180-day sweep **alone**, without a redeploy. That is what distinguishes it from `DryRun`, and it is the setting to reach for at 3 a.m. when the predicate has done something surprising and the disk still needs collecting.
 
 **Client handling.** When an account has been deleted, the device's next refresh fails. The response carries a distinguishable reason so the app can say *"This account was removed after 180 days without use"* and offer to create a new one — not a generic sign-in error, which would look like a bug and be indistinguishable from a bad password.
 
-**One nightly service**, not four. `NightlyMaintenanceService` consolidates:
+**Which needs something to recognise, and the cascade has taken it.** The account is gone, its refresh tokens went with it, and its username is back in the pool, so there is nothing left to point at. `deleted_account_token` (§7.13) holds the SHA-256 of each token the deleted account still had, and nothing else — a hash of a value that no longer opens anything, and a date. Keyed on the hash rather than on the account, so only the device that actually held the token gets the specific answer and a guessed token still gets *"that refresh token is not valid"*. It is **not an oracle** for whether an account ever existed. Swept on the same horizon as `refresh_token` itself: a device not opened in a month will be told to sign in, and that is answer enough.
+
+**One nightly service**, not seven. `NightlyMaintenanceService` consolidates:
 
 | Sweep | Reference |
 |---|---|
 | Orphaned `rider_position` rows for rides that are neither Live nor in an unexpired wind-down | §5.5, §5.6 |
-| `refresh_token` rows expired or revoked > 30 days | §7.13 |
+| `refresh_token` rows expired or revoked > 30 days, and `deleted_account_token` on the same horizon | §7.13 |
 | Null `created_by_ip` on users older than 30 days | §7.8 |
-| `TrackRevision` originals past their undo window | §15.6 |
-| Orphaned photo blobs in object storage — `ON DELETE CASCADE` does not reach it | §16.6 |
+| `TrackRevision` originals past their undo window — **the blob as well as the row** | §15.6 |
+| Orphaned blobs on the volume — `ON DELETE CASCADE` does not reach a filesystem | §16.6 |
 | Resolved `ContentReport` rows and their content snapshots past retention | §17.7 |
 | Warn at 150 days, delete empty accounts at 180 | this section |
+
+**Each sweep is its own transaction and its own failure.** One that throws is logged and the rest still run: a blob volume that has gone read-only must not be the reason nobody's `created_by_ip` was cleared for a fortnight.
+
+**The orphaned-blob sweep is the one that can destroy data, and it has two safeguards.**
+
+- **A grace window** (`Maintenance:OrphanBlobGraceHours`, default 24). A blob is written before the row that points at it is committed, so for the width of one request every new upload is indistinguishable from an orphan. Without the window the sweep deletes photographs out from under the requests uploading them. It is measured against the file's own timestamp — which `IBlobStore` **stamps from `TimeProvider`** on write, precisely so that the two sides of that comparison are in the same frame (§9.1).
+- **One declared set of blob-bearing columns**, resolved through the EF model so a rename throws rather than silently dropping out. A column the sweep does not know about is not a missed tidy-up: every value in it looks unreferenced, so the next run deletes all of them. `Track.BlobRef`, `TrackRevision.BlobRef`, `Photo.BlobRef` and `Photo.ThumbBlobRef` — four, and a photo's thumbnail is the one most easily forgotten.
+
+**The job also runs on demand.** `Maintenance:IntervalHours` (default 24) turns the timer off entirely at zero, for a deployment that would rather drive it from `cron` — and for the test suite, which calls it directly rather than advancing a fake clock a whole day into a `PeriodicTimer` (§5.5's lesson).
 
 Automatic deletion of dormant data is also the right posture for **APP 11.2** and GDPR storage limitation — it is a compliance asset, not just tidiness, and belongs in the privacy policy (§10.2).
 
@@ -1470,6 +1535,7 @@ public interface IEmailSender
 --   share_phone_number   boolean NOT NULL DEFAULT false   -- §7.3
 --   share_email          boolean NOT NULL DEFAULT false   -- §7.3
 --   last_active_utc    timestamptz  NOT NULL   -- §7.10
+--   inactivity_warned_utc  timestamptz NULL    -- §7.11, cleared on activity
 --   created_by_ip      inet         NULL       -- §7.8, nulled after 30 days
 --   requires_email_confirmation  boolean NOT NULL DEFAULT false   -- §7.8 ladder
 --   is_guest           boolean      NOT NULL DEFAULT false        -- §7.16
@@ -1493,6 +1559,7 @@ CREATE TABLE device (
 	id				uuid		PRIMARY KEY,
 	user_id			uuid		NOT NULL REFERENCES asp_net_users(id) ON DELETE CASCADE,
 	name			varchar(60)	NULL,		-- "iPhone 15"; client-supplied, never verified
+	kind			varchar(20)	NOT NULL DEFAULT 'Mobile',	-- Mobile|Web (§7.5); server-decided
 	created_utc		timestamptz	NOT NULL,
 	last_seen_utc	timestamptz	NOT NULL	-- throttled to one write an hour (§7.10)
 );
@@ -1536,6 +1603,18 @@ CREATE TABLE group_ride_join_request (
 CREATE UNIQUE INDEX ux_join_request_pending
 	ON group_ride_join_request (group_ride_id, user_id)
 	WHERE status = 'Pending';
+
+-- What is left of an account the §7.11 sweep deleted, and it is deliberately not much:
+-- a hash of a token that no longer opens anything, and a date. It exists so the next
+-- refresh from that device can be answered with a *reason* rather than a shrug. There
+-- is no user_id and no username — the account is gone and the name is back in the pool,
+-- so there is nothing to point at and nothing here that identifies a person.
+CREATE TABLE deleted_account_token (
+	token_hash		bytea		PRIMARY KEY,	-- SHA-256, as refresh_token held it
+	deleted_utc		timestamptz	NOT NULL
+);
+
+CREATE INDEX ix_deleted_account_token_deleted ON deleted_account_token (deleted_utc);
 ```
 
 The raw refresh token is never stored — only its SHA-256. `successor_id` is what makes the idempotent replay window in §7.4 possible.
@@ -2663,6 +2742,8 @@ Three reasons this is not "upload your own icon", and they are all load-bearing:
 
 Unknown icon keys are therefore **stored, not rejected** — the server validates length and character set, not membership. The client owns the drawing.
 
+> **The GPX mapping has to honour that in both directions** *(SRV-26)*. Exporting an unknown key correctly and then flattening it to `note` on re-import destroys it on any round trip through an older server — which is exactly the version-skew case the string key exists to survive. So `<sym>` is mapped through the table, and anything not in the table that is *shaped* like a key (lowercase, digits, hyphens) is kept as one. Symbols that are not key-shaped — `Flag, Blue`, `Scenic Area` — still fall back, so a foreign file's symbols never become junk icon keys.
+
 **Title and Note are user text shown to other people.** Blazor escapes by default and MAUI labels are not HTML, so this is not an XSS story so much as a discipline one: no rich-text rendering is ever added here, and the GPX exporter escapes properly (§16.6). Both fields are trimmed, control characters stripped, and normalised to NFC.
 
 ### 16.3 Rendering — the feature the native map could not draw
@@ -2713,7 +2794,8 @@ One optional photo per marker. That "one" is a decision: a gallery per marker mu
 
 Image decoders are a classic remote-code-execution and denial-of-service surface, and the same discipline §15.3 applies to GPX applies here:
 
-- **Cap bytes *and* decoded pixels.** `Photos:MaxUploadBytes` (default 12 MB) bounds the transfer; `Photos:MaxDecodedPixels` (default 40 MP) bounds the decompression bomb — a 40 KB PNG can expand to hundreds of megabytes of bitmap, and a byte cap alone does not see it coming. Read the header, check the dimensions, and refuse *before* allocating.
+- **Cap bytes *and* decoded pixels.** `Photos:MaxUploadBytes` (default 12 MB) bounds the transfer, checked against `Content-Length` *and* against the file that was actually read, because the header can lie; `Photos:MaxDecodedPixels` (default 40 MP) bounds the decompression bomb — a 40 KB PNG can expand to hundreds of megabytes of bitmap, and a byte cap alone does not see it coming. Read the header, check the dimensions, and refuse *before* allocating. The pixel multiply is done in a `long`: 60000 × 60000 is a writable PNG header and overflows an `int` into a small positive number, which passes a cap written the obvious way.
+  - **Testing the ordering needs a fixture that fails two different ways** *(settled in SRV-27)*. A bomb whose image data is *valid* looks identical from outside whether the cap ran before or after the decode. The fixture's stream is therefore deliberately unusable, so decode-first answers `400 DecodeFailed` and header-first answers `413 TooManyPixels` — two different statuses and two different problem names. Without that, `Photo_DecompressionBomb_IsRejectedBeforeAllocating` would be green against a cap that runs too late to help.
 - **Accept JPEG, PNG, HEIC, WebP by content sniffing**, never by extension or client-supplied content type.
 - **Everything is re-encoded**, always, even when the original is already a conformant JPEG — see below.
 - Failures return Problem Details, not an unhandled decoder exception.
@@ -2726,7 +2808,9 @@ Image decoders are a classic remote-code-execution and denial-of-service surface
 
 So: **decode, apply the EXIF orientation, re-encode to JPEG, write no metadata.** Re-encoding rather than running a metadata-stripping pass is deliberate — strippers work on the tags they know about, and the failure mode is silent. Applying orientation *before* discarding it matters too, or every portrait photo from an iPhone arrives sideways.
 
-Downscale to `Photos:MaxDimension` (default 2048 px on the long edge) and generate a thumbnail (`Photos:ThumbDimension`, 320 px) for the map callout. Two objects per photo, both in object storage (§6.2), both counting against the account's storage quota (§13 Q13).
+**"No metadata" includes the colour profile, and that one is easy to miss** *(found in SRV-27)*. `SKBitmap.Copy` preserves the decoded image's `SKColorSpace`, and the JPEG encoder then writes it out as an ICC profile in an `APP2` segment — which can name the device that produced it. Every bitmap the ingest hands to the encoder is therefore built from an `SKImageInfo` carrying **no colour space**. The sharp part is which images took the leaky path: the ones needing neither rotation nor downscaling, because the rotate and resize routes already construct their target that way. That is the small, upright photograph — the ordinary case, and the one a spot check is least likely to open in a hex editor. The guard is `Photo_AllMetadata_IsAbsentAfterReEncode`, which asserts on the file's *segment structure* rather than on three named tags, so it keeps holding as formats gain new places to hide things.
+
+Downscale to `Photos:MaxDimension` (default 2048 px on the long edge) and generate a thumbnail (`Photos:ThumbDimension`, 320 px) for the map callout, both re-encoded at `Photos:Quality` (85). Two objects per photo, both on the blob volume behind `IBlobStore` (§9.1 — *not* object storage; v0.18 moved every blob to a Docker volume), both counting against the account's storage quota (§13 Q13).
 
 #### The library choice is a licence decision (§14.6.3)
 
@@ -2770,6 +2854,10 @@ Caps, all configuration per §14.5, all enforced server-side:
 
 *(v0.14: this became one mechanism covering markers **and** comments — `ContentReport` in §17.7. Blocking hides both.)*
 
+**Blocking is one-directional, silent, and covers four surfaces** *(built in SRV-31)*. Blocking somebody hides *their* posts, markers, reactions and poll votes from *you*; nothing is sent to them and their own view is unchanged, because a block that announced itself would turn a quiet "I would rather not read this person" into the confrontation it exists to avoid. All four reads go through one `BlockList.HiddenFromAsync`, since four copies of "and not from somebody I blocked" is how one of them ends up without it. Note this is a different mechanism from `GroupRideJoinRequest.Blocked`, which is an *organiser* refusing a requester entry to one ride — same word, different actor.
+
+**"Prevents future co-membership" is not built, and that is recorded rather than assumed** *(SRV-31)*. It is in no task's build list; it needs a decision about direction (does my block stop me joining their ride, or them joining mine, or both); and a symmetric check would let a single block keep a rider out of a fifty-person ride. Report-and-block — the pair store review actually checks for — is complete without it.
+
 ### 16.6 Realtime, lifecycle and the GPX round-trip
 
 **Hub messages** join `IRideClient` (§5.3), sent to the ride group only:
@@ -2802,6 +2890,8 @@ Markers are **not** part of the 5 s position batch. A batch is a continuous tele
 
 Import maps waypoints onto the imported track's markers; export writes them back. A file exported from this app and re-imported produces the same markers, which is the test that says the mapping is honest (`Gpx_MarkerRoundTrip_IsLossless`). Photos are not in GPX and are not attempted — the export is a `.gpx`, not an archive.
 
+**Two details settled in SRV-26.** Waypoints are file-level rather than per-track, so they attach to the **first usable track** in the file — the ordinary case being one ride and the places along it. A file with waypoints and *no* track imports no markers at all, and that is correct rather than a gap: a marker needs exactly one parent, and there is nothing for these to hang off. The `dlr:` extension namespace is **`dlr://gpx/v1`**, reusing the app's own scheme rather than an `https://` domain, because a namespace is an identifier and not an address — pointing it at a real host invites something to try fetching it.
+
 ### 16.7 Schema and configuration
 
 ```
@@ -2812,7 +2902,11 @@ Marker(Id, TrackId?, GroupRideId?, CreatedByUserId, Lat, Lon, DirectionDeg?,
 Photo(Id, OwnerId, BlobRef, ThumbBlobRef, WidthPx, HeightPx, ByteSize,
       ContentHash, CreatedUtc)
        -- Content is re-encoded and metadata-free by construction       §16.4
+       -- Marker.PhotoId is ON DELETE SET NULL, never a cascade         §16.4
+       -- ContentHash is of the STORED bytes, not of the upload         §16.4
 ```
+
+**`ContentHash` hashes what was stored, not what arrived.** Hashing the upload would make the hash a function of the sender's encoder, so one photograph sent from two devices would look like two different images; hashing the re-encoded bytes describes what is actually on the disk being backed up.
 
 *(v0.14: `MarkerReport` was generalised into `ContentReport`, which covers markers and comments and snapshots the reported content — §17.7.)*
 
@@ -2825,6 +2919,8 @@ Indexes: `Marker(GroupRideId)`, `Marker(TrackId)`, `Photo(OwnerId)`, `ContentRep
 | `Photos:MaxUploadBytes` | 12 MB |
 | `Photos:MaxDecodedPixels` | 40 MP |
 | `Photos:MaxDimension` / `ThumbDimension` | 2048 / 320 px |
+| `Photos:Quality` | 85 |
+| `Photos:UploadsPerHourPerUser` / `UploadsPerDayPerUser` | 30 / 200 |
 
 ### 16.8 Tests to write first
 
@@ -2980,7 +3076,7 @@ ContentReport(Id, TargetKind{Marker,Comment}, TargetId, ReportedByUserId,
               Reason, ContentSnapshot, CreatedUtc, ResolvedUtc?)
 ```
 
-`ContentSnapshot` is the point of the change: an organiser deleting an abusive comment must not also destroy the evidence for the report they just filed. The snapshot is purged with the resolved report by the nightly job (§7.11) after `Moderation:ReportRetentionDays`.
+`ContentSnapshot` is the point of the change: an organiser deleting an abusive comment must not also destroy the evidence for the report they just filed. The snapshot is purged with the resolved report by the nightly job (§7.11) after `Moderation:ReportRetentionDays` (default **90**). **Resolved ones only** — ageing out an open report would turn a backlog into a silent amnesty, and the operator's queue is exactly the thing that gets behind.
 
 | Action | Who |
 |---|---|

@@ -1,0 +1,182 @@
+# Dumb Luck Rides — the whole deployment (§9).
+#
+# One VPS, four containers, three volumes. Run from the repository root:
+#
+#   docker compose --file deploy/docker-compose.yml up --detach
+#
+# Secrets come from a .env file beside this one, which .gitignore already refuses to commit
+# (§14.3). .env.example lists every key with no values in it.
+
+name: dlr
+
+services:
+  # -------------------------------------------------------------------------
+  # PostgreSQL
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dlr
+      POSTGRES_USER: dlr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+
+      # Checksums cost a few percent and turn silent corruption into a loud error. On a €4 VPS
+      # with consumer-grade storage that is the right trade, and it can only be set at initdb —
+      # after the first start it is a dump-and-restore.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      # The suite outgrew the default of 100 during SRV-13 and production has the same shape:
+      # one pool per process, and Npgsql opens more connectors than anybody expects.
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+    # Not published to the host. Nothing outside this compose network has any business reaching
+    # PostgreSQL, and a published port on a VPS is a port the internet scans within the hour.
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username=dlr --dbname=dlr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------------
+  # Schema — the same image, run to completion before the server starts
+  # -------------------------------------------------------------------------
+  #
+  # Not a Migrate() call on the server's way up. That couples "is this server ready" to "has the
+  # schema moved", which turns a failed migration into a crash loop and makes a second container
+  # a race. As its own step it either succeeds or stops the deploy, which is what a schema change
+  # should do — and /healthz reports pending migrations, so skipping it is loud (§9).
+  migrate:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["--migrate"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Dlr: "Host=postgres;Database=dlr;Username=dlr;Password=${POSTGRES_PASSWORD:?}"
+
+  # -------------------------------------------------------------------------
+  # The server
+  # -------------------------------------------------------------------------
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+
+      ConnectionStrings__Dlr: "Host=postgres;Database=dlr;Username=dlr;Password=${POSTGRES_PASSWORD:?};Maximum Pool Size=20"
+
+      # Never in appsettings.json, and the server refuses to start on a key that ships with the
+      # code (§7.4). Generate with: openssl rand -base64 48
+      Auth__SigningKey: ${AUTH_SIGNING_KEY:?set AUTH_SIGNING_KEY in deploy/.env}
+
+      Blobs__RootPath: /blobs
+
+      # Caddy is the only thing that talks to this container, so it is the only trusted hop.
+      # §7.8's per-address rules and the registration ladder are both wrong without this —
+      # every signup would look like it came from Caddy. Verify it in staging before the first
+      # public signup; it is load-bearing for registration, not just for rate limiting.
+      ForwardedHeaders__KnownProxies__0: ${CADDY_IP:-172.18.0.2}
+
+      Email__Host: ${EMAIL_HOST:-smtp.zoho.com.au}
+      Email__Port: ${EMAIL_PORT:-587}
+      Email__User: ${EMAIL_USER:-}
+      Email__Password: ${EMAIL_PASSWORD:-}
+      Email__From: ${EMAIL_FROM:-}
+
+      Links__BaseUrl: ${PUBLIC_URL:?set PUBLIC_URL in deploy/.env}
+      About__SourceUrl: ${SOURCE_URL:-https://github.com/dumbluckrides/dlr}
+
+      # A fork running a modified server owes its users *its own* source (§14.6.2), which is why
+      # the line above is configuration rather than a constant.
+
+      # §4.5. Without these the map says so rather than showing a grey rectangle, so leaving them
+      # unset is a supported state rather than a broken one.
+      Maps__MapKit__TeamId: ${MAPKIT_TEAM_ID:-}
+      Maps__MapKit__KeyId: ${MAPKIT_KEY_ID:-}
+      Maps__MapKit__PrivateKeyPem: ${MAPKIT_PRIVATE_KEY_PEM:-}
+      Maps__MapKit__Origin: ${PUBLIC_URL:-}
+
+      # §7.11's brakes, and the default is the safe one on purpose. Run it this way for a week and
+      # read the emails before setting DryRun to false.
+      Maintenance__DryRun: ${MAINTENANCE_DRY_RUN:-true}
+      Maintenance__AlertEmail: ${MAINTENANCE_ALERT_EMAIL:-}
+    volumes:
+      - blobs:/blobs
+    expose:
+      - "8080"
+
+  # -------------------------------------------------------------------------
+  # Caddy — TLS, HTTP/3, compression, X-Forwarded-For
+  # -------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN in deploy/.env}
+      TLS_EMAIL: ${TLS_EMAIL:?set TLS_EMAIL in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+
+      # HTTP/3 is UDP, and forgetting this line is how a deployment "has HTTP/3" that no browser
+      # ever negotiates: Caddy advertises Alt-Svc, the client tries QUIC, nothing answers, and it
+      # silently falls back to TCP forever.
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+  # -------------------------------------------------------------------------
+  # Nightly backup — pg_dump + the blob volume, encrypted before it leaves (§9.1)
+  # -------------------------------------------------------------------------
+  backup:
+    image: alpine:3
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: dlr
+      PGDATABASE: dlr
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+
+      # restic encrypts client-side with this, so Backblaze never holds plaintext positions or
+      # email addresses (§9.1, §10.1). Losing it loses every backup — it belongs in a password
+      # manager, not only in this file.
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?set RESTIC_PASSWORD in deploy/.env}
+      RESTIC_REPOSITORY: ${RESTIC_REPOSITORY:?set RESTIC_REPOSITORY in deploy/.env}
+      B2_ACCOUNT_ID: ${B2_ACCOUNT_ID:-}
+      B2_ACCOUNT_KEY: ${B2_ACCOUNT_KEY:-}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-17}
+    volumes:
+      - blobs:/blobs:ro
+      - ./backup.sh:/usr/local/bin/backup.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup.sh"]
+
+volumes:
+  pgdata:
+  blobs:
+  caddydata:
+  caddyconfig:

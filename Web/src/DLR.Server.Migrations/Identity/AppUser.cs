@@ -40,6 +40,22 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	public DateTimeOffset CreatedUtc { get; set; }
 
 	/// <summary>
+	/// When the 150-day inactivity warning was sent, or null if it has not been (§7.11).
+	/// <para>
+	/// <strong>Not derivable from the other two columns, which is why it is a column.</strong> The
+	/// warning window is thirty days wide and the job runs nightly, so "warn when idle ≥ 150 days"
+	/// with nothing recorded emails the same person on thirty consecutive mornings — which reads as
+	/// a broken service rather than as a courtesy, and is exactly the shape of thing that gets a
+	/// sending domain blocked.
+	/// </para>
+	/// <para>
+	/// Cleared whenever the account is heard from again, so a rider who comes back and then goes
+	/// quiet a year later is warned a second time rather than deleted in silence.
+	/// </para>
+	/// </summary>
+	public DateTimeOffset? InactivityWarnedUtc { get; set; }
+
+	/// <summary>
 	/// The address this account was registered from (§7.8).
 	/// <para>
 	/// Personal data, and treated as such: the nightly job nulls it after 30 days (§7.11) —

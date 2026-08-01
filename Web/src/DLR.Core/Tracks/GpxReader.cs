@@ -260,10 +260,11 @@ public static class GpxReader
 		string? name = null;
 		string? description = null;
 		string? symbol = null;
+		short? direction = null;
 
 		if (reader.IsEmptyElement)
 		{
-			return new GpxWaypoint(latitude, longitude, name, description, symbol);
+			return new GpxWaypoint(latitude, longitude, name, description, symbol, direction);
 		}
 
 		int depth = reader.Depth;
@@ -292,8 +293,32 @@ public static class GpxReader
 
 					break;
 
+				case "cmt":
+					// §16.6 maps <desc> *or* <cmt> onto the note. Whichever arrives first wins,
+					// so a file carrying both does not lose the one it listed first.
+					description ??= ElementText(reader);
+
+					break;
+
 				case "sym":
 					symbol = ElementText(reader);
+
+					break;
+
+				case "direction":
+					// Our own extension, read back (§16.6). Namespace-checked, because "direction"
+					// is a plausible enough element name for another writer to have used it for
+					// something else entirely.
+					if (reader.NamespaceURI == DlrGpx.Namespace
+						&& short.TryParse(
+							ElementText(reader),
+							NumberStyles.Integer,
+							CultureInfo.InvariantCulture,
+							out short parsed)
+						&& parsed is >= 0 and <= 359)
+					{
+						direction = parsed;
+					}
 
 					break;
 
@@ -303,7 +328,7 @@ public static class GpxReader
 			}
 		}
 
-		return new GpxWaypoint(latitude, longitude, name, description, symbol);
+		return new GpxWaypoint(latitude, longitude, name, description, symbol, direction);
 	}
 
 	private static double Coordinate(XmlReader reader, string attribute)

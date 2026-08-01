@@ -23,6 +23,204 @@ namespace DLR.Server.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DLR.Server.Data.Comments.CommentReaction", b =>
+                {
+                    b.Property<Guid>("CommentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comment_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("Reaction")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reaction");
+
+                    b.HasKey("CommentId", "UserId")
+                        .HasName("pk_comment_reaction");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_comment_reaction_user_id");
+
+                    b.ToTable("comment_reaction", (string)null);
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.Poll", b =>
+                {
+                    b.Property<Guid>("CommentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comment_id");
+
+                    b.Property<bool>("AllowMultiple")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_multiple");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by_user_id");
+
+                    b.Property<DateTimeOffset?>("ClosedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_utc");
+
+                    b.Property<DateTimeOffset?>("ClosesUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closes_utc");
+
+                    b.HasKey("CommentId")
+                        .HasName("pk_poll");
+
+                    b.HasIndex("ClosedByUserId")
+                        .HasDatabaseName("ix_poll_closed_by_user_id");
+
+                    b.ToTable("poll", (string)null);
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.PollOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CommentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comment_id");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordinal");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_poll_option");
+
+                    b.HasIndex("CommentId", "Ordinal")
+                        .IsUnique()
+                        .HasDatabaseName("ux_poll_option_ordinal");
+
+                    b.ToTable("poll_option", (string)null);
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.PollVote", b =>
+                {
+                    b.Property<Guid>("PollOptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poll_option_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.HasKey("PollOptionId", "UserId")
+                        .HasName("pk_poll_vote");
+
+                    b.HasIndex("PollOptionId")
+                        .HasDatabaseName("ix_poll_vote_option");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_poll_vote_user_id");
+
+                    b.ToTable("poll_vote", (string)null);
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.RideComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("body");
+
+                    b.Property<Guid>("ClientGuid")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_guid");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<DateTimeOffset?>("EditedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("edited_utc");
+
+                    b.Property<Guid>("GroupRideId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_ride_id");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_pinned");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid?>("PhotoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("photo_id");
+
+                    b.Property<Guid?>("PinnedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pinned_by_user_id");
+
+                    b.Property<DateTimeOffset?>("PinnedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pinned_utc");
+
+                    b.Property<DateTimeOffset>("PostedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("posted_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ride_comment");
+
+                    b.HasIndex("AuthorId")
+                        .HasDatabaseName("ix_ride_comment_author_id");
+
+                    b.HasIndex("GroupRideId")
+                        .HasDatabaseName("ix_ride_comment_pinned")
+                        .HasFilter("is_pinned");
+
+                    b.HasIndex("PhotoId")
+                        .HasDatabaseName("ix_ride_comment_photo_id");
+
+                    b.HasIndex("GroupRideId", "PostedUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_ride_comment_ride_posted");
+
+                    b.HasIndex("GroupRideId", "AuthorId", "ClientGuid")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ride_comment_client");
+
+                    b.ToTable("ride_comment", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ride_comment_has_content", "body IS NOT NULL OR photo_id IS NOT NULL");
+                        });
+                });
+
             modelBuilder.Entity("DLR.Server.Data.Identity.AppUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -60,6 +258,10 @@ namespace DLR.Server.Data.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean")
                         .HasColumnName("email_confirmed");
+
+                    b.Property<DateTimeOffset?>("InactivityWarnedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("inactivity_warned_utc");
 
                     b.Property<DateTimeOffset>("LastActiveUtc")
                         .HasColumnType("timestamp with time zone")
@@ -152,6 +354,25 @@ namespace DLR.Server.Data.Migrations
                     b.ToTable("asp_net_users", (string)null);
                 });
 
+            modelBuilder.Entity("DLR.Server.Data.Identity.DeletedAccountToken", b =>
+                {
+                    b.Property<byte[]>("TokenHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset>("DeletedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_utc");
+
+                    b.HasKey("TokenHash")
+                        .HasName("pk_deleted_account_token");
+
+                    b.HasIndex("DeletedUtc")
+                        .HasDatabaseName("ix_deleted_account_token_deleted");
+
+                    b.ToTable("deleted_account_token", (string)null);
+                });
+
             modelBuilder.Entity("DLR.Server.Data.Identity.Device", b =>
                 {
                     b.Property<Guid>("Id")
@@ -162,6 +383,14 @@ namespace DLR.Server.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Mobile")
+                        .HasColumnName("kind");
 
                     b.Property<DateTimeOffset>("LastSeenUtc")
                         .HasColumnType("timestamp with time zone")
@@ -256,6 +485,236 @@ namespace DLR.Server.Data.Migrations
                     b.ToTable("refresh_token", (string)null);
                 });
 
+            modelBuilder.Entity("DLR.Server.Data.Markers.Marker", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<short?>("DirectionDeg")
+                        .HasColumnType("smallint")
+                        .HasColumnName("direction_deg");
+
+                    b.Property<Guid?>("GroupRideId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_ride_id");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("icon");
+
+                    b.Property<int>("Lat")
+                        .HasColumnType("integer")
+                        .HasColumnName("lat");
+
+                    b.Property<int>("Lon")
+                        .HasColumnType("integer")
+                        .HasColumnName("lon");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<Guid?>("PhotoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("photo_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("title");
+
+                    b.Property<Guid?>("TrackId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("track_id");
+
+                    b.Property<DateTimeOffset>("UpdatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_marker");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_marker_created_by_user_id");
+
+                    b.HasIndex("GroupRideId")
+                        .HasDatabaseName("ix_marker_group_ride");
+
+                    b.HasIndex("PhotoId")
+                        .HasDatabaseName("ix_marker_photo_id");
+
+                    b.HasIndex("TrackId")
+                        .HasDatabaseName("ix_marker_track");
+
+                    b.HasIndex("GroupRideId", "CreatedByUserId")
+                        .HasDatabaseName("ix_marker_ride_author");
+
+                    b.ToTable("marker", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_marker_one_parent", "(track_id IS NULL) <> (group_ride_id IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Moderation.ContentReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<string>("ContentSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("content_snapshot");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<Guid?>("GroupRideId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_ride_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ReportedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reported_by_user_id");
+
+                    b.Property<DateTimeOffset?>("ResolvedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_utc");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetKind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("target_kind");
+
+                    b.HasKey("Id")
+                        .HasName("pk_content_report");
+
+                    b.HasIndex("ReportedByUserId")
+                        .HasDatabaseName("ix_content_report_reported_by_user_id");
+
+                    b.HasIndex("ResolvedUtc")
+                        .HasDatabaseName("ix_content_report_unresolved")
+                        .HasFilter("resolved_utc IS NULL");
+
+                    b.HasIndex("TargetKind", "TargetId", "ReportedByUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_content_report_reporter");
+
+                    b.ToTable("content_report", (string)null);
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Moderation.UserBlock", b =>
+                {
+                    b.Property<Guid>("BlockerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blocker_id");
+
+                    b.Property<Guid>("BlockedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blocked_id");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.HasKey("BlockerId", "BlockedId")
+                        .HasName("pk_user_block");
+
+                    b.HasIndex("BlockedId")
+                        .HasDatabaseName("ix_user_block_blocked_id");
+
+                    b.HasIndex("BlockerId")
+                        .HasDatabaseName("ix_user_block_blocker");
+
+                    b.ToTable("user_block", (string)null);
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Photos.Photo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BlobRef")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("blob_ref");
+
+                    b.Property<int>("ByteSize")
+                        .HasColumnType("integer")
+                        .HasColumnName("byte_size");
+
+                    b.Property<byte[]>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("content_hash");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<int>("HeightPx")
+                        .HasColumnType("integer")
+                        .HasColumnName("height_px");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("ThumbBlobRef")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("thumb_blob_ref");
+
+                    b.Property<int>("WidthPx")
+                        .HasColumnType("integer")
+                        .HasColumnName("width_px");
+
+                    b.HasKey("Id")
+                        .HasName("pk_photo");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("ix_photo_owner");
+
+                    b.ToTable("photo", (string)null);
+                });
+
             modelBuilder.Entity("DLR.Server.Data.Positions.RiderPosition", b =>
                 {
                     b.Property<Guid>("GroupRideId")
@@ -308,6 +767,24 @@ namespace DLR.Server.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<bool>("AllowMemberComments")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("allow_member_comments");
+
+                    b.Property<bool>("AllowMemberMarkers")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("allow_member_markers");
+
+                    b.Property<bool>("AllowMemberPhotos")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("allow_member_photos");
 
                     b.Property<DateTimeOffset>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -716,6 +1193,109 @@ namespace DLR.Server.Data.Migrations
                     b.ToTable("asp_net_user_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("DLR.Server.Data.Comments.CommentReaction", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Comments.RideComment", "Comment")
+                        .WithMany()
+                        .HasForeignKey("CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_comment_reaction_ride_comment_comment_id");
+
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_comment_reaction_asp_net_users_user_id");
+
+                    b.Navigation("Comment");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.Poll", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "ClosedBy")
+                        .WithMany()
+                        .HasForeignKey("ClosedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_poll_asp_net_users_closed_by_user_id");
+
+                    b.HasOne("DLR.Server.Data.Comments.RideComment", "Comment")
+                        .WithOne()
+                        .HasForeignKey("DLR.Server.Data.Comments.Poll", "CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_poll_ride_comment_comment_id");
+
+                    b.Navigation("ClosedBy");
+
+                    b.Navigation("Comment");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.PollOption", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Comments.Poll", "Poll")
+                        .WithMany("Options")
+                        .HasForeignKey("CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_poll_option_poll_comment_id");
+
+                    b.Navigation("Poll");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.PollVote", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Comments.PollOption", "Option")
+                        .WithMany("Votes")
+                        .HasForeignKey("PollOptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_poll_vote_poll_option_poll_option_id");
+
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_poll_vote_asp_net_users_user_id");
+
+                    b.Navigation("Option");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.RideComment", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ride_comment_asp_net_users_author_id");
+
+                    b.HasOne("DLR.Server.Data.Rides.GroupRide", "Ride")
+                        .WithMany()
+                        .HasForeignKey("GroupRideId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ride_comment_group_ride_group_ride_id");
+
+                    b.HasOne("DLR.Server.Data.Photos.Photo", "Photo")
+                        .WithMany()
+                        .HasForeignKey("PhotoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_ride_comment_photo_photo_id");
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Photo");
+
+                    b.Navigation("Ride");
+                });
+
             modelBuilder.Entity("DLR.Server.Data.Identity.Device", b =>
                 {
                     b.HasOne("DLR.Server.Data.Identity.AppUser", "User")
@@ -745,6 +1325,87 @@ namespace DLR.Server.Data.Migrations
                         .HasConstraintName("fk_refresh_token_asp_net_users_user_id");
 
                     b.Navigation("Device");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Markers.Marker", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_marker_asp_net_users_created_by_user_id");
+
+                    b.HasOne("DLR.Server.Data.Rides.GroupRide", "Ride")
+                        .WithMany()
+                        .HasForeignKey("GroupRideId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_marker_group_ride_group_ride_id");
+
+                    b.HasOne("DLR.Server.Data.Photos.Photo", "Photo")
+                        .WithMany()
+                        .HasForeignKey("PhotoId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_marker_photo_photo_id");
+
+                    b.HasOne("DLR.Server.Data.Tracks.Track", "Track")
+                        .WithMany()
+                        .HasForeignKey("TrackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_marker_track_track_id");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Photo");
+
+                    b.Navigation("Ride");
+
+                    b.Navigation("Track");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Moderation.ContentReport", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "ReportedBy")
+                        .WithMany()
+                        .HasForeignKey("ReportedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_content_report_asp_net_users_reported_by_user_id");
+
+                    b.Navigation("ReportedBy");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Moderation.UserBlock", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "Blocked")
+                        .WithMany()
+                        .HasForeignKey("BlockedId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_block_asp_net_users_blocked_id");
+
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "Blocker")
+                        .WithMany()
+                        .HasForeignKey("BlockerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_block_asp_net_users_blocker_id");
+
+                    b.Navigation("Blocked");
+
+                    b.Navigation("Blocker");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Photos.Photo", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_photo_asp_net_users_owner_id");
+
+                    b.Navigation("Owner");
                 });
 
             modelBuilder.Entity("DLR.Server.Data.Positions.RiderPosition", b =>
@@ -874,6 +1535,16 @@ namespace DLR.Server.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_asp_net_user_tokens_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.Poll", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Comments.PollOption", b =>
+                {
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("DLR.Server.Data.Rides.GroupRide", b =>

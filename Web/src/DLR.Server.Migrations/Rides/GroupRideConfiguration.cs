@@ -20,6 +20,15 @@ public sealed class GroupRideConfiguration : IEntityTypeConfiguration<GroupRide>
 		builder.Property(ride => ride.State).HasConversion<string>().HasMaxLength(20);
 		builder.Property(ride => ride.JoinPolicy).HasConversion<string>().HasMaxLength(20);
 
+		// The §5.8 defaults are on the column as well as on the property. The property default
+		// covers rides this code creates; the column default covers the rides that already exist
+		// when the migration runs, and any future path that inserts without going through the
+		// entity. A permission that defaulted to off for existing rides would silently mute every
+		// ride in flight the moment this shipped.
+		builder.Property(ride => ride.AllowMemberMarkers).HasDefaultValue(true);
+		builder.Property(ride => ride.AllowMemberComments).HasDefaultValue(true);
+		builder.Property(ride => ride.AllowMemberPhotos).HasDefaultValue(true);
+
 		builder
 			.HasOne(ride => ride.Owner)
 			.WithMany()

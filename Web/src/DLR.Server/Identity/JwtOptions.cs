@@ -61,6 +61,17 @@ public sealed class JwtOptions
 	/// </summary>
 	public int RefreshTokenYears { get; set; } = 10;
 
+	/// <summary>
+	/// How long a <em>browser</em> session lasts, sliding (§7.5, §18.5). Thirty days.
+	/// <para>
+	/// The one place this project declines to apply §7.4's conclusion. "Sign in once, never again"
+	/// was reasoned about a personal phone in a pocket behind a device passcode; a browser is
+	/// frequently a shared computer, and carrying a conclusion outside the argument that produced
+	/// it would be the mistake. Generous for a browser, and materially safer.
+	/// </para>
+	/// </summary>
+	public int WebSessionDays { get; set; } = 30;
+
 	/// <summary>The key tokens are signed with.</summary>
 	public SecurityKey CurrentKey() => KeyFrom(SigningKey, KeyId);
 

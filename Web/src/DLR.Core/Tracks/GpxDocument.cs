@@ -59,12 +59,35 @@ public enum GpxTrackSource
 /// <param name="Name">Becomes the marker title.</param>
 /// <param name="Description">Becomes the marker note.</param>
 /// <param name="Symbol">From <c>&lt;sym&gt;</c>; maps to an icon key.</param>
+/// <param name="DirectionDeg">
+/// From our own <c>dlr:direction</c> extension (§16.6). Other readers ignore it and we read ours
+/// back, which is what makes the round trip lossless without inventing a GPX element nobody else
+/// understands.
+/// </param>
 public sealed record GpxWaypoint(
 	double Latitude,
 	double Longitude,
 	string? Name,
 	string? Description,
-	string? Symbol);
+	string? Symbol,
+	short? DirectionDeg = null);
+
+/// <summary>Our GPX extension namespace (§16.6).</summary>
+public static class DlrGpx
+{
+	/// <summary>
+	/// The namespace URI for <c>dlr:</c> elements.
+	/// <para>
+	/// Uses the app's own <c>dlr://</c> scheme rather than an <c>https://</c> domain, because an
+	/// XML namespace is an identifier and not an address — nothing should ever fetch it, and
+	/// pointing it at a real domain invites something to try.
+	/// </para>
+	/// </summary>
+	public const string Namespace = "dlr://gpx/v1";
+
+	/// <summary>The conventional prefix.</summary>
+	public const string Prefix = "dlr";
+}
 
 /// <summary>Everything one GPX file yielded.</summary>
 /// <param name="Tracks">One per <c>&lt;trk&gt;</c> and per <c>&lt;rte&gt;</c>.</param>

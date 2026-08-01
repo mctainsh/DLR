@@ -19,6 +19,12 @@ public static class TokenEndpoints
 	/// </summary>
 	public const string InvalidCredentials = "Invalid username or password.";
 
+	/// <summary>
+	/// The title on the one refusal a client is expected to branch on (§7.11). A constant because
+	/// the app matches it to decide whether to offer "create a new account" or "try again".
+	/// </summary>
+	public const string AccountDeletedTitle = "Account deleted";
+
 	/// <summary>Maps <c>POST /api/v1/auth/token</c>.</summary>
 	public static IEndpointRouteBuilder MapToken(this IEndpointRouteBuilder endpoints)
 	{
@@ -157,6 +163,17 @@ public static class TokenEndpoints
 				StatusCodes.Status401Unauthorized,
 				"Session ended",
 				"This session was ended because its refresh token was used twice. Sign in again.");
+		}
+
+		if (outcome.Status is RefreshStatus.AccountDeleted)
+		{
+			// §7.11 owes the device this. A generic sign-in failure looks like a bug and is
+			// indistinguishable from a bad password, so the app can only shrug; with this it can
+			// say what happened and offer to make a new account.
+			return Problem(
+				StatusCodes.Status401Unauthorized,
+				AccountDeletedTitle,
+				"This account was deleted after 180 days without use.");
 		}
 
 		if (outcome.Status is not RefreshStatus.Rotated || outcome.RefreshToken is null)

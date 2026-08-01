@@ -119,6 +119,42 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 				""".ReplaceLineEndings("\n")),
 			cancellationToken);
 
+	/// <summary>
+	/// Tells a dormant account it is about to be deleted (§7.11).
+	/// <para>
+	/// The one email in this project that asks for nothing. It carries no link and no token, because
+	/// it does not need to: signing in is what saves the account, and an unsolicited "click here to
+	/// keep your account" is indistinguishable from the phishing message somebody will eventually
+	/// send in our name.
+	/// </para>
+	/// </summary>
+	/// <param name="user">Whose account is dormant.</param>
+	/// <param name="deleteAfterUtc">When the sweep will take it.</param>
+	/// <param name="cancellationToken">Cancellation.</param>
+	public Task SendInactivityWarningAsync(
+		AppUser user,
+		DateTimeOffset deleteAfterUtc,
+		CancellationToken cancellationToken = default) =>
+		email.SendAsync(
+			new EmailMessage(
+				user.Email!,
+				"Your Dumb Luck Rides account will be deleted",
+				$"""
+				Hello {user.UserName},
+
+				We have not heard from this account since it was last used, and it holds no
+				rides, no tracks and no group memberships. Accounts like that are deleted
+				automatically rather than kept forever.
+
+				Yours will be removed on or after {deleteAfterUtc:D}.
+
+				To keep it, just open the app and sign in. That is all — there is nothing to
+				click here, and we will never email you a link that keeps an account alive.
+
+				If you would rather it went, do nothing.
+				""".ReplaceLineEndings("\n")),
+			cancellationToken);
+
 	private string Link(string page, Guid userId, string token) =>
 		$"{links.Value.BaseUrl.TrimEnd('/')}/{page}" +
 		$"?userId={userId}&token={Uri.EscapeDataString(token)}";

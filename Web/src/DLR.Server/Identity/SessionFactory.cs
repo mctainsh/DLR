@@ -33,14 +33,20 @@ public sealed class SessionFactory(
 	/// does not match, and this installation gets one of its own.
 	/// </param>
 	/// <param name="cancellationToken">Cancellation.</param>
+	/// <param name="kind">
+	/// Phone or browser (§7.5). Decided by which endpoint the caller reached, never by anything
+	/// the client asserts — a client-supplied value would let a browser ask for the permanent
+	/// session the distinction exists to withhold.
+	/// </param>
 	public async Task<TokenResponse> BeginAsync(
 		AppUser user,
 		Guid? claimedDeviceId,
 		string? deviceName = null,
+		DeviceKind kind = DeviceKind.Mobile,
 		CancellationToken cancellationToken = default)
 	{
 		(Guid deviceId, bool isNew) =
-			await ResolveDeviceAsync(user.Id, claimedDeviceId, deviceName, cancellationToken);
+			await ResolveDeviceAsync(user.Id, claimedDeviceId, deviceName, kind, cancellationToken);
 
 		string refreshToken = await refresh.StartFamilyAsync(user.Id, deviceId, cancellationToken);
 
@@ -90,6 +96,7 @@ public sealed class SessionFactory(
 		Guid userId,
 		Guid? claimedDeviceId,
 		string? deviceName,
+		DeviceKind kind,
 		CancellationToken cancellationToken)
 	{
 		if (claimedDeviceId is { } claimed)
@@ -100,7 +107,11 @@ public sealed class SessionFactory(
 					device => device.Id == claimed && device.UserId == userId,
 					cancellationToken);
 
-			if (existing is not null)
+			// The kind has to match, not merely the id. A browser presenting a phone's device id
+			// would otherwise adopt that row and inherit its permanent session, which is exactly
+			// what §7.5 withholds from browsers. A mismatch is not an error — the installation
+			// gets a row of its own, the same as any other id that does not match.
+			if (existing is not null && existing.Kind == kind)
 			{
 				// A rename is the client telling us what the phone is called now. Nothing
 				// depends on it, so a fresh value wins and a missing one changes nothing.
@@ -124,6 +135,7 @@ public sealed class SessionFactory(
 			Id = Guid.NewGuid(),
 			UserId = userId,
 			Name = string.IsNullOrWhiteSpace(deviceName) ? null : deviceName,
+			Kind = kind,
 			CreatedUtc = now,
 			LastSeenUtc = now,
 		};

@@ -14,6 +14,15 @@ public sealed class DeviceConfiguration : IEntityTypeConfiguration<Device>
 		builder.HasKey(device => device.Id);
 
 		builder.Property(device => device.Name).HasMaxLength(60);
+		// The column default matters as much as the property default, and for the same reason
+		// SRV-28's content switches needed both: this column is added to a table that already has
+		// rows, and every one of them is a phone. Without it they are backfilled with the empty
+		// string, which maps back to no DeviceKind at all — every existing session unreadable.
+		builder
+			.Property(device => device.Kind)
+			.HasConversion<string>()
+			.HasMaxLength(20)
+			.HasDefaultValue(DeviceKind.Mobile);
 
 		builder
 			.HasOne(device => device.User)

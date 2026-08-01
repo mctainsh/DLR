@@ -486,6 +486,11 @@ public static class RideEndpoints
 			// would let anybody in the ride re-share the group the organiser curated.
 			isOrganiser ? ride.JoinCode : null,
 
+			// Sent to everybody, unlike the join code. A client that does not know a switch is off
+			// draws a compose surface that produces a 403 when used, which reads as a broken app
+			// rather than as a decision the organiser made (§5.8).
+			MembershipEndpoints.Describe(ride),
+
 			[.. ride.Members
 				.OrderBy(member => member.JoinedUtc)
 				.Select(member => new RideMemberSummary(

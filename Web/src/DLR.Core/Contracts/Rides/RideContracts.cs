@@ -81,6 +81,11 @@ public sealed record JoinResult(Guid RideId, bool Joined, Guid? RequestId);
 /// Only ever sent to the organiser. It is the ride's entire access control (§5.2), so putting
 /// it in a member's copy would let any member re-share the ride the organiser curated.
 /// </param>
+/// <param name="Permissions">
+/// What ordinary members may add (§5.8). Sent to everyone, not only the organiser: a client that
+/// does not know a switch is off draws a compose surface that produces a 403 when used, which
+/// reads as a broken app rather than as a decision somebody made.
+/// </param>
 /// <param name="Members">Who is in.</param>
 public sealed record RideDetail(
 	Guid Id,
@@ -93,7 +98,37 @@ public sealed record RideDetail(
 	int MemberCount,
 	bool IsOrganiser,
 	string? JoinCode,
+	RidePermissions Permissions,
 	IReadOnlyList<RideMemberSummary> Members);
+
+/// <summary>
+/// The organiser's three content switches (§5.8).
+/// <para>
+/// All default <strong>on</strong>. A group ride is a group of people the organiser chose, so
+/// starting from silence would be a strange default for a product whose point is riding together;
+/// these exist for the ride that needs them — a large public charity ride, or one that has gone
+/// sideways.
+/// </para>
+/// <para>
+/// <strong>Turning one off stops new content and deletes nothing.</strong> Same rule as §7.3's
+/// profile sharing, for the same reason — revoking a permission is not an instruction to destroy
+/// what was already permitted.
+/// </para>
+/// </summary>
+/// <param name="AllowMemberMarkers">Whether ordinary members may place markers (§16.5).</param>
+/// <param name="AllowMemberComments">
+/// Whether ordinary members may post. Off leaves reading, reacting and voting alone — a reaction
+/// carries no free text, and switching off the ability to answer a poll would break the poll
+/// rather than moderate it.
+/// </param>
+/// <param name="AllowMemberPhotos">
+/// Whether ordinary members may attach photographs, to comments or to markers. Its own switch
+/// rather than a consequence of the comment one, because photos are the expensive half.
+/// </param>
+public sealed record RidePermissions(
+	bool AllowMemberMarkers = true,
+	bool AllowMemberComments = true,
+	bool AllowMemberPhotos = true);
 
 /// <summary>One row of the member list (§5.2).</summary>
 /// <param name="UserId">Which rider.</param>

@@ -161,3 +161,77 @@ jobs:
           fi
 
           echo "All commits signed off."
+
+  # The deployment is code too, and it breaks the same way everything else does — one
+  # missing package in the runtime stage, one path that stopped existing. Building the
+  # image on every pull request is what makes that a red check rather than a failed
+  # deploy at the end of an evening (§9).
+  #
+  # Built, never pushed. Publishing needs a registry credential, and §14.4's rule is
+  # that no job a fork can trigger reads a secret.
+  image:
+    name: Build the server image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # Full history: SourceLink reads the commit out of it and /api/v1/about hands it
+      # back, which is an AGPL §13 obligation rather than a nicety (§14.6.2). The
+      # default shallow clone produces a server that cannot say which commit it is.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build the image
+        run: docker build --file deploy/Dockerfile --tag dlr-server:ci .
+
+      # The image starting is not the same as the image working. This is the one check
+      # that would have caught a runtime stage missing the native library SkiaSharp
+      # needs, or a blob mount point owned by root.
+      - name: Start it against a throwaway PostgreSQL
+        run: |
+          set -euo pipefail
+
+          docker network create dlr-ci
+
+          docker run --detach --name pg --network dlr-ci \
+            --env POSTGRES_DB=dlr --env POSTGRES_USER=dlr --env POSTGRES_PASSWORD=ci \
+            --health-cmd "pg_isready --username=dlr --dbname=dlr" \
+            --health-interval 3s --health-retries 20 \
+            postgres:17-alpine
+
+          until [ "$(docker inspect --format '{{.State.Health.Status}}' pg)" = healthy ]; do
+            sleep 2
+          done
+
+          docker run --rm --network dlr-ci \
+            --env 'ConnectionStrings__Dlr=Host=pg;Database=dlr;Username=dlr;Password=ci' \
+            dlr-server:ci --migrate
+
+          docker run --detach --name server --network dlr-ci \
+            --env 'ConnectionStrings__Dlr=Host=pg;Database=dlr;Username=dlr;Password=ci' \
+            --env 'Auth__SigningKey=ci-only-key-long-enough-for-hs256-and-not-a-secret' \
+            --env Blobs__RootPath=/blobs \
+            dlr-server:ci
+
+      # /healthz judges the schema and the disk as well as the process (§9), so a green
+      # answer here means the migration step ran and the blob volume is writable — the
+      # two things a fresh deployment gets wrong.
+      - name: Wait for it to report healthy
+        run: |
+          set -euo pipefail
+
+          for attempt in $(seq 1 30); do
+            if docker run --rm --network dlr-ci curlimages/curl:latest \
+              --fail --silent http://server:8080/healthz; then
+              echo
+              echo "Healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          echo "::error::The server never reported healthy."
+          docker logs server
+          exit 1

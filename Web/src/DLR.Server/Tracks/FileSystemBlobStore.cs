@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Options;
 
 namespace DLR.Server.Tracks;
@@ -23,7 +24,16 @@ public sealed class BlobStoreOptions
 /// <see cref="IBlobStore"/> over a directory (§9.1).
 /// </summary>
 /// <param name="options">Where the volume is.</param>
-public sealed class FileSystemBlobStore(IOptions<BlobStoreOptions> options) : IBlobStore
+/// <param name="clock">
+/// The project's clock, and it does more here than record a time. The orphan sweep (§7.11) decides
+/// whether a blob is unreferenced or merely <em>not referenced yet</em> by how old it is, so the
+/// file's timestamp and the horizon it is compared against have to be in the same frame. Stamping
+/// it from the ambient clock and comparing it against <c>TimeProvider</c> would put a real August
+/// date beside a fake January one and make every blob look ancient — which is the grace window
+/// silently not existing.
+/// </param>
+public sealed class FileSystemBlobStore(IOptions<BlobStoreOptions> options, TimeProvider clock)
+	: IBlobStore
 {
 	private readonly string _root = options.Value.RootPath;
 
@@ -49,6 +59,9 @@ public sealed class FileSystemBlobStore(IOptions<BlobStoreOptions> options) : IB
 			}
 
 			File.Move(staging, path, overwrite: false);
+
+			// After the move, because moving carries the staging file's own timestamp across.
+			File.SetLastWriteTimeUtc(path, clock.GetUtcNow().UtcDateTime);
 		}
 		catch
 		{
@@ -94,6 +107,36 @@ public sealed class FileSystemBlobStore(IOptions<BlobStoreOptions> options) : IB
 		_ = cancellationToken;
 
 		return Task.FromResult(File.Exists(PathFor(blobRef)));
+	}
+
+	/// <inheritdoc />
+	public async IAsyncEnumerable<BlobEntry> ListAsync(
+		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	{
+		await Task.CompletedTask;
+
+		if (!Directory.Exists(_root))
+		{
+			yield break;
+		}
+
+		foreach (string path in Directory.EnumerateFiles(_root, "*", SearchOption.AllDirectories))
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			string name = Path.GetFileName(path);
+
+			// The staging files PutAsync writes beside its target are not blobs and must never be
+			// offered as candidates: one is a blob being written *right now*, which is the single
+			// most dangerous thing an orphan sweep could take. The name filter is what excludes
+			// them, and it is the same 32-hex shape PathFor refuses to route anything else by.
+			if (name.Length != 32 || !name.All(char.IsAsciiHexDigitLower))
+			{
+				continue;
+			}
+
+			yield return new BlobEntry(name, File.GetLastWriteTimeUtc(path));
+		}
 	}
 
 	private static string NewReference() => Guid.NewGuid().ToString("N");

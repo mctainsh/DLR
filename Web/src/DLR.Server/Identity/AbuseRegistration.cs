@@ -32,6 +32,17 @@ public sealed class RateLimitOptions
 
 	/// <summary>GPX imports per day, per account.</summary>
 	public int ImportPerDayPerUser { get; set; } = 100;
+
+	/// <summary>
+	/// MapKit token mints per hour, per address (§4.5).
+	/// <para>
+	/// Authentication is the main gate — a public token endpoint would be a free map quota for the
+	/// internet, billed here — but an authenticated one still deserves a ceiling: a token lasts
+	/// half an hour and is cached client-side, so a real browser needs a handful a day and anything
+	/// asking far more often is minting them for somewhere else.
+	/// </para>
+	/// </summary>
+	public int MapTokenPerHourPerAddress { get; set; } = 60;
 }
 
 /// <summary>Authorization policy names.</summary>
