@@ -2,7 +2,11 @@ using System.Reflection;
 using DLR.Server;
 using DLR.Server.Api;
 using DLR.Server.Data;
+using DLR.Server.Hubs;
 using DLR.Server.Identity;
+using DLR.Server.Positions;
+using DLR.Server.Rides;
+using DLR.Server.Tracks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,6 +38,34 @@ builder.Services.AddDlrIdentity();
 builder.Services.AddDlrAbuseControls(builder.Configuration);
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.Section));
+builder.Services.Configure<BlobStoreOptions>(builder.Configuration.GetSection(BlobStoreOptions.Section));
+builder.Services.AddSingleton<IBlobStore, FileSystemBlobStore>();
+builder.Services.Configure<TrackImportOptions>(builder.Configuration.GetSection(TrackImportOptions.Section));
+builder.Services.AddScoped<TrackStore>();
+builder.Services.Configure<RideJoinOptions>(builder.Configuration.GetSection(RideJoinOptions.Section));
+builder.Services.AddScoped<RideNotifications>();
+builder.Services.AddScoped<PositionStore>();
+
+// The cache is a singleton because it *is* the live state; the writer is scoped because it
+// borrows the request context's connection. The flush service bridges the two through a scope
+// of its own — a background service holding a scoped context is the captive dependency the
+// container validation above exists to catch.
+builder.Services.Configure<RideOptions>(builder.Configuration.GetSection(RideOptions.Section));
+builder.Services.AddSingleton<RiderPositionCache>();
+builder.Services.AddScoped<IPositionWriter, PositionWriter>();
+builder.Services.AddSingleton<PositionFlushService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<PositionFlushService>());
+builder.Services.AddSingleton<PositionCacheRehydrator>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<PositionCacheRehydrator>());
+
+builder.Services.AddSingleton<SharingWindDownService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<SharingWindDownService>());
+
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<RideBroadcastService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<RideBroadcastService>());
+builder.Services.Configure<TrackEditOptions>(builder.Configuration.GetSection(TrackEditOptions.Section));
+builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.Section));
 builder.Services.Configure<AccountLinkOptions>(builder.Configuration.GetSection(AccountLinkOptions.Section));
 builder.Services.AddDlrJwtBearer();
@@ -57,6 +89,10 @@ RequiredSettings.ValidateConnectionString(app.Configuration);
 // it — every signup would look like it came from Caddy.
 app.UseForwardedHeaders();
 
+// The points endpoint sends ~200 KB of encoded polyline for a long ride (§15.5). Caddy
+// compresses in production; this makes the same true of a direct request.
+app.UseResponseCompression();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -67,6 +103,20 @@ app.MapSessions();
 app.MapEmail();
 app.MapPasswords();
 app.MapProfile();
+app.MapTracks();
+app.MapTrackImport();
+app.MapTrackEditing();
+app.MapTrackPoints();
+app.MapRides();
+app.MapMembership();
+app.MapPositions();
+
+// CloseOnAuthenticationExpiration is left at its default of false, deliberately (§7.6). SignalR
+// validates the token when the connection opens; closing on expiry would kill a two-hour ride's
+// connection every fifteen minutes — the access token's lifetime, which has nothing to do with
+// whether the rider is still on the bike. The client's AccessTokenProvider supplies a fresh token
+// on *reconnect*, which is where rotation belongs. Written out so nobody later "fixes" it.
+app.MapHub<RideHub>(RideHub.Path);
 
 app.Run();
 

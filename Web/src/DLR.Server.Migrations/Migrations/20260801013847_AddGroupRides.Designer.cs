@@ -4,6 +4,7 @@ using System.Net;
 using DLR.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DLR.Server.Data.Migrations
 {
     [DbContext(typeof(DlrDbContext))]
-    partial class DlrDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260801013847_AddGroupRides")]
+    partial class AddGroupRides
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -256,52 +259,6 @@ namespace DLR.Server.Data.Migrations
                     b.ToTable("refresh_token", (string)null);
                 });
 
-            modelBuilder.Entity("DLR.Server.Data.Positions.RiderPosition", b =>
-                {
-                    b.Property<Guid>("GroupRideId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("group_ride_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<short?>("AccuracyM")
-                        .HasColumnType("smallint")
-                        .HasColumnName("accuracy_m");
-
-                    b.Property<short?>("HeadingDeg")
-                        .HasColumnType("smallint")
-                        .HasColumnName("heading_deg");
-
-                    b.Property<int>("Lat")
-                        .HasColumnType("integer")
-                        .HasColumnName("lat");
-
-                    b.Property<int>("Lon")
-                        .HasColumnType("integer")
-                        .HasColumnName("lon");
-
-                    b.Property<DateTimeOffset>("RecordedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("recorded_utc");
-
-                    b.Property<short?>("SpeedMps")
-                        .HasColumnType("smallint")
-                        .HasColumnName("speed_mps");
-
-                    b.HasKey("GroupRideId", "UserId")
-                        .HasName("pk_rider_position");
-
-                    b.HasIndex("RecordedUtc")
-                        .HasDatabaseName("ix_rider_position_recorded");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_rider_position_user_id");
-
-                    b.ToTable("rider_position", (string)null);
-                });
-
             modelBuilder.Entity("DLR.Server.Data.Rides.GroupRide", b =>
                 {
                     b.Property<Guid>("Id")
@@ -317,10 +274,6 @@ namespace DLR.Server.Data.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("description");
-
-                    b.Property<DateTimeOffset?>("EndedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("ended_utc");
 
                     b.Property<string>("JoinCode")
                         .IsRequired()
@@ -347,10 +300,6 @@ namespace DLR.Server.Data.Migrations
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_id");
-
-                    b.Property<DateTimeOffset?>("SharingEndsUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sharing_ends_utc");
 
                     b.Property<DateTimeOffset>("StartUtc")
                         .HasColumnType("timestamp with time zone")
@@ -450,10 +399,6 @@ namespace DLR.Server.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("role");
-
-                    b.Property<bool>("ShareLocation")
-                        .HasColumnType("boolean")
-                        .HasColumnName("share_location");
 
                     b.HasKey("GroupRideId", "UserId")
                         .HasName("pk_group_ride_member");
@@ -745,27 +690,6 @@ namespace DLR.Server.Data.Migrations
                         .HasConstraintName("fk_refresh_token_asp_net_users_user_id");
 
                     b.Navigation("Device");
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Positions.RiderPosition", b =>
-                {
-                    b.HasOne("DLR.Server.Data.Rides.GroupRide", "Ride")
-                        .WithMany()
-                        .HasForeignKey("GroupRideId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_rider_position_group_ride_group_ride_id");
-
-                    b.HasOne("DLR.Server.Data.Identity.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_rider_position_asp_net_users_user_id");
-
-                    b.Navigation("Ride");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("DLR.Server.Data.Rides.GroupRide", b =>

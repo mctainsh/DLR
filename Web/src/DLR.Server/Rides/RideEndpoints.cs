@@ -1,0 +1,587 @@
+using System.Security.Claims;
+using DLR.Core.Contracts.Rides;
+using DLR.Core.Rides;
+using DLR.Server.Data;
+using DLR.Server.Data.Identity;
+using DLR.Server.Data.Rides;
+using DLR.Server.Identity;
+using DLR.Server.Positions;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+
+namespace DLR.Server.Rides;
+
+/// <summary>The §5.2 request-spam limits, as settings (§14.5).</summary>
+public sealed class RideJoinOptions
+{
+	/// <summary>Configuration section name.</summary>
+	public const string Section = "Rides";
+
+	/// <summary>How many requests one rider may have outstanding at once.</summary>
+	public int MaxPendingRequestsPerUser { get; set; } = 5;
+
+	/// <summary>How many requests one rider may make in a day.</summary>
+	public int MaxRequestsPerDayPerUser { get; set; } = 20;
+
+	/// <summary>
+	/// Failed join-code attempts per minute, per address.
+	/// <para>
+	/// The gap §14.5 found: §7.8 limited the auth endpoints and join <em>requests</em>, but never
+	/// join-<em>code</em> submission. Six Crockford characters is about 1.07 billion
+	/// combinations — impractical to guess at human speed, entirely practical for a script, and
+	/// publishing the code format makes that obvious to anyone reading the repository.
+	/// </para>
+	/// </summary>
+	public int FailedCodeAttemptsPerMinutePerAddress { get; set; } = 10;
+
+	/// <summary>Failed join-code attempts per hour, per account.</summary>
+	public int FailedCodeAttemptsPerHourPerUser { get; set; } = 30;
+}
+
+/// <summary>Creating a ride, joining one, and deciding who is in (§5.2).</summary>
+public static class RideEndpoints
+{
+	/// <summary>Route name for creating a ride.</summary>
+	public const string CreateRouteName = "CreateRide";
+
+	/// <summary>Route name for the detail.</summary>
+	public const string DetailRouteName = "GetRide";
+
+	/// <summary>Route name for joining by code.</summary>
+	public const string JoinRouteName = "JoinRideByCode";
+
+	/// <summary>Route name for the organiser's pending list.</summary>
+	public const string RequestsRouteName = "ListJoinRequests";
+
+	/// <summary>Route name for a decision.</summary>
+	public const string DecideRouteName = "DecideJoinRequest";
+
+	/// <summary>Maps the ride endpoints.</summary>
+	public static IEndpointRouteBuilder MapRides(this IEndpointRouteBuilder endpoints)
+	{
+		// Creating and joining are the social surface §7.8's ladder shuts, and the two places
+		// its restriction actually bites. Recording a solo ride stays open.
+		endpoints
+			.MapPost("/api/v1/group-rides", CreateAsync)
+			.RequireAuthorization(AuthorizationPolicies.NotRestricted)
+			.WithName(CreateRouteName)
+			.WithSummary("Creates a ride and its join code.");
+
+		endpoints
+			.MapPost("/api/v1/group-rides/join", JoinAsync)
+			.RequireAuthorization(AuthorizationPolicies.NotRestricted)
+			.WithName(JoinRouteName)
+			.WithSummary("Joins by code, or asks to, depending on the ride's policy.");
+
+		endpoints
+			.MapGet("/api/v1/group-rides/{id:guid}", DetailAsync)
+			.RequireAuthorization()
+			.WithName(DetailRouteName)
+			.WithSummary("A ride and its members.");
+
+		endpoints
+			.MapGet("/api/v1/group-rides/{id:guid}/join-requests", RequestsAsync)
+			.RequireAuthorization()
+			.WithName(RequestsRouteName)
+			.WithSummary("Requests waiting on the organiser.");
+
+		endpoints
+			.MapPost("/api/v1/group-rides/{id:guid}/join-requests/{requestId:guid}", DecideAsync)
+			.RequireAuthorization()
+			.WithName(DecideRouteName)
+			.WithSummary("Admits or declines a request.");
+
+		return endpoints;
+	}
+
+	private static async Task<IResult> CreateAsync(
+		CreateRideRequest request,
+		ClaimsPrincipal caller,
+		DlrDbContext database,
+		PositionStore positions,
+		TimeProvider clock)
+	{
+		if (caller.UserId() is not { } ownerId)
+		{
+			return Results.Unauthorized();
+		}
+
+		if (string.IsNullOrWhiteSpace(request.Name))
+		{
+			return Problem(StatusCodes.Status400BadRequest, "Name required", "A ride needs a name.");
+		}
+
+		GroupRide ride = new()
+		{
+			Id = Guid.NewGuid(),
+			OwnerId = ownerId,
+			Name = request.Name.Trim(),
+			Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+			StartUtc = request.StartUtc,
+			State = GroupRideState.Open,
+			JoinPolicy = request.JoinPolicy == JoinPolicyDto.Open ? JoinPolicy.Open : JoinPolicy.Approval,
+			MemberCap = request.MemberCap is > 0 and <= 500 ? request.MemberCap.Value : GroupRide.DefaultMemberCap,
+			CreatedUtc = clock.GetUtcNow(),
+		};
+
+		// The organiser is a member from the start, so every "is this person in the ride" check
+		// has one answer rather than two.
+		ride.Members.Add(new GroupRideMember
+		{
+			GroupRideId = ride.Id,
+			UserId = ownerId,
+			Role = GroupRideRole.Owner,
+			JoinedUtc = clock.GetUtcNow(),
+		});
+
+		database.Add(ride);
+
+		// Retried rather than pre-checked. At 32⁶ a collision is rare enough that a lookup on
+		// every ride costs more than the retry ever will.
+		for (int attempt = 1; ; attempt++)
+		{
+			ride.JoinCode = JoinCode.Generate();
+
+			try
+			{
+				await database.SaveChangesAsync();
+
+				break;
+			}
+			catch (DbUpdateException) when (attempt < 5)
+			{
+				database.ChangeTracker.Entries<GroupRide>()
+					.First(entry => entry.Entity.Id == ride.Id)
+					.State = EntityState.Added;
+			}
+		}
+
+		return Results.Created(
+			$"/api/v1/group-rides/{ride.Id}",
+			await DescribeAsync(database, positions, ride.Id, ownerId));
+	}
+
+	/// <summary>
+	/// The join-code path (§5.2), and the endpoint §14.5 says must not ship without a limit.
+	/// </summary>
+	private static async Task<IResult> JoinAsync(
+		JoinByCodeRequest request,
+		HttpContext http,
+		ClaimsPrincipal caller,
+		DlrDbContext database,
+		RequestThrottle throttle,
+		RideNotifications notifications,
+		IOptions<RideJoinOptions> options,
+		TimeProvider clock)
+	{
+		if (caller.UserId() is not { } userId)
+		{
+			return Results.Unauthorized();
+		}
+
+		RideJoinOptions limits = options.Value;
+
+		string? code = JoinCode.Normalise(request.Code);
+
+		GroupRide? ride = code is null
+			? null
+			: await database
+				.Set<GroupRide>()
+				.Include(row => row.Members)
+				.SingleOrDefaultAsync(row => row.JoinCode == code);
+
+		if (ride is null || ride.State is GroupRideState.Cancelled or GroupRideState.Archived)
+		{
+			// Counting *failures*, not attempts (§14.5). A rider who joins ten rides in a
+			// minute is using the product; a client trying ten codes a minute is enumerating
+			// them, and only the second should ever meet a limit.
+			bool withinLimits =
+				throttle.TryAcquire(
+					$"join-code-ip:{http.Connection.RemoteIpAddress}",
+					limits.FailedCodeAttemptsPerMinutePerAddress,
+					TimeSpan.FromMinutes(1))
+				& throttle.TryAcquire(
+					$"join-code-user:{userId}",
+					limits.FailedCodeAttemptsPerHourPerUser,
+					TimeSpan.FromHours(1));
+
+			return withinLimits
+				? Problem(StatusCodes.Status404NotFound, "No such ride", "That join code does not match a ride.")
+				: Results.StatusCode(StatusCodes.Status429TooManyRequests);
+		}
+
+		if (ride.Members.Any(member => member.UserId == userId))
+		{
+			return Results.Ok(new JoinResult(ride.Id, Joined: true, RequestId: null));
+		}
+
+		bool blocked = await database
+			.Set<GroupRideJoinRequest>()
+			.AnyAsync(row => row.GroupRideId == ride.Id && row.UserId == userId && row.Blocked);
+
+		if (blocked)
+		{
+			// The same answer an unknown code gets. Telling somebody they have been blocked
+			// hands them the one fact the organiser was trying not to have a conversation about.
+			return Problem(StatusCodes.Status404NotFound, "No such ride", "That join code does not match a ride.");
+		}
+
+		if (ride.Members.Count >= ride.MemberCap)
+		{
+			return Problem(
+				StatusCodes.Status409Conflict,
+				"Ride is full",
+				$"This ride has reached its limit of {ride.MemberCap} members.");
+		}
+
+		if (ride.JoinPolicy == JoinPolicy.Open)
+		{
+			database.Add(new GroupRideMember
+			{
+				GroupRideId = ride.Id,
+				UserId = userId,
+				Role = GroupRideRole.Rider,
+				JoinedUtc = clock.GetUtcNow(),
+			});
+
+			await database.SaveChangesAsync();
+
+			return Results.Ok(new JoinResult(ride.Id, Joined: true, RequestId: null));
+		}
+
+		return await RequestAsync(ride, userId, request.Message, database, throttle, notifications, limits, clock);
+	}
+
+	private static async Task<IResult> RequestAsync(
+		GroupRide ride,
+		Guid userId,
+		string? message,
+		DlrDbContext database,
+		RequestThrottle throttle,
+		RideNotifications notifications,
+		RideJoinOptions limits,
+		TimeProvider clock)
+	{
+		GroupRideJoinRequest? existing = await database
+			.Set<GroupRideJoinRequest>()
+			.SingleOrDefaultAsync(row =>
+				row.GroupRideId == ride.Id
+				&& row.UserId == userId
+				&& row.Status == JoinRequestStatus.Pending);
+
+		if (existing is not null)
+		{
+			return Results.Ok(new JoinResult(ride.Id, Joined: false, existing.Id));
+		}
+
+		// Without this, "request to join" is an invitation to pester every ride in the system
+		// (§5.2). Counted from rows rather than from memory, for the same reason the §7.8
+		// ladder is — a restart must not be a way to start again.
+		int pending = await database
+			.Set<GroupRideJoinRequest>()
+			.CountAsync(row => row.UserId == userId && row.Status == JoinRequestStatus.Pending);
+
+		if (pending >= limits.MaxPendingRequestsPerUser)
+		{
+			return Problem(
+				StatusCodes.Status429TooManyRequests,
+				"Too many pending requests",
+				$"You already have {pending} requests waiting. Wait for an answer before asking " +
+				"to join another ride.");
+		}
+
+		if (!throttle.TryAcquire(
+			$"join-request-day:{userId}",
+			limits.MaxRequestsPerDayPerUser,
+			TimeSpan.FromDays(1)))
+		{
+			return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+		}
+
+		GroupRideJoinRequest created = new()
+		{
+			Id = Guid.NewGuid(),
+			GroupRideId = ride.Id,
+			UserId = userId,
+			Status = JoinRequestStatus.Pending,
+			Message = string.IsNullOrWhiteSpace(message) ? null : message.Trim(),
+			RequestedUtc = clock.GetUtcNow(),
+		};
+
+		database.Add(created);
+
+		await database.SaveChangesAsync();
+
+		await notifications.RequestReceivedAsync(ride, userId);
+
+		return Results.Ok(new JoinResult(ride.Id, Joined: false, created.Id));
+	}
+
+	private static async Task<IResult> DetailAsync(
+		Guid id,
+		ClaimsPrincipal caller,
+		DlrDbContext database,
+		PositionStore positions)
+	{
+		if (caller.UserId() is not { } userId)
+		{
+			return Results.Unauthorized();
+		}
+
+		bool isMember = await database
+			.Set<GroupRideMember>()
+			.AnyAsync(member => member.GroupRideId == id && member.UserId == userId);
+
+		// Membership is the only access model (§5.2). A ride id is shareable, so a
+		// non-member's answer must not depend on whether the ride exists.
+		return isMember
+			? Results.Ok(await DescribeAsync(database, positions, id, userId))
+			: Results.NotFound();
+	}
+
+	private static async Task<IResult> RequestsAsync(
+		Guid id,
+		ClaimsPrincipal caller,
+		DlrDbContext database)
+	{
+		if (caller.UserId() is not { } userId)
+		{
+			return Results.Unauthorized();
+		}
+
+		if (!await CanDecideAsync(database, id, userId))
+		{
+			return Results.NotFound();
+		}
+
+		List<JoinRequestSummary> pending = await database
+			.Set<GroupRideJoinRequest>()
+			.AsNoTracking()
+			.Where(row => row.GroupRideId == id && row.Status == JoinRequestStatus.Pending)
+			.OrderBy(row => row.RequestedUtc)
+			.Select(row => new JoinRequestSummary(
+				row.Id,
+				row.UserId,
+				row.User!.UserName!,
+				row.Message,
+				row.RequestedUtc))
+			.ToListAsync();
+
+		return Results.Ok(pending);
+	}
+
+	private static async Task<IResult> DecideAsync(
+		Guid id,
+		Guid requestId,
+		DecideJoinRequest decision,
+		ClaimsPrincipal caller,
+		DlrDbContext database,
+		RideNotifications notifications,
+		TimeProvider clock)
+	{
+		if (caller.UserId() is not { } userId)
+		{
+			return Results.Unauthorized();
+		}
+
+		if (!await CanDecideAsync(database, id, userId))
+		{
+			return Results.NotFound();
+		}
+
+		GroupRideJoinRequest? request = await database
+			.Set<GroupRideJoinRequest>()
+			.SingleOrDefaultAsync(row =>
+				row.Id == requestId
+				&& row.GroupRideId == id
+				&& row.Status == JoinRequestStatus.Pending);
+
+		if (request is null)
+		{
+			return Results.NotFound();
+		}
+
+		GroupRide ride = await database
+			.Set<GroupRide>()
+			.Include(row => row.Members)
+			.SingleAsync(row => row.Id == id);
+
+		DateTimeOffset now = clock.GetUtcNow();
+
+		if (decision.Admit)
+		{
+			if (ride.Members.Count >= ride.MemberCap)
+			{
+				return Problem(
+					StatusCodes.Status409Conflict,
+					"Ride is full",
+					$"This ride has reached its limit of {ride.MemberCap} members.");
+			}
+
+			database.Add(new GroupRideMember
+			{
+				GroupRideId = id,
+				UserId = request.UserId,
+				Role = GroupRideRole.Rider,
+				JoinedUtc = now,
+			});
+		}
+
+		request.Status = decision.Admit ? JoinRequestStatus.Approved : JoinRequestStatus.Declined;
+		request.DecidedUtc = now;
+		request.DecidedBy = userId;
+
+		// A block only means anything on a decline. Recorded on the request row rather than as
+		// its own table: the decision and the block are the same act.
+		request.Blocked = !decision.Admit && decision.Block;
+
+		await database.SaveChangesAsync();
+
+		await notifications.DecisionMadeAsync(ride, request.UserId, decision.Admit);
+
+		return Results.NoContent();
+	}
+
+	private static Task<bool> CanDecideAsync(DlrDbContext database, Guid rideId, Guid userId) =>
+		database.Set<GroupRideMember>()
+			.AnyAsync(member =>
+				member.GroupRideId == rideId
+				&& member.UserId == userId
+				&& (member.Role == GroupRideRole.Owner || member.Role == GroupRideRole.Leader));
+
+	private static async Task<RideDetail> DescribeAsync(
+		DlrDbContext database,
+		PositionStore positions,
+		Guid rideId,
+		Guid callerId)
+	{
+		GroupRide ride = await database
+			.Set<GroupRide>()
+			.AsNoTracking()
+			.Include(row => row.Members)
+			.ThenInclude(member => member.User)
+			.SingleAsync(row => row.Id == rideId);
+
+		bool isOrganiser = ride.OwnerId == callerId;
+
+		// Who actually has a fix. Kept apart from the sharing flag because "not sharing" and
+		// "no signal" mean different things to somebody waiting at a junction (§5.6). Read from
+		// the cache, not the table: a rider who published four seconds ago has not been flushed
+		// yet, and showing them as no-signal would be wrong for as long as the flush period.
+		IReadOnlySet<Guid> located = await positions.LocatedAsync(rideId);
+
+		return new RideDetail(
+			ride.Id,
+			ride.Name,
+			ride.Description,
+			ride.StartUtc,
+			(RideStateDto)ride.State,
+			ride.JoinPolicy == JoinPolicy.Open ? JoinPolicyDto.Open : JoinPolicyDto.Approval,
+			ride.MemberCap,
+			ride.Members.Count,
+			isOrganiser,
+
+			// The code is the ride's whole access control (§5.2). A member's copy carrying it
+			// would let anybody in the ride re-share the group the organiser curated.
+			isOrganiser ? ride.JoinCode : null,
+
+			[.. ride.Members
+				.OrderBy(member => member.JoinedUtc)
+				.Select(member => new RideMemberSummary(
+					member.UserId,
+					member.User!.UserName!,
+					member.Role.ToString(),
+					member.JoinedUtc,
+					member.ShareLocation,
+					located.Contains(member.UserId)))]);
+	}
+
+	private static IResult Problem(int status, string title, string detail) =>
+		Results.Problem(new ProblemDetails { Status = status, Title = title, Detail = detail });
+}
+
+/// <summary>
+/// Telling people what happened to a request (§5.2).
+/// <para>
+/// §5.2 specifies push, which is Phase 2 work. Email is what exists, and it goes only where an
+/// address is known — silently impossible otherwise, which is another line in §7.2's trade-off.
+/// When push arrives this is where it attaches.
+/// </para>
+/// </summary>
+/// <param name="database">For looking up who to tell.</param>
+/// <param name="email">The transport.</param>
+/// <param name="logger">Where a failed notification is recorded.</param>
+public sealed class RideNotifications(
+	DlrDbContext database,
+	IEmailSender email,
+	ILogger<RideNotifications> logger)
+{
+	/// <summary>Tells the organiser somebody is waiting.</summary>
+	/// <param name="ride">The ride.</param>
+	/// <param name="requesterId">Who asked.</param>
+	public async Task RequestReceivedAsync(GroupRide ride, Guid requesterId)
+	{
+		AppUser? organiser = await database.Users.FindAsync(ride.OwnerId);
+		AppUser? requester = await database.Users.FindAsync(requesterId);
+
+		if (organiser?.Email is null || requester is null)
+		{
+			return;
+		}
+
+		await SendAsync(
+			organiser.Email,
+			$"{requester.UserName} wants to join {ride.Name}",
+			$"""
+			{requester.UserName} has asked to join {ride.Name}.
+
+			Open the ride to admit or decline them. Nobody enters a ride you organise without
+			you saying so.
+			""",
+			ride.Id);
+	}
+
+	/// <summary>Tells the rider what the organiser decided.</summary>
+	/// <param name="ride">The ride.</param>
+	/// <param name="riderId">Who asked.</param>
+	/// <param name="admitted">Whether they are in.</param>
+	public async Task DecisionMadeAsync(GroupRide ride, Guid riderId, bool admitted)
+	{
+		AppUser? rider = await database.Users.FindAsync(riderId);
+
+		if (rider?.Email is null)
+		{
+			return;
+		}
+
+		await SendAsync(
+			rider.Email,
+			admitted ? $"You are in: {ride.Name}" : $"Your request to join {ride.Name}",
+			admitted
+				? $"""
+					{ride.Name} is yours to open now.
+
+					Sharing your location is a separate decision and it is off until you turn it
+					on — joining a ride does not start broadcasting.
+					"""
+				: $"""
+					The organiser of {ride.Name} did not admit you this time.
+					""",
+			ride.Id);
+	}
+
+	private async Task SendAsync(string to, string subject, string body, Guid rideId)
+	{
+		try
+		{
+			await email.SendAsync(new EmailMessage(to, subject, body.ReplaceLineEndings("\n")));
+		}
+		catch (Exception exception)
+		{
+			// A decision that has already been recorded is not undone by a mail server being
+			// down (§7.12). The rider sees it next time they open the ride.
+			logger.LogError(exception, "Could not send a ride notification for {RideId}.", rideId);
+		}
+	}
+}

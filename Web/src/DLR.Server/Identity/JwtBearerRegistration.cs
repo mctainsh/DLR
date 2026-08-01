@@ -1,5 +1,7 @@
+using DLR.Server.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 
 namespace DLR.Server.Identity;
 
@@ -38,10 +40,25 @@ public static class JwtBearerRegistration
 
 			bearer.TokenValidationParameters = options.Value.ValidationParameters(clock);
 
-			// The token travels in a header. §7.6 lifts it from the query string for the ride
-			// hub and *only* for the ride hub — accepting it globally would scatter
-			// credentials through access logs and referrer headers.
 			bearer.MapInboundClaims = false;
+
+			// Browsers cannot set headers on a WebSocket handshake, so SignalR sends the token as
+			// ?access_token=. §7.6 lifts it for the ride hub and *only* for the ride hub —
+			// accepting it globally would scatter credentials through access logs, referrer
+			// headers and browser history for every route in the API.
+			bearer.Events = new JwtBearerEvents
+			{
+				OnMessageReceived = context =>
+				{
+					if (context.Request.Path.StartsWithSegments(RideHub.Path, StringComparison.Ordinal)
+						&& context.Request.Query.TryGetValue("access_token", out StringValues token))
+					{
+						context.Token = token;
+					}
+
+					return Task.CompletedTask;
+				},
+			};
 		}
 	}
 }

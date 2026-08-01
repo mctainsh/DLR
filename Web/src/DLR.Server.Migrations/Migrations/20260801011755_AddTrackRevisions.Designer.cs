@@ -4,6 +4,7 @@ using System.Net;
 using DLR.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DLR.Server.Data.Migrations
 {
     [DbContext(typeof(DlrDbContext))]
-    partial class DlrDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260801011755_AddTrackRevisions")]
+    partial class AddTrackRevisions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -254,214 +257,6 @@ namespace DLR.Server.Data.Migrations
                         .HasDatabaseName("ix_refresh_token_user_device");
 
                     b.ToTable("refresh_token", (string)null);
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Positions.RiderPosition", b =>
-                {
-                    b.Property<Guid>("GroupRideId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("group_ride_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<short?>("AccuracyM")
-                        .HasColumnType("smallint")
-                        .HasColumnName("accuracy_m");
-
-                    b.Property<short?>("HeadingDeg")
-                        .HasColumnType("smallint")
-                        .HasColumnName("heading_deg");
-
-                    b.Property<int>("Lat")
-                        .HasColumnType("integer")
-                        .HasColumnName("lat");
-
-                    b.Property<int>("Lon")
-                        .HasColumnType("integer")
-                        .HasColumnName("lon");
-
-                    b.Property<DateTimeOffset>("RecordedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("recorded_utc");
-
-                    b.Property<short?>("SpeedMps")
-                        .HasColumnType("smallint")
-                        .HasColumnName("speed_mps");
-
-                    b.HasKey("GroupRideId", "UserId")
-                        .HasName("pk_rider_position");
-
-                    b.HasIndex("RecordedUtc")
-                        .HasDatabaseName("ix_rider_position_recorded");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_rider_position_user_id");
-
-                    b.ToTable("rider_position", (string)null);
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Rides.GroupRide", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("description");
-
-                    b.Property<DateTimeOffset?>("EndedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("ended_utc");
-
-                    b.Property<string>("JoinCode")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("join_code");
-
-                    b.Property<string>("JoinPolicy")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("join_policy");
-
-                    b.Property<int>("MemberCap")
-                        .HasColumnType("integer")
-                        .HasColumnName("member_cap");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("name");
-
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("owner_id");
-
-                    b.Property<DateTimeOffset?>("SharingEndsUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sharing_ends_utc");
-
-                    b.Property<DateTimeOffset>("StartUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("start_utc");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("state");
-
-                    b.HasKey("Id")
-                        .HasName("pk_group_ride");
-
-                    b.HasIndex("JoinCode")
-                        .IsUnique()
-                        .HasDatabaseName("ux_group_ride_join_code");
-
-                    b.HasIndex("OwnerId", "CreatedUtc")
-                        .HasDatabaseName("ix_group_ride_owner_created");
-
-                    b.ToTable("group_ride", (string)null);
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Rides.GroupRideJoinRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<bool>("Blocked")
-                        .HasColumnType("boolean")
-                        .HasColumnName("blocked");
-
-                    b.Property<Guid?>("DecidedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("decided_by");
-
-                    b.Property<DateTimeOffset?>("DecidedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("decided_utc");
-
-                    b.Property<Guid>("GroupRideId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("group_ride_id");
-
-                    b.Property<string>("Message")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("message");
-
-                    b.Property<DateTimeOffset>("RequestedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("requested_utc");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_group_ride_join_request");
-
-                    b.HasIndex("GroupRideId", "UserId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_join_request_pending")
-                        .HasFilter("status = 'Pending'");
-
-                    b.HasIndex("UserId", "RequestedUtc")
-                        .HasDatabaseName("ix_join_request_user_requested");
-
-                    b.ToTable("group_ride_join_request", (string)null);
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Rides.GroupRideMember", b =>
-                {
-                    b.Property<Guid>("GroupRideId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("group_ride_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<DateTimeOffset>("JoinedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("joined_utc");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("role");
-
-                    b.Property<bool>("ShareLocation")
-                        .HasColumnType("boolean")
-                        .HasColumnName("share_location");
-
-                    b.HasKey("GroupRideId", "UserId")
-                        .HasName("pk_group_ride_member");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_group_ride_member_user");
-
-                    b.ToTable("group_ride_member", (string)null);
                 });
 
             modelBuilder.Entity("DLR.Server.Data.Tracks.Track", b =>
@@ -747,81 +542,6 @@ namespace DLR.Server.Data.Migrations
                     b.Navigation("Device");
                 });
 
-            modelBuilder.Entity("DLR.Server.Data.Positions.RiderPosition", b =>
-                {
-                    b.HasOne("DLR.Server.Data.Rides.GroupRide", "Ride")
-                        .WithMany()
-                        .HasForeignKey("GroupRideId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_rider_position_group_ride_group_ride_id");
-
-                    b.HasOne("DLR.Server.Data.Identity.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_rider_position_asp_net_users_user_id");
-
-                    b.Navigation("Ride");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Rides.GroupRide", b =>
-                {
-                    b.HasOne("DLR.Server.Data.Identity.AppUser", "Owner")
-                        .WithMany()
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_group_ride_asp_net_users_owner_id");
-
-                    b.Navigation("Owner");
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Rides.GroupRideJoinRequest", b =>
-                {
-                    b.HasOne("DLR.Server.Data.Rides.GroupRide", "Ride")
-                        .WithMany()
-                        .HasForeignKey("GroupRideId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_group_ride_join_request_group_ride_group_ride_id");
-
-                    b.HasOne("DLR.Server.Data.Identity.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_group_ride_join_request_asp_net_users_user_id");
-
-                    b.Navigation("Ride");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Rides.GroupRideMember", b =>
-                {
-                    b.HasOne("DLR.Server.Data.Rides.GroupRide", "Ride")
-                        .WithMany("Members")
-                        .HasForeignKey("GroupRideId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_group_ride_member_group_ride_group_ride_id");
-
-                    b.HasOne("DLR.Server.Data.Identity.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_group_ride_member_asp_net_users_user_id");
-
-                    b.Navigation("Ride");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("DLR.Server.Data.Tracks.Track", b =>
                 {
                     b.HasOne("DLR.Server.Data.Identity.AppUser", "Owner")
@@ -874,11 +594,6 @@ namespace DLR.Server.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_asp_net_user_tokens_asp_net_users_user_id");
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Rides.GroupRide", b =>
-                {
-                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

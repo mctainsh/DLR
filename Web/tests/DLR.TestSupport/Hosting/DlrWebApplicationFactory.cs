@@ -1,5 +1,6 @@
 using DLR.Server.Data;
 using DLR.Server.Identity;
+using DLR.Server.Positions;
 using DLR.TestSupport.Database;
 using DLR.TestSupport.Email;
 using DLR.TestSupport.Identity;
@@ -54,6 +55,13 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 
 	private readonly string _connectionString;
 	private readonly Dictionary<string, string?> _overrides;
+
+	/// <summary>
+	/// A throwaway blob volume per server (§9.1). Its own directory rather than a shared one,
+	/// so a test that counts what is on disk counts only its own.
+	/// </summary>
+	public string BlobRoot { get; } =
+		Directory.CreateTempSubdirectory("dlr-blobs").FullName;
 
 	private DlrWebApplicationFactory(
 		string connectionString,
@@ -147,6 +155,18 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 		await operation(scope.ServiceProvider.GetRequiredService<DlrDbContext>());
 	}
 
+	/// <summary>
+	/// Runs one write-behind flush, synchronously (§5.5).
+	/// <para>
+	/// Publishing lands in <c>RiderPositionCache</c> and reaches PostgreSQL on the next tick, so a
+	/// test that wants to assert on the <em>persisted</em> row has to get one written first. Doing
+	/// that by advancing the clock and waiting for the timer would make every such test a race;
+	/// driving the flush directly is the same code path with none of the flakiness.
+	/// </para>
+	/// </summary>
+	public Task FlushPositionsAsync() =>
+		Services.GetRequiredService<PositionFlushService>().FlushAsync(CancellationToken.None);
+
 	/// <inheritdoc />
 	protected override void ConfigureWebHost(IWebHostBuilder builder)
 	{
@@ -161,6 +181,8 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 				// startup guard requires: a key that ships with the code is refused, and a
 				// test suite is not an exemption from that.
 				["Auth:SigningKey"] = SigningKey,
+
+				["Blobs:RootPath"] = BlobRoot,
 
 				// The test host connects over loopback, so the forwarded header is only
 				// honoured if loopback is a known proxy. Without this every test would see

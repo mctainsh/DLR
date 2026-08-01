@@ -38,7 +38,7 @@ memory of having written the code — it is marked after the suite is green on t
 |---|---|---|---|
 | **A — Skeleton and guards** ✅ | SRV-01 … SRV-05 | Phase 0 | An empty solution that already enforces its own rules |
 | **B — Identity** ✅ | SRV-06 … SRV-13 | Phase 1 | Register, sign in, never sign in again, recover if you left an address |
-| **C — Tracks** | SRV-14 … SRV-19 | Phase 1 | Record, upload, import GPX, edit on the web |
+| **C — Tracks** ✅ | SRV-14 … SRV-19 | Phase 1 | Record, upload, import GPX, edit on the web |
 | **D — Group rides** | SRV-20 … SRV-25 | Phase 2 | Join, consent, live positions, the wind-down |
 | **E — Content** | SRV-26 … SRV-30 | Phase 2 | Markers, photos, the thread, polls |
 | **F — Operations** | SRV-31 … SRV-35 | Phase 2–3 | Moderation, the nightly job, deployment, backups |
@@ -291,7 +291,8 @@ blunt a burst, the ladder decides whether an account may exist.
 **Two tests were only half-writable.** `Restricted_UnconfirmedLadderAccount_CanRecordButNotJoinRide`
 and `Restricted_AfterConfirming_CanJoinRide` need rides (SRV-20) and tracks (SRV-16). What exists
 now asserts the policy against the tokens the ladder actually issues; the endpoint halves attach
-in SRV-20.
+in SRV-20. **Both are now written**, in `Rides/RideJoinTests.cs` — SRV-20 put
+`AuthorizationPolicies.NotRestricted` on create and join, which is the surface they needed.
 **Two bugs this task surfaced, both fixed:**
 - **Registration never sent a confirmation link.** §7.2's flow ends "if email supplied: send 24 h
   confirmation link", and it was missing — so a ladder-restricted account was restricted with no
@@ -358,7 +359,26 @@ viewerSharesActiveRide)` as the **only** way to construct one.
 `DLR.Core/Tracks/` is pure logic with no I/O, so most of this milestone is fast unit tests in
 `DLR.Core.Tests`. Build it there first and let the server task be thin.
 
-### SRV-14 — GPX reader, writer and the hostile corpus
+### SRV-14 — GPX reader, writer and the hostile corpus ✅ *(reader; writer is SRV-19)*
+**Status:** the reader is done. `DLR.Core/Tracks/` holds `GpxReader`, `TrackGeometry`,
+`TrackStats` and `TrackPoint`; `GpxFixtures` in `DLR.TestSupport` builds the corpus in code. 22
+tests in `DLR.Core.Tests`. The **writer** is not here — nothing needs to emit GPX until export,
+and §15.3 is entirely about reading.
+**`TrackStats` arrived early.** SRV-15 nominally owns it, but this task's first named test is
+`…CreatesTrackWithComputedStats`, so distance, ascent, duration, max speed and bounds are here.
+SRV-15 keeps RDP simplification, `TrackEditor` and the edit-recomputation rules.
+**Ascent threshold picked, not inherited.** §15.7 says the importer uses "the recorder's noise
+threshold, unchanged" — but the recorder does not exist and the design named no number. 3 m,
+against a running reference rather than point to point, recorded in §15.7 for the recorder to
+adopt rather than re-decide.
+**Watch out — `record struct` defaults are a trap.** `GpxLimits` was one, and `new()` on a record
+struct zeroes every field instead of running the primary constructor's defaults: both caps were
+**0**, so the reader accepted no tracks at all. It is a class now, which makes
+`default(GpxLimits)` impossible to write.
+**Watch out — `ReadElementContentAsString` advances past the end tag.** A loop that then calls
+`Read()` skips the following sibling, so a `<trkpt>` got its `<ele>` and not its `<time>`.
+`ElementText` stops on the end element instead. This one read every *other* child, which is the
+kind of bug that produces plausible output.
 **First red test:** `Import_GpxWithSingleTrack_CreatesTrackWithComputedStats`
 **Then, security first:** `Import_DtdDeclaration_IsRejectedWithoutResolvingIt`,
 `Import_NestedEntityExpansion_IsRejected`, `Import_ExternalEntityReference_MakesNoNetworkCall`,
@@ -374,7 +394,26 @@ plus a **synthetic** hostile fixture corpus in `DLR.TestSupport`.
 **Watch for:** the fixtures are generated, never recorded. A real trace starts at your house.
 **Refs:** §15.3, §14.2
 
-### SRV-15 — Track stats, simplification and the editor primitive
+### SRV-15 — Track stats, simplification and the editor primitive ✅
+**Status:** done. `TrackEditor` (one primitive, three gestures), `TrackSimplifier` (RDP),
+`PointRange`. `TrackStats` arrived in SRV-14; this task adds the recompute-on-edit guarantee.
+All in `DLR.Core` — no server, no database. 29 new tests.
+**The validation errors are a result type, not an exception**, unlike `GpxReader`. A malformed
+GPX file is found mid-stream by a parser that throws; an edit is validated up front against
+indices the caller chose. Refusing one is an answer, not an accident. SRV-18 maps the error to
+its 400.
+**RDP tolerance picked, not inherited:** 5 m, recorded in §15.5. Below what a rider can
+distinguish at any zoom showing a whole ride and inside consumer GPS error, so the simplified
+line is the same shape with the noise gone. Iterative rather than recursive — 40 000 points on a
+curve that never straightens would recurse deep enough to overflow a phone's stack.
+**Watch out — the ascent test did not test ascent.** Removing the 3 m threshold entirely left the
+suite green: the fixture climbed monotonically in 1 m steps, and running-reference accumulation
+gives the same total either way. It now uses oscillating altitude — a bike at the lights, which
+is what the threshold is *for* — where thresholded reads 20 m and unthresholded reads 25.
+**Watch out — RDP output size is not obvious.** Pushing one point 50 m off a straight line keeps
+five points, not three: once the corner survives, each half is measured against a line running to
+it, so points that were on the original line now deviate from the new one. Asserting an exact
+count pins the algorithm's internals rather than the property that matters.
 **First red test:** `Edit_NoOpEdit_ProducesIdenticalStats`
 **Then:** `Edit_TrimStart_RemovesLeadingPointsAndRecomputesStats`, `Edit_TrimEnd_RemovesTrailingPoints`,
 `Edit_RemoveInteriorRange_InsertsSegmentBreak`,
@@ -386,14 +425,48 @@ ranges. All in `DLR.Core` — no server, no database.
 **Watch for:** the no-op test first. It is the guard that an edit changes only what it removed.
 **Refs:** §15.5, §15.7
 
-### SRV-16 — Blob storage and track upload
+### SRV-16 — Blob storage and track upload ✅
+**Status:** done. `IBlobStore` + `FileSystemBlobStore` over a volume, the `Track` entity with its
+nullable stats columns, `POST /tracks` (idempotent), `GET /tracks`, `GET /tracks/{id}`.
+`TrackBlobCodec` in `DLR.Core` writes the points. 11 new tests.
+**The blob format is lossless and the wire format will not be.** §15.5's points endpoint sends
+the editor an encoded polyline, which quantises to about a tenth of a metre — fine there, because
+the editor only sends back *indices*. The blob is what an edit re-reads and re-stats from, so a
+format that rounded coordinates would make `Edit_NoOpEdit_ProducesIdenticalStats` false the
+moment a track was saved. Two formats, for genuinely different reasons.
+**Idempotency is the unique index, not the pre-check.** The read before the write only avoids
+doing the work twice in the common case; two drains of one outbox arriving together are decided
+by `ux_track_owner_client`, and the loser deletes its own blob rather than leaving one for the
+§7.11 orphan sweep. Scoped to the owner, because the client picks the identifier — a global
+unique index would let one rider's guid collide with another's upload.
+**Watch out — the sort test could not tell the two columns apart.** Sorting on `started_utc`
+instead of `created_utc` left it green: the fixture uploaded rides in ride order, and PostgreSQL
+puts NULLs first on a descending sort, so even the untimed route landed correctly by accident.
+The fixture now uploads in the *opposite* order to when the rides happened.
 **First red test:** `Upload_SameClientGuidTwice_IsIdempotent`
 **Then:** `Upload_StoresBlobAndComputesContentHash`, `TrackList_SortsOnCreatedUtc_NotStartedUtc`
 **Then build:** `IBlobStore` over a filesystem volume (**not** object storage — §9.1), the `Track`
 entity with its nullable stats columns, `POST /tracks`, and the list/detail endpoints.
 **Refs:** §6.2, §8, §9.1
 
-### SRV-17 — GPX import endpoint
+### SRV-17 — GPX import endpoint ✅
+**Status:** done. `POST /tracks/import` multipart with `?dryRun=true`, the §15.8 caps as
+settings, per-account rate limits, and Problem Details carrying the reader's own problem name and
+position. 14 new tests.
+**`TrackStore` extracted.** Upload and import both produce a track, and §15.7 is explicit that
+three entry points into one pipeline is how ascent comes out different depending on which door
+the points used. Stats, simplified line, content hash and blob are now produced in one place.
+**Two caps, two reasons.** `MaxUploadBytes` is checked against `Content-Length` *and* the read
+file, because the header can lie; `MaxPointsPerFile` is separate and enforced mid-parse, because
+a file can be small and still be pathological. Both answer 413.
+**Import is all-or-nothing.** A multi-track file that fails partway discards every staged blob
+rather than leaving the rider to work out which of their tracks arrived.
+**Waypoints are counted, not created.** The preview reports how many markers a file would make;
+SRV-26 creates them, as the task list says.
+**Watch out — advancing the clock past 15 minutes expires the access token.** The
+duplicate-warning test moves a month forward, which is the case that warning exists for, so it
+signs in again exactly as a rider would. Any future test that advances time and then calls an
+authed endpoint needs the same.
 **First red test:** `Import_DryRun_PersistsNothing`
 **Then:** `Import_SameContentTwice_WarnsButProceeds`, `Import_ExceedsSizeCap_Returns413`,
 `Import_WaypointsPresent_AreCreatedAsMarkers` *(defer the assertion until SRV-26)*
@@ -401,7 +474,22 @@ entity with its nullable stats columns, `POST /tracks`, and the list/detail endp
 Problem Details that name the actual problem.
 **Refs:** §15.3
 
-### SRV-18 — Track editing, versioning and undo
+### SRV-18 — Track editing, versioning and undo ✅
+**Status:** done. `POST /tracks/{id}/edit` with optimistic concurrency, `TrackRevision` keyed on
+`TrackId` so "exactly one per track" is a shape the database enforces, `edit/undo` and
+`DELETE /previous-version`. 14 new tests.
+**Undo consumes the revision rather than replacing it.** §15.6 calls it a safety net for the last
+action; making the pre-undo state the new revision would be a redo, which is the history feature
+that section declines to build. Undo is still an edit — the restored points become a *new*
+version, so the chain only moves forward and a device never reasons about going backwards.
+**403 for a non-owner edit, not 404** — the one place in this API that distinction runs the other
+way (§15.4). A share link makes a track's id legitimately known to people who do not own it.
+**Deferred:** the Live-ride precondition from §15.4's table. Rides arrive in SRV-20, and changing
+a planned route mid-ride silently moves every rider's position in the gap list.
+**Watch out — the token expires before the undo window does.** Two tests advance the clock days
+and then call an authed endpoint. `HttpClient.SignInAsync` is now in `DLR.TestSupport` rather than
+copied per class; anything that moves time more than fifteen minutes needs it.
+
 **First red test:** `Edit_StaleVersion_Returns409`
 **Then:** `Edit_ByNonOwner_Returns403`, `Edit_TrackNotFullyUploaded_Returns409`,
 `Edit_IndicesApplyToRawPoints_NotSimplifiedPolyline`,
@@ -415,7 +503,15 @@ purge-now endpoints.
 wrong points, silently, only on dense tracks.
 **Refs:** §15.4, §15.5, §15.6
 
-### SRV-19 — Full-resolution points endpoint
+### SRV-19 — Full-resolution points endpoint ✅
+**Status:** done. `GET /tracks/{id}/points` with `PolylineCodec` in `DLR.Core` — encoded polyline
+at precision 6, delta-encoded time offsets and elevations, gzipped by `UseResponseCompression`.
+9 codec tests, plus SRV-18's editing tests which read through this endpoint.
+**Two formats, and the reason is not symmetry.** This one is lossy to about a tenth of a metre,
+and that is safe *because* the editor sends back indices rather than coordinates.
+`TrackBlobCodec` keeps the exact doubles and is what an edit re-stats from.
+**Missing elevation is `PolylineCodec.MissingElevation`, not zero** — sea level is a measurement.
+A track with no timestamps sends `null` rather than a run of zeroes, for the same reason.
 **First red test:** `Points_ReturnsEncodedPolylineWithDeltaTimes`
 **Then build:** `GET /tracks/{id}/points`, gzipped, in the encoding the editor indexes against.
 **Note:** this exists for the web editor; the component that consumes it is a UI task.
@@ -423,9 +519,13 @@ wrong points, silently, only on dense tracks.
 
 ---
 
-# Milestone D — Group rides
+# Milestone D — Group rides ✅
 
-### SRV-20 — Rides, join codes and join requests
+### SRV-20 — Rides, join codes and join requests ✅
+**Status:** `Rides/JoinCode.cs` (Core), `Rides/GroupRide.cs` + `GroupRideConfiguration.cs`
+(Migrations, migration `AddGroupRides`), `Contracts/Rides/RideContracts.cs`,
+`Rides/RideEndpoints.cs` (Server, with `RideJoinOptions` and `RideNotifications`).
+16 tests in `Rides/RideJoinTests.cs`; suite 247 green.
 **First red test:** `JoinByCode_ApprovalRide_CreatesPendingRequestOnly`
 **Then:** `JoinByCode_OpenRide_JoinsImmediately`, `JoinRequest_Approved_AddsMemberAndNotifiesRider`,
 `JoinRequest_Declined_WithBlock_CannotRequestAgain`, `JoinRequest_SixthPending_IsRejected`
@@ -433,9 +533,31 @@ wrong points, silently, only on dense tracks.
 its partial unique index, the admit/decline endpoints, and the member cap.
 **Also:** the join-code rate limit that §14.5 found missing — per-IP and per-account, counting
 failures. Do not ship this endpoint without it.
+**Watch out — counting failures is the whole point, and it is invisible in a passing suite.**
+Both a failures-only limiter and an all-attempts limiter make
+`JoinByCode_RepeatedWrongCodes_AreRateLimited` green. Only
+`JoinByCode_SuccessfulJoins_AreNotCountedAgainstTheLimit` tells them apart, and moving the
+`TryAcquire` call above the ride lookup was the break that proved it.
+**Watch out — a blocked rider gets the same 404 as an unknown code.** Anything else hands them the
+one fact the organiser was trying not to have a conversation about.
+**Watch out — the join code goes only to the organiser.** It is the ride's entire access control,
+so a member's copy carrying it lets any member re-share the group the organiser curated.
+`JoinCode_IsNeverSentToAnybodyButTheOrganiser` asserts against the raw response body rather than
+the `JoinCode` property, because the rule is "a member never receives the code", not "one field is
+null" — and it covers the admitted-by-approval path, which reaches membership a different way.
+**Watch out — the organiser is a member row from creation.** Otherwise every "is this person in
+the ride" check needs two answers, and one of the call sites will eventually only ask one.
+**Note:** create and join carry `AuthorizationPolicies.NotRestricted`, which is what finally let
+SRV-12's two deferred §7.15 tests be written — `Restricted_UnconfirmedLadderAccount_CanRecordButNotJoinRide`
+and `Restricted_AfterConfirming_CanJoinRide` now live in `RideJoinTests`.
 **Refs:** §5.2, §14.5
 
-### SRV-21 — Sharing consent
+### SRV-21 — Sharing consent ✅
+**Status:** `GroupRideMember.ShareLocation` and `GroupRide.EndedUtc`, `Positions/RiderPosition.cs`
++ `RiderPositionConfiguration.cs` (migration `AddSharingAndPositions`),
+`Contracts/Rides/PositionContracts.cs`, `Positions/PositionStore.cs`,
+`Positions/PositionEndpoints.cs`, `Rides/MembershipEndpoints.cs`, and the shared-profile route on
+`ProfileEndpoints`. 14 tests in `Rides/SharingTests.cs`; suite 261 green.
 **First red test:** `Join_DismissedSharingPrompt_LeavesShareLocationFalse`
 **Then:** `Join_SharingDeclined_MemberSeesOthersButPublishesNothing`,
 `Publish_ByNonSharingMember_IsRejectedAndStoresNothing`,
@@ -446,9 +568,39 @@ failures. Do not ship this endpoint without it.
 `Profile_AfterRideCompletes_SharedFieldsAreNoLongerVisible`.
 **Watch for:** turning sharing off **deletes the row**. Stopping the broadcast leaves a last-known
 position at rest, which is precisely what the rider asked you not to keep.
+**Watch out — four routes carry that same obligation, not one.** Turning the switch off, leaving,
+being removed, and the ride ending all have to delete. Each one is a separate endpoint and each
+one was broken separately in the breaking pass; they funnel through `PositionStore.StopSharingAsync`
+/ `ClearRideAsync` rather than writing their own delete, because four copies is how one of them
+eventually stops doing it. **`rider_position` has no foreign key to `group_ride_member`**, so
+removing a member cascades nothing — the delete is genuinely load-bearing, not belt-and-braces.
+**Watch out — `SharedProfile` cannot be deserialised, and a test that tries gets silent nulls.**
+Its properties are `private init` so `SharedProfile.For` is the only constructor, which also stops
+`System.Text.Json` rehydrating it: `GetFromJsonAsync<SharedProfile>` returns an all-null object
+that passes *every* "is no longer visible" assertion. Cost an hour. `SharingTests` reads through a
+local `ProfileView` mirror instead, which is what the rule is about anyway — the wire form.
+**Watch out — the two revocation tests pass vacuously on their own.** An endpoint that always
+returned `Empty` satisfies both. `Profile_CoMemberOfActiveRide_SeesTheSharedFields` is the positive
+case they are measured against, and it is not optional.
+**Watch out — the sharing route is `/sharing/me`, with no user-id form.** The §5.6 asymmetry (the
+organiser controls the ride, the rider controls their location) is expressed by the route surface
+rather than by a permission check, so `Organiser_CannotEnableSharingOnBehalfOfAMember` asserts a
+routing 404 — there is no guard on it that could later be relaxed.
+**Note:** `RideMemberSummary` gained `Sharing` and `HasPosition` as separate fields. *Not sharing*
+and *no signal* mean completely different things to somebody waiting at a junction (§5.6).
+**Note:** ending a ride takes `Immediate | WindDown` and answers **501** to `WindDown` until
+SRV-25. Silently ending immediately would break the promise the §5.6 consent copy makes, and
+silently keeping positions would be worse.
+**Deferred to SRV-22:** publishing writes through EF directly. `RiderPositionCache` and the raw
+`UNNEST` upsert go in front of it there; the durability contract does not change.
 **Refs:** §5.6, §7.3, §10.1
 
-### SRV-22 — Position cache, flush and rehydration
+### SRV-22 — Position cache, flush and rehydration ✅
+**Status:** `Positions/RiderPositionCache.cs`, `PositionWriter.cs`, `PositionFlushService.cs`,
+`PositionCacheRehydrator.cs`, `RideOptions.cs`; `PositionStore` now writes through the cache.
+`DlrWebApplicationFactory.FlushPositionsAsync()` added for tests. 22 tests across
+`Positions/RiderPositionCacheTests.cs`, `PositionFlushTests.cs`, `PositionPersistenceTests.cs`;
+suite 281 green.
 **First red test:** `Upsert_OlderTimestamp_IsIgnored`
 **Then the cache:** `Upsert_NewRider_AddsEntryMarkedDirty`,
 `Upsert_UnderParallelLoad_LatestTimestampWins`
@@ -464,9 +616,41 @@ position at rest, which is precisely what the rider asked you not to keep.
 `PositionWriter` with the `UNNEST` upsert. The one place raw SQL is allowed.
 **Watch for:** `Reads_BlockUntilRehydrationComplete` — the gate lives *inside* the cache, because
 Kestrel can serve before hosted services have run.
+**Watch out — the gate has to open on the failure path too.** `MarkReady()` is in a `finally`. A
+rehydration that throws and leaves the gate shut does not degrade to a blank map, it hangs every
+read forever. `Rehydrate_WhenTheDatabaseIsUnreachable_StillOpensTheGate` is that test.
+**Watch out — testing the timer is a race, twice over.** `BackgroundService.StartAsync` returns as
+soon as `ExecuteAsync` reaches its first await, which is not necessarily after the `PeriodicTimer`
+exists — so a single `FakeTimeProvider.Advance` can land before anything is listening and then
+wait ten seconds of fake time that never elapse. Spin-on-`Task.Yield` failed ~1 run in 4;
+advance-once-then-await-a-signal failed the same way. `Flush_OnItsTimer_RunsWithoutAnybodyCallingIt`
+advances in a bounded loop until the writer signals. Run a new timer test six times before trusting it.
+**Watch out — SRV-21's four DB assertions needed a flush inserted.** Publishing now lands in the
+cache, so `Sharing_TurnedOff_DeletesPersistedRowImmediately` and its three neighbours call
+`app.FlushPositionsAsync()` first. This makes them *stronger* — the row they delete is now genuinely
+persisted — but a future task that changes the write path will break them the same way.
+**Note:** deletes do **not** go through the cache-then-flush path. `StopSharingAsync` and
+`ClearRideAsync` hit the database first and evict second, because "gone within ten seconds" is not
+what a rider turning sharing off asked for.
+**Note:** `RideDetail`'s `HasPosition` reads the cache, not the table — a rider who published four
+seconds ago has not been flushed yet, and showing them as *no signal* would be wrong for a whole
+flush period.
+**Deferred to SRV-25:** the rehydrator loads `Live` rides only. The wind-down half of §5.5's rule 1
+needs `SharingEndsUtc`, which SRV-25 adds; until then a `Completed` ride has had its rows deleted
+anyway, so the omission is not observable.
+**⚠ Known gap, not closed by this task — §13 Q29.** A flush already in flight can re-insert a row a
+concurrent delete has just removed. One round trip wide and it needs a delete to land inside it, so
+it is rare rather than impossible — but what it leaves behind is exactly the position at rest §10.1
+forbids, and the §7.11 nightly sweep is the only backstop. Neither ordering of delete-and-evict
+closes it; it needs a tombstone the flush filters against, or a membership join in the upsert.
+**Close it before live sharing is on for anyone real.**
 **Refs:** §5.5
 
-### SRV-23 — The hub: authorisation and fan-out
+### SRV-23 — The hub: authorisation and fan-out ✅
+**Status:** `Hubs/RideHub.cs` (with `IRideClient`), `Hubs/RideBroadcastService.cs`, the
+query-string lift on `JwtBearerRegistration`, `MapHub` in `Program.cs`, `RiderPositionCache.RideIds()`.
+`Microsoft.AspNetCore.SignalR.Client` added to the test project (licence gate re-run, exit 0).
+7 tests in `Hubs/RideHubTests.cs` with `Hubs/HubClient.cs`; suite 288 green.
 **First red test:** `Hub_JoinRide_NonMemberIsRejected`
 **Then:** `Hub_JoinRide_PendingRequesterIsRejected`, `Hub_ConnectionWithoutToken_IsRejected`,
 `Hub_LongLivedConnection_SurvivesAccessTokenExpiry`
@@ -475,9 +659,31 @@ Kestrel can serve before hosted services have run.
 ride per 5 s.
 **Watch for:** authentication is not authorisation. The membership check is the only thing between
 an account and a stranger's location.
+**Watch out — the wrong table passes the obvious test.** Checking `group_ride_join_request`
+instead of `group_ride_member` still rejects a total stranger, so
+`Hub_JoinRide_NonMemberIsRejected` stays green while every pending requester is admitted to the
+live map. `Hub_JoinRide_PendingRequesterIsRejected` is the only thing that catches it, and it was
+broken separately to prove it.
+**Watch out — testing the hub over `TestServer` needs the token put in the query string by hand.**
+The .NET SignalR client sets an `Authorization` header on `ClientWebSocketOptions`, which a custom
+`WebSocketFactory` cannot carry, so the handshake arrives anonymous and fails 401. `HubClient`
+appends `?access_token=` itself — which is not a workaround but the *right* thing to exercise,
+since §7.6's lift exists precisely because a browser cannot set that header.
+**Watch out — the lift has two halves and only one is obvious.** That it works on `/hubs/ride` is
+tested by every other hub test implicitly; that it is *refused everywhere else* has exactly one
+guard, `QueryStringToken_IsAcceptedOnTheHubPathOnly`. Widening the path predicate leaks credentials
+into access logs, referrers and browser history for the whole API and nothing else notices.
+**Note:** `IRideClient` declares only the messages whose features exist — positions, sharing
+changes, ride state. §5.3's markers, comments, reactions and polls arrive with SRV-26 and
+Milestone F; declaring them now would be a contract neither side implements.
+**Note:** §5.3's server-side publish throttle ("extra pushes dropped") is **not built** — it is in
+no task's build list. Cheap to add; worth doing before the hub is load-bearing.
 **Refs:** §5.3, §7.6
 
-### SRV-24 — Multi-ride publishing
+### SRV-24 — Multi-ride publishing ✅
+**Status:** the publish path already carried no ride id from SRV-21; this task added
+`RideOptions.MaxConcurrentLiveRidesPerUser` and `POST /group-rides/{id}/start` on
+`MembershipEndpoints`. 5 tests in `Rides/MultiRideTests.cs`.
 **First red test:** `Publish_SharingInRideAOnly_StoresNoRowForRideB`
 **Then:** `Publish_MemberOfThreeLiveRides_WritesToAllThree`,
 `LiveRideCap_ExceedingMaxConcurrent_IsRejectedAtRideStart`
@@ -485,9 +691,27 @@ an account and a stranger's location.
 that rider's own consent flag is set.
 **Watch for:** the filter is on the **write**. A rider not sharing with a ride has no row in it at
 all — not a hidden pin.
+**Watch out — none of SRV-21's sharing tests catch a global consent check.** Replacing the
+per-membership `ShareLocation` with "does this rider share with *any* ride" leaves all fourteen
+`SharingTests` green, because each of them only ever has one ride in play.
+`Publish_SharingInRideAOnly_StoresNoRowForRideB` is the only guard, which is the whole reason this
+task is separate from SRV-21.
+**Decision — the cap is counted for the organiser starting the ride**, not for every member.
+§5.7 says "enforced when a ride goes Live" without saying whose count is checked. Counting all
+members would let one rider who is already in five live rides block a ride for fifty other people,
+which is a denial of service dressed as a quota. The cost §5.7 is protecting against is a rider's
+own downlink, so the actor-scoped reading is the defensible one — but it does mean a member can
+still end up in more live rides than the cap by joining rides other people start.
+**Note:** `POST /group-rides/{id}/start` is new here. `Publish_RideNotYetLive_StoresNothing` pins
+the outer gate: the lifecycle decides whether a ride takes positions at all, and consent decides
+whose.
 **Refs:** §5.7
 
-### SRV-25 — Ride end and the sharing wind-down
+### SRV-25 — Ride end and the sharing wind-down ✅
+**Status:** `GroupRide.SharingEndsUtc` (migration `AddSharingWindDown`), the wind-down arm of
+`EndAsync` on `MembershipEndpoints`, `Positions/SharingWindDownService.cs`; `PositionStore` and
+`PositionCacheRehydrator` both widened to "Live **or** inside an unexpired window".
+9 tests in `Rides/WindDownTests.cs`; suite 302 green.
 **First red test:** `RideEnd_WindDown_ExpiresServerSideWithoutAnyClient`
 **Then:** `RideEnd_DefaultChoice_DeletesAllPositionsImmediately`,
 `RideEnd_WindDown_KeepsSharingMembersPublishing`, `RideEnd_WindDown_CannotBeExtended`,
@@ -498,6 +722,26 @@ all — not a hidden pin.
 `SharingWindDownService` on a `PeriodicTimer`.
 **Watch for:** the first test is the whole point. A bounded window that depends on a client to
 honour it is an unbounded window, and a flat battery must not leave someone broadcasting.
+**Watch out — the wind-down must *continue* consent, never grant it.** The publish filter reads
+`ShareLocation && (Live || unexpired window)`. Moving the window clause into the consent half —
+`(ShareLocation || unexpired window)` — puts a rider who deliberately had sharing **off** onto the
+map the moment the ride ends, which is the exact inverse of what the feature is for. It is a
+one-parenthesis mistake and `RideEnd_WindDown_DoesNotStartSharingForSomebodyWhoHadItOff` is the
+only thing that catches it.
+**Watch out — "cannot be extended" needs the deadline re-read after the refusal.** Asserting only
+on the 409 would pass against code that returns Conflict *and* moves `SharingEndsUtc` anyway.
+**Watch out — `SharingEndsUtc` is computed from the server clock and the configured cap, never
+from anything the caller sends.** That is what makes un-extendability a property of the shape
+rather than a validation rule somebody can relax.
+**Watch out — ending early and the default ending are the same code path**, deliberately. Both
+clear the window, delete every row and switch every member off. `EndedUtc` uses `??=` so an early
+stop does not move the moment the ride ended, which §17.6's thirty-day archival counts from.
+**Watch out — advancing the clock past 15 minutes expires the access token.** Three of these tests
+move time by 30–121 minutes and every client involved needs re-authenticating, including ones that
+only *read*. Cost two rounds of 401s. `ReauthenticateAsync` is the local helper.
+**Note:** the rehydrator now implements both halves of §5.5's rule 1.
+`Rehydrate_RideInExpiredWindDown_IsNotLoaded` covers the gap where a process dies after the
+deadline but before the sweep — the rows are still there, and must not come back.
 **Refs:** §5.6
 
 ---

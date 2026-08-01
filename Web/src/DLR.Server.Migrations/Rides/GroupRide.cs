@@ -1,0 +1,236 @@
+using DLR.Server.Data.Identity;
+
+namespace DLR.Server.Data.Rides;
+
+/// <summary>Where a ride is in its lifecycle (§5.1).</summary>
+public enum GroupRideState
+{
+	/// <summary>Not yet published.</summary>
+	Draft = 0,
+
+	/// <summary>Joinable, route visible, no live positions. The planning thread is already active.</summary>
+	Open = 1,
+
+	/// <summary>Members publish positions and the server fans out to this ride only.</summary>
+	Live = 2,
+
+	/// <summary>Finished. Positions are gone or winding down (§5.6); the thread is kept.</summary>
+	Completed = 3,
+
+	/// <summary>Thirty days on, the thread becomes read-only (§17.6).</summary>
+	Archived = 4,
+
+	/// <summary>Called off.</summary>
+	Cancelled = 5,
+}
+
+/// <summary>
+/// How a valid code gets somebody in (§5.2).
+/// <para>
+/// Replaces the <c>RequiresApproval</c> boolean it grew out of, because the two paths differ in
+/// what a code <em>does</em> rather than in whether approval exists.
+/// </para>
+/// </summary>
+public enum JoinPolicy
+{
+	/// <summary>A valid code joins immediately. The organiser chose who to give it to.</summary>
+	Open = 0,
+
+	/// <summary>
+	/// A valid code creates a pending request. Nobody enters until the organiser admits them.
+	/// </summary>
+	Approval = 1,
+}
+
+/// <summary>What a member may do (§5.2).</summary>
+public enum GroupRideRole
+{
+	/// <summary>The organiser. Decides who is in.</summary>
+	Owner = 0,
+
+	/// <summary>Delegated authority over the thread and the ride's content.</summary>
+	Leader = 1,
+
+	/// <summary>An ordinary member.</summary>
+	Rider = 2,
+
+	/// <summary>Watching, not riding.</summary>
+	Spectator = 3,
+}
+
+/// <summary>
+/// A group ride (§5.1, §5.2).
+/// <para>
+/// <strong>The organiser controls both ways in.</strong> A rider reaches another person's live
+/// location only because the organiser handed out a code or pressed <em>Admit</em> — which is a
+/// stronger guarantee than the confirmed-email gate it replaced in v0.5, because a confirmed
+/// email only ever proved somebody could read a mailbox (§7.2, §10.1).
+/// </para>
+/// </summary>
+public sealed class GroupRide
+{
+	/// <summary>Row identifier.</summary>
+	public Guid Id { get; set; }
+
+	/// <summary>The organiser.</summary>
+	public Guid OwnerId { get; set; }
+
+	/// <summary>What the ride is called.</summary>
+	public string Name { get; set; } = string.Empty;
+
+	/// <summary>Where to meet, what to bring, and so on.</summary>
+	public string? Description { get; set; }
+
+	/// <summary>When it is planned to start.</summary>
+	public DateTimeOffset StartUtc { get; set; }
+
+	/// <summary>Where it is in the §5.1 lifecycle.</summary>
+	public GroupRideState State { get; set; }
+
+	/// <summary>
+	/// The six-character code, stored normalised (§5.2). Unique across live rides so a typed
+	/// code resolves to exactly one.
+	/// </summary>
+	public string JoinCode { get; set; } = string.Empty;
+
+	/// <summary>Whether a valid code joins or asks.</summary>
+	public JoinPolicy JoinPolicy { get; set; }
+
+	/// <summary>
+	/// Hard cap on members, default 50. A ride large enough to need more is a different
+	/// product, and the position fan-out (§5.5) is sized on this number.
+	/// </summary>
+	public int MemberCap { get; set; } = DefaultMemberCap;
+
+	/// <summary>The §5.2 default.</summary>
+	public const int DefaultMemberCap = 50;
+
+	/// <summary>When the ride was created.</summary>
+	public DateTimeOffset CreatedUtc { get; set; }
+
+	/// <summary>
+	/// When the organiser ended it, if they have. The clock the §17.6 thirty-day archival and the
+	/// §5.6 wind-down both run from.
+	/// </summary>
+	public DateTimeOffset? EndedUtc { get; set; }
+
+	/// <summary>
+	/// When a post-ride sharing wind-down expires, if one was granted (§5.6).
+	/// <para>
+	/// <strong>Capped and un-extendable.</strong> A window that can be renewed is an indefinite
+	/// window with extra steps, and indefinite is precisely what §1 promises this app never does.
+	/// Set once when the ride ends; the sweep clears it and never moves it forward.
+	/// </para>
+	/// <para>
+	/// Null means no wind-down — either the ride is still running, or it ended the default way and
+	/// every position went with it.
+	/// </para>
+	/// </summary>
+	public DateTimeOffset? SharingEndsUtc { get; set; }
+
+	/// <summary>The organiser's account, for cascade deletion.</summary>
+	public AppUser? Owner { get; set; }
+
+	/// <summary>Everybody in.</summary>
+	public ICollection<GroupRideMember> Members { get; set; } = [];
+}
+
+/// <summary>Somebody who is in a ride (§5.2).</summary>
+public sealed class GroupRideMember
+{
+	/// <summary>Which ride.</summary>
+	public Guid GroupRideId { get; set; }
+
+	/// <summary>Which rider.</summary>
+	public Guid UserId { get; set; }
+
+	/// <summary>What they may do.</summary>
+	public GroupRideRole Role { get; set; }
+
+	/// <summary>When they joined.</summary>
+	public DateTimeOffset JoinedUtc { get; set; }
+
+	/// <summary>
+	/// Whether this rider broadcasts their position <em>to this ride</em> (§5.6).
+	/// <para>
+	/// <strong>Defaults to false, structurally.</strong> Joining a ride and agreeing to broadcast
+	/// are two separate decisions, and a prompt that treats a swipe-away as consent is not a
+	/// consent prompt. The default lives here rather than in the endpoint so that every path that
+	/// creates a member — code, approval, or anything added later — inherits it.
+	/// </para>
+	/// <para>
+	/// Per ride, not per account: a rider who shares with their regular Sunday group and not with
+	/// a charity ride full of strangers is expressing something sensible, and one global switch
+	/// could not express it.
+	/// </para>
+	/// </summary>
+	public bool ShareLocation { get; set; }
+
+	/// <summary>The ride, for cascade deletion.</summary>
+	public GroupRide? Ride { get; set; }
+
+	/// <summary>The account, for cascade deletion.</summary>
+	public AppUser? User { get; set; }
+}
+
+/// <summary>Where a request to join has got to (§5.2).</summary>
+public enum JoinRequestStatus
+{
+	/// <summary>Waiting on the organiser.</summary>
+	Pending = 0,
+
+	/// <summary>Admitted; the member row exists.</summary>
+	Approved = 1,
+
+	/// <summary>Refused.</summary>
+	Declined = 2,
+
+	/// <summary>Withdrawn by the rider.</summary>
+	Withdrawn = 3,
+}
+
+/// <summary>
+/// A rider asking to be let in (§5.2, §7.13).
+/// <para>
+/// Decided rows are kept rather than deleted: a declined-and-blocked request is what stops the
+/// same person asking again, and deleting the history would be deleting the block.
+/// </para>
+/// </summary>
+public sealed class GroupRideJoinRequest
+{
+	/// <summary>Row identifier.</summary>
+	public Guid Id { get; set; }
+
+	/// <summary>Which ride.</summary>
+	public Guid GroupRideId { get; set; }
+
+	/// <summary>Who is asking.</summary>
+	public Guid UserId { get; set; }
+
+	/// <summary>Where it has got to.</summary>
+	public JoinRequestStatus Status { get; set; }
+
+	/// <summary>Anything the rider wanted to say.</summary>
+	public string? Message { get; set; }
+
+	/// <summary>When they asked.</summary>
+	public DateTimeOffset RequestedUtc { get; set; }
+
+	/// <summary>When the organiser decided.</summary>
+	public DateTimeOffset? DecidedUtc { get; set; }
+
+	/// <summary>Which organiser or leader decided.</summary>
+	public Guid? DecidedBy { get; set; }
+
+	/// <summary>
+	/// Whether the decline also blocks. A blocked rider cannot ask again — the organiser's
+	/// answer to somebody who will not take a no.
+	/// </summary>
+	public bool Blocked { get; set; }
+
+	/// <summary>The ride, for cascade deletion.</summary>
+	public GroupRide? Ride { get; set; }
+
+	/// <summary>The account, for cascade deletion.</summary>
+	public AppUser? User { get; set; }
+}

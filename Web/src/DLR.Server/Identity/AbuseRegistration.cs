@@ -26,6 +26,12 @@ public sealed class RateLimitOptions
 
 	/// <summary>Refresh-grant calls per minute, per device.</summary>
 	public int RefreshPerMinutePerDevice { get; set; } = 30;
+
+	/// <summary>GPX imports per hour, per account. On top of the size and point caps (§15.3).</summary>
+	public int ImportPerHourPerUser { get; set; } = 20;
+
+	/// <summary>GPX imports per day, per account.</summary>
+	public int ImportPerDayPerUser { get; set; } = 100;
 }
 
 /// <summary>Authorization policy names.</summary>
