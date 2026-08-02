@@ -1,0 +1,217 @@
+using System.Reflection;
+using BlazorDLR.Shared.Services;
+using BlazorDLR.Web.Components;
+using BlazorDLR.Web.Services;
+using DLR.Server;
+using DLR.Server.Api;
+using DLR.Server.Comments;
+using DLR.Server.Data;
+using DLR.Server.Hubs;
+using DLR.Server.Identity;
+using DLR.Server.Maintenance;
+using DLR.Server.Maps;
+using DLR.Server.Markers;
+using DLR.Server.Moderation;
+using DLR.Server.Photos;
+using DLR.Server.Positions;
+using DLR.Server.Rides;
+using DLR.Server.Tracks;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// In every environment, not just Development, which is where the default puts it.
+//
+// A captive-dependency bug — a singleton holding something scoped — is a startup failure
+// or it is a heisenbug: the scoped service is captured by the first request to build it
+// and then quietly reused forever, which for anything holding a DbContext means one
+// connection shared across every caller. The default arrangement means the whole graph is
+// only checked on a developer's machine, and the test host runs as "Testing".
+//
+// It is a one-off cost at boot, and it has already caught one.
+builder.Host.UseDefaultServiceProvider(options =>
+{
+	options.ValidateScopes = true;
+	options.ValidateOnBuild = true;
+});
+
+// TimeProvider is registered from day one. Every timing-dependent rule in the
+// project — token lifespans, the flush interval, the wind-down sweep, the
+// 180-day inactivity horizon — resolves it, so tests advance a fake clock
+// rather than sleeping. Retrofitting this later is miserable (§10.4).
+builder.Services.AddSingleton(TimeProvider.System);
+
+builder.Services.AddDbContext<DlrDbContext>(options =>
+	options.UseDlr(builder.Configuration.GetConnectionString("Dlr")));
+
+builder.Services.AddDlrIdentity();
+builder.Services.AddDlrAbuseControls(builder.Configuration);
+
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.Section));
+builder.Services.Configure<BlobStoreOptions>(builder.Configuration.GetSection(BlobStoreOptions.Section));
+builder.Services.AddSingleton<IBlobStore, FileSystemBlobStore>();
+builder.Services.Configure<TrackImportOptions>(builder.Configuration.GetSection(TrackImportOptions.Section));
+builder.Services.AddScoped<TrackStore>();
+builder.Services.Configure<RideJoinOptions>(builder.Configuration.GetSection(RideJoinOptions.Section));
+builder.Services.AddScoped<RideNotifications>();
+builder.Services.AddScoped<PositionStore>();
+
+// The cache is a singleton because it *is* the live state; the writer is scoped because it
+// borrows the request context's connection. The flush service bridges the two through a scope
+// of its own — a background service holding a scoped context is the captive dependency the
+// container validation above exists to catch.
+builder.Services.Configure<RideOptions>(builder.Configuration.GetSection(RideOptions.Section));
+builder.Services.AddSingleton<RiderPositionCache>();
+builder.Services.AddScoped<IPositionWriter, PositionWriter>();
+builder.Services.AddSingleton<PositionFlushService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<PositionFlushService>());
+builder.Services.AddSingleton<PositionCacheRehydrator>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<PositionCacheRehydrator>());
+
+builder.Services.AddSingleton<SharingWindDownService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<SharingWindDownService>());
+
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<RideBroadcastService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<RideBroadcastService>());
+builder.Services.Configure<TrackEditOptions>(builder.Configuration.GetSection(TrackEditOptions.Section));
+builder.Services.Configure<MarkerOptions>(builder.Configuration.GetSection(MarkerOptions.Section));
+
+// The one image decode path (§16.4). Singleton and stateless — it holds the caps and nothing
+// else, so a second registration anywhere would be a second ingest, which is the thing the
+// architecture test exists to prevent.
+builder.Services.Configure<PhotoOptions>(builder.Configuration.GetSection(PhotoOptions.Section));
+builder.Services.AddSingleton<ImageIngest>();
+
+builder.Services.Configure<CommentOptions>(builder.Configuration.GetSection(CommentOptions.Section));
+
+// Singleton because the dirty set *is* the pending broadcast, and hosted from the same instance so
+// an endpoint marking a comment dirty and the timer draining it are the same object (§17.4).
+builder.Services.AddSingleton<ReactionBroadcastService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<ReactionBroadcastService>());
+
+// The one destructive timer (§7.11). Singleton and hosted from the same instance so an operator
+// endpoint — or a test — driving one run drives the object the timer drives, not a second copy
+// reading the same settings. Its defaults delete nothing until somebody turns DryRun off.
+builder.Services.Configure<MaintenanceOptions>(builder.Configuration.GetSection(MaintenanceOptions.Section));
+builder.Services.Configure<ModerationOptions>(builder.Configuration.GetSection(ModerationOptions.Section));
+builder.Services.AddSingleton<NightlyMaintenanceService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<NightlyMaintenanceService>());
+
+// The browser's half of §7.4 (§7.5). Antiforgery covers exactly one endpoint — the cookie-to-
+// access-token exchange — because that is the only place a cookie is presented as a credential,
+// and the whole cost of choosing a cookie over localStorage is that one endpoint's CSRF exposure.
+builder.Services.AddAntiforgery(options => options.HeaderName = "X-DLR-Antiforgery");
+builder.Services.AddSingleton<WebSessionCookie>();
+builder.Services.AddScoped<RegistrationService>();
+
+builder.Services.Configure<MapKitOptions>(builder.Configuration.GetSection(MapKitOptions.Section));
+builder.Services.AddSingleton<MapKitSigningKey>();
+
+builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.Section));
+builder.Services.Configure<AccountLinkOptions>(builder.Configuration.GetSection(AccountLinkOptions.Section));
+builder.Services.AddDlrJwtBearer();
+
+builder.Services.AddSingleton(BuildInformation.ForAssembly(Assembly.GetExecutingAssembly()));
+builder.Services.Configure<AboutOptions>(builder.Configuration.GetSection(AboutOptions.Section));
+builder.Services.Configure<HealthOptions>(builder.Configuration.GetSection(HealthOptions.Section));
+
+// The API surface is served by attribute-routed controllers (§5).
+builder.Services.AddControllers();
+
+// Add Blazor services (server + WASM interactive).
+builder.Services.AddRazorComponents()
+	.AddInteractiveWebAssemblyComponents();
+
+// Device-specific services used by the BlazorDLR.Shared project.
+builder.Services.AddSingleton<IFormFactor, FormFactor>();
+
+var app = builder.Build();
+
+// First, and before the `--migrate` branch below, because that branch needs a database and this
+// is the setting that says where one is. It previously surfaced as an Npgsql stack trace on the
+// first request that touched a table.
+RequiredSettings.ValidateConnectionString(app.Configuration);
+
+// `--migrate` applies the schema and exits, without starting Kestrel (§9).
+//
+// A one-shot run of the same image rather than a Migrate() call on the way up. Migrating at
+// startup couples "is this server ready" to "has the schema moved", which is the coupling that
+// makes a rolling deploy or a second container an outage — and it also means a failed migration
+// presents as a crash loop rather than as a step that failed. Compose runs this to completion
+// before the server container starts, and /healthz reports the schema so that forgetting it
+// entirely is loud rather than silent (§9.1).
+//
+// The signing key is deliberately not validated first: applying a schema needs a database, not an
+// ability to issue tokens, and refusing to migrate over a missing Auth:SigningKey would make the
+// recovery order impossible for anybody setting a server up for the first time.
+if (args.Contains("--migrate", StringComparer.Ordinal))
+{
+	await using AsyncServiceScope migrationScope = app.Services.CreateAsyncScope();
+
+	await migrationScope.ServiceProvider.GetRequiredService<DlrDbContext>().Database.MigrateAsync();
+
+	return;
+}
+
+// Refuses to start on a missing, short, or committed signing key (§7.4). After Build
+// rather than before it, because that is the first point at which the configuration is
+// final — under the minimal hosting model a host can still contribute sources while the
+// builder is running, and validating early would judge a half-assembled configuration.
+// Still before the first request, so the failure is "this deployment is misconfigured"
+// rather than a 500 on somebody's first sign-in attempt.
+SigningKeySource.Validate(app.Configuration, app.Environment.ContentRootPath);
+
+// Before anything that reads an address. Every per-address rule in §7.8 depends on
+// this having run, and the ladder in particular breaks registration outright without
+// it — every signup would look like it came from Caddy.
+app.UseForwardedHeaders();
+
+// The points endpoint sends ~200 KB of encoded polyline for a long ride (§15.5). Caddy
+// compresses in production; this makes the same true of a direct request.
+app.UseResponseCompression();
+
+if (app.Environment.IsDevelopment())
+{
+	app.UseWebAssemblyDebugging();
+}
+else
+{
+	app.UseExceptionHandler("/Error");
+	app.UseHsts();
+}
+
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// After authentication and authorization, which is where the framework requires it. The token
+// endpoint validates explicitly on top of this; the middleware is what makes the metadata on
+// form-post endpoints resolvable at all (§7.5).
+app.UseAntiforgery();
+
+// The MVC controllers replace the previous MapXxx endpoints (§5).
+app.MapControllers();
+
+// CloseOnAuthenticationExpiration is left at its default of false, deliberately (§7.6). SignalR
+// validates the token when the connection opens; closing on expiry would kill a two-hour ride's
+// connection every fifteen minutes — the access token's lifetime, which has nothing to do with
+// whether the rider is still on the bike. The client's AccessTokenProvider supplies a fresh token
+// on *reconnect*, which is where rotation belongs. Written out so nobody later "fixes" it.
+app.MapHub<RideHub>(RideHub.Path);
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+	.AddInteractiveWebAssemblyRenderMode()
+	.AddAdditionalAssemblies(
+		typeof(BlazorDLR.Shared._Imports).Assembly,
+		typeof(BlazorDLR.Web.Client._Imports).Assembly);
+
+app.Run();
+
+/// <summary>
+/// Named so <c>WebApplicationFactory&lt;Program&gt;</c> has an entry point to bind to.
+/// </summary>
+public partial class Program;

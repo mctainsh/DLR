@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>b0c7b1d6-6f0f-4a2a-9f4a-4a2e0d6d3c11</UserSecretsId>
+    <!--
+      Assembly name is kept as DLR.Server so:
+        1. DLR.Server.Tests's WebApplicationFactory<Program> still binds to this host.
+        2. DLR.Architecture.Tests's CompiledAssembly can still enumerate DLR.*.dll.
+      Namespace stays as DLR.Server.* for the same reasons.
+    -->
+    <AssemblyName>DLR.Server</AssemblyName>
+    <RootNamespace>BlazorDLR.Web</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BlazorDLR.Web.Client\BlazorDLR.Web.Client.csproj" />
+    <ProjectReference Include="..\DLR.Core\DLR.Core.csproj" />
+    <ProjectReference Include="..\DLR.Server.Migrations\DLR.Server.Migrations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.0" />
+    <!-- Issues and validates the §7.4 access token. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <!--
+      SMTP (§7.12). System.Net.Mail.SmtpClient is obsolete for new development, and
+      MailKit is what makes the eventual Zoho Mail → ZeptoMail move a configuration
+      change rather than a code change.
+    -->
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="SkiaSharp" Version="4.151.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.151.0" />
+  </ItemGroup>
+
+  <!-- The server's internals are visible to its own tests and to nothing else. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="DLR.Server.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+		The one project allowed to read the real clock (§10.4), and the home of the
+		Testcontainers fixture, the fake email sink and the synthetic GPX corpus.
+		IsTestProject=false keeps `dotnet test` from treating a library of fixtures
+		as an assembly it should look for tests in.
+	-->
+	<PropertyGroup>
+		<RootNamespace>DLR.TestSupport</RootNamespace>
+		<IsTestProject>false</IsTestProject>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.8.0" />
+		<PackageReference Include="Npgsql" Version="10.0.3" />
+		<PackageReference Include="Testcontainers.PostgreSql" Version="4.13.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\DLR.Core\DLR.Core.csproj" />
+		<ProjectReference Include="..\..\BlazorDLR.Web\BlazorDLR.Web.csproj" />
+	</ItemGroup>
+
+</Project>

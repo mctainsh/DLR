@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- WebApplicationFactory over a Testcontainers PostgreSQL instance (§10.4). -->
+	<PropertyGroup>
+		<RootNamespace>DLR.Server.Tests</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+		<PackageReference Include="coverlet.collector" Version="6.0.4" />
+		<!-- Drives the §5.3 hub against TestServer, including its WebSocket handshake. -->
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\BlazorDLR.Web\BlazorDLR.Web.csproj" />
+		<ProjectReference Include="..\DLR.TestSupport\DLR.TestSupport.csproj" />
+	</ItemGroup>
+
+</Project>

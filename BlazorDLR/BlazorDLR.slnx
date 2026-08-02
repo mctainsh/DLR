@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="BlazorDLR.Shared/BlazorDLR.Shared.csproj" />
+    <Project Path="BlazorDLR.Web.Client/BlazorDLR.Web.Client.csproj" />
+    <Project Path="BlazorDLR.Web/BlazorDLR.Web.csproj" />
+    <Project Path="BlazorDLR/BlazorDLR.csproj" />
+    <Project Path="DLR.Core/DLR.Core.csproj" />
+    <Project Path="DLR.Server.Migrations/DLR.Server.Migrations.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DLR.Architecture.Tests/DLR.Architecture.Tests.csproj" />
+    <Project Path="tests/DLR.Core.Tests/DLR.Core.Tests.csproj" />
+    <Project Path="tests/DLR.Server.Tests/DLR.Server.Tests.csproj" />
+    <Project Path="tests/DLR.TestSupport/DLR.TestSupport.csproj" />
+  </Folder>
+</Solution>
