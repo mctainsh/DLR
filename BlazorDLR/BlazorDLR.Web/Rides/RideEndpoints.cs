@@ -81,7 +81,7 @@ public sealed class RideController : ControllerBase
 
 		if (string.IsNullOrWhiteSpace(request.Name))
 		{
-			return ProblemResult(StatusCodes.Status400BadRequest, "Name required", "A ride needs a name.");
+			return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Name required", detail: "A ride needs a name.");
 		}
 
 		GroupRide ride = new()
@@ -180,7 +180,7 @@ public sealed class RideController : ControllerBase
 					TimeSpan.FromHours(1));
 
 			return withinLimits
-				? ProblemResult(StatusCodes.Status404NotFound, "No such ride", "That join code does not match a ride.")
+				? Problem(statusCode: StatusCodes.Status404NotFound, title: "No such ride", detail: "That join code does not match a ride.")
 				: StatusCode(StatusCodes.Status429TooManyRequests);
 		}
 
@@ -197,15 +197,15 @@ public sealed class RideController : ControllerBase
 		{
 			// The same answer an unknown code gets. Telling somebody they have been blocked
 			// hands them the one fact the organiser was trying not to have a conversation about.
-			return ProblemResult(StatusCodes.Status404NotFound, "No such ride", "That join code does not match a ride.");
+			return Problem(statusCode: StatusCodes.Status404NotFound, title: "No such ride", detail: "That join code does not match a ride.");
 		}
 
 		if (ride.Members.Count >= ride.MemberCap)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Ride is full",
-				$"This ride has reached its limit of {ride.MemberCap} members.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Ride is full",
+				detail: $"This ride has reached its limit of {ride.MemberCap} members.");
 		}
 
 		if (ride.JoinPolicy == JoinPolicy.Open)
@@ -257,10 +257,10 @@ public sealed class RideController : ControllerBase
 
 		if (pending >= limits.MaxPendingRequestsPerUser)
 		{
-			return ProblemResult(
-				StatusCodes.Status429TooManyRequests,
-				"Too many pending requests",
-				$"You already have {pending} requests waiting. Wait for an answer before asking " +
+			return Problem(
+				statusCode: StatusCodes.Status429TooManyRequests,
+				title: "Too many pending requests",
+				detail: $"You already have {pending} requests waiting. Wait for an answer before asking " +
 				"to join another ride.");
 		}
 
@@ -389,10 +389,10 @@ public sealed class RideController : ControllerBase
 		{
 			if (ride.Members.Count >= ride.MemberCap)
 			{
-				return ProblemResult(
-					StatusCodes.Status409Conflict,
-					"Ride is full",
-					$"This ride has reached its limit of {ride.MemberCap} members.");
+				return Problem(
+					statusCode: StatusCodes.Status409Conflict,
+					title: "Ride is full",
+					detail: $"This ride has reached its limit of {ride.MemberCap} members.");
 			}
 
 			database.Add(new GroupRideMember
@@ -477,13 +477,6 @@ public sealed class RideController : ControllerBase
 					member.ShareLocation,
 					located.Contains(member.UserId)))]);
 	}
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
 }
 
 /// <summary>

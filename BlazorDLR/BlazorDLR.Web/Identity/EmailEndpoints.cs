@@ -39,7 +39,7 @@ public sealed class EmailController : ControllerBase
 
 		if (string.IsNullOrWhiteSpace(request.Email))
 		{
-			return ProblemResult(StatusCodes.Status400BadRequest, "Missing address", "An address is required.");
+			return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Missing address", detail: "An address is required.");
 		}
 
 		string address = request.Email.Trim();
@@ -54,10 +54,10 @@ public sealed class EmailController : ControllerBase
 
 		if (!stored.Succeeded)
 		{
-			return ValidationProblemResult(new Dictionary<string, string[]>
+			return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
 			{
 				[nameof(SetEmailRequest.Email)] = [.. stored.Errors.Select(error => error.Description)],
-			});
+			}));
 		}
 
 		string token = await users.GenerateEmailConfirmationTokenAsync(user);
@@ -79,14 +79,14 @@ public sealed class EmailController : ControllerBase
 
 		if (user is null)
 		{
-			return ProblemResult(StatusCodes.Status400BadRequest, "Link not valid", InvalidLink);
+			return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Link not valid", detail: InvalidLink);
 		}
 
 		IdentityResult confirmed = await users.ConfirmEmailAsync(user, request.Token);
 
 		if (!confirmed.Succeeded)
 		{
-			return ProblemResult(StatusCodes.Status400BadRequest, "Link not valid", InvalidLink);
+			return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Link not valid", detail: InvalidLink);
 		}
 
 		// Fresh tokens, because confirming changes what the account is allowed to do: §7.8's
@@ -124,20 +124,6 @@ public sealed class EmailController : ControllerBase
 	private const string InvalidLink =
 		"That confirmation link is not valid. It may have expired, or already been used. " +
 		"Ask for a new one from Settings.";
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
-
-	private static ObjectResult ValidationProblemResult(IDictionary<string, string[]> errors) =>
-		new(new ValidationProblemDetails(errors))
-		{
-			StatusCode = StatusCodes.Status400BadRequest,
-			ContentTypes = { "application/problem+json" },
-		};
 }
 
 /// <summary>Loading the caller's account from the <c>sub</c> claim.</summary>

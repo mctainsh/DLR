@@ -171,9 +171,9 @@ public sealed class WebAuthController : ControllerBase
 		catch (AntiforgeryValidationException)
 		{
 			return Problem(
-				StatusCodes.Status400BadRequest,
-				"Antiforgery check failed",
-				"Fetch a request token from /api/v1/auth/web/antiforgery and send it back.");
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Antiforgery check failed",
+				detail: "Fetch a request token from /api/v1/auth/web/antiforgery and send it back.");
 		}
 
 		if (WebSessionCookie.Read(HttpContext.Request) is not { } presented)
@@ -288,15 +288,11 @@ public sealed class WebAuthController : ControllerBase
 		};
 	}
 
-	private static ObjectResult Unauthorised(string detail) =>
-		Problem(StatusCodes.Status401Unauthorized, "Sign-in failed", detail);
-
-	private static ObjectResult Problem(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
+	private IActionResult Unauthorised(string detail) =>
+		Problem(
+			statusCode: StatusCodes.Status401Unauthorized,
+			title: "Sign-in failed",
+			detail: detail);
 }
 
 /// <summary>

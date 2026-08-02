@@ -61,10 +61,10 @@ public sealed class ReactionController : ControllerBase
 
 		if (membership.Ride.State is GroupRideState.Archived)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Ride is archived",
-				"An archived ride's thread is read-only.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Ride is archived",
+				detail: "An archived ride's thread is read-only.");
 		}
 
 		CommentReaction? existing = await database
@@ -86,10 +86,10 @@ public sealed class ReactionController : ControllerBase
 			// marker icons (§16.2, §17.4). A newer client's key is stored and rendered generically.
 			if (!ReactionKeys.IsStorable(request.Reaction))
 			{
-				return ProblemResult(
-					StatusCodes.Status400BadRequest,
-					"Bad reaction key",
-					$"A reaction key is up to {ReactionKeys.MaxLength} lowercase letters, digits and hyphens.");
+				return Problem(
+					statusCode: StatusCodes.Status400BadRequest,
+					title: "Bad reaction key",
+					detail: $"A reaction key is up to {ReactionKeys.MaxLength} lowercase letters, digits and hyphens.");
 			}
 
 			if (existing is null)
@@ -185,18 +185,18 @@ public sealed class ReactionController : ControllerBase
 		// through a comment id they legitimately hold.
 		if (chosen.Any(optionId => poll.Options.All(option => option.Id != optionId)))
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"No such option",
-				"An option must belong to the poll being voted on.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "No such option",
+				detail: "An option must belong to the poll being voted on.");
 		}
 
 		if (!poll.AllowMultiple && chosen.Count > 1)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"One option only",
-				"This poll takes a single answer.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "One option only",
+				detail: "This poll takes a single answer.");
 		}
 
 		List<Guid> optionIds = [.. poll.Options.Select(option => option.Id)];
@@ -275,10 +275,10 @@ public sealed class ReactionController : ControllerBase
 
 		if (!mayClose)
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not yours to close",
-				"A poll is closed by the person who asked, or by the organiser.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not yours to close",
+				detail: "A poll is closed by the person who asked, or by the organiser.");
 		}
 
 		DateTimeOffset now = clock.GetUtcNow();
@@ -324,11 +324,4 @@ public sealed class ReactionController : ControllerBase
 
 		return (comment, membership);
 	}
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
 }

@@ -61,10 +61,10 @@ public sealed class ModerationController : ControllerBase
 
 		if (Clean(request.Reason) is not { } reason)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"A report needs a reason",
-				"Say what is wrong with it — an empty report cannot be acted on.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "A report needs a reason",
+				detail: "Say what is wrong with it — an empty report cannot be acted on.");
 		}
 
 		RideComment? comment = await database
@@ -118,10 +118,10 @@ public sealed class ModerationController : ControllerBase
 
 		if (Clean(request.Reason) is not { } reason)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"A report needs a reason",
-				"Say what is wrong with it — an empty report cannot be acted on.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "A report needs a reason",
+				detail: "Say what is wrong with it — an empty report cannot be acted on.");
 		}
 
 		Marker? marker = await database
@@ -224,10 +224,10 @@ public sealed class ModerationController : ControllerBase
 
 		if (request.UserId == userId)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"You cannot block yourself",
-				"That would hide your own posts from you.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "You cannot block yourself",
+				detail: "That would hide your own posts from you.");
 		}
 
 		bool exists = await database
@@ -330,11 +330,4 @@ public sealed class ModerationController : ControllerBase
 
 		return string.IsNullOrEmpty(trimmed) ? null : trimmed;
 	}
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
 }

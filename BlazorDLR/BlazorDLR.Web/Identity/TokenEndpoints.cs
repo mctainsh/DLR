@@ -52,9 +52,9 @@ public sealed class TokenController : ControllerBase
 				RefreshGrantAsync(request, users, sessions, refresh, activity, throttle, limits),
 
 			_ => Task.FromResult<IActionResult>(Problem(
-				StatusCodes.Status400BadRequest,
-				"Unsupported grant type",
-				$"'{request.GrantType}' is not a grant this server issues tokens for.")),
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Unsupported grant type",
+				detail: $"'{request.GrantType}' is not a grant this server issues tokens for.")),
 		};
 
 	private async Task<IActionResult> PasswordGrantAsync(
@@ -68,9 +68,9 @@ public sealed class TokenController : ControllerBase
 		if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrEmpty(request.Password))
 		{
 			return Problem(
-				StatusCodes.Status400BadRequest,
-				"Missing credentials",
-				"The password grant needs a username and a password.");
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Missing credentials",
+				detail: "The password grant needs a username and a password.");
 		}
 
 		// Both §7.8 rows, and they answer different attacks: per address stops one machine
@@ -142,9 +142,9 @@ public sealed class TokenController : ControllerBase
 		if (string.IsNullOrWhiteSpace(request.RefreshToken))
 		{
 			return Problem(
-				StatusCodes.Status400BadRequest,
-				"Missing refresh token",
-				"The refresh grant needs a refresh token.");
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Missing refresh token",
+				detail: "The refresh grant needs a refresh token.");
 		}
 
 		RefreshOutcome outcome = await refresh.RedeemAsync(request.RefreshToken);
@@ -155,9 +155,9 @@ public sealed class TokenController : ControllerBase
 			// again. §7.10 also emails a security alert here when an address is known —
 			// which is where that lands, since this is the one branch that means theft.
 			return Problem(
-				StatusCodes.Status401Unauthorized,
-				"Session ended",
-				"This session was ended because its refresh token was used twice. Sign in again.");
+				statusCode: StatusCodes.Status401Unauthorized,
+				title: "Session ended",
+				detail: "This session was ended because its refresh token was used twice. Sign in again.");
 		}
 
 		if (outcome.Status is RefreshStatus.AccountDeleted)
@@ -166,9 +166,9 @@ public sealed class TokenController : ControllerBase
 			// indistinguishable from a bad password, so the app can only shrug; with this it can
 			// say what happened and offer to make a new account.
 			return Problem(
-				StatusCodes.Status401Unauthorized,
-				TokenEndpoints.AccountDeletedTitle,
-				"This account was deleted after 180 days without use.");
+				statusCode: StatusCodes.Status401Unauthorized,
+				title: TokenEndpoints.AccountDeletedTitle,
+				detail: "This account was deleted after 180 days without use.");
 		}
 
 		if (outcome.Status is not RefreshStatus.Rotated || outcome.RefreshToken is null)
@@ -196,9 +196,9 @@ public sealed class TokenController : ControllerBase
 			// the way that happens. A distinguishable reason is owed to the client so it can
 			// say something better than "something went wrong".
 			return Problem(
-				StatusCodes.Status401Unauthorized,
-				"Account no longer exists",
-				"This account has been deleted.");
+				statusCode: StatusCodes.Status401Unauthorized,
+				title: "Account no longer exists",
+				detail: "This account has been deleted.");
 		}
 
 		// The whole of §7.10's activity tracking, and it costs nothing: the client was
@@ -218,23 +218,14 @@ public sealed class TokenController : ControllerBase
 	/// is the difference between waiting fifteen minutes and filing a support request.
 	/// </para>
 	/// </summary>
-	private static ObjectResult LockedOut() => Problem(
-		StatusCodes.Status401Unauthorized,
-		"Account locked",
-		"Too many failed sign-in attempts. Try again in a few minutes.");
+	private IActionResult LockedOut() => Problem(
+		statusCode: StatusCodes.Status401Unauthorized,
+		title: "Account locked",
+		detail: "Too many failed sign-in attempts. Try again in a few minutes.");
 
-	private static ObjectResult Unauthorised(string detail) =>
-		Problem(StatusCodes.Status401Unauthorized, "Sign-in failed", detail);
-
-	private static ObjectResult Problem(int status, string title, string detail) =>
-		new(new ProblemDetails
-		{
-			Status = status,
-			Title = title,
-			Detail = detail,
-		})
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
+	private IActionResult Unauthorised(string detail) =>
+		Problem(
+			statusCode: StatusCodes.Status401Unauthorized,
+			title: "Sign-in failed",
+			detail: detail);
 }

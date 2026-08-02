@@ -83,10 +83,10 @@ public sealed class MembershipController : ControllerBase
 
 		if (ride.State is not (GroupRideState.Draft or GroupRideState.Open))
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Already ended",
-				"A ride that has finished cannot be started again.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Already ended",
+				detail: "A ride that has finished cannot be started again.");
 		}
 
 		// Counted for the organiser, who is the one performing the transition. Being a *member*
@@ -101,10 +101,10 @@ public sealed class MembershipController : ControllerBase
 
 		if (live >= options.Value.MaxConcurrentLiveRidesPerUser)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Too many live rides",
-				$"You are already live in {live} rides. End one before starting another.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Too many live rides",
+				detail: $"You are already live in {live} rides. End one before starting another.");
 		}
 
 		ride.State = GroupRideState.Live;
@@ -150,10 +150,10 @@ public sealed class MembershipController : ControllerBase
 
 		if (membership.Role is not (GroupRideRole.Owner or GroupRideRole.Leader))
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not yours to set",
-				"The organiser decides what members may add.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not yours to set",
+				detail: "The organiser decides what members may add.");
 		}
 
 		GroupRide ride = membership.Ride;
@@ -240,10 +240,10 @@ public sealed class MembershipController : ControllerBase
 
 		if (member.Role == GroupRideRole.Owner)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"The organiser cannot leave",
-				"End or cancel the ride instead — a ride nobody organises has nobody to " +
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "The organiser cannot leave",
+				detail: "End or cancel the ride instead — a ride nobody organises has nobody to " +
 					"decide who is in it.");
 		}
 
@@ -292,10 +292,10 @@ public sealed class MembershipController : ControllerBase
 
 		if (member.Role == GroupRideRole.Owner)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"The organiser cannot be removed",
-				"End or cancel the ride instead.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "The organiser cannot be removed",
+				detail: "End or cancel the ride instead.");
 		}
 
 		await positions.StopSharingAsync(id, userId);
@@ -341,10 +341,10 @@ public sealed class MembershipController : ControllerBase
 		if (ride.State is GroupRideState.Cancelled
 			|| (ride.State is GroupRideState.Completed && !windingDown))
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Already ended",
-				"This ride has already ended.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Already ended",
+				detail: "This ride has already ended.");
 		}
 
 		if (windingDown && request.Ending == RideEndingDto.WindDown)
@@ -352,10 +352,10 @@ public sealed class MembershipController : ControllerBase
 			// No renewal, no "add another hour". A window that can be extended is an indefinite
 			// window with extra steps (§5.6), and refusing here is the only thing standing
 			// between the cap and a client that simply calls this on a timer.
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"The wind-down cannot be extended",
-				"Sharing already stops at a fixed time. It can be ended early, but not lengthened.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "The wind-down cannot be extended",
+				detail: "Sharing already stops at a fixed time. It can be ended early, but not lengthened.");
 		}
 
 		DateTimeOffset now = clock.GetUtcNow();
@@ -404,11 +404,4 @@ public sealed class MembershipController : ControllerBase
 		database
 			.Set<Data.Positions.RiderPosition>()
 			.AnyAsync(position => position.GroupRideId == rideId && position.UserId == userId);
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
 }

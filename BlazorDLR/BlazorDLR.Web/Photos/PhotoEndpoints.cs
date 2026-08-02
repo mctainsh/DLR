@@ -71,10 +71,10 @@ public sealed class PhotoController : ControllerBase
 
 		if (!http.HasFormContentType)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Not a file upload",
-				"Send the image as multipart/form-data.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Not a file upload",
+				detail: "Send the image as multipart/form-data.");
 		}
 
 		IFormFileCollection files = (await http.ReadFormAsync(cancellationToken)).Files;
@@ -82,10 +82,10 @@ public sealed class PhotoController : ControllerBase
 
 		if (file is null)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"No file",
-				"The request carried no image.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "No file",
+				detail: "The request carried no image.");
 		}
 
 		if (file.Length > caps.MaxUploadBytes)
@@ -255,15 +255,15 @@ public sealed class PhotoController : ControllerBase
 		},
 	};
 
-	private static ObjectResult TooLarge(PhotoOptions caps) => ProblemResult(
-		StatusCodes.Status413PayloadTooLarge,
-		"File too large",
-		$"Images are limited to {caps.MaxUploadBytes / (1024 * 1024)} MB.");
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
+	private static ObjectResult TooLarge(PhotoOptions caps) =>
+		new(new ProblemDetails
 		{
-			StatusCode = status,
+			Status = StatusCodes.Status413PayloadTooLarge,
+			Title = "File too large",
+			Detail = $"Images are limited to {caps.MaxUploadBytes / (1024 * 1024)} MB.",
+		})
+		{
+			StatusCode = StatusCodes.Status413PayloadTooLarge,
 			ContentTypes = { "application/problem+json" },
 		};
 }

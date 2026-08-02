@@ -47,9 +47,10 @@ public sealed class TrackController : ControllerBase
 
 		if (request.Points.Count < TrackEditor.MinimumSurvivingPoints)
 		{
-			return ProblemResult(
-				"Not a track",
-				$"A track needs at least {TrackEditor.MinimumSurvivingPoints} points; " +
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Not a track",
+				detail: $"A track needs at least {TrackEditor.MinimumSurvivingPoints} points; " +
 				$"this upload has {request.Points.Count}.");
 		}
 
@@ -58,7 +59,7 @@ public sealed class TrackController : ControllerBase
 			// The app parses GPX with the same reader the server does (§15.7), but a
 			// client-supplied point list is untrusted input regardless of which of our own
 			// clients produced it (§15.2).
-			return ProblemResult("Invalid coordinates", "A point is outside the possible range.");
+			return Problem(statusCode: StatusCodes.Status400BadRequest,title: "Invalid coordinates", detail: "A point is outside the possible range.");
 		}
 
 		// Checked before the blob is written. Losing the race still leaves nothing behind,
@@ -172,15 +173,4 @@ public sealed class TrackController : ControllerBase
 			simplified.Points));
 	}
 
-	private static ObjectResult ProblemResult(string title, string detail) =>
-		new(new ProblemDetails
-		{
-			Status = StatusCodes.Status400BadRequest,
-			Title = title,
-			Detail = detail,
-		})
-		{
-			StatusCode = StatusCodes.Status400BadRequest,
-			ContentTypes = { "application/problem+json" },
-		};
 }

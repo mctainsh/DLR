@@ -64,10 +64,10 @@ public sealed class MarkerController : ControllerBase
 		// they broke rather than a 500 from a constraint violation (§16.1).
 		if (request.TrackId is null == request.GroupRideId is null)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Exactly one parent",
-				"A marker hangs off a track or a group ride — one of them, and not both.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Exactly one parent",
+				detail: "A marker hangs off a track or a group ride — one of them, and not both.");
 		}
 
 		if (Validate(request.Lat, request.Lon, request.Icon, request.Title, request.DirectionDeg, limits)
@@ -189,10 +189,10 @@ public sealed class MarkerController : ControllerBase
 
 		if (!await CanWriteAsync(database, marker, userId))
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not yours to edit",
-				"A marker is edited by the person who placed it, or by the organiser.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not yours to edit",
+				detail: "A marker is edited by the person who placed it, or by the organiser.");
 		}
 
 		if (Validate(request.Lat, request.Lon, request.Icon, request.Title, request.DirectionDeg, limits)
@@ -242,10 +242,10 @@ public sealed class MarkerController : ControllerBase
 
 		if (!await CanWriteAsync(database, marker, userId))
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not yours to delete",
-				"A marker is removed by the person who placed it, or by the organiser.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not yours to delete",
+				detail: "A marker is removed by the person who placed it, or by the organiser.");
 		}
 
 		Guid? rideId = marker.GroupRideId;
@@ -287,10 +287,10 @@ public sealed class MarkerController : ControllerBase
 
 		if (!await CanWriteAsync(database, marker, userId))
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not yours to edit",
-				"A marker is edited by the person who placed it, or by the organiser.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not yours to edit",
+				detail: "A marker is edited by the person who placed it, or by the organiser.");
 		}
 
 		if (request.PhotoId is { } photoId)
@@ -314,10 +314,10 @@ public sealed class MarkerController : ControllerBase
 
 			if (!ownsIt)
 			{
-				return ProblemResult(
-					StatusCodes.Status404NotFound,
-					"No such photo",
-					"Upload the image first, and attach one you uploaded.");
+				return Problem(
+					statusCode: StatusCodes.Status404NotFound,
+					title: "No such photo",
+					detail: "Upload the image first, and attach one you uploaded.");
 			}
 		}
 
@@ -337,7 +337,7 @@ public sealed class MarkerController : ControllerBase
 	}
 
 	/// <summary>The ride path: membership, lifecycle, and the two caps (§16.5).</summary>
-	private static async Task<IActionResult?> CheckRideAsync(
+	private async Task<IActionResult?> CheckRideAsync(
 		DlrDbContext database,
 		Guid rideId,
 		Guid userId,
@@ -352,20 +352,20 @@ public sealed class MarkerController : ControllerBase
 		{
 			// Any admitted member may place one — the useful marker is "gravel across the whole
 			// corner at the 40 km mark", and the person who found it is whoever hit it first.
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not a member",
-				"Markers on a ride are placed by the people in it.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not a member",
+				detail: "Markers on a ride are placed by the people in it.");
 		}
 
 		// Before and after the ride as well as during it. The only state that forbids it is
 		// Archived, which is read-only for the same reason the thread is (§5.1).
 		if (membership.Ride.State is GroupRideState.Archived)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Ride is archived",
-				"An archived ride is read-only.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Ride is archived",
+				detail: "An archived ride is read-only.");
 		}
 
 		// The organiser may have switched member markers off (§5.8). Checked here rather than at
@@ -380,10 +380,10 @@ public sealed class MarkerController : ControllerBase
 
 		if (onRide >= limits.MaxPerGroupRide)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Ride is full of markers",
-				$"This ride already has {onRide} markers.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Ride is full of markers",
+				detail: $"This ride already has {onRide} markers.");
 		}
 
 		int byMember = await database
@@ -392,17 +392,17 @@ public sealed class MarkerController : ControllerBase
 
 		if (byMember >= limits.MaxPerMemberPerRide)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Too many of your markers",
-				$"You have already added {byMember} markers to this ride.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Too many of your markers",
+				detail: $"You have already added {byMember} markers to this ride.");
 		}
 
 		return null;
 	}
 
 	/// <summary>The track path: ownership and one cap (§16.5).</summary>
-	private static async Task<IActionResult?> CheckTrackAsync(
+	private async Task<IActionResult?> CheckTrackAsync(
 		DlrDbContext database,
 		Guid trackId,
 		Guid userId,
@@ -420,10 +420,10 @@ public sealed class MarkerController : ControllerBase
 		int onTrack = await database.Set<Marker>().CountAsync(marker => marker.TrackId == trackId);
 
 		return onTrack >= limits.MaxPerTrack
-			? ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Track is full of markers",
-				$"This track already has {onTrack} markers.")
+			? Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Track is full of markers",
+				detail: $"This track already has {onTrack} markers.")
 			: null;
 	}
 
@@ -463,7 +463,7 @@ public sealed class MarkerController : ControllerBase
 					&& (member.Role == GroupRideRole.Owner || member.Role == GroupRideRole.Leader));
 	}
 
-	private static IActionResult? Validate(
+	private IActionResult? Validate(
 		int lat,
 		int lon,
 		string icon,
@@ -473,46 +473,46 @@ public sealed class MarkerController : ControllerBase
 	{
 		if (lat is < -9_000_000 or > 9_000_000 || lon is < -18_000_000 or > 18_000_000)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Position out of range",
-				"Latitude and longitude are degrees scaled by 100000.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Position out of range",
+				detail: "Latitude and longitude are degrees scaled by 100000.");
 		}
 
 		// Null is a bearing-less marker and is fine; a *present* one has to be a real bearing.
 		if (direction is < 0 or > 359)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Direction out of range",
-				"A direction is 0 to 359 degrees from true north, or absent.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Direction out of range",
+				detail: "A direction is 0 to 359 degrees from true north, or absent.");
 		}
 
 		// Length and character set, not membership (§16.2). An icon this version cannot draw is
 		// stored anyway, so a newer client's marker survives a round trip through an older server.
 		if (!MarkerIcons.IsStorable(icon))
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Bad icon key",
-				$"An icon key is up to {MarkerIcons.MaxLength} lowercase letters, digits and hyphens.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Bad icon key",
+				detail: $"An icon key is up to {MarkerIcons.MaxLength} lowercase letters, digits and hyphens.");
 		}
 
 		string? cleaned = MarkerText.Clean(title);
 
 		if (cleaned is null)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Title required",
-				"A marker needs a label to render beside its icon.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Title required",
+				detail: "A marker needs a label to render beside its icon.");
 		}
 
 		return cleaned.Length > limits.TitleMaxChars
-			? ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Title too long",
-				$"A title is at most {limits.TitleMaxChars} characters — it is drawn on the map, " +
+			? Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Title too long",
+				detail: $"A title is at most {limits.TitleMaxChars} characters — it is drawn on the map, " +
 				"and a longer one covers the road it refers to.")
 			: null;
 	}
@@ -536,11 +536,4 @@ public sealed class MarkerController : ControllerBase
 			marker.CreatedBy!.UserName!,
 			marker.CreatedUtc,
 			marker.UpdatedUtc));
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
 }

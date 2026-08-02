@@ -167,18 +167,18 @@ public sealed class CommentController : ControllerBase
 
 		if (membership?.Ride is null)
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not a member",
-				"A ride's thread is visible to the people in it and nobody else.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not a member",
+				detail: "A ride's thread is visible to the people in it and nobody else.");
 		}
 
 		if (membership.Ride.State is GroupRideState.Archived)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Ride is archived",
-				"An archived ride's thread is read-only.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Ride is archived",
+				detail: "An archived ride's thread is read-only.");
 		}
 
 		if (!RideContentPermissions.Allows(membership.Ride, membership.Role, RideContent.Comment))
@@ -199,18 +199,18 @@ public sealed class CommentController : ControllerBase
 
 		if (body is null && request.PhotoId is null)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Nothing to post",
-				"A comment carries text, a photograph, or both.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Nothing to post",
+				detail: "A comment carries text, a photograph, or both.");
 		}
 
 		if (body is not null && body.Length > limits.MaxChars)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Too long",
-				$"A comment is at most {limits.MaxChars} characters.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Too long",
+				detail: $"A comment is at most {limits.MaxChars} characters.");
 		}
 
 		if (request.PhotoId is { } photoId)
@@ -223,10 +223,10 @@ public sealed class CommentController : ControllerBase
 
 			if (!ownsIt)
 			{
-				return ProblemResult(
-					StatusCodes.Status404NotFound,
-					"No such photo",
-					"Upload the image first, and attach one you uploaded.");
+				return Problem(
+					statusCode: StatusCodes.Status404NotFound,
+					title: "No such photo",
+					detail: "Upload the image first, and attach one you uploaded.");
 			}
 		}
 
@@ -258,10 +258,10 @@ public sealed class CommentController : ControllerBase
 
 		if (inThread >= limits.MaxPerRide)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Thread is full",
-				$"This ride's thread already holds {inThread} posts.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Thread is full",
+				detail: $"This ride's thread already holds {inThread} posts.");
 		}
 
 		if (request.Poll is { } spec)
@@ -277,10 +277,10 @@ public sealed class CommentController : ControllerBase
 
 			if (polls >= limits.MaxPollsPerRide)
 			{
-				return ProblemResult(
-					StatusCodes.Status409Conflict,
-					"Too many polls",
-					$"This ride already has {polls} polls.");
+				return Problem(
+					statusCode: StatusCodes.Status409Conflict,
+					title: "Too many polls",
+					detail: $"This ride already has {polls} polls.");
 			}
 		}
 
@@ -366,18 +366,18 @@ public sealed class CommentController : ControllerBase
 
 		if (comment.AuthorId != userId)
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not yours to edit",
-				"Only the author edits a post. An organiser who wants it gone deletes it.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not yours to edit",
+				detail: "Only the author edits a post. An organiser who wants it gone deletes it.");
 		}
 
 		if (membership.Ride.State is GroupRideState.Archived)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Ride is archived",
-				"An archived ride's thread is read-only.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Ride is archived",
+				detail: "An archived ride's thread is read-only.");
 		}
 
 		// Measured from when the server received it, not from when the rider claims to have
@@ -388,10 +388,10 @@ public sealed class CommentController : ControllerBase
 
 		if (now > closes)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Edit window has closed",
-				$"A post can be edited for {limits.EditWindowMinutes} minutes. After that, delete " +
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Edit window has closed",
+				detail: $"A post can be edited for {limits.EditWindowMinutes} minutes. After that, delete " +
 				"and repost — a permanently editable thread lets somebody rewrite what a poll was " +
 				"asking after people have voted on it.");
 		}
@@ -400,18 +400,18 @@ public sealed class CommentController : ControllerBase
 
 		if (body is null && comment.PhotoId is null)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Nothing to post",
-				"A comment carries text, a photograph, or both.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Nothing to post",
+				detail: "A comment carries text, a photograph, or both.");
 		}
 
 		if (body is not null && body.Length > limits.MaxChars)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Too long",
-				$"A comment is at most {limits.MaxChars} characters.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Too long",
+				detail: $"A comment is at most {limits.MaxChars} characters.");
 		}
 
 		comment.Body = body;
@@ -453,18 +453,18 @@ public sealed class CommentController : ControllerBase
 
 		if (!mayDelete)
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not yours to delete",
-				"A post is removed by its author, or by the organiser.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not yours to delete",
+				detail: "A post is removed by its author, or by the organiser.");
 		}
 
 		if (membership.Ride.State is GroupRideState.Archived)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Ride is archived",
-				"An archived ride's thread is read-only.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Ride is archived",
+				detail: "An archived ride's thread is read-only.");
 		}
 
 		Guid rideId = comment.GroupRideId;
@@ -506,18 +506,18 @@ public sealed class CommentController : ControllerBase
 		// (§17.1), so it belongs to the people who run the ride and to nobody else.
 		if (membership.Role is not (GroupRideRole.Owner or GroupRideRole.Leader))
 		{
-			return ProblemResult(
-				StatusCodes.Status403Forbidden,
-				"Not yours to pin",
-				"The organiser and leaders keep the ride's noticeboard.");
+			return Problem(
+				statusCode: StatusCodes.Status403Forbidden,
+				title: "Not yours to pin",
+				detail: "The organiser and leaders keep the ride's noticeboard.");
 		}
 
 		if (membership.Ride.State is GroupRideState.Archived)
 		{
-			return ProblemResult(
-				StatusCodes.Status409Conflict,
-				"Ride is archived",
-				"An archived ride's thread is read-only.");
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Ride is archived",
+				detail: "An archived ride's thread is read-only.");
 		}
 
 		if (request.Pinned && !comment.IsPinned)
@@ -528,10 +528,10 @@ public sealed class CommentController : ControllerBase
 
 			if (alreadyPinned >= limits.MaxPinned)
 			{
-				return ProblemResult(
-					StatusCodes.Status409Conflict,
-					"Too many pinned posts",
-					$"A ride keeps at most {limits.MaxPinned} pinned posts. Pinning is the one thing " +
+				return Problem(
+					statusCode: StatusCodes.Status409Conflict,
+					title: "Too many pinned posts",
+					detail: $"A ride keeps at most {limits.MaxPinned} pinned posts. Pinning is the one thing " +
 					"that still reaches a phone mid-ride, so a noticeboard of twenty is not a " +
 					"noticeboard — unpin something first.");
 			}
@@ -581,16 +581,16 @@ public sealed class CommentController : ControllerBase
 	/// <summary>
 	/// A poll's shape, checked before anything is written (§17.5).
 	/// </summary>
-	private static IActionResult? ValidatePoll(PollSpec spec, string? question, CommentOptions limits)
+	private IActionResult? ValidatePoll(PollSpec spec, string? question, CommentOptions limits)
 	{
 		// The question is the comment's body, so a poll with no body is a poll with no question.
 		// There is no second field to fall back on, which is the point of §17.5's arrangement.
 		if (question is null)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"A poll needs a question",
-				"The comment's body is the question.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "A poll needs a question",
+				detail: "The comment's body is the question.");
 		}
 
 		List<string> options = [.. spec.Options.Select(option => option.Trim())];
@@ -599,33 +599,33 @@ public sealed class CommentController : ControllerBase
 		// as a button that does nothing.
 		if (options.Count < 2 || options.Count > limits.MaxPollOptions)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Wrong number of options",
-				$"A poll offers between 2 and {limits.MaxPollOptions} options.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Wrong number of options",
+				detail: $"A poll offers between 2 and {limits.MaxPollOptions} options.");
 		}
 
 		if (options.Any(string.IsNullOrEmpty))
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"An option is blank",
-				"Every option needs a label.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "An option is blank",
+				detail: "Every option needs a label.");
 		}
 
 		if (options.Any(option => option.Length > limits.PollOptionMaxChars))
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"An option is too long",
-				$"An option label is at most {limits.PollOptionMaxChars} characters.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "An option is too long",
+				detail: $"An option label is at most {limits.PollOptionMaxChars} characters.");
 		}
 
 		return options.Distinct(StringComparer.OrdinalIgnoreCase).Count() != options.Count
-			? ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Duplicate options",
-				"Two options with the same label cannot be told apart in the results.")
+			? Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Duplicate options",
+				detail: "Two options with the same label cannot be told apart in the results.")
 			: null;
 	}
 
@@ -731,13 +731,6 @@ public sealed class CommentController : ControllerBase
 
 		return string.IsNullOrEmpty(trimmed) ? null : trimmed;
 	}
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
 
 	/// <summary>
 	/// The thread cursor: a receipt instant and the id that breaks its tie.

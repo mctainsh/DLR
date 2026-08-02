@@ -90,10 +90,10 @@ public sealed class TrackImportController : ControllerBase
 
 		if (!http.HasFormContentType)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"Not a file upload",
-				"Send the file as multipart/form-data.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Not a file upload",
+				detail: "Send the file as multipart/form-data.");
 		}
 
 		IFormFile? file = (await http.ReadFormAsync()).Files.GetFile("file")
@@ -101,10 +101,10 @@ public sealed class TrackImportController : ControllerBase
 
 		if (file is null)
 		{
-			return ProblemResult(
-				StatusCodes.Status400BadRequest,
-				"No file",
-				"The request carried no file to import.");
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "No file",
+				detail: "The request carried no file to import.");
 		}
 
 		if (file.Length > caps.MaxUploadBytes)
@@ -250,15 +250,15 @@ public sealed class TrackImportController : ControllerBase
 		_ => "This file could not be read",
 	};
 
-	private static ObjectResult TooLarge(TrackImportOptions caps) => ProblemResult(
-		StatusCodes.Status413PayloadTooLarge,
-		"File too large",
-		$"Files are limited to {caps.MaxUploadBytes / (1024 * 1024)} MB.");
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
+	private static ObjectResult TooLarge(TrackImportOptions caps) =>
+		new(new ProblemDetails
 		{
-			StatusCode = status,
+			Status = StatusCodes.Status413PayloadTooLarge,
+			Title = "File too large",
+			Detail = $"Files are limited to {caps.MaxUploadBytes / (1024 * 1024)} MB.",
+		})
+		{
+			StatusCode = StatusCodes.Status413PayloadTooLarge,
 			ContentTypes = { "application/problem+json" },
 		};
 }

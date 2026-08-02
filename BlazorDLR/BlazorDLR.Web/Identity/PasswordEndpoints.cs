@@ -94,7 +94,7 @@ public sealed class PasswordController : ControllerBase
 
 		if (user is null)
 		{
-			return ProblemResult(StatusCodes.Status400BadRequest, "Link not valid", InvalidLink);
+			return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Link not valid", detail: InvalidLink);
 		}
 
 		IdentityResult result = await users.ResetPasswordAsync(user, request.Token, request.NewPassword);
@@ -105,12 +105,12 @@ public sealed class PasswordController : ControllerBase
 			// things from the person reading: one is "choose a longer one", the other is "ask
 			// for a new link". Neither says anything about whether the account exists.
 			return result.Errors.Any(error => error.Code.StartsWith("Password", StringComparison.Ordinal))
-				? ValidationProblemResult(new Dictionary<string, string[]>
+				? ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
 				{
 					[nameof(ResetPasswordRequest.NewPassword)] =
 						[.. result.Errors.Select(error => error.Description)],
-				})
-				: ProblemResult(StatusCodes.Status400BadRequest, "Link not valid", InvalidLink);
+				}))
+				: Problem(statusCode: StatusCodes.Status400BadRequest, title: "Link not valid", detail: InvalidLink);
 		}
 
 		// Every device, including this one. The one place permanent sessions are deliberately
@@ -142,10 +142,10 @@ public sealed class PasswordController : ControllerBase
 
 		if (!result.Succeeded)
 		{
-			return ValidationProblemResult(new Dictionary<string, string[]>
+			return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
 			{
 				[Field(result)] = [.. result.Errors.Select(error => error.Description)],
-			});
+			}));
 		}
 
 		// Other devices, not this one. Somebody changing their password in Settings has not
@@ -167,18 +167,4 @@ public sealed class PasswordController : ControllerBase
 	private const string InvalidLink =
 		"That reset link is not valid. It may have expired — they last one hour — or already " +
 		"been used. Ask for a new one.";
-
-	private static ObjectResult ProblemResult(int status, string title, string detail) =>
-		new(new ProblemDetails { Status = status, Title = title, Detail = detail })
-		{
-			StatusCode = status,
-			ContentTypes = { "application/problem+json" },
-		};
-
-	private static ObjectResult ValidationProblemResult(IDictionary<string, string[]> errors) =>
-		new(new ValidationProblemDetails(errors))
-		{
-			StatusCode = StatusCodes.Status400BadRequest,
-			ContentTypes = { "application/problem+json" },
-		};
 }

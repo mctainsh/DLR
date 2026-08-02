@@ -63,17 +63,13 @@ builder.Services.AddScoped<PositionStore>();
 builder.Services.Configure<RideOptions>(builder.Configuration.GetSection(RideOptions.Section));
 builder.Services.AddSingleton<RiderPositionCache>();
 builder.Services.AddScoped<IPositionWriter, PositionWriter>();
-builder.Services.AddSingleton<PositionFlushService>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<PositionFlushService>());
-builder.Services.AddSingleton<PositionCacheRehydrator>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<PositionCacheRehydrator>());
+builder.Services.AddSingletonHostedService<PositionFlushService>();
+builder.Services.AddSingletonHostedService<PositionCacheRehydrator>();
 
-builder.Services.AddSingleton<SharingWindDownService>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<SharingWindDownService>());
+builder.Services.AddSingletonHostedService<SharingWindDownService>();
 
 builder.Services.AddSignalR();
-builder.Services.AddSingleton<RideBroadcastService>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<RideBroadcastService>());
+builder.Services.AddSingletonHostedService<RideBroadcastService>();
 builder.Services.Configure<TrackEditOptions>(builder.Configuration.GetSection(TrackEditOptions.Section));
 builder.Services.Configure<MarkerOptions>(builder.Configuration.GetSection(MarkerOptions.Section));
 
@@ -87,16 +83,14 @@ builder.Services.Configure<CommentOptions>(builder.Configuration.GetSection(Comm
 
 // Singleton because the dirty set *is* the pending broadcast, and hosted from the same instance so
 // an endpoint marking a comment dirty and the timer draining it are the same object (§17.4).
-builder.Services.AddSingleton<ReactionBroadcastService>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<ReactionBroadcastService>());
+builder.Services.AddSingletonHostedService<ReactionBroadcastService>();
 
 // The one destructive timer (§7.11). Singleton and hosted from the same instance so an operator
 // endpoint — or a test — driving one run drives the object the timer drives, not a second copy
 // reading the same settings. Its defaults delete nothing until somebody turns DryRun off.
 builder.Services.Configure<MaintenanceOptions>(builder.Configuration.GetSection(MaintenanceOptions.Section));
 builder.Services.Configure<ModerationOptions>(builder.Configuration.GetSection(ModerationOptions.Section));
-builder.Services.AddSingleton<NightlyMaintenanceService>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<NightlyMaintenanceService>());
+builder.Services.AddSingletonHostedService<NightlyMaintenanceService>();
 
 // The browser's half of §7.4 (§7.5). Antiforgery covers exactly one endpoint — the cookie-to-
 // access-token exchange — because that is the only place a cookie is presented as a credential,
