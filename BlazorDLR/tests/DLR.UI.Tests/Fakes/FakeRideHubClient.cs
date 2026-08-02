@@ -76,4 +76,11 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public void RaiseRideStateChanged(Guid rideId, RideStateDto state) => RideStateChanged?.Invoke(rideId, state);
 	public void RaisePermissionsChanged(Guid rideId, RidePermissions permissions) => PermissionsChanged?.Invoke(rideId, permissions);
 	public void RaiseRouteUpdated(Guid rideId, Guid trackId) => RouteUpdated?.Invoke(rideId, trackId);
+	public void RaiseMemberJoined(Guid rideId, RideMemberSummary member) => MemberJoined?.Invoke(rideId, member);
+	public void RaiseMemberLeft(Guid rideId, Guid userId) => MemberLeft?.Invoke(rideId, userId);
+	public void RaiseMemberSharingChanged(Guid rideId, Guid userId, bool sharing) => MemberSharingChanged?.Invoke(rideId, userId, sharing);
+	public void RaiseMarkerAdded(Guid rideId, MarkerDto marker) => MarkerAdded?.Invoke(rideId, marker);
+	public void RaiseMarkerRemoved(Guid rideId, Guid markerId) => MarkerRemoved?.Invoke(rideId, markerId);
+	public void RaisePositionsUpdated(PositionBatch batch) => PositionsUpdated?.Invoke(batch);
+	public void RaiseSharingWindDownStarted(Guid rideId, DateTimeOffset endsUtc) => SharingWindDownStarted?.Invoke(rideId, endsUtc);
 }

@@ -87,13 +87,42 @@ public sealed class FakeApiClient : IApiClient
 	public Task ResendConfirmationAsync(CancellationToken cancellationToken = default) { Record(nameof(ResendConfirmationAsync)); return Task.CompletedTask; }
 	public Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default) { Record(nameof(ForgotPasswordAsync)); return Task.CompletedTask; }
 	public Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default) { Record(nameof(ResetPasswordAsync)); return Task.CompletedTask; }
-	public Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default) { Record(nameof(ChangePasswordAsync)); return Task.CompletedTask; }
+	/// <summary>The last password change request.</summary>
+	public ChangePasswordRequest? LastChangePasswordRequest { get; private set; }
+
+	/// <summary>Set to throw the given exception from <see cref="ChangePasswordAsync"/>.</summary>
+	public ApiException? ChangePasswordException { get; set; }
+
+	public Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ChangePasswordAsync));
+		LastChangePasswordRequest = request;
+		if (ChangePasswordException is not null) throw ChangePasswordException;
+		return Task.CompletedTask;
+	}
+
 	public Task<IReadOnlyList<DeviceSession>> ListSessionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListSessionsAsync), SessionsResult));
-	public Task RevokeSessionAsync(Guid deviceId, CancellationToken cancellationToken = default) { Record(nameof(RevokeSessionAsync)); return Task.CompletedTask; }
+
+	/// <summary>Every device id passed to <see cref="RevokeSessionAsync"/>, in order.</summary>
+	public List<Guid> RevokedSessions { get; } = new();
+
+	public Task RevokeSessionAsync(Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(RevokeSessionAsync));
+		RevokedSessions.Add(deviceId);
+		return Task.CompletedTask;
+	}
 
 	public Task<OwnProfile> GetProfileAsync(CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetProfileAsync), ProfileResult ?? new OwnProfile(null, null, null, false, false, false, false)));
-	public Task UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken = default) { Record(nameof(UpdateProfileAsync)); return Task.CompletedTask; }
+	public UpdateProfileRequest? LastUpdateProfileRequest { get; private set; }
+
+	public Task UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(UpdateProfileAsync));
+		LastUpdateProfileRequest = request;
+		return Task.CompletedTask;
+	}
 
 	public Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListTracksAsync), TracksResult));
 	private static readonly DateTimeOffset SampleInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -119,14 +148,86 @@ public sealed class FakeApiClient : IApiClient
 	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetRideAsync), RideResult
 			?? new RideDetail(rideId, "Test ride", null, SampleInstant, RideStateDto.Open, JoinPolicyDto.Approval, 50, 0, false, null, new RidePermissions(), Array.Empty<RideMemberSummary>())));
-	public Task<RideDetail> CreateRideAsync(CreateRideRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-	public Task<JoinResult> JoinRideByCodeAsync(JoinByCodeRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+	/// <summary>The last <see cref="CreateRideAsync"/> request the UI sent.</summary>
+	public CreateRideRequest? LastCreateRideRequest { get; private set; }
+
+	/// <summary>The last <see cref="JoinRideByCodeAsync"/> request the UI sent.</summary>
+	public JoinByCodeRequest? LastJoinRideByCodeRequest { get; private set; }
+
+	/// <summary>Every <see cref="DecideJoinRequestAsync"/> call, in order.</summary>
+	public List<(Guid RideId, Guid RequestId, DecideJoinRequest Request)> DecideJoinRequests { get; } = new();
+
+	/// <summary>Overrideable JoinResult for the join-by-code path.</summary>
+	public JoinResult? JoinResult { get; set; }
+
+	public Task<RideDetail> CreateRideAsync(CreateRideRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(CreateRideAsync));
+		LastCreateRideRequest = request;
+		Guid newId = Guid.NewGuid();
+		return Task.FromResult(new RideDetail(
+			Id: newId,
+			Name: request.Name,
+			Description: request.Description,
+			StartUtc: request.StartUtc,
+			State: RideStateDto.Open,
+			JoinPolicy: request.JoinPolicy,
+			MemberCap: 50,
+			MemberCount: 1,
+			IsOrganiser: true,
+			JoinCode: "TEST-CODE",
+			Permissions: new RidePermissions(),
+			Members: Array.Empty<RideMemberSummary>()));
+	}
+
+	public Task<JoinResult> JoinRideByCodeAsync(JoinByCodeRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(JoinRideByCodeAsync));
+		LastJoinRideByCodeRequest = request;
+		return Task.FromResult(JoinResult ?? new JoinResult(Guid.NewGuid(), Joined: true, RequestId: null));
+	}
+
 	public Task<IReadOnlyList<JoinRequestSummary>> ListJoinRequestsAsync(Guid rideId, CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListJoinRequestsAsync), JoinRequestsResult));
-	public Task DecideJoinRequestAsync(Guid rideId, Guid requestId, DecideJoinRequest request, CancellationToken cancellationToken = default) { Record(nameof(DecideJoinRequestAsync)); return Task.CompletedTask; }
-	public Task StartRideAsync(Guid rideId, CancellationToken cancellationToken = default) { Record(nameof(StartRideAsync)); return Task.CompletedTask; }
-	public Task EndRideAsync(Guid rideId, EndRideRequest request, CancellationToken cancellationToken = default) { Record(nameof(EndRideAsync)); return Task.CompletedTask; }
-	public Task UpdatePermissionsAsync(Guid rideId, RidePermissions permissions, CancellationToken cancellationToken = default) { Record(nameof(UpdatePermissionsAsync)); return Task.CompletedTask; }
-	public Task SetSharingAsync(Guid rideId, SetSharingRequest request, CancellationToken cancellationToken = default) { Record(nameof(SetSharingAsync)); return Task.CompletedTask; }
+	public Task DecideJoinRequestAsync(Guid rideId, Guid requestId, DecideJoinRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(DecideJoinRequestAsync));
+		DecideJoinRequests.Add((rideId, requestId, request));
+		return Task.CompletedTask;
+	}
+	public List<Guid> StartedRides { get; } = new();
+
+	public Task StartRideAsync(Guid rideId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(StartRideAsync));
+		StartedRides.Add(rideId);
+		return Task.CompletedTask;
+	}
+
+	public (Guid RideId, EndRideRequest Request)? LastEndRide { get; private set; }
+
+	public Task EndRideAsync(Guid rideId, EndRideRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(EndRideAsync));
+		LastEndRide = (rideId, request);
+		return Task.CompletedTask;
+	}
+	/// <summary>The last permissions payload the UI sent.</summary>
+	public RidePermissions? LastUpdatedPermissions { get; private set; }
+
+	public Task UpdatePermissionsAsync(Guid rideId, RidePermissions permissions, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(UpdatePermissionsAsync));
+		LastUpdatedPermissions = permissions;
+		return Task.CompletedTask;
+	}
+	public List<(Guid RideId, SetSharingRequest Request)> SetSharingRequests { get; } = new();
+
+	public Task SetSharingAsync(Guid rideId, SetSharingRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(SetSharingAsync));
+		SetSharingRequests.Add((rideId, request));
+		return Task.CompletedTask;
+	}
 	public Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default) { Record(nameof(LeaveRideAsync)); return Task.CompletedTask; }
 	public Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default) { Record(nameof(RemoveMemberAsync)); return Task.CompletedTask; }
 
@@ -165,20 +266,102 @@ public sealed class FakeApiClient : IApiClient
 
 	public Task<CommentPage> GetThreadAsync(Guid rideId, string? cursor, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetThreadAsync), ThreadResult ?? new CommentPage(Array.Empty<CommentDto>(), Array.Empty<CommentDto>(), null)));
-	public Task<CommentDto> PostCommentAsync(Guid rideId, PostCommentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+	/// <summary>Every PostCommentAsync request, in order.</summary>
+	public List<PostCommentRequest> PostCommentRequests { get; } = new();
+
+	public Task<CommentDto> PostCommentAsync(Guid rideId, PostCommentRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(PostCommentAsync));
+		PostCommentRequests.Add(request);
+		return Task.FromResult(new CommentDto(
+			Id: Guid.NewGuid(),
+			GroupRideId: rideId,
+			AuthorId: Guid.NewGuid(),
+			AuthorUserName: "test",
+			Kind: request.Poll is null ? CommentKindDto.Text : CommentKindDto.Poll,
+			Body: request.Body,
+			PhotoId: request.PhotoId,
+			IsPinned: false,
+			CreatedUtc: request.CreatedUtc ?? SampleInstant,
+			PostedUtc: SampleInstant,
+			EditedUtc: null,
+			AuthoredEarlier: false));
+	}
+
 	public Task<CommentDto> EditCommentAsync(Guid commentId, EditCommentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 	public Task DeleteCommentAsync(Guid commentId, CancellationToken cancellationToken = default) { Record(nameof(DeleteCommentAsync)); return Task.CompletedTask; }
-	public Task PinCommentAsync(Guid commentId, PinCommentRequest request, CancellationToken cancellationToken = default) { Record(nameof(PinCommentAsync)); return Task.CompletedTask; }
-	public Task SetReactionAsync(Guid commentId, SetReactionRequest request, CancellationToken cancellationToken = default) { Record(nameof(SetReactionAsync)); return Task.CompletedTask; }
-	public Task CastVoteAsync(Guid commentId, CastVoteRequest request, CancellationToken cancellationToken = default) { Record(nameof(CastVoteAsync)); return Task.CompletedTask; }
-	public Task ClosePollAsync(Guid commentId, CancellationToken cancellationToken = default) { Record(nameof(ClosePollAsync)); return Task.CompletedTask; }
+
+	/// <summary>The last PinComment request and its target id.</summary>
+	public (Guid CommentId, PinCommentRequest Request)? LastPin { get; private set; }
+
+	public Task PinCommentAsync(Guid commentId, PinCommentRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(PinCommentAsync));
+		LastPin = (commentId, request);
+		return Task.CompletedTask;
+	}
+
+	/// <summary>The last SetReaction request and its target id.</summary>
+	public (Guid CommentId, SetReactionRequest Request)? LastReaction { get; private set; }
+
+	public Task SetReactionAsync(Guid commentId, SetReactionRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(SetReactionAsync));
+		LastReaction = (commentId, request);
+		return Task.CompletedTask;
+	}
+
+	public (Guid CommentId, CastVoteRequest Request)? LastCastVote { get; private set; }
+
+	public Task CastVoteAsync(Guid commentId, CastVoteRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(CastVoteAsync));
+		LastCastVote = (commentId, request);
+		return Task.CompletedTask;
+	}
+
+	public List<Guid> ClosedPolls { get; } = new();
+
+	public Task ClosePollAsync(Guid commentId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ClosePollAsync));
+		ClosedPolls.Add(commentId);
+		return Task.CompletedTask;
+	}
 
 	public Task<ContentReported> ReportCommentAsync(Guid commentId, ReportContentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 	public Task<ContentReported> ReportMarkerAsync(Guid markerId, ReportContentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 	public Task BlockUserAsync(BlockUserRequest request, CancellationToken cancellationToken = default) { Record(nameof(BlockUserAsync)); return Task.CompletedTask; }
-	public Task UnblockUserAsync(Guid userId, CancellationToken cancellationToken = default) { Record(nameof(UnblockUserAsync)); return Task.CompletedTask; }
+	public List<Guid> UnblockedUsers { get; } = new();
+
+	public Task UnblockUserAsync(Guid userId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(UnblockUserAsync));
+		UnblockedUsers.Add(userId);
+		return Task.CompletedTask;
+	}
 	public Task<IReadOnlyList<BlockedRider>> ListBlocksAsync(CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListBlocksAsync), BlocksResult));
 
-	public Task<HttpResponseMessage> ExportAccountAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
-	public Task DeleteAccountAsync(DeleteAccountRequest request, CancellationToken cancellationToken = default) { Record(nameof(DeleteAccountAsync)); return Task.CompletedTask; }
+	/// <summary>The last DeleteAccount request, for §6.3 assertions.</summary>
+	public DeleteAccountRequest? LastDeleteAccountRequest { get; private set; }
+
+	public Task<HttpResponseMessage> ExportAccountAsync(CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ExportAccountAsync));
+		// Return a tiny in-memory ZIP-shaped byte array — the composer only cares about
+		// IsSuccessStatusCode and length for the download-link path.
+		HttpResponseMessage response = new(System.Net.HttpStatusCode.OK)
+		{
+			Content = new ByteArrayContent(new byte[] { 0x50, 0x4B, 0x03, 0x04 }), // "PK" ZIP magic
+		};
+		response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/zip");
+		return Task.FromResult(response);
+	}
+
+	public Task DeleteAccountAsync(DeleteAccountRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(DeleteAccountAsync));
+		LastDeleteAccountRequest = request;
+		return Task.CompletedTask;
+	}
 }
