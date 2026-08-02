@@ -1,0 +1,226 @@
+@page "/rides/{TrackId:guid}/edit"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Components
+@using DLR.Core.Contracts.Tracks
+@using DLR.Core.Tracks
+@inject IApiClient Api
+@inject IFormFactor FormFactor
+@inject NavigationManager Nav
+
+<PageTitle>Edit track — Dumb Luck Rides</PageTitle>
+
+@*
+    Web-only track editor (§15.5). This page renders on the phone but the composer is
+    hidden — trimming is deliberately a big-screen task (§6.1, §13 Q15).
+
+    Three rules this page encodes:
+      1. Removals are half-open ranges of RAW indices (§15.5), not indices into the
+         simplified polyline the map draws. The raw-versus-simplified distinction is
+         the single most important implementation constraint in §15.5 and this page
+         works against the raw point list from GET /tracks/{id}/points.
+      2. Distance/duration/ascent are recomputed by the server, not adjusted (§15.7).
+         The old and new numbers appear side by side before commit — the number
+         changing is the whole point of trimming a lunch stop.
+      3. Undo is a 7-day window on ONE retained original (§15.6). "Remove the original
+         now" is offered so someone who just trimmed their house does not have to wait.
+*@
+
+<div class="editor">
+    <a class="back" href="/rides/@TrackId">← Back to ride</a>
+
+    <h1>Edit track</h1>
+
+    @if (!IsWeb)
+    {
+        <div class="mobile-note">
+            <strong>Track editing lives on the web (§6.1).</strong>
+            It needs a mouse and a big map — a phone-sized screen is not a good fit for
+            picking spans of the ride to remove. Open this page in a desktop browser to
+            edit; the download button on the ride page still exports the raw file.
+        </div>
+    }
+    else if (_track is null && _error is null)
+    {
+        <p class="hint">Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="error">@_error</p>
+    }
+    else if (_points is not null && _track is not null)
+    {
+        <p class="lead">
+            Add index ranges to remove — the numbers are point indices in the raw track.
+            Point count: <strong>@_points.PointCount</strong>.
+            Version: <strong>@_points.Version</strong>.
+        </p>
+
+        <fieldset>
+            <legend>Add a removal</legend>
+            <label>
+                From index (inclusive)
+                <input @bind="_pendingFrom" type="number" min="0" />
+            </label>
+            <label>
+                To index (exclusive)
+                <input @bind="_pendingTo" type="number" min="1" />
+            </label>
+            <button type="button" @onclick="AddRemovalAsync">Add range</button>
+        </fieldset>
+
+        @if (_removals.Count > 0)
+        {
+            <ul class="ranges">
+                @foreach ((IndexRange range, int index) in _removals.Select((r, i) => (r, i)))
+                {
+                    <li>
+                        Remove <strong>@range.From – @range.To</strong>
+                        (@(range.To - range.From) points)
+                        <button type="button" @onclick="() => _removals.RemoveAt(index)">×</button>
+                    </li>
+                }
+            </ul>
+        }
+
+        <button type="button" class="primary" disabled="@(_busy || _removals.Count == 0)"
+                @onclick="CommitAsync">
+            @(_busy ? "Applying…" : $"Apply {_removals.Count} removal(s)")
+        </button>
+
+        @if (_editResult is not null)
+        {
+            <div class="result">
+                <h3>Applied.</h3>
+                <p>
+                    Distance: <strong>@FormatKm(_editResult.Track.DistanceM)</strong>
+                    (was @FormatKm(_track.Track.DistanceM)).
+                    Points: <strong>@_editResult.Track.PointCount</strong>
+                    (was @_track.Track.PointCount).
+                </p>
+                @if (_editResult.UndoAvailableUntilUtc is { } undoUntil)
+                {
+                    <p>
+                        The pre-edit version is retained until <strong>@undoUntil.ToLocalTime().ToString("d MMM HH:mm")</strong>.
+                        Nightly backups still contain it until they roll out (§15.6, §10.1).
+                    </p>
+                    <button type="button" @onclick="UndoAsync" disabled="@_busy">Undo</button>
+                    <button type="button" class="danger" @onclick="PurgeAsync" disabled="@_busy">Remove the original now</button>
+                }
+                <button type="button" @onclick="BackToRide">Back to ride</button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid TrackId { get; set; }
+
+    private TrackDetail? _track;
+    private TrackPointsResponse? _points;
+    private readonly List<IndexRange> _removals = new();
+    private int _pendingFrom;
+    private int _pendingTo;
+    private TrackEditResponse? _editResult;
+    private string? _error;
+    private bool _busy;
+
+    private bool IsWeb => FormFactor.GetFormFactor().Equals("Desktop", StringComparison.OrdinalIgnoreCase)
+        || FormFactor.GetPlatform().Contains("Web", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!IsWeb) return;
+
+        try
+        {
+            _track = await Api.GetTrackAsync(TrackId);
+            _points = await Api.GetTrackPointsAsync(TrackId);
+        }
+        catch (ApiException apiException) { _error = apiException.Error.Title; }
+        catch (Exception exception) { _error = exception.Message; }
+    }
+
+    private Task AddRemovalAsync()
+    {
+        if (_pendingTo <= _pendingFrom)
+        {
+            _error = "'To' must be strictly greater than 'From'.";
+            return Task.CompletedTask;
+        }
+        _error = null;
+        _removals.Add(new IndexRange(_pendingFrom, _pendingTo));
+        _removals.Sort((a, b) => a.From.CompareTo(b.From));
+        return Task.CompletedTask;
+    }
+
+    private async Task CommitAsync()
+    {
+        if (_busy || _points is null) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            _editResult = await Api.EditTrackAsync(TrackId, new EditTrackRequest(
+                Version: _points.Version,
+                Removals: _removals.ToList()));
+            _removals.Clear();
+        }
+        catch (ApiException apiException) { _error = apiException.Error.Title; }
+        finally { _busy = false; }
+    }
+
+    private async Task UndoAsync()
+    {
+        _busy = true;
+        try
+        {
+            _editResult = await Api.UndoTrackEditAsync(TrackId);
+            _track = await Api.GetTrackAsync(TrackId);
+            _points = await Api.GetTrackPointsAsync(TrackId);
+        }
+        catch (ApiException apiException) { _error = apiException.Error.Title; }
+        finally { _busy = false; }
+    }
+
+    private async Task PurgeAsync()
+    {
+        _busy = true;
+        try
+        {
+            await Api.PurgeTrackPreviousVersionAsync(TrackId);
+            _editResult = _editResult! with { UndoAvailableUntilUtc = null };
+        }
+        catch (ApiException apiException) { _error = apiException.Error.Title; }
+        finally { _busy = false; }
+    }
+
+    private void BackToRide() => Nav.NavigateTo($"/rides/{TrackId}");
+
+    private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
+}
+
+<style>
+    .editor { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
+    .editor .back { display: inline-block; margin-bottom: 0.5rem; font-size: 0.9rem; opacity: 0.7; }
+    .editor .mobile-note {
+        margin: 1rem 0; padding: 0.75rem 1rem;
+        background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px;
+    }
+    .editor .lead { opacity: 0.85; }
+    .editor fieldset { margin: 0.75rem 0; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; border-radius: 6px; }
+    .editor legend { font-weight: 600; padding: 0 0.5rem; }
+    .editor label { display: inline-block; margin: 0.4rem 0.5rem 0.4rem 0; }
+    .editor input { padding: 0.4rem; width: 8rem; }
+    .editor .ranges { list-style: none; padding: 0; }
+    .editor .ranges li {
+        padding: 0.4rem 0.6rem; background: #f7f8fa; border-radius: 4px;
+        margin: 0.25rem 0; display: flex; justify-content: space-between; align-items: center;
+    }
+    .editor button { padding: 0.5rem 1rem; margin-top: 0.5rem; }
+    .editor button.primary { background: #2563eb; color: white; border: none; }
+    .editor button.danger { background: #fdecea; color: #a91c1c; border: 1px solid #f5c2c0; }
+    .editor .result { margin-top: 1rem; padding: 1rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; }
+    .editor .result h3 { margin: 0 0 0.5rem; }
+    .editor .error { padding: 0.5rem 0.75rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px; }
+    .editor .hint { text-align: center; opacity: 0.7; padding: 2rem; }
+</style>

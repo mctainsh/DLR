@@ -1,0 +1,139 @@
+@page "/group-rides/create"
+@attribute [Authorize]
+@using DLR.Core.Contracts.Rides
+@inject IApiClient Api
+@inject NavigationManager Nav
+@inject TimeProvider Clock
+
+<PageTitle>Create a ride — Dumb Luck Rides</PageTitle>
+
+<div class="page">
+    <h1>Create a ride</h1>
+
+    <p class="lead">
+        You will be the organiser. You choose whether people can join with the code alone,
+        or whether every joiner needs your approval (§5.2).
+    </p>
+
+    <form @onsubmit="CreateAsync" @onsubmit:preventDefault="true">
+        <label>
+            Name
+            <input @bind="_name" placeholder="Saturday Coast Run" required maxlength="80" />
+        </label>
+
+        <label>
+            When it starts
+            <input @bind="_startLocal" type="datetime-local" required />
+        </label>
+
+        <label>
+            Description (optional)
+            <textarea @bind="_description" rows="3" maxlength="500"
+                      placeholder="Where to meet, what to bring."></textarea>
+        </label>
+
+        <fieldset>
+            <legend>How people join</legend>
+            <label class="radio">
+                <input type="radio" name="policy" value="@JoinPolicyDto.Approval"
+                       checked="@(_joinPolicy == JoinPolicyDto.Approval)"
+                       @onchange="() => _joinPolicy = JoinPolicyDto.Approval" />
+                Approval — a valid code creates a pending request; nobody enters until you admit them.
+            </label>
+            <label class="radio">
+                <input type="radio" name="policy" value="@JoinPolicyDto.Open"
+                       checked="@(_joinPolicy == JoinPolicyDto.Open)"
+                       @onchange="() => _joinPolicy = JoinPolicyDto.Open" />
+                Open — a valid code joins immediately.
+            </label>
+        </fieldset>
+
+        <button type="submit" disabled="@_busy">
+            @(_busy ? "Creating…" : "Create ride")
+        </button>
+    </form>
+
+    @if (_error is not null)
+    {
+        <div class="error" role="alert">
+            <strong>@_error.Title</strong>
+            @if (_error.Messages.Count > 0)
+            {
+                <ul>
+                    @foreach (string message in _error.Messages)
+                    {
+                        <li>@message</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private string _name = string.Empty;
+    private string _description = string.Empty;
+    // datetime-local binds directly to DateTime. Default set in OnInitialized against
+    // TimeProvider (§10.4) so a fake clock in tests drives this the same as everything else.
+    private DateTime _startLocal;
+
+    protected override void OnInitialized()
+    {
+        _startLocal = Clock.GetLocalNow().DateTime.AddHours(1);
+    }
+    private JoinPolicyDto _joinPolicy = JoinPolicyDto.Approval;
+    private ApiError? _error;
+    private bool _busy;
+
+    private async Task CreateAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            DateTimeOffset startUtc = new(_startLocal, Clock.GetLocalNow().Offset);
+
+            RideDetail ride = await Api.CreateRideAsync(new CreateRideRequest(
+                Name: _name.Trim(),
+                StartUtc: startUtc,
+                Description: string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+                JoinPolicy: _joinPolicy));
+
+            Nav.NavigateTo($"/group-rides/{ride.Id}");
+        }
+        catch (ApiException apiException)
+        {
+            _error = apiException.Error;
+        }
+        catch (Exception exception)
+        {
+            _error = new ApiError(default, "Could not create the ride.", new[] { exception.Message });
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
+
+<style>
+    .page { max-width: 32rem; margin: 1rem auto; padding: 0 1rem; }
+    .page .lead { opacity: 0.85; }
+    .page label { display: block; margin: 0.75rem 0; }
+    .page input, .page textarea {
+        display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; font-size: 1rem;
+    }
+    .page fieldset { border: 1px solid #e5e7eb; padding: 0.75rem 1rem; border-radius: 6px; margin: 0.75rem 0; }
+    .page legend { font-weight: 600; padding: 0 0.5rem; }
+    .page .radio { display: block; margin: 0.4rem 0; font-size: 0.9rem; }
+    .page .radio input { display: inline; width: auto; margin-right: 0.5rem; }
+    .page button { padding: 0.6rem 1.25rem; margin-top: 0.75rem; }
+    .page .error {
+        margin-top: 1rem; padding: 0.75rem 1rem;
+        background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px;
+    }
+    .page .error strong { display: block; margin-bottom: 0.25rem; }
+    .page .error ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+</style>

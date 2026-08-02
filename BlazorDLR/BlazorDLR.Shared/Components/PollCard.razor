@@ -1,0 +1,167 @@
+@using DLR.Core.Contracts.Comments
+
+@*
+    Renders a PollResults inside a comment (§17.5).
+
+    Two things this respects:
+      1. Results are ALWAYS visible (§17.5). No "reveal after voting" curtain — the
+         question people actually ask is "who's coming Saturday?", and the tally answers it.
+      2. Voters are named (§17.5). Anonymous polling is a different feature; this
+         component leans on the attribution because that is what most users want.
+
+    Casting a vote: the parent hands us a CastAsync callback so the thread's coalesced
+    hub message (PollUpdated) drives the re-render, rather than each PollCard fetching.
+    Single-select replaces; multi-select toggles; the request body is always the full set
+    of chosen ids (§17.5), so an empty list clears the vote.
+*@
+
+<div class="poll">
+    <div class="options">
+        @{
+            int totalVotes = Results.Options.Sum(o => o.Votes);
+        }
+        @foreach (PollOptionResult option in Results.Options)
+        {
+            bool mine = Results.MyOptionIds.Contains(option.Id);
+            int percent = totalVotes == 0 ? 0 : (int)Math.Round(100.0 * option.Votes / totalVotes);
+            <div class="option @(mine ? "mine" : "")">
+                <button type="button"
+                        class="vote-target"
+                        disabled="@(Results.IsClosed || _busy)"
+                        @onclick="() => ToggleAsync(option.Id)">
+                    <div class="fill" style="width: @(percent)%"></div>
+                    <div class="row">
+                        <span class="text">
+                            @option.Text
+                            @if (mine)
+                            {
+                                <span class="mine-tag">✓ your vote</span>
+                            }
+                        </span>
+                        <span class="count">@option.Votes (@percent%)</span>
+                    </div>
+                </button>
+                @if (option.Voters.Count > 0)
+                {
+                    <div class="voters">
+                        @string.Join(", ", option.Voters.Select(v => v.UserName))
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="footer">
+        <span class="mode">
+            @(Results.AllowMultiple ? "Pick any that apply" : "Pick one")
+            @if (Results.IsClosed)
+            {
+                <strong> — closed</strong>
+            }
+            else if (Results.ClosesUtc is { } closes)
+            {
+                <span class="closes"> · closes @closes.ToLocalTime().ToString("d MMM HH:mm")</span>
+            }
+        </span>
+
+        @if (CanClose && !Results.IsClosed)
+        {
+            <button type="button" class="close" disabled="@_busy" @onclick="CloseAsync">
+                Close poll now
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PollResults Results { get; set; } = default!;
+
+    /// <summary>Whether the caller is the poll's author or the ride organiser (§17.5).</summary>
+    [Parameter] public bool CanClose { get; set; }
+
+    /// <summary>
+    /// Cast a vote. The parent hands the full set of chosen option ids — single-select
+    /// clients pass one, multi-select clients pass the toggled set. An empty list clears.
+    /// </summary>
+    [Parameter, EditorRequired] public EventCallback<IReadOnlyList<Guid>> OnCast { get; set; }
+
+    /// <summary>Close the poll early (author / organiser).</summary>
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+
+    private bool _busy;
+
+    private async Task ToggleAsync(Guid optionId)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            HashSet<Guid> chosen = new(Results.MyOptionIds);
+
+            if (Results.AllowMultiple)
+            {
+                if (!chosen.Add(optionId))
+                {
+                    chosen.Remove(optionId);
+                }
+            }
+            else
+            {
+                // Tapping the current single-select choice clears it — otherwise the caller
+                // would be stuck with their vote once they cast. §17.5's rule for the
+                // single-select shape.
+                if (chosen.Contains(optionId) && chosen.Count == 1)
+                {
+                    chosen.Clear();
+                }
+                else
+                {
+                    chosen.Clear();
+                    chosen.Add(optionId);
+                }
+            }
+
+            await OnCast.InvokeAsync(chosen.ToList());
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task CloseAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        try { await OnClose.InvokeAsync(); }
+        finally { _busy = false; }
+    }
+}
+
+<style>
+    .poll { margin: 0.5rem 0; padding: 0.75rem; background: white; border: 1px solid #e5e7eb; border-radius: 6px; }
+    .poll .options { display: flex; flex-direction: column; gap: 0.4rem; }
+    .poll .option { position: relative; }
+    .poll .vote-target {
+        display: block; width: 100%; position: relative; text-align: left;
+        padding: 0.5rem 0.75rem; background: #f7f8fa; border: 1px solid #e5e7eb;
+        border-radius: 4px; cursor: pointer; overflow: hidden;
+    }
+    .poll .vote-target:disabled { cursor: default; }
+    .poll .option.mine .vote-target { background: #eff6ff; border-color: #2563eb; }
+    .poll .fill {
+        position: absolute; inset: 0 auto 0 0;
+        background: rgba(37, 99, 235, 0.10);
+        transition: width 200ms ease;
+    }
+    .poll .option.mine .fill { background: rgba(37, 99, 235, 0.25); }
+    .poll .row { position: relative; display: flex; justify-content: space-between; align-items: baseline; }
+    .poll .text { font-weight: 500; }
+    .poll .mine-tag { margin-left: 0.5rem; font-size: 0.75rem; color: #2563eb; }
+    .poll .count { font-variant-numeric: tabular-nums; font-size: 0.85rem; opacity: 0.85; }
+    .poll .voters { font-size: 0.8rem; opacity: 0.7; margin: 0.15rem 0 0.4rem 0.75rem; }
+    .poll .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
+    .poll .mode { font-size: 0.85rem; opacity: 0.75; }
+    .poll .closes { opacity: 0.85; }
+    .poll .close {
+        padding: 0.3rem 0.7rem; font-size: 0.85rem;
+        background: #fdecea; color: #a91c1c; border: 1px solid #f5c2c0; border-radius: 4px;
+    }
+</style>

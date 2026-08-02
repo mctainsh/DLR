@@ -1,0 +1,14 @@
+@inject NavigationManager Nav
+
+@*
+    Sent by AuthorizeRouteView when the current user is not authorised for a page
+    marked [Authorize]. §7.9: recording works before any account exists, but the
+    unauthenticated landing is the Welcome screen — everything else redirects there.
+*@
+
+@code {
+    protected override void OnInitialized()
+    {
+        Nav.NavigateTo("/welcome", forceLoad: false);
+    }
+}

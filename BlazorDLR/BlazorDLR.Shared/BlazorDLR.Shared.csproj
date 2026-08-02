@@ -12,6 +12,34 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />
+    <!--
+      §7.4, §18.5: AuthorizeView, AuthenticationStateProvider, CascadingAuthenticationState.
+      Every screen behind [Authorize] uses the components in this package; AuthState
+      inherits from AuthenticationStateProvider so the Router knows who the caller is.
+    -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.0" />
+    <!--
+      §5.3, §18.2: the SignalR client runs in every host. Version pinned to match the
+      server (Microsoft.AspNetCore.SignalR shipped by ASP.NET Core 10) so protocol
+      handshake never becomes a version-skew debug session.
+    -->
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+    <!--
+      §4.5 v0.21: one drawing surface for every rider pin, marker and route, on top of
+      whichever base map is under it. SkiaSharp is already in the graph via Mapsui and
+      the server's image ingest (§14.6.3, §16.4), so this adds a Blazor binding for the
+      same primitive rather than a new dependency to licence-check. MIT.
+    -->
+    <PackageReference Include="SkiaSharp.Views.Blazor" Version="3.116.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      §3, §18.2: DLR.Core carries the wire contracts every shared component talks in
+      terms of. Referenced here so every screen and service consumes one set of DTOs
+      and one break of the wire is a build failure rather than a runtime surprise.
+    -->
+    <ProjectReference Include="..\DLR.Core\DLR.Core.csproj" />
   </ItemGroup>
 
 </Project>

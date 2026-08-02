@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+		bUnit against BlazorDLR.Shared: every screen renders once and is tested once,
+		with no simulator, no emulator and no browser (§18.7). The tests here are the
+		shared UI's answer to "how do we know the components still work" — and, per
+		§14.6.3, bUnit is MIT so it passes the licence gate without a decision.
+	-->
+	<PropertyGroup>
+		<RootNamespace>DLR.UI.Tests</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+		<PackageReference Include="coverlet.collector" Version="6.0.4" />
+		<PackageReference Include="bunit" Version="1.40.4" />
+		<PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.8.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\BlazorDLR.Shared\BlazorDLR.Shared.csproj" />
+		<ProjectReference Include="..\..\DLR.Core\DLR.Core.csproj" />
+	</ItemGroup>
+
+</Project>

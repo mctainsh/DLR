@@ -1,0 +1,61 @@
+@*
+    The join-time consent prompt (§5.6).
+
+    Two things this exists to enforce:
+      1. Dismissing is "Not now" — a swipe-away is not consent. The `default off` shape
+         is structural, not a matter of "the switch happens to start off". §5.6 leans on
+         this and §7.3's profile-fields prompt uses the same pattern for the same reason.
+      2. The copy names the wind-down. Through v0.14 the text said flatly "it stops when
+         the ride ends", which the wind-down made untrue — consent copy that overstates
+         the protection is worse than none.
+
+    The parent binds two callbacks: OnShare (yes) and OnDismiss (no / not now). If the
+    user closes the modal any other way, the parent should treat it as OnDismiss.
+*@
+
+<div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
+    <div class="consent-card">
+        <h2 id="consent-title">Share your location with @RideName?</h2>
+        <p>
+            Members of <strong>@RideName</strong> will see where you are while the ride is
+            live. You can turn this off at any time. It stops when the ride ends — or, if
+            the organiser lets riders finish getting home, within two hours of that.
+        </p>
+
+        <div class="actions">
+            <button type="button" class="primary" @onclick="OnShareAsync">
+                Share
+            </button>
+            <button type="button" @onclick="OnDismissAsync">
+                Not now
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string RideName { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnShare { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private Task OnShareAsync() => OnShare.InvokeAsync();
+    private Task OnDismissAsync() => OnDismiss.InvokeAsync();
+}
+
+<style>
+    .consent-modal {
+        position: fixed; inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 1000;
+    }
+    .consent-card {
+        background: white; padding: 1.5rem; border-radius: 8px;
+        max-width: 32rem; width: calc(100vw - 2rem);
+    }
+    .consent-card h2 { margin: 0 0 0.75rem; }
+    .consent-card p { margin: 0 0 1rem; line-height: 1.5; }
+    .consent-card .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+    .consent-card button { padding: 0.6rem 1.25rem; }
+    .consent-card button.primary { background: #2563eb; color: white; border: none; }
+</style>

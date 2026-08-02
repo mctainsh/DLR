@@ -12,20 +12,28 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace DLR.Server.Tests.Identity;
 
 /// <summary>
-/// Length and a breach lookup, in place of composition rules (§7.2).
+/// Length, one-of-each composition, and a breach lookup (§7.2 revised at v0.22).
 /// <para>
 /// This matters more here than in most applications: an account registered without an email
 /// address has no reset path at all, so the password is not the first of several credentials —
 /// it is the only one there will ever be.
+/// </para>
+/// <para>
+/// v0.22 reversed the "length over composition" stance §7.2 originally took, at operator
+/// request: composition rules are on so that every rejection surfaces as a specific message
+/// the caller can act on ("must have at least one uppercase letter"). The Pwned Passwords
+/// check still catches the shape §7.2 was worried about, and it stays.
 /// </para>
 /// </summary>
 [Collection(DatabaseCollection.Name)]
 public sealed class PasswordPolicyTests(PostgresFixture postgres)
 {
 	[Theory]
-	[InlineData("short", "under the ten-character minimum")]
-	[InlineData("123456789", "nine characters is still nine characters")]
-	public async Task Register_WeakPassword_IsRejected(string password, string why)
+	[InlineData("Aa1", "under the six-character minimum")]
+	[InlineData("abcdef1", "no uppercase letter")]
+	[InlineData("ABCDEF1", "no lowercase letter")]
+	[InlineData("Abcdefg", "no digit")]
+	public async Task Register_PasswordMissingARequirement_IsRejected(string password, string why)
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 		using HttpClient client = app.CreateClient();
@@ -33,6 +41,51 @@ public sealed class PasswordPolicyTests(PostgresFixture postgres)
 		using HttpResponseMessage response = await client.PostRegisterAsync("DaveSmith", password);
 
 		response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, why);
+	}
+
+	/// <summary>
+	/// The one that closes the loop with the client: a rejected password's reasons must land
+	/// in the response body under a field the caller renders. The Welcome screen reads this
+	/// same shape and lists every message.
+	/// </summary>
+	[Fact]
+	public async Task Register_PasswordRejection_CarriesPerFieldMessagesTheClientCanRender()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		using HttpResponseMessage response = await client.PostRegisterAsync("DaveSmith", "abc");
+
+		response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+		JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+		JsonElement passwordErrors = problem
+			.GetProperty("errors")
+			.GetProperty(nameof(RegisterRequest.Password));
+
+		passwordErrors.ValueKind.ShouldBe(JsonValueKind.Array);
+		passwordErrors.GetArrayLength().ShouldBeGreaterThan(0,
+			"Identity produces one message per rule broken; the client renders them verbatim.");
+	}
+
+	/// <summary>
+	/// A password that meets every rule but is in the breach corpus is still rejected. This is
+	/// v0.22's compromise: composition on, corpus on. Either alone lets one of the two shapes
+	/// through, and this account has no reset path.
+	/// </summary>
+	[Fact]
+	public async Task Register_MeetsCompositionButIsBreached_IsStillRejected()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		const string leaked = "Password1";
+		app.Breaches.Breach(leaked);
+
+		using HttpResponseMessage response = await client.PostRegisterAsync("DaveSmith", leaked);
+
+		response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 	}
 
 	/// <summary>
@@ -67,18 +120,17 @@ public sealed class PasswordPolicyTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Composition rules are off, deliberately (§7.2). A long passphrase with no digit, no
-	/// capital and no symbol is a better password than <c>Passw0rd!</c>, and the policy has to
-	/// agree or the policy is measuring compliance rather than strength.
+	/// The v0.22 shape: six characters, one uppercase, one lowercase, one digit. No symbol
+	/// required. A password satisfying every rule and not in the breach corpus registers.
 	/// </summary>
 	[Fact]
-	public async Task Register_LongPassphraseWithoutCompositionVariety_IsAccepted()
+	public async Task Register_PasswordMeetingEveryRequirement_IsAccepted()
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 		using HttpClient client = app.CreateClient();
 
 		using HttpResponseMessage response =
-			await client.PostRegisterAsync("DaveSmith", "the wind was against us all the way home");
+			await client.PostRegisterAsync("DaveSmith", "Ride4mountains");
 
 		response.StatusCode.ShouldBe(HttpStatusCode.Created);
 	}

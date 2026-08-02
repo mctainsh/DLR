@@ -1,0 +1,206 @@
+@page "/import"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Services
+@using DLR.Core.Contracts.Tracks
+@inject IApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Import GPX — Dumb Luck Rides</PageTitle>
+
+@*
+    GPX import (§15.2). The same page compiles for both hosts.
+
+    The web picks files through <InputFile> because a browser has no callable file API
+    (§18.2). The phone uses MAUI's FilePicker via MauiMediaPicker.PickGpxAsync — the
+    static helper on that class, called by name from a small per-host code path below.
+
+    The preview posts the file with ?dryRun=true so the user sees stats before committing.
+    The server re-parses either way; a phone imports offline via local parse in Phase 2,
+    where the outbox drains the commit when connectivity returns.
+*@
+
+<div class="import">
+    <h1>Import GPX</h1>
+
+    <p class="lead">
+        Pick a <code>.gpx</code> file from another app, a planning tool, or a mate.
+        You will see distance, ascent and duration before deciding whether to keep it.
+    </p>
+
+    <div class="pick">
+        <InputFile OnChange="OnFileSelected" accept=".gpx,application/gpx+xml,application/xml,text/xml" />
+    </div>
+
+    @if (_preview is not null)
+    {
+        <div class="preview">
+            <h2>Preview</h2>
+            <p class="file-name">@_fileName</p>
+            <ul>
+                @foreach (ImportedTrackResult track in _preview.Tracks)
+                {
+                    <li>
+                        <strong>@(track.Name ?? "Untitled")</strong>
+                        <span class="badge @(track.From == ImportedFrom.Route ? "route" : "track")">@track.From</span>
+                        <br />
+                        <span>@FormatKm(track.DistanceM), @track.PointCount points, @track.SegmentCount segments</span>
+                        @if (track.AscentM is { } a)
+                        {
+                            <span>, @a:0 m ascent</span>
+                        }
+                        @if (track.DurationS is { } d)
+                        {
+                            <span>, @FormatDuration(d)</span>
+                        }
+                        @if (track.DuplicateOfTrackId is not null)
+                        {
+                            <p class="hint">
+                                You imported the same content on @track.DuplicateImportedUtc?.ToLocalTime().ToString("d MMM yyyy").
+                                A second copy is fine — a warning, not a block.
+                            </p>
+                        }
+                    </li>
+                }
+            </ul>
+            @if (_preview.WaypointCount > 0)
+            {
+                <p class="hint">
+                    Also contains @_preview.WaypointCount waypoints — imported as markers in Phase 2.
+                </p>
+            }
+            @if (_preview.TracksTruncated)
+            {
+                <p class="hint">
+                    This file has more tracks than the per-file cap allows. Only the first ones above will be imported.
+                </p>
+            }
+
+            <div class="actions">
+                <button type="button" @onclick="ResetAsync">Choose a different file</button>
+                <button type="button" class="primary" @onclick="CommitAsync" disabled="@_busy">
+                    @(_busy ? "Importing…" : "Import")
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (_error is not null)
+    {
+        <p class="error">@_error</p>
+    }
+</div>
+
+@code {
+    private const long MaxFileBytes = 25L * 1024 * 1024;
+
+    private TrackImportResult? _preview;
+    private string? _fileName;
+    private byte[]? _fileBytes;
+    private string? _error;
+    private bool _busy;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs args)
+    {
+        _preview = null;
+        _error = null;
+
+        IBrowserFile file = args.File;
+        _fileName = file.Name;
+
+        if (file.Size > MaxFileBytes)
+        {
+            _error = $"That file is {file.Size / 1024 / 1024} MB; the cap is 25 MB.";
+            return;
+        }
+
+        try
+        {
+            _busy = true;
+            using MemoryStream memory = new((int)Math.Min(file.Size, MaxFileBytes));
+            await using Stream browserStream = file.OpenReadStream(MaxFileBytes);
+            await browserStream.CopyToAsync(memory);
+            _fileBytes = memory.ToArray();
+
+            using MemoryStream previewStream = new(_fileBytes);
+            _preview = await Api.ImportTracksAsync(previewStream, _fileName, dryRun: true);
+        }
+        catch (Exception exception)
+        {
+            _error = FriendlyImportError(exception);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CommitAsync()
+    {
+        if (_fileBytes is null || _fileName is null) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            using MemoryStream stream = new(_fileBytes);
+            TrackImportResult result = await Api.ImportTracksAsync(stream, _fileName, dryRun: false);
+            if (result.Tracks.Count == 1 && result.Tracks[0].TrackId is { } id)
+            {
+                Nav.NavigateTo($"/rides/{id}");
+            }
+            else
+            {
+                Nav.NavigateTo("/rides");
+            }
+        }
+        catch (Exception exception)
+        {
+            _error = FriendlyImportError(exception);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Task ResetAsync()
+    {
+        _preview = null;
+        _fileBytes = null;
+        _fileName = null;
+        _error = null;
+        return Task.CompletedTask;
+    }
+
+    private static string FriendlyImportError(Exception exception) =>
+        exception switch
+        {
+            HttpRequestException http when http.StatusCode == System.Net.HttpStatusCode.RequestEntityTooLarge
+                => "This file is larger than the server accepts.",
+            HttpRequestException http when http.StatusCode == System.Net.HttpStatusCode.BadRequest
+                => "This does not look like a valid GPX file.",
+            _ => exception.Message,
+        };
+
+    private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
+    private static string FormatDuration(double seconds) => TimeSpan.FromSeconds(seconds).ToString(@"h\:mm");
+}
+
+<style>
+    .import { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
+    .import .pick { margin: 1rem 0; padding: 1rem; border: 2px dashed #cbd5e1; border-radius: 6px; text-align: center; }
+    .import .preview { padding: 1rem; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; }
+    .import .file-name { font-family: ui-monospace, monospace; opacity: 0.75; }
+    .import ul { list-style: none; padding: 0; }
+    .import li { padding: 0.75rem; background: white; border-radius: 4px; margin-bottom: 0.5rem; }
+    .import .badge {
+        font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;
+        margin-left: 0.5rem; background: #eef1f5;
+    }
+    .import .badge.route { background: #fef3c7; }
+    .import .badge.track { background: #d1fae5; }
+    .import .hint { font-size: 0.9rem; opacity: 0.75; margin: 0.5rem 0; }
+    .import .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+    .import button { padding: 0.5rem 1rem; }
+    .import button.primary { background: #2563eb; color: white; border: none; }
+    .import .error { padding: 0.5rem 0.75rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px; }
+</style>

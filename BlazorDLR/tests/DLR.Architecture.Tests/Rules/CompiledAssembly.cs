@@ -78,8 +78,15 @@ internal sealed class CompiledAssembly
 	{
 		string directory = AppContext.BaseDirectory;
 
-		return Directory
-			.EnumerateFiles(directory, "DLR.*.dll", SearchOption.TopDirectoryOnly)
+		// Two prefixes: the server assemblies keep the DLR.* naming they had before the
+		// migration; the UI library added in Phase 0 lives under BlazorDLR.* (§3, §18).
+		// Any rule scanning by name is expected to name the assembly it wants, and
+		// widening the glob here keeps both families visible to the same test project.
+		string[] globs = ["DLR.*.dll", "BlazorDLR.*.dll"];
+
+		return globs
+			.SelectMany(glob => Directory.EnumerateFiles(directory, glob, SearchOption.TopDirectoryOnly))
+			.Distinct(StringComparer.OrdinalIgnoreCase)
 			.Select(Read)
 			.OrderBy(a => a.Name, StringComparer.Ordinal)
 			.ToList();

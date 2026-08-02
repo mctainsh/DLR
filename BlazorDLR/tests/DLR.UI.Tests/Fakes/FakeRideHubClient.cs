@@ -1,0 +1,79 @@
+using BlazorDLR.Shared.Services;
+using DLR.Core.Contracts.Comments;
+using DLR.Core.Contracts.Markers;
+using DLR.Core.Contracts.Rides;
+
+namespace DLR.UI.Tests.Fakes;
+
+/// <summary>
+/// A no-op <see cref="IRideHubClient"/> that records connect/join/leave calls and lets
+/// tests fire events by hand. bUnit renders shared components against this so a hub
+/// event coming from the wire and a test-driven event go through the same handler.
+/// </summary>
+public sealed class FakeRideHubClient : IRideHubClient
+{
+	public bool IsConnected { get; private set; }
+
+	public int ConnectCount { get; private set; }
+	public List<Guid> Joined { get; } = new();
+	public List<Guid> Left { get; } = new();
+
+	// The interface declares many events; tests raise them via the Raise* helpers below.
+#pragma warning disable CS0067
+	public event Action<PositionBatch>? PositionsUpdated;
+	public event Action<Guid, RideMemberSummary>? MemberJoined;
+	public event Action<Guid, Guid>? MemberLeft;
+	public event Action<Guid, RideStateDto>? RideStateChanged;
+	public event Action<Guid, Guid>? RouteUpdated;
+	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
+	public event Action<Guid, JoinResult>? JoinRequestDecided;
+	public event Action<Guid, MarkerDto>? MarkerAdded;
+	public event Action<Guid, MarkerDto>? MarkerUpdated;
+	public event Action<Guid, Guid>? MarkerRemoved;
+	public event Action<Guid, CommentDto>? CommentPosted;
+	public event Action<Guid, CommentDto>? CommentEdited;
+	public event Action<Guid, Guid>? CommentRemoved;
+	public event Action<Guid, Guid, bool>? CommentPinChanged;
+	public event Action<Guid, ReactionCounts>? ReactionsUpdated;
+	public event Action<Guid, PollResults>? PollUpdated;
+	public event Action<Guid, RidePermissions>? PermissionsChanged;
+	public event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
+	public event Action<Guid, Guid, bool>? MemberSharingChanged;
+#pragma warning restore CS0067
+
+	public Task ConnectAsync(CancellationToken cancellationToken = default)
+	{
+		ConnectCount++;
+		IsConnected = true;
+		return Task.CompletedTask;
+	}
+
+	public Task JoinRideAsync(Guid rideId, CancellationToken cancellationToken = default)
+	{
+		Joined.Add(rideId);
+		return Task.CompletedTask;
+	}
+
+	public Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default)
+	{
+		Left.Add(rideId);
+		return Task.CompletedTask;
+	}
+
+	public Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default) =>
+		Task.CompletedTask;
+
+	public ValueTask DisposeAsync()
+	{
+		IsConnected = false;
+		return ValueTask.CompletedTask;
+	}
+
+	// Test-raise helpers. Kept on the fake rather than on the interface, because a component
+	// listening on the interface has no reason to be able to raise its own events.
+	public void RaiseCommentPosted(Guid rideId, CommentDto comment) => CommentPosted?.Invoke(rideId, comment);
+	public void RaiseReactionsUpdated(Guid commentId, ReactionCounts counts) => ReactionsUpdated?.Invoke(commentId, counts);
+	public void RaiseRideStateChanged(Guid rideId, RideStateDto state) => RideStateChanged?.Invoke(rideId, state);
+	public void RaisePermissionsChanged(Guid rideId, RidePermissions permissions) => PermissionsChanged?.Invoke(rideId, permissions);
+	public void RaiseRouteUpdated(Guid rideId, Guid trackId) => RouteUpdated?.Invoke(rideId, trackId);
+}

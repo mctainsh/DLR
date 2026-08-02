@@ -1,0 +1,109 @@
+@using BlazorDLR.Shared.Services
+@inject IApiClient Api
+@implements IDisposable
+
+@*
+    AGPL §13 source offer, rendered on every page (§14.6.2, §6.1).
+
+    Section 13 of the AGPL obliges the running server to offer the source of the
+    exact build it is running — publishing the repo alone is not sufficient, and
+    a hand-maintained commit string is a licence breach that looks like a bug.
+    So the footer reads /api/v1/about (which reads the assembly's embedded commit
+    at build time via SourceLink) and renders licence + source URL + commit.
+
+    Kept in DLR.UI as a shared component so both hosts render it — the SSR shell
+    for the public web pages renders it too via the Razor host (§18.4).
+*@
+
+<footer class="source-offer">
+    @if (info is null)
+    {
+        <span class="loading" aria-hidden="true">© Dumb Luck Rides · AGPL-3.0-only</span>
+    }
+    else
+    {
+        <span class="licence">© Dumb Luck Rides · @info.Licence</span>
+        <span class="separator" aria-hidden="true">·</span>
+        <a class="source" href="@info.SourceUrl" target="_blank" rel="noopener noreferrer">
+            Source
+        </a>
+        <span class="separator" aria-hidden="true">·</span>
+        <span class="commit" title="This build's exact commit — §14.6.2.">
+            @Truncated(info.Commit)
+        </span>
+    }
+</footer>
+
+@code {
+    // The "about" response rarely changes, so cache it across page navigations. Read once per
+    // process on both hosts; when the version endpoint changes shape or the app is rebuilt with
+    // a new commit, the cache dies with the process, which is exactly the freshness this needs.
+    private static AboutInfo? _cached;
+
+    private AboutInfo? info;
+    private CancellationTokenSource? loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (_cached is not null)
+        {
+            info = _cached;
+            return;
+        }
+
+        loading = new CancellationTokenSource();
+
+        try
+        {
+            info = _cached = await Api.GetAboutAsync(loading.Token);
+        }
+        catch (NotImplementedException)
+        {
+            // Phase 0 stub. Render the placeholder above and leave the footer honest —
+            // "©, AGPL-3.0-only" is true regardless of whether the server answered.
+        }
+        catch (Exception)
+        {
+            // A network failure or a 500. The placeholder is the honest fallback: it does
+            // not fabricate a commit and it does not claim reachability the app cannot prove.
+        }
+    }
+
+    public void Dispose()
+    {
+        loading?.Cancel();
+        loading?.Dispose();
+    }
+
+    // Show enough of the commit to be recognisable, and no more — the full 40-char SHA is
+    // in the response, which somebody debugging can copy out of the DOM if they need it.
+    private static string Truncated(string commit) =>
+        string.IsNullOrEmpty(commit)
+            ? "unknown"
+            : commit.Length <= 10 ? commit : commit[..10];
+}
+
+<style>
+    .source-offer {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        font-size: 0.8rem;
+        opacity: 0.7;
+        border-top: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .source-offer .separator {
+        opacity: 0.5;
+    }
+
+    .source-offer .source {
+        text-decoration: underline;
+    }
+
+    .source-offer .commit {
+        font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+    }
+</style>

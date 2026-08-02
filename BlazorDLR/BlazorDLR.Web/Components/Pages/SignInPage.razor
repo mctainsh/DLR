@@ -1,0 +1,45 @@
+@page "/login"
+@using BlazorDLR.Shared.Components
+
+@*
+    Web sign-in page — statically rendered, form-posts to /api/v1/auth/web/login (§7.5).
+
+    Deliberately not a WASM page: a cookie cannot be set from inside an already-running
+    WASM client, and the failure mode is subtle — the sign-in appears to work and the
+    next request is anonymous. §7.5 is explicit about this and about the shape of the
+    endpoint that sets the cookie.
+
+    Antiforgery is off on this endpoint (§7.5's scoped decision), so this form does not
+    need to fetch a token first.
+*@
+
+<PageTitle>Sign in — Dumb Luck Rides</PageTitle>
+
+<div class="page">
+    <h1>Sign in</h1>
+
+    <form method="post" action="/api/v1/auth/web/login">
+        <label>
+            User name
+            <input name="userName" autocomplete="username" required autofocus />
+        </label>
+        <label>
+            Password
+            <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button type="submit">Sign in</button>
+    </form>
+
+    <p><a href="/auth/forgot-password">Forgot password?</a></p>
+    <p>No account yet? <a href="/register">Register</a>.</p>
+
+    <SourceOfferFooter />
+</div>
+
+<style>
+    .page { max-width: 24rem; margin: 3rem auto; padding: 0 1rem; }
+    .page label { display: block; margin: 0.75rem 0; }
+    .page input { display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
+    .page button { padding: 0.6rem 1.25rem; margin-top: 0.5rem; }
+    .page p { margin-top: 0.75rem; font-size: 0.9rem; }
+</style>

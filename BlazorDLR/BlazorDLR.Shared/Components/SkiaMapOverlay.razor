@@ -1,0 +1,250 @@
+@using BlazorDLR.Shared.Services
+@using SkiaSharp
+@using SkiaSharp.Views.Blazor
+@implements IAsyncDisposable
+
+@*
+    The one drawing surface for every authored map element (§4.5 v0.21, §16.3).
+
+    One C# component, one SkiaSharp canvas, one set of pixels drawn on every host —
+    Apple Maps on iOS, Google Maps on Android, OpenLayers on the web. The half of the
+    map "we own" is drawn once, so a marker looks the same on every platform and the
+    class of bug v0.13 warned about — two map code paths drift on marker rendering —
+    is closed by construction.
+
+    The overlay projects lat / lon → screen space using Web Mercator (EPSG:3857), which
+    is the projection all three base maps use natively. Every ViewportChanged from the
+    base map is a repaint here.
+*@
+
+<SKCanvasView OnPaintSurface="OnPaintSurface" @ref="_view"
+              IgnorePixelScaling="false"
+              class="dlr-map-overlay" />
+
+@code {
+    /// <summary>Route drawn under the pins.</summary>
+    [Parameter] public RouteOverlay? Route { get; set; }
+
+    /// <summary>Markers to draw. Ordered by ascending latitude so higher pins draw over lower.</summary>
+    [Parameter] public IReadOnlyDictionary<Guid, MapMarker>? Markers { get; set; }
+
+    /// <summary>The base map's current view. Passed in by <c>RideMap.razor</c>.</summary>
+    [Parameter] public MapViewport Viewport { get; set; }
+
+    private SKCanvasView? _view;
+    private List<SKPoint>? _decodedRoute;
+    private string? _decodedRouteKey;
+
+    protected override void OnParametersSet()
+    {
+        // Route encoded polylines are large but stable; decode once per unique polyline
+        // rather than on every paint. Keying on the encoded string lets a caller swap the
+        // whole overlay without keeping any state we would have to invalidate.
+        if (Route is null)
+        {
+            _decodedRoute = null;
+            _decodedRouteKey = null;
+        }
+        else if (!ReferenceEquals(Route.EncodedPolyline, _decodedRouteKey))
+        {
+            _decodedRoute = DecodePolyline(Route.EncodedPolyline);
+            _decodedRouteKey = Route.EncodedPolyline;
+        }
+
+        _view?.Invalidate();
+    }
+
+    private void OnPaintSurface(SKPaintSurfaceEventArgs args)
+    {
+        SKCanvas canvas = args.Surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        if (Viewport.CanvasWidthPx <= 0 || Viewport.CanvasHeightPx <= 0)
+        {
+            return;
+        }
+
+        DrawRoute(canvas);
+        DrawMarkers(canvas);
+    }
+
+    private void DrawRoute(SKCanvas canvas)
+    {
+        if (_decodedRoute is null || _decodedRoute.Count < 2) return;
+
+        using SKPaint stroke = new()
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 4f,
+            IsAntialias = true,
+            StrokeCap = SKStrokeCap.Round,
+            StrokeJoin = SKStrokeJoin.Round,
+            Color = ParseColour(Route?.Colour ?? "#2563eb"),
+        };
+
+        using SKPath path = new();
+        bool first = true;
+        foreach (SKPoint lonLat in _decodedRoute)
+        {
+            SKPoint screen = Project(lonLat.Y, lonLat.X);
+            if (first) { path.MoveTo(screen); first = false; }
+            else { path.LineTo(screen); }
+        }
+
+        canvas.DrawPath(path, stroke);
+    }
+
+    private void DrawMarkers(SKCanvas canvas)
+    {
+        if (Markers is null) return;
+
+        using SKPaint fill = new() { Style = SKPaintStyle.Fill, IsAntialias = true, Color = new SKColor(0x25, 0x63, 0xeb) };
+        using SKPaint ring = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 2f, IsAntialias = true, Color = SKColors.White };
+        using SKFont font = new() { Size = 12f };
+        using SKPaint text = new() { IsAntialias = true, Color = SKColors.Black };
+        using SKPaint textHalo = new() { IsAntialias = true, Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 3f };
+
+        foreach (MapMarker marker in Markers.Values)
+        {
+            SKPoint screen = Project(marker.Latitude, marker.Longitude);
+            if (!InsideCanvas(screen)) continue;
+
+            canvas.DrawCircle(screen, 6f, fill);
+            canvas.DrawCircle(screen, 6f, ring);
+
+            if (!string.IsNullOrEmpty(marker.Title))
+            {
+                float ty = screen.Y + 18f;
+                canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, font, textHalo);
+                canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, font, text);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Web Mercator projection from geographic degrees to overlay pixel coordinates.
+    /// The base map is already in this projection — every one of the three we support —
+    /// so a pixel here lands on the corresponding tile pixel.
+    /// </summary>
+    private SKPoint Project(double lat, double lon)
+    {
+        // Convert lat/lon to normalised Mercator [0, 1] × [0, 1].
+        double x = (lon + 180.0) / 360.0;
+        double sinLat = Math.Sin(lat * Math.PI / 180.0);
+        // Clamp so a pole does not blow up the logarithm.
+        sinLat = Math.Max(-0.9999, Math.Min(0.9999, sinLat));
+        double y = 0.5 - Math.Log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
+
+        // Where is the viewport in the same normalised space?
+        double tlX = (Viewport.TopLeftLongitude + 180.0) / 360.0;
+        double brX = (Viewport.BottomRightLongitude + 180.0) / 360.0;
+        double tlSin = Math.Max(-0.9999, Math.Min(0.9999, Math.Sin(Viewport.TopLeftLatitude * Math.PI / 180.0)));
+        double brSin = Math.Max(-0.9999, Math.Min(0.9999, Math.Sin(Viewport.BottomRightLatitude * Math.PI / 180.0)));
+        double tlY = 0.5 - Math.Log((1 + tlSin) / (1 - tlSin)) / (4 * Math.PI);
+        double brY = 0.5 - Math.Log((1 + brSin) / (1 - brSin)) / (4 * Math.PI);
+
+        double widthPx = Viewport.CanvasWidthPx;
+        double heightPx = Viewport.CanvasHeightPx;
+
+        // Guard against a degenerate viewport (canvas not yet measured).
+        if (Math.Abs(brX - tlX) < 1e-12 || Math.Abs(brY - tlY) < 1e-12)
+        {
+            return new SKPoint((float)(widthPx / 2), (float)(heightPx / 2));
+        }
+
+        float px = (float)(widthPx * (x - tlX) / (brX - tlX));
+        float py = (float)(heightPx * (y - tlY) / (brY - tlY));
+
+        // Apply the base map's rotation. The overlay draws north-up in Mercator; the
+        // base map's rotation is applied here so the pixels stay in register when a
+        // heading-up map is in use (§4.5 rule about heading-up rendering).
+        if (Math.Abs(Viewport.HeadingDeg) > 1e-6)
+        {
+            float cx = (float)(widthPx / 2);
+            float cy = (float)(heightPx / 2);
+            double rad = -Viewport.HeadingDeg * Math.PI / 180.0;
+            double cos = Math.Cos(rad);
+            double sin = Math.Sin(rad);
+            double dx = px - cx;
+            double dy = py - cy;
+            px = (float)(cx + dx * cos - dy * sin);
+            py = (float)(cy + dx * sin + dy * cos);
+        }
+
+        return new SKPoint(px, py);
+    }
+
+    private bool InsideCanvas(SKPoint p) =>
+        p.X >= -32 && p.Y >= -32 && p.X <= Viewport.CanvasWidthPx + 32 && p.Y <= Viewport.CanvasHeightPx + 32;
+
+    /// <summary>
+    /// Decode a Google-style encoded polyline to a list of points where the X coordinate is
+    /// longitude and the Y coordinate is latitude. Kept in the overlay so nothing else needs
+    /// to know about the encoding.
+    /// </summary>
+    private static List<SKPoint> DecodePolyline(string encoded)
+    {
+        List<SKPoint> points = new();
+        if (string.IsNullOrEmpty(encoded)) return points;
+
+        int index = 0, lat = 0, lon = 0;
+        while (index < encoded.Length)
+        {
+            (int dlat, index) = DecodeValue(encoded, index);
+            lat += dlat;
+            (int dlon, index) = DecodeValue(encoded, index);
+            lon += dlon;
+            points.Add(new SKPoint((float)(lon * 1e-5), (float)(lat * 1e-5)));
+        }
+        return points;
+    }
+
+    private static (int Value, int NextIndex) DecodeValue(string encoded, int index)
+    {
+        int result = 0, shift = 0, byteValue;
+        do
+        {
+            byteValue = encoded[index++] - 63;
+            result |= (byteValue & 0x1f) << shift;
+            shift += 5;
+        }
+        while (byteValue >= 0x20);
+        int value = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+        return (value, index);
+    }
+
+    private static SKColor ParseColour(string hex)
+    {
+        // Accept #RRGGBB. Anything else falls back to the design's primary blue.
+        if (hex.StartsWith('#') && hex.Length == 7
+            && byte.TryParse(hex.AsSpan(1, 2), System.Globalization.NumberStyles.HexNumber, null, out byte r)
+            && byte.TryParse(hex.AsSpan(3, 2), System.Globalization.NumberStyles.HexNumber, null, out byte g)
+            && byte.TryParse(hex.AsSpan(5, 2), System.Globalization.NumberStyles.HexNumber, null, out byte b))
+        {
+            return new SKColor(r, g, b);
+        }
+        return new SKColor(0x25, 0x63, 0xeb);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _view = null;
+        return ValueTask.CompletedTask;
+    }
+}
+
+<style>
+    /*
+      The canvas sits over the base map. `pointer-events: none` lets pan and zoom
+      travel through to whichever base map is underneath — the overlay never eats
+      gestures, because on every host the base map already handles them and the
+      overlay is a visual layer, not an input surface.
+    */
+    .dlr-map-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        width: 100%;
+        height: 100%;
+    }
+</style>

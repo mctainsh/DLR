@@ -1,0 +1,129 @@
+@using BlazorDLR.Shared.Services
+@inject IMapInterop Map
+@implements IAsyncDisposable
+
+@*
+    Composes the base map (§4.5 v0.21: Apple Maps / Google Maps / OpenLayers, chosen by
+    the host) with the shared Skia overlay that draws every marker, track and rider pin.
+
+    Two layers stacked in a positioned container:
+
+      1. `dlr-map-base` — a plain <div> the JS module attaches to. Handles pan / zoom /
+         rotate / tiles / attribution, and emits a MapViewport when the view moves.
+      2. `SkiaMapOverlay` — a SkiaSharp canvas positioned absolutely over the base, with
+         `pointer-events: none` so gestures pass through. Repaints on every viewport
+         event.
+
+    "A map that cannot get a token shows a stated error, not a blank grey rectangle"
+    (§4.5) — the try/catch below is where that decision is made once for every provider.
+*@
+
+<div class="dlr-map-container">
+    <div @ref="_host" class="dlr-map-base"></div>
+
+    @if (_viewport is { CanvasWidthPx: > 0 } vp)
+    {
+        <SkiaMapOverlay Viewport="vp" Markers="Markers" Route="Route" />
+    }
+</div>
+
+@if (_error is not null)
+{
+    <div class="dlr-map-error" role="alert">
+        <strong>Map unavailable</strong>
+        <p>@_error</p>
+    </div>
+}
+
+@code {
+    /// <summary>Where the map opens.</summary>
+    [Parameter, EditorRequired] public MapCamera Camera { get; set; } = default!;
+
+    /// <summary>Whether the base map draws its own current-position marker.</summary>
+    [Parameter] public bool ShowUserLocation { get; set; }
+
+    /// <summary>The route drawn under the pins (§15.5).</summary>
+    [Parameter] public RouteOverlay? Route { get; set; }
+
+    /// <summary>Markers to draw (§16). Keyed on id for idempotent upsert on the Skia side.</summary>
+    [Parameter] public IReadOnlyDictionary<Guid, MapMarker>? Markers { get; set; }
+
+    /// <summary>Fired once the base map has attached and reported a viewport.</summary>
+    [Parameter] public EventCallback OnReady { get; set; }
+
+    private ElementReference _host;
+    private bool _initialised;
+    private string? _error;
+    private MapViewport? _viewport;
+
+    protected override void OnInitialized()
+    {
+        Map.ViewportChanged += OnViewportChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_initialised)
+        {
+            return;
+        }
+
+        _initialised = true;
+
+        try
+        {
+            await Map.InitAsync(_host, new MapOptions(Camera, ShowUserLocation));
+            if (OnReady.HasDelegate)
+            {
+                await OnReady.InvokeAsync();
+            }
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnViewportChanged(MapViewport viewport)
+    {
+        _viewport = viewport;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Move the base map's camera. The overlay re-registers via the next viewport event.</summary>
+    public ValueTask SetCameraAsync(MapCamera camera) => Map.SetCameraAsync(camera);
+
+    public async ValueTask DisposeAsync()
+    {
+        Map.ViewportChanged -= OnViewportChanged;
+        if (_initialised)
+        {
+            await Map.DisposeAsync();
+        }
+    }
+}
+
+<style>
+    .dlr-map-container {
+        position: relative;
+        width: 100%;
+        min-height: 480px;
+    }
+    .dlr-map-base {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        background: #eef1f5;
+    }
+    .dlr-map-error {
+        margin-top: 0.5rem;
+        padding: 0.75rem 1rem;
+        background: #fff3cd;
+        border: 1px solid #ffe69c;
+        border-radius: 4px;
+    }
+    .dlr-map-error strong { display: block; margin-bottom: 0.25rem; }
+    .dlr-map-error p { margin: 0; }
+</style>

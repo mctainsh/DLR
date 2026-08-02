@@ -79,22 +79,30 @@ public static class IdentityRegistration
 	}
 
 	/// <summary>
-	/// Length instead of composition (§7.2).
+	/// Password policy (§7.2, revised).
 	/// <para>
-	/// Every rule turned off below is turned off on purpose. Composition requirements do not
-	/// measure strength; they measure compliance, and what people comply with is
-	/// <c>Passw0rd!</c> — a string that satisfies all four and is in every breach corpus in
-	/// existence. Ten characters and a corpus lookup measure the thing the rules were
-	/// standing in for. Identity's default six-character minimum is raised explicitly rather
-	/// than inherited.
+	/// <strong>Deliberate deviation from §7.2's original stance.</strong> §7.2 argues that
+	/// composition rules measure compliance rather than strength — every rule below turned
+	/// on is a rule people work around with <c>Passw0rd!</c>, which is in every breach
+	/// corpus and passes them all. The operator has decided the trade-off differently:
+	/// each rule below produces a specific, obvious error message ("no uppercase letter",
+	/// "no digit") that a signing-up user can act on, at the cost of pushing toward the
+	/// well-known bad shape §7.2 warned about. The Pwned-Passwords check (still in place
+	/// via <see cref="BreachedPasswordValidator"/>) is what stops that shape actually
+	/// landing in the database.
+	/// </para>
+	/// <para>
+	/// <c>RequireNonAlphanumeric</c> stays <c>false</c> — a special-character requirement
+	/// pushes toward the same predictable-substitution shape as the digit and case rules,
+	/// and the operator specifically asked not to require it.
 	/// </para>
 	/// </summary>
 	private static void ApplyPasswordPolicy(PasswordOptions password)
 	{
-		password.RequiredLength = 10;
-		password.RequireDigit = false;
-		password.RequireLowercase = false;
-		password.RequireUppercase = false;
+		password.RequiredLength = 6;
+		password.RequireDigit = true;
+		password.RequireLowercase = true;
+		password.RequireUppercase = true;
 		password.RequireNonAlphanumeric = false;
 		password.RequiredUniqueChars = 1;
 	}

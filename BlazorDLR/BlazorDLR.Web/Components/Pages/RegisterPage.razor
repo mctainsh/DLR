@@ -1,0 +1,71 @@
+@page "/register"
+@using BlazorDLR.Shared.Components
+
+@*
+    Web registration — statically rendered, form-posts to /api/v1/auth/web/register (§7.5).
+    Same reasoning as /login: the cookie must be set by the endpoint, so the form is not
+    inside a running WASM client.
+
+    Registration is what the whole product's "v0.5 signup is not a hurdle" argument buys
+    (§7.2), and this page shows the recovery trade-off in plain text next to the empty
+    email field. That copy is not marketing; it is what §7.2 requires.
+*@
+
+<PageTitle>Register — Dumb Luck Rides</PageTitle>
+
+<div class="page">
+    <h1>Register</h1>
+
+    <form method="post" action="/api/v1/auth/web/register">
+        <label>
+            User name — <em>permanent</em>
+            <input name="userName" autocomplete="off" required autofocus placeholder="DaveSmith" />
+        </label>
+
+        <label>
+            Password
+            <input name="password" type="password" autocomplete="new-password" required />
+            <span class="rule-hint">
+                At least 6 characters, and at least one uppercase letter,
+                one lowercase letter and one digit.
+            </span>
+        </label>
+
+        <label>
+            Email (optional)
+            <input name="email" type="email" autocomplete="email" />
+        </label>
+
+        <div class="callout">
+            <strong>No email means no recovery and no warning.</strong>
+            If you forget your password or lose this device, this account and everything
+            in it is gone — a password cannot be reset without an email. An unused account
+            holding no saved rides is deleted after 6 months, and with no email address we
+            cannot warn you before it happens. You can add one later.
+        </div>
+
+        <button type="submit">Create account</button>
+    </form>
+
+    <p>Already have an account? <a href="/login">Sign in</a>.</p>
+
+    <SourceOfferFooter />
+</div>
+
+<style>
+    .page { max-width: 32rem; margin: 3rem auto; padding: 0 1rem; }
+    .page label { display: block; margin: 0.75rem 0; }
+    .page label em { opacity: 0.7; font-weight: normal; }
+    .page input { display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
+    .page button { padding: 0.6rem 1.25rem; margin-top: 0.5rem; }
+    .page .callout {
+        margin: 0.75rem 0; padding: 0.75rem 1rem;
+        background: #fff8e1; border: 1px solid #ffe08a; border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    .page .rule-hint {
+        display: block; margin-top: 0.25rem;
+        font-size: 0.8rem; opacity: 0.7;
+    }
+    .page p { margin-top: 0.75rem; font-size: 0.9rem; }
+</style>

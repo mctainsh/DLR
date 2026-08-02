@@ -8,7 +8,13 @@
     -->
     <TargetFramework></TargetFramework>
     <TargetFrameworks>net10.0-android</TargetFrameworks>
-    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+    <!--
+      iOS and MacCatalyst build only on macOS: they invoke Xcode, and on any other host MSBuild
+      fails to spin up the task host with a MSB4216 that names neither the SDK nor the reason.
+      Restricted to OSX here so a Windows developer can still open the solution and build the
+      Android and Windows heads that make sense on their machine.
+    -->
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
 
     <!-- Note for MacCatalyst:

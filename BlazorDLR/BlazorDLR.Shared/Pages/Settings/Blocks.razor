@@ -1,0 +1,86 @@
+@page "/settings/blocks"
+@attribute [Authorize]
+@using DLR.Core.Contracts.Moderation
+@inject IApiClient Api
+
+<PageTitle>Blocked riders — Dumb Luck Rides</PageTitle>
+
+<div class="page">
+    <h1>Blocked riders</h1>
+
+    <p class="lead">
+        Blocking hides that rider's posts, reactions, markers and poll votes from you.
+        They are not told, and their own view of the ride does not change (§16.5, §17.7).
+    </p>
+
+    @if (_blocks is null)
+    {
+        <p class="hint">Loading…</p>
+    }
+    else if (_blocks.Count == 0)
+    {
+        <p>You have not blocked anybody.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (BlockedRider block in _blocks)
+            {
+                <li>
+                    <strong>@block.UserName</strong>
+                    <span class="when">blocked @block.CreatedUtc.ToLocalTime().ToString("d MMM yyyy")</span>
+                    <button type="button" disabled="@_busy"
+                            @onclick="() => UnblockAsync(block.UserId)">
+                        Unblock
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (_error is not null)
+    {
+        <p class="error">@_error</p>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<BlockedRider>? _blocks;
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try { _blocks = await Api.ListBlocksAsync(); }
+        catch (ApiException apiException) { _error = apiException.Error.Title; }
+    }
+
+    private async Task UnblockAsync(Guid userId)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            await Api.UnblockUserAsync(userId);
+            await LoadAsync();
+        }
+        catch (ApiException apiException) { _error = apiException.Error.Title; }
+        finally { _busy = false; }
+    }
+}
+
+<style>
+    .page { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
+    .page .lead { opacity: 0.85; }
+    .page ul { list-style: none; padding: 0; }
+    .page li {
+        padding: 0.5rem 0.75rem; background: #f7f8fa; border-radius: 4px;
+        margin: 0.4rem 0; display: flex; justify-content: space-between; align-items: center;
+    }
+    .page .when { flex: 1; margin-left: 0.75rem; font-size: 0.85rem; opacity: 0.7; }
+    .page button { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+    .page .error { padding: 0.5rem 0.75rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px; }
+    .page .hint { text-align: center; opacity: 0.7; padding: 2rem; }
+</style>

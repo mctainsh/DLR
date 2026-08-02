@@ -12,5 +12,6 @@
     <Project Path="tests/DLR.Core.Tests/DLR.Core.Tests.csproj" />
     <Project Path="tests/DLR.Server.Tests/DLR.Server.Tests.csproj" />
     <Project Path="tests/DLR.TestSupport/DLR.TestSupport.csproj" />
+    <Project Path="tests/DLR.UI.Tests/DLR.UI.Tests.csproj" />
   </Folder>
 </Solution>

@@ -1,0 +1,135 @@
+@page "/group-rides/{RideId:guid}/requests"
+@attribute [Authorize]
+@using DLR.Core.Contracts.Rides
+@inject IApiClient Api
+@inject TimeProvider Clock
+
+<PageTitle>Ride requests — Dumb Luck Rides</PageTitle>
+
+<div class="page">
+    <a class="back" href="/group-rides/@RideId">← Back to ride</a>
+
+    <h1>Join requests</h1>
+
+    <p class="lead">
+        Everybody waiting on your decision. Admitting adds them to the ride; declining
+        with block means they cannot ask again (§5.2).
+    </p>
+
+    @if (_requests is null)
+    {
+        <p class="hint">Loading…</p>
+    }
+    else if (_requests.Count == 0)
+    {
+        <p>No pending requests.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (JoinRequestSummary request in _requests)
+            {
+                <li>
+                    <div class="meta">
+                        <strong>@request.UserName</strong>
+                        <span class="when">asked @Format(request.RequestedUtc)</span>
+                        @if (!string.IsNullOrEmpty(request.Message))
+                        {
+                            <p class="message">@request.Message</p>
+                        }
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="primary" disabled="@_busy"
+                                @onclick="() => DecideAsync(request.Id, admit: true, block: false)">
+                            Admit
+                        </button>
+                        <button type="button" disabled="@_busy"
+                                @onclick="() => DecideAsync(request.Id, admit: false, block: false)">
+                            Decline
+                        </button>
+                        <button type="button" class="danger" disabled="@_busy"
+                                @onclick="() => DecideAsync(request.Id, admit: false, block: true)">
+                            Decline &amp; block
+                        </button>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (_error is not null)
+    {
+        <p class="error">@_error</p>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid RideId { get; set; }
+
+    private IReadOnlyList<JoinRequestSummary>? _requests;
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _requests = await Api.ListJoinRequestsAsync(RideId);
+        }
+        catch (ApiException apiException)
+        {
+            _error = apiException.Error.Title;
+        }
+    }
+
+    private async Task DecideAsync(Guid requestId, bool admit, bool block)
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.DecideJoinRequestAsync(RideId, requestId, new DecideJoinRequest(admit, block));
+            await LoadAsync();
+        }
+        catch (ApiException apiException)
+        {
+            _error = apiException.Error.Title;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private string Format(DateTimeOffset when)
+    {
+        TimeSpan ago = Clock.GetUtcNow() - when;
+        if (ago < TimeSpan.FromMinutes(1)) return "just now";
+        if (ago < TimeSpan.FromHours(1)) return $"{(int)ago.TotalMinutes} min ago";
+        if (ago < TimeSpan.FromDays(1)) return $"{(int)ago.TotalHours} h ago";
+        return $"{(int)ago.TotalDays} d ago";
+    }
+}
+
+<style>
+    .page { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
+    .page .back { display: inline-block; margin-bottom: 0.5rem; font-size: 0.9rem; opacity: 0.7; }
+    .page .lead { opacity: 0.85; }
+    .page ul { list-style: none; padding: 0; }
+    .page li {
+        padding: 0.75rem 1rem; background: #f7f8fa; border-radius: 6px;
+        margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
+    }
+    .page .meta { flex: 1; }
+    .page .when { font-size: 0.85rem; opacity: 0.7; margin-left: 0.5rem; }
+    .page .message { margin: 0.5rem 0 0; padding: 0.4rem 0.6rem; background: white; border-radius: 4px; }
+    .page .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .page button { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
+    .page button.primary { background: #2563eb; color: white; border: none; }
+    .page button.danger { background: #fdecea; color: #a91c1c; border: 1px solid #f5c2c0; }
+    .page .error { padding: 0.5rem 0.75rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px; }
+    .page .hint { text-align: center; opacity: 0.7; padding: 2rem; }
+</style>

@@ -28,6 +28,7 @@ internal static class SourceTree
 	private static readonly (string Prefix, string Directory)[] TopLevels =
 	[
 		("src/BlazorDLR.Web/", "BlazorDLR.Web"),
+		("src/BlazorDLR.Shared/", "BlazorDLR.Shared"),
 		("src/DLR.Core/", "DLR.Core"),
 		("src/DLR.Server.Migrations/", "DLR.Server.Migrations"),
 		("tests/", "tests"),

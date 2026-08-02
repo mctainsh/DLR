@@ -1,0 +1,55 @@
+/*
+ * Shared map styles (§18.3).
+ *
+ * The placeholder card renders in Phase 0 so screens dropping a <RideMap> into their
+ * layout see something honest rather than an empty box. The real MapKit and MapLibre
+ * modules replace the .dlr-map-placeholder-inner contents in Phase 1.
+ */
+
+.dlr-map-placeholder {
+    position: relative;
+    min-height: 240px;
+    background: #eef1f5;
+    border: 1px dashed #b6bec9;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dlr-map-placeholder-inner {
+    text-align: center;
+    padding: 1rem;
+    max-width: 32rem;
+}
+
+.dlr-map-placeholder-inner strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.dlr-map-placeholder-inner p {
+    margin: 0.25rem 0;
+    color: #4a5261;
+}
+
+.dlr-map-attribution {
+    font-size: 0.75rem;
+    color: #6c7684;
+    margin-top: 0.75rem !important;
+}
+
+/*
+ * The RideMap host — a plain sized box the JS module attaches to. Enough on Phase 0
+ * to render usefully; per-screen layout takes over from Phase 1.
+ */
+.dlr-map-host {
+    width: 100%;
+    height: 480px;
+    max-height: 70vh;
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+}
+

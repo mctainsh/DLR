@@ -28,5 +28,55 @@
     </array>
     <key>XSAppIconAssets</key>
     <string>Assets.xcassets/appicon.appiconset</string>
+
+    <!--
+        .gpx share-sheet / "Open with" integration (SharedFrontend.md §7 Phase 1).
+        Two halves of one story:
+          CFBundleDocumentTypes announces "this app opens files of this type";
+          UTImportedTypeDeclarations tells iOS what "org.topografix.gpx" is — mime
+          application/gpx+xml, extension .gpx, conforming to public.xml.
+        Without the imported-type block the OS will not recognise the identifier
+        the CFBundleDocumentTypes entry names, and the app will not appear in the
+        share sheet for .gpx files coming from another app.
+    -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>GPX track</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>org.topografix.gpx</string>
+            </array>
+        </dict>
+    </array>
+    <key>UTImportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>org.topografix.gpx</string>
+            <key>UTTypeDescription</key>
+            <string>GPS Exchange Format</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.xml</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>gpx</string>
+                </array>
+                <key>public.mime-type</key>
+                <array>
+                    <string>application/gpx+xml</string>
+                </array>
+            </dict>
+        </dict>
+    </array>
 </dict>
 </plist>

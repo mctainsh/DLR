@@ -1,0 +1,123 @@
+@page "/rides"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Services
+@using DLR.Core.Contracts.Tracks
+@inject ITrackRepository Tracks
+@inject NavigationManager Nav
+
+<PageTitle>My rides — Dumb Luck Rides</PageTitle>
+
+<div class="rides">
+    <div class="header">
+        <h1>My rides</h1>
+        <a class="button" href="/import">Import GPX</a>
+    </div>
+
+    @if (_state == State.Loading)
+    {
+        <p class="hint">Loading…</p>
+    }
+    else if (_state == State.Error)
+    {
+        <p class="error">Could not load rides: @_error</p>
+        <button type="button" @onclick="LoadAsync">Retry</button>
+    }
+    else if (_tracks is null || _tracks.Count == 0)
+    {
+        <div class="empty">
+            <p>No rides yet.</p>
+            <p>Import a GPX to add one.</p>
+        </div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th class="numeric">Distance</th>
+                    <th class="numeric">Duration</th>
+                    <th class="numeric">Ascent</th>
+                    <th>When</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (TrackSummary track in _tracks)
+                {
+                    <tr @onclick="() => OpenTrack(track.Id)">
+                        <td>@(track.Name ?? "Untitled")</td>
+                        <td>
+                            <span class="badge @(track.Source == TrackSourceDto.Imported ? "imported" : "recorded")">
+                                @track.Source
+                            </span>
+                        </td>
+                        <td class="numeric">@FormatKm(track.DistanceM)</td>
+                        <td class="numeric">@FormatDuration(track.DurationS)</td>
+                        <td class="numeric">@FormatAscent(track.AscentM)</td>
+                        <td>@track.CreatedUtc.ToLocalTime().ToString("d MMM yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private enum State { Loading, Loaded, Error }
+
+    private State _state = State.Loading;
+    private IReadOnlyList<TrackSummary>? _tracks;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _state = State.Loading;
+        _error = null;
+        try
+        {
+            _tracks = await Tracks.ListTracksAsync();
+            _state = State.Loaded;
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+            _state = State.Error;
+        }
+    }
+
+    private void OpenTrack(Guid id) => Nav.NavigateTo($"/rides/{id}");
+
+    // Zero is a real number for distance and ascent; null is not, and it should show as "—"
+    // rather than "0". §8 makes the point once; every renderer is expected to honour it.
+    private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
+    private static string FormatDuration(double? seconds) => seconds is null ? "—" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
+    private static string FormatAscent(double? metres) => metres is null ? "—" : $"{metres.Value:0} m";
+}
+
+<style>
+    .rides { max-width: 60rem; margin: 1rem auto; padding: 0 1rem; }
+    .rides .header { display: flex; justify-content: space-between; align-items: center; }
+    .rides .button {
+        padding: 0.5rem 1rem; text-decoration: none;
+        background: #2563eb; color: white; border-radius: 4px;
+    }
+    .rides table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .rides th, .rides td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #eee; }
+    .rides .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+    .rides tbody tr { cursor: pointer; }
+    .rides tbody tr:hover { background: #f7f8fa; }
+    .rides .empty, .rides .hint { text-align: center; padding: 2rem; opacity: 0.7; }
+    .rides .error {
+        margin: 1rem 0; padding: 0.5rem 0.75rem;
+        background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px;
+    }
+    .badge {
+        font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;
+        background: #eef1f5;
+    }
+    .badge.imported { background: #fef3c7; }
+    .badge.recorded { background: #d1fae5; }
+</style>

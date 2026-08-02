@@ -1,0 +1,332 @@
+@page "/welcome"
+@using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
+@using DLR.Core.Contracts.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IApiClient Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+@inject IEnumerable<IExternalSignInProvider> ExternalProviders
+
+<PageTitle>Welcome — Dumb Luck Rides</PageTitle>
+
+@*
+    The one screen an unauthenticated caller lands on (§7.9). Register or sign in.
+
+    Registration is deliberately the first tab. The whole product's argument in v0.5
+    onwards is "signup should not be a hurdle": a username + password is the account,
+    email is optional, and the confirmation copy has to state the recovery trade-off
+    plainly (§7.2). The email-consequences warning below is that copy, rendered every
+    time the field is left blank rather than in a dialog nobody reads.
+*@
+
+<AuthorizeView>
+    <Authorized>
+        <div class="welcome">
+            <p>You are already signed in as <strong>@context.User.Identity!.Name</strong>.</p>
+            <button type="button" @onclick="GoHome">Continue</button>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="welcome">
+            <h1>Dumb Luck Rides</h1>
+            <p class="tagline">
+                Ride together, know where each other is, and stop knowing the moment the ride ends.
+            </p>
+
+            <div class="tabs">
+                <button type="button"
+                        class="tab @(_tab == Tab.Register ? "active" : "")"
+                        @onclick="() => _tab = Tab.Register">
+                    Register
+                </button>
+                <button type="button"
+                        class="tab @(_tab == Tab.SignIn ? "active" : "")"
+                        @onclick="() => _tab = Tab.SignIn">
+                    Sign in
+                </button>
+            </div>
+
+            @if (_tab == Tab.Register)
+            {
+                <form @onsubmit="RegisterAsync" @onsubmit:preventDefault="true">
+                    <label>
+                        User name (<em>permanent</em>, chosen once)
+                        <input @bind="_userName" @bind:event="oninput" @onblur="CheckAvailabilityAsync"
+                               autocomplete="off" placeholder="DaveSmith" required />
+                    </label>
+                    @if (!string.IsNullOrEmpty(_availability))
+                    {
+                        <p class="hint @_availabilityKind">@_availability</p>
+                    }
+
+                    <label>
+                        Password
+                        <input @bind="_password" type="password" autocomplete="new-password" required />
+                        <span class="rule-hint">
+                            At least 6 characters, and at least one uppercase letter,
+                            one lowercase letter and one digit.
+                        </span>
+                    </label>
+
+                    <label>
+                        Email (optional — see below)
+                        <input @bind="_email" type="email" autocomplete="email" />
+                    </label>
+
+                    @if (string.IsNullOrWhiteSpace(_email))
+                    {
+                        <div class="callout">
+                            <strong>No email means no recovery and no warning.</strong>
+                            If you forget your password or lose this device, this account and
+                            everything in it is gone — a password cannot be reset without an email.
+                            An unused account holding no saved rides is deleted after 6 months,
+                            and with no email address we cannot warn you before it happens.
+                            You can add one later in Settings.
+                        </div>
+                    }
+
+                    <button type="submit" disabled="@_busy">
+                        @(_busy ? "Registering…" : "Create account")
+                    </button>
+                </form>
+            }
+            else
+            {
+                <form @onsubmit="SignInAsync" @onsubmit:preventDefault="true">
+                    <label>
+                        User name
+                        <input @bind="_userName" autocomplete="username" required />
+                    </label>
+                    <label>
+                        Password
+                        <input @bind="_password" type="password" autocomplete="current-password" required />
+                    </label>
+                    <button type="submit" disabled="@_busy">
+                        @(_busy ? "Signing in…" : "Sign in")
+                    </button>
+                </form>
+            }
+
+            @if (_error is not null)
+            {
+                <div class="error" role="alert">
+                    <strong>@_error.Title</strong>
+                    @if (_error.Messages.Count > 0)
+                    {
+                        <ul>
+                            @foreach (string message in _error.Messages)
+                            {
+                                <li>@message</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+
+            @if (ExternalProviders.Any())
+            {
+                <div class="external">
+                    <div class="external-divider"><span>or</span></div>
+                    @foreach (IExternalSignInProvider provider in ExternalProviders)
+                    {
+                        <button type="button"
+                                class="external-button @provider.Provider.ToString().ToLowerInvariant()"
+                                disabled="@(!provider.IsAvailable || _busy)"
+                                @onclick="() => SignInWithAsync(provider)">
+                            Sign in with @provider.Provider
+                            @if (!provider.IsAvailable)
+                            {
+                                <span class="soon">— coming soon</span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private enum Tab { Register, SignIn }
+
+    private Tab _tab = Tab.Register;
+
+    private string _userName = string.Empty;
+    private string _password = string.Empty;
+    private string _email = string.Empty;
+    private ApiError? _error;
+    private bool _busy;
+    private string? _availability;
+    private string _availabilityKind = string.Empty;
+
+    private async Task CheckAvailabilityAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userName) || _userName.Length < 3)
+        {
+            _availability = null;
+            return;
+        }
+
+        try
+        {
+            bool available = await Api.IsUserNameAvailableAsync(_userName.Trim());
+            _availability = available
+                ? $"'{_userName.Trim()}' is available."
+                : $"'{_userName.Trim()}' is taken.";
+            _availabilityKind = available ? "good" : "bad";
+        }
+        catch
+        {
+            // A network hiccup on the availability check is not a reason to gate the form —
+            // the register endpoint will answer with a clear error if the name is taken.
+            _availability = null;
+        }
+    }
+
+    private async Task RegisterAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            TokenResponse session = await Api.RegisterAsync(new RegisterRequest(
+                UserName: _userName.Trim(),
+                Password: _password,
+                Email: string.IsNullOrWhiteSpace(_email) ? null : _email.Trim()));
+
+            await Auth.ApplySessionAsync(session);
+            GoHome();
+        }
+        catch (ApiException apiException)
+        {
+            // ApiException carries the server's ProblemDetails — the title and every
+            // per-field error the register endpoint sent (§18.2). Rendered verbatim by
+            // the alert above.
+            _error = apiException.Error;
+        }
+        catch (Exception exception)
+        {
+            _error = new ApiError(default, "Could not create the account.", new[] { exception.Message });
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SignInAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            TokenResponse session = await Api.TokenAsync(new TokenRequest(
+                GrantType: GrantTypes.Password,
+                UserName: _userName.Trim(),
+                Password: _password));
+
+            await Auth.ApplySessionAsync(session);
+            GoHome();
+        }
+        catch (ApiException apiException)
+        {
+            _error = apiException.Error;
+        }
+        catch (Exception exception)
+        {
+            _error = new ApiError(default, "Sign-in failed.", new[] { exception.Message });
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void GoHome() => Nav.NavigateTo("/", forceLoad: false);
+
+    private async Task SignInWithAsync(IExternalSignInProvider provider)
+    {
+        if (_busy || !provider.IsAvailable) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            TokenResponse? session = await provider.StartAsync();
+            if (session is not null)
+            {
+                await Auth.ApplySessionAsync(session);
+                GoHome();
+            }
+            // If StartAsync returned null the user cancelled — no error, no navigation.
+        }
+        catch (Exception exception)
+        {
+            _error = new ApiError(default, $"Sign in with {provider.Provider} failed.", new[] { exception.Message });
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
+
+<style>
+    .welcome { max-width: 32rem; margin: 2rem auto; padding: 0 1rem; }
+    .welcome .tagline { font-size: 1.1rem; opacity: 0.85; margin-bottom: 1.5rem; }
+    .welcome .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid #ccc; }
+    .welcome .tab {
+        padding: 0.5rem 1rem; background: transparent; border: none; cursor: pointer;
+        border-bottom: 2px solid transparent;
+    }
+    .welcome .tab.active { border-bottom-color: #2563eb; font-weight: 600; }
+    .welcome label { display: block; margin: 0.75rem 0; }
+    .welcome label em { opacity: 0.7; font-weight: normal; }
+    .welcome input { display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem; font-size: 1rem; }
+    .welcome button[type="submit"], .welcome button[type="button"] { padding: 0.5rem 1.25rem; margin-top: 0.75rem; }
+    .welcome .callout {
+        margin: 0.5rem 0; padding: 0.75rem 1rem;
+        background: #fff8e1; border: 1px solid #ffe08a; border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    .welcome .hint { font-size: 0.85rem; margin: 0.25rem 0; }
+    .welcome .hint.good { color: #196c2e; }
+    .welcome .hint.bad { color: #a91c1c; }
+    .welcome .rule-hint {
+        display: block; margin-top: 0.25rem;
+        font-size: 0.8rem; opacity: 0.7;
+    }
+    .welcome .error {
+        margin-top: 1rem; padding: 0.75rem 1rem;
+        background: #fdecea; border: 1px solid #f5c2c0; color: #a91c1c; border-radius: 4px;
+    }
+    .welcome .external { margin-top: 1.5rem; }
+    .welcome .external-divider {
+        display: flex; align-items: center; margin: 1rem 0;
+        color: #94a3b8; font-size: 0.85rem;
+    }
+    .welcome .external-divider::before,
+    .welcome .external-divider::after {
+        content: ""; flex: 1; border-bottom: 1px solid #e5e7eb;
+    }
+    .welcome .external-divider span { padding: 0 0.75rem; }
+    .welcome .external-button {
+        display: block; width: 100%; padding: 0.6rem 1rem; margin: 0.4rem 0;
+        background: white; border: 1px solid #cbd5e1; border-radius: 4px;
+        font-size: 0.95rem; cursor: pointer;
+    }
+    .welcome .external-button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .welcome .external-button.apple { background: #000; color: white; border-color: #000; }
+    .welcome .external-button.apple:disabled { background: #1f2937; }
+    .welcome .external-button.google { background: white; }
+    .welcome .external-button .soon {
+        display: inline-block; margin-left: 0.5rem; font-size: 0.8rem; opacity: 0.75;
+    }
+    .welcome .error strong { display: block; margin-bottom: 0.25rem; }
+    .welcome .error ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+    .welcome .error li { margin: 0.15rem 0; }
+</style>

@@ -1,0 +1,153 @@
+@page "/settings/devices"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
+@using DLR.Core.Contracts.Identity
+@inject IApiClient Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+@inject TimeProvider Clock
+
+<PageTitle>Devices — Dumb Luck Rides</PageTitle>
+
+<div class="devices">
+    <h1>Signed-in devices</h1>
+    <p class="lead">
+        Sessions never expire (§7.4), so revoking a device is the only thing that ends its
+        access. This is the phone you sold, the browser at the library, the laptop your mate
+        borrowed.
+    </p>
+
+    @if (_sessions is null)
+    {
+        <p class="hint">Loading…</p>
+    }
+    else if (_sessions.Count == 0)
+    {
+        <p>No other devices.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (DeviceSession session in _sessions)
+            {
+                <li class="device">
+                    <div class="meta">
+                        <strong>@(session.Name ?? "Unnamed device")</strong>
+                        @if (session.IsCurrent)
+                        {
+                            <span class="badge current">this device</span>
+                        }
+                        <span class="last-seen">last seen @Format(session.LastSeenUtc)</span>
+                    </div>
+                    @if (!session.IsCurrent)
+                    {
+                        <button type="button" @onclick="() => RevokeAsync(session.DeviceId)"
+                                disabled="@_busy">
+                            Sign out
+                        </button>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (_error is not null)
+    {
+        <p class="error">@_error</p>
+    }
+
+    <hr />
+
+    <button type="button" class="danger" @onclick="SignOutThisDeviceAsync" disabled="@_busy">
+        Sign out on this device
+    </button>
+</div>
+
+@code {
+    private IReadOnlyList<DeviceSession>? _sessions;
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _sessions = await Api.ListSessionsAsync();
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private async Task RevokeAsync(Guid deviceId)
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.RevokeSessionAsync(deviceId);
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SignOutThisDeviceAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            // Revoke the current device server-side (if we know it) and clear the local store.
+            if (Auth.DeviceId is { } deviceId)
+            {
+                try { await Api.RevokeSessionAsync(deviceId); } catch { /* best-effort */ }
+            }
+            await Auth.SignOutAsync();
+            Nav.NavigateTo("/welcome", forceLoad: true);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private string Format(DateTimeOffset when)
+    {
+        TimeSpan ago = Clock.GetUtcNow() - when;
+        if (ago < TimeSpan.FromHours(1)) return "just now";
+        if (ago < TimeSpan.FromDays(1)) return $"{(int)ago.TotalHours} hours ago";
+        return $"{(int)ago.TotalDays} days ago";
+    }
+}
+
+<style>
+    .devices { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
+    .devices .lead { opacity: 0.85; }
+    .devices ul { list-style: none; padding: 0; }
+    .devices .device {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 0.75rem; margin: 0.5rem 0; background: #f7f8fa; border-radius: 6px;
+    }
+    .devices .meta { display: flex; flex-direction: column; gap: 0.25rem; }
+    .devices .last-seen { font-size: 0.85rem; opacity: 0.75; }
+    .devices .badge {
+        font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;
+        background: #dbeafe; color: #1e40af; margin-left: 0.5rem;
+    }
+    .devices .error { padding: 0.5rem 0.75rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px; }
+    .devices button { padding: 0.4rem 0.9rem; }
+    .devices button.danger { background: #fdecea; color: #a91c1c; border: 1px solid #f5c2c0; }
+    .devices .hint { text-align: center; opacity: 0.7; padding: 2rem; }
+</style>

@@ -1,0 +1,8 @@
+Using "C:\Code\Multi\DLR\Documentation\design-outline.md" develop a design document for the web and mobile front end
+  to be added to the "C:\Code\Multi\DLR\BlazorDLR\BlazorDLR.slnx" solution. As much as possible should be shared between web and
+  mobile clients and placed in "C:\Code\Multi\DLR\BlazorDLR\BlazorDLR.Shared\BlazorDLR.Shared.csproj" (see
+  "C:\Code\Multi\DLR\BlazorDLR\BlazorDLR.Shared\Pages\Weather.razor" as an example). The web client will be in
+  "C:\Code\Multi\DLR\BlazorDLR\BlazorDLR.Web.Client\BlazorDLR.Web.Client.csproj" and the mobile client will be in
+  "C:\Code\Multi\DLR\BlazorDLR\BlazorDLR\BlazorDLR.csproj" for both iOS and Android. The document should contain a
+  list of tasks with checkboxes to be marked off once complete. Take your time and review the design and document
+  througherly.

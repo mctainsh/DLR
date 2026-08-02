@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@using BlazorDLR.Shared.Components
 
 <div class="page">
     <div class="sidebar">
@@ -6,13 +7,12 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
         <article class="content px-4">
             @Body
         </article>
+
+        @* AGPL §13 source offer — every page, public and authed (§14.6.2). *@
+        <SourceOfferFooter />
     </main>
 </div>
 

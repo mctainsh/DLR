@@ -1,5 +1,6 @@
 using System.Reflection;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Stubs;
 using BlazorDLR.Web.Components;
 using BlazorDLR.Web.Services;
 using DLR.Server;
@@ -120,6 +121,26 @@ builder.Services.AddRazorComponents()
 
 // Device-specific services used by the BlazorDLR.Shared project.
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
+
+// Phase 0 (SharedFrontend.md §7): the SSR pass renders shared components before the WASM
+// client boots, so this host needs its own DI for every seam in §4 of that document — even
+// though the interactive session will re-resolve them against BlazorDLR.Web.Client's DI.
+//
+// IApiClient is bound to an in-process shim that answers /api/v1/about directly from the
+// same services the controller reads. Making the SSR pass call itself over HTTP for a value
+// it already has in memory is the kind of waste worth avoiding, and the SourceOfferFooter is
+// the one API call the shell needs to make on this pass.
+builder.Services.AddScoped<IApiClient, InProcessAboutApiClient>();
+builder.Services.AddScoped<IRideHubClient, ThrowingRideHubClient>();
+builder.Services.AddScoped<IRideRepository, HttpRideRepository>();
+builder.Services.AddScoped<ITrackRepository, HttpTrackRepository>();
+builder.Services.AddScoped<ITokenStore, CookieBackedTokenStore>();
+builder.Services.AddScoped<ILocationProvider, NoopLocationProvider>();
+builder.Services.AddScoped<INotificationService, NoopNotificationService>();
+builder.Services.AddScoped<IMediaPicker, NoopMediaPicker>();
+builder.Services.AddScoped<IMapInterop, UninitialisedMapInterop>();
+builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Apple));
+builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Google));
 
 var app = builder.Build();
 
