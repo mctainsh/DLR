@@ -1,37 +1,37 @@
-﻿@page "/login"
+@page "/login"
 @using BlazorDLR.Shared.Components
 
 @*
-    Web sign-in page — statically rendered, form-posts to /api/v1/auth/web/login (§7.5).
+	Web sign-in page — statically rendered, form-posts to /api/v1/auth/web/login (§7.5).
 
-    Deliberately not a WASM page: a cookie cannot be set from inside an already-running
-    WASM client, and the failure mode is subtle — the sign-in appears to work and the
-    next request is anonymous. §7.5 is explicit about this and about the shape of the
-    endpoint that sets the cookie.
+	Deliberately not a WASM page: a cookie cannot be set from inside an already-running
+	WASM client, and the failure mode is subtle — the sign-in appears to work and the
+	next request is anonymous. §7.5 is explicit about this and about the shape of the
+	endpoint that sets the cookie.
 
-    Antiforgery is off on this endpoint (§7.5's scoped decision), so this form does not
-    need to fetch a token first.
+	Antiforgery is off on this endpoint (§7.5's scoped decision), so this form does not
+	need to fetch a token first.
 *@
 
 <PageTitle>Sign in — Dumb Luck Rides</PageTitle>
 
 <div class="page page-standalone page-narrow form-page">
-    <h1>Sign in</h1>
+	<h1>Sign in</h1>
 
-    <form method="post" action="/api/v1/auth/web/login">
-        <label>
-            User name
-            <input name="userName" autocomplete="username" required autofocus />
-        </label>
-        <label>
-            Password
-            <input name="password" type="password" autocomplete="current-password" required />
-        </label>
-        <button type="submit">Sign in</button>
-    </form>
+	<form method="post" action="/api/v1/auth/web/login">
+		<label>
+			User name
+			<input name="userName" autocomplete="username" required autofocus />
+		</label>
+		<label>
+			Password
+			<input name="password" type="password" autocomplete="current-password" required />
+		</label>
+		<button type="submit">Sign in</button>
+	</form>
 
-    <p class="form-note"><a href="/auth/forgot-password">Forgot password?</a></p>
-    <p class="form-note">No account yet? <a href="/register">Register</a>.</p>
+	<p class="form-note"><a href="/auth/forgot-password">Forgot password?</a></p>
+	<p class="form-note">No account yet? <a href="/register">Register</a>.</p>
 
-    <SourceOfferFooter />
+	<SourceOfferFooter />
 </div>

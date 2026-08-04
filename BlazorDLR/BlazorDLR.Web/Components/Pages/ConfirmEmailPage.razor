@@ -1,44 +1,44 @@
-﻿@page "/auth/confirm-email"
+@page "/auth/confirm-email"
 @using BlazorDLR.Shared.Components
 @using Microsoft.AspNetCore.Components
 
 @*
-    §7.7's email confirmation landing. Statically rendered — same reasoning as reset.
+	§7.7's email confirmation landing. Statically rendered — same reasoning as reset.
 
-    The form POSTs to the JSON endpoint at /api/v1/auth/confirm-email. That endpoint
-    returns fresh tokens, so the user sees "confirmed" and the next visit to the app has
-    them signed in. Phase 1 keeps this as a plain acknowledge page; Phase 2 wires the
-    signed-in bounce.
+	The form POSTs to the JSON endpoint at /api/v1/auth/confirm-email. That endpoint
+	returns fresh tokens, so the user sees "confirmed" and the next visit to the app has
+	them signed in. Phase 1 keeps this as a plain acknowledge page; Phase 2 wires the
+	signed-in bounce.
 *@
 
 <PageTitle>Confirm email — Dumb Luck Rides</PageTitle>
 
 <div class="page page-standalone page-form form-page">
-    <h1>Confirm email</h1>
+	<h1>Confirm email</h1>
 
-    @if (string.IsNullOrEmpty(UserId) || string.IsNullOrEmpty(Token))
-    {
-        <p>
-            This link is missing information. Open the email we sent again — the link there
-            has everything it needs.
-        </p>
-    }
-    else
-    {
-        <p>Follow the button below to confirm this address.</p>
-        <form method="post" action="/api/v1/auth/confirm-email">
-            <input type="hidden" name="userId" value="@UserId" />
-            <input type="hidden" name="token" value="@Token" />
-            <button type="submit">Confirm this address</button>
-        </form>
-    }
+	@if (string.IsNullOrEmpty(UserId) || string.IsNullOrEmpty(Token))
+	{
+		<p>
+			This link is missing information. Open the email we sent again — the link there
+			has everything it needs.
+		</p>
+	}
+	else
+	{
+		<p>Follow the button below to confirm this address.</p>
+		<form method="post" action="/api/v1/auth/confirm-email">
+			<input type="hidden" name="userId" value="@UserId" />
+			<input type="hidden" name="token" value="@Token" />
+			<button type="submit">Confirm this address</button>
+		</form>
+	}
 
-    <p><a href="/login">Back to sign in</a></p>
+	<p><a href="/login">Back to sign in</a></p>
 
-    <SourceOfferFooter />
+	<SourceOfferFooter />
 </div>
 
 @code {
-    [SupplyParameterFromQuery] public string? UserId { get; set; }
-    [SupplyParameterFromQuery] public string? Token { get; set; }
+	[SupplyParameterFromQuery] public string? UserId { get; set; }
+	[SupplyParameterFromQuery] public string? Token { get; set; }
 }
