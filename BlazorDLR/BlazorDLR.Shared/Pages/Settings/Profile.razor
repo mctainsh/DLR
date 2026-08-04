@@ -8,181 +8,167 @@
 
 <PageTitle>Profile — Dumb Luck Rides</PageTitle>
 
-<div class="profile">
-    <h1>Profile</h1>
+<div class="page page-medium form-page profile">
+	<h1>Profile</h1>
 
-    <p class="lead">
-        Three optional fields. Each has a switch, off unless you turn it on — a shared value
-        is visible <em>only</em> to riders in a group ride with you, and access ends the
-        moment that ride ends (§7.3).
-    </p>
+	<p class="lead">
+		Three optional fields. Each has a switch, off unless you turn it on — a shared value
+		is visible <em>only</em> to riders in a group ride with you, and access ends the
+		moment that ride ends (§7.3).
+	</p>
 
-    @if (_profile is null)
-    {
-        <p class="hint">Loading…</p>
-    }
-    else
-    {
-        <form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
-            <fieldset>
-                <legend>Display name</legend>
-                <input @bind="_displayName" placeholder="Your name" />
-                <label class="switch">
-                    <input type="checkbox" @bind="_shareDisplayName" />
-                    Share with riders in my group rides
-                </label>
-            </fieldset>
+	@if (_profile is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else
+	{
+		<form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
+			<fieldset>
+				<legend>Display name</legend>
+				<input @bind="_displayName" placeholder="Your name" />
+				<label class="switch">
+					<input type="checkbox" @bind="_shareDisplayName" />
+					Share with riders in my group rides
+				</label>
+			</fieldset>
 
-            <fieldset>
-                <legend>Phone number</legend>
-                <input @bind="_phoneNumber" type="tel" placeholder="Any digits, never verified" />
-                <label class="switch">
-                    <input type="checkbox" @bind="_sharePhoneNumber" />
-                    Share with riders in my group rides
-                </label>
-                <p class="note">
-                    Not verified and never used for account recovery (§7.3). One-tap-to-call
-                    for mates on a ride, and nothing else.
-                </p>
-            </fieldset>
+			<fieldset>
+				<legend>Phone number</legend>
+				<input @bind="_phoneNumber" type="tel" placeholder="Any digits, never verified" />
+				<label class="switch">
+					<input type="checkbox" @bind="_sharePhoneNumber" />
+					Share with riders in my group rides
+				</label>
+				<p class="note">
+					Not verified and never used for account recovery (§7.3). One-tap-to-call
+					for mates on a ride, and nothing else.
+				</p>
+			</fieldset>
 
-            <fieldset>
-                <legend>Email</legend>
-                @if (_profile.Email is null)
-                {
-                    <p><em>No email on file.</em>
-                        <a href="/settings/account">Add one to enable password recovery.</a>
-                    </p>
-                }
-                else
-                {
-                    <p>
-                        <strong>@_profile.Email</strong>
-                        @if (_profile.EmailConfirmed)
-                        {
-                            <span class="badge good">confirmed</span>
-                        }
-                        else
-                        {
-                            <span class="badge bad">unconfirmed</span>
-                        }
-                    </p>
-                    <label class="switch">
-                        <input type="checkbox" @bind="_shareEmail" disabled="@(!_profile.EmailConfirmed)" />
-                        Share with riders in my group rides
-                    </label>
-                    <p class="note">
-                        Sharing an email exposes your recovery address. Turning it off does
-                        not delete it — it stays your recovery address either way.
-                    </p>
-                }
-            </fieldset>
+			<fieldset>
+				<legend>Email</legend>
+				@if (_profile.Email is null)
+				{
+					<p><em>No email on file.</em>
+						<a href="/settings/account">Add one to enable password recovery.</a>
+					</p>
+				}
+				else
+				{
+					<p>
+						<strong>@_profile.Email</strong>
+						@if (_profile.EmailConfirmed)
+						{
+							<span class="badge good">confirmed</span>
+						}
+						else
+						{
+							<span class="badge bad">unconfirmed</span>
+						}
+					</p>
+					<label class="switch">
+						<input type="checkbox" @bind="_shareEmail" disabled="@(!_profile.EmailConfirmed)" />
+						Share with riders in my group rides
+					</label>
+					<p class="note">
+						Sharing an email exposes your recovery address. Turning it off does
+						not delete it — it stays your recovery address either way.
+					</p>
+				}
+			</fieldset>
 
-            <fieldset>
-                <legend>Appearance</legend>
-                <p class="note">
-                    Dark is the default; light is the same layout on a light surface.
-                    The choice is stored on this device and never sent to the server (§18.6).
-                </p>
-                @foreach (AppTheme option in new[] { AppTheme.Dark, AppTheme.Light, AppTheme.System })
-                {
-                    <label class="radio">
-                        <input type="radio" name="theme" value="@option"
-                               checked="@(Theme.Preference == option)"
-                               @onchange="() => OnThemeSelectedAsync(option)" />
-                        @ThemeLabel(option)
-                    </label>
-                }
-            </fieldset>
+			<fieldset>
+				<legend>Appearance</legend>
+				<p class="note">
+					Dark is the default; light is the same layout on a light surface.
+					The choice is stored on this device and never sent to the server (§18.6).
+				</p>
+				@foreach (AppTheme option in new[] { AppTheme.Dark, AppTheme.Light, AppTheme.System })
+				{
+					<label class="radio">
+						<input type="radio" name="theme" value="@option"
+							   checked="@(Theme.Preference == option)"
+							   @onchange="() => OnThemeSelectedAsync(option)" />
+						@ThemeLabel(option)
+					</label>
+				}
+			</fieldset>
 
-            <button type="submit" disabled="@_saving">
-                @(_saving ? "Saving…" : "Save")
-            </button>
+			<button type="submit" disabled="@_saving">
+				@(_saving ? "Saving…" : "Save")
+			</button>
 
-            @if (_status is not null)
-            {
-                <p class="status">@_status</p>
-            }
-        </form>
-    }
+			@if (_status is not null)
+			{
+				<p class="status">@_status</p>
+			}
+		</form>
+	}
 </div>
 
 @code {
-    private OwnProfile? _profile;
-    private string? _displayName;
-    private string? _phoneNumber;
-    private bool _shareDisplayName;
-    private bool _sharePhoneNumber;
-    private bool _shareEmail;
-    private bool _saving;
-    private string? _status;
+	private OwnProfile? _profile;
+	private string? _displayName;
+	private string? _phoneNumber;
+	private bool _shareDisplayName;
+	private bool _sharePhoneNumber;
+	private bool _shareEmail;
+	private bool _saving;
+	private string? _status;
 
-    protected override async Task OnInitializedAsync()
-    {
-        _profile = await Api.GetProfileAsync();
-        _displayName = _profile.DisplayName;
-        _phoneNumber = _profile.PhoneNumber;
-        _shareDisplayName = _profile.ShareDisplayName;
-        _sharePhoneNumber = _profile.SharePhoneNumber;
-        _shareEmail = _profile.ShareEmail;
+	protected override async Task OnInitializedAsync()
+	{
+		_profile = await Api.GetProfileAsync();
+		_displayName = _profile.DisplayName;
+		_phoneNumber = _profile.PhoneNumber;
+		_shareDisplayName = _profile.ShareDisplayName;
+		_sharePhoneNumber = _profile.SharePhoneNumber;
+		_shareEmail = _profile.ShareEmail;
 
-        // The theme has already been loaded by MainLayout on the interactive pass —
-        // `Theme.Preference` is set. This page just reads it for the radio's checked-state.
-    }
+		// The theme has already been loaded by MainLayout on the interactive pass —
+		// `Theme.Preference` is set. This page just reads it for the radio's checked-state.
+	}
 
-    private Task OnThemeSelectedAsync(AppTheme theme) => Theme.SetAsync(theme);
+	private Task OnThemeSelectedAsync(AppTheme theme) => Theme.SetAsync(theme);
 
-    private static string ThemeLabel(AppTheme theme) => theme switch
-    {
-        AppTheme.Dark => "Dark",
-        AppTheme.Light => "Light",
-        AppTheme.System => "System",
-        _ => theme.ToString(),
-    };
+	private static string ThemeLabel(AppTheme theme) => theme switch
+	{
+		AppTheme.Dark => "Dark",
+		AppTheme.Light => "Light",
+		AppTheme.System => "System",
+		_ => theme.ToString(),
+	};
 
-    private async Task SaveAsync()
-    {
-        _saving = true;
-        _status = null;
-        try
-        {
-            await Api.UpdateProfileAsync(new UpdateProfileRequest(
-                DisplayName: string.IsNullOrWhiteSpace(_displayName) ? null : _displayName.Trim(),
-                PhoneNumber: string.IsNullOrWhiteSpace(_phoneNumber) ? null : _phoneNumber.Trim(),
-                ShareDisplayName: _shareDisplayName,
-                SharePhoneNumber: _sharePhoneNumber,
-                ShareEmail: _shareEmail));
-            _status = "Saved.";
-            _profile = await Api.GetProfileAsync();
-        }
-        catch (Exception exception)
-        {
-            _status = $"Save failed: {exception.Message}";
-        }
-        finally
-        {
-            _saving = false;
-        }
-    }
+	private async Task SaveAsync()
+	{
+		_saving = true;
+		_status = null;
+		try
+		{
+			await Api.UpdateProfileAsync(new UpdateProfileRequest(
+				DisplayName: string.IsNullOrWhiteSpace(_displayName) ? null : _displayName.Trim(),
+				PhoneNumber: string.IsNullOrWhiteSpace(_phoneNumber) ? null : _phoneNumber.Trim(),
+				ShareDisplayName: _shareDisplayName,
+				SharePhoneNumber: _sharePhoneNumber,
+				ShareEmail: _shareEmail));
+			_status = "Saved.";
+			_profile = await Api.GetProfileAsync();
+		}
+		catch (Exception exception)
+		{
+			_status = $"Save failed: {exception.Message}";
+		}
+		finally
+		{
+			_saving = false;
+		}
+	}
 }
 
 <style>
-    .profile { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
-    .profile .lead { opacity: 0.85; }
-    .profile fieldset { margin: 1rem 0; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; border-radius: 6px; }
-    .profile legend { font-weight: 600; padding: 0 0.5rem; }
-    .profile input[type="text"], .profile input:not([type]), .profile input[type="tel"] {
-        display: block; width: 100%; padding: 0.5rem; margin: 0.25rem 0;
-    }
-    .profile .switch { display: block; margin-top: 0.5rem; }
-    .profile .switch input { margin-right: 0.5rem; }
-    .profile .radio { display: block; margin: 0.4rem 0; font-size: 0.9rem; }
-    .profile .radio input { display: inline; width: auto; margin-right: 0.5rem; }
-    .profile .note { font-size: 0.85rem; opacity: 0.75; margin: 0.25rem 0; }
-    .profile .badge { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px; margin-left: 0.5rem; }
-    .profile .badge.good { background: #d1fae5; color: #196c2e; }
-    .profile .badge.bad { background: #fef3c7; color: #92400e; }
-    .profile button { padding: 0.5rem 1.25rem; margin-top: 1rem; }
-    .profile .status { margin-top: 1rem; padding: 0.5rem 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; }
-    .profile .hint { text-align: center; opacity: 0.7; padding: 2rem; }
+	.profile .switch { margin-top: 0.5rem; }
+	.profile .badge.good { background: #d1fae5; color: #196c2e; }
+	.profile .badge.bad { background: #fef3c7; color: #92400e; }
+	.profile .status { margin-top: 1rem; }
 </style>

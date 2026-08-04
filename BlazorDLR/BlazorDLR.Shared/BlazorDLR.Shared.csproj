@@ -11,13 +11,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.10" />
     <!--
       §7.4, §18.5: AuthorizeView, AuthenticationStateProvider, CascadingAuthenticationState.
       Every screen behind [Authorize] uses the components in this package; AuthState
       inherits from AuthenticationStateProvider so the Router knows who the caller is.
     -->
-    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.10" />
     <!--
       §5.3, §18.2: the SignalR client runs in every host. Version pinned to match the
       server (Microsoft.AspNetCore.SignalR shipped by ASP.NET Core 10) so protocol
@@ -30,7 +30,7 @@
       the server's image ingest (§14.6.3, §16.4), so this adds a Blazor binding for the
       same primitive rather than a new dependency to licence-check. MIT.
     -->
-    <PackageReference Include="SkiaSharp.Views.Blazor" Version="3.116.1" />
+    <PackageReference Include="SkiaSharp.Views.Blazor" Version="4.151.0" />
   </ItemGroup>
 
   <ItemGroup>

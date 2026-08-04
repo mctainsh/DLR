@@ -1,4 +1,4 @@
-@page "/login"
+﻿@page "/login"
 @using BlazorDLR.Shared.Components
 
 @*
@@ -15,7 +15,7 @@
 
 <PageTitle>Sign in — Dumb Luck Rides</PageTitle>
 
-<div class="page">
+<div class="page page-standalone page-narrow form-page">
     <h1>Sign in</h1>
 
     <form method="post" action="/api/v1/auth/web/login">
@@ -30,16 +30,8 @@
         <button type="submit">Sign in</button>
     </form>
 
-    <p><a href="/auth/forgot-password">Forgot password?</a></p>
-    <p>No account yet? <a href="/register">Register</a>.</p>
+    <p class="form-note"><a href="/auth/forgot-password">Forgot password?</a></p>
+    <p class="form-note">No account yet? <a href="/register">Register</a>.</p>
 
     <SourceOfferFooter />
 </div>
-
-<style>
-    .page { max-width: 24rem; margin: 3rem auto; padding: 0 1rem; }
-    .page label { display: block; margin: 0.75rem 0; }
-    .page input { display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
-    .page button { padding: 0.6rem 1.25rem; margin-top: 0.5rem; }
-    .page p { margin-top: 0.75rem; font-size: 0.9rem; }
-</style>

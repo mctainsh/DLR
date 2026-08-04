@@ -59,7 +59,7 @@ public sealed class TrackController : ControllerBase
 			// The app parses GPX with the same reader the server does (§15.7), but a
 			// client-supplied point list is untrusted input regardless of which of our own
 			// clients produced it (§15.2).
-			return Problem(statusCode: StatusCodes.Status400BadRequest,title: "Invalid coordinates", detail: "A point is outside the possible range.");
+			return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Invalid coordinates", detail: "A point is outside the possible range.");
 		}
 
 		// Checked before the blob is written. Losing the race still leaves nothing behind,

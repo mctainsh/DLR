@@ -11,24 +11,24 @@
 <PageTitle>Welcome — Dumb Luck Rides</PageTitle>
 
 @*
-    The one screen an unauthenticated caller lands on (§7.9). Register or sign in.
+	The one screen an unauthenticated caller lands on (§7.9). Register or sign in.
 
-    Registration is deliberately the first tab. The whole product's argument in v0.5
-    onwards is "signup should not be a hurdle": a username + password is the account,
-    email is optional, and the confirmation copy has to state the recovery trade-off
-    plainly (§7.2). The email-consequences warning below is that copy, rendered every
-    time the field is left blank rather than in a dialog nobody reads.
+	Registration is deliberately the first tab. The whole product's argument in v0.5
+	onwards is "signup should not be a hurdle": a username + password is the account,
+	email is optional, and the confirmation copy has to state the recovery trade-off
+	plainly (§7.2). The email-consequences warning below is that copy, rendered every
+	time the field is left blank rather than in a dialog nobody reads.
 *@
 
 <AuthorizeView>
 	<Authorized>
-		<div class="welcome">
+		<div class="page page-form form-page welcome">
 			<p>You are already signed in as <strong>@context.User.Identity!.Name</strong>.</p>
-			<button type="button" @onclick="GoHome">Continue</button>
+			<button type="button" class="primary" @onclick="GoHome">Continue</button>
 		</div>
 	</Authorized>
 	<NotAuthorized>
-		<div class="welcome">
+		<div class="page page-form form-page welcome">
 			<h1>Dumb Luck Rides</h1>
 			<p class="tagline">
 				Ride together, know where each other is, and stop knowing the moment the ride ends.
@@ -281,10 +281,9 @@
 }
 
 <style>
+	/* Signed-out landing sits a little lower than an in-app page. */
 	.welcome {
-		max-width: 32rem;
-		margin: 2rem auto;
-		padding: 0 1rem;
+		margin-top: 2rem;
 	}
 
 		.welcome .tagline {
@@ -313,43 +312,6 @@
 				font-weight: 600;
 			}
 
-		.welcome label {
-			display: block;
-			margin: 0.75rem 0;
-		}
-
-			.welcome label em {
-				opacity: 0.7;
-				font-weight: normal;
-			}
-
-		.welcome input {
-			display: block;
-			width: 100%;
-			margin-top: 0.25rem;
-			padding: 0.5rem;
-			font-size: 1rem;
-		}
-
-		.welcome button[type="submit"], .welcome button[type="button"] {
-			padding: 0.5rem 1.25rem;
-			margin-top: 0.75rem;
-		}
-
-		.welcome .callout {
-			margin: 0.5rem 0;
-			padding: 0.75rem 1rem;
-			background: #fff8e1;
-			border: 1px solid #ffe08a;
-			border-radius: 4px;
-			font-size: 0.9rem;
-		}
-
-		.welcome .hint {
-			font-size: 0.85rem;
-			margin: 0.25rem 0;
-		}
-
 			.welcome .hint.good {
 				color: #196c2e;
 			}
@@ -358,20 +320,9 @@
 				color: #a91c1c;
 			}
 
-		.welcome .rule-hint {
-			display: block;
-			margin-top: 0.25rem;
-			font-size: 0.8rem;
-			opacity: 0.7;
-		}
-
+		/* The signed-out form states its errors in red text as well as a red box. */
 		.welcome .error {
-			margin-top: 1rem;
-			padding: 0.75rem 1rem;
-			background: #fdecea;
-			border: 1px solid #f5c2c0;
 			color: #a91c1c;
-			border-radius: 4px;
 		}
 
 		.welcome .external {
@@ -435,17 +386,4 @@
 				opacity: 0.75;
 			}
 
-		.welcome .error strong {
-			display: block;
-			margin-bottom: 0.25rem;
-		}
-
-		.welcome .error ul {
-			margin: 0.25rem 0 0;
-			padding-left: 1.25rem;
-		}
-
-		.welcome .error li {
-			margin: 0.15rem 0;
-		}
 </style>

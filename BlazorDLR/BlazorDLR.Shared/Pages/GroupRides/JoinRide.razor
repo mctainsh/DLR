@@ -6,109 +6,97 @@
 
 <PageTitle>Join a ride — Dumb Luck Rides</PageTitle>
 
-<div class="page">
-    <h1>Join a ride</h1>
+<div class="page page-form form-page">
+	<h1>Join a ride</h1>
 
-    <p class="lead">
-        Enter the code the organiser gave you. Codes are six characters (§5.2).
-    </p>
+	<p class="lead">
+		Enter the code the organiser gave you. Codes are six characters (§5.2).
+	</p>
 
-    <form @onsubmit="JoinAsync" @onsubmit:preventDefault="true">
-        <label>
-            Join code
-            <input @bind="_code" placeholder="AB3K9Z" autocomplete="off" required autofocus />
-        </label>
+	<form @onsubmit="JoinAsync" @onsubmit:preventDefault="true">
+		<label>
+			Join code
+			<input @bind="_code" placeholder="AB3K9Z" autocomplete="off" required autofocus />
+		</label>
 
-        <label>
-            Message (optional — for approval rides)
-            <textarea @bind="_message" rows="3" maxlength="200"
-                      placeholder="Anything you want the organiser to see."></textarea>
-        </label>
+		<label>
+			Message (optional — for approval rides)
+			<textarea @bind="_message" rows="3" maxlength="200"
+					  placeholder="Anything you want the organiser to see."></textarea>
+		</label>
 
-        <button type="submit" disabled="@_busy">
-            @(_busy ? "Joining…" : "Join")
-        </button>
-    </form>
+		<button type="submit" disabled="@_busy">
+			@(_busy ? "Joining…" : "Join")
+		</button>
+	</form>
 
-    @if (_error is not null)
-    {
-        <div class="error" role="alert">
-            <strong>@_error.Title</strong>
-            @if (_error.Messages.Count > 0)
-            {
-                <ul>
-                    @foreach (string message in _error.Messages)
-                    {
-                        <li>@message</li>
-                    }
-                </ul>
-            }
-        </div>
-    }
+	@if (_error is not null)
+	{
+		<div class="error" role="alert">
+			<strong>@_error.Title</strong>
+			@if (_error.Messages.Count > 0)
+			{
+				<ul>
+					@foreach (string message in _error.Messages)
+					{
+						<li>@message</li>
+					}
+				</ul>
+			}
+		</div>
+	}
 </div>
 
 @code {
-    private string _code = string.Empty;
-    private string _message = string.Empty;
-    private ApiError? _error;
-    private bool _busy;
+	private string _code = string.Empty;
+	private string _message = string.Empty;
+	private ApiError? _error;
+	private bool _busy;
 
-    private async Task JoinAsync()
-    {
-        if (_busy) return;
-        _busy = true;
-        _error = null;
+	private async Task JoinAsync()
+	{
+		if (_busy) return;
+		_busy = true;
+		_error = null;
 
-        try
-        {
-            JoinResult result = await Api.JoinRideByCodeAsync(new JoinByCodeRequest(
-                Code: _code.Trim(),
-                Message: string.IsNullOrWhiteSpace(_message) ? null : _message.Trim()));
+		try
+		{
+			JoinResult result = await Api.JoinRideByCodeAsync(new JoinByCodeRequest(
+				Code: _code.Trim(),
+				Message: string.IsNullOrWhiteSpace(_message) ? null : _message.Trim()));
 
-            if (result.Joined)
-            {
-                // Straight into the ride, and its own screen decides whether to ask for
-                // sharing consent (§5.6) — that check lives with the ride, not with the
-                // join because the same prompt runs on the approval path.
-                Nav.NavigateTo($"/group-rides/{result.RideId}");
-            }
-            else
-            {
-                // Approval ride: request pending. §5.2 says the organiser decides; the
-                // decision arrives via email today (SRV-20) and via push in a later phase.
-                Nav.NavigateTo("/group-rides");
-            }
-        }
-        catch (ApiException apiException)
-        {
-            _error = apiException.Error;
-        }
-        catch (Exception exception)
-        {
-            _error = new ApiError(default, "Could not join.", new[] { exception.Message });
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+			if (result.Joined)
+			{
+				// Straight into the ride, and its own screen decides whether to ask for
+				// sharing consent (§5.6) — that check lives with the ride, not with the
+				// join because the same prompt runs on the approval path.
+				Nav.NavigateTo($"/group-rides/{result.RideId}");
+			}
+			else
+			{
+				// Approval ride: request pending. §5.2 says the organiser decides; the
+				// decision arrives via email today (SRV-20) and via push in a later phase.
+				Nav.NavigateTo("/group-rides");
+			}
+		}
+		catch (ApiException apiException)
+		{
+			_error = apiException.Error;
+		}
+		catch (Exception exception)
+		{
+			_error = new ApiError(default, "Could not join.", new[] { exception.Message });
+		}
+		finally
+		{
+			_busy = false;
+		}
+	}
 }
 
 <style>
-    .page { max-width: 32rem; margin: 1rem auto; padding: 0 1rem; }
-    .page .lead { opacity: 0.85; }
-    .page label { display: block; margin: 0.75rem 0; }
-    .page input, .page textarea {
-        display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; font-size: 1rem;
-    }
-    .page input {
-        text-transform: uppercase; letter-spacing: 0.15em; font-family: ui-monospace, monospace;
-    }
-    .page button { padding: 0.6rem 1.25rem; margin-top: 0.75rem; }
-    .page .error {
-        margin-top: 1rem; padding: 0.75rem 1rem;
-        background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px;
-    }
-    .page .error strong { display: block; margin-bottom: 0.25rem; }
-    .page .error ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+	/* A join code is typed, read back and compared — monospace and spaced out. */
+	.page input {
+		text-transform: uppercase; letter-spacing: 0.15em; font-family: ui-monospace, monospace;
+	}
 </style>

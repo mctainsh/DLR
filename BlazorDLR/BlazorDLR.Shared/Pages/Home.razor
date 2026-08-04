@@ -2,6 +2,8 @@
 @attribute [Authorize]
 @using BlazorDLR.Shared.Services
 @inject IFormFactor FormFactor
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
 
 <PageTitle>Home — Dumb Luck Rides</PageTitle>
 
@@ -11,57 +13,49 @@
     needs a real device.
 *@
 
-<div class="home">
-    <h1>Home</h1>
+<div class="page">
+	<h1>Home</h1>
 
-    <p class="tagline">
-        Signed in on <em>@FormFactor.GetFormFactor()</em> (@FormFactor.GetPlatform()).
-    </p>
+	<p class="tagline">
+		Signed in on <em>@FormFactor.GetFormFactor()</em> (@FormFactor.GetPlatform()).
+	</p>
 
-    <div class="grid">
-        <a class="card" href="/rides">
-            <h2>My rides</h2>
-            <p>Recorded and imported tracks.</p>
-        </a>
-        <a class="card" href="/group-rides">
-            <h2>Group rides</h2>
-            <p>Join a code, create a ride, run one.</p>
-        </a>
-        <a class="card" href="/import">
-            <h2>Import GPX</h2>
-            <p>Add a track from a file.</p>
-        </a>
-        <a class="card" href="/settings">
-            <h2>Settings</h2>
-            <p>Profile, devices, account.</p>
-        </a>
-    </div>
+	<div class="grid">
+		<a class="card" href="/rides">
+			<h2>My rides</h2>
+			<p>Recorded and imported tracks.</p>
+		</a>
+		<a class="card" href="/group-rides">
+			<h2>Group rides</h2>
+			<p>Join a code, create a ride, run one.</p>
+		</a>
+		<a class="card" href="/import">
+			<h2>Import GPX</h2>
+			<p>Add a track from a file.</p>
+		</a>
+		<a class="card" href="/settings">
+			<h2>Settings</h2>
+			<p>Profile, devices, account.</p>
+		</a>
+	</div>
 
-    <p class="phase-note">
-        Recording (§4.2) needs the phone's foreground location service — the app will
-        offer it in the next update once the platform-native bits ship. Everything else
-        works today.
-    </p>
+	<p class="phase-note">
+		Recording (§4.2) needs the phone's foreground location service — the app will
+		offer it in the next update once the platform-native bits ship. Everything else
+		works today.
+	</p>
 </div>
 
-<style>
-    .home { max-width: 60rem; margin: 1rem auto; padding: 0 1rem; }
-    .home .tagline { opacity: 0.8; }
-    .home .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); margin-top: 1.5rem; }
-    .home .card {
-        display: block; padding: 1rem; text-decoration: none; color: inherit;
-			background: #FFFFFF20;
-			border: 1px solid #e5e7eb;
-			border-radius: 6px;
-    }
-    .home .card:hover { border-color: #2563eb; }
-    .home .card h2 { margin: 0 0 0.25rem 0; font-size: 1.1rem; color: #2563eb; }
-    .home .card p { margin: 0; opacity: 0.8; }
-    .home .phase-note {
-        margin-top: 2rem; padding: 0.75rem 1rem;
-			background: #0000FF20;
-			border: 1px solid #bfdbfe;
-			border-radius: 4px;
-        font-size: 0.9rem;
-    }
-</style>
+
+@* @code {
+	override protected async Task OnInitializedAsync()
+	{
+		var state = await AuthState.GetAuthenticationStateAsync();
+		var user = state.User;
+		var isLoggedIn = user.Identity?.IsAuthenticated ?? false;
+		if (!isLoggedIn)
+		{
+			Nav.NavigateTo("/Welcome");
+		}
+	}
+} *@

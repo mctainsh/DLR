@@ -10,217 +10,226 @@
 <PageTitle>Add marker — Dumb Luck Rides</PageTitle>
 
 @*
-    Marker editor for a group ride (§16.1, §16.2).
+	Marker editor for a group ride (§16.1, §16.2).
 
-    Two things this enforces:
-      1. Direction is nullable-not-zero (§16.2). Zero is due north — a real bearing.
-         Empty means "no direction". The UI reflects that: a separate switch, off by
-         default, and only when it is on is the bearing enabled.
-      2. Icon key is a string from the curated set, and the client renders the label
-         (§16.2). An unknown key would degrade to `note` if this UI ever hit one.
+	Two things this enforces:
+	  1. Direction is nullable-not-zero (§16.2). Zero is due north — a real bearing.
+		 Empty means "no direction". The UI reflects that: a separate switch, off by
+		 default, and only when it is on is the bearing enabled.
+	  2. Icon key is a string from the curated set, and the client renders the label
+		 (§16.2). An unknown key would degrade to `note` if this UI ever hit one.
 
-    Photo attaches through PATCH /markers/{id}/photo after upload (§16.4). Web callers
-    reach the file through <InputFile>; phones can also use IMediaPicker (Phase 2 keeps
-    <InputFile> as the shared path — it works on every host).
+	Photo attaches through PATCH /markers/{id}/photo after upload (§16.4). Web callers
+	reach the file through <InputFile>; phones can also use IMediaPicker (Phase 2 keeps
+	<InputFile> as the shared path — it works on every host).
 *@
 
-<div class="page">
-    <a class="back" href="/group-rides/@RideId">← Back to ride</a>
+<div class="page page-medium form-page">
+	<a class="back" href="/group-rides/@RideId">← Back to ride</a>
 
-    <h1>Add marker</h1>
+	<h1>Add marker</h1>
 
-    <form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
-        <label>
-            Latitude (degrees)
-            <input @bind="_latDeg" type="number" step="0.00001" required />
-        </label>
-        <label>
-            Longitude (degrees)
-            <input @bind="_lonDeg" type="number" step="0.00001" required />
-        </label>
+	<form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
+		<label>
+			Latitude (degrees)
+			<input @bind="_latDeg" type="number" step="0.00001" required />
+		</label>
+		<label>
+			Longitude (degrees)
+			<input @bind="_lonDeg" type="number" step="0.00001" required />
+		</label>
 
-        <fieldset>
-            <legend>Icon</legend>
-            <div class="icons">
-                @foreach (string key in MarkerIcons.Known.OrderBy(k => k))
-                {
-                    <label class="icon-choice @(key == _icon ? "selected" : "")">
-                        <input type="radio" name="icon" value="@key"
-                               checked="@(key == _icon)"
-                               @onchange="() => _icon = key" />
-                        @key
-                    </label>
-                }
-            </div>
-        </fieldset>
+		<fieldset>
+			<legend>Icon</legend>
+			<div class="icons">
+				@foreach (string key in MarkerIcons.Known.OrderBy(k => k))
+				{
+					<label class="icon-choice @(key == _icon ? "selected" : "")">
+						<input type="radio" name="icon" value="@key"
+							   checked="@(key == _icon)"
+							   @onchange="() => _icon = key" />
+						@key
+					</label>
+				}
+			</div>
+		</fieldset>
 
-        <label>
-            Title
-            <input @bind="_title" required maxlength="40" placeholder="Gravel on the corner" />
-        </label>
+		<label>
+			Title
+			<input @bind="_title" required maxlength="40" placeholder="Gravel on the corner" />
+		</label>
 
-        <label>
-            Note (optional)
-            <textarea @bind="_note" rows="3" maxlength="500"
-                      placeholder="What is here, and what to look out for."></textarea>
-        </label>
+		<label>
+			Note (optional)
+			<textarea @bind="_note" rows="3" maxlength="500"
+					  placeholder="What is here, and what to look out for."></textarea>
+		</label>
 
-        <fieldset>
-            <legend>Direction</legend>
-            <label class="switch">
-                <input type="checkbox" @bind="_hasDirection" />
-                Has a direction to face
-            </label>
-            @if (_hasDirection)
-            {
-                <label>
-                    Bearing (degrees clockwise from north — 0 is north, 90 east)
-                    <input @bind="_directionDeg" type="number" min="0" max="359" required />
-                </label>
-            }
-        </fieldset>
+		<fieldset>
+			<legend>Direction</legend>
+			<label class="switch">
+				<input type="checkbox" @bind="_hasDirection" />
+				Has a direction to face
+			</label>
+			@if (_hasDirection)
+			{
+				<label>
+					Bearing (degrees clockwise from north — 0 is north, 90 east)
+					<input @bind="_directionDeg" type="number" min="0" max="359" required />
+				</label>
+			}
+		</fieldset>
 
-        <fieldset>
-            <legend>Photo (optional)</legend>
-            @if (_photo is null)
-            {
-                <InputFile OnChange="OnPhotoSelected" accept="image/jpeg,image/png,image/heic,image/webp" />
-            }
-            else
-            {
-                <p><em>@_photo.FileName selected — @(_photo.Bytes.Length / 1024) KB.</em>
-                    <button type="button" @onclick="() => _photo = null">Remove</button>
-                </p>
-            }
-            <p class="hint">
-                The server re-encodes every photo and strips its metadata (§16.4) — an
-                EXIF GPS tag from your driveway will not travel.
-            </p>
-        </fieldset>
+		<fieldset>
+			<legend>Photo (optional)</legend>
+			@if (_photo is null)
+			{
+				<InputFile OnChange="OnPhotoSelected" accept="image/jpeg,image/png,image/heic,image/webp" />
+			}
+			else
+			{
+				<p>
+					<em>@_photo.FileName selected — @(_photo.Bytes.Length / 1024) KB.</em>
+					<button type="button" @onclick="() => _photo = null">Remove</button>
+				</p>
+			}
+			<p class="hint">
+				The server re-encodes every photo and strips its metadata (§16.4) — an
+				EXIF GPS tag from your driveway will not travel.
+			</p>
+		</fieldset>
 
-        <button type="submit" class="primary" disabled="@_busy">
-            @(_busy ? "Saving…" : "Save marker")
-        </button>
-    </form>
+		<button type="submit" class="primary" disabled="@_busy">
+			@(_busy ? "Saving…" : "Save marker")
+		</button>
+	</form>
 
-    @if (_error is not null)
-    {
-        <div class="error" role="alert">
-            <strong>@_error.Title</strong>
-            @if (_error.Messages.Count > 0)
-            {
-                <ul>
-                    @foreach (string message in _error.Messages) { <li>@message</li> }
-                </ul>
-            }
-        </div>
-    }
+	@if (_error is not null)
+	{
+		<div class="error" role="alert">
+			<strong>@_error.Title</strong>
+			@if (_error.Messages.Count > 0)
+			{
+				<ul>
+					@foreach (string message in _error.Messages)
+					{
+						<li>@message</li>
+					}
+				</ul>
+			}
+		</div>
+	}
 </div>
 
 @code {
-    [Parameter] public Guid RideId { get; set; }
+	[Parameter] public Guid RideId { get; set; }
 
-    private double _latDeg = -33.868;
-    private double _lonDeg = 151.209;
-    private string _icon = "note";
-    private string _title = string.Empty;
-    private string _note = string.Empty;
-    private bool _hasDirection;
-    private short _directionDeg = 0;
-    private PickedPhoto? _photo;
-    private ApiError? _error;
-    private bool _busy;
+	private double _latDeg = -33.868;
+	private double _lonDeg = 151.209;
+	private string _icon = "note";
+	private string _title = string.Empty;
+	private string _note = string.Empty;
+	private bool _hasDirection;
+	private short _directionDeg = 0;
+	private PickedPhoto? _photo;
+	private ApiError? _error;
+	private bool _busy;
 
-    private async Task OnPhotoSelected(InputFileChangeEventArgs args)
-    {
-        try
-        {
-            IBrowserFile file = args.File;
-            const long MaxBytes = 12L * 1024 * 1024;
-            if (file.Size > MaxBytes)
-            {
-                _error = new ApiError(default, "That photo is larger than 12 MB — the server would refuse it.", Array.Empty<string>());
-                return;
-            }
-            await using Stream stream = file.OpenReadStream(MaxBytes);
-            using MemoryStream memory = new();
-            await stream.CopyToAsync(memory);
-            _photo = new PickedPhoto(memory.ToArray(), file.ContentType, file.Name);
-        }
-        catch (Exception exception)
-        {
-            _error = new ApiError(default, "Could not read that photo.", new[] { exception.Message });
-        }
-    }
+	private async Task OnPhotoSelected(InputFileChangeEventArgs args)
+	{
+		try
+		{
+			IBrowserFile file = args.File;
+			const long MaxBytes = 12L * 1024 * 1024;
+			if (file.Size > MaxBytes)
+			{
+				_error = new ApiError(default, "That photo is larger than 12 MB — the server would refuse it.", Array.Empty<string>());
+				return;
+			}
+			await using Stream stream = file.OpenReadStream(MaxBytes);
+			using MemoryStream memory = new();
+			await stream.CopyToAsync(memory);
+			_photo = new PickedPhoto(memory.ToArray(), file.ContentType, file.Name);
+		}
+		catch (Exception exception)
+		{
+			_error = new ApiError(default, "Could not read that photo.", new[] { exception.Message });
+		}
+	}
 
-    private async Task SaveAsync()
-    {
-        if (_busy) return;
-        _busy = true;
-        _error = null;
-        try
-        {
-            MarkerDto marker = await Api.CreateMarkerAsync(new CreateMarkerRequest(
-                TrackId: null,
-                GroupRideId: RideId,
-                Lat: PositionScale.FromDegrees(_latDeg),
-                Lon: PositionScale.FromDegrees(_lonDeg),
-                Icon: _icon,
-                Title: _title.Trim(),
-                Note: string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
-                DirectionDeg: _hasDirection ? _directionDeg : (short?)null));
+	private async Task SaveAsync()
+	{
+		if (_busy) return;
+		_busy = true;
+		_error = null;
+		try
+		{
+			MarkerDto marker = await Api.CreateMarkerAsync(new CreateMarkerRequest(
+				TrackId: null,
+				GroupRideId: RideId,
+				Lat: PositionScale.FromDegrees(_latDeg),
+				Lon: PositionScale.FromDegrees(_lonDeg),
+				Icon: _icon,
+				Title: _title.Trim(),
+				Note: string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
+				DirectionDeg: _hasDirection ? _directionDeg : (short?)null));
 
-            if (_photo is not null)
-            {
-                // Upload runs after the marker is created (§16.4). The two-step flow is what
-                // lets a marker appear on the map before its photo finishes uploading, which
-                // matters most in the offline case a phone hits often.
-                using MemoryStream memory = new(_photo.Bytes);
-                PhotoUploaded uploaded = await Api.UploadPhotoAsync(memory, _photo.ContentType, _photo.FileName);
-                await Api.AttachMarkerPhotoAsync(marker.Id, new AttachPhotoRequest(uploaded.PhotoId));
-            }
+			if (_photo is not null)
+			{
+				// Upload runs after the marker is created (§16.4). The two-step flow is what
+				// lets a marker appear on the map before its photo finishes uploading, which
+				// matters most in the offline case a phone hits often.
+				using MemoryStream memory = new(_photo.Bytes);
+				PhotoUploaded uploaded = await Api.UploadPhotoAsync(memory, _photo.ContentType, _photo.FileName);
+				await Api.AttachMarkerPhotoAsync(marker.Id, new AttachPhotoRequest(uploaded.PhotoId));
+			}
 
-            Nav.NavigateTo($"/group-rides/{RideId}");
-        }
-        catch (ApiException apiException)
-        {
-            _error = apiException.Error;
-        }
-        catch (Exception exception)
-        {
-            _error = new ApiError(default, "Could not save the marker.", new[] { exception.Message });
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+			Nav.NavigateTo($"/group-rides/{RideId}");
+		}
+		catch (ApiException apiException)
+		{
+			_error = apiException.Error;
+		}
+		catch (Exception exception)
+		{
+			_error = new ApiError(default, "Could not save the marker.", new[] { exception.Message });
+		}
+		finally
+		{
+			_busy = false;
+		}
+	}
 
-    private sealed record PickedPhoto(byte[] Bytes, string ContentType, string FileName);
+	private sealed record PickedPhoto(byte[] Bytes, string ContentType, string FileName);
 }
 
 <style>
-    .page { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
-    .page .back { display: inline-block; margin-bottom: 0.5rem; font-size: 0.9rem; opacity: 0.7; }
-    .page label { display: block; margin: 0.75rem 0; }
-    .page input, .page textarea {
-        display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; font-size: 1rem;
-    }
-    .page fieldset { margin: 0.75rem 0; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; border-radius: 6px; }
-    .page legend { font-weight: 600; padding: 0 0.5rem; }
-    .page .icons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .page .icon-choice {
-        display: inline-flex; align-items: center; gap: 0.3rem;
-        padding: 0.3rem 0.6rem; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 4px;
-        font-size: 0.85rem; margin: 0; cursor: pointer;
-    }
-    .page .icon-choice.selected { background: #dbeafe; border-color: #2563eb; }
-    .page .icon-choice input { width: auto; margin: 0; }
-    .page .switch { display: flex; align-items: center; gap: 0.5rem; }
-    .page .switch input { width: auto; margin: 0; }
-    .page .hint { font-size: 0.85rem; opacity: 0.75; margin: 0.25rem 0; }
-    .page button { padding: 0.5rem 1rem; }
-    .page button.primary { background: #2563eb; color: white; border: none; }
-    .page .error { padding: 0.75rem 1rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px; }
-    .page .error ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+	.page .icons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+
+	.page .icon-choice {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.3rem 0.6rem;
+		background: #f7f8fa;
+		border: 1px solid #e5e7eb;
+		border-radius: 4px;
+		font-size: 0.85rem;
+		margin: 0;
+		cursor: pointer;
+	}
+
+		.page .icon-choice.selected {
+			background: #dbeafe;
+			border-color: #2563eb;
+		}
+
+		.page .icon-choice input {
+			width: auto;
+			margin: 0;
+		}
 </style>

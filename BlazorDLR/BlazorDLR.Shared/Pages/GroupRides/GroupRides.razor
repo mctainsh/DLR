@@ -4,43 +4,30 @@
 <PageTitle>Group rides — Dumb Luck Rides</PageTitle>
 
 @*
-    The signed-in entry point to group rides (§5.2).
+	The signed-in entry point to group rides (§5.2).
 
-    Phase 2 does not yet ship a "rides I have joined" endpoint — the server tracks
-    membership per ride, and joining is by explicit code or via a request. So the
-    landing offers the two entry points and a link to the ride you were last on
-    once it exists.
+	Phase 2 does not yet ship a "rides I have joined" endpoint — the server tracks
+	membership per ride, and joining is by explicit code or via a request. So the
+	landing offers the two entry points and a link to the ride you were last on
+	once it exists.
 *@
 
-<div class="page">
-    <h1>Group rides</h1>
+<div class="page page-medium">
+	<h1>Group rides</h1>
 
-    <p class="lead">
-        Two ways into a ride, and the organiser controls both — they gave you the join
-        code, or they admitted your request (§5.2).
-    </p>
+	<p class="lead">
+		Two ways into a ride, and the organiser controls both — they gave you the join
+		code, or they admitted your request (§5.2).
+	</p>
 
-    <div class="cards">
-        <a class="card" href="/group-rides/join">
-            <h2>Join a ride</h2>
-            <p>Enter a code the organiser gave you.</p>
-        </a>
-        <a class="card" href="/group-rides/create">
-            <h2>Create a ride</h2>
-            <p>Start a ride of your own. You will be the organiser.</p>
-        </a>
-    </div>
+	<div class="cards">
+		<a class="card" href="/group-rides/join">
+			<h2>Join a ride</h2>
+			<p>Enter a code the organiser gave you.</p>
+		</a>
+		<a class="card" href="/group-rides/create">
+			<h2>Create a ride</h2>
+			<p>Start a ride of your own. You will be the organiser.</p>
+		</a>
+	</div>
 </div>
-
-<style>
-    .page { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
-    .page .lead { opacity: 0.85; }
-    .page .cards { display: grid; gap: 0.75rem; margin-top: 1.5rem; }
-    .page .card {
-        display: block; padding: 1rem; text-decoration: none; color: inherit;
-        background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px;
-    }
-    .page .card:hover { border-color: #2563eb; }
-    .page .card h2 { margin: 0 0 0.25rem 0; color: #2563eb; font-size: 1.1rem; }
-    .page .card p { margin: 0; opacity: 0.8; }
-</style>

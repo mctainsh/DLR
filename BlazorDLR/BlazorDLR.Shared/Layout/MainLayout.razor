@@ -5,64 +5,67 @@
 @implements IDisposable
 
 @*
-    The one layout every page composes with (§18.6).
+	The one layout every page composes with (§18.6).
 
-    Portrait (screen taller than wide): the icon rail lives on the LEFT.
-    Landscape (screen wider than tall): the icon rail moves to the BOTTOM.
-    Both are pure CSS — the orientation media query on `.page` picks the flex-direction,
-    and NavMenu draws the same DOM either way.
+	Portrait (screen taller than wide): the icon rail lives on the LEFT.
+	Landscape (screen wider than tall): the icon rail moves to the BOTTOM.
+	Both are pure CSS — the orientation media query on `.shell` picks the flex-direction,
+	and NavMenu draws the same DOM either way.
 
-    The <div class="app"> wrapper carries `data-theme="dark|light"`. That attribute is
-    what the CSS variables in wwwroot/app.css read from. A change to Theme.Preference
-    fires ThemeState.Changed, this component re-renders, and the attribute updates —
-    no page reload.
+	The wrapper is `.shell`, not `.page`: `.page` is the shared *content column* every
+	page uses (wwwroot/app.css), and the two must not fight over the same name.
+
+	The <div class="app"> wrapper carries `data-theme="dark|light"`. That attribute is
+	what the CSS variables in wwwroot/app.css read from. A change to Theme.Preference
+	fires ThemeState.Changed, this component re-renders, and the attribute updates —
+	no page reload.
 *@
 
 <div class="app" data-theme="@Theme.DataAttributeValue">
-    <div class="page">
-        <nav class="rail">
-            <NavMenu />
-        </nav>
+	<div class="shell">
+		<nav class="rail">
+			<NavMenu />
+		</nav>
 
-        <main class="main">
-            <article class="content">
-                @Body
-            </article>
+		<main class="main">
+			<article class="content">
+				@Body
+			</article>
 
-            @* AGPL §13 source offer — every page, public and authed (§14.6.2). *@
-            <SourceOfferFooter />
-        </main>
-    </div>
+			@* AGPL §13 source offer — every page, public and authed (§14.6.2). *@
+			<SourceOfferFooter />
+		</main>
+	</div>
 
-    <div id="blazor-error-ui" data-nosnippet>
-        An unhandled error has occurred.
-        <a href="." class="reload">Reload</a>
-        <span class="dismiss">🗙</span>
-    </div>
+	<div id="blazor-error-ui" data-nosnippet>
+		An unhandled error has occurred.
+		<a href="." class="reload">Reload</a>
+		<span class="dismiss">🗙</span>
+	</div>
 </div>
 
 @code {
-    protected override void OnInitialized()
-    {
-        // Subscribe synchronously so the initial SSR pass renders `data-theme="dark"`
-        // from ThemeState's in-memory default without touching JS interop — the WASM
-        // binding reads localStorage, and JS is not reachable until after first render.
-        Theme.Changed += OnThemeChanged;
-    }
+	protected override void OnInitialized()
+	{
+		// Subscribe synchronously so the initial SSR pass renders `data-theme="dark"`
+		// from ThemeState's in-memory default without touching JS interop — the WASM
+		// binding reads localStorage, and JS is not reachable until after first render.
+		Theme.Changed += OnThemeChanged;
+	}
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        // Only run the persisted-preference read after WASM has taken over and JS is
-        // reachable. Before then, LocalStorageThemeService would throw an
-        // InvalidOperationException that surfaces as Blazor's yellow error banner —
-        // which is exactly what we saw.
-        if (firstRender)
-        {
-            await Theme.LoadAsync();
-        }
-    }
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		// Only run the persisted-preference read after WASM has taken over and JS is
+		// reachable. Before then, LocalStorageThemeService would throw an
+		// InvalidOperationException that surfaces as Blazor's yellow error banner —
+		// which is exactly what we saw.
+		if (firstRender)
+		{
+			await Theme.LoadAsync();
+		}
+	}
 
-    private void OnThemeChanged() => _ = InvokeAsync(StateHasChanged);
+	private void OnThemeChanged() => _ = InvokeAsync(StateHasChanged);
 
-    public void Dispose() => Theme.Changed -= OnThemeChanged;
+	public void Dispose() => Theme.Changed -= OnThemeChanged;
 }

@@ -16,7 +16,7 @@
     color: var(--dlr-fg);
 }
 
-.page {
+.shell {
     display: flex;
     flex-direction: row;
     min-height: 100vh;
@@ -58,7 +58,7 @@
     strip does not cover the last row.
 */
 @media (orientation: landscape) {
-    .page {
+    .shell {
         flex-direction: column;
     }
 

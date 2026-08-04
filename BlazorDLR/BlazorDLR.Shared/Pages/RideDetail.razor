@@ -10,129 +10,135 @@
 
 <PageTitle>@Title — Dumb Luck Rides</PageTitle>
 
-<div class="detail">
-    @if (_track is null && _error is null)
-    {
-        <p class="hint">Loading…</p>
-    }
-    else if (_error is not null)
-    {
-        <p class="error">Could not load this track: @_error</p>
-    }
-    else if (_track is not null)
-    {
-        <div class="header">
-            <h1>@(_track.Track.Name ?? "Untitled")</h1>
-            <div class="header-actions">
-                <a class="button" href="/rides/@TrackId/edit">Edit</a>
-                <button type="button" @onclick="DownloadGpxAsync">Download GPX</button>
-            </div>
-        </div>
+<div class="page detail">
+	@if (_track is null && _error is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (_error is not null)
+	{
+		<p class="error">Could not load this track: @_error</p>
+	}
+	else if (_track is not null)
+	{
+		<div class="header">
+			<h1>@(_track.Track.Name ?? "Untitled")</h1>
+			<div class="header-actions">
+				<a class="button" href="/rides/@TrackId/edit">Edit</a>
+				<button type="button" @onclick="DownloadGpxAsync">Download GPX</button>
+			</div>
+		</div>
 
-        <dl class="stats">
-            <dt>Distance</dt><dd>@FormatKm(_track.Track.DistanceM)</dd>
-            <dt>Duration</dt><dd>@FormatDuration(_track.Track.DurationS)</dd>
-            <dt>Ascent</dt><dd>@FormatAscent(_track.Track.AscentM)</dd>
-            <dt>Points</dt><dd>@_track.Track.PointCount</dd>
-        </dl>
+		<dl class="stats">
+			<dt>Distance</dt>
+			<dd>@FormatKm(_track.Track.DistanceM)</dd>
+			<dt>Duration</dt>
+			<dd>@FormatDuration(_track.Track.DurationS)</dd>
+			<dt>Ascent</dt>
+			<dd>@FormatAscent(_track.Track.AscentM)</dd>
+			<dt>Points</dt>
+			<dd>@_track.Track.PointCount</dd>
+		</dl>
 
-        <RideMap Camera="_mapCamera" Route="_route" />
-    }
+		<RideMap Camera="_mapCamera" Route="_route" />
+	}
 </div>
 
 @code {
-    [Parameter] public Guid TrackId { get; set; }
+	[Parameter] public Guid TrackId { get; set; }
 
-    private TrackDetail? _track;
-    private string? _error;
-    private MapCamera _mapCamera = new(0, 0, 2);
-    private RouteOverlay? _route;
+	private TrackDetail? _track;
+	private string? _error;
+	private MapCamera _mapCamera = new(0, 0, 2);
+	private RouteOverlay? _route;
 
-    private string Title => _track?.Track.Name ?? "Ride";
+	private string Title => _track?.Track.Name ?? "Ride";
 
-    protected override async Task OnParametersSetAsync()
-    {
-        _track = null;
-        _error = null;
-        _route = null;
+	protected override async Task OnParametersSetAsync()
+	{
+		_track = null;
+		_error = null;
+		_route = null;
 
-        try
-        {
-            _track = await Tracks.GetTrackAsync(TrackId);
-            if (_track is null)
-            {
-                _error = "Not found.";
-                return;
-            }
+		try
+		{
+			_track = await Tracks.GetTrackAsync(TrackId);
+			if (_track is null)
+			{
+				_error = "Not found.";
+				return;
+			}
 
-            // Frame the map on the track's bounding box, and hand the simplified polyline
-            // to the Skia overlay. The polyline is encoded here via PolylineCodec, which is
-            // the one implementation in DLR.Core (§15.7).
-            if (_track.Bounds is { } bounds)
-            {
-                _mapCamera = new MapCamera(
-                    Latitude: (bounds.MinLatitude + bounds.MaxLatitude) / 2,
-                    Longitude: (bounds.MinLongitude + bounds.MaxLongitude) / 2,
-                    ZoomLevel: 11);
-            }
+			// Frame the map on the track's bounding box, and hand the simplified polyline
+			// to the Skia overlay. The polyline is encoded here via PolylineCodec, which is
+			// the one implementation in DLR.Core (§15.7).
+			if (_track.Bounds is { } bounds)
+			{
+				_mapCamera = new MapCamera(
+					Latitude: (bounds.MinLatitude + bounds.MaxLatitude) / 2,
+					Longitude: (bounds.MinLongitude + bounds.MaxLongitude) / 2,
+					ZoomLevel: 11);
+			}
 
-            if (_track.Polyline.Count > 0)
-            {
-                string encoded = PolylineCodec.EncodePoints(_track.Polyline);
-                _route = new RouteOverlay(encoded);
-            }
-        }
-        catch (Exception exception)
-        {
-            _error = exception.Message;
-        }
-    }
+			if (_track.Polyline.Count > 0)
+			{
+				string encoded = PolylineCodec.EncodePoints(_track.Polyline);
+				_route = new RouteOverlay(encoded);
+			}
+		}
+		catch (Exception exception)
+		{
+			_error = exception.Message;
+		}
+	}
 
-    /// <summary>
-    /// Downloads the raw GPX. On the web the browser drives the save via a data-URL link;
-    /// on the phone MAUI's Save API would take over — but the file the server returns is
-    /// the same on either side, so this method is host-neutral.
-    /// </summary>
-    private async Task DownloadGpxAsync()
-    {
-        using HttpResponseMessage response = await Api.ExportTrackGpxAsync(TrackId);
-        response.EnsureSuccessStatusCode();
+	/// <summary>
+	/// Downloads the raw GPX. On the web the browser drives the save via a data-URL link;
+	/// on the phone MAUI's Save API would take over — but the file the server returns is
+	/// the same on either side, so this method is host-neutral.
+	/// </summary>
+	private async Task DownloadGpxAsync()
+	{
+		using HttpResponseMessage response = await Api.ExportTrackGpxAsync(TrackId);
+		response.EnsureSuccessStatusCode();
 
-        byte[] bytes = await response.Content.ReadAsByteArrayAsync();
-        string base64 = Convert.ToBase64String(bytes);
-        string fileName = ($"{_track?.Track.Name ?? "ride"}.gpx").Replace('/', '-');
+		byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+		string base64 = Convert.ToBase64String(bytes);
+		string fileName = ($"{_track?.Track.Name ?? "ride"}.gpx").Replace('/', '-');
 
-        // A tiny JS helper wired inline: build a data-URL <a> and click it. Works in every
-        // browser and inside the MAUI BlazorWebView — the same DOM in both cases.
-        await JS.InvokeVoidAsync(
-            "eval",
-            $"(function(){{var a=document.createElement('a');" +
-            $"a.href='data:application/gpx+xml;base64,{base64}';" +
-            $"a.download='{fileName}';document.body.appendChild(a);a.click();a.remove();}})();");
-    }
+		// A tiny JS helper wired inline: build a data-URL <a> and click it. Works in every
+		// browser and inside the MAUI BlazorWebView — the same DOM in both cases.
+		await JS.InvokeVoidAsync(
+			"eval",
+			$"(function(){{var a=document.createElement('a');" +
+			$"a.href='data:application/gpx+xml;base64,{base64}';" +
+			$"a.download='{fileName}';document.body.appendChild(a);a.click();a.remove();}})();");
+	}
 
-    private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
-    private static string FormatDuration(double? seconds) => seconds is null ? "—" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
-    private static string FormatAscent(double? metres) => metres is null ? "—" : $"{metres.Value:0} m";
+	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
+	private static string FormatDuration(double? seconds) => seconds is null ? "—" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
+	private static string FormatAscent(double? metres) => metres is null ? "—" : $"{metres.Value:0} m";
 }
 
 <style>
-    .detail { max-width: 60rem; margin: 1rem auto; padding: 0 1rem; }
-    .detail .header { display: flex; justify-content: space-between; align-items: center; }
-    .detail .header-actions { display: flex; gap: 0.5rem; }
-    .detail .button {
-        display: inline-block; padding: 0.5rem 1rem; text-decoration: none;
-        background: #2563eb; color: white; border-radius: 4px;
-    }
-    .detail button { padding: 0.5rem 1rem; }
-    .detail .stats {
-        display: grid; grid-template-columns: max-content auto max-content auto;
-        gap: 0.25rem 1rem; margin: 1rem 0;
-    }
-    .detail dt { opacity: 0.7; }
-    .detail dd { margin: 0; font-weight: 600; }
-    .detail .error {
-        padding: 0.5rem 0.75rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px;
-    }
-    .detail .hint { text-align: center; opacity: 0.7; padding: 2rem; }
+	.detail .header-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.detail .stats {
+		display: grid;
+		grid-template-columns: max-content auto max-content auto;
+		gap: 0.25rem 1rem;
+		margin: 1rem 0;
+	}
+
+	.detail dt {
+		opacity: 0.7;
+	}
+
+	.detail dd {
+		margin: 0;
+		font-weight: 600;
+	}
 </style>

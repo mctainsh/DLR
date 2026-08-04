@@ -9,204 +9,195 @@
 <PageTitle>Data &amp; export — Dumb Luck Rides</PageTitle>
 
 @*
-    §6.3 and §10.2's store-compliance requirement: account deletion must be reachable from
-    inside the app, and data export is what "hand me my data" means in privacy terms.
+	§6.3 and §10.2's store-compliance requirement: account deletion must be reachable from
+	inside the app, and data export is what "hand me my data" means in privacy terms.
 
-    Two flows on one page:
-      1. Export — GET /api/v1/me/export returns a ZIP (§6.3, §16.6). The client triggers
-         a browser download; on the phone the BlazorWebView downloads to the platform's
-         default share sheet handler.
-      2. Delete — DELETE /api/v1/me takes the current password in the body (§6.3). Nothing
-         is recoverable, and the callout says so plainly.
+	Two flows on one page:
+	  1. Export — GET /api/v1/me/export returns a ZIP (§6.3, §16.6). The client triggers
+		 a browser download; on the phone the BlazorWebView downloads to the platform's
+		 default share sheet handler.
+	  2. Delete — DELETE /api/v1/me takes the current password in the body (§6.3). Nothing
+		 is recoverable, and the callout says so plainly.
 *@
 
-<div class="page">
-    <h1>Data &amp; export</h1>
+<div class="page page-medium form-page">
+	<h1>Data &amp; export</h1>
 
-    <section>
-        <h2>Export your data</h2>
-        <p>
-            A ZIP containing every ride, every marker, every photo, every comment, plus the
-            profile fields and switches (§6.3, §16.6). Large libraries may take a few seconds
-            to build.
-        </p>
-        <button type="button" class="primary" @onclick="ExportAsync" disabled="@_busy">
-            @(_busy ? "Preparing…" : "Download my data")
-        </button>
-        @if (_exportStatus is not null)
-        {
-            <p class="status">@_exportStatus</p>
-        }
-    </section>
+	<section>
+		<h2>Export your data</h2>
+		<p>
+			A ZIP containing every ride, every marker, every photo, every comment, plus the
+			profile fields and switches (§6.3, §16.6). Large libraries may take a few seconds
+			to build.
+		</p>
+		<button type="button" class="primary" @onclick="ExportAsync" disabled="@_busy">
+			@(_busy ? "Preparing…" : "Download my data")
+		</button>
+		@if (_exportStatus is not null)
+		{
+			<p class="status">@_exportStatus</p>
+		}
+	</section>
 
-    <hr />
+	<hr />
 
-    <section class="danger-zone">
-        <h2>Delete this account</h2>
+	<section class="danger-zone">
+		<h2>Delete this account</h2>
 
-        <div class="callout">
-            <p>
-                <strong>Deletion is permanent.</strong> Every track, marker, photo, comment,
-                reaction and vote goes with it. Any group ride you organise is cancelled and
-                its members' access ends immediately. Any device you signed in on this account
-                with is signed out on its next refresh.
-            </p>
-            <p>
-                Nightly backups (§10.1) hold a copy for their retention period. Support cannot
-                restore an account after the backups roll out.
-            </p>
-        </div>
+		<div class="callout">
+			<p>
+				<strong>Deletion is permanent.</strong> Every track, marker, photo, comment,
+				reaction and vote goes with it. Any group ride you organise is cancelled and
+				its members' access ends immediately. Any device you signed in on this account
+				with is signed out on its next refresh.
+			</p>
+			<p>
+				Nightly backups (§10.1) hold a copy for their retention period. Support cannot
+				restore an account after the backups roll out.
+			</p>
+		</div>
 
-        @if (!_showDelete)
-        {
-            <button type="button" class="danger" @onclick="() => _showDelete = true" disabled="@_busy">
-                Delete my account…
-            </button>
-        }
-        else
-        {
-            <div class="confirm">
-                <label>
-                    Enter your current password
-                    <input @bind="_password" type="password" autocomplete="current-password" />
-                </label>
-                <label class="ack">
-                    <input type="checkbox" @bind="_ack" />
-                    I understand this cannot be undone.
-                </label>
-                <div class="actions">
-                    <button type="button" @onclick="CancelDelete">Cancel</button>
-                    <button type="button" class="danger"
-                            @onclick="DeleteAsync"
-                            disabled="@(_busy || !_ack || string.IsNullOrEmpty(_password))">
-                        @(_busy ? "Deleting…" : "Delete my account permanently")
-                    </button>
-                </div>
-            </div>
-        }
+		@if (!_showDelete)
+		{
+			<button type="button" class="danger" @onclick="() => _showDelete = true" disabled="@_busy">
+				Delete my account…
+			</button>
+		}
+		else
+		{
+			<div class="confirm">
+				<label>
+					Enter your current password
+					<input @bind="_password" type="password" autocomplete="current-password" />
+				</label>
+				<label class="switch ack">
+					<input type="checkbox" @bind="_ack" />
+					I understand this cannot be undone.
+				</label>
+				<div class="actions">
+					<button type="button" @onclick="CancelDelete">Cancel</button>
+					<button type="button" class="danger"
+							@onclick="DeleteAsync"
+							disabled="@(_busy || !_ack || string.IsNullOrEmpty(_password))">
+						@(_busy ? "Deleting…" : "Delete my account permanently")
+					</button>
+				</div>
+			</div>
+		}
 
-        @if (_deleteError is not null)
-        {
-            <div class="error" role="alert">
-                <strong>@_deleteError.Title</strong>
-                @if (_deleteError.Messages.Count > 0)
-                {
-                    <ul>@foreach (string message in _deleteError.Messages) { <li>@message</li> }</ul>
-                }
-            </div>
-        }
-    </section>
+		@if (_deleteError is not null)
+		{
+			<div class="error" role="alert">
+				<strong>@_deleteError.Title</strong>
+				@if (_deleteError.Messages.Count > 0)
+				{
+					<ul>@foreach (string message in _deleteError.Messages) { <li>@message</li> }</ul>
+				}
+			</div>
+		}
+	</section>
 </div>
 
 @code {
-    private bool _busy;
-    private string? _exportStatus;
+	private bool _busy;
+	private string? _exportStatus;
 
-    private bool _showDelete;
-    private string _password = string.Empty;
-    private bool _ack;
-    private ApiError? _deleteError;
+	private bool _showDelete;
+	private string _password = string.Empty;
+	private bool _ack;
+	private ApiError? _deleteError;
 
-    private async Task ExportAsync()
-    {
-        if (_busy) return;
-        _busy = true;
-        _exportStatus = "Preparing…";
+	private async Task ExportAsync()
+	{
+		if (_busy) return;
+		_busy = true;
+		_exportStatus = "Preparing…";
 
-        try
-        {
-            using HttpResponseMessage response = await Api.ExportAccountAsync();
-            if (!response.IsSuccessStatusCode)
-            {
-                ApiError error = await ProblemDetailsReader.ReadAsync(response);
-                _exportStatus = $"Export failed: {error.Title}";
-                return;
-            }
+		try
+		{
+			using HttpResponseMessage response = await Api.ExportAccountAsync();
+			if (!response.IsSuccessStatusCode)
+			{
+				ApiError error = await ProblemDetailsReader.ReadAsync(response);
+				_exportStatus = $"Export failed: {error.Title}";
+				return;
+			}
 
-            // Stream to bytes, then hand to the browser via a data URL. The response is a
-            // Content-Disposition attachment on the server side; on a Blazor WASM host the
-            // browser has already made the request, so we route through JS to build a link
-            // and click it. Works in both hosts because a MAUI WebView is a Chromium/WebKit
-            // that responds to a synthetic anchor click the same as a desktop browser.
-            byte[] bytes = await response.Content.ReadAsByteArrayAsync();
-            string base64 = Convert.ToBase64String(bytes);
-            string fileName = ($"dlr-export-{Auth.UserName ?? "me"}.zip").Replace('/', '-');
+			// Stream to bytes, then hand to the browser via a data URL. The response is a
+			// Content-Disposition attachment on the server side; on a Blazor WASM host the
+			// browser has already made the request, so we route through JS to build a link
+			// and click it. Works in both hosts because a MAUI WebView is a Chromium/WebKit
+			// that responds to a synthetic anchor click the same as a desktop browser.
+			byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+			string base64 = Convert.ToBase64String(bytes);
+			string fileName = ($"dlr-export-{Auth.UserName ?? "me"}.zip").Replace('/', '-');
 
-            await JS.InvokeVoidAsync("eval",
-                "(function(){var a=document.createElement('a');" +
-                $"a.href='data:application/zip;base64,{base64}';" +
-                $"a.download='{fileName}';document.body.appendChild(a);a.click();a.remove();}})();");
+			await JS.InvokeVoidAsync("eval",
+				"(function(){var a=document.createElement('a');" +
+				$"a.href='data:application/zip;base64,{base64}';" +
+				$"a.download='{fileName}';document.body.appendChild(a);a.click();a.remove();}})();");
 
-            _exportStatus = "Download started.";
-        }
-        catch (Exception exception)
-        {
-            _exportStatus = $"Export failed: {exception.Message}";
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+			_exportStatus = "Download started.";
+		}
+		catch (Exception exception)
+		{
+			_exportStatus = $"Export failed: {exception.Message}";
+		}
+		finally
+		{
+			_busy = false;
+		}
+	}
 
-    private void CancelDelete()
-    {
-        _showDelete = false;
-        _password = string.Empty;
-        _ack = false;
-        _deleteError = null;
-    }
+	private void CancelDelete()
+	{
+		_showDelete = false;
+		_password = string.Empty;
+		_ack = false;
+		_deleteError = null;
+	}
 
-    private async Task DeleteAsync()
-    {
-        if (_busy || !_ack || string.IsNullOrEmpty(_password)) return;
-        _busy = true;
-        _deleteError = null;
+	private async Task DeleteAsync()
+	{
+		if (_busy || !_ack || string.IsNullOrEmpty(_password)) return;
+		_busy = true;
+		_deleteError = null;
 
-        try
-        {
-            await Api.DeleteAccountAsync(new DeleteAccountRequest(_password));
+		try
+		{
+			await Api.DeleteAccountAsync(new DeleteAccountRequest(_password));
 
-            // Sign out locally and land on Welcome. The refresh token (mobile) or cookie (web)
-            // is now dead server-side, so subsequent requests would 401 anyway — clearing the
-            // client state now avoids a flash of the empty signed-in shell.
-            await Auth.SignOutAsync();
-            Nav.NavigateTo("/welcome", forceLoad: true);
-        }
-        catch (ApiException apiException)
-        {
-            _deleteError = apiException.Error;
-        }
-        catch (Exception exception)
-        {
-            _deleteError = new ApiError(default, "Could not delete the account.", new[] { exception.Message });
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+			// Sign out locally and land on Welcome. The refresh token (mobile) or cookie (web)
+			// is now dead server-side, so subsequent requests would 401 anyway — clearing the
+			// client state now avoids a flash of the empty signed-in shell.
+			await Auth.SignOutAsync();
+			Nav.NavigateTo("/welcome", forceLoad: true);
+		}
+		catch (ApiException apiException)
+		{
+			_deleteError = apiException.Error;
+		}
+		catch (Exception exception)
+		{
+			_deleteError = new ApiError(default, "Could not delete the account.", new[] { exception.Message });
+		}
+		finally
+		{
+			_busy = false;
+		}
+	}
 }
 
 <style>
-    .page { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
-    .page section { margin: 1rem 0; }
-    .page .primary { padding: 0.5rem 1.25rem; background: #2563eb; color: white; border: none; border-radius: 4px; }
-    .page .danger-zone { padding: 1rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; }
-    .page .danger-zone h2 { color: #991b1b; margin: 0 0 0.5rem; }
-    .page .callout p { margin: 0.5rem 0; }
-    .page .danger { padding: 0.5rem 1.25rem; background: #dc2626; color: white; border: none; border-radius: 4px; }
-    .page .confirm { margin-top: 1rem; padding: 1rem; background: white; border-radius: 6px; }
-    .page label { display: block; margin: 0.5rem 0; }
-    .page input[type="password"] { display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
-    .page .ack { display: flex; align-items: center; gap: 0.5rem; }
-    .page .ack input { width: auto; margin: 0; }
-    .page .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
-    .page .status { padding: 0.5rem 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; }
-    .page .error {
-        margin-top: 1rem; padding: 0.75rem 1rem;
-        background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px;
-    }
-    .page .error ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
-    .page hr { margin: 2rem 0; border: none; border-top: 1px solid #e5e7eb; }
+	.page .danger-zone { padding: 1rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; }
+	.page .danger-zone h2 { color: #991b1b; margin: 0 0 0.5rem; }
+	.page .callout p { margin: 0.5rem 0; }
+
+	/*
+		Deleting the account is the one irreversible thing in the app, so this button
+		is solid red rather than the shared soft-danger tint used for reversible things
+		like revoking a device.
+	*/
+	.page .danger { background: #dc2626; color: white; border: none; }
+	.page .confirm { margin-top: 1rem; padding: 1rem; background: white; border-radius: 6px; }
 </style>

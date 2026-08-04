@@ -8,146 +8,145 @@
 <PageTitle>Map spike — Dumb Luck Rides</PageTitle>
 
 @*
-    The Phase 0 "20 pins updating every 5 s" spike (SharedFrontend.md §7 and §10.3).
+	The Phase 0 "20 pins updating every 5 s" spike (SharedFrontend.md §7 and §10.3).
 
-    Post-v0.21 shape:
-      - The base map is one of three JS SDKs (Apple / Google / OpenLayers), chosen by
-        the host. It handles tiles, pan, zoom.
-      - The 20 pins land on the shared Skia overlay via RideMap's Markers parameter.
-        The overlay draws once per viewport event.
+	Post-v0.21 shape:
+	  - The base map is one of three JS SDKs (Apple / Google / OpenLayers), chosen by
+		the host. It handles tiles, pan, zoom.
+	  - The 20 pins land on the shared Skia overlay via RideMap's Markers parameter.
+		The overlay draws once per viewport event.
 
-    Two questions this answers:
-      1. Does the current host's base map render tiles at a plausible frame rate?
-      2. Does the Skia overlay hold up with 20 pins that move every 5 seconds — the
-         shape a live 20-rider group ride will produce?
+	Two questions this answers:
+	  1. Does the current host's base map render tiles at a plausible frame rate?
+	  2. Does the Skia overlay hold up with 20 pins that move every 5 seconds — the
+		 shape a live 20-rider group ride will produce?
 *@
 
-<div class="spike-page">
-    <h1>Map spike — 20 pins × 5 s</h1>
+<div class="page spike-page">
+	<h1>Map spike — 20 pins × 5 s</h1>
 
-    <p>
-        This page renders the shared <code>RideMap</code> against the host's
-        <code>IMapInterop</code> (<strong>@Map.Provider</strong>), then updates twenty
-        markers on a five-second timer. Every pin, title and route line is drawn by the
-        shared <code>SkiaMapOverlay</code> — the base map itself draws nothing but tiles.
-    </p>
+	<p>
+		This page renders the shared <code>RideMap</code> against the host's
+		<code>IMapInterop</code> (<strong>@Map.Provider</strong>), then updates twenty
+		markers on a five-second timer. Every pin, title and route line is drawn by the
+		shared <code>SkiaMapOverlay</code> — the base map itself draws nothing but tiles.
+	</p>
 
-    <p class="spike-meta">
-        Tick: <strong>@_tickCount</strong> · Last update:
-        <strong>@(_lastUpdateUtc?.ToString("HH:mm:ss") ?? "—")</strong>
-    </p>
+	<p class="spike-meta">
+		Tick: <strong>@_tickCount</strong> · Last update:
+		<strong>@(_lastUpdateUtc?.ToString("HH:mm:ss") ?? "—")</strong>
+	</p>
 
-    <RideMap @ref="_map"
-             Camera="_initialCamera"
-             Markers="_markers"
-             ShowUserLocation="false"
-             OnReady="OnMapReadyAsync" />
+	<RideMap @ref="_map"
+			 Camera="_initialCamera"
+			 Markers="_markers"
+			 ShowUserLocation="false"
+			 OnReady="OnMapReadyAsync" />
 </div>
 
 @code {
-    private static readonly MapCamera _initialCamera = new(
-        Latitude: -33.868,
-        Longitude: 151.209,
-        ZoomLevel: 11);
+	private static readonly MapCamera _initialCamera = new(
+		Latitude: -33.868,
+		Longitude: 151.209,
+		ZoomLevel: 11);
 
-    private const int MarkerCount = 20;
-    private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(5);
+	private const int MarkerCount = 20;
+	private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(5);
 
-    private readonly Dictionary<Guid, MapMarker> _markers = new();
+	private readonly Dictionary<Guid, MapMarker> _markers = new();
 
-    private RideMap? _map;
-    private CancellationTokenSource? _loop;
-    private Task? _loopTask;
-    private int _tickCount;
-    private DateTimeOffset? _lastUpdateUtc;
+	private RideMap? _map;
+	private CancellationTokenSource? _loop;
+	private Task? _loopTask;
+	private int _tickCount;
+	private DateTimeOffset? _lastUpdateUtc;
 
-    private Task OnMapReadyAsync()
-    {
-        // Seed the pins at their starting positions.
-        for (int i = 0; i < MarkerCount; i++)
-        {
-            MapMarker marker = MakeMarker(i, tick: 0);
-            _markers[marker.Id] = marker;
-        }
+	private Task OnMapReadyAsync()
+	{
+		// Seed the pins at their starting positions.
+		for (int i = 0; i < MarkerCount; i++)
+		{
+			MapMarker marker = MakeMarker(i, tick: 0);
+			_markers[marker.Id] = marker;
+		}
 
-        _tickCount = 1;
-        _lastUpdateUtc = Clock.GetUtcNow();
-        StateHasChanged();
+		_tickCount = 1;
+		_lastUpdateUtc = Clock.GetUtcNow();
+		StateHasChanged();
 
-        _loop = new CancellationTokenSource();
-        _loopTask = RunTicksAsync(_loop.Token);
-        return Task.CompletedTask;
-    }
+		_loop = new CancellationTokenSource();
+		_loopTask = RunTicksAsync(_loop.Token);
+		return Task.CompletedTask;
+	}
 
-    private async Task RunTicksAsync(CancellationToken cancellationToken)
-    {
-        using PeriodicTimer timer = new(TickInterval);
-        while (await timer.WaitForNextTickAsync(cancellationToken))
-        {
-            _tickCount++;
-            for (int i = 0; i < MarkerCount; i++)
-            {
-                MapMarker marker = MakeMarker(i, tick: _tickCount);
-                _markers[marker.Id] = marker;
-            }
-            _lastUpdateUtc = Clock.GetUtcNow();
-            await InvokeAsync(StateHasChanged);
-        }
-    }
+	private async Task RunTicksAsync(CancellationToken cancellationToken)
+	{
+		using PeriodicTimer timer = new(TickInterval);
+		while (await timer.WaitForNextTickAsync(cancellationToken))
+		{
+			_tickCount++;
+			for (int i = 0; i < MarkerCount; i++)
+			{
+				MapMarker marker = MakeMarker(i, tick: _tickCount);
+				_markers[marker.Id] = marker;
+			}
+			_lastUpdateUtc = Clock.GetUtcNow();
+			await InvokeAsync(StateHasChanged);
+		}
+	}
 
-    /// <summary>
-    /// A deterministic-but-plausible walk. Each pin drifts around a fixed anchor point,
-    /// so the page never becomes "twenty pins racing to the same spot" or "twenty pins
-    /// standing still" — both make rendering hiccups hard to see.
-    /// </summary>
-    private static MapMarker MakeMarker(int index, int tick)
-    {
-        Random rng = new(index * 1_000_003);
-        double anchorLat = _initialCamera.Latitude + (rng.NextDouble() - 0.5) * 0.4;
-        double anchorLon = _initialCamera.Longitude + (rng.NextDouble() - 0.5) * 0.4;
+	/// <summary>
+	/// A deterministic-but-plausible walk. Each pin drifts around a fixed anchor point,
+	/// so the page never becomes "twenty pins racing to the same spot" or "twenty pins
+	/// standing still" — both make rendering hiccups hard to see.
+	/// </summary>
+	private static MapMarker MakeMarker(int index, int tick)
+	{
+		Random rng = new(index * 1_000_003);
+		double anchorLat = _initialCamera.Latitude + (rng.NextDouble() - 0.5) * 0.4;
+		double anchorLon = _initialCamera.Longitude + (rng.NextDouble() - 0.5) * 0.4;
 
-        double angle = tick * 0.10 + index * 0.31;
-        double lat = anchorLat + Math.Sin(angle) * 0.010;
-        double lon = anchorLon + Math.Cos(angle) * 0.014;
+		double angle = tick * 0.10 + index * 0.31;
+		double lat = anchorLat + Math.Sin(angle) * 0.010;
+		double lon = anchorLon + Math.Cos(angle) * 0.014;
 
-        return new MapMarker(
-            Id: DeterministicGuid(index),
-            Latitude: lat,
-            Longitude: lon,
-            IconKey: "note",
-            Title: $"Rider {index + 1}",
-            DirectionDeg: (angle * 57.2958) % 360.0);
-    }
+		return new MapMarker(
+			Id: DeterministicGuid(index),
+			Latitude: lat,
+			Longitude: lon,
+			IconKey: "note",
+			Title: $"Rider {index + 1}",
+			DirectionDeg: (angle * 57.2958) % 360.0);
+	}
 
-    // Same GUID for a given index across every tick, so the overlay updates the same
-    // marker rather than accumulating one per tick.
-    private static Guid DeterministicGuid(int index)
-    {
-        Span<byte> bytes = stackalloc byte[16];
-        BitConverter.TryWriteBytes(bytes[..4], index);
-        bytes[4] = 0xd1; bytes[5] = 0x2c;
-        bytes[6] = 0x40; // version 4 nibble — cosmetic.
-        bytes[8] = 0x80; // variant bits.
-        return new Guid(bytes);
-    }
+	// Same GUID for a given index across every tick, so the overlay updates the same
+	// marker rather than accumulating one per tick.
+	private static Guid DeterministicGuid(int index)
+	{
+		Span<byte> bytes = stackalloc byte[16];
+		BitConverter.TryWriteBytes(bytes[..4], index);
+		bytes[4] = 0xd1; bytes[5] = 0x2c;
+		bytes[6] = 0x40; // version 4 nibble — cosmetic.
+		bytes[8] = 0x80; // variant bits.
+		return new Guid(bytes);
+	}
 
-    public async ValueTask DisposeAsync()
-    {
-        if (_loop is not null)
-        {
-            _loop.Cancel();
-            try { if (_loopTask is not null) await _loopTask; }
-            catch (OperationCanceledException) { /* expected */ }
-            _loop.Dispose();
-        }
-    }
+	public async ValueTask DisposeAsync()
+	{
+		if (_loop is not null)
+		{
+			_loop.Cancel();
+			try { if (_loopTask is not null) await _loopTask; }
+			catch (OperationCanceledException) { /* expected */ }
+			_loop.Dispose();
+		}
+	}
 }
 
 <style>
-    .spike-page { max-width: 60rem; margin: 1rem auto; padding: 0 1rem; }
-    .spike-page h1 { margin-bottom: 0.5rem; }
-    .spike-meta {
-        font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
-        opacity: 0.75;
-    }
+	.spike-page h1 { margin-bottom: 0.5rem; }
+	.spike-meta {
+		font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+		opacity: 0.75;
+	}
 </style>

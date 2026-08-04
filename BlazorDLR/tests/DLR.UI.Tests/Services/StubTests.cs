@@ -1,6 +1,5 @@
 using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Stubs;
-using DLR.Core.Contracts.Identity;
 
 namespace DLR.UI.Tests.Services;
 

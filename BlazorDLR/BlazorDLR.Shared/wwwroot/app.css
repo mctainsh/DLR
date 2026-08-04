@@ -144,3 +144,308 @@ input:focus, textarea:focus, select:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/*
+    SHARED PAGE SCAFFOLDING.
+
+    Every page is a `.page` container holding the same handful of building blocks —
+    a tagline, a card grid, cards, a phase note. They are defined once, here, so a
+    page never restates them in a local <style> block: a change to the card border
+    is a change to one rule, not to a dozen pages that drifted apart.
+
+    Pages that want a narrower column set --dlr-page-width via a modifier class
+    (`class="page page-narrow"`) rather than redeclaring the container.
+
+    Anything genuinely page-specific still lives in that page's own <style>.
+*/
+
+.page {
+    max-width: var(--dlr-page-width, 60rem);
+    margin: 1rem auto;
+    padding: 0 1rem;
+}
+
+.page-narrow { --dlr-page-width: 24rem; }
+.page-form   { --dlr-page-width: 32rem; }
+.page-medium { --dlr-page-width: 40rem; }
+.page-wide   { --dlr-page-width: 80rem; }
+
+/* Sign-in, register, reset — reached without the app's chrome, so they sit lower
+   down the viewport than a page you navigated to from the rail. */
+.page-standalone { margin-top: 3rem; }
+
+/* The one-line "here is what this page is" strap under the <h1>. */
+.tagline, .lead { opacity: 0.8; }
+
+/* Auto-filling tile grid (home); `.cards` is the single-column stack (settings, hubs). */
+.grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    margin-top: 1.5rem;
+}
+
+.cards {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.card {
+    display: block;
+    padding: 1rem;
+    text-decoration: none;
+    color: inherit;
+    background: #FFFFFF20;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.card:hover { border-color: #2563eb; }
+.card h2 { margin: 0 0 0.25rem 0; font-size: 1.1rem; color: #2563eb; }
+.card p { margin: 0; opacity: 0.8; }
+
+.phase-note {
+    margin-top: 2rem;
+    padding: 0.75rem 1rem;
+    background: #0000FF20;
+    border: 1px solid #bfdbfe;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+/*
+    PAGE FURNITURE.
+
+    The rest of this file is everything that was being retyped in page <style> blocks:
+    the h1-plus-action row, the back link, the empty state, the small muted note. Each
+    is written once. A page's own <style> is now only for what is genuinely unique to
+    that page — and if a rule there matches one below, it belongs up here instead.
+
+    Order matters within this file. Where two rules have equal specificity the later
+    one wins, so the narrower rules (.error ul, .switch input, .radio input) are placed
+    after the broader ones they need to beat.
+*/
+
+/* An <h1> with an action button opposite it. */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* "← Back to the ride" — quiet, above the heading. */
+.back {
+    display: inline-block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
+
+/* "Loading…", "No rides yet" — a centred placeholder where content will be. */
+.empty {
+    text-align: center;
+    opacity: 0.7;
+    padding: 2rem;
+}
+
+/* A small muted line under a control, explaining it. */
+.hint, .note {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    margin: 0.25rem 0;
+}
+
+/* The composition rule under a password field. */
+.rule-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* A trailing "Already have an account?" line under a form. */
+.form-note {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+}
+
+/* ---- Structure inside a page ------------------------------------------- */
+
+/* Lists on a page are content, not navigation — no bullets, no browser indent. */
+.page ul {
+    list-style: none;
+    padding: 0;
+}
+
+.page section { margin: 1rem 0; }
+
+.page hr {
+    margin: 2rem 0;
+    border: none;
+    border-top: 1px solid #e5e7eb;
+}
+
+.page fieldset {
+    margin: 0.75rem 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.page legend { font-weight: 600; padding: 0 0.5rem; }
+
+/* The default button size. Anything smaller (a row action, a chip) says so locally,
+   and .primary below re-states its own padding to win this back. */
+.page button { padding: 0.5rem 1rem; }
+
+/*
+    STACKED FORMS — opt in with `class="page form-page"`.
+
+    Deliberately not `.page label` / `.page input`: components rendered inside a page
+    (the poll composer, the comment box) have their own inline layouts, and a global
+    `width: 100%` on every input would break them. A page that wants the stacked look
+    says so.
+*/
+.form-page label { display: block; margin: 0.75rem 0; }
+.form-page label em { opacity: 0.7; font-weight: normal; }
+
+.form-page input, .form-page textarea {
+    display: block;
+    width: 100%;
+    padding: 0.5rem;
+    margin-top: 0.25rem;
+    font-size: 1rem;
+}
+
+.form-page button[type="submit"] {
+    padding: 0.6rem 1.25rem;
+    margin-top: 0.75rem;
+}
+
+/* ---- Controls ----------------------------------------------------------- */
+
+/*
+    A checkbox and its label on one line. These follow .form-page's input rule on
+    purpose: a checkbox is not a full-width text field.
+*/
+/* `label.switch` and not just `.switch`: these sit on a <label>, and .form-page's
+   own label rule would otherwise out-specify a bare class and stack the row. */
+label.switch, .switch {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.switch input { width: auto; margin: 0; }
+
+label.radio, .radio {
+    display: block;
+    margin: 0.4rem 0;
+    font-size: 0.9rem;
+}
+
+.radio input { display: inline; width: auto; margin-right: 0.5rem; }
+
+/* A row of buttons closing a form or a card. */
+.actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+/* The affirmative button. Padding is here so a bare `.primary` looks right; a page
+   that sizes all its buttons still wins, being later in the document. */
+.primary, button.primary {
+    padding: 0.5rem 1.25rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+
+/* Destructive, but not the point of the page — revoke a device, remove a range. */
+.danger, button.danger {
+    padding: 0.5rem 1.25rem;
+    background: #fdecea;
+    color: #a91c1c;
+    border: 1px solid #f5c2c0;
+    border-radius: 4px;
+}
+
+/* An <a> that reads as a button. */
+.button {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: #2563eb;
+    color: white;
+    border-radius: 4px;
+    text-decoration: none;
+}
+
+/* `color: inherit` is load-bearing — Bootstrap's own .badge sets white text, which
+   is invisible on these pale backgrounds. */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    margin-left: 0.5rem;
+    border-radius: 4px;
+    background: #eef1f5;
+    color: inherit;
+}
+
+/* ---- Message boxes ------------------------------------------------------ */
+
+.error {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: #fdecea;
+    border: 1px solid #f5c2c0;
+    border-radius: 4px;
+}
+
+.error strong { display: block; margin-bottom: 0.25rem; }
+
+/* Per-rule validation errors read as a list, so the bullets come back — .page ul
+   above took them away. */
+.error ul {
+    list-style: disc;
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+}
+
+.error li { margin: 0.15rem 0; }
+
+/* "Saved", "Export started" — the calm counterpart to .error. */
+.status {
+    padding: 0.5rem 0.75rem;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 4px;
+}
+
+/* "You gave up account recovery" — a warning the user must read, not an error. */
+.callout {
+    margin: 0.75rem 0;
+    padding: 0.75rem 1rem;
+    background: #fff8e1;
+    border: 1px solid #ffe08a;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+/* ---- Striped row list — the ride's member and gap panels ---------------- */
+
+.row-list h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.row-list ul { list-style: none; padding: 0; margin: 0; }
+
+.row-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+}
+
+.row-list li:nth-child(odd) { background: #f7f8fa; }

@@ -1,57 +1,57 @@
 @*
-    The icon rail (§18.6). Icons only, no labels — a text-free rail relies on
-    familiar shapes so it works at the same footprint on portrait and landscape
-    without wrapping. Every icon carries an `aria-label` and a `title` so a screen
-    reader and a mouse hover both give the destination name.
+	The icon rail (§18.6). Icons only, no labels — a text-free rail relies on
+	familiar shapes so it works at the same footprint on portrait and landscape
+	without wrapping. Every icon carries an `aria-label` and a `title` so a screen
+	reader and a mouse hover both give the destination name.
 
-    Signed-out callers see the Welcome icon only. Signed-in callers see the four
-    signed-in destinations. The AuthorizeView is the same as before — only the
-    presentation changes.
+	Signed-out callers see the Welcome icon only. Signed-in callers see the four
+	signed-in destinations. The AuthorizeView is the same as before — only the
+	presentation changes.
 *@
 
 <AuthorizeView>
-    <Authorized>
-        <NavLink class="rail-item" href="" Match="NavLinkMatch.All" title="Home" aria-label="Home">
-            @HomeSvg
-        </NavLink>
-        <NavLink class="rail-item" href="rides" title="My rides" aria-label="My rides">
-            @TrackSvg
-        </NavLink>
-        <NavLink class="rail-item" href="group-rides" title="Group rides" aria-label="Group rides">
-            @GroupSvg
-        </NavLink>
-        <NavLink class="rail-item" href="import" title="Import GPX" aria-label="Import GPX">
-            @ImportSvg
-        </NavLink>
-        <NavLink class="rail-item" href="settings" title="Settings" aria-label="Settings">
-            @SettingsSvg
-        </NavLink>
-    </Authorized>
-    <NotAuthorized>
-        <NavLink class="rail-item" href="welcome" title="Welcome" aria-label="Welcome">
-            @WelcomeSvg
-        </NavLink>
-    </NotAuthorized>
+	<Authorized>
+		<NavLink class="rail-item" href="" Match="NavLinkMatch.All" title="Home" aria-label="Home">
+			@HomeSvg
+		</NavLink>
+		<NavLink class="rail-item" href="rides" title="My rides" aria-label="My rides">
+			@TrackSvg
+		</NavLink>
+		<NavLink class="rail-item" href="group-rides" title="Group rides" aria-label="Group rides">
+			@GroupSvg
+		</NavLink>
+		<NavLink class="rail-item" href="import" title="Import GPX" aria-label="Import GPX">
+			@ImportSvg
+		</NavLink>
+		<NavLink class="rail-item" href="settings" title="Settings" aria-label="Settings">
+			@SettingsSvg
+		</NavLink>
+	</Authorized>
+	<NotAuthorized>
+		<NavLink class="rail-item" href="welcome" title="Welcome" aria-label="Welcome">
+			@WelcomeSvg
+		</NavLink>
+	</NotAuthorized>
 </AuthorizeView>
 
 @code {
-    // Inline SVGs — a package dependency is overkill for six icons, and shipping them
-    // inline means the rail never flashes an unicorn placeholder on a slow connection.
-    private static readonly MarkupString HomeSvg = new(
-        """<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg>""");
+	// Inline SVGs — a package dependency is overkill for six icons, and shipping them
+	// inline means the rail never flashes an unicorn placeholder on a slow connection.
+	private static readonly MarkupString HomeSvg = new(
+		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg>""");
 
-    private static readonly MarkupString TrackSvg = new(
-        """<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c1-5 3-8 6-8s5 3 6 8"/><circle cx="8" cy="8" r="2.5"/><circle cx="18" cy="16" r="2.5"/></svg>""");
+	private static readonly MarkupString TrackSvg = new(
+		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c1-5 3-8 6-8s5 3 6 8"/><circle cx="8" cy="8" r="2.5"/><circle cx="18" cy="16" r="2.5"/></svg>""");
 
-    private static readonly MarkupString GroupSvg = new(
-        """<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/><circle cx="17" cy="7" r="2.5"/><path d="M17 12c3 0 5 2 5 5"/></svg>""");
+	private static readonly MarkupString GroupSvg = new(
+		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/><circle cx="17" cy="7" r="2.5"/><path d="M17 12c3 0 5 2 5 5"/></svg>""");
 
-    private static readonly MarkupString ImportSvg = new(
-        """<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>""");
+	private static readonly MarkupString ImportSvg = new(
+		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>""");
 
-    private static readonly MarkupString SettingsSvg = new(
-        """<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.03a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>""");
+	private static readonly MarkupString SettingsSvg = new(
+		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.03a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>""");
 
-    private static readonly MarkupString WelcomeSvg = new(
-        """<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/><path d="M20 5v14"/></svg>""");
+	private static readonly MarkupString WelcomeSvg = new(
+		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/><path d="M20 5v14"/></svg>""");
 }

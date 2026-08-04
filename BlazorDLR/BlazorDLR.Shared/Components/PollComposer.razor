@@ -2,123 +2,121 @@
 @inject TimeProvider Clock
 
 @*
-    The poll half of a post composer (§17.5, §17.8).
+	The poll half of a post composer (§17.5, §17.8).
 
-    A poll is a comment, so this component does not talk to the server itself — the parent
-    thread builds a PostCommentRequest with `Poll = ComposedSpec`. That is what makes polls
-    inherit idempotency, the caps, the rate limit and the content switches without any of
-    them being written twice.
+	A poll is a comment, so this component does not talk to the server itself — the parent
+	thread builds a PostCommentRequest with `Poll = ComposedSpec`. That is what makes polls
+	inherit idempotency, the caps, the rate limit and the content switches without any of
+	them being written twice.
 
-    Rules the UI enforces:
-      - 2–6 options (§17.5). One is not a poll, seven starts to be a survey.
-      - Each option ≤ 80 chars.
-      - Optional close time; empty means "closes when the author or organiser closes it".
+	Rules the UI enforces:
+	  - 2–6 options (§17.5). One is not a poll, seven starts to be a survey.
+	  - Each option ≤ 80 chars.
+	  - Optional close time; empty means "closes when the author or organiser closes it".
 *@
 
 <div class="poll-composer">
-    <fieldset>
-        <legend>Options</legend>
-        @for (int i = 0; i < _options.Count; i++)
-        {
-            int index = i;
-            <div class="option">
-                <input @bind="_options[index]" maxlength="80" placeholder="Option @(index + 1)" />
-                @if (_options.Count > 2)
-                {
-                    <button type="button" class="remove" @onclick="() => RemoveAt(index)" title="Remove this option">×</button>
-                }
-            </div>
-        }
-        @if (_options.Count < MaxOptions)
-        {
-            <button type="button" class="add" @onclick="AddOption">+ Add option</button>
-        }
-    </fieldset>
+	<fieldset>
+		<legend>Options</legend>
+		@for (int i = 0; i < _options.Count; i++)
+		{
+			int index = i;
+			<div class="option">
+				<input @bind="_options[index]" maxlength="80" placeholder="Option @(index + 1)" />
+				@if (_options.Count > 2)
+				{
+					<button type="button" class="remove" @onclick="() => RemoveAt(index)" title="Remove this option">×</button>
+				}
+			</div>
+		}
+		@if (_options.Count < MaxOptions)
+		{
+			<button type="button" class="add" @onclick="AddOption">+ Add option</button>
+		}
+	</fieldset>
 
-    <label class="switch">
-        <input type="checkbox" @bind="AllowMultiple" />
-        Allow more than one choice per voter
-    </label>
+	<label class="switch">
+		<input type="checkbox" @bind="AllowMultiple" />
+		Allow more than one choice per voter
+	</label>
 
-    <label class="switch">
-        <input type="checkbox" @bind="_hasCloseTime" />
-        Close automatically at
-    </label>
-    @if (_hasCloseTime)
-    {
-        <input @bind="_closesLocal" type="datetime-local" class="close-time" />
-    }
+	<label class="switch">
+		<input type="checkbox" @bind="_hasCloseTime" />
+		Close automatically at
+	</label>
+	@if (_hasCloseTime)
+	{
+		<input @bind="_closesLocal" type="datetime-local" class="close-time" />
+	}
 
-    <p class="hint">
-        Results are always visible, and votes are attributed to voters (§17.5). If this is
-        a decision that needs a secret ballot, this is not the tool.
-    </p>
+	<p class="hint">
+		Results are always visible, and votes are attributed to voters (§17.5). If this is
+		a decision that needs a secret ballot, this is not the tool.
+	</p>
 </div>
 
 @code {
-    private const int MaxOptions = 6;
+	private const int MaxOptions = 6;
 
-    // Bound to the parent's composer — the parent reads BuildSpec() when the user submits.
-    [Parameter] public bool AllowMultiple { get; set; }
-    [Parameter] public EventCallback<bool> AllowMultipleChanged { get; set; }
+	// Bound to the parent's composer — the parent reads BuildSpec() when the user submits.
+	[Parameter] public bool AllowMultiple { get; set; }
+	[Parameter] public EventCallback<bool> AllowMultipleChanged { get; set; }
 
-    private readonly List<string> _options = new() { string.Empty, string.Empty };
-    private bool _hasCloseTime;
-    private DateTime _closesLocal;
+	private readonly List<string> _options = new() { string.Empty, string.Empty };
+	private bool _hasCloseTime;
+	private DateTime _closesLocal;
 
-    protected override void OnInitialized()
-    {
-        _closesLocal = Clock.GetLocalNow().DateTime.AddHours(24);
-    }
+	protected override void OnInitialized()
+	{
+		_closesLocal = Clock.GetLocalNow().DateTime.AddHours(24);
+	}
 
-    private void AddOption()
-    {
-        if (_options.Count < MaxOptions) _options.Add(string.Empty);
-    }
+	private void AddOption()
+	{
+		if (_options.Count < MaxOptions) _options.Add(string.Empty);
+	}
 
-    private void RemoveAt(int index)
-    {
-        if (_options.Count > 2) _options.RemoveAt(index);
-    }
+	private void RemoveAt(int index)
+	{
+		if (_options.Count > 2) _options.RemoveAt(index);
+	}
 
-    /// <summary>
-    /// Returns the current spec, or <c>null</c> if the caller has not filled in enough
-    /// options. The parent uses null to skip attaching a poll to the post.
-    /// </summary>
-    public PollSpec? BuildSpec()
-    {
-        List<string> filled = _options
-            .Select(o => o?.Trim() ?? string.Empty)
-            .Where(o => o.Length > 0)
-            .ToList();
+	/// <summary>
+	/// Returns the current spec, or <c>null</c> if the caller has not filled in enough
+	/// options. The parent uses null to skip attaching a poll to the post.
+	/// </summary>
+	public PollSpec? BuildSpec()
+	{
+		List<string> filled = _options
+			.Select(o => o?.Trim() ?? string.Empty)
+			.Where(o => o.Length > 0)
+			.ToList();
 
-        if (filled.Count < 2) return null;
+		if (filled.Count < 2) return null;
 
-        DateTimeOffset? closesUtc = null;
-        if (_hasCloseTime)
-        {
-            closesUtc = new DateTimeOffset(_closesLocal, Clock.GetLocalNow().Offset).ToUniversalTime();
-        }
+		DateTimeOffset? closesUtc = null;
+		if (_hasCloseTime)
+		{
+			closesUtc = new DateTimeOffset(_closesLocal, Clock.GetLocalNow().Offset).ToUniversalTime();
+		}
 
-        return new PollSpec(filled, AllowMultiple, closesUtc);
-    }
+		return new PollSpec(filled, AllowMultiple, closesUtc);
+	}
 }
 
 <style>
-    .poll-composer { padding: 0.75rem; background: #f7f8fa; border-radius: 6px; margin-top: 0.5rem; }
-    .poll-composer fieldset { border: none; padding: 0; margin: 0 0 0.5rem; }
-    .poll-composer legend { font-size: 0.85rem; font-weight: 600; padding: 0; }
-    .poll-composer .option { display: flex; gap: 0.4rem; margin: 0.25rem 0; }
-    .poll-composer .option input { flex: 1; padding: 0.4rem; }
-    .poll-composer .remove {
-        padding: 0 0.6rem; background: transparent; border: none; font-size: 1.2rem; cursor: pointer;
-    }
-    .poll-composer .add {
-        padding: 0.3rem 0.6rem; font-size: 0.85rem; background: white;
-        border: 1px dashed #cbd5e1; border-radius: 4px; cursor: pointer;
-    }
-    .poll-composer .switch { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.9rem; }
-    .poll-composer .switch input { width: auto; margin: 0; }
-    .poll-composer .close-time { display: block; margin-top: 0.25rem; padding: 0.4rem; }
-    .poll-composer .hint { font-size: 0.8rem; opacity: 0.75; margin-top: 0.5rem; }
+	.poll-composer { padding: 0.75rem; background: #f7f8fa; border-radius: 6px; margin-top: 0.5rem; }
+	.poll-composer fieldset { border: none; padding: 0; margin: 0 0 0.5rem; }
+	.poll-composer legend { font-size: 0.85rem; font-weight: 600; padding: 0; }
+	.poll-composer .option { display: flex; gap: 0.4rem; margin: 0.25rem 0; }
+	.poll-composer .option input { flex: 1; padding: 0.4rem; }
+	.poll-composer .remove {
+		padding: 0 0.6rem; background: transparent; border: none; font-size: 1.2rem; cursor: pointer;
+	}
+	.poll-composer .add {
+		padding: 0.3rem 0.6rem; font-size: 0.85rem; background: white;
+		border: 1px dashed #cbd5e1; border-radius: 4px; cursor: pointer;
+	}
+	.poll-composer .switch { margin-top: 0.5rem; font-size: 0.9rem; }
+	.poll-composer .close-time { display: block; margin-top: 0.25rem; padding: 0.4rem; }
 </style>

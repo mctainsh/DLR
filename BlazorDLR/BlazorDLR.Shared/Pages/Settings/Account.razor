@@ -6,107 +6,91 @@
 
 <PageTitle>Account — Dumb Luck Rides</PageTitle>
 
-<div class="account">
-    <h1>Account</h1>
+<div class="page page-medium form-page account">
+	<h1>Account</h1>
 
-    <section>
-        <h2>Change password</h2>
-        <form @onsubmit="ChangePasswordAsync" @onsubmit:preventDefault="true">
-            <label>
-                Current password
-                <input @bind="_currentPassword" type="password" autocomplete="current-password" required />
-            </label>
-            <label>
-                New password
-                <input @bind="_newPassword" type="password" autocomplete="new-password" required />
-                <span class="rule-hint">
-                    At least 6 characters, one uppercase letter, one lowercase letter,
-                    and one digit.
-                </span>
-            </label>
-            <button type="submit" disabled="@_busy">
-                @(_busy ? "Working…" : "Change password")
-            </button>
-            @if (_passwordError is not null)
-            {
-                <div class="error" role="alert">
-                    <strong>@_passwordError.Title</strong>
-                    @if (_passwordError.Messages.Count > 0)
-                    {
-                        <ul>@foreach (string message in _passwordError.Messages) { <li>@message</li> }</ul>
-                    }
-                </div>
-            }
-            @if (_passwordStatus is not null)
-            {
-                <p class="status">@_passwordStatus</p>
-            }
-        </form>
-    </section>
+	<section>
+		<h2>Change password</h2>
+		<form @onsubmit="ChangePasswordAsync" @onsubmit:preventDefault="true">
+			<label>
+				Current password
+				<input @bind="_currentPassword" type="password" autocomplete="current-password" required />
+			</label>
+			<label>
+				New password
+				<input @bind="_newPassword" type="password" autocomplete="new-password" required />
+				<span class="rule-hint">
+					At least 6 characters, one uppercase letter, one lowercase letter,
+					and one digit.
+				</span>
+			</label>
+			<button type="submit" disabled="@_busy">
+				@(_busy ? "Working…" : "Change password")
+			</button>
+			@if (_passwordError is not null)
+			{
+				<div class="error" role="alert">
+					<strong>@_passwordError.Title</strong>
+					@if (_passwordError.Messages.Count > 0)
+					{
+						<ul>@foreach (string message in _passwordError.Messages) { <li>@message</li> }</ul>
+					}
+				</div>
+			}
+			@if (_passwordStatus is not null)
+			{
+				<p class="status">@_passwordStatus</p>
+			}
+		</form>
+	</section>
 
-    <hr />
+	<hr />
 
-    <section>
-        <h2>Delete or export</h2>
-        <p>
-            Downloading your data and deleting the account both live on their own page —
-            they are the two irreversible things and they deserve their own screen (§10.2).
-        </p>
-        <a class="button" href="/settings/data">Open data &amp; export</a>
-    </section>
+	<section>
+		<h2>Delete or export</h2>
+		<p>
+			Downloading your data and deleting the account both live on their own page —
+			they are the two irreversible things and they deserve their own screen (§10.2).
+		</p>
+		<a class="button" href="/settings/data">Open data &amp; export</a>
+	</section>
 </div>
 
 @code {
-    private string _currentPassword = string.Empty;
-    private string _newPassword = string.Empty;
-    private string? _passwordStatus;
-    private ApiError? _passwordError;
-    private bool _busy;
+	private string _currentPassword = string.Empty;
+	private string _newPassword = string.Empty;
+	private string? _passwordStatus;
+	private ApiError? _passwordError;
+	private bool _busy;
 
-    private async Task ChangePasswordAsync()
-    {
-        if (_busy) return;
-        _busy = true;
-        _passwordStatus = null;
-        _passwordError = null;
-        try
-        {
-            await Api.ChangePasswordAsync(new ChangePasswordRequest(_currentPassword, _newPassword));
-            _passwordStatus = "Password changed. Other devices will be signed out on their next refresh.";
-            _currentPassword = string.Empty;
-            _newPassword = string.Empty;
-        }
-        catch (ApiException apiException)
-        {
-            _passwordError = apiException.Error;
-        }
-        catch (Exception exception)
-        {
-            _passwordError = new ApiError(default, "Password change failed.", new[] { exception.Message });
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+	private async Task ChangePasswordAsync()
+	{
+		if (_busy) return;
+		_busy = true;
+		_passwordStatus = null;
+		_passwordError = null;
+		try
+		{
+			await Api.ChangePasswordAsync(new ChangePasswordRequest(_currentPassword, _newPassword));
+			_passwordStatus = "Password changed. Other devices will be signed out on their next refresh.";
+			_currentPassword = string.Empty;
+			_newPassword = string.Empty;
+		}
+		catch (ApiException apiException)
+		{
+			_passwordError = apiException.Error;
+		}
+		catch (Exception exception)
+		{
+			_passwordError = new ApiError(default, "Password change failed.", new[] { exception.Message });
+		}
+		finally
+		{
+			_busy = false;
+		}
+	}
 }
 
 <style>
-    .account { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
-    .account section { margin: 1rem 0; }
-    .account label { display: block; margin: 0.5rem 0; }
-    .account input { display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
-    .account button { padding: 0.5rem 1.25rem; margin-top: 0.5rem; }
-    .account .button {
-        display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white;
-        border-radius: 4px; text-decoration: none;
-    }
-    .account .status { padding: 0.5rem 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; }
-    .account .error {
-        margin-top: 0.5rem; padding: 0.75rem 1rem;
-        background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px;
-    }
-    .account .error ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
-    .account .rule-hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; opacity: 0.7; }
-    .account hr { margin: 2rem 0; border: none; border-top: 1px solid #e5e7eb; }
+	.account .error { margin-top: 0.5rem; }
 </style>

@@ -2,161 +2,155 @@
 @using DLR.Core.Tracks
 
 @*
-    §5.4's gap list. Given the planned route and every rider's current position,
-    order the riders along the route and show the distance between each and the
-    leader — plus an off-route indicator when the projection is beyond the
-    off-route threshold.
+	§5.4's gap list. Given the planned route and every rider's current position,
+	order the riders along the route and show the distance between each and the
+	leader — plus an off-route indicator when the projection is beyond the
+	off-route threshold.
 
-    Positions here are the RiderPositionDto values the live-ride screen already
-    fetches; the route is the simplified polyline of the ride's planned track.
-    Everything is derived on the fly — GapCalculator is pure geometry and cheap
-    enough per member per repaint that caching would add cost, not remove it.
+	Positions here are the RiderPositionDto values the live-ride screen already
+	fetches; the route is the simplified polyline of the ride's planned track.
+	Everything is derived on the fly — GapCalculator is pure geometry and cheap
+	enough per member per repaint that caching would add cost, not remove it.
 *@
 
-<div class="gap-list">
-    <h3>Gaps</h3>
+<div class="gap-list row-list">
+	<h3>Gaps</h3>
 
-    @if (Route is null || Route.Count < 2)
-    {
-        <p class="hint">No planned route.</p>
-    }
-    else if (_rows.Count == 0)
-    {
-        <p class="hint">No positions to compare yet.</p>
-    }
-    else
-    {
-        <ul>
-            @foreach (Row row in _rows)
-            {
-                <li>
-                    <div class="who">
-                        <strong>@row.UserName</strong>
-                        @if (row.OffRoute)
-                        {
-                            <span class="off">off route @Format(row.OffMetres)</span>
-                        }
-                    </div>
-                    <div class="gap">
-                        @if (row.IsLeader)
-                        {
-                            <span class="leader">leader</span>
-                        }
-                        else
-                        {
-                            <span>@Format(row.GapMetres) behind</span>
-                        }
-                    </div>
-                </li>
-            }
-        </ul>
-    }
+	@if (Route is null || Route.Count < 2)
+	{
+		<p class="empty">No planned route.</p>
+	}
+	else if (_rows.Count == 0)
+	{
+		<p class="empty">No positions to compare yet.</p>
+	}
+	else
+	{
+		<ul>
+			@foreach (Row row in _rows)
+			{
+				<li>
+					<div class="who">
+						<strong>@row.UserName</strong>
+						@if (row.OffRoute)
+						{
+							<span class="off">off route @Format(row.OffMetres)</span>
+						}
+					</div>
+					<div class="gap">
+						@if (row.IsLeader)
+						{
+							<span class="leader">leader</span>
+						}
+						else
+						{
+							<span>@Format(row.GapMetres) behind</span>
+						}
+					</div>
+				</li>
+			}
+		</ul>
+	}
 </div>
 
 @code {
-    /// <summary>The ride's planned route polyline. Null when the ride has no route yet.</summary>
-    [Parameter] public IReadOnlyList<TrackPoint>? Route { get; set; }
+	/// <summary>The ride's planned route polyline. Null when the ride has no route yet.</summary>
+	[Parameter] public IReadOnlyList<TrackPoint>? Route { get; set; }
 
-    /// <summary>Every member's current position. Only sharing members will appear here.</summary>
-    [Parameter] public IReadOnlyDictionary<Guid, RiderPositionDto>? Positions { get; set; }
+	/// <summary>Every member's current position. Only sharing members will appear here.</summary>
+	[Parameter] public IReadOnlyDictionary<Guid, RiderPositionDto>? Positions { get; set; }
 
-    /// <summary>Metres off the route above which a rider counts as "off-route" (§5.4).</summary>
-    [Parameter] public double OffRouteThresholdMetres { get; set; } = 50;
+	/// <summary>Metres off the route above which a rider counts as "off-route" (§5.4).</summary>
+	[Parameter] public double OffRouteThresholdMetres { get; set; } = 50;
 
-    private readonly List<Row> _rows = new();
+	private readonly List<Row> _rows = new();
 
-    protected override void OnParametersSet()
-    {
-        _rows.Clear();
+	protected override void OnParametersSet()
+	{
+		_rows.Clear();
 
-        if (Route is null || Route.Count < 2 || Positions is null || Positions.Count == 0)
-        {
-            return;
-        }
+		if (Route is null || Route.Count < 2 || Positions is null || Positions.Count == 0)
+		{
+			return;
+		}
 
-        List<Row> unsorted = new(Positions.Count);
-        foreach (RiderPositionDto position in Positions.Values)
-        {
-            TrackPoint point = new(
-                PositionScale.ToDegrees(position.Lat),
-                PositionScale.ToDegrees(position.Lon));
+		List<Row> unsorted = new(Positions.Count);
+		foreach (RiderPositionDto position in Positions.Values)
+		{
+			TrackPoint point = new(
+				PositionScale.ToDegrees(position.Lat),
+				PositionScale.ToDegrees(position.Lon));
 
-            RouteProjection? projection = GapCalculator.Project(Route, point);
-            if (projection is null)
-            {
-                continue;
-            }
+			RouteProjection? projection = GapCalculator.Project(Route, point);
+			if (projection is null)
+			{
+				continue;
+			}
 
-            unsorted.Add(new Row(
-                UserId: position.UserId,
-                UserName: string.IsNullOrEmpty(position.UserName) ? "?" : position.UserName,
-                AlongMetres: projection.Value.AlongMetres,
-                OffMetres: projection.Value.OffMetres,
-                OffRoute: projection.Value.OffMetres > OffRouteThresholdMetres));
-        }
+			unsorted.Add(new Row(
+				UserId: position.UserId,
+				UserName: string.IsNullOrEmpty(position.UserName) ? "?" : position.UserName,
+				AlongMetres: projection.Value.AlongMetres,
+				OffMetres: projection.Value.OffMetres,
+				OffRoute: projection.Value.OffMetres > OffRouteThresholdMetres));
+		}
 
-        // Furthest-along first. "Leader" is defined per §5.4 as whoever has covered the
-        // most of the route so far, and every other rider's gap is measured back from them.
-        unsorted.Sort((a, b) => b.AlongMetres.CompareTo(a.AlongMetres));
+		// Furthest-along first. "Leader" is defined per §5.4 as whoever has covered the
+		// most of the route so far, and every other rider's gap is measured back from them.
+		unsorted.Sort((a, b) => b.AlongMetres.CompareTo(a.AlongMetres));
 
-        if (unsorted.Count == 0)
-        {
-            return;
-        }
+		if (unsorted.Count == 0)
+		{
+			return;
+		}
 
-        double leaderAlong = unsorted[0].AlongMetres;
-        for (int i = 0; i < unsorted.Count; i++)
-        {
-            Row row = unsorted[i] with
-            {
-                IsLeader = i == 0,
-                GapMetres = leaderAlong - unsorted[i].AlongMetres,
-            };
-            _rows.Add(row);
-        }
-    }
+		double leaderAlong = unsorted[0].AlongMetres;
+		for (int i = 0; i < unsorted.Count; i++)
+		{
+			Row row = unsorted[i] with
+			{
+				IsLeader = i == 0,
+				GapMetres = leaderAlong - unsorted[i].AlongMetres,
+			};
+			_rows.Add(row);
+		}
+	}
 
-    private static string Format(double metres)
-    {
-        // Coarse below a kilometre, one decimal above: the whole point of a gap list is
-        // whether the next rider is around the corner or "way back", and both cases read
-        // more clearly with round numbers.
-        if (metres < 1000) return $"{(int)Math.Round(metres)} m";
-        return $"{metres / 1000:0.0} km";
-    }
+	private static string Format(double metres)
+	{
+		// Coarse below a kilometre, one decimal above: the whole point of a gap list is
+		// whether the next rider is around the corner or "way back", and both cases read
+		// more clearly with round numbers.
+		if (metres < 1000) return $"{(int)Math.Round(metres)} m";
+		return $"{metres / 1000:0.0} km";
+	}
 
-    /// <param name="UserId">Which rider.</param>
-    /// <param name="UserName">Their handle (§7.2).</param>
-    /// <param name="AlongMetres">Distance-along projection onto the route.</param>
-    /// <param name="OffMetres">Distance-off from the route.</param>
-    /// <param name="OffRoute">Whether OffMetres exceeds the threshold.</param>
-    /// <param name="IsLeader">Whether this rider is the furthest along.</param>
-    /// <param name="GapMetres">Distance behind the leader (0 for the leader).</param>
-    private readonly record struct Row(
-        Guid UserId,
-        string UserName,
-        double AlongMetres,
-        double OffMetres,
-        bool OffRoute,
-        bool IsLeader = false,
-        double GapMetres = 0);
+	/// <param name="UserId">Which rider.</param>
+	/// <param name="UserName">Their handle (§7.2).</param>
+	/// <param name="AlongMetres">Distance-along projection onto the route.</param>
+	/// <param name="OffMetres">Distance-off from the route.</param>
+	/// <param name="OffRoute">Whether OffMetres exceeds the threshold.</param>
+	/// <param name="IsLeader">Whether this rider is the furthest along.</param>
+	/// <param name="GapMetres">Distance behind the leader (0 for the leader).</param>
+	private readonly record struct Row(
+		Guid UserId,
+		string UserName,
+		double AlongMetres,
+		double OffMetres,
+		bool OffRoute,
+		bool IsLeader = false,
+		double GapMetres = 0);
 }
 
 <style>
-    .gap-list h3 { margin: 0 0 0.5rem; font-size: 1rem; }
-    .gap-list ul { list-style: none; padding: 0; margin: 0; }
-    .gap-list li {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 0.4rem 0.6rem; border-radius: 4px;
-    }
-    .gap-list li:nth-child(odd) { background: #f7f8fa; }
-    .gap-list .who { display: flex; flex-direction: column; }
-    .gap-list .off {
-        font-size: 0.75rem; color: #92400e; margin-top: 0.15rem;
-    }
-    .gap-list .gap {
-        font-variant-numeric: tabular-nums; font-size: 0.9rem;
-    }
-    .gap-list .leader { color: #14532d; font-weight: 600; }
-    .gap-list .hint { text-align: center; opacity: 0.7; padding: 1rem 0; }
+	.gap-list .who { display: flex; flex-direction: column; }
+	.gap-list .off {
+		font-size: 0.75rem; color: #92400e; margin-top: 0.15rem;
+	}
+	.gap-list .gap {
+		font-variant-numeric: tabular-nums; font-size: 0.9rem;
+	}
+	.gap-list .leader { color: #14532d; font-weight: 600; }
+	/* Tighter than the page-level empty state — this one sits in a narrow side panel. */
+	.gap-list .empty { padding: 1rem 0; }
 </style>

@@ -15,508 +15,584 @@
 
 <PageTitle>@Title — Dumb Luck Rides</PageTitle>
 
-<div class="live">
-    @if (_ride is null && _error is null)
-    {
-        <p class="hint">Loading…</p>
-    }
-    else if (_error is not null)
-    {
-        <p class="error">@_error</p>
-    }
-    else if (_ride is not null)
-    {
-        <div class="header">
-            <h1>@_ride.Name</h1>
-            <span class="state @_ride.State.ToString().ToLowerInvariant()">@_ride.State</span>
-        </div>
+<div class="page page-wide live">
+	@if (_ride is null && _error is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (_error is not null)
+	{
+		<p class="error">@_error</p>
+	}
+	else if (_ride is not null)
+	{
+		<div class="header">
+			<h1>@_ride.Name</h1>
+			<span class="state @_ride.State.ToString().ToLowerInvariant()">@_ride.State</span>
+		</div>
 
-        <p class="lead">
-            @(_ride.Description ?? "")
-        </p>
+		<p class="lead">
+			@(_ride.Description ?? "")
+		</p>
 
-        @if (_ride.IsOrganiser && _ride.JoinCode is not null)
-        {
-            <div class="join-code">
-                <strong>Join code:</strong> <span class="code">@_ride.JoinCode</span>
-                <em>Only you see this. Share it with the people you want on the ride (§5.2).</em>
-            </div>
-        }
+		@if (_ride.IsOrganiser && _ride.JoinCode is not null)
+		{
+			<div class="join-code">
+				<strong>Join code:</strong> <span class="code">@_ride.JoinCode</span>
+				<em>Only you see this. Share it with the people you want on the ride (§5.2).</em>
+			</div>
+		}
 
-        @if (_windDownEndsUtc is { } endsUtc)
-        {
-            <div class="wind-down" role="alert">
-                <strong>Sharing wind-down active.</strong>
-                Members who kept sharing on can carry on until they stop — or until
-                <strong>@endsUtc.ToLocalTime().ToString("HH:mm")</strong>, when the server
-                stops it for everyone still on (§5.6).
-            </div>
-        }
+		@if (_windDownEndsUtc is { } endsUtc)
+		{
+			<div class="wind-down" role="alert">
+				<strong>Sharing wind-down active.</strong>
+				Members who kept sharing on can carry on until they stop — or until
+				<strong>@endsUtc.ToLocalTime().ToString("HH:mm")</strong>, when the server
+				stops it for everyone still on (§5.6).
+			</div>
+		}
 
-        <div class="grid">
-            <div class="map-panel">
-                <RideMap Camera="_camera" Markers="_markerLayer" ShowUserLocation="false" />
-            </div>
+		<div class="grid">
+			<div class="map-panel">
+				<RideMap Camera="_camera" Markers="_markerLayer" ShowUserLocation="false" />
+			</div>
 
-            <aside class="side">
-                <MemberList Members="_ride.Members" />
+			<aside class="side">
+				<MemberList Members="_ride.Members" />
 
-                @if (_ride.State == RideStateDto.Live)
-                {
-                    <GapList Route="_routePolyline" Positions="_positions" />
-                }
+				@if (_ride.State == RideStateDto.Live)
+				{
+					<GapList Route="_routePolyline" Positions="_positions" />
+				}
 
-                @if (_ride.State == RideStateDto.Live || _ride.State == RideStateDto.Open)
-                {
-                    <div class="sharing">
-                        <h3>My sharing</h3>
-                        <label class="switch">
-                            <input type="checkbox" checked="@_sharing" @onchange="ToggleSharingAsync" disabled="@_busy" />
-                            Broadcast my location to this ride
-                        </label>
-                        <p class="hint">
-                            You can turn this off at any moment. Turning it off deletes the
-                            stored fix — merely stopping the broadcast would leave a last-known
-                            point on the map (§10.1).
-                        </p>
-                    </div>
-                }
+				@if (_ride.State == RideStateDto.Live || _ride.State == RideStateDto.Open)
+				{
+					<div class="sharing">
+						<h3>My sharing</h3>
+						<label class="switch">
+							<input type="checkbox" checked="@_sharing" @onchange="ToggleSharingAsync" disabled="@_busy" />
+							Broadcast my location to this ride
+						</label>
+						<p class="hint">
+							You can turn this off at any moment. Turning it off deletes the
+							stored fix — merely stopping the broadcast would leave a last-known
+							point on the map (§10.1).
+						</p>
+					</div>
+				}
 
-                <div class="thread-link">
-                    <a href="/group-rides/@RideId/thread">Ride thread</a>
-                    @if (_ride.Permissions.AllowMemberMarkers || _ride.IsOrganiser)
-                    {
-                        <a href="/group-rides/@RideId/markers/new">Add marker</a>
-                    }
-                    @if (_ride.State == RideStateDto.Live)
-                    {
-                        <span class="quiet">— quiet while the ride is live (§17.1)</span>
-                    }
-                </div>
+				<div class="thread-link">
+					<a href="/group-rides/@RideId/thread">Ride thread</a>
+					@if (_ride.Permissions.AllowMemberMarkers || _ride.IsOrganiser)
+					{
+						<a href="/group-rides/@RideId/markers/new">Add marker</a>
+					}
+					@if (_ride.State == RideStateDto.Live)
+					{
+						<span class="quiet">— quiet while the ride is live (§17.1)</span>
+					}
+				</div>
 
-                @if (_ride.IsOrganiser)
-                {
-                    <div class="organiser">
-                        <h3>Organiser</h3>
-                        <a href="/group-rides/@RideId/requests">Join requests</a>
-                        <a href="/group-rides/@RideId/permissions">Content permissions</a>
+				@if (_ride.IsOrganiser)
+				{
+					<div class="organiser">
+						<h3>Organiser</h3>
+						<a href="/group-rides/@RideId/requests">Join requests</a>
+						<a href="/group-rides/@RideId/permissions">Content permissions</a>
 
-                        @if (_ride.State == RideStateDto.Open)
-                        {
-                            <button type="button" @onclick="StartRideAsync" disabled="@_busy">Start ride</button>
-                        }
-                        @if (_ride.State == RideStateDto.Live)
-                        {
-                            <button type="button" @onclick="() => _showEndDialog = true" disabled="@_busy">
-                                End ride…
-                            </button>
-                        }
-                    </div>
-                }
+						@if (_ride.State == RideStateDto.Open)
+						{
+							<button type="button" @onclick="StartRideAsync" disabled="@_busy">Start ride</button>
+						}
+						@if (_ride.State == RideStateDto.Live)
+						{
+							<button type="button" @onclick="() => _showEndDialog = true" disabled="@_busy">
+								End ride…
+							</button>
+						}
+					</div>
+				}
 
-                @if (_showConsent)
-                {
-                    <ConsentPrompt RideName="@_ride.Name"
-                                   OnShare="OnConsentShareAsync"
-                                   OnDismiss="OnConsentDismissAsync" />
-                }
+				@if (_showConsent)
+				{
+					<ConsentPrompt RideName="@_ride.Name"
+								   OnShare="OnConsentShareAsync"
+								   OnDismiss="OnConsentDismissAsync" />
+				}
 
-                @if (_showEndDialog)
-                {
-                    <div class="end-dialog" role="dialog">
-                        <div class="end-card">
-                            <h2>End @_ride.Name?</h2>
-                            <p>Choose what happens to everyone's sharing.</p>
-                            <button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.Immediate)"
-                                    disabled="@_busy">
-                                Stop sharing for everyone now
-                            </button>
-                            <button type="button" @onclick="() => EndRideAsync(RideEndingDto.WindDown)"
-                                    disabled="@_busy">
-                                Let riders stop themselves (2-hour wind-down)
-                            </button>
-                            <button type="button" class="cancel" @onclick="() => _showEndDialog = false">
-                                Cancel
-                            </button>
-                            <p class="note">
-                                The wind-down is capped, cannot be extended, and force-stops on the
-                                server (§5.6). A rider who forgets is not tracked forever.
-                            </p>
-                        </div>
-                    </div>
-                }
-            </aside>
-        </div>
-    }
+				@if (_showEndDialog)
+				{
+					<div class="end-dialog" role="dialog">
+						<div class="end-card">
+							<h2>End @_ride.Name?</h2>
+							<p>Choose what happens to everyone's sharing.</p>
+							<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.Immediate)"
+									disabled="@_busy">
+								Stop sharing for everyone now
+							</button>
+							<button type="button" @onclick="() => EndRideAsync(RideEndingDto.WindDown)"
+									disabled="@_busy">
+								Let riders stop themselves (2-hour wind-down)
+							</button>
+							<button type="button" class="cancel" @onclick="() => _showEndDialog = false">
+								Cancel
+							</button>
+							<p class="note">
+								The wind-down is capped, cannot be extended, and force-stops on the
+								server (§5.6). A rider who forgets is not tracked forever.
+							</p>
+						</div>
+					</div>
+				}
+			</aside>
+		</div>
+	}
 </div>
 
 @code {
-    [Parameter] public Guid RideId { get; set; }
+	[Parameter] public Guid RideId { get; set; }
 
-    private RideDetail? _ride;
-    private string? _error;
-    private MapCamera _camera = new(-33.868, 151.209, 11);
-    private readonly Dictionary<Guid, MapMarker> _markerLayer = new();
-    private readonly Dictionary<Guid, MarkerDto> _markers = new();
-    private readonly Dictionary<Guid, RiderPositionDto> _positions = new();
+	private RideDetail? _ride;
+	private string? _error;
+	private MapCamera _camera = new(-33.868, 151.209, 11);
+	private readonly Dictionary<Guid, MapMarker> _markerLayer = new();
+	private readonly Dictionary<Guid, MarkerDto> _markers = new();
+	private readonly Dictionary<Guid, RiderPositionDto> _positions = new();
 
-    // The planned route's raw points, when the ride has one. §5.4's gap list needs a
-    // route to project against; today the hub tells us via RouteUpdated when the route
-    // changes but the initial RideDetail does not carry the route id, so the initial
-    // load path shows an empty GapList until the route arrives on the hub — see
-    // SharedFrontend.md Phase 3 for the deferred server change that would let the
-    // initial fetch populate this immediately.
-    private IReadOnlyList<TrackPoint>? _routePolyline;
-    private DateTimeOffset? _windDownEndsUtc;
-    private bool _sharing;
-    private bool _showConsent;
-    private bool _showEndDialog;
-    private bool _busy;
+	// The planned route's raw points, when the ride has one. §5.4's gap list needs a
+	// route to project against; today the hub tells us via RouteUpdated when the route
+	// changes but the initial RideDetail does not carry the route id, so the initial
+	// load path shows an empty GapList until the route arrives on the hub — see
+	// SharedFrontend.md Phase 3 for the deferred server change that would let the
+	// initial fetch populate this immediately.
+	private IReadOnlyList<TrackPoint>? _routePolyline;
+	private DateTimeOffset? _windDownEndsUtc;
+	private bool _sharing;
+	private bool _showConsent;
+	private bool _showEndDialog;
+	private bool _busy;
 
-    private string Title => _ride?.Name ?? "Ride";
+	private string Title => _ride?.Name ?? "Ride";
 
-    protected override async Task OnParametersSetAsync()
-    {
-        _ride = null;
-        _error = null;
-        _markerLayer.Clear();
-        _markers.Clear();
-        _positions.Clear();
-        _windDownEndsUtc = null;
+	protected override async Task OnParametersSetAsync()
+	{
+		_ride = null;
+		_error = null;
+		_markerLayer.Clear();
+		_markers.Clear();
+		_positions.Clear();
+		_windDownEndsUtc = null;
 
-        WireHub();
+		WireHub();
 
-        try
-        {
-            _ride = await Api.GetRideAsync(RideId);
-            _sharing = _ride.Members.FirstOrDefault(m => m.UserId == Auth.UserId)?.Sharing ?? false;
+		try
+		{
+			_ride = await Api.GetRideAsync(RideId);
+			_sharing = _ride.Members.FirstOrDefault(m => m.UserId == Auth.UserId)?.Sharing ?? false;
 
-            // Positions snapshot: on load we ask for what everyone's fix is now (§5.3).
-            IReadOnlyList<RiderPositionDto> snapshot = await Api.GetPositionsSnapshotAsync(RideId);
-            foreach (RiderPositionDto position in snapshot)
-            {
-                _positions[position.UserId] = position;
-            }
+			// Positions snapshot: on load we ask for what everyone's fix is now (§5.3).
+			IReadOnlyList<RiderPositionDto> snapshot = await Api.GetPositionsSnapshotAsync(RideId);
+			foreach (RiderPositionDto position in snapshot)
+			{
+				_positions[position.UserId] = position;
+			}
 
-            // Markers snapshot.
-            foreach (MarkerDto marker in await Api.ListRideMarkersAsync(RideId))
-            {
-                _markers[marker.Id] = marker;
-            }
+			// Markers snapshot.
+			foreach (MarkerDto marker in await Api.ListRideMarkersAsync(RideId))
+			{
+				_markers[marker.Id] = marker;
+			}
 
-            RebuildMapLayer();
+			RebuildMapLayer();
 
-            // Consent prompt: shown once per joined ride that we do not yet share with.
-            // §5.6's rule is dismissing = "not now", which is a no-op — closing the modal
-            // simply removes it.
-            if (!_sharing && _ride.State == RideStateDto.Open)
-            {
-                _showConsent = true;
-            }
+			// Consent prompt: shown once per joined ride that we do not yet share with.
+			// §5.6's rule is dismissing = "not now", which is a no-op — closing the modal
+			// simply removes it.
+			if (!_sharing && _ride.State == RideStateDto.Open)
+			{
+				_showConsent = true;
+			}
 
-            try
-            {
-                await Hub.ConnectAsync();
-                await Hub.JoinRideAsync(RideId);
-            }
-            catch
-            {
-                // The realtime updates are a nice-to-have on top of the snapshot; if the hub
-                // is unreachable the page still shows what the API returned. §5.3 sets the
-                // shape: the snapshot is authoritative, the hub is the delta on top.
-            }
-        }
-        catch (ApiException apiException)
-        {
-            _error = apiException.Error.Title;
-        }
-        catch (Exception exception)
-        {
-            _error = exception.Message;
-        }
-    }
+			try
+			{
+				await Hub.ConnectAsync();
+				await Hub.JoinRideAsync(RideId);
+			}
+			catch
+			{
+				// The realtime updates are a nice-to-have on top of the snapshot; if the hub
+				// is unreachable the page still shows what the API returned. §5.3 sets the
+				// shape: the snapshot is authoritative, the hub is the delta on top.
+			}
+		}
+		catch (ApiException apiException)
+		{
+			_error = apiException.Error.Title;
+		}
+		catch (Exception exception)
+		{
+			_error = exception.Message;
+		}
+	}
 
-    private void WireHub()
-    {
-        Hub.PositionsUpdated += OnPositions;
-        Hub.MemberJoined += OnMemberJoined;
-        Hub.MemberLeft += OnMemberLeft;
-        Hub.MemberSharingChanged += OnMemberSharing;
-        Hub.MarkerAdded += OnMarkerAdded;
-        Hub.MarkerUpdated += OnMarkerAdded; // same treatment — upsert
-        Hub.MarkerRemoved += OnMarkerRemoved;
-        Hub.RouteUpdated += OnRouteUpdated;
-        Hub.RideStateChanged += OnRideStateChanged;
-        Hub.SharingWindDownStarted += OnWindDownStarted;
-        Hub.PermissionsChanged += OnPermissionsChanged;
-    }
+	private void WireHub()
+	{
+		Hub.PositionsUpdated += OnPositions;
+		Hub.MemberJoined += OnMemberJoined;
+		Hub.MemberLeft += OnMemberLeft;
+		Hub.MemberSharingChanged += OnMemberSharing;
+		Hub.MarkerAdded += OnMarkerAdded;
+		Hub.MarkerUpdated += OnMarkerAdded; // same treatment — upsert
+		Hub.MarkerRemoved += OnMarkerRemoved;
+		Hub.RouteUpdated += OnRouteUpdated;
+		Hub.RideStateChanged += OnRideStateChanged;
+		Hub.SharingWindDownStarted += OnWindDownStarted;
+		Hub.PermissionsChanged += OnPermissionsChanged;
+	}
 
-    private void OnPositions(PositionBatch batch)
-    {
-        if (batch.RideId != RideId) return;
-        foreach (PositionFix fix in batch.Positions)
-        {
-            _positions[fix.UserId] = new RiderPositionDto(
-                fix.UserId,
-                _positions.TryGetValue(fix.UserId, out var existing) ? existing.UserName : string.Empty,
-                fix.Lat, fix.Lon, fix.SpeedMps, fix.HeadingDeg, fix.RecordedUtc);
-        }
-        RebuildMapLayer();
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnPositions(PositionBatch batch)
+	{
+		if (batch.RideId != RideId) return;
+		foreach (PositionFix fix in batch.Positions)
+		{
+			_positions[fix.UserId] = new RiderPositionDto(
+				fix.UserId,
+				_positions.TryGetValue(fix.UserId, out var existing) ? existing.UserName : string.Empty,
+				fix.Lat, fix.Lon, fix.SpeedMps, fix.HeadingDeg, fix.RecordedUtc);
+		}
+		RebuildMapLayer();
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    private void OnMemberJoined(Guid rideId, RideMemberSummary member)
-    {
-        if (rideId != RideId || _ride is null) return;
-        _ride = _ride with { Members = _ride.Members.Concat(new[] { member }).ToList() };
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnMemberJoined(Guid rideId, RideMemberSummary member)
+	{
+		if (rideId != RideId || _ride is null) return;
+		_ride = _ride with { Members = _ride.Members.Concat(new[] { member }).ToList() };
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    private void OnMemberLeft(Guid rideId, Guid userId)
-    {
-        if (rideId != RideId || _ride is null) return;
-        _ride = _ride with { Members = _ride.Members.Where(m => m.UserId != userId).ToList() };
-        _positions.Remove(userId);
-        RebuildMapLayer();
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnMemberLeft(Guid rideId, Guid userId)
+	{
+		if (rideId != RideId || _ride is null) return;
+		_ride = _ride with { Members = _ride.Members.Where(m => m.UserId != userId).ToList() };
+		_positions.Remove(userId);
+		RebuildMapLayer();
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    private void OnMemberSharing(Guid rideId, Guid userId, bool sharing)
-    {
-        if (rideId != RideId || _ride is null) return;
-        _ride = _ride with
-        {
-            Members = _ride.Members.Select(m =>
-                m.UserId == userId ? m with { Sharing = sharing } : m).ToList()
-        };
-        if (!sharing)
-        {
-            _positions.Remove(userId);
-            RebuildMapLayer();
-        }
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnMemberSharing(Guid rideId, Guid userId, bool sharing)
+	{
+		if (rideId != RideId || _ride is null) return;
+		_ride = _ride with
+		{
+			Members = _ride.Members.Select(m =>
+				m.UserId == userId ? m with { Sharing = sharing } : m).ToList()
+		};
+		if (!sharing)
+		{
+			_positions.Remove(userId);
+			RebuildMapLayer();
+		}
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    private void OnMarkerAdded(Guid rideId, MarkerDto marker)
-    {
-        if (rideId != RideId) return;
-        _markers[marker.Id] = marker;
-        RebuildMapLayer();
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnMarkerAdded(Guid rideId, MarkerDto marker)
+	{
+		if (rideId != RideId) return;
+		_markers[marker.Id] = marker;
+		RebuildMapLayer();
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    private void OnMarkerRemoved(Guid rideId, Guid markerId)
-    {
-        if (rideId != RideId) return;
-        _markers.Remove(markerId);
-        RebuildMapLayer();
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnMarkerRemoved(Guid rideId, Guid markerId)
+	{
+		if (rideId != RideId) return;
+		_markers.Remove(markerId);
+		RebuildMapLayer();
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    private void OnRideStateChanged(Guid rideId, RideStateDto state)
-    {
-        if (rideId != RideId || _ride is null) return;
-        _ride = _ride with { State = state };
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnRideStateChanged(Guid rideId, RideStateDto state)
+	{
+		if (rideId != RideId || _ride is null) return;
+		_ride = _ride with { State = state };
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    private async void OnRouteUpdated(Guid rideId, Guid trackId)
-    {
-        if (rideId != RideId) return;
+	private async void OnRouteUpdated(Guid rideId, Guid trackId)
+	{
+		if (rideId != RideId) return;
 
-        try
-        {
-            // The polyline the server hands us here is simplified for display, and that
-            // is fine for the gap list — GapCalculator's error against a simplified line
-            // is bounded by the simplifier's tolerance (§15.5), which is well below the
-            // off-route threshold. Trading a full-resolution fetch for a lighter request
-            // is a good deal when the alternative is nothing at all.
-            TrackDetail detail = await Api.GetTrackAsync(trackId);
-            _routePolyline = detail.Polyline;
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-            // A route the client cannot fetch is treated the same as no route: gap list
-            // stays empty rather than showing wrong numbers. A retry happens automatically
-            // on the next RouteUpdated event.
-            _routePolyline = null;
-        }
-    }
+		try
+		{
+			// The polyline the server hands us here is simplified for display, and that
+			// is fine for the gap list — GapCalculator's error against a simplified line
+			// is bounded by the simplifier's tolerance (§15.5), which is well below the
+			// off-route threshold. Trading a full-resolution fetch for a lighter request
+			// is a good deal when the alternative is nothing at all.
+			TrackDetail detail = await Api.GetTrackAsync(trackId);
+			_routePolyline = detail.Polyline;
+			await InvokeAsync(StateHasChanged);
+		}
+		catch
+		{
+			// A route the client cannot fetch is treated the same as no route: gap list
+			// stays empty rather than showing wrong numbers. A retry happens automatically
+			// on the next RouteUpdated event.
+			_routePolyline = null;
+		}
+	}
 
-    private void OnWindDownStarted(Guid rideId, DateTimeOffset endsUtc)
-    {
-        if (rideId != RideId) return;
-        _windDownEndsUtc = endsUtc;
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnWindDownStarted(Guid rideId, DateTimeOffset endsUtc)
+	{
+		if (rideId != RideId) return;
+		_windDownEndsUtc = endsUtc;
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    private void OnPermissionsChanged(Guid rideId, RidePermissions permissions)
-    {
-        if (rideId != RideId || _ride is null) return;
-        _ride = _ride with { Permissions = permissions };
-        _ = InvokeAsync(StateHasChanged);
-    }
+	private void OnPermissionsChanged(Guid rideId, RidePermissions permissions)
+	{
+		if (rideId != RideId || _ride is null) return;
+		_ride = _ride with { Permissions = permissions };
+		_ = InvokeAsync(StateHasChanged);
+	}
 
-    /// <summary>
-    /// Positions + markers merge into one Skia layer. Both draw as pins today; a Phase 3
-    /// pass gives markers their icon-key visuals (§16.3) — the shape is the same either way.
-    /// </summary>
-    private void RebuildMapLayer()
-    {
-        _markerLayer.Clear();
-        foreach (RiderPositionDto position in _positions.Values)
-        {
-            _markerLayer[position.UserId] = new MapMarker(
-                Id: position.UserId,
-                Latitude: PositionScale.ToDegrees(position.Lat),
-                Longitude: PositionScale.ToDegrees(position.Lon),
-                IconKey: "rider",
-                Title: string.IsNullOrEmpty(position.UserName) ? "?" : position.UserName,
-                DirectionDeg: position.HeadingDeg);
-        }
-        foreach (MarkerDto marker in _markers.Values)
-        {
-            _markerLayer[marker.Id] = new MapMarker(
-                Id: marker.Id,
-                Latitude: PositionScale.ToDegrees(marker.Lat),
-                Longitude: PositionScale.ToDegrees(marker.Lon),
-                IconKey: marker.Icon,
-                Title: marker.Title,
-                DirectionDeg: marker.DirectionDeg);
-        }
-    }
+	/// <summary>
+	/// Positions + markers merge into one Skia layer. Both draw as pins today; a Phase 3
+	/// pass gives markers their icon-key visuals (§16.3) — the shape is the same either way.
+	/// </summary>
+	private void RebuildMapLayer()
+	{
+		_markerLayer.Clear();
+		foreach (RiderPositionDto position in _positions.Values)
+		{
+			_markerLayer[position.UserId] = new MapMarker(
+				Id: position.UserId,
+				Latitude: PositionScale.ToDegrees(position.Lat),
+				Longitude: PositionScale.ToDegrees(position.Lon),
+				IconKey: "rider",
+				Title: string.IsNullOrEmpty(position.UserName) ? "?" : position.UserName,
+				DirectionDeg: position.HeadingDeg);
+		}
+		foreach (MarkerDto marker in _markers.Values)
+		{
+			_markerLayer[marker.Id] = new MapMarker(
+				Id: marker.Id,
+				Latitude: PositionScale.ToDegrees(marker.Lat),
+				Longitude: PositionScale.ToDegrees(marker.Lon),
+				IconKey: marker.Icon,
+				Title: marker.Title,
+				DirectionDeg: marker.DirectionDeg);
+		}
+	}
 
-    private async Task OnConsentShareAsync()
-    {
-        _showConsent = false;
-        _busy = true;
-        try
-        {
-            await Api.SetSharingAsync(RideId, new SetSharingRequest(true));
-            _sharing = true;
-        }
-        catch (ApiException apiException) { _error = apiException.Error.Title; }
-        finally { _busy = false; }
-    }
+	private async Task OnConsentShareAsync()
+	{
+		_showConsent = false;
+		_busy = true;
+		try
+		{
+			await Api.SetSharingAsync(RideId, new SetSharingRequest(true));
+			_sharing = true;
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+		finally { _busy = false; }
+	}
 
-    private Task OnConsentDismissAsync()
-    {
-        _showConsent = false;
-        return Task.CompletedTask;
-    }
+	private Task OnConsentDismissAsync()
+	{
+		_showConsent = false;
+		return Task.CompletedTask;
+	}
 
-    private async Task ToggleSharingAsync(ChangeEventArgs args)
-    {
-        bool wants = args.Value is bool b && b;
-        _busy = true;
-        try
-        {
-            await Api.SetSharingAsync(RideId, new SetSharingRequest(wants));
-            _sharing = wants;
-        }
-        catch (ApiException apiException) { _error = apiException.Error.Title; }
-        finally { _busy = false; }
-    }
+	private async Task ToggleSharingAsync(ChangeEventArgs args)
+	{
+		bool wants = args.Value is bool b && b;
+		_busy = true;
+		try
+		{
+			await Api.SetSharingAsync(RideId, new SetSharingRequest(wants));
+			_sharing = wants;
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+		finally { _busy = false; }
+	}
 
-    private async Task StartRideAsync()
-    {
-        _busy = true;
-        try
-        {
-            await Api.StartRideAsync(RideId);
-        }
-        catch (ApiException apiException) { _error = apiException.Error.Title; }
-        finally { _busy = false; }
-    }
+	private async Task StartRideAsync()
+	{
+		_busy = true;
+		try
+		{
+			await Api.StartRideAsync(RideId);
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+		finally { _busy = false; }
+	}
 
-    private async Task EndRideAsync(RideEndingDto ending)
-    {
-        _busy = true;
-        _showEndDialog = false;
-        try
-        {
-            await Api.EndRideAsync(RideId, new EndRideRequest(ending));
-        }
-        catch (ApiException apiException) { _error = apiException.Error.Title; }
-        finally { _busy = false; }
-    }
+	private async Task EndRideAsync(RideEndingDto ending)
+	{
+		_busy = true;
+		_showEndDialog = false;
+		try
+		{
+			await Api.EndRideAsync(RideId, new EndRideRequest(ending));
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+		finally { _busy = false; }
+	}
 
-    public async ValueTask DisposeAsync()
-    {
-        Hub.PositionsUpdated -= OnPositions;
-        Hub.MemberJoined -= OnMemberJoined;
-        Hub.MemberLeft -= OnMemberLeft;
-        Hub.MemberSharingChanged -= OnMemberSharing;
-        Hub.MarkerAdded -= OnMarkerAdded;
-        Hub.MarkerUpdated -= OnMarkerAdded;
-        Hub.MarkerRemoved -= OnMarkerRemoved;
-        Hub.RouteUpdated -= OnRouteUpdated;
-        Hub.RideStateChanged -= OnRideStateChanged;
-        Hub.SharingWindDownStarted -= OnWindDownStarted;
-        Hub.PermissionsChanged -= OnPermissionsChanged;
+	public async ValueTask DisposeAsync()
+	{
+		Hub.PositionsUpdated -= OnPositions;
+		Hub.MemberJoined -= OnMemberJoined;
+		Hub.MemberLeft -= OnMemberLeft;
+		Hub.MemberSharingChanged -= OnMemberSharing;
+		Hub.MarkerAdded -= OnMarkerAdded;
+		Hub.MarkerUpdated -= OnMarkerAdded;
+		Hub.MarkerRemoved -= OnMarkerRemoved;
+		Hub.RouteUpdated -= OnRouteUpdated;
+		Hub.RideStateChanged -= OnRideStateChanged;
+		Hub.SharingWindDownStarted -= OnWindDownStarted;
+		Hub.PermissionsChanged -= OnPermissionsChanged;
 
-        try { await Hub.LeaveRideAsync(RideId); }
-        catch { /* connection may already be down */ }
-    }
+		try { await Hub.LeaveRideAsync(RideId); }
+		catch { /* connection may already be down */ }
+	}
 }
 
 <style>
-    .live { max-width: 80rem; margin: 1rem auto; padding: 0 1rem; }
-    .live .header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-    .live .lead { opacity: 0.85; margin: 0.5rem 0; }
-    .live .state {
-        font-size: 0.85rem; padding: 0.2rem 0.6rem; border-radius: 4px;
-        background: #eef1f5;
-    }
-    .live .state.open { background: #dbeafe; color: #1e40af; }
-    .live .state.live { background: #d1fae5; color: #14532d; }
-    .live .state.completed, .live .state.archived { background: #fef3c7; color: #92400e; }
-    .live .join-code {
-        margin: 0.75rem 0; padding: 0.5rem 0.75rem;
-        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; font-size: 0.9rem;
-    }
-    .live .join-code .code {
-        font-family: ui-monospace, monospace; font-weight: bold; letter-spacing: 0.15em;
-    }
-    .live .join-code em { display: block; opacity: 0.7; margin-top: 0.25rem; font-size: 0.85rem; }
-    .live .wind-down {
-        margin: 0.75rem 0; padding: 0.75rem 1rem;
-        background: #fef3c7; border: 1px solid #fde68a; border-radius: 4px;
-    }
-    .live .grid {
-        display: grid; grid-template-columns: 1fr 20rem; gap: 1rem; margin-top: 1rem;
-    }
-    @@media (max-width: 720px) {
-        .live .grid { grid-template-columns: 1fr; }
-    }
-    .live .side { display: flex; flex-direction: column; gap: 1rem; }
-    .live .side h3 { margin: 0 0 0.5rem; font-size: 1rem; }
-    .live .sharing, .live .thread-link, .live .organiser {
-        padding: 0.75rem; background: #f7f8fa; border-radius: 6px;
-    }
-    .live .switch { display: block; }
-    .live .switch input { margin-right: 0.5rem; }
-    .live .hint { font-size: 0.85rem; opacity: 0.75; margin: 0.25rem 0 0; }
-    .live .quiet { font-size: 0.85rem; opacity: 0.7; }
-    .live .organiser a, .live .thread-link a { display: block; margin: 0.25rem 0; }
-    .live .organiser button { margin-top: 0.5rem; padding: 0.4rem 0.8rem; }
-    .live .end-dialog {
-        position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-        display: flex; align-items: center; justify-content: center; z-index: 1000;
-    }
-    .live .end-card {
-        background: white; padding: 1.5rem; border-radius: 8px;
-        max-width: 32rem; width: calc(100vw - 2rem);
-    }
-    .live .end-card button {
-        display: block; width: 100%; margin-top: 0.5rem; padding: 0.6rem 1rem;
-    }
-    .live .end-card button.primary { background: #2563eb; color: white; border: none; }
-    .live .end-card button.cancel { background: transparent; }
-    .live .end-card .note { font-size: 0.85rem; opacity: 0.75; margin-top: 0.75rem; }
-    .live .error {
-        padding: 0.5rem 0.75rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px;
-    }
-    .live .hint { text-align: center; opacity: 0.7; padding: 2rem; }
+	.live .lead {
+		margin: 0.5rem 0;
+	}
+
+	.live .state {
+		font-size: 0.85rem;
+		padding: 0.2rem 0.6rem;
+		border-radius: 4px;
+		background: #eef1f5;
+	}
+
+		.live .state.open {
+			background: #dbeafe;
+			color: #1e40af;
+		}
+
+		.live .state.live {
+			background: #d1fae5;
+			color: #14532d;
+		}
+
+		.live .state.completed, .live .state.archived {
+			background: #fef3c7;
+			color: #92400e;
+		}
+
+	.live .join-code {
+		margin: 0.75rem 0;
+		padding: 0.5rem 0.75rem;
+		background: #eff6ff;
+		border: 1px solid #bfdbfe;
+		border-radius: 4px;
+		font-size: 0.9rem;
+	}
+
+		.live .join-code .code {
+			font-family: ui-monospace, monospace;
+			font-weight: bold;
+			letter-spacing: 0.15em;
+		}
+
+		.live .join-code em {
+			display: block;
+			opacity: 0.7;
+			margin-top: 0.25rem;
+			font-size: 0.85rem;
+		}
+
+	.live .wind-down {
+		margin: 0.75rem 0;
+		padding: 0.75rem 1rem;
+		background: #fef3c7;
+		border: 1px solid #fde68a;
+		border-radius: 4px;
+	}
+
+	.live .grid {
+		display: grid;
+		grid-template-columns: 1fr 20rem;
+		gap: 1rem;
+		margin-top: 1rem;
+	}
+
+	@@media (max-width: 720px) {
+		.live .grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.live .side {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+		.live .side h3 {
+			margin: 0 0 0.5rem;
+			font-size: 1rem;
+		}
+
+	.live .sharing, .live .thread-link, .live .organiser {
+		padding: 0.75rem;
+		background: #f7f8fa;
+		border-radius: 6px;
+	}
+
+	.live .quiet {
+		font-size: 0.85rem;
+		opacity: 0.7;
+	}
+
+	.live .organiser a, .live .thread-link a {
+		display: block;
+		margin: 0.25rem 0;
+	}
+
+	.live .organiser button {
+		margin-top: 0.5rem;
+		padding: 0.4rem 0.8rem;
+	}
+
+	.live .end-dialog {
+		position: fixed;
+		inset: 0;
+		background: rgba(0,0,0,0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.live .end-card {
+		background: white;
+		padding: 1.5rem;
+		border-radius: 8px;
+		max-width: 32rem;
+		width: calc(100vw - 2rem);
+	}
+
+		.live .end-card button {
+			display: block;
+			width: 100%;
+			margin-top: 0.5rem;
+			padding: 0.6rem 1rem;
+		}
+
+			.live .end-card button.cancel {
+				background: transparent;
+			}
+
+		.live .end-card .note {
+			margin-top: 0.75rem;
+		}
 </style>

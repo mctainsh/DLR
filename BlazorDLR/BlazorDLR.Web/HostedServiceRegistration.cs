@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Hosting;
-
 namespace DLR.Server;
 
 /// <summary>Registration helpers for services that are both a singleton and a hosted service.</summary>

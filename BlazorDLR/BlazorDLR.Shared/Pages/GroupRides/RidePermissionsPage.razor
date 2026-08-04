@@ -6,135 +6,124 @@
 
 <PageTitle>Ride permissions — Dumb Luck Rides</PageTitle>
 
-<div class="page">
-    <a class="back" href="/group-rides/@RideId">← Back to ride</a>
+<div class="page page-medium">
+	<a class="back" href="/group-rides/@RideId">← Back to ride</a>
 
-    <h1>Content permissions</h1>
+	<h1>Content permissions</h1>
 
-    <p class="lead">
-        Turning a switch off stops <em>new</em> content — nothing is deleted (§5.8).
-        An organiser who wants something gone deletes it explicitly.
-    </p>
+	<p class="lead">
+		Turning a switch off stops <em>new</em> content — nothing is deleted (§5.8).
+		An organiser who wants something gone deletes it explicitly.
+	</p>
 
-    @if (_ride is null)
-    {
-        <p class="hint">Loading…</p>
-    }
-    else if (!_ride.IsOrganiser)
-    {
-        <p>Only the organiser can change these.</p>
-    }
-    else
-    {
-        <fieldset>
-            <label class="switch">
-                <input type="checkbox" @bind="_permissions.AllowMemberMarkers" />
-                Members may place markers
-            </label>
-            <p class="note">
-                The useful marker is <em>"gravel across the whole corner"</em>, and the
-                rider who found it is whoever hit it first (§16.5). Off leaves reading
-                unaffected.
-            </p>
-        </fieldset>
+	@if (_ride is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (!_ride.IsOrganiser)
+	{
+		<p>Only the organiser can change these.</p>
+	}
+	else
+	{
+		<fieldset>
+			<label class="switch">
+				<input type="checkbox" @bind="_permissions.AllowMemberMarkers" />
+				Members may place markers
+			</label>
+			<p class="note">
+				The useful marker is <em>"gravel across the whole corner"</em>, and the
+				rider who found it is whoever hit it first (§16.5). Off leaves reading
+				unaffected.
+			</p>
+		</fieldset>
 
-        <fieldset>
-            <label class="switch">
-                <input type="checkbox" @bind="_permissions.AllowMemberComments" />
-                Members may post comments
-            </label>
-            <p class="note">
-                Off leaves reading, reacting and voting alone — reactions carry no free
-                text and switching off polls would break them rather than moderate them
-                (§5.8).
-            </p>
-        </fieldset>
+		<fieldset>
+			<label class="switch">
+				<input type="checkbox" @bind="_permissions.AllowMemberComments" />
+				Members may post comments
+			</label>
+			<p class="note">
+				Off leaves reading, reacting and voting alone — reactions carry no free
+				text and switching off polls would break them rather than moderate them
+				(§5.8).
+			</p>
+		</fieldset>
 
-        <fieldset>
-            <label class="switch">
-                <input type="checkbox" @bind="_permissions.AllowMemberPhotos" />
-                Members may attach photos
-            </label>
-            <p class="note">
-                Its own switch, not a consequence of comments — photos are the expensive
-                half (§5.8) and often the thing an organiser wants to stop while leaving
-                conversation alone.
-            </p>
-        </fieldset>
+		<fieldset>
+			<label class="switch">
+				<input type="checkbox" @bind="_permissions.AllowMemberPhotos" />
+				Members may attach photos
+			</label>
+			<p class="note">
+				Its own switch, not a consequence of comments — photos are the expensive
+				half (§5.8) and often the thing an organiser wants to stop while leaving
+				conversation alone.
+			</p>
+		</fieldset>
 
-        <button type="button" class="primary" @onclick="SaveAsync" disabled="@_busy">
-            @(_busy ? "Saving…" : "Save")
-        </button>
-    }
+		<button type="button" class="primary" @onclick="SaveAsync" disabled="@_busy">
+			@(_busy ? "Saving…" : "Save")
+		</button>
+	}
 
-    @if (_error is not null)
-    {
-        <p class="error">@_error</p>
-    }
+	@if (_error is not null)
+	{
+		<p class="error">@_error</p>
+	}
 </div>
 
 @code {
-    [Parameter] public Guid RideId { get; set; }
+	[Parameter] public Guid RideId { get; set; }
 
-    private RideDetail? _ride;
-    // Mutable local copy — the record is immutable but the UI binds to fields, so
-    // a plain class is easier than fighting @bind against `with`-expressions.
-    private RidePermissionsMutable _permissions = new();
-    private string? _error;
-    private bool _busy;
+	private RideDetail? _ride;
+	// Mutable local copy — the record is immutable but the UI binds to fields, so
+	// a plain class is easier than fighting @bind against `with`-expressions.
+	private RidePermissionsMutable _permissions = new();
+	private string? _error;
+	private bool _busy;
 
-    protected override async Task OnParametersSetAsync()
-    {
-        try
-        {
-            _ride = await Api.GetRideAsync(RideId);
-            _permissions = new RidePermissionsMutable
-            {
-                AllowMemberMarkers = _ride.Permissions.AllowMemberMarkers,
-                AllowMemberComments = _ride.Permissions.AllowMemberComments,
-                AllowMemberPhotos = _ride.Permissions.AllowMemberPhotos,
-            };
-        }
-        catch (ApiException apiException) { _error = apiException.Error.Title; }
-    }
+	protected override async Task OnParametersSetAsync()
+	{
+		try
+		{
+			_ride = await Api.GetRideAsync(RideId);
+			_permissions = new RidePermissionsMutable
+			{
+				AllowMemberMarkers = _ride.Permissions.AllowMemberMarkers,
+				AllowMemberComments = _ride.Permissions.AllowMemberComments,
+				AllowMemberPhotos = _ride.Permissions.AllowMemberPhotos,
+			};
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+	}
 
-    private async Task SaveAsync()
-    {
-        _busy = true;
-        _error = null;
-        try
-        {
-            await Api.UpdatePermissionsAsync(RideId, new DLR.Core.Contracts.Rides.RidePermissions(
-                _permissions.AllowMemberMarkers,
-                _permissions.AllowMemberComments,
-                _permissions.AllowMemberPhotos));
+	private async Task SaveAsync()
+	{
+		_busy = true;
+		_error = null;
+		try
+		{
+			await Api.UpdatePermissionsAsync(RideId, new DLR.Core.Contracts.Rides.RidePermissions(
+				_permissions.AllowMemberMarkers,
+				_permissions.AllowMemberComments,
+				_permissions.AllowMemberPhotos));
 
-            Nav.NavigateTo($"/group-rides/{RideId}");
-        }
-        catch (ApiException apiException) { _error = apiException.Error.Title; }
-        finally { _busy = false; }
-    }
+			Nav.NavigateTo($"/group-rides/{RideId}");
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+		finally { _busy = false; }
+	}
 
-    private sealed class RidePermissionsMutable
-    {
-        public bool AllowMemberMarkers { get; set; } = true;
-        public bool AllowMemberComments { get; set; } = true;
-        public bool AllowMemberPhotos { get; set; } = true;
-    }
+	private sealed class RidePermissionsMutable
+	{
+		public bool AllowMemberMarkers { get; set; } = true;
+		public bool AllowMemberComments { get; set; } = true;
+		public bool AllowMemberPhotos { get; set; } = true;
+	}
 }
 
 <style>
-    .page { max-width: 40rem; margin: 1rem auto; padding: 0 1rem; }
-    .page .back { display: inline-block; margin-bottom: 0.5rem; font-size: 0.9rem; opacity: 0.7; }
-    .page .lead { opacity: 0.85; }
-    .page fieldset {
-        margin: 0.75rem 0; padding: 0.75rem 1rem;
-        border: 1px solid #e5e7eb; border-radius: 6px;
-    }
-    .page .switch { display: flex; align-items: center; gap: 0.5rem; }
-    .page .switch input { width: auto; margin: 0; }
-    .page .note { font-size: 0.85rem; opacity: 0.75; margin: 0.5rem 0 0 1.5rem; }
-    .page .primary { padding: 0.6rem 1.25rem; background: #2563eb; color: white; border: none; border-radius: 4px; }
-    .page .error { padding: 0.5rem 0.75rem; background: #fdecea; border: 1px solid #f5c2c0; border-radius: 4px; }
-    .page .hint { text-align: center; opacity: 0.7; padding: 2rem; }
+	/* Indented under the switch it qualifies. */
+	.page .note { margin: 0.5rem 0 0 1.5rem; }
 </style>
