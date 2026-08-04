@@ -1,8 +1,10 @@
 @page "/settings/profile"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
 @using DLR.Core.Contracts.Identity
 @inject IApiClient Api
+@inject ThemeState Theme
 
 <PageTitle>Profile — Dumb Luck Rides</PageTitle>
 
@@ -76,6 +78,23 @@
                 }
             </fieldset>
 
+            <fieldset>
+                <legend>Appearance</legend>
+                <p class="note">
+                    Dark is the default; light is the same layout on a light surface.
+                    The choice is stored on this device and never sent to the server (§18.6).
+                </p>
+                @foreach (AppTheme option in new[] { AppTheme.Dark, AppTheme.Light, AppTheme.System })
+                {
+                    <label class="radio">
+                        <input type="radio" name="theme" value="@option"
+                               checked="@(Theme.Preference == option)"
+                               @onchange="() => OnThemeSelectedAsync(option)" />
+                        @ThemeLabel(option)
+                    </label>
+                }
+            </fieldset>
+
             <button type="submit" disabled="@_saving">
                 @(_saving ? "Saving…" : "Save")
             </button>
@@ -106,7 +125,20 @@
         _shareDisplayName = _profile.ShareDisplayName;
         _sharePhoneNumber = _profile.SharePhoneNumber;
         _shareEmail = _profile.ShareEmail;
+
+        // The theme has already been loaded by MainLayout on the interactive pass —
+        // `Theme.Preference` is set. This page just reads it for the radio's checked-state.
     }
+
+    private Task OnThemeSelectedAsync(AppTheme theme) => Theme.SetAsync(theme);
+
+    private static string ThemeLabel(AppTheme theme) => theme switch
+    {
+        AppTheme.Dark => "Dark",
+        AppTheme.Light => "Light",
+        AppTheme.System => "System",
+        _ => theme.ToString(),
+    };
 
     private async Task SaveAsync()
     {
@@ -144,6 +176,8 @@
     }
     .profile .switch { display: block; margin-top: 0.5rem; }
     .profile .switch input { margin-right: 0.5rem; }
+    .profile .radio { display: block; margin: 0.4rem 0; font-size: 0.9rem; }
+    .profile .radio input { display: inline; width: auto; margin-right: 0.5rem; }
     .profile .note { font-size: 0.85rem; opacity: 0.75; margin: 0.25rem 0; }
     .profile .badge { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px; margin-left: 0.5rem; }
     .profile .badge.good { background: #d1fae5; color: #196c2e; }

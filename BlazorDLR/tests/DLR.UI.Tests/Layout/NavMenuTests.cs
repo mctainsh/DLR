@@ -56,6 +56,40 @@ public sealed class NavMenuTests : BunitContext
 	}
 
 	[Fact]
+	public async Task IconRail_EveryLink_HasAccessibleLabel_AndNoVisibleText()
+	{
+		// §18.6: the rail is icon-only. A screen reader (aria-label) and a mouse hover
+		// (title) both need to name the destination, and the anchor's text content must
+		// stay empty — a stray "Home" caption next to the icon breaks the rail visually.
+		AuthState auth = WireAuth();
+		await auth.ApplySessionAsync(new TokenResponse(
+			AccessToken: "access",
+			ExpiresIn: 900,
+			RefreshToken: "refresh",
+			User: new AuthenticatedUser(Guid.NewGuid(), "DaveSmith", HasEmail: true, EmailConfirmed: true)));
+		this.CascadeAuthenticationState(auth);
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement[] links = component.FindAll("a.rail-item").ToArray();
+			links.Length.ShouldBe(5, "§18.6: the signed-in rail carries exactly five destinations.");
+			foreach (AngleSharp.Dom.IElement link in links)
+			{
+				link.HasAttribute("aria-label").ShouldBeTrue(
+					"§18.6: every icon-only link needs an aria-label — a screen-reader user cannot see the SVG.");
+				link.HasAttribute("title").ShouldBeTrue(
+					"§18.6: a mouse hover surfaces the destination name via the title attribute.");
+				link.QuerySelectorAll("svg").Length.ShouldBe(1,
+					"§18.6: each rail item renders exactly one inline SVG — no icon-font sprites, no image tags.");
+				link.TextContent.Trim().ShouldBeEmpty(
+					"§18.6: the rail is text-free — a caption next to the icon breaks the shared portrait/landscape layout.");
+			}
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
 	public async Task Authenticated_ShowsFullSignedInSurface_NotWelcome()
 	{
 		AuthState auth = WireAuth();

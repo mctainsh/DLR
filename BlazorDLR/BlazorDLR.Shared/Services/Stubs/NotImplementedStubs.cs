@@ -267,6 +267,25 @@ public sealed class NoopNotificationService : INotificationService
 }
 
 /// <summary>
+/// An in-memory <see cref="IThemeService"/> for tests and for the SSR shell (which
+/// has no persistent storage of its own). Dark is the default on read — the design
+/// default (§18.6).
+/// </summary>
+public sealed class InMemoryThemeService : IThemeService
+{
+	private AppTheme _theme = AppTheme.Dark;
+
+	public Task<AppTheme> GetAsync(CancellationToken cancellationToken = default) =>
+		Task.FromResult(_theme);
+
+	public Task SetAsync(AppTheme theme, CancellationToken cancellationToken = default)
+	{
+		_theme = theme;
+		return Task.CompletedTask;
+	}
+}
+
+/// <summary>
 /// A base-map interop that answers every question with "not initialised". The real
 /// implementations live in the host projects — Apple Maps and Google Maps in
 /// <c>BlazorDLR</c>, OpenLayers in <c>BlazorDLR.Web.Client</c> — because the JS modules

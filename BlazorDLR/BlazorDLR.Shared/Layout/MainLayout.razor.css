@@ -1,78 +1,91 @@
+/*
+    The two-orientation layout (§18.6, SharedFrontend.md §7 UI).
+
+    Portrait — the rail is a left-hand column. Landscape — it's a bottom strip.
+    The switch is a single `@media (orientation: landscape)` block; every other
+    dimension follows from --dlr-rail-width and --dlr-rail-height.
+
+    The `.rail` element uses `env(safe-area-inset-*)` so the icons do not disappear
+    under an iOS home indicator or an Android system bar. Web browsers ignore the
+    env() and get 0, which is what we want.
+*/
+
+.app {
+    min-height: 100vh;
+    background: var(--dlr-bg);
+    color: var(--dlr-fg);
+}
+
 .page {
-    position: relative;
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+}
+
+.rail {
+    background: var(--dlr-rail);
+    border-right: 1px solid var(--dlr-border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    align-items: center;
+    padding: 0.75rem 0;
+    gap: 0.5rem;
+    width: var(--dlr-rail-width);
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    z-index: 10;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;         /* stop a wide child forcing the whole layout to scroll horizontally */
     display: flex;
     flex-direction: column;
 }
 
-main {
+.content {
     flex: 1;
+    padding: 1rem 1.25rem;
 }
 
-.sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
-}
-
-.top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
-    justify-content: flex-end;
-    height: 3.5rem;
-    display: flex;
-    align-items: center;
-}
-
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
-        text-decoration: none;
-    }
-
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: underline;
-    }
-
-    .top-row ::deep a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-@media (max-width: 640.98px) {
-    .top-row {
-        justify-content: space-between;
-    }
-
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        margin-left: 0;
-    }
-}
-
-@media (min-width: 641px) {
+/*
+    Landscape flips the flex axis: rail below, main above. The rail becomes a horizontal
+    strip fixed to the bottom edge, and the main content adds a bottom margin so the
+    strip does not cover the last row.
+*/
+@media (orientation: landscape) {
     .page {
+        flex-direction: column;
+    }
+
+    .rail {
         flex-direction: row;
-    }
-
-    .sidebar {
-        width: 250px;
-        height: 100vh;
+        justify-content: space-around;
+        width: 100%;
+        height: var(--dlr-rail-height);
+        border-right: none;
+        border-top: 1px solid var(--dlr-border);
         position: sticky;
-        top: 0;
+        top: auto;
+        bottom: 0;
+        padding: 0.5rem 0.75rem;
+        padding-left: max(0.75rem, env(safe-area-inset-left));
+        padding-right: max(0.75rem, env(safe-area-inset-right));
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+        padding-top: 0.5rem;
+        order: 2;               /* rail after main in DOM order */
     }
 
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
+    .main {
+        order: 1;
     }
 
-    .top-row.auth ::deep a:first-child {
-        flex: 1;
-        text-align: right;
-        width: 0;
-    }
-
-    .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
+    .content {
+        padding-bottom: calc(var(--dlr-rail-height) + 1rem);
     }
 }
 

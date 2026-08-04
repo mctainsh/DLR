@@ -1,5 +1,6 @@
 using BlazorDLR.Shared.Pages.Settings;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Stubs;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Identity;
@@ -30,6 +31,10 @@ public sealed class SettingsTests : BunitContext
 		FakeApiClient api = new();
 		Services.AddSingleton<IApiClient>(api);
 		Services.AddSingleton<TimeProvider>(new FakeTimeProvider(FixedInstant));
+		// Profile injects ThemeState (§18.6 appearance toggle). The in-memory service
+		// is a scoped-lifetime stand-in — no localStorage / MAUI preferences in tests.
+		Services.AddSingleton<IThemeService, InMemoryThemeService>();
+		Services.AddSingleton<ThemeState>();
 		return api;
 	}
 

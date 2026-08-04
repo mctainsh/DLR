@@ -127,6 +127,10 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IMapInterop, UninitialisedMapInterop>();
 #endif
 
+		// Theme preference (§18.6): dark by default, persisted in MAUI Preferences.
+		builder.Services.AddScoped<BlazorDLR.Shared.Services.IThemeService, PreferencesThemeService>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
+
 		// The Skia overlay is a Blazor component (SkiaMapOverlay.razor), not a DI service —
 		// RideMap.razor renders it directly. No registration needed.
 

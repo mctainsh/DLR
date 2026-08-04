@@ -89,6 +89,12 @@ internal class Program
 		// only; every rider pin, marker and track goes into the shared Skia overlay.
 		builder.Services.AddScoped<IMapInterop, OpenLayersInterop>();
 
+		// Theme preference (§18.6): dark by default, persisted in browser localStorage.
+		// ThemeState broadcasts changes to the layout so the data-theme attribute updates
+		// without a page reload.
+		builder.Services.AddScoped<IThemeService, LocalStorageThemeService>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
+
 		await builder.Build().RunAsync();
 	}
 }

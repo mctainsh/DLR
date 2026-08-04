@@ -142,6 +142,13 @@ builder.Services.AddScoped<IMapInterop, UninitialisedMapInterop>();
 builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Apple));
 builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Google));
 
+// §18.6: MainLayout injects ThemeState so it can set `data-theme` on the outer element.
+// The SSR pass has no browser localStorage and no MAUI Preferences to read from — the
+// in-memory stub answers Dark (the design default) and the client's own DI takes over
+// once WASM boots and rehydrates from localStorage.
+builder.Services.AddScoped<IThemeService, InMemoryThemeService>();
+builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
+
 var app = builder.Build();
 
 // First, and before the `--migrate` branch below, because that branch needs a database and this

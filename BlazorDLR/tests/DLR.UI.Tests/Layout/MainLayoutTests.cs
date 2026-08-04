@@ -1,5 +1,6 @@
 using BlazorDLR.Shared.Layout;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Stubs;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.UI.Tests.Fakes;
@@ -41,6 +42,12 @@ public sealed class MainLayoutTests : BunitContext
 		Services.AddSingleton<AuthenticationStateProvider>(auth);
 		Services.AddRealAuthorizationPipeline();
 		this.CascadeAuthenticationState(auth);
+
+		// §18.6: the layout injects ThemeState so it can set the data-theme attribute
+		// on the outer <div class="app">. Tests wire the in-memory theme service —
+		// no localStorage, no MAUI preferences — so a render never has to hit JS.
+		Services.AddSingleton<IThemeService, InMemoryThemeService>();
+		Services.AddSingleton<ThemeState>();
 	}
 
 	[Fact]

@@ -1,19 +1,91 @@
+/*
+    App-wide colours and typography. The palette is the design's dark default (§18.6);
+    a `data-theme="light"` attribute on <html> flips every variable to its light twin.
+    Every component reads through var(--dlr-*) rather than a hard-coded colour, which
+    is what makes the theme toggle a one-line change.
+
+    A NOTE ON SCREENSHOTS. The reference screenshot uses a very dark navy background,
+    a slightly lighter tile-panel colour, muted grey borders, and accent blue for the
+    active-state on the icon rail. The variables below match those choices — a designer
+    can retune the palette without touching the components.
+*/
+
+:root, :root[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Surfaces */
+    --dlr-bg:            #0f172a; /* page body — very dark navy */
+    --dlr-surface:       #1e293b; /* card / tile panels */
+    --dlr-surface-2:     #334155; /* input backgrounds */
+    --dlr-rail:          #0b1220; /* icon rail — a touch darker than the body */
+    --dlr-border:        #334155;
+    --dlr-border-strong: #475569;
+
+    /* Text */
+    --dlr-fg:            #e2e8f0; /* primary text — off-white */
+    --dlr-fg-muted:      #94a3b8; /* labels, hints */
+    --dlr-fg-quiet:      #64748b; /* separators, quiet copy */
+
+    /* Accents */
+    --dlr-accent:        #2563eb; /* the "your vote / active-tab" blue */
+    --dlr-accent-fg:     #ffffff;
+    --dlr-accent-soft:   rgba(37, 99, 235, 0.18);
+
+    /* Semantic */
+    --dlr-error:         #f87171;
+    --dlr-error-bg:      #451818;
+    --dlr-warn-bg:       #422006;
+    --dlr-good:          #4ade80;
+
+    /* Rail sizes */
+    --dlr-rail-width:    64px;
+    --dlr-rail-height:   64px;
+}
+
+:root[data-theme="light"] {
+    color-scheme: light;
+
+    --dlr-bg:            #f8fafc;
+    --dlr-surface:       #ffffff;
+    --dlr-surface-2:     #f1f5f9;
+    --dlr-rail:          #ffffff;
+    --dlr-border:        #e2e8f0;
+    --dlr-border-strong: #cbd5e1;
+
+    --dlr-fg:            #0f172a;
+    --dlr-fg-muted:      #475569;
+    --dlr-fg-quiet:      #94a3b8;
+
+    --dlr-accent:        #2563eb;
+    --dlr-accent-fg:     #ffffff;
+    --dlr-accent-soft:   rgba(37, 99, 235, 0.10);
+
+    --dlr-error:         #b91c1c;
+    --dlr-error-bg:      #fee2e2;
+    --dlr-warn-bg:       #fef3c7;
+    --dlr-good:          #16a34a;
+}
+
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--dlr-bg);
+    color: var(--dlr-fg);
+    margin: 0;
 }
 
 a, .btn-link {
-    color: #006bb7;
+    color: var(--dlr-accent);
 }
 
 .btn-primary {
-    color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    color: var(--dlr-accent-fg);
+    background-color: var(--dlr-accent);
+    border-color: var(--dlr-accent);
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus,
+.form-control:focus, .form-check-input:focus {
+    box-shadow: 0 0 0 0.1rem var(--dlr-bg), 0 0 0 0.25rem var(--dlr-accent);
 }
 
 .content {
@@ -24,16 +96,30 @@ h1:focus {
     outline: none;
 }
 
+/* Form controls read the same palette by default — pages that hand-style their inputs
+   are the exception, not the rule. */
+input, textarea, select {
+    background: var(--dlr-surface-2);
+    color: var(--dlr-fg);
+    border: 1px solid var(--dlr-border);
+    border-radius: 4px;
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--dlr-accent);
+}
+
 .valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
+    outline: 1px solid var(--dlr-good);
 }
 
 .invalid {
-    outline: 1px solid #e50000;
+    outline: 1px solid var(--dlr-error);
 }
 
 .validation-message {
-    color: #e50000;
+    color: var(--dlr-error);
 }
 
 .blazor-error-boundary {
@@ -47,11 +133,11 @@ h1:focus {
     }
 
 .darker-border-checkbox.form-check-input {
-    border-color: #929292;
+    border-color: var(--dlr-border-strong);
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-    color: var(--bs-secondary-color);
+    color: var(--dlr-fg-quiet);
     text-align: end;
 }
 
