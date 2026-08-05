@@ -20,7 +20,7 @@
 	else if (_state == State.Error)
 	{
 		<p class="error">Could not load rides: @_error</p>
-		<button type="button" @onclick="LoadAsync">Retry</button>
+		<button type="button" class="primary" @onclick="LoadAsync">Retry</button>
 	}
 	else if (_tracks is null || _tracks.Count == 0)
 	{

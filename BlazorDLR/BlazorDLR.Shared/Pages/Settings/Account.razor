@@ -24,7 +24,7 @@
 					and one digit.
 				</span>
 			</label>
-			<button type="submit" disabled="@_busy">
+			<button type="submit" class="primary" disabled="@_busy">
 				@(_busy ? "Working…" : "Change password")
 			</button>
 			@if (_passwordError is not null)

@@ -11,12 +11,25 @@
 	<link rel="stylesheet" href="BlazorDLR.Web.styles.css" />
 	<ImportMap />
 	<link rel="icon" type="image/png" href="_content/BlazorDLR.Shared/favicon.png" />
-	<HeadOutlet @rendermode="InteractiveWebAssembly" />
+	<HeadOutlet @rendermode="@ClientRenderMode" />
 </head>
 
 <body>
-	<Routes @rendermode="InteractiveWebAssembly" />
+	<Routes @rendermode="@ClientRenderMode" />
 	<script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
+
+@*
+	Prerendering off. The one route the anonymous user is meant to land on is /welcome, and
+	Home is [Authorize]-gated (§7.9). With prerendering on, the SSR pass rendered the gated
+	Home, hit <NotAuthorized>, tried to Nav.NavigateTo("/welcome"), and the redirect thrown
+	inside an interactive-mode boundary surfaced as the yellow error banner rather than as
+	the redirect the browser needed. Auth state is a client-only concept on this host — the
+	access token lives in the WASM heap (§7.4, §18.5), so there is nothing for the server to
+	prerender authoritatively. Ship the WASM shell; let the client boot and resolve the route.
+*@
+@code {
+	private static readonly InteractiveWebAssemblyRenderMode ClientRenderMode = new(prerender: false);
+}

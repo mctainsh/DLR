@@ -42,7 +42,7 @@
 					</div>
 					@if (!session.IsCurrent)
 					{
-						<button type="button" @onclick="() => RevokeAsync(session.DeviceId)"
+						<button type="button" class="primary" @onclick="() => RevokeAsync(session.DeviceId)"
 								disabled="@_busy">
 							Sign out
 						</button>

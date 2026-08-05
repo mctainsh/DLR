@@ -90,7 +90,7 @@
 			{
 				<p>
 					<em>@_photo.FileName selected — @(_photo.Bytes.Length / 1024) KB.</em>
-					<button type="button" @onclick="() => _photo = null">Remove</button>
+					<button type="button" class="primary" @onclick="() => _photo = null">Remove</button>
 				</p>
 			}
 			<p class="hint">

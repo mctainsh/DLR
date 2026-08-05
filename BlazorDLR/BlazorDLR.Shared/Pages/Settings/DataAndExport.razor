@@ -75,7 +75,7 @@
 					I understand this cannot be undone.
 				</label>
 				<div class="actions">
-					<button type="button" @onclick="CancelDelete">Cancel</button>
+					<button type="button" class="primary" @onclick="CancelDelete">Cancel</button>
 					<button type="button" class="danger"
 							@onclick="DeleteAsync"
 							disabled="@(_busy || !_ack || string.IsNullOrEmpty(_password))">

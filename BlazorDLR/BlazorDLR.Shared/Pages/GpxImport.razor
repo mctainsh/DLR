@@ -76,7 +76,7 @@
 			}
 
 			<div class="actions">
-				<button type="button" @onclick="ResetAsync">Choose a different file</button>
+				<button type="button" class="primary" @onclick="ResetAsync">Choose a different file</button>
 				<button type="button" class="primary" @onclick="CommitAsync" disabled="@_busy">
 					@(_busy ? "Importing…" : "Import")
 				</button>

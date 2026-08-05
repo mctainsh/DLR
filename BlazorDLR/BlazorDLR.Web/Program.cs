@@ -1,8 +1,10 @@
 using System.Reflection;
 using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Stubs;
+using BlazorDLR.Shared.State;
 using BlazorDLR.Web.Components;
 using BlazorDLR.Web.Services;
+using Microsoft.AspNetCore.Components.Authorization;
 using DLR.Server;
 using DLR.Server.Api;
 using DLR.Server.Comments;
@@ -149,6 +151,15 @@ builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternal
 builder.Services.AddScoped<IThemeService, InMemoryThemeService>();
 builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
 
+// Auth state for the SSR pass. Shared pages inject AuthState directly (Welcome) and via
+// AuthenticationStateProvider (Home, AuthorizeView), so both must resolve on this host
+// too — otherwise the prerender crashes before the WASM client boots and takes over
+// with the client's own scoped instance. The SSR pass has no refresh cookie the token
+// store can read, so the principal starts anonymous and NotAuthorized wins.
+builder.Services.AddAuthorizationCore();
+builder.Services.AddScoped<AuthState>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthState>());
+
 var app = builder.Build();
 
 // First, and before the `--migrate` branch below, because that branch needs a database and this
@@ -225,11 +236,19 @@ app.MapControllers();
 app.MapHub<RideHub>(RideHub.Path);
 
 app.MapStaticAssets();
+
+// The razor host serves the WASM shell for every route. Auth on this app lives entirely in the
+// WASM heap (§7.4, §18.5) — the server has no cookie or bearer on a razor page GET, so applying
+// endpoint-level [Authorize] would 401 the shell before the client could boot. AuthorizeRouteView
+// (in Routes.razor) is the sole gate; it runs client-side and redirects an anonymous user to
+// /welcome. AllowAnonymous strips the endpoint metadata the framework otherwise infers from the
+// [Authorize] attributes on the page components themselves.
 app.MapRazorComponents<App>()
 	.AddInteractiveWebAssemblyRenderMode()
 	.AddAdditionalAssemblies(
 		typeof(BlazorDLR.Shared._Imports).Assembly,
-		typeof(BlazorDLR.Web.Client._Imports).Assembly);
+		typeof(BlazorDLR.Web.Client._Imports).Assembly)
+	.AllowAnonymous();
 
 app.Run();
 

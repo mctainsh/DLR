@@ -65,7 +65,7 @@
 				To index (exclusive)
 				<input @bind="_pendingTo" type="number" min="1" />
 			</label>
-			<button type="button" @onclick="AddRemovalAsync">Add range</button>
+			<button type="button" class="primary" @onclick="AddRemovalAsync">Add range</button>
 		</fieldset>
 
 		@if (_removals.Count > 0)
@@ -76,7 +76,7 @@
 					<li>
 						Remove <strong>@range.From – @range.To</strong>
 						(@(range.To - range.From) points)
-						<button type="button" @onclick="() => _removals.RemoveAt(index)">×</button>
+						<button type="button" class="primary" @onclick="() => _removals.RemoveAt(index)">×</button>
 					</li>
 				}
 			</ul>
@@ -103,10 +103,10 @@
 						The pre-edit version is retained until <strong>@undoUntil.ToLocalTime().ToString("d MMM HH:mm")</strong>.
 						Nightly backups still contain it until they roll out (§15.6, §10.1).
 					</p>
-					<button type="button" @onclick="UndoAsync" disabled="@_busy">Undo</button>
+					<button type="button" class="primary" @onclick="UndoAsync" disabled="@_busy">Undo</button>
 					<button type="button" class="danger" @onclick="PurgeAsync" disabled="@_busy">Remove the original now</button>
 				}
-				<button type="button" @onclick="BackToRide">Back to ride</button>
+				<button type="button" class="primary" @onclick="BackToRide">Back to ride</button>
 			</div>
 		}
 	}

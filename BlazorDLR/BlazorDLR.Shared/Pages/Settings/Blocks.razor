@@ -29,7 +29,7 @@
 				<li>
 					<strong>@block.UserName</strong>
 					<span class="when">blocked @block.CreatedUtc.ToLocalTime().ToString("d MMM yyyy")</span>
-					<button type="button" disabled="@_busy"
+					<button type="button" class="primary" disabled="@_busy"
 							@onclick="() => UnblockAsync(block.UserId)">
 						Unblock
 					</button>

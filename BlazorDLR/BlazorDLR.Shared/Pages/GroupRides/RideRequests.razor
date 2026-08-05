@@ -43,7 +43,7 @@
 								@onclick="() => DecideAsync(request.Id, admit: true, block: false)">
 							Admit
 						</button>
-						<button type="button" disabled="@_busy"
+						<button type="button" class="primary" disabled="@_busy"
 								@onclick="() => DecideAsync(request.Id, admit: false, block: false)">
 							Decline
 						</button>

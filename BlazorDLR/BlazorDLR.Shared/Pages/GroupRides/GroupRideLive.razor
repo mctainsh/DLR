@@ -103,11 +103,11 @@
 
 						@if (_ride.State == RideStateDto.Open)
 						{
-							<button type="button" @onclick="StartRideAsync" disabled="@_busy">Start ride</button>
+							<button type="button" class="primary" @onclick="StartRideAsync" disabled="@_busy">Start ride</button>
 						}
 						@if (_ride.State == RideStateDto.Live)
 						{
-							<button type="button" @onclick="() => _showEndDialog = true" disabled="@_busy">
+							<button type="button" class="primary" @onclick="() => _showEndDialog = true" disabled="@_busy">
 								End ride…
 							</button>
 						}
@@ -131,7 +131,7 @@
 									disabled="@_busy">
 								Stop sharing for everyone now
 							</button>
-							<button type="button" @onclick="() => EndRideAsync(RideEndingDto.WindDown)"
+							<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.WindDown)"
 									disabled="@_busy">
 								Let riders stop themselves (2-hour wind-down)
 							</button>
