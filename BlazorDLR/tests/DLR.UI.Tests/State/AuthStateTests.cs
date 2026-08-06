@@ -160,12 +160,12 @@ public sealed class AuthStateTests
 		public Task UpdateProfileAsync(UpdateProfileRequest r, CancellationToken ct = default) => inner.UpdateProfileAsync(r, ct);
 		public Task<IReadOnlyList<DLR.Core.Contracts.Tracks.TrackSummary>> ListTracksAsync(CancellationToken ct = default) => inner.ListTracksAsync(ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackDetail> GetTrackAsync(Guid t, CancellationToken ct = default) => inner.GetTrackAsync(t, ct);
-		public Task<DLR.Core.Contracts.Tracks.TrackImportResult> ImportTracksAsync(Stream s, string n, bool d, CancellationToken ct = default) => inner.ImportTracksAsync(s, n, d, ct);
 		public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid t, CancellationToken ct = default) => inner.ExportTrackGpxAsync(t, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackPointsResponse> GetTrackPointsAsync(Guid t, CancellationToken ct = default) => inner.GetTrackPointsAsync(t, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackEditResponse> EditTrackAsync(Guid t, DLR.Core.Contracts.Tracks.EditTrackRequest r, CancellationToken ct = default) => inner.EditTrackAsync(t, r, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackEditResponse> UndoTrackEditAsync(Guid t, CancellationToken ct = default) => inner.UndoTrackEditAsync(t, ct);
 		public Task PurgeTrackPreviousVersionAsync(Guid t, CancellationToken ct = default) => inner.PurgeTrackPreviousVersionAsync(t, ct);
+		public Task<DLR.Core.Contracts.Rides.MyRides> ListMyRidesAsync(CancellationToken ct = default) => inner.ListMyRidesAsync(ct);
 		public Task<DLR.Core.Contracts.Rides.RideDetail> GetRideAsync(Guid r, CancellationToken ct = default) => inner.GetRideAsync(r, ct);
 		public Task<DLR.Core.Contracts.Rides.RideDetail> CreateRideAsync(DLR.Core.Contracts.Rides.CreateRideRequest r, CancellationToken ct = default) => inner.CreateRideAsync(r, ct);
 		public Task<DLR.Core.Contracts.Rides.JoinResult> JoinRideByCodeAsync(DLR.Core.Contracts.Rides.JoinByCodeRequest r, CancellationToken ct = default) => inner.JoinRideByCodeAsync(r, ct);

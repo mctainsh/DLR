@@ -9,7 +9,7 @@
 .dlr-map-placeholder {
     position: relative;
     min-height: 240px;
-    background: #eef1f5;
+    background: #eef1f520;
     border: 1px dashed #b6bec9;
     border-radius: 4px;
     display: flex;

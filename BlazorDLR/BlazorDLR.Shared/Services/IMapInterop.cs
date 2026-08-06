@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 namespace BlazorDLR.Shared.Services;
 
 /// <summary>
-/// The base-map seam behind <c>RideMap.razor</c> (§4.5, §18.3, v0.21).
+/// The base-map seam behind <c>RideMap.razor</c> KD(§4.5, §18.3, v0.21).
 /// <para>
 /// <strong>The base map is one of three JavaScript SDKs</strong> — Apple Maps on iOS
 /// (MapKit JS), Google Maps on Android (JavaScript API), OpenLayers + OSM on the web —

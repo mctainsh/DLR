@@ -44,6 +44,7 @@ public sealed class RideThreadTests : BunitContext
 		context.Services.AddSingleton<IRideHubClient>(new FakeRideHubClient());
 		context.Services.AddSingleton<TimeProvider>(clock);
 		context.Services.AddSingleton(new AuthState(api, new FakeTokenStore(), clock));
+		context.Services.AddSingleton<ConfirmService>();
 		return api;
 	}
 

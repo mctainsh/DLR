@@ -92,7 +92,7 @@ public sealed class RidePermissionsPageTests : BunitContext
 
 		RidePermissions sent = api.LastUpdatedPermissions!;
 		sent.AllowMemberMarkers.ShouldBeTrue("markers were left on — the switch is independent.");
-		sent.AllowMemberComments.ShouldBeTrue("comments were left on — turning off photos does not silence conversation (§5.8).");
-		sent.AllowMemberPhotos.ShouldBeFalse("§5.8: photos is its own switch, not a consequence of comments.");
+		sent.AllowMemberComments.ShouldBeTrue("comments were left on — turning off photos does not silence conversation.");
+		sent.AllowMemberPhotos.ShouldBeFalse("photos is its own switch, not a consequence of comments.");
 	}
 }

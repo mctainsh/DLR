@@ -74,13 +74,13 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	/// <inheritdoc />
 	public event Action<Guid, Guid>? MarkerRemoved;
 	/// <inheritdoc />
-	public event Action<Guid, CommentDto>? CommentPosted;
+	public event Action<CommentDto>? CommentPosted;
 	/// <inheritdoc />
-	public event Action<Guid, CommentDto>? CommentEdited;
+	public event Action<CommentDto>? CommentEdited;
 	/// <inheritdoc />
-	public event Action<Guid, Guid>? CommentRemoved;
+	public event Action<Guid>? CommentRemoved;
 	/// <inheritdoc />
-	public event Action<Guid, Guid, bool>? CommentPinChanged;
+	public event Action<Guid, bool>? CommentPinChanged;
 	/// <inheritdoc />
 	public event Action<Guid, ReactionCounts>? ReactionsUpdated;
 	/// <inheritdoc />
@@ -121,10 +121,10 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.On<Guid, MarkerDto>("MarkerAdded", (r, m) => MarkerAdded?.Invoke(r, m));
 		connection.On<Guid, MarkerDto>("MarkerUpdated", (r, m) => MarkerUpdated?.Invoke(r, m));
 		connection.On<Guid, Guid>("MarkerRemoved", (r, m) => MarkerRemoved?.Invoke(r, m));
-		connection.On<Guid, CommentDto>("CommentPosted", (r, c) => CommentPosted?.Invoke(r, c));
-		connection.On<Guid, CommentDto>("CommentEdited", (r, c) => CommentEdited?.Invoke(r, c));
-		connection.On<Guid, Guid>("CommentRemoved", (r, c) => CommentRemoved?.Invoke(r, c));
-		connection.On<Guid, Guid, bool>("CommentPinChanged", (r, c, p) => CommentPinChanged?.Invoke(r, c, p));
+		connection.On<CommentDto>("CommentPosted", c => CommentPosted?.Invoke(c));
+		connection.On<CommentDto>("CommentEdited", c => CommentEdited?.Invoke(c));
+		connection.On<Guid>("CommentRemoved", c => CommentRemoved?.Invoke(c));
+		connection.On<Guid, bool>("CommentPinChanged", (c, p) => CommentPinChanged?.Invoke(c, p));
 		connection.On<Guid, ReactionCounts>("ReactionsUpdated", (c, counts) => ReactionsUpdated?.Invoke(c, counts));
 		connection.On<Guid, PollResults>("PollUpdated", (c, results) => PollUpdated?.Invoke(c, results));
 		connection.On<Guid, RidePermissions>("RidePermissionsChanged", (r, p) => PermissionsChanged?.Invoke(r, p));

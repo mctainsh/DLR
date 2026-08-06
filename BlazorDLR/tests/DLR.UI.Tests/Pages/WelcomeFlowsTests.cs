@@ -108,7 +108,15 @@ public sealed class WelcomeFlowsTests : BunitContext
 
 		IRenderedComponent<Welcome> component = Render<Welcome>();
 
-		// Register is the default tab — no need to click it. Username input uses oninput.
+		// Welcome opens on the Sign in tab; the Register form only exists after a click.
+		await component.InvokeAsync(() =>
+		{
+			AngleSharp.Dom.IElement registerTab = component.FindAll("button.tab")
+				.First(b => b.TextContent.Contains("Register", StringComparison.Ordinal));
+			registerTab.Click();
+		});
+
+		// Username input uses oninput (blur triggers the availability check), so push via Input.
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement user = component.FindAll("input").First(i => i.GetAttribute("placeholder") == "DaveSmith");

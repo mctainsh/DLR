@@ -8,7 +8,7 @@
 	<ResourcePreloader />
 	<link rel="stylesheet" href="_content/BlazorDLR.Shared/lib/bootstrap/dist/css/bootstrap.min.css" />
 	<link rel="stylesheet" href="_content/BlazorDLR.Shared/app.css" />
-	<link rel="stylesheet" href="BlazorDLR.Web.styles.css" />
+	@* <link rel="stylesheet" href="BlazorDLR.Web.styles.css" /> *@
 	<ImportMap />
 	<link rel="icon" type="image/png" href="_content/BlazorDLR.Shared/favicon.png" />
 	<HeadOutlet @rendermode="@ClientRenderMode" />
@@ -16,6 +16,13 @@
 
 <body>
 	<Routes @rendermode="@ClientRenderMode" />
+
+	<div id="blazor-error-ui" data-nosnippet>
+		An unhandled error has occurred.
+		<a href="." class="reload">Reload</a>
+		<span class="dismiss">🗙</span>
+	</div>
+
 	<script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

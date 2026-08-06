@@ -53,7 +53,6 @@ public interface IApiClient
 
 	Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default);
 	Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default);
-	Task<TrackImportResult> ImportTracksAsync(Stream file, string fileName, bool dryRun, CancellationToken cancellationToken = default);
 	Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default);
 
 	/// <summary><c>GET /api/v1/tracks/{id}/points</c> — full-resolution points for the editor (§15.5).</summary>
@@ -69,6 +68,9 @@ public interface IApiClient
 	Task PurgeTrackPreviousVersionAsync(Guid trackId, CancellationToken cancellationToken = default);
 
 	// -- Group rides (§5.2, §5.6, §5.8) ---------------------------------------------------
+
+	/// <summary><c>GET /api/v1/group-rides</c> — the caller's rides, split by role.</summary>
+	Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default);
 
 	/// <summary><c>POST /api/v1/group-rides</c>.</summary>
 	Task<RideDetail> CreateRideAsync(CreateRideRequest request, CancellationToken cancellationToken = default);

@@ -1,0 +1,96 @@
+@using BlazorDLR.Shared.State
+@inject ConfirmService Confirm
+@implements IDisposable
+
+@*
+	The one confirm modal for the whole app. Mounted once in MainLayout, listens to
+	ConfirmService, renders when a request is active. A page calls
+	`await Confirm.AskAsync("Delete?", "Cannot be undone.", danger: true)` and this
+	component draws the dialog and resolves the awaited task with the user's answer.
+
+	Keyboard: Enter confirms, Escape cancels. Backdrop click cancels — the destructive
+	button is deliberate; the safe answer must be the accidental one.
+*@
+
+@if (Confirm.Current is { } request)
+{
+	<div class="confirm-backdrop" @onclick="Cancel" @onkeydown="OnKey" tabindex="-1" @ref="_root">
+		<div class="confirm-dialog" role="alertdialog" aria-modal="true"
+			 aria-labelledby="confirm-title" aria-describedby="confirm-message"
+			 @onclick:stopPropagation="true">
+			<h2 id="confirm-title">@request.Title</h2>
+			<p id="confirm-message">@request.Message</p>
+			<div class="confirm-actions">
+				<button type="button" class="confirm-cancel" @onclick="Cancel">@request.CancelText</button>
+				<button type="button" class="confirm-confirm @(request.Danger ? "danger" : "primary")"
+						@onclick="Ok" @ref="_confirmButton">
+					@request.ConfirmText
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private ElementReference _root;
+	private ElementReference _confirmButton;
+	private bool _wasOpen;
+
+	protected override void OnInitialized() => Confirm.Changed += OnChanged;
+
+	private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		// Focus the confirm button when a dialog opens so Enter fires it. Focus the backdrop
+		// on subsequent renders is unnecessary. The check on _wasOpen keeps this idempotent.
+		bool open = Confirm.Current is not null;
+		if (open && !_wasOpen)
+		{
+			try { await _confirmButton.FocusAsync(); } catch { /* not attached yet */ }
+		}
+		_wasOpen = open;
+	}
+
+	private void Ok() => Confirm.Respond(true);
+	private void Cancel() => Confirm.Respond(false);
+
+	private void OnKey(KeyboardEventArgs args)
+	{
+		if (args.Key == "Escape") Cancel();
+		else if (args.Key == "Enter") Ok();
+	}
+
+	public void Dispose() => Confirm.Changed -= OnChanged;
+}
+
+<style>
+	.confirm-backdrop {
+		position: fixed; inset: 0; z-index: 1000;
+		background: rgba(0, 0, 0, 0.55);
+		display: flex; align-items: center; justify-content: center;
+		padding: 1rem;
+	}
+	.confirm-dialog {
+		background: var(--dlr-surface, #1f2937);
+		color: var(--dlr-text, #f9fafb);
+		border: 1px solid #374151; border-radius: 8px;
+		box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+		padding: 1.25rem 1.25rem 1rem;
+		min-width: min(24rem, 100%);
+		max-width: 32rem;
+	}
+	.confirm-dialog h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+	.confirm-dialog p { margin: 0 0 1.25rem; line-height: 1.4; }
+	.confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+	.confirm-actions button {
+		padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;
+		font: inherit; border: 1px solid transparent;
+	}
+	.confirm-cancel { background: transparent; border-color: #4b5563; color: inherit; }
+	.confirm-cancel:hover { background: #374151; }
+	.confirm-confirm.primary { background: #2563eb; color: white; }
+	.confirm-confirm.primary:hover { background: #1d4ed8; }
+	.confirm-confirm.danger { background: #b91c1c; color: white; }
+	.confirm-confirm.danger:hover { background: #991b1b; }
+</style>

@@ -10,12 +10,13 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Pages;
 
 /// <summary>
-/// Welcome is the one screen an unauthenticated caller lands on (§7.9), and it's where
-/// three explicit design decisions from §7.2 have to hold at render time:
+/// Welcome is the one screen an unauthenticated caller lands on (§7.9). Design decisions
+/// from §7.2 that must hold at render time:
 /// <list type="bullet">
-///   <item>Registration is the first tab — signup is not a hurdle.</item>
-///   <item>Empty email always shows the recovery-trade-off callout, so no one can register
-///     without seeing what they gave up.</item>
+///   <item>Sign in is the default tab — most visits to Welcome are returning riders.
+///     Register is one click away.</item>
+///   <item>Empty email on the Register tab always shows the recovery-trade-off callout,
+///     so no one can register without seeing what they gave up.</item>
 ///   <item>The password composition rule is stated in plain text (§7.2 v0.22): 6+ chars,
 ///     an uppercase letter, a lowercase letter and a digit — no special-character rule.</item>
 ///   <item>Server-side per-rule password errors (from Identity's <c>ValidationProblemDetails</c>)
@@ -44,12 +45,28 @@ public sealed class WelcomeTests : BunitContext
 		return api;
 	}
 
+	/// <summary>
+	/// The current design opens Welcome on the Sign in tab. Every test that needs the
+	/// Register form has to switch to it first — otherwise it asserts against the sign-in
+	/// form, which has no password-composition copy and no recovery callout.
+	/// </summary>
+	private static async Task ClickRegisterTabAsync(IRenderedComponent<Welcome> component)
+	{
+		await component.InvokeAsync(() =>
+		{
+			AngleSharp.Dom.IElement registerTab = component.FindAll("button.tab")
+				.First(b => b.TextContent.Contains("Register", StringComparison.Ordinal));
+			registerTab.Click();
+		});
+	}
+
 	[Fact]
-	public void PasswordCompositionCopy_IsPresent_AndMentionsNoSpecialChar()
+	public async Task PasswordCompositionCopy_IsPresent_AndMentionsNoSpecialChar()
 	{
 		WireServices();
 
 		IRenderedComponent<Welcome> component = Render<Welcome>();
+		await ClickRegisterTabAsync(component);
 
 		component.WaitForAssertion(() =>
 		{
@@ -65,15 +82,16 @@ public sealed class WelcomeTests : BunitContext
 	}
 
 	[Fact]
-	public void EmptyEmail_ShowsTheRecoveryTradeOffCallout()
+	public async Task EmptyEmail_ShowsTheRecoveryTradeOffCallout()
 	{
 		WireServices();
 
 		IRenderedComponent<Welcome> component = Render<Welcome>();
+		await ClickRegisterTabAsync(component);
 
 		component.WaitForAssertion(() =>
 		{
-			// Default state: email is empty, so the "no recovery" callout is visible.
+			// Register tab, email is empty, so the "no recovery" callout is visible.
 			component.Markup.Contains("No email means no recovery", StringComparison.Ordinal).ShouldBeTrue(
 				"§7.2: the callout is always rendered when email is blank — no dialog nobody reads.");
 			component.Markup.Contains("6 months", StringComparison.Ordinal).ShouldBeTrue(
@@ -94,6 +112,7 @@ public sealed class WelcomeTests : BunitContext
 			Messages: new[] { "Too short", "No uppercase", "No digit" }));
 
 		IRenderedComponent<Welcome> component = Render<Welcome>();
+		await ClickRegisterTabAsync(component);
 
 		// Fill username + password and submit. bUnit v2 needs Change() through InvokeAsync.
 		await component.InvokeAsync(() =>
@@ -131,6 +150,7 @@ public sealed class WelcomeTests : BunitContext
 		api.UserNameAvailableResult = false;
 
 		IRenderedComponent<Welcome> component = Render<Welcome>();
+		await ClickRegisterTabAsync(component);
 
 		await component.InvokeAsync(() =>
 		{
@@ -148,7 +168,7 @@ public sealed class WelcomeTests : BunitContext
 	}
 
 	[Fact]
-	public async Task RegisterTab_IsActiveByDefault_AndSignInTabSwitches()
+	public async Task SignInTab_IsActiveByDefault_AndRegisterTabSwitches()
 	{
 		WireServices();
 
@@ -156,22 +176,27 @@ public sealed class WelcomeTests : BunitContext
 
 		component.WaitForAssertion(() =>
 		{
-			// The Register tab starts active — signup should not be a hurdle.
-			AngleSharp.Dom.IElement registerTab = component.FindAll("button.tab").First(b => b.TextContent.Contains("Register", StringComparison.Ordinal));
-			registerTab.ClassList.Contains("active").ShouldBeTrue("§7.2: Register is deliberately the first tab.");
+			// Welcome opens on Sign in — the common return path for a signed-out rider.
+			AngleSharp.Dom.IElement signInTab = component.FindAll("button.tab")
+				.First(b => b.TextContent.Contains("Sign in", StringComparison.Ordinal));
+			signInTab.ClassList.Contains("active").ShouldBeTrue("Sign in is the default tab.");
+
+			// The recovery callout is register-only; the sign-in form must not carry it.
+			component.Markup.Contains("No email means no recovery", StringComparison.Ordinal).ShouldBeFalse(
+				"the callout is register-only — the sign-in form has no email field.");
 		}, timeout: TimeSpan.FromSeconds(3));
 
-		// Switching to Sign in must remove the recovery callout — that copy is register-only.
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement signInTab = component.FindAll("button.tab").First(b => b.TextContent.Contains("Sign in", StringComparison.Ordinal));
-			signInTab.Click();
-		});
+		// Switching to Register brings the callout back — a rider who lands here can still
+		// choose to sign up, and needs to see the trade-off before they do.
+		await ClickRegisterTabAsync(component);
 
 		component.WaitForAssertion(() =>
 		{
-			component.Markup.Contains("No email means no recovery", StringComparison.Ordinal).ShouldBeFalse(
-				"the callout is register-only — showing it under 'Sign in' would be nonsense copy.");
+			AngleSharp.Dom.IElement registerTab = component.FindAll("button.tab")
+				.First(b => b.TextContent.Contains("Register", StringComparison.Ordinal));
+			registerTab.ClassList.Contains("active").ShouldBeTrue();
+			component.Markup.Contains("No email means no recovery", StringComparison.Ordinal).ShouldBeTrue(
+				"§7.2: the recovery-trade-off callout is visible whenever the Register form is showing with an empty email.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 }

@@ -137,7 +137,7 @@
 							Sign in with @provider.Provider
 							@if (!provider.IsAvailable)
 							{
-								<span class="soon">— coming soon</span>
+								<span class="soon">— coming soon (probably not)</span>
 							}
 						</button>
 					}
@@ -146,6 +146,9 @@
 		</div>
 	</NotAuthorized>
 </AuthorizeView>
+
+@* AGPL §13 source offer — every page, public and authed (§14.6.2). *@
+<BlazorDLR.Shared.Components.SourceOfferFooter />
 
 @code {
 	private enum Tab { Register, SignIn }
@@ -358,7 +361,7 @@
 			border-radius: 4px;
 			font-size: 0.95rem;
 			cursor: pointer;
-		}
+			}
 
 			.welcome .external-button:disabled {
 				opacity: 0.55;
@@ -376,7 +379,8 @@
 				}
 
 			.welcome .external-button.google {
-				background: white;
+				background: black;
+				color: white;
 			}
 
 			.welcome .external-button .soon {

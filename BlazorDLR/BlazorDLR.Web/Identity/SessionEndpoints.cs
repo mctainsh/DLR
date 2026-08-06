@@ -34,9 +34,14 @@ public sealed class SessionController : ControllerBase
 
 		Guid? current = User.DeviceId();
 
+		// A device is shown only while it still holds a non-revoked refresh token. The row
+		// itself lives on after RevokeAsync — that is the audit trail — but the screen is
+		// headed "Signed-in devices", and a revoked device is not signed in.
 		List<DeviceSession> sessions = await database
 			.Set<Device>()
-			.Where(device => device.UserId == userId)
+			.Where(device => device.UserId == userId
+				&& database.Set<RefreshToken>().Any(token =>
+					token.DeviceId == device.Id && token.RevokedUtc == null))
 			.OrderByDescending(device => device.LastSeenUtc)
 			.Select(device => new DeviceSession(
 				device.Id,

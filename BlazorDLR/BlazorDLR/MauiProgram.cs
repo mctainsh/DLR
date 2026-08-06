@@ -131,6 +131,9 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IThemeService, PreferencesThemeService>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
 
+		// The one confirm modal for every destructive action in the app (§18.6).
+		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
+
 		// The Skia overlay is a Blazor component (SkiaMapOverlay.razor), not a DI service —
 		// RideMap.razor renders it directly. No registration needed.
 

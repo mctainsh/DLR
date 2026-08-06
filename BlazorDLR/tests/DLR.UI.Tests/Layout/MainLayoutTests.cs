@@ -12,13 +12,12 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Layout;
 
 /// <summary>
-/// The one layout every page composes with. Two properties that matter:
-/// <list type="bullet">
-///   <item>The AGPL §13 source-offer footer is rendered on <em>every</em> page (§14.6.2),
-///     so it lives in the layout — not in individual pages, where a missed include
-///     would silently ship an AGPL-non-compliant build.</item>
-///   <item>The layout emits a <c>@Body</c> region for the routed page to fill in.</item>
-/// </list>
+/// The one layout every page composes with. What matters here is the <c>@Body</c> slot —
+/// the layout hands the routed page a place to render, and its own chrome (nav rail, theme
+/// attribute, confirm modal) sits around it. The AGPL source-offer footer lives on the
+/// pre-auth pages (Welcome / SignIn / Register / etc.) rather than the layout — see
+/// <c>SourceOfferFooterTests</c>. The <c>#blazor-error-ui</c> element lives in
+/// <c>BlazorDLR.Web/Components/App.razor</c>, the SSR shell that wraps every route.
 /// </summary>
 public sealed class MainLayoutTests : BunitContext
 {
@@ -48,10 +47,11 @@ public sealed class MainLayoutTests : BunitContext
 		// no localStorage, no MAUI preferences — so a render never has to hit JS.
 		Services.AddSingleton<IThemeService, InMemoryThemeService>();
 		Services.AddSingleton<ThemeState>();
+		Services.AddSingleton<ConfirmService>();
 	}
 
 	[Fact]
-	public void SourceOfferFooter_IsRenderedByTheLayout()
+	public void Body_IsRenderedByTheLayout()
 	{
 		WireServices();
 
@@ -59,25 +59,8 @@ public sealed class MainLayoutTests : BunitContext
 			.Add(p => p.Body, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p>routed page</p>"))));
 
 		component.WaitForAssertion(() =>
-		{
 			component.Markup.Contains("routed page", StringComparison.Ordinal).ShouldBeTrue(
-				"the layout's Body slot must render whatever the router pushes into it.");
-			component.Markup.Contains("AGPL-3.0-only", StringComparison.Ordinal).ShouldBeTrue(
-				"§14.6.2: the AGPL §13 source-offer footer must appear on every page — placing it in the layout ensures that.");
-		}, timeout: TimeSpan.FromSeconds(3));
-	}
-
-	[Fact]
-	public void ErrorUi_Element_IsEmittedForBlazorRuntime()
-	{
-		WireServices();
-
-		IRenderedComponent<MainLayout> component = Render<MainLayout>(parameters => parameters
-			.Add(p => p.Body, (RenderFragment)(builder => { })));
-
-		// blazor-error-ui is the well-known id the Blazor runtime toggles on an unhandled
-		// exception. Missing it is silent — errors would happen but no in-page toast.
-		component.FindAll("#blazor-error-ui").Count.ShouldBe(1,
-			"the Blazor runtime looks for #blazor-error-ui to surface unhandled errors — it must be in the layout.");
+				"the layout's Body slot must render whatever the router pushes into it."),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 }

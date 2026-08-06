@@ -40,9 +40,16 @@ internal class Program
 			? configuredHub
 			: new Uri(new Uri(apiBase), "/hubs/ride").ToString();
 
-		builder.Services.AddScoped(_ => new HttpClient
+		// BearerAuthHandler attaches the access token from AuthState on every /api/* request
+		// and retries once on 401 with a refreshed token (§7.4). It resolves AuthState
+		// lazily to break what would otherwise be a construction-time cycle:
+		// AuthState → IApiClient → HttpClient → this handler → AuthState.
+		builder.Services.AddScoped<BearerAuthHandler>();
+		builder.Services.AddScoped(sp =>
 		{
-			BaseAddress = new Uri(apiBase),
+			BearerAuthHandler handler = sp.GetRequiredService<BearerAuthHandler>();
+			handler.InnerHandler = new HttpClientHandler();
+			return new HttpClient(handler) { BaseAddress = new Uri(apiBase) };
 		});
 		builder.Services.AddScoped<HttpApiClient>();
 		builder.Services.AddScoped<IApiClient>(sp => sp.GetRequiredService<HttpApiClient>());
@@ -54,12 +61,13 @@ internal class Program
 		builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthState>());
 		builder.Services.AddAuthorizationCore();
 
-		// Live positions and hub events (§5.3, §5.7). ITokenStore returns null in the browser
-		// (§18.5), so the token provider hands SignalR a null and the cookie authenticates the
-		// WebSocket handshake — the same story Kestrel's built-in cookie auth already accepts.
+		// Live positions and hub events (§5.3, §5.7). The token provider hands SignalR the
+		// current access token from AuthState — the same one BearerAuthHandler attaches to
+		// API requests. The refresh cookie is HttpOnly and unreachable from WASM, and the
+		// server accepts ?access_token= only on the ride hub path (§7.6).
 		builder.Services.AddScoped<IRideHubClient>(sp => new SignalRRideHubClient(
 			new Uri(hubBase),
-			async _ => await sp.GetRequiredService<ITokenStore>().ReadRefreshTokenAsync()));
+			async ct => await sp.GetRequiredService<AuthState>().GetOrRefreshAccessTokenAsync(ct)));
 
 		// Phase 1 repositories: HTTP passthrough for both, on both hosts. Phase 2 replaces
 		// the mobile bindings with SQLite-backed ones (§4.4, §18.6).
@@ -94,6 +102,10 @@ internal class Program
 		// without a page reload.
 		builder.Services.AddScoped<IThemeService, LocalStorageThemeService>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
+
+		// The one confirm modal for every destructive action in the app. Mounted in
+		// MainLayout; pages call `await Confirm.AskAsync(...)` in place of `window.confirm`.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
 
 		await builder.Build().RunAsync();
 	}

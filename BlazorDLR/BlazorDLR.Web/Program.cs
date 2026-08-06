@@ -151,6 +151,10 @@ builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternal
 builder.Services.AddScoped<IThemeService, InMemoryThemeService>();
 builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
 
+// The one confirm modal is mounted in MainLayout, which renders in the SSR pass too;
+// registering here keeps prerender from throwing on the ConfirmDialog @inject.
+builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
+
 // Auth state for the SSR pass. Shared pages inject AuthState directly (Welcome) and via
 // AuthenticationStateProvider (Home, AuthorizeView), so both must resolve on this host
 // too — otherwise the prerender crashes before the WASM client boots and takes over
@@ -220,10 +224,17 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseAuthentication();
 app.UseAuthorization();
 
-// After authentication and authorization, which is where the framework requires it. The token
-// endpoint validates explicitly on top of this; the middleware is what makes the metadata on
-// form-post endpoints resolvable at all (§7.5).
-app.UseAntiforgery();
+// Antiforgery middleware runs on the razor-components pipeline (interactive rendering
+// annotates endpoints with anti-forgery metadata and the framework will not start without
+// the middleware). It is skipped for /api/* because §7.5 scopes CSRF to exactly one API
+// endpoint — the cookie-to-access-token exchange — and that endpoint calls
+// IAntiforgery.ValidateRequestAsync explicitly inside WebAuthController.TokenAsync. Letting
+// the middleware run over /api/* rejects legitimate multipart uploads (§15.2, §16.4)
+// regardless of [IgnoreAntiforgeryToken], which is an MVC filter the middleware does not
+// consult.
+app.UseWhen(
+	static context => !context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase),
+	branch => branch.UseAntiforgery());
 
 // The MVC controllers replace the previous MapXxx endpoints (§5).
 app.MapControllers();

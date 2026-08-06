@@ -57,10 +57,16 @@ public interface IRideHubClient : IAsyncDisposable
 	event Action<Guid, Guid>? MarkerRemoved;
 
 	/// <summary>A comment was posted / edited / removed / pinned (§17.8).</summary>
-	event Action<Guid, CommentDto>? CommentPosted;
-	event Action<Guid, CommentDto>? CommentEdited;
-	event Action<Guid, Guid>? CommentRemoved;
-	event Action<Guid, Guid, bool>? CommentPinChanged;
+	/// <remarks>
+	/// The ride id is not carried because the SignalR group already scopes every message to
+	/// the ride the client joined via <see cref="JoinRideAsync"/>. Matches the server's
+	/// <c>IRideClient.CommentPosted/Edited/Removed/PinChanged</c> exactly — a mismatch there
+	/// used to leave subscribers silent because SignalR could not bind the incoming payload.
+	/// </remarks>
+	event Action<CommentDto>? CommentPosted;
+	event Action<CommentDto>? CommentEdited;
+	event Action<Guid>? CommentRemoved;
+	event Action<Guid, bool>? CommentPinChanged;
 
 	/// <summary>Reactions for one comment changed (§17.4). Coalesced by the server.</summary>
 	event Action<Guid, ReactionCounts>? ReactionsUpdated;

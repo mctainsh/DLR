@@ -39,7 +39,7 @@
 		{
 			<div class="join-code">
 				<strong>Join code:</strong> <span class="code">@_ride.JoinCode</span>
-				<em>Only you see this. Share it with the people you want on the ride (§5.2).</em>
+				<em>Only you see this. Share it with the people you want on the ride.</em>
 			</div>
 		}
 
@@ -49,7 +49,7 @@
 				<strong>Sharing wind-down active.</strong>
 				Members who kept sharing on can carry on until they stop — or until
 				<strong>@endsUtc.ToLocalTime().ToString("HH:mm")</strong>, when the server
-				stops it for everyone still on (§5.6).
+				stops it for everyone still on.
 			</div>
 		}
 
@@ -77,7 +77,7 @@
 						<p class="hint">
 							You can turn this off at any moment. Turning it off deletes the
 							stored fix — merely stopping the broadcast would leave a last-known
-							point on the map (§10.1).
+							point on the map.
 						</p>
 					</div>
 				}
@@ -90,7 +90,7 @@
 					}
 					@if (_ride.State == RideStateDto.Live)
 					{
-						<span class="quiet">— quiet while the ride is live (§17.1)</span>
+						<span class="quiet">— quiet while the ride is live</span>
 					}
 				</div>
 
@@ -140,7 +140,7 @@
 							</button>
 							<p class="note">
 								The wind-down is capped, cannot be extended, and force-stops on the
-								server (§5.6). A rider who forgets is not tracked forever.
+								server. A rider who forgets is not tracked forever.
 							</p>
 						</div>
 					</div>
@@ -470,7 +470,7 @@
 		font-size: 0.85rem;
 		padding: 0.2rem 0.6rem;
 		border-radius: 4px;
-		background: #eef1f5;
+		background: #eef1f520;
 	}
 
 		.live .state.open {
@@ -491,7 +491,7 @@
 	.live .join-code {
 		margin: 0.75rem 0;
 		padding: 0.5rem 0.75rem;
-		background: #eff6ff;
+		background: #eff6ff20;
 		border: 1px solid #bfdbfe;
 		border-radius: 4px;
 		font-size: 0.9rem;
@@ -544,7 +544,7 @@
 
 	.live .sharing, .live .thread-link, .live .organiser {
 		padding: 0.75rem;
-		background: #f7f8fa;
+		background: #fff2;
 		border-radius: 6px;
 	}
 

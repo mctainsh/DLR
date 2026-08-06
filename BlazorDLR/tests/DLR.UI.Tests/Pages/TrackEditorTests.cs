@@ -99,7 +99,7 @@ public sealed class TrackEditorTests : BunitContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		EditTrackRequest sent = api.LastEditTrackRequest!;
-		sent.Version.ShouldBe(7, "the version quoted back is exactly the one the points response carried (§15.5's optimistic concurrency).");
+		sent.Version.ShouldBe(7, "the version quoted back is exactly the one the points response carried optimistic concurrency).");
 		sent.Removals.Count.ShouldBe(1);
 		sent.Removals[0].From.ShouldBe(12,
 			"§15.5: the From index is passed through as a RAW point index, not into any simplified polyline.");

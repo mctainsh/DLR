@@ -31,17 +31,12 @@
 			<article class="content">
 				@Body
 			</article>
-
-			@* AGPL §13 source offer — every page, public and authed (§14.6.2). *@
-			<SourceOfferFooter />
 		</main>
 	</div>
 
-	<div id="blazor-error-ui" data-nosnippet>
-		An unhandled error has occurred.
-		<a href="." class="reload">Reload</a>
-		<span class="dismiss">🗙</span>
-	</div>
+	@* One dialog for every destructive action in the app. Pages call
+	   ConfirmService.AskAsync(...); this component renders whatever is pending. *@
+	<ConfirmDialog />
 </div>
 
 @code {

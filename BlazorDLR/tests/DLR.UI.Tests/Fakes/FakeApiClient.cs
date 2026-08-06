@@ -130,7 +130,6 @@ public sealed class FakeApiClient : IApiClient
 	public Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetTrackAsync), TrackDetailResult
 			?? new TrackDetail(new TrackSummary(trackId, "Test", SampleInstant, null, null, 0, null, null, null, 0, 1, TrackSourceDto.Recorded, 1), null, Array.Empty<DLR.Core.Tracks.TrackPoint>())));
-	public Task<TrackImportResult> ImportTracksAsync(Stream file, string fileName, bool dryRun, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 	public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 	public Task<TrackPointsResponse> GetTrackPointsAsync(Guid trackId, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetTrackPointsAsync), TrackPointsResult
@@ -144,6 +143,12 @@ public sealed class FakeApiClient : IApiClient
 	}
 	public Task<TrackEditResponse> UndoTrackEditAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 	public Task PurgeTrackPreviousVersionAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+	/// <summary>Overrideable MyRides response.</summary>
+	public MyRides MyRidesResult { get; set; } = new(Array.Empty<RideSummary>(), Array.Empty<RideSummary>());
+
+	public Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default) =>
+		Task.FromResult(Recorded(nameof(ListMyRidesAsync), MyRidesResult));
 
 	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetRideAsync), RideResult

@@ -20,6 +20,7 @@ public sealed class GpxImportTests : BunitContext
 	{
 		FakeApiClient api = new();
 		Services.AddSingleton<IApiClient>(api);
+		Services.AddSingleton(new HttpClient { BaseAddress = new Uri("http://localhost/") });
 		return api;
 	}
 

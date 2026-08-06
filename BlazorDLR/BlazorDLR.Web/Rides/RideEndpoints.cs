@@ -45,6 +45,9 @@ public static class RideEndpoints
 	/// <summary>Route name for creating a ride.</summary>
 	public const string CreateRouteName = "CreateRide";
 
+	/// <summary>Route name for the caller's own rides.</summary>
+	public const string ListRouteName = "ListMyRides";
+
 	/// <summary>Route name for the detail.</summary>
 	public const string DetailRouteName = "GetRide";
 
@@ -289,6 +292,58 @@ public sealed class RideController : ControllerBase
 		await notifications.RequestReceivedAsync(ride, userId);
 
 		return Ok(new JoinResult(ride.Id, Joined: false, created.Id));
+	}
+
+	[HttpGet("/api/v1/group-rides", Name = RideEndpoints.ListRouteName)]
+	[EndpointSummary("The rides the caller is in, split by organised or joined.")]
+	public async Task<IActionResult> ListAsync([FromServices] DlrDbContext database)
+	{
+		if (User.UserId() is not { } userId)
+		{
+			return Unauthorized();
+		}
+
+		// One query: every ride the caller is a member of, with the caller's role. Split
+		// server-side so the client renders two sections without a second round trip and a
+		// non-organiser never sees a JoinCode.
+		var rows = await database
+			.Set<GroupRideMember>()
+			.AsNoTracking()
+			.Where(member => member.UserId == userId)
+			.OrderByDescending(member => member.Ride!.StartUtc)
+			.Select(member => new
+			{
+				member.Ride!.Id,
+				member.Ride.Name,
+				member.Ride.StartUtc,
+				member.Ride.State,
+				IsOrganiser = member.Role == GroupRideRole.Owner,
+				MemberCount = member.Ride.Members.Count,
+				member.Ride.JoinCode,
+			})
+			.ToListAsync();
+
+		List<RideSummary> organised = [];
+		List<RideSummary> joined = [];
+
+		foreach (var row in rows)
+		{
+			RideSummary summary = new(
+				row.Id,
+				row.Name,
+				row.StartUtc,
+				(RideStateDto)row.State,
+
+				// Join code follows the RideDetail rule — organiser only. Anywhere else it
+				// would let any member re-share the group the organiser curated (§5.2).
+				row.IsOrganiser,
+				row.MemberCount,
+				row.IsOrganiser ? row.JoinCode : null);
+
+			(row.IsOrganiser ? organised : joined).Add(summary);
+		}
+
+		return Ok(new MyRides(organised, joined));
 	}
 
 	[HttpGet("/api/v1/group-rides/{id:guid}", Name = RideEndpoints.DetailRouteName)]

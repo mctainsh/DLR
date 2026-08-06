@@ -136,16 +136,16 @@
 }
 
 <style>
-	.poll { margin: 0.5rem 0; padding: 0.75rem; background: white; border: 1px solid #e5e7eb; border-radius: 6px; }
+	.poll { margin: 0.5rem 0; padding: 0.75rem; background: #222; border: 1px solid #e5e7eb; border-radius: 6px; }
 	.poll .options { display: flex; flex-direction: column; gap: 0.4rem; }
 	.poll .option { position: relative; }
 	.poll .vote-target {
 		display: block; width: 100%; position: relative; text-align: left;
-		padding: 0.5rem 0.75rem; background: #f7f8fa; border: 1px solid #e5e7eb;
+		padding: 0.5rem 0.75rem; background: #fff2; border: 1px solid #e5e7eb;
 		border-radius: 4px; cursor: pointer; overflow: hidden;
 	}
 	.poll .vote-target:disabled { cursor: default; }
-	.poll .option.mine .vote-target { background: #eff6ff; border-color: #2563eb; }
+	.poll .option.mine .vote-target { background: #eff6ff20; border-color: #2563eb; }
 	.poll .fill {
 		position: absolute; inset: 0 auto 0 0;
 		background: rgba(37, 99, 235, 0.10);

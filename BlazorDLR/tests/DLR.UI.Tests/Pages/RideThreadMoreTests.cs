@@ -55,6 +55,7 @@ public sealed class RideThreadMoreTests : BunitContext
 		Services.AddSingleton<TimeProvider>(clock);
 		Services.AddSingleton(auth);
 		Services.AddSingleton<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(auth);
+		Services.AddSingleton<BlazorDLR.Shared.State.ConfirmService>();
 		Services.AddRealAuthorizationPipeline();
 		this.CascadeAuthenticationState(auth);
 
@@ -94,17 +95,21 @@ public sealed class RideThreadMoreTests : BunitContext
 
 		component.WaitForAssertion(() =>
 		{
-			// The "Pinned" section header must sit above the pinned body, and the ordinary
-			// body must come after both. If a pinned post lived in the ordinary list, it
-			// would age off the top a few days later.
+			// The pinned section holds the pinned body; the ordinary body renders after it.
+			// If a pinned post lived in the ordinary list, it would age off the top a few
+			// days later. The <section class="pinned"> wrapper carries the styling that keeps
+			// the block visually distinct.
+			AngleSharp.Dom.IElement pinnedSection = component.Find("section.pinned");
+			pinnedSection.TextContent.Contains("Meeting spot", StringComparison.Ordinal).ShouldBeTrue(
+				"§17.6: a pinned post renders inside the pinned section.");
+			pinnedSection.TextContent.Contains("Hey team", StringComparison.Ordinal).ShouldBeFalse(
+				"§17.6: the ordinary post must not be inside the pinned section.");
+
 			string markup = component.Markup;
-			int pinnedHeader = markup.IndexOf("Pinned", StringComparison.Ordinal);
 			int pinnedBody = markup.IndexOf("Meeting spot", StringComparison.Ordinal);
 			int ordinaryBody = markup.IndexOf("Hey team", StringComparison.Ordinal);
-
-			pinnedHeader.ShouldBeGreaterThan(-1, "§17.6: pinned posts get their own section header.");
-			pinnedBody.ShouldBeGreaterThan(pinnedHeader);
-			ordinaryBody.ShouldBeGreaterThan(pinnedBody, "§17.3: ordinary posts render below the pinned block.");
+			ordinaryBody.ShouldBeGreaterThan(pinnedBody,
+				"§17.3: ordinary posts render below the pinned block.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -121,7 +126,7 @@ public sealed class RideThreadMoreTests : BunitContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		CommentDto arriving = Post(rideId, "Live update from the road.");
-		component.InvokeAsync(() => hub.RaiseCommentPosted(rideId, arriving)).GetAwaiter().GetResult();
+		component.InvokeAsync(() => hub.RaiseCommentPosted(arriving)).GetAwaiter().GetResult();
 
 		component.WaitForAssertion(() =>
 			component.Markup.Contains("Live update from the road", StringComparison.Ordinal).ShouldBeTrue(

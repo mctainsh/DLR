@@ -53,12 +53,12 @@ public sealed class ThrowingApiClient : IApiClient
 	public Task UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken = default) => AsyncVoidThrow();
 	public Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) => AsyncThrow<IReadOnlyList<TrackSummary>>();
 	public Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default) => AsyncThrow<TrackDetail>();
-	public Task<TrackImportResult> ImportTracksAsync(Stream file, string fileName, bool dryRun, CancellationToken cancellationToken = default) => AsyncThrow<TrackImportResult>();
 	public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default) => AsyncThrow<HttpResponseMessage>();
 	public Task<TrackPointsResponse> GetTrackPointsAsync(Guid trackId, CancellationToken cancellationToken = default) => AsyncThrow<TrackPointsResponse>();
 	public Task<TrackEditResponse> EditTrackAsync(Guid trackId, EditTrackRequest request, CancellationToken cancellationToken = default) => AsyncThrow<TrackEditResponse>();
 	public Task<TrackEditResponse> UndoTrackEditAsync(Guid trackId, CancellationToken cancellationToken = default) => AsyncThrow<TrackEditResponse>();
 	public Task PurgeTrackPreviousVersionAsync(Guid trackId, CancellationToken cancellationToken = default) => AsyncVoidThrow();
+	public Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default) => AsyncThrow<MyRides>();
 	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default) => AsyncThrow<RideDetail>();
 	public Task<RideDetail> CreateRideAsync(CreateRideRequest request, CancellationToken cancellationToken = default) => AsyncThrow<RideDetail>();
 	public Task<JoinResult> JoinRideByCodeAsync(JoinByCodeRequest request, CancellationToken cancellationToken = default) => AsyncThrow<JoinResult>();
@@ -116,10 +116,10 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 	public event Action<Guid, MarkerDto>? MarkerAdded;
 	public event Action<Guid, MarkerDto>? MarkerUpdated;
 	public event Action<Guid, Guid>? MarkerRemoved;
-	public event Action<Guid, CommentDto>? CommentPosted;
-	public event Action<Guid, CommentDto>? CommentEdited;
-	public event Action<Guid, Guid>? CommentRemoved;
-	public event Action<Guid, Guid, bool>? CommentPinChanged;
+	public event Action<CommentDto>? CommentPosted;
+	public event Action<CommentDto>? CommentEdited;
+	public event Action<Guid>? CommentRemoved;
+	public event Action<Guid, bool>? CommentPinChanged;
 	public event Action<Guid, ReactionCounts>? ReactionsUpdated;
 	public event Action<Guid, PollResults>? PollUpdated;
 	public event Action<Guid, RidePermissions>? PermissionsChanged;

@@ -154,6 +154,41 @@ public sealed record RideMemberSummary(
 	bool Sharing = false,
 	bool HasPosition = false);
 
+/// <summary>
+/// One row of the "my rides" landing (§5.2). A summary rather than a full <see cref="RideDetail"/>
+/// because the list needs neither members nor permissions to render, and shipping either on every
+/// list entry costs bandwidth for values a screen does not read.
+/// </summary>
+/// <param name="Id">Which ride.</param>
+/// <param name="Name">What it is called.</param>
+/// <param name="StartUtc">When it starts.</param>
+/// <param name="State">Where it is in the lifecycle.</param>
+/// <param name="IsOrganiser">Whether the caller runs it.</param>
+/// <param name="MemberCount">How many are in.</param>
+/// <param name="JoinCode">
+/// Only ever sent to the organiser, same rule as <see cref="RideDetail.JoinCode"/>. Null for a
+/// joined-not-organised ride.
+/// </param>
+public sealed record RideSummary(
+	Guid Id,
+	string Name,
+	DateTimeOffset StartUtc,
+	RideStateDto State,
+	bool IsOrganiser,
+	int MemberCount,
+	string? JoinCode);
+
+/// <summary>
+/// The caller's rides, split by role (§5.2). Split on the wire rather than reconstructed on the
+/// client so a member of one ride and the organiser of another gets two lists rather than one
+/// list plus a filter.
+/// </summary>
+/// <param name="Organised">Rides the caller created.</param>
+/// <param name="Joined">Rides the caller was admitted to.</param>
+public sealed record MyRides(
+	IReadOnlyList<RideSummary> Organised,
+	IReadOnlyList<RideSummary> Joined);
+
 /// <summary>A request waiting on the organiser (§5.2).</summary>
 /// <param name="Id">Which request.</param>
 /// <param name="UserId">Who is asking.</param>

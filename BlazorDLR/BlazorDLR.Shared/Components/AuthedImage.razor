@@ -1,0 +1,78 @@
+@using System.Net.Http
+@using System.Net.Http.Headers
+@using Microsoft.AspNetCore.Components
+@inject HttpClient Http
+@implements IDisposable
+
+@*
+	An <img> tag for authenticated endpoints (§16.4). The <img> element cannot attach an
+	Authorization header, so a plain src="/api/v1/photos/{id}" reaches the server anonymous
+	and 401s. This component fetches the bytes with HttpClient — which BearerAuthHandler
+	decorates on both hosts — then hands the browser a data: URL to render.
+
+	data: URLs rather than blob:. A blob URL needs JS interop to allocate and to release;
+	a data: URL is a plain string the browser drops when the DOM node goes away. The extra
+	base64 bytes are the price, and for the thumbnail sizes this component is used for that
+	is nothing.
+*@
+
+@if (_error is not null)
+{
+	<span class="photo-error" title="@_error">🖼️</span>
+}
+else if (_dataUrl is null)
+{
+	<span class="photo-loading">…</span>
+}
+else
+{
+	<img src="@_dataUrl" alt="@Alt" class="@Class" loading="lazy" />
+}
+
+@code {
+	[Parameter, EditorRequired] public string Url { get; set; } = string.Empty;
+	[Parameter] public string Alt { get; set; } = string.Empty;
+	[Parameter] public string? Class { get; set; }
+
+	private string? _dataUrl;
+	private string? _error;
+	private string? _lastUrl;
+	private CancellationTokenSource? _cts;
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (Url == _lastUrl) return;
+		_lastUrl = Url;
+		_dataUrl = null;
+		_error = null;
+
+		_cts?.Cancel();
+		_cts = new CancellationTokenSource();
+		CancellationToken cancellationToken = _cts.Token;
+
+		try
+		{
+			using HttpResponseMessage response = await Http.GetAsync(Url, cancellationToken);
+			if (!response.IsSuccessStatusCode)
+			{
+				_error = $"{(int)response.StatusCode} {response.ReasonPhrase}";
+				return;
+			}
+
+			byte[] bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+			string mime = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+			_dataUrl = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+		}
+		catch (OperationCanceledException) { /* component re-rendered or disposed */ }
+		catch (Exception exception)
+		{
+			_error = exception.Message;
+		}
+	}
+
+	public void Dispose()
+	{
+		_cts?.Cancel();
+		_cts?.Dispose();
+	}
+}

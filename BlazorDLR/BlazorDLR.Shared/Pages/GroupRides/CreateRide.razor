@@ -93,7 +93,7 @@
 
 		try
 		{
-			DateTimeOffset startUtc = new(_startLocal, Clock.GetLocalNow().Offset);
+			DateTimeOffset startUtc = new DateTimeOffset(_startLocal, Clock.GetLocalNow().Offset).ToUniversalTime();
 
 			RideDetail ride = await Api.CreateRideAsync(new CreateRideRequest(
 				Name: _name.Trim(),

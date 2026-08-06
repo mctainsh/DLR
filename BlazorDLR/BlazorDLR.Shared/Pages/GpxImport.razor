@@ -1,8 +1,11 @@
 @page "/import"
 @attribute [Authorize]
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
 @using BlazorDLR.Shared.Services
 @using DLR.Core.Contracts.Tracks
-@inject IApiClient Api
+@inject HttpClient Http
 @inject NavigationManager Nav
 
 <PageTitle>Import GPX — Dumb Luck Rides</PageTitle>
@@ -122,7 +125,7 @@
 			_fileBytes = memory.ToArray();
 
 			using MemoryStream previewStream = new(_fileBytes);
-			_preview = await Api.ImportTracksAsync(previewStream, _fileName, dryRun: true);
+			_preview = await ImportAsync(previewStream, _fileName, dryRun: true);
 		}
 		catch (Exception exception)
 		{
@@ -142,7 +145,7 @@
 		try
 		{
 			using MemoryStream stream = new(_fileBytes);
-			TrackImportResult result = await Api.ImportTracksAsync(stream, _fileName, dryRun: false);
+			TrackImportResult result = await ImportAsync(stream, _fileName, dryRun: false);
 			if (result.Tracks.Count == 1 && result.Tracks[0].TrackId is { } id)
 			{
 				Nav.NavigateTo($"/rides/{id}");
@@ -171,6 +174,27 @@
 		return Task.CompletedTask;
 	}
 
+	private async Task<TrackImportResult> ImportAsync(Stream file, string fileName, bool dryRun)
+	{
+		using MultipartFormDataContent form = new();
+		StreamContent fileContent = new(file);
+		fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/gpx+xml");
+		form.Add(fileContent, "file", fileName);
+
+		string url = dryRun ? "/api/v1/tracks/import?dryRun=true" : "/api/v1/tracks/import";
+		using HttpResponseMessage response = await Http.PostAsync(url, form);
+
+		if (!response.IsSuccessStatusCode)
+		{
+			ApiError error = await ProblemDetailsReader.ReadAsync(response);
+			throw new ApiException(error);
+		}
+
+		TrackImportResult? body = await response.Content.ReadFromJsonAsync<TrackImportResult>(
+			new JsonSerializerOptions(JsonSerializerDefaults.Web));
+		return body ?? throw new InvalidOperationException("Empty import response body.");
+	}
+
 	private static string FriendlyImportError(Exception exception) =>
 		exception switch
 		{
@@ -187,9 +211,9 @@
 
 <style>
 	.import .pick { margin: 1rem 0; padding: 1rem; border: 2px dashed #cbd5e1; border-radius: 6px; text-align: center; }
-	.import .preview { padding: 1rem; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; }
+	.import .preview { padding: 1rem; background: #fff2; border: 1px solid #e5e7eb; border-radius: 6px; }
 	.import .file-name { font-family: ui-monospace, monospace; opacity: 0.75; }
-	.import li { padding: 0.75rem; background: white; border-radius: 4px; margin-bottom: 0.5rem; }
+	.import li { padding: 0.75rem; background: #fff3; border-radius: 4px; margin-bottom: 0.5rem; }
 	.import .badge.route { background: #fef3c7; }
 	.import .badge.track { background: #d1fae5; }
 </style>

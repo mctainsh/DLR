@@ -1,17 +1,22 @@
 using System.Net;
 using System.Net.Http.Headers;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BlazorDLR.Shared.State;
 
 /// <summary>
-/// The mobile <see cref="DelegatingHandler"/> that attaches the current access token to
-/// every request and retries once on a 401 with a freshly refreshed one (§7.4).
+/// A <see cref="DelegatingHandler"/> that attaches the current access token to every
+/// request and retries once on a 401 with a freshly refreshed one (§7.4). Wired on the
+/// MAUI host and the WASM host; the SSR host uses <c>InProcessAboutApiClient</c> and does
+/// not go through this pipeline.
 /// <para>
-/// <strong>Mobile only.</strong> The web browser attaches the refresh cookie automatically
-/// on same-origin requests; it never adds a bearer, because that would put the access
-/// token where a page script could read it (§18.5). So the web host wires
-/// <c>HttpApiClient</c> against a bare <see cref="HttpClient"/> and this handler stays out
-/// of its DI.
+/// <strong>Lazy <see cref="AuthState"/>.</strong> The constructor takes
+/// <see cref="IServiceProvider"/> rather than <see cref="AuthState"/> itself, because
+/// <c>AuthState</c> depends on <c>IApiClient</c>, which depends on <see cref="HttpClient"/>,
+/// which depends on this handler. Injecting <c>AuthState</c> at construction time is a
+/// closed graph the DI container refuses to resolve. Resolving it inside
+/// <see cref="SendAsync"/> defers the lookup to a point where the scope has already
+/// cached <c>HttpClient</c>, so the graph closes without cycling.
 /// </para>
 /// <para>
 /// <strong>One retry, ever.</strong> A second 401 after a fresh token means the token
@@ -22,11 +27,11 @@ namespace BlazorDLR.Shared.State;
 /// </summary>
 public sealed class BearerAuthHandler : DelegatingHandler
 {
-	private readonly AuthState _auth;
+	private readonly IServiceProvider _services;
 
-	public BearerAuthHandler(AuthState auth)
+	public BearerAuthHandler(IServiceProvider services)
 	{
-		_auth = auth;
+		_services = services;
 	}
 
 	/// <inheritdoc />
@@ -41,11 +46,14 @@ public sealed class BearerAuthHandler : DelegatingHandler
 			&& (path.Equals("/api/v1/auth/token", StringComparison.OrdinalIgnoreCase)
 				|| path.Equals("/api/v1/auth/register", StringComparison.OrdinalIgnoreCase)
 				|| path.Equals("/api/v1/auth/forgot-password", StringComparison.OrdinalIgnoreCase)
-				|| path.Equals("/api/v1/auth/reset-password", StringComparison.OrdinalIgnoreCase));
+				|| path.Equals("/api/v1/auth/reset-password", StringComparison.OrdinalIgnoreCase)
+				|| path.Equals("/api/v1/auth/web/token", StringComparison.OrdinalIgnoreCase));
+
+		AuthState auth = _services.GetRequiredService<AuthState>();
 
 		if (!isTokenEndpoint)
 		{
-			string? token = await _auth.GetOrRefreshAccessTokenAsync(cancellationToken);
+			string? token = await auth.GetOrRefreshAccessTokenAsync(cancellationToken);
 			if (token is not null)
 			{
 				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -63,7 +71,7 @@ public sealed class BearerAuthHandler : DelegatingHandler
 		// was valid — so we refresh unconditionally rather than trusting our own cache.
 		response.Dispose();
 
-		string? refreshed = await _auth.RefreshNowAsync(cancellationToken);
+		string? refreshed = await auth.RefreshNowAsync(cancellationToken);
 		if (refreshed is null)
 		{
 			// The refresh failed and AuthState signed us out. There is nothing to try — hand

@@ -122,29 +122,6 @@ public sealed class HttpApiClient : IApiClient
 		GetAsync<TrackDetail>($"/api/v1/tracks/{trackId}", cancellationToken);
 
 	/// <inheritdoc />
-	public async Task<TrackImportResult> ImportTracksAsync(
-		Stream file,
-		string fileName,
-		bool dryRun,
-		CancellationToken cancellationToken = default)
-	{
-		// The server sniffs the content-type of the file (§15.3), so this hint is just a hint.
-		// Content-Disposition supplies the file name because the server logs it and, on the
-		// success path, records it on the resulting Track.
-		using MultipartFormDataContent form = new();
-		StreamContent fileContent = new(file);
-		fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/gpx+xml");
-		form.Add(fileContent, "file", fileName);
-
-		string url = dryRun ? "/api/v1/tracks/import?dryRun=true" : "/api/v1/tracks/import";
-		using HttpResponseMessage response = await _http.PostAsync(url, form, cancellationToken);
-		await ThrowIfFailedAsync(response, cancellationToken);
-
-		TrackImportResult? body = await response.Content.ReadFromJsonAsync<TrackImportResult>(Json, cancellationToken);
-		return body ?? throw new InvalidOperationException("Empty import response body.");
-	}
-
-	/// <inheritdoc />
 	public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default) =>
 		_http.GetAsync($"/api/v1/tracks/{trackId}/gpx", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
@@ -177,6 +154,10 @@ public sealed class HttpApiClient : IApiClient
 	}
 
 	// -- Rides --
+
+	/// <inheritdoc />
+	public Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default) =>
+		GetAsync<MyRides>("/api/v1/group-rides", cancellationToken);
 
 	/// <inheritdoc />
 	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default) =>

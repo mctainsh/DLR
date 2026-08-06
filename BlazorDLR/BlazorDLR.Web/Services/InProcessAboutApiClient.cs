@@ -60,12 +60,12 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
-	public Task<TrackImportResult> ImportTracksAsync(Stream file, string fileName, bool dryRun, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<TrackPointsResponse> GetTrackPointsAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<TrackEditResponse> EditTrackAsync(Guid trackId, EditTrackRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<TrackEditResponse> UndoTrackEditAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task PurgeTrackPreviousVersionAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<RideDetail> CreateRideAsync(CreateRideRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<JoinResult> JoinRideByCodeAsync(JoinByCodeRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
