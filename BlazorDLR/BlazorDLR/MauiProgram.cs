@@ -113,10 +113,13 @@ public static class MauiProgram
 		//
 		// Every rider pin, marker and track lands on the shared Skia overlay, which
 		// resolves the same way on both platforms and is bound below.
+		// Transient, not scoped: one interop instance per <RideMap>. Each owns a JS map and
+		// a DotNetObjectReference bridge, so a shared instance lets one map's teardown
+		// dispose another's bridge — see the note in BlazorDLR.Web.Client/Program.cs.
 #if IOS || MACCATALYST
-		builder.Services.AddScoped<BlazorDLR.Shared.Services.IMapInterop, AppleMapsInterop>();
+		builder.Services.AddTransient<BlazorDLR.Shared.Services.IMapInterop, AppleMapsInterop>();
 #elif ANDROID
-		builder.Services.AddScoped<BlazorDLR.Shared.Services.IMapInterop, GoogleMapsInterop>();
+		builder.Services.AddTransient<BlazorDLR.Shared.Services.IMapInterop, GoogleMapsInterop>();
 		// The Google Maps browser API key. Phase 0 reads from a compile-time constant —
 		// good enough for a spike, and §14.2 already forbids the constant being anything
 		// but a placeholder in committed code. Phase 1 fetches from the server.

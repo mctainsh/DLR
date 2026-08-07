@@ -25,7 +25,7 @@ public sealed class AppleMapsInterop : IMapInterop
 
 	private IJSObjectReference? _module;
 	private IJSObjectReference? _map;
-	private DotNetObjectReference<ViewportBridge>? _bridge;
+	private DotNetObjectReference<MapBridge>? _bridge;
 	private MapToken? _cachedToken;
 
 	public AppleMapsInterop(IJSRuntime js, HttpApiClient api, TimeProvider clock)
@@ -42,12 +42,17 @@ public sealed class AppleMapsInterop : IMapInterop
 	public event Action<MapViewport>? ViewportChanged;
 
 	/// <inheritdoc />
+	public event Action<MapClick>? Clicked;
+
+	/// <inheritdoc />
 	public async ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		string token = await FetchOrRefreshTokenAsync(cancellationToken);
 
 		_module ??= await _js.InvokeAsync<IJSObjectReference>("import", cancellationToken, ModulePath);
-		_bridge = DotNetObjectReference.Create(new ViewportBridge(v => ViewportChanged?.Invoke(v)));
+		_bridge = DotNetObjectReference.Create(new MapBridge(
+			v => ViewportChanged?.Invoke(v),
+			c => Clicked?.Invoke(c)));
 
 		_map = await _module.InvokeAsync<IJSObjectReference>("createMap", cancellationToken, host, new
 		{
@@ -57,7 +62,7 @@ public sealed class AppleMapsInterop : IMapInterop
 			headingDeg = options.Camera.HeadingDeg,
 			showUserLocation = options.ShowUserLocation,
 			token,
-		}, new { onViewportChanged = _bridge });
+		}, new { onViewportChanged = _bridge, onMapClicked = _bridge });
 	}
 
 	/// <inheritdoc />
@@ -82,6 +87,14 @@ public sealed class AppleMapsInterop : IMapInterop
 		}
 		_bridge?.Dispose();
 		_bridge = null;
+
+		// One interop instance per <RideMap>, so an undisposed module reference would leak
+		// a tracked JS object on every navigation into a ride page.
+		if (_module is not null)
+		{
+			try { await _module.DisposeAsync(); } catch { /* WebView already gone */ }
+			_module = null;
+		}
 	}
 
 	private async Task<string> FetchOrRefreshTokenAsync(CancellationToken cancellationToken)
@@ -105,12 +118,4 @@ public sealed class AppleMapsInterop : IMapInterop
 		await _map.InvokeVoidAsync(method, cancellationToken, argument);
 	}
 
-	private sealed class ViewportBridge
-	{
-		private readonly Action<MapViewport> _forward;
-		public ViewportBridge(Action<MapViewport> forward) => _forward = forward;
-
-		[JSInvokable]
-		public void OnViewportChanged(MapViewport viewport) => _forward(viewport);
-	}
 }

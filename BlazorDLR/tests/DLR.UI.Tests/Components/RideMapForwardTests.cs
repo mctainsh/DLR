@@ -93,6 +93,12 @@ public sealed class RideMapForwardTests : BunitContext
 			remove => _inner.ViewportChanged -= value;
 		}
 
+		public event Action<MapClick>? Clicked
+		{
+			add => _inner.Clicked += value;
+			remove => _inner.Clicked -= value;
+		}
+
 		public ValueTask InitAsync(Microsoft.AspNetCore.Components.ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 		{
 			LastOptions = options;

@@ -304,6 +304,13 @@ public sealed class UninitialisedMapInterop : IMapInterop
 	}
 
 	/// <inheritdoc />
+	public event Action<MapClick>? Clicked
+	{
+		add { /* nothing to click during a prerender. */ }
+		remove { /* symmetric no-op. */ }
+	}
+
+	/// <inheritdoc />
 	public ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(Phase0.Message);
 

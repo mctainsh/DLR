@@ -1,6 +1,8 @@
+@using BlazorDLR.Shared.Markers
 @using BlazorDLR.Shared.Services
 @using SkiaSharp
 @using SkiaSharp.Views.Blazor
+@inject IJSRuntime JS
 @implements IAsyncDisposable
 
 @*
@@ -54,6 +56,49 @@
 		_view?.Invalidate();
 	}
 
+	/// <summary>
+	/// Rasterise any emoji this overlay is about to draw but does not have yet, then repaint.
+	/// Runs after render because it needs JS, and painting itself is synchronous — the first
+	/// frame of a newly-seen icon shows the plain pin, the next shows the glyph.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (Markers is null || Markers.Count == 0)
+		{
+			return;
+		}
+
+		// Runs on every render, which on a live ride is at least once a second. Collect only
+		// what is genuinely new — riders draw as darts and never ask for a glyph at all — so
+		// the steady state is a handful of hash lookups and no allocation.
+		List<string>? wanted = null;
+		foreach (MapMarker marker in Markers.Values)
+		{
+			if (marker.Kind == MarkerKind.Rider)
+			{
+				continue;
+			}
+
+			string emoji = MarkerIconGlyphs.Emoji(marker.IconKey);
+			if (_requested.Add(emoji))
+			{
+				(wanted ??= []).Add(emoji);
+			}
+		}
+
+		if (wanted is not null && await MarkerGlyphCache.PrimeAsync(wanted, JS))
+		{
+			_view?.Invalidate();
+		}
+	}
+
+	/// <summary>
+	/// Emoji this overlay has already handed to the cache. Keyed per component because the
+	/// cache itself may answer "unavailable", and asking again every render would be the
+	/// waste this set exists to avoid.
+	/// </summary>
+	private readonly HashSet<string> _requested = new(StringComparer.Ordinal);
+
 	private void OnPaintSurface(SKPaintSurfaceEventArgs args)
 	{
 		SKCanvas canvas = args.Surface.Canvas;
@@ -98,28 +143,251 @@
 	{
 		if (Markers is null) return;
 
-		using SKPaint fill = new() { Style = SKPaintStyle.Fill, IsAntialias = true, Color = new SKColor(0x25, 0x63, 0xeb) };
-		using SKPaint ring = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 2f, IsAntialias = true, Color = SKColors.White };
-		using SKFont font = new() { Size = 12f };
-		using SKPaint text = new() { IsAntialias = true, Color = SKColors.Black };
-		using SKPaint textHalo = new() { IsAntialias = true, Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 3f };
+		SKSamplingOptions sampling = new(SKFilterMode.Linear, SKMipmapMode.Linear);
 
 		foreach (MapMarker marker in Markers.Values)
 		{
 			SKPoint screen = Project(marker.Latitude, marker.Longitude);
 			if (!InsideCanvas(screen)) continue;
 
-			canvas.DrawCircle(screen, 6f, fill);
-			canvas.DrawCircle(screen, 6f, ring);
+			// Null means "no direction", never zero — zero is due north, a real bearing
+			// (§16.2). A fix that carried no heading gets no arrow rather than one
+			// confidently pointing north.
+			bool hasHeading = marker.DirectionDeg is not null;
+			bool isRider = marker.Kind == MarkerKind.Rider;
+
+			if (isRider)
+			{
+				// A rider *is* the arrow — no disc, no icon. Where someone is and which way
+				// they are facing is the whole of what a live position says (§5.3); an icon
+				// on top only competes with the marker pins that do carry meaning.
+				if (marker.DirectionDeg is { } riderBearing)
+				{
+					DrawHeadingArrow(canvas, screen, riderBearing, 1f, 0f);
+				}
+				else
+				{
+					// Heading unknown: a plain disc in the same blue, so the rider is still
+					// placed and still obviously the same kind of thing as an arrow.
+					canvas.DrawCircle(screen, RiderDotRadius, ArrowHalo);
+					canvas.DrawCircle(screen, RiderDotRadius, ArrowEdge);
+					canvas.DrawCircle(screen, RiderDotRadius, ArrowFill);
+				}
+			}
+			else
+			{
+				// An authored marker may also carry a bearing ("face this way", §16.2). It
+				// gets the same arrow at reduced scale, pushed clear of the icon disc, so it
+				// decorates the icon rather than replacing it.
+				if (marker.DirectionDeg is { } markerBearing)
+				{
+					DrawHeadingArrow(canvas, screen, markerBearing, MarkerArrowScale, MarkerArrowOffset);
+				}
+
+				SKImage? glyph = GlyphImage(MarkerIconGlyphs.Emoji(marker.IconKey));
+
+				if (glyph is null)
+				{
+					// Glyph not rasterised yet (or the host cannot). A plain pin holds the
+					// place — the marker is still on the map and still labelled.
+					canvas.DrawCircle(screen, 6f, PinFill);
+					canvas.DrawCircle(screen, 6f, PinRing);
+				}
+				else
+				{
+					canvas.DrawCircle(screen, PlateRadius, Plate);
+					canvas.DrawCircle(screen, PlateRadius, PlateRing);
+					SKRect target = new(
+						screen.X - GlyphSize / 2, screen.Y - GlyphSize / 2,
+						screen.X + GlyphSize / 2, screen.Y + GlyphSize / 2);
+					canvas.DrawImage(glyph, target, sampling);
+				}
+			}
 
 			if (!string.IsNullOrEmpty(marker.Title))
 			{
-				float ty = screen.Y + 18f;
-				canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, font, textHalo);
-				canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, font, text);
+				// Clear whatever was drawn above, so a south-facing rider's name is never
+				// printed over their own heading. Four cases, so a table rather than nested
+				// ternaries whose guards have to be re-derived by hand when a radius changes.
+				float clearance = (isRider, hasHeading) switch
+				{
+					(true, true) => ArrowTipLength + LabelGap,
+					(true, false) => RiderDotRadius + LabelGap + 2f,
+					(false, true) => MarkerArrowOffset + (ArrowTipLength * MarkerArrowScale) + LabelGap,
+					(false, false) => PlateRadius + LabelGap + 2f,
+				};
+
+				float ty = screen.Y + clearance;
+				canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, LabelFont, LabelHalo);
+				canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, LabelFont, LabelText);
 			}
 		}
 	}
+
+	// Paints and fonts are immutable configuration built from compile-time constants, and
+	// this method runs on every viewport change with live positions arriving about once a
+	// second. Building eleven native SkPaint objects per frame — each one a native alloc plus
+	// a registration in SkiaSharp's global handle dictionary — bought nothing. Held for the
+	// process lifetime and deliberately never disposed: there is no static-teardown hook to
+	// hang a dispose off, and the native memory goes back at exit. Nothing may mutate them
+	// per-marker; per-marker variation is done with canvas transforms.
+	private static readonly SKPaint PinFill = new() { Style = SKPaintStyle.Fill, IsAntialias = true, Color = new SKColor(0x25, 0x63, 0xeb) };
+	private static readonly SKPaint PinRing = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 2f, IsAntialias = true, Color = SKColors.White };
+	private static readonly SKFont LabelFont = new() { Size = 12f };
+	private static readonly SKPaint LabelText = new() { IsAntialias = true, Color = SKColors.Black };
+	private static readonly SKPaint LabelHalo = new() { IsAntialias = true, Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 3f };
+
+	// A white disc under the glyph. Emoji are drawn in their own colours, and OSM tiles run
+	// from near-white sand to dark green forest — without a plate the same icon is crisp over
+	// one and invisible over the other.
+	private static readonly SKPaint Plate = new() { Style = SKPaintStyle.Fill, IsAntialias = true, Color = new SKColor(0xff, 0xff, 0xff, 0xe6) };
+	private static readonly SKPaint PlateRing = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f, IsAntialias = true, Color = new SKColor(0x33, 0x3a, 0x45, 0x99) };
+
+	// The heading arrow: blue, edged in black, haloed in white. Three passes over one path —
+	// widest stroke first — so the black reads as the arrow's own outline and the white
+	// separates it from whatever tile is underneath. OSM runs from near-white sand to dark
+	// forest, and a single-outlined arrow disappears into one end or the other.
+	private static readonly SKPaint ArrowHalo = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 5f, IsAntialias = true, StrokeJoin = SKStrokeJoin.Round, Color = SKColors.White };
+	private static readonly SKPaint ArrowEdge = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 2f, IsAntialias = true, StrokeJoin = SKStrokeJoin.Round, Color = SKColors.Black };
+	private static readonly SKPaint ArrowFill = new() { Style = SKPaintStyle.Fill, IsAntialias = true, Color = new SKColor(0x25, 0x63, 0xeb) };
+
+	/// <summary>How much smaller the arrow is when it decorates an authored marker's icon.</summary>
+	private const float MarkerArrowScale = 0.55f;
+
+	/// <summary>How far that arrow is pushed along the bearing to clear the icon disc.</summary>
+	private const float MarkerArrowOffset = PlateRadius + 6f;
+
+	/// <summary>Gap between whatever was drawn and the top of the label beneath it.</summary>
+	private const float LabelGap = 11f;
+
+	/// <summary>
+	/// Draws the heading dart, pointing where the fix said the rider was last travelling (§5.3).
+	/// </summary>
+	/// <param name="canvas">The overlay canvas.</param>
+	/// <param name="centre">Where the rider is, in canvas pixels.</param>
+	/// <param name="bearingDeg">Degrees clockwise from true north.</param>
+	/// <param name="scale">1 for a rider, smaller when the arrow decorates a marker icon.</param>
+	/// <param name="forwardOffset">Push along the bearing, to clear an icon disc. Unscaled pixels.</param>
+	private void DrawHeadingArrow(
+		SKCanvas canvas,
+		SKPoint centre,
+		double bearingDeg,
+		float scale,
+		float forwardOffset)
+	{
+		canvas.Save();
+		try
+		{
+			canvas.Translate(centre.X, centre.Y);
+
+			// Canvas Y grows downward, so screen-up is -Y and a clockwise rotation by the
+			// screen bearing carries the tip round to the compass point.
+			canvas.RotateDegrees((float)MapGeometry.ScreenBearingDeg(bearingDeg, Viewport.HeadingDeg));
+
+			if (forwardOffset != 0f)
+			{
+				canvas.Translate(0f, -forwardOffset);
+			}
+
+			if (scale != 1f)
+			{
+				canvas.Scale(scale);
+			}
+
+			// Widest stroke first: white halo, then black outline, then the blue interior
+			// paints over the inner half of both. Strokes are centred on the path, so the
+			// visible result is blue edged in black and separated from the map by white.
+			canvas.DrawPath(ArrowPath, ArrowHalo);
+			canvas.DrawPath(ArrowPath, ArrowEdge);
+			canvas.DrawPath(ArrowPath, ArrowFill);
+		}
+		finally
+		{
+			canvas.Restore();
+		}
+	}
+
+	/// <summary>
+	/// The dart, pointing up (screen-up is -Y), centred on the rider's position. Four points:
+	/// tip, the two rear corners, and a notch between them — the swallowtail is what makes
+	/// the pointing end unambiguous at a glance, which a plain triangle is not once it is
+	/// rotated away from vertical.
+	/// <para>
+	/// Built once. It is immutable, and rebuilding a path per marker per frame is the sort of
+	/// allocation a twenty-rider map at 1 Hz notices.
+	/// </para>
+	/// </summary>
+	private static readonly SKPath ArrowPath = BuildArrowPath();
+
+	private static SKPath BuildArrowPath()
+	{
+		SKPath path = new();
+		path.MoveTo(0f, -ArrowTipLength);
+		path.LineTo(ArrowHalfWidth, ArrowTailLength);
+		path.LineTo(0f, ArrowNotchDepth);
+		path.LineTo(-ArrowHalfWidth, ArrowTailLength);
+		path.Close();
+		return path;
+	}
+
+	/// <summary>Centre to tip, along the heading.</summary>
+	private const float ArrowTipLength = 14f;
+
+	/// <summary>Centre to the rear corners, against the heading.</summary>
+	private const float ArrowTailLength = 8f;
+
+	/// <summary>How far the tail notch cuts back toward the tip.</summary>
+	private const float ArrowNotchDepth = 1.5f;
+
+	/// <summary>Half the span across the rear corners.</summary>
+	private const float ArrowHalfWidth = 9f;
+
+	/// <summary>Radius of the disc drawn for a rider whose fix carried no heading.</summary>
+	private const float RiderDotRadius = 6f;
+
+	/// <summary>
+	/// The emoji bitmaps, wrapped as Skia images. <see cref="MarkerGlyphCache"/> deliberately
+	/// holds only raw RGBA — no image decoder runs outside the photo-ingest path — so the
+	/// conversion to an <see cref="SKImage"/> happens here, in the one component §4.5 puts in
+	/// the drawing business. Built once per glyph and kept: 21 curated icons at 64² is well
+	/// under a megabyte, and rebuilding per frame would be the expensive mistake.
+	/// </summary>
+	private static readonly Dictionary<string, SKImage> GlyphImages = new(StringComparer.Ordinal);
+
+	private static SKImage? GlyphImage(string emoji)
+	{
+		if (GlyphImages.TryGetValue(emoji, out SKImage? cached))
+		{
+			return cached;
+		}
+
+		byte[]? rgba = MarkerGlyphCache.TryGetPixels(emoji);
+		if (rgba is null)
+		{
+			return null;
+		}
+
+		// Unpremultiplied because that is what a 2D canvas' getImageData hands back.
+		SKImageInfo info = new(
+			MarkerGlyphCache.RasterSize,
+			MarkerGlyphCache.RasterSize,
+			SKColorType.Rgba8888,
+			SKAlphaType.Unpremul);
+
+		SKImage? image = SKImage.FromPixelCopy(info, rgba);
+		if (image is not null)
+		{
+			GlyphImages[emoji] = image;
+		}
+
+		return image;
+	}
+
+	/// <summary>Drawn glyph edge in canvas units. Readable at arm's length on a bar-mounted phone.</summary>
+	private const float GlyphSize = 20f;
+
+	/// <summary>Radius of the disc behind the glyph.</summary>
+	private const float PlateRadius = 14f;
 
 	/// <summary>
 	/// Web Mercator projection from geographic degrees to overlay pixel coordinates.

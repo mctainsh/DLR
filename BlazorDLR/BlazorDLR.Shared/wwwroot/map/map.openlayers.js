@@ -9,12 +9,53 @@
 // between us and OSM. Permanent attribution is declared on the tile source; removing it
 // removes the tile source.
 
-// Modular ESM build from unpkg. Version pinned so a Phase 0 spike is reproducible.
-import Map from "https://cdn.jsdelivr.net/npm/ol@9.2.4/Map.js";
-import View from "https://cdn.jsdelivr.net/npm/ol@9.2.4/View.js";
-import TileLayer from "https://cdn.jsdelivr.net/npm/ol@9.2.4/layer/Tile.js";
-import OSM from "https://cdn.jsdelivr.net/npm/ol@9.2.4/source/OSM.js";
-import { fromLonLat, toLonLat } from "https://cdn.jsdelivr.net/npm/ol@9.2.4/proj.js";
+import { dispatch } from "./interop.js";
+
+// Version pinned so a build is reproducible.
+//
+// We load the *dist* bundle, not the per-module ESM sources under `ol@9.2.4/Map.js`.
+// Those are unbundled npm sources: internally they import bare specifiers (`rbush`,
+// `earcut`, `pbf`, …) which a browser cannot resolve without an import map, and the
+// module graph fails with "Failed to resolve module specifier \"rbush\"". Per-entry CDN
+// ESM bundles (jsDelivr `/+esm`) fix the specifiers but inline OpenLayers separately into
+// every entry, so `new TileLayer()` and `new Map()` would come from different copies of
+// the library and OpenLayers' internal instanceof checks would reject the layer.
+//
+// `dist/ol.js` is a single UMD build: one request, one copy, everything hanging off the
+// `ol` global (`ol.Map`, `ol.layer.Tile`, `ol.source.OSM`, `ol.proj.*`).
+const OL_BASE = "https://cdn.jsdelivr.net/npm/ol@9.2.4";
+
+let olLoad = null;
+
+// Resolves to the `ol` global, loading the bundle on first use. Rejects — and clears the
+// cached promise so a later map can retry — if the CDN is unreachable, which is what puts
+// a stated error in front of the user instead of a blank grey rectangle (§4.5).
+function loadOpenLayers() {
+    if (typeof window !== "undefined" && window.ol) return Promise.resolve(window.ol);
+    if (olLoad) return olLoad;
+
+    olLoad = new Promise((resolve, reject) => {
+        const existing = document.getElementById("openlayers-js");
+        const script = existing ?? document.createElement("script");
+        script.addEventListener("load", () => {
+            if (window.ol) {
+                resolve(window.ol);
+            } else {
+                reject(new Error("OpenLayers loaded but did not define the `ol` global."));
+            }
+        });
+        script.addEventListener("error", () => reject(new Error(`Could not load OpenLayers from ${OL_BASE}/dist/ol.js.`)));
+        if (!existing) {
+            script.id = "openlayers-js";
+            script.src = `${OL_BASE}/dist/ol.js`;
+            script.async = true;
+            document.head.appendChild(script);
+        }
+    });
+
+    olLoad.catch(() => { olLoad = null; });
+    return olLoad;
+}
 
 // OpenLayers ships CSS separately. Inject once per page.
 function ensureStylesheet() {
@@ -23,7 +64,7 @@ function ensureStylesheet() {
     const link = document.createElement("link");
     link.id = "openlayers-css";
     link.rel = "stylesheet";
-    link.href = "https://cdn.jsdelivr.net/npm/ol@9.2.4/ol.css";
+    link.href = `${OL_BASE}/ol.css`;
     document.head.appendChild(link);
 }
 
@@ -33,6 +74,12 @@ export async function createMap(hostElement, options, callbacks) {
     }
 
     ensureStylesheet();
+
+    const ol = await loadOpenLayers();
+    const { Map, View } = ol;
+    const TileLayer = ol.layer.Tile;
+    const OSM = ol.source.OSM;
+    const { fromLonLat, toLonLat } = ol.proj;
 
     hostElement.classList.remove("dlr-map-placeholder");
     hostElement.replaceChildren();
@@ -63,7 +110,7 @@ export async function createMap(hostElement, options, callbacks) {
         const [tlLon, tlLat] = toLonLat([extent[0], extent[3]]);
         const [brLon, brLat] = toLonLat([extent[2], extent[1]]);
         const dpr = window.devicePixelRatio || 1;
-        callbacks?.onViewportChanged?.({
+        dispatch(callbacks?.onViewportChanged, "OnViewportChanged", {
             topLeftLatitude: tlLat,
             topLeftLongitude: tlLon,
             bottomRightLatitude: brLat,
@@ -77,6 +124,16 @@ export async function createMap(hostElement, options, callbacks) {
     };
 
     map.on("moveend", emitViewport);
+
+    // A tap on the map, in lat / lon (§16.1). OpenLayers' "click" fires only for a real
+    // click — a drag that ends over the map does not raise it — so a pan never places a
+    // marker by accident.
+    map.on("click", (event) => {
+        if (!event.coordinate) return;
+        const [lon, lat] = toLonLat(event.coordinate);
+        dispatch(callbacks?.onMapClicked, "OnMapClicked", { latitude: lat, longitude: lon });
+    });
+
     // Kick one out immediately.
     setTimeout(emitViewport, 0);
 
@@ -92,6 +149,10 @@ export async function createMap(hostElement, options, callbacks) {
             emitViewport();
         },
         dispose() {
+            // Drop the callbacks first. Detaching the map can emit one last moveend, and by
+            // then C# has disposed the DotNetObjectReference — dispatching into it logs
+            // "no tracked object with id N" for a result nobody is waiting for.
+            callbacks = null;
             try { map.setTarget(null); } catch { /* already gone */ }
         },
     };

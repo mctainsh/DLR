@@ -34,6 +34,15 @@ public sealed class FakeMapInterop : IMapInterop
 
 	public event Action<MapViewport>? ViewportChanged;
 
+	public event Action<MapClick>? Clicked;
+
+	/// <summary>
+	/// Stands in for the user tapping the base map. The real modules raise this from a JS
+	/// SDK event; a bUnit test has no SDK, so it calls this directly.
+	/// </summary>
+	public void RaiseClick(double latitudeDeg, double longitudeDeg) =>
+		Clicked?.Invoke(new MapClick(latitudeDeg, longitudeDeg));
+
 	public ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		InitCount++;

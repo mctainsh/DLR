@@ -18,7 +18,7 @@
 	(§4.5) — the try/catch below is where that decision is made once for every provider.
 *@
 
-<div class="dlr-map-container">
+<div class="dlr-map-container @(OnMapClicked.HasDelegate ? "picking" : "")">
 	<div @ref="_host" class="dlr-map-base"></div>
 
 	@if (_viewport is { CanvasWidthPx: > 0 } vp)
@@ -51,14 +51,47 @@
 	/// <summary>Fired once the base map has attached and reported a viewport.</summary>
 	[Parameter] public EventCallback OnReady { get; set; }
 
+	/// <summary>
+	/// Fired when the user taps a point on the base map, in decimal degrees. Unset on the
+	/// live ride map — nothing there is placed by pointing — and set by the marker composer,
+	/// which is the one screen where a tap means "here" (§16.1).
+	/// </summary>
+	[Parameter] public EventCallback<MapClick> OnMapClicked { get; set; }
+
+	/// <summary>
+	/// Fired whenever the base map pans, zooms or rotates. Lets a caller carry the view the
+	/// user is actually looking at somewhere else — the live ride page hands it to the marker
+	/// composer so the picker opens on the same ground (§16.1).
+	/// </summary>
+	[Parameter] public EventCallback<MapViewport> OnViewportReported { get; set; }
+
 	private ElementReference _host;
 	private bool _initialised;
+	private MapCamera? _appliedCamera;
 	private string? _error;
 	private MapViewport? _viewport;
 
 	protected override void OnInitialized()
 	{
 		Map.ViewportChanged += OnViewportChanged;
+		Map.Clicked += OnMapClick;
+	}
+
+	/// <summary>
+	/// The camera is a parameter, so a caller that changes it expects the map to follow —
+	/// the alternative is every caller holding an <c>@@ref</c> just to move the view. Only
+	/// applies once the base map is attached; before that the new value is picked up by
+	/// <see cref="MapOptions"/> at init.
+	/// </summary>
+	protected override async Task OnParametersSetAsync()
+	{
+		// Non-null only once InitAsync has succeeded, so this is also the "is the base map
+		// attached yet" test — before that the new value is picked up by MapOptions at init.
+		if (_appliedCamera is { } applied && Camera != applied)
+		{
+			_appliedCamera = Camera;
+			await Map.SetCameraAsync(Camera);
+		}
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -73,6 +106,7 @@
 		try
 		{
 			await Map.InitAsync(_host, new MapOptions(Camera, ShowUserLocation));
+			_appliedCamera = Camera;
 			if (OnReady.HasDelegate)
 			{
 				await OnReady.InvokeAsync();
@@ -88,7 +122,25 @@
 	private void OnViewportChanged(MapViewport viewport)
 	{
 		_viewport = viewport;
-		_ = InvokeAsync(StateHasChanged);
+		_ = InvokeAsync(async () =>
+		{
+			StateHasChanged();
+			if (OnViewportReported.HasDelegate)
+			{
+				await OnViewportReported.InvokeAsync(viewport);
+			}
+		});
+	}
+
+	private void OnMapClick(MapClick click)
+	{
+		if (!OnMapClicked.HasDelegate)
+		{
+			return;
+		}
+		// The event arrives on whatever thread the JS interop callback lands on; the
+		// EventCallback has to be raised on the renderer's.
+		_ = InvokeAsync(() => OnMapClicked.InvokeAsync(click));
 	}
 
 	/// <summary>Move the base map's camera. The overlay re-registers via the next viewport event.</summary>
@@ -97,6 +149,7 @@
 	public async ValueTask DisposeAsync()
 	{
 		Map.ViewportChanged -= OnViewportChanged;
+		Map.Clicked -= OnMapClick;
 		if (_initialised)
 		{
 			await Map.DisposeAsync();
@@ -116,6 +169,12 @@
 		width: 100%;
 		height: 100%;
 		background: #eef1f520;
+	}
+	/* A map wired for picking says so with the pointer — the provider's own canvas sets
+	   its cursor, so this has to reach inside it. */
+	.dlr-map-container.picking .dlr-map-base,
+	.dlr-map-container.picking .dlr-map-base * {
+		cursor: crosshair;
 	}
 	.dlr-map-error {
 		margin-top: 0.5rem;

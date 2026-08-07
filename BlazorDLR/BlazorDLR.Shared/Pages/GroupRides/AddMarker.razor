@@ -1,5 +1,7 @@
 @page "/group-rides/{RideId:guid}/markers/new"
 @attribute [Authorize]
+@using BlazorDLR.Shared.Components
+@using BlazorDLR.Shared.Markers
 @using DLR.Core.Contracts.Markers
 @using DLR.Core.Contracts.Photos
 @using DLR.Core.Contracts.Rides
@@ -19,6 +21,11 @@
 	  2. Icon key is a string from the curated set, and the client renders the label
 		 (§16.2). An unknown key would degrade to `note` if this UI ever hit one.
 
+	The point is placed by tapping the map (§16.1) — the coordinate boxes stay, because
+	a hand-typed fix off a GPS unit is a real workflow, but nobody should have to reach
+	for one to drop a "gravel on the corner" pin. Map and boxes are two views of the same
+	two numbers: a tap writes them, editing them moves the camera.
+
 	Photo attaches through PATCH /markers/{id}/photo after upload (§16.4). Web callers
 	reach the file through <InputFile>; phones can also use IMediaPicker (Phase 2 keeps
 	<InputFile> as the shared path — it works on every host).
@@ -30,33 +37,49 @@
 	<h1>Add marker</h1>
 
 	<form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
-		<label>
-			Latitude (degrees)
-			<input @bind="_latDeg" type="number" step="0.00001" required />
-		</label>
-		<label>
-			Longitude (degrees)
-			<input @bind="_lonDeg" type="number" step="0.00001" required />
-		</label>
+		<fieldset class="place">
+			<legend>Where</legend>
 
-		<fieldset>
-			<legend>Icon</legend>
-			<div class="icons">
-				@foreach (string key in MarkerIcons.Known.OrderBy(k => k))
+			<div class="picker">
+				<RideMap Camera="_camera" Markers="_preview" OnMapClicked="OnMapClicked" />
+			</div>
+
+			<p class="hint">
+				@if (_placed)
 				{
-					<label class="icon-choice @(key == _icon ? "selected" : "")">
-						<input type="radio" name="icon" value="@key"
-							   checked="@(key == _icon)"
-							   @onchange="() => _icon = key" />
-						@key
-					</label>
+					<span>Tap the map again to move the pin, or type the coordinates below.</span>
 				}
+				else
+				{
+					<span>Tap the map to place the pin. The coordinate boxes below follow it.</span>
+				}
+			</p>
+
+			<div class="coords">
+				<label>
+					Latitude (degrees)
+					<input @bind="_latDeg" @bind:after="OnCoordinateTyped" type="number" step="0.00001" required />
+				</label>
+				<label>
+					Longitude (degrees)
+					<input @bind="_lonDeg" @bind:after="OnCoordinateTyped" type="number" step="0.00001" required />
+				</label>
 			</div>
 		</fieldset>
 
 		<label>
+			Icon
+			<select class="icon-picker" @bind="_icon" @bind:after="RebuildPreview" style="padding:10px;">
+				@foreach (MarkerIconOption option in MarkerIconGlyphs.PickerOptions)
+				{
+					<option value="@option.Key">@option.Emoji &nbsp; @option.Label</option>
+				}
+			</select>
+		</label>
+
+		<label>
 			Title
-			<input @bind="_title" required maxlength="40" placeholder="Gravel on the corner" />
+			<input @bind="_title" @bind:after="RebuildPreview" required maxlength="40" placeholder="Gravel on the corner" />
 		</label>
 
 		<label>
@@ -68,14 +91,14 @@
 		<fieldset>
 			<legend>Direction</legend>
 			<label class="switch">
-				<input type="checkbox" @bind="_hasDirection" />
+				<input type="checkbox" @bind="_hasDirection" @bind:after="RebuildPreview" />
 				Has a direction to face
 			</label>
 			@if (_hasDirection)
 			{
 				<label>
 					Bearing (degrees clockwise from north — 0 is north, 90 east)
-					<input @bind="_directionDeg" type="number" min="0" max="359" required />
+					<input @bind="_directionDeg" @bind:after="RebuildPreview" type="number" min="0" max="359" required />
 				</label>
 			}
 		</fieldset>
@@ -124,9 +147,31 @@
 @code {
 	[Parameter] public Guid RideId { get; set; }
 
+	/// <summary>
+	/// The view the ride map was showing when "Add marker" was pressed (§16.1). The composer
+	/// opens on the same ground, because the place you want to mark is almost always the
+	/// place you were just looking at. Absent when the composer is reached by URL.
+	/// </summary>
+	[SupplyParameterFromQuery(Name = "lat")] public double? ViewLatitude { get; set; }
+
+	/// <inheritdoc cref="ViewLatitude" />
+	[SupplyParameterFromQuery(Name = "lon")] public double? ViewLongitude { get; set; }
+
+	/// <inheritdoc cref="ViewLatitude" />
+	[SupplyParameterFromQuery(Name = "zoom")] public double? ViewZoom { get; set; }
+
+	/// <summary>
+	/// The pin being composed. A fixed id so the overlay upserts the same marker on every
+	/// repaint rather than accumulating one per keystroke; it never reaches the server,
+	/// which mints the real id on create.
+	/// </summary>
+	private static readonly Guid PreviewId = new("00000000-0000-0000-0000-0000000000ff");
+
 	private double _latDeg = -33.868;
 	private double _lonDeg = 151.209;
-	private string _icon = "note";
+	private MapCamera _camera = new(-33.868, 151.209, 14);
+	private bool _placed;
+	private string _icon = MarkerIcons.Fallback;
 	private string _title = string.Empty;
 	private string _note = string.Empty;
 	private bool _hasDirection;
@@ -134,6 +179,126 @@
 	private PickedPhoto? _photo;
 	private ApiError? _error;
 	private bool _busy;
+
+	/// <summary>
+	/// The composer's own state drawn as the overlay's only marker.
+	/// <para>
+	/// Rebuilt when the pin changes, not per render. A fresh reference is what tells
+	/// <c>RideMap</c> to repaint, so it has to be a new dictionary each time — but building
+	/// one on every render meant every unrelated edit (a keystroke in the note, picking a
+	/// photo, the busy flag) repainted the map canvas too.
+	/// </para>
+	/// </summary>
+	private IReadOnlyDictionary<Guid, MapMarker> _preview = EmptyPreview;
+
+	private static readonly IReadOnlyDictionary<Guid, MapMarker> EmptyPreview =
+		new Dictionary<Guid, MapMarker>();
+
+	private void RebuildPreview() => _preview = new Dictionary<Guid, MapMarker>
+	{
+		[PreviewId] = new MapMarker(
+			Id: PreviewId,
+			Latitude: _latDeg,
+			Longitude: _lonDeg,
+			IconKey: _icon,
+			Title: string.IsNullOrWhiteSpace(_title) ? "New marker" : _title.Trim(),
+			DirectionDeg: _hasDirection ? _directionDeg : null),
+	};
+
+	/// <summary>
+	/// Quantises to the wire's resolution, so the number in the coordinate box is exactly the
+	/// one that will be stored rather than one that shifts on save.
+	/// </summary>
+	private static double Snap(double degrees) =>
+		PositionScale.ToDegrees(PositionScale.FromDegrees(degrees));
+
+	/// <summary>
+	/// Open the picker over the ride, not over a hard-coded default. A composer that
+	/// starts on the wrong side of the country makes tap-to-place useless.
+	/// <para>
+	/// Best source is the view the rider was just looking at, handed over on the query
+	/// string. Failing that, centre on whatever of this ride is already mapped — its
+	/// markers first, then the riders' last fixes. A ride with neither keeps the default
+	/// and the author pans.
+	/// </para>
+	/// </summary>
+	protected override async Task OnInitializedAsync()
+	{
+		RebuildPreview();
+
+		if (ViewLatitude is { } viewLat && ViewLongitude is { } viewLon)
+		{
+			_latDeg = Snap(viewLat);
+			_lonDeg = Snap(viewLon);
+			_camera = new MapCamera(_latDeg, _lonDeg, ViewZoom ?? DefaultZoom);
+			RebuildPreview();
+			return;
+		}
+
+		try
+		{
+			IReadOnlyList<MarkerDto> markers = await Api.ListRideMarkersAsync(RideId);
+			if (TryCentreOn(markers.Select(m => (PositionScale.ToDegrees(m.Lat), PositionScale.ToDegrees(m.Lon)))))
+			{
+				return;
+			}
+
+			IReadOnlyList<RiderPositionDto> positions = await Api.GetPositionsSnapshotAsync(RideId);
+			TryCentreOn(positions.Select(p => (PositionScale.ToDegrees(p.Lat), PositionScale.ToDegrees(p.Lon))));
+		}
+		catch
+		{
+			// Centring is a convenience, never a precondition. A ride we cannot read still
+			// gets a working picker at the default camera.
+		}
+	}
+
+	/// <summary>
+	/// Mean of the supplied points. Naive across the antimeridian, which no group ride
+	/// spans — and the worst case is a camera the author has to pan, not a wrong marker.
+	/// </summary>
+	private bool TryCentreOn(IEnumerable<(double Lat, double Lon)> points)
+	{
+		List<(double Lat, double Lon)> found = points.ToList();
+		if (found.Count == 0)
+		{
+			return false;
+		}
+
+		_latDeg = Snap(found.Average(p => p.Lat));
+		_lonDeg = Snap(found.Average(p => p.Lon));
+		_camera = new MapCamera(_latDeg, _lonDeg, DefaultZoom);
+		RebuildPreview();
+		return true;
+	}
+
+	/// <summary>Where the picker opens when nothing better is known. Street-level, not continent-level.</summary>
+	private const double DefaultZoom = 14;
+
+	/// <summary>A tap on the base map is the marker's point (§16.1).</summary>
+	private void OnMapClicked(MapClick click)
+	{
+		_latDeg = Snap(click.Latitude);
+		_lonDeg = Snap(click.Longitude);
+		_placed = true;
+		RebuildPreview();
+		// Deliberately no camera move: the tapped point is on screen already, and shifting
+		// the view under someone's finger sends the next tap somewhere they did not choose.
+	}
+
+	/// <summary>
+	/// The coordinate boxes are the other half of the same two numbers — typing one moves
+	/// the camera so the pin does not vanish off the edge of the map. <c>@@bind</c> has
+	/// already parsed the value invariantly by the time this runs.
+	/// </summary>
+	private void OnCoordinateTyped()
+	{
+		_latDeg = Snap(_latDeg);
+		_lonDeg = Snap(_lonDeg);
+		_placed = true;
+		_camera = new MapCamera(_latDeg, _lonDeg, _camera.ZoomLevel);
+		RebuildPreview();
+	}
 
 	private async Task OnPhotoSelected(InputFileChangeEventArgs args)
 	{
@@ -204,32 +369,35 @@
 }
 
 <style>
-	.page .icons {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem;
+	/* The picker is the primary control on this fieldset, so it gets real height —
+	   a map you have to squint at is worse than typing the numbers. */
+	.page .picker {
+		position: relative;
+		height: 22rem;
 	}
 
-	.page .icon-choice {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		padding: 0.3rem 0.6rem;
-		background: #fff2;
-		border: 1px solid #e5e7eb;
-		border-radius: 4px;
-		font-size: 0.85rem;
-		margin: 0;
-		cursor: pointer;
+		.page .picker .dlr-map-container {
+			min-height: 0;
+			height: 100%;
+		}
+
+	.page .coords {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
 	}
 
-		.page .icon-choice.selected {
-			background: #dbeafe;
-			border-color: #2563eb;
+	@@media (max-width: 480px) {
+		.page .coords {
+			grid-template-columns: 1fr;
 		}
+	}
 
-		.page .icon-choice input {
-			width: auto;
-			margin: 0;
-		}
+	/* The emoji has to carry the meaning at a glance, so it is set larger than the
+	   label beside it — the two are one line of text, not an icon plus a caption. */
+	.page .icon-picker {
+		font-size: 1.05rem;
+		line-height: 1.6;
+	}
 </style>

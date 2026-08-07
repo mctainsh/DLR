@@ -25,7 +25,7 @@ public sealed class GoogleMapsInterop : IMapInterop
 
 	private IJSObjectReference? _module;
 	private IJSObjectReference? _map;
-	private DotNetObjectReference<ViewportBridge>? _bridge;
+	private DotNetObjectReference<MapBridge>? _bridge;
 
 	public GoogleMapsInterop(IJSRuntime js, GoogleMapsApiKey key)
 	{
@@ -40,10 +40,15 @@ public sealed class GoogleMapsInterop : IMapInterop
 	public event Action<MapViewport>? ViewportChanged;
 
 	/// <inheritdoc />
+	public event Action<MapClick>? Clicked;
+
+	/// <inheritdoc />
 	public async ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		_module ??= await _js.InvokeAsync<IJSObjectReference>("import", cancellationToken, ModulePath);
-		_bridge = DotNetObjectReference.Create(new ViewportBridge(v => ViewportChanged?.Invoke(v)));
+		_bridge = DotNetObjectReference.Create(new MapBridge(
+			v => ViewportChanged?.Invoke(v),
+			c => Clicked?.Invoke(c)));
 
 		_map = await _module.InvokeAsync<IJSObjectReference>("createMap", cancellationToken, host, new
 		{
@@ -53,7 +58,7 @@ public sealed class GoogleMapsInterop : IMapInterop
 			headingDeg = options.Camera.HeadingDeg,
 			showUserLocation = options.ShowUserLocation,
 			apiKey = _apiKey,
-		}, new { onViewportChanged = _bridge });
+		}, new { onViewportChanged = _bridge, onMapClicked = _bridge });
 	}
 
 	/// <inheritdoc />
@@ -78,6 +83,14 @@ public sealed class GoogleMapsInterop : IMapInterop
 		}
 		_bridge?.Dispose();
 		_bridge = null;
+
+		// One interop instance per <RideMap>, so an undisposed module reference would leak
+		// a tracked JS object on every navigation into a ride page.
+		if (_module is not null)
+		{
+			try { await _module.DisposeAsync(); } catch { /* WebView already gone */ }
+			_module = null;
+		}
 	}
 
 	private async ValueTask Call(string method, CancellationToken cancellationToken, object? argument)
@@ -90,14 +103,6 @@ public sealed class GoogleMapsInterop : IMapInterop
 		await _map.InvokeVoidAsync(method, cancellationToken, argument);
 	}
 
-	private sealed class ViewportBridge
-	{
-		private readonly Action<MapViewport> _forward;
-		public ViewportBridge(Action<MapViewport> forward) => _forward = forward;
-
-		[JSInvokable]
-		public void OnViewportChanged(MapViewport viewport) => _forward(viewport);
-	}
 }
 
 /// <summary>

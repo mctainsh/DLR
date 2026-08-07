@@ -7,6 +7,8 @@
 // via `options.apiKey`. The key is not compiled into the app; it is a config value on
 // the host, and §14.2 has the rules about where it lives (never `appsettings.json`).
 
+import { dispatch } from "./interop.js";
+
 const SCRIPT_ID = "google-maps-js";
 let loadPromise = null;
 
@@ -77,7 +79,7 @@ export async function createMap(hostElement, options, callbacks) {
         const sw = bounds.getSouthWest();
         const rect = hostElement.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        callbacks?.onViewportChanged?.({
+        dispatch(callbacks?.onViewportChanged, "OnViewportChanged", {
             topLeftLatitude: ne.lat(),
             topLeftLongitude: sw.lng(),
             bottomRightLatitude: sw.lat(),
@@ -91,6 +93,17 @@ export async function createMap(hostElement, options, callbacks) {
     };
 
     map.addListener("idle", emitViewport);
+
+    // A tap on the map, in lat / lon (§16.1). Google raises "click" only for a tap, not
+    // for the mouse-up that ends a pan, so dragging the map never places a marker.
+    map.addListener("click", (event) => {
+        if (!event?.latLng) return;
+        dispatch(callbacks?.onMapClicked, "OnMapClicked", {
+            latitude: event.latLng.lat(),
+            longitude: event.latLng.lng(),
+        });
+    });
+
     // Kick one out immediately.
     setTimeout(emitViewport, 0);
 
@@ -103,6 +116,9 @@ export async function createMap(hostElement, options, callbacks) {
             emitViewport();
         },
         dispose() {
+            // Drop the callbacks first — teardown can emit one last idle event, and by then
+            // C# has disposed the DotNetObjectReference it would dispatch into.
+            callbacks = null;
             // Google Maps has no explicit destroy, but detaching from the DOM and letting
             // GC run is the documented pattern.
             hostElement.replaceChildren();

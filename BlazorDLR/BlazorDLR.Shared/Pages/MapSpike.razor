@@ -1,5 +1,6 @@
 @page "/map-spike"
 @using BlazorDLR.Shared.Components
+@using BlazorDLR.Shared.Markers
 @using BlazorDLR.Shared.Services
 @inject TimeProvider Clock
 @inject IMapInterop Map
@@ -114,9 +115,10 @@
 			Id: DeterministicGuid(index),
 			Latitude: lat,
 			Longitude: lon,
-			IconKey: "note",
+			IconKey: string.Empty,
 			Title: $"Rider {index + 1}",
-			DirectionDeg: (angle * 57.2958) % 360.0);
+			DirectionDeg: (angle * 57.2958) % 360.0,
+			Kind: MarkerKind.Rider);
 	}
 
 	// Same GUID for a given index across every tick, so the overlay updates the same

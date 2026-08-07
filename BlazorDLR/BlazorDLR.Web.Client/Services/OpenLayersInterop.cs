@@ -16,7 +16,7 @@ public sealed class OpenLayersInterop : IMapInterop
 	private readonly IJSRuntime _js;
 	private IJSObjectReference? _module;
 	private IJSObjectReference? _map;
-	private DotNetObjectReference<ViewportBridge>? _bridge;
+	private DotNetObjectReference<MapBridge>? _bridge;
 
 	public OpenLayersInterop(IJSRuntime js)
 	{
@@ -30,10 +30,15 @@ public sealed class OpenLayersInterop : IMapInterop
 	public event Action<MapViewport>? ViewportChanged;
 
 	/// <inheritdoc />
+	public event Action<MapClick>? Clicked;
+
+	/// <inheritdoc />
 	public async ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		_module ??= await _js.InvokeAsync<IJSObjectReference>("import", cancellationToken, ModulePath);
-		_bridge = DotNetObjectReference.Create(new ViewportBridge(v => ViewportChanged?.Invoke(v)));
+		_bridge = DotNetObjectReference.Create(new MapBridge(
+			v => ViewportChanged?.Invoke(v),
+			c => Clicked?.Invoke(c)));
 
 		_map = await _module.InvokeAsync<IJSObjectReference>("createMap", cancellationToken, host, new
 		{
@@ -42,7 +47,7 @@ public sealed class OpenLayersInterop : IMapInterop
 			zoomLevel = options.Camera.ZoomLevel,
 			headingDeg = options.Camera.HeadingDeg,
 			showUserLocation = options.ShowUserLocation,
-		}, new { onViewportChanged = _bridge });
+		}, new { onViewportChanged = _bridge, onMapClicked = _bridge });
 	}
 
 	/// <inheritdoc />
@@ -67,6 +72,14 @@ public sealed class OpenLayersInterop : IMapInterop
 		}
 		_bridge?.Dispose();
 		_bridge = null;
+
+		// One interop instance per <RideMap>, so an undisposed module reference would leak
+		// a tracked JS object on every navigation into a ride page.
+		if (_module is not null)
+		{
+			try { await _module.DisposeAsync(); } catch { /* circuit already gone */ }
+			_module = null;
+		}
 	}
 
 	private async ValueTask Call(string method, CancellationToken cancellationToken, object? argument)
@@ -79,17 +92,4 @@ public sealed class OpenLayersInterop : IMapInterop
 		await _map.InvokeVoidAsync(method, cancellationToken, argument);
 	}
 
-	/// <summary>
-	/// The JS module cannot call an event on a C# class directly, but it can call one method
-	/// on a <see cref="DotNetObjectReference"/>. This bridge is what turns that call back
-	/// into the <see cref="ViewportChanged"/> event the shared component listens to.
-	/// </summary>
-	private sealed class ViewportBridge
-	{
-		private readonly Action<MapViewport> _forward;
-		public ViewportBridge(Action<MapViewport> forward) => _forward = forward;
-
-		[JSInvokable]
-		public void OnViewportChanged(MapViewport viewport) => _forward(viewport);
-	}
 }

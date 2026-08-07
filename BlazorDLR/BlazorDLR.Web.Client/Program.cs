@@ -95,7 +95,13 @@ internal class Program
 
 		// OpenLayers + OSM is the web's base map (§4.5 v0.21, §18.3). Base-map role
 		// only; every rider pin, marker and track goes into the shared Skia overlay.
-		builder.Services.AddScoped<IMapInterop, OpenLayersInterop>();
+		// Transient, not scoped: one interop instance per <RideMap>, because each instance
+		// owns a JS map and a DotNetObjectReference bridge. Shared scoped, navigating
+		// ride → marker composer let the outgoing RideMap's DisposeAsync tear down the
+		// *incoming* one's bridge — the JS map lived on and every viewport and click then
+		// died against "no tracked object with id N", so the map drew but nothing it
+		// reported ever reached C#.
+		builder.Services.AddTransient<IMapInterop, OpenLayersInterop>();
 
 		// Theme preference (§18.6): dark by default, persisted in browser localStorage.
 		// ThemeState broadcasts changes to the layout so the data-theme attribute updates

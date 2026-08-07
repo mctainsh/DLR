@@ -8,6 +8,8 @@
 // The C# side (`AppleMapsInterop.cs`) mints the JWT server-side (GET /api/v1/maps/token,
 // §4.5) and passes it in as `options.token`; the .p8 private key never touches this file.
 
+import { dispatch } from "./interop.js";
+
 const MAPKIT_SCRIPT_ID = "mapkit-js";
 const MAPKIT_URL = "https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js";
 
@@ -75,7 +77,7 @@ export async function createMap(hostElement, options, callbacks) {
         if (!region) return;
         const rect = hostElement.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        callbacks?.onViewportChanged?.({
+        dispatch(callbacks?.onViewportChanged, "OnViewportChanged", {
             topLeftLatitude: region.center.latitude + region.span.latitudeDelta / 2,
             topLeftLongitude: region.center.longitude - region.span.longitudeDelta / 2,
             bottomRightLatitude: region.center.latitude - region.span.latitudeDelta / 2,
@@ -91,6 +93,20 @@ export async function createMap(hostElement, options, callbacks) {
     map.addEventListener("region-change-end", emitViewport);
     map.addEventListener("rotate-end", emitViewport);
 
+    // A tap on the map, in lat / lon (§16.1). MapKit reports the tap in page coordinates;
+    // `convertPointOnPageToCoordinate` is the documented way back to a coordinate, and it
+    // accounts for the map's own rotation, which a manual pixel projection would not.
+    map.addEventListener("single-tap", (event) => {
+        const point = event?.pointOnPage;
+        if (!point) return;
+        const coordinate = map.convertPointOnPageToCoordinate(point);
+        if (!coordinate) return;
+        dispatch(callbacks?.onMapClicked, "OnMapClicked", {
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude,
+        });
+    });
+
     // Kick one out immediately so the overlay has a starting frame.
     setTimeout(emitViewport, 0);
 
@@ -105,6 +121,9 @@ export async function createMap(hostElement, options, callbacks) {
             emitViewport();
         },
         dispose() {
+            // Drop the callbacks first — destroy can emit one last region-change-end, and by
+            // then C# has disposed the DotNetObjectReference it would dispatch into.
+            callbacks = null;
             try { map.destroy(); } catch { /* already gone */ }
         },
     };

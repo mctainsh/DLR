@@ -55,7 +55,8 @@
 
 		<div class="grid">
 			<div class="map-panel">
-				<RideMap Camera="_camera" Markers="_markerLayer" ShowUserLocation="false" />
+				<RideMap Camera="_camera" Markers="_markerLayer" ShowUserLocation="false"
+						 OnViewportReported="OnMapViewportReported" />
 			</div>
 
 			<aside class="side">
@@ -86,7 +87,7 @@
 					<a href="/group-rides/@RideId/thread">Ride thread</a>
 					@if (_ride.Permissions.AllowMemberMarkers || _ride.IsOrganiser)
 					{
-						<a href="/group-rides/@RideId/markers/new">Add marker</a>
+						<a href="/group-rides/@RideId/markers/new" @onclick="GoToComposer" @onclick:preventDefault="true">Add marker</a>
 					}
 					@if (_ride.State == RideStateDto.Live)
 					{
@@ -156,6 +157,7 @@
 	private RideDetail? _ride;
 	private string? _error;
 	private MapCamera _camera = new(-33.868, 151.209, 11);
+	private MapViewport? _mapViewport;
 	private readonly Dictionary<Guid, MapMarker> _markerLayer = new();
 	private readonly Dictionary<Guid, MarkerDto> _markers = new();
 	private readonly Dictionary<Guid, RiderPositionDto> _positions = new();
@@ -174,6 +176,41 @@
 	private bool _busy;
 
 	private string Title => _ride?.Name ?? "Ride";
+
+	/// <summary>
+	/// Opens the marker composer on the view the rider is actually looking at, so the picker
+	/// starts on the same ground rather than on a default somewhere else entirely (§16.1).
+	/// <para>
+	/// Built at click time, not baked into the <c>href</c>. Keeping an href current would
+	/// mean re-rendering this page on every pan — and a render here re-runs
+	/// <see cref="GapList"/>'s projection for every rider against the whole route polyline,
+	/// which is the most expensive thing on the screen. Nobody needs a fresh URL until the
+	/// moment they click.
+	/// </para>
+	/// </summary>
+	private void GoToComposer()
+	{
+		string composer = $"/group-rides/{RideId}/markers/new";
+
+		if (_mapViewport is not { CanvasWidthPx: > 0 } vp)
+		{
+			// No viewport yet: the composer's own ride-centred fallback takes over.
+			Nav.NavigateTo(composer);
+			return;
+		}
+
+		// GetUriWithQueryParameters handles invariant formatting and escaping, and survives a
+		// route rename better than string concatenation.
+		Nav.NavigateTo(Nav.GetUriWithQueryParameters(composer, new Dictionary<string, object?>
+		{
+			["lat"] = Math.Round(vp.CentreLatitude, 5),
+			["lon"] = Math.Round(vp.CentreLongitude, 5),
+			["zoom"] = Math.Round(vp.ZoomLevel, 2),
+		}));
+	}
+
+	// Pure field assignment: nothing on screen depends on it until GoToComposer reads it.
+	private void OnMapViewportReported(MapViewport viewport) => _mapViewport = viewport;
 
 	protected override async Task OnParametersSetAsync()
 	{
@@ -371,9 +408,10 @@
 				Id: position.UserId,
 				Latitude: PositionScale.ToDegrees(position.Lat),
 				Longitude: PositionScale.ToDegrees(position.Lon),
-				IconKey: "rider",
+				IconKey: string.Empty,
 				Title: string.IsNullOrEmpty(position.UserName) ? "?" : position.UserName,
-				DirectionDeg: position.HeadingDeg);
+				DirectionDeg: position.HeadingDeg,
+				Kind: MarkerKind.Rider);
 		}
 		foreach (MarkerDto marker in _markers.Values)
 		{

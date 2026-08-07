@@ -140,7 +140,9 @@ builder.Services.AddScoped<ITokenStore, CookieBackedTokenStore>();
 builder.Services.AddScoped<ILocationProvider, NoopLocationProvider>();
 builder.Services.AddScoped<INotificationService, NoopNotificationService>();
 builder.Services.AddScoped<IMediaPicker, NoopMediaPicker>();
-builder.Services.AddScoped<IMapInterop, UninitialisedMapInterop>();
+// Transient to match the interactive hosts: one interop per <RideMap>. Stateless here, but a
+// lifetime that differs between the prerender and the client it hands off to is a trap.
+builder.Services.AddTransient<IMapInterop, UninitialisedMapInterop>();
 builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Apple));
 builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Google));
 
