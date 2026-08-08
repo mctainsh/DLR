@@ -2,28 +2,44 @@
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
+@using BlazorDLR.Shared.Tracks
 @using DLR.Core.Contracts.Tracks
 @using DLR.Core.Tracks
 @inject IApiClient Api
-@inject IFormFactor FormFactor
+@inject ConfirmService Confirm
 @inject NavigationManager Nav
 
 <PageTitle>Edit track — Dumb Luck Routes</PageTitle>
 
 @*
-	Web-only track editor (§15.5). This page renders on the phone but the composer is
-	hidden — trimming is deliberately a big-screen task (§6.1, §13 Q15).
+	The track editor (§15.5), on every host.
 
-	Three rules this page encodes:
+	§6.1 and §13 Q15 originally made this web-only: trimming was judged a big-screen task
+	and the phone got a note pointing at a desktop browser. That gate is gone — the screen
+	a rider has with them at the end of a ride is the phone, and "open a laptop to cut the
+	drive home off your track" is a worse answer than a cramped one.
+
+	Four rules this page encodes:
 	  1. Removals are half-open ranges of RAW indices (§15.5), not indices into the
-		 simplified polyline the map draws. The raw-versus-simplified distinction is
-		 the single most important implementation constraint in §15.5 and this page
-		 works against the raw point list from GET /tracks/{id}/points.
-	  2. Distance/duration/ascent are recomputed by the server, not adjusted (§15.7).
-		 The old and new numbers appear side by side before commit — the number
-		 changing is the whole point of trimming a lunch stop.
-	  3. Undo is a 7-day window on ONE retained original (§15.6). "Remove the original
-		 now" is offered so someone who just trimmed their house does not have to wait.
+		 simplified polyline the map draws. The raw-versus-simplified distinction is the
+		 single most important implementation constraint in §15.5, and it is why the tap
+		 lands on a point of the RAW list from GET /tracks/{id}/points even though what
+		 the rider sees is the simplified line.
+	  2. Nothing goes to the server until Apply. Trims accumulate in a TrackTrimSession,
+		 undoable a step at a time back to the track as loaded — the rider can overshoot,
+		 look at it, and walk it back without a round trip. A trim takes the cursor point
+		 with it and leaves the cursor on the new edge, so holding a button chews along
+		 the track instead of biting the same span twice; undo puts the cursor back where
+		 it was as well as the points.
+	  3. Apply is permanent. One request, and the client-side history is gone with the
+		 session. The server keeps its own retained original (§15.6) and the API to reach
+		 it still exists, but this page does not offer it: an undo button that appears
+		 after the point of no return is an undo button that will be trusted at the wrong
+		 moment. The confirm dialog is where that decision is made instead.
+	  4. Distance/duration/ascent are recomputed by the server, not adjusted (§15.7). The
+		 old and new numbers appear side by side after a commit — the number changing is
+		 the whole point of trimming a lunch stop.
 *@
 
 <div class="page page-medium editor">
@@ -31,16 +47,7 @@
 
 	<h1>Edit track</h1>
 
-	@if (!IsWeb)
-	{
-		<div class="mobile-note">
-			<strong>Track editing lives on the web.</strong>
-			It needs a mouse and a big map — a phone-sized screen is not a good fit for
-			picking spans of the ride to remove. Open this page in a desktop browser to
-			edit; the download button on the ride page still exports the raw file.
-		</div>
-	}
-	else if (_track is null && _error is null)
+	@if (_session is null && _error is null)
 	{
 		<p class="empty">Loading…</p>
 	}
@@ -48,109 +55,116 @@
 	{
 		<p class="error">@_error</p>
 	}
-	else if (_points is not null && _track is not null)
+	else if (_session is { } session && _track is not null)
 	{
+		@if (_applied is { } applied)
+		{
+			<div class="result" role="status">
+				<strong>Applied.</strong>
+				Distance <strong>@FormatKm(applied.Track.DistanceM)</strong>
+				(was @FormatKm(applied.PreviousDistanceM)).
+				Points <strong>@applied.Track.PointCount</strong>
+				(was @applied.PreviousPointCount).
+				This cannot be undone from here.
+			</div>
+		}
+
 		<p class="lead">
-			Add index ranges to remove — the numbers are point indices in the raw track.
-			Point count: <strong>@_points.PointCount</strong>.
-			Version: <strong>@_points.Version</strong>.
+			Tap the track to put the cursor on a point, then trim away from it. Each trim takes
+			the cursor point with it and leaves the cursor on the new edge, so pressing again
+			carries on from where the last one stopped.
+			<strong>@session.SurvivingIndices.Count</strong> of @session.Points.Count points remain.
 		</p>
 
 		@*
-			The line under the numbers. This is the SIMPLIFIED polyline from
-			GET /tracks/{id} — display only, exactly as the ride page draws it — while the
-			indices typed below address the raw points (§15.5). Drawing the raw stream here
-			instead would be tens of thousands of segments repainted on every pan for a line
-			the eye cannot tell apart, and would invite reading a point off the picture and
-			typing its position as an index, which is the one mistake §15.5 exists to prevent.
+			The line under the cursor is the SIMPLIFIED shape of what survives — 43 000
+			segments repainted on every pan of a long tour is not a map (§15.5). The cursor
+			marker is drawn at the exact raw point it sits on, so what the rider is aiming
+			at is never the simplified approximation.
+
+			A removed span shows as a straight line joining its two sides. That is honest
+			feedback about what was cut, and it is also where this drawing differs from the
+			server's: an interior cut becomes a segment break there (§15.3), which one
+			polyline overlay cannot express.
 		*@
-		<RideMap Camera="_mapCamera" Route="_route" />
+		<RideMap Camera="_mapCamera" Route="_route" Markers="_cursorLayer"
+				 OnMapClicked="OnMapTapped" OnViewportReported="OnViewportReported" />
 
-		<fieldset>
-			<legend>Add a removal</legend>
-			<label>
-				From index (inclusive)
-				<input @bind="_pendingFrom" type="number" min="0" />
-			</label>
-			<label>
-				To index (exclusive)
-				<input @bind="_pendingTo" type="number" min="1" />
-			</label>
-			<button type="button" class="primary" @onclick="AddRemovalAsync">Add range</button>
-		</fieldset>
-
-		@if (_removals.Count > 0)
+		@if (session.Cursor is { } cursor)
 		{
-			<ul class="ranges">
-				@foreach ((IndexRange range, int index) in _removals.Select((r, i) => (r, i)))
-				{
-					<li>
-						Remove <strong>@range.From – @range.To</strong>
-						(@(range.To - range.From) points)
-						<button type="button" class="primary" @onclick="() => _removals.RemoveAt(index)">×</button>
-					</li>
-				}
-			</ul>
-		}
+			<div class="trim">
+					<div class="cursor">Trim : Cursor on point <strong>@cursor</strong></div>
+					<div>
+						<span class="side-label m-0">◀ Back</span>
+						<button type="button" class="primary" disabled="@_busy" @onclick="() => Trim(back: true, count: 10)">◀ 10</button>
+						<button type="button" class="primary" disabled="@_busy" @onclick="() => Trim(back: true, count: 1)">◀ 1</button>
 
-		<button type="button" class="primary" disabled="@(_busy || _removals.Count == 0)"
-				@onclick="CommitAsync">
-			@(_busy ? "Applying…" : $"Apply {_removals.Count} removal(s)")
-		</button>
+						<button type="button" class="primary" disabled="@(_busy || !session.HasEdits)"
+								@onclick="Undo">
+							Undo@(session.StepCount > 0 ? $" ({session.StepCount})" : "")
+						</button>
 
-		@if (_editResult is not null && _before is { } before)
-		{
-			<div class="result">
-				<h3>Applied.</h3>
-				<p>
-					Distance: <strong>@FormatKm(_editResult.Track.DistanceM)</strong>
-					(was @FormatKm(before.DistanceM)).
-					Points: <strong>@_editResult.Track.PointCount</strong>
-					(was @before.PointCount).
-				</p>
-				@if (_editResult.UndoAvailableUntilUtc is { } undoUntil)
-				{
-					<p>
-						The pre-edit version is retained until <strong>@undoUntil.ToLocalTime().ToString("d MMM HH:mm")</strong>.
-						Nightly backups still contain it until they roll out.
-					</p>
-					<button type="button" class="primary" @onclick="UndoAsync" disabled="@_busy">Undo</button>
-					<button type="button" class="danger" @onclick="PurgeAsync" disabled="@_busy">Remove the original now</button>
-				}
-				<button type="button" class="primary" @onclick="BackToRide">Back to ride</button>
+						<button type="button" class="primary" disabled="@_busy" @onclick="() => Trim(back: false, count: 1)"> 1 ▶</button>
+						<button type="button" class="primary" disabled="@_busy" @onclick="() => Trim(back: false, count: 10)"> 10 ▶</button>
+						<span class="side-label m-0">Forward ▶</span>
+				</div>		
 			</div>
 		}
+		else
+		{
+			<p class="hint">Tap a point on the track to place the cursor.</p>
+		}
+
+		@if (_notice is not null)
+		{
+			<p class="error" role="alert">@_notice</p>
+		}
+
+		<div class="commit">
+			<button type="button" class="danger" disabled="@(_busy || !session.HasEdits)"
+					@onclick="ApplyAsync">
+				@(_busy ? "Applying…" : $"Apply — remove {session.StruckCount} point(s)")
+			</button>
+		</div>
+
+		<p class="warning">
+			Nothing is sent until you hit Apply. Applying is permanent — the removed points
+			are gone from the app, from exports and from every share link at once.
+		</p>
 	}
 </div>
 
 @code {
 	[Parameter] public Guid TrackId { get; set; }
 
-	private TrackDetail? _track;
-	private TrackPointsResponse? _points;
-	private readonly List<IndexRange> _removals = new();
-	private int _pendingFrom;
-	private int _pendingTo;
-	private TrackEditResponse? _editResult;
-	private string? _error;
-	private bool _busy;
+	/// <summary>How many points the map may draw before the line is simplified for display.</summary>
+	private const int DisplayPointBudget = 2_000;
 
 	/// <summary>
-	/// The numbers the result panel compares against — snapshotted immediately before an edit
-	/// or an undo, because <see cref="_track"/> is reloaded afterwards so the map draws what
-	/// the track now is. Without the snapshot "(was …)" would quote the new figure back.
+	/// The cursor pin's identity. Fixed, because the overlay upserts markers by id and the
+	/// cursor is one marker that moves rather than a new marker per tap.
 	/// </summary>
-	private TrackSummary? _before;
+	private static readonly Guid CursorMarkerId = new("6b0d3c9e-1f5a-4a63-9d4a-3f2b7c5e1a80");
+
+	private TrackDetail? _track;
+	private TrackPointsResponse? _points;
+	private TrackTrimSession? _session;
+	private AppliedEdit? _applied;
+	private string? _error;
+	private string? _notice;
+	private bool _busy;
 
 	private MapCamera _mapCamera = new(0, 0, 2);
 	private RouteOverlay? _route;
-
-	private bool IsWeb => FormFactor.GetFormFactor().Equals("Desktop", StringComparison.OrdinalIgnoreCase)
-		|| FormFactor.GetPlatform().Contains("Web", StringComparison.OrdinalIgnoreCase);
+	private IReadOnlyDictionary<Guid, MapMarker>? _cursorLayer;
+	private MapViewport? _viewport;
 
 	protected override async Task OnParametersSetAsync()
 	{
-		if (!IsWeb) return;
+		// A different track is a different edit. The banner and the error belong to the one
+		// being navigated away from.
+		_applied = null;
+		_error = null;
 
 		try
 		{
@@ -161,19 +175,26 @@
 	}
 
 	/// <summary>
-	/// Fetches the track, its raw point stream and the line the map draws. Called again after
-	/// an edit or an undo — the whole point of trimming is that the shape changes, and a map
-	/// still showing the span you just removed is worse than no map.
+	/// Fetches the track and its full-resolution points, and opens a fresh session over them.
+	/// Called again after a commit: the server has recomputed everything from the survivors
+	/// (§15.7) and the version the next edit must quote moved with it.
 	/// </summary>
 	private async Task LoadAsync()
 	{
 		_track = await Api.GetTrackAsync(TrackId);
 		_points = await Api.GetTrackPointsAsync(TrackId);
 
-		// Frame on the bounding box and hand the simplified line to the overlay, the same way
-		// the ride page does (§15.5). A track with no bounds — nothing stored, or a fake in a
-		// test — keeps the whole-world camera rather than claiming a position off the Gulf of
-		// Guinea.
+		// The wire carries coordinates only — this page never needs elevation or time, and
+		// asking PolylineCodec for the points it encoded is the one decode implementation.
+		_session = new TrackTrimSession(
+		[
+			.. PolylineCodec
+			.DecodePoints(_points.Polyline)
+			.Select(point => new TrackPoint(point.Latitude, point.Longitude)),
+	]);
+
+		// Frame on the bounding box, as the ride page does. A track with no bounds keeps the
+		// whole-world camera rather than claiming a position off the Gulf of Guinea.
 		if (_track.Bounds is { } bounds)
 		{
 			_mapCamera = new MapCamera(
@@ -182,88 +203,253 @@
 				ZoomLevel: 11);
 		}
 
-		_route = _track.Polyline.Count > 0
-			? new RouteOverlay(PolylineCodec.EncodePoints(_track.Polyline))
+		_notice = null;
+		RefreshOverlay();
+	}
+
+	private void OnViewportReported(MapViewport viewport) => _viewport = viewport;
+
+	/// <summary>
+	/// A tap places the cursor on the nearest surviving point, or does nothing if it landed
+	/// off the line. Doing nothing is deliberate: a tap on bare map that dragged the cursor to
+	/// the far end of the ride would be a trim aimed somewhere the rider was not looking.
+	/// </summary>
+	private void OnMapTapped(MapClick click)
+	{
+		if (_session is not { } session || _viewport is not { } viewport)
+			return;
+
+		if (TrackHitTest.Nearest(viewport, session.SurvivingPoints, click) is not { } position)
+		{
+			_notice = "That tap missed the track. Tap closer to the line.";
+			return;
+		}
+
+		session.PlaceCursor(session.SurvivingIndices[position]);
+		_notice = null;
+		RefreshOverlay();
+	}
+
+	/// <summary>
+	/// Takes a bite out of the track from the cursor, or sets a notice if the session refuses it.
+	/// </summary>
+	/// <param name="back">Whether the bite runs backwards along the track.</param>
+	/// <param name="count">How many points to take, the cursor included.</param>
+	private void Trim(bool back, int count)
+	{
+		if (_session is not { } session)
+		{
+			return;
+		}
+
+		TrimRefusal refusal = back ? session.TrimBack(count) : session.TrimForward(count);
+
+		_notice = refusal switch
+		{
+			TrimRefusal.None => null,
+			TrimRefusal.NoCursor => "Tap the track to place the cursor first.",
+			// Qualified: this page's own generated class is also called TrackEditor.
+			TrimRefusal.TooFewPointsRemain =>
+				$"A track needs at least {DLR.Core.Tracks.TrackEditor.MinimumSurvivingPoints} points. "
+				+ "To remove it entirely, delete the ride instead.",
+			_ => null,
+		};
+
+		if (refusal == TrimRefusal.None)
+		{
+			// A commit's banner describes the track as it was before that commit. Once the
+			// rider starts trimming again it is describing something else.
+			_applied = null;
+			RefreshOverlay();
+		}
+	}
+
+	private void Undo()
+	{
+		if (_session is not { } session || !session.Undo())
+			return;
+
+		_notice = null;
+		RefreshOverlay();
+	}
+
+	/// <summary>
+	/// Sends the accumulated removals as one edit. Confirmed first, because this is the step
+	/// the client-side undo stack does not reach past (§15.5).
+	/// </summary>
+	private async Task ApplyAsync()
+	{
+		if (_busy || _session is not { HasEdits: true } session || _track is null || _points is null)
+			return;
+
+		bool go = await Confirm.AskAsync(
+			$"Remove {session.StruckCount} point(s)?",
+			"This is permanent. The removed points go from the app, from exports and from "
+			+ "every share link at once, and cannot be undone from here.",
+			confirmText: "Remove",
+			danger: true);
+
+		if (!go)
+			return;
+
+		_busy = true;
+		_error = null;
+		_notice = null;
+
+		TrackSummary before = _track.Track;
+
+		try
+		{
+			TrackEditResponse response = await Api.EditTrackAsync(TrackId, new EditTrackRequest(
+				Version: _points.Version,
+				Removals: session.Removals()));
+
+			_applied = new AppliedEdit(response.Track, before.DistanceM, before.PointCount);
+
+			// A fresh session over what the server now holds. The old history is deliberately
+			// not carried across — there is no undoing past this point.
+			await LoadAsync();
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+		finally { _busy = false; }
+	}
+
+	/// <summary>Rebuilds the line and the cursor pin from the session's current state.</summary>
+	private void RefreshOverlay()
+	{
+		if (_session is not { } session)
+			return;
+
+		IReadOnlyList<TrackPoint> line = DisplayLine(session.SurvivingPoints);
+
+		_route = line.Count > 1 ? new RouteOverlay(PolylineCodec.EncodePoints(line)) : null;
+
+		// MarkerKind.Rider is the overlay's bare disc-and-label rendering — no icon, no emoji
+		// (§16.3). That is exactly what a cursor wants: every curated icon key means something
+		// about the world, and a hazard triangle sitting where the rider is about to cut would
+		// read as a hazard.
+		_cursorLayer = session.CursorPoint is { } point && session.Cursor is { } index
+			? new Dictionary<Guid, MapMarker>
+			{
+				[CursorMarkerId] = new(
+					Id: CursorMarkerId,
+					Latitude: point.Latitude,
+					Longitude: point.Longitude,
+					IconKey: string.Empty,
+					Title: $"#{index}",
+					DirectionDeg: null,
+					Kind: MarkerKind.Rider),
+			}
 			: null;
 	}
 
-	private Task AddRemovalAsync()
-	{
-		if (_pendingTo <= _pendingFrom)
-		{
-			_error = "'To' must be strictly greater than 'From'.";
-			return Task.CompletedTask;
-		}
-		_error = null;
-		_removals.Add(new IndexRange(_pendingFrom, _pendingTo));
-		_removals.Sort((a, b) => a.From.CompareTo(b.From));
-		return Task.CompletedTask;
-	}
-
-	private async Task CommitAsync()
-	{
-		if (_busy || _track is null || _points is null) return;
-		_busy = true;
-		_error = null;
-		try
-		{
-			_before = _track.Track;
-			_editResult = await Api.EditTrackAsync(TrackId, new EditTrackRequest(
-				Version: _points.Version,
-				Removals: _removals.ToList()));
-			_removals.Clear();
-
-			// Reload rather than patch: the server recomputes everything from the surviving
-			// points (§15.7), and the version the next edit has to quote moved with it.
-			await LoadAsync();
-		}
-		catch (ApiException apiException) { _error = apiException.Error.Title; }
-		finally { _busy = false; }
-	}
-
-	private async Task UndoAsync()
-	{
-		_busy = true;
-		try
-		{
-			_before = _track?.Track;
-			_editResult = await Api.UndoTrackEditAsync(TrackId);
-			await LoadAsync();
-		}
-		catch (ApiException apiException) { _error = apiException.Error.Title; }
-		finally { _busy = false; }
-	}
-
-	private async Task PurgeAsync()
-	{
-		_busy = true;
-		try
-		{
-			await Api.PurgeTrackPreviousVersionAsync(TrackId);
-			_editResult = _editResult! with { UndoAvailableUntilUtc = null };
-		}
-		catch (ApiException apiException) { _error = apiException.Error.Title; }
-		finally { _busy = false; }
-	}
-
-	private void BackToRide() => Nav.NavigateTo($"/rides/{TrackId}");
+	private static IReadOnlyList<TrackPoint> DisplayLine(IReadOnlyList<TrackPoint> points) =>
+		points.Count <= DisplayPointBudget
+			? points
+			: TrackSimplifier.Simplify(new TrackGeometry(points)).Points;
 
 	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
+
+	/// <summary>
+	/// What a commit changed. The "was" figures are snapshotted at the moment of the request,
+	/// because the page reloads the track straight afterwards and would otherwise quote the new
+	/// numbers back as if they were the old ones.
+	/// </summary>
+	/// <param name="Track">The track as the server now holds it.</param>
+	/// <param name="PreviousDistanceM">Distance before the commit.</param>
+	/// <param name="PreviousPointCount">Point count before the commit.</param>
+	private sealed record AppliedEdit(TrackSummary Track, double PreviousDistanceM, int PreviousPointCount);
 }
 
 <style>
-	.editor .mobile-note {
-		margin: 1rem 0; padding: 0.75rem 1rem;
-		background: #fef3c730; border: 1px solid #fde68a; border-radius: 6px;
+	.editor .hint, .editor .warning {
+		opacity: 0.75;
 	}
-	/* The trim controls read as one line, not a stack — labels and inputs stay inline. */
-	.editor label { display: inline-block; margin: 0.4rem 0.5rem 0.4rem 0; }
-	.editor input { padding: 0.4rem; width: 8rem; }
-	.editor .ranges li {
-		padding: 0.4rem 0.6rem; background: #fff2; border-radius: 4px;
-		margin: 0.25rem 0; display: flex; justify-content: space-between; align-items: center;
+
+	.editor .warning {
+		margin-top: 0.75rem;
 	}
-	.editor button { padding: 0.5rem 1rem; margin-top: 0.5rem; }
-	.editor .result { margin-top: 1rem; padding: 1rem; background: #eff6ff20; border: 1px solid #bfdbfe; border-radius: 6px; }
-	.editor .result h3 { margin: 0 0 0.5rem; }
+
+	/* Cursor readout between the two trim sides, so "before" and "after" read as the two
+			   directions away from the point named in the middle. */
+	.editor .trim {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		margin: 0.75rem 0;
+		padding: 0.75rem;
+		background: #fff1;
+		border-radius: 6px;
+	}
+
+		.editor .trim .side {
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+		}
+
+		.editor .trim .side-label {
+			opacity: 0.75;
+			font-size: 0.9rem;
+		}
+
+		.editor .trim .cursor {
+			font-variant-numeric: tabular-nums;
+		}
+
+	.editor .commit {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.editor button {
+		padding: 0.5rem 1rem;
+		margin-top: 0.5rem;
+	}
+
+	.editor .result {
+		margin: 1rem 0;
+		padding: 1rem;
+		background: #eff6ff20;
+		border: 1px solid #bfdbfe;
+		border-radius: 6px;
+	}
+
+	/*
+				Narrow screens. This is what replaced the note that used to send a phone away: the
+				composer stacks instead of hiding. Every control clears the 44 px touch target both
+				platform guidelines publish, which the 0.5 rem padding above does not — and the trim
+				buttons in particular are the ones a thumb will be jabbing repeatedly.
+			*/
+	@@media (max-width: 40rem) {
+		.editor .trim {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+			.editor .trim .side {
+				justify-content: space-between;
+			}
+
+				.editor .trim .side button {
+					flex: 1;
+					min-height: 2.75rem;
+				}
+
+			.editor .trim .cursor {
+				text-align: center;
+			}
+
+		.editor .commit {
+			flex-direction: column;
+		}
+
+			.editor .commit button {
+				width: 100%;
+				min-height: 2.75rem;
+			}
+	}
 </style>

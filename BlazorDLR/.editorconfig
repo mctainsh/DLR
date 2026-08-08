@@ -1,5 +1,6 @@
 root = true
 
+
 [*]
 indent_style = tab
 indent_size = 4
@@ -23,6 +24,8 @@ indent_size = 2
 [*.razor]
 indent_style = tab
 indent_size = 4
+# Disable "Add braces" suggestion
+dotnet_diagnostic.IDE0011.severity = none
 
 [*.cs]
 csharp_prefer_braces = true:warning
@@ -35,6 +38,9 @@ dotnet_diagnostic.IDE0161.severity = warning
 # using directives outside the namespace, System first.
 csharp_using_directive_placement = outside_namespace:warning
 dotnet_sort_system_directives_first = true
+
+# Disable "Add braces" suggestion
+dotnet_diagnostic.IDE0011.severity = none
 
 # Analyzer noise that is not useful in test projects. The leading `**/` is load-bearing:
 # this file sits at the repository root and each solution lives one level down (Web/), so a

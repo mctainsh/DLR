@@ -46,7 +46,7 @@
 						<strong>@(track.Name ?? "Untitled")</strong>
 						<span class="badge @(track.From == ImportedFrom.Route ? "route" : "track")">@track.From</span>
 						<br />
-						<span>@FormatKm(track.DistanceM), @track.PointCount points, @track.SegmentCount segments</span>
+						<span>@FormatKm(track.DistanceM), @track.PointCount.ToString("N0") points, @track.SegmentCount segments</span>
 						@if (track.AscentM is { } a)
 						{
 							<span>, @a.ToString("N0")m ascent</span>

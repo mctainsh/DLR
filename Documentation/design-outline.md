@@ -2580,7 +2580,7 @@ POST /api/v1/tracks/{id}/edit
 GET /api/v1/tracks/{id}/points   → encoded polyline + delta-encoded times, gzipped
 ```
 
-A 12-hour tour at 1 Hz is ~43 000 points, roughly 200 KB gzipped in that encoding — fine for a desktop browser, which is the only place the editor runs. MapLibre simplifies for *rendering* client-side; the indices the editor manipulates stay the server's indices throughout. One index space, no mapping layer, no class of bug.
+A 12-hour tour at 1 Hz is ~43 000 points, roughly 200 KB gzipped in that encoding. That was sized for a desktop browser, back when that was the only place the editor ran; the editor now runs on every host, so on a phone it is 200 KB over whatever connection the rider has at the end of a ride — acceptable for a deliberate act, and the reason the fetch happens on opening the editor rather than on opening the ride. The base map simplifies for *rendering* client-side; the indices the editor manipulates stay the server's indices throughout. One index space, no mapping layer, no class of bug.
 
 **Validation** — all `400`, all with the offending range named:
 

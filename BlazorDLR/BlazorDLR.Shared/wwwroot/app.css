@@ -432,7 +432,7 @@ label.radio, .radio {
     border-radius: 4px;
 }
 
-.error strong { display: block; margin-bottom: 0.25rem; }
+.error strong { display: block; margin-bottom: 0.25rem; color:white; }
 
 /* Per-rule validation errors read as a list, so the bullets come back — .page ul
    above took them away. */
@@ -440,9 +440,10 @@ label.radio, .radio {
     list-style: disc;
     margin: 0.25rem 0 0;
     padding-left: 1.25rem;
+	color: white;
 }
 
-.error li { margin: 0.15rem 0; }
+.error li { margin: 0.15rem 0; color: white; }
 
 /* "Saved", "Export started" — the calm counterpart to .error. */
 .status {

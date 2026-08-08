@@ -37,11 +37,13 @@ Section 4.1 of the design outline names 11 screens (§4.1); this table maps them
 | Route Planner | ✅ | GPX pick, past ride pick | Drag-drop GPX, big-screen mouse drawing (§6.1) |
 | Settings | ✅ | Device list, GPS profile | Device list, session limits (§18.5) |
 | Settings → Profile | ✅ | Same | Same |
-| **Track editor (§15.5)** | **Not shared** | **Absent** | **Web-only.** Needs a mouse and a big map (§6.1) |
+| Track editor (§15.5) | ✅ | Same — the composer stacks on a narrow screen | Same |
 | Auth landing (confirm, reset) | ❌ static-rendered Razor in `BlazorDLR.Web` (§7.5) | — | Must work without WASM booted |
 | **Car heads (§4.6)** | ❌ | Native templates in `BlazorDLR/Platforms/`, Android Auto + CarPlay | — |
 
-**The one asymmetric screen is the track editor.** It is deliberately web-only in v1 (§6.1, §13 Q15) — implemented as a page in `BlazorDLR.Shared/Pages/` but only reached from routes exposed by the web host. The mobile host does not offer it.
+**The track editor is no longer asymmetric.** §6.1 and §13 Q15 originally made it web-only: trimming was judged to need a mouse and a big map, so the phone rendered the page with the composer replaced by a note pointing at a desktop browser. That gate is gone. The screen a rider actually has at the end of a ride is the phone, and cutting the drive home off a track is exactly the edit they want there — "open a laptop first" is a worse answer than a cramped one. The page is one shared component reached through the same router on every host (`BlazorDLR.Shared/Routes.razor`), and its narrow-screen layout stacks the trim controls rather than hiding them.
+
+**The composer is a cursor, not a pair of index boxes.** Typing "from 412 to 480" was a mouse-and-keyboard affordance that also asked the rider to read indices off a map that does not show them. The rider now taps the line to drop a cursor on a raw point, then bites 1 or 10 points off it, backwards or forwards, repeatedly. A bite takes the cursor point with it and leaves the cursor on the new edge, so holding a button chews along the track; leaving the cursor standing and jumping it across the gap instead strands the point it vacated between two holes, and leaving it standing without moving it re-measures the same span every press. Trims accumulate in a client-side `TrackTrimSession` (`BlazorDLR.Shared/Tracks/`) and are undoable one step at a time back to the track as loaded; nothing reaches `POST /tracks/{id}/edit` until Apply, which is confirmed and permanent. The server's retained original (§15.6) still exists and its endpoints are unchanged, but the page no longer offers undo or purge after a commit — an undo button that appears past the point of no return is one that gets trusted at the wrong moment.
 
 **Offline is a mobile property, not a shared one.** `BlazorDLR.Shared` renders whatever `IRideRepository` returns; the mobile host binds it to SQLite and the outbox (§18.6), the web host binds it to HTTP (§4.4). A component that assumes one or the other is a component that has picked a side, and that is the failure mode the abstraction exists to prevent.
 
