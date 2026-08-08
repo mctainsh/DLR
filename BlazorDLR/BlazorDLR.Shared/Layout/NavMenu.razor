@@ -1,57 +1,44 @@
 @*
-	The icon rail (§18.6). Icons only, no labels — a text-free rail relies on
-	familiar shapes so it works at the same footprint on portrait and landscape
-	without wrapping. Every icon carries an `aria-label` and a `title` so a screen
-	reader and a mouse hover both give the destination name.
+	The nav rail (§18.6). Font Awesome glyph over a short label, one anchor per
+	destination.
 
-	Signed-out callers see the Welcome icon only. Signed-in callers see the four
-	signed-in destinations. The AuthorizeView is the same as before — only the
-	presentation changes.
+	Font Awesome rather than the inline SVGs this used to carry: the icon set is
+	consistent across every destination we will ever add, and a `fa-` class is a
+	line rather than a path definition. It is vendored into
+	`wwwroot/lib/fontawesome/` and linked by each host's shell — never a CDN,
+	because the host most likely to be offline is the phone, and a nav made of
+	icons with no font is a nav made of empty squares.
+
+	**No collapsed state.** The rail is the same list of items at every width; only
+	its position moves (left, or along the bottom under 560 px — see
+	MainLayout.razor.css). A hamburger would hide the whole of the app's navigation
+	behind a tap on exactly the screens where the destinations matter most.
+
+	Every anchor keeps its `title` and `aria-label`. The visible label is small and
+	the icon does most of the work, so the accessible name must not depend on it.
 *@
 
 <AuthorizeView>
 	<Authorized>
 		<NavLink class="rail-item" href="" Match="NavLinkMatch.All" title="Home" aria-label="Home">
-			@HomeSvg
+			<i class="fa fa-fw fa-house" aria-hidden="true"></i>
 		</NavLink>
 		<NavLink class="rail-item" href="rides" title="My rides" aria-label="My rides">
-			@TrackSvg
+			<i class="fa fa-fw fa-route" aria-hidden="true"></i>
 		</NavLink>
 		<NavLink class="rail-item" href="group-rides" title="Group rides" aria-label="Group rides">
-			@GroupSvg
+			<i class="fa fa-fw fa-users" aria-hidden="true"></i>
 		</NavLink>
 		<NavLink class="rail-item" href="import" title="Import GPX" aria-label="Import GPX">
-			@ImportSvg
+			<i class="fa fa-fw fa-file-import" aria-hidden="true"></i>
 		</NavLink>
 		<NavLink class="rail-item" href="settings" title="Settings" aria-label="Settings">
-			@SettingsSvg
+			<i class="fa fa-fw fa-gear" aria-hidden="true"></i>
 		</NavLink>
 	</Authorized>
 	<NotAuthorized>
 		<NavLink class="rail-item" href="welcome" title="Welcome" aria-label="Welcome">
-			@WelcomeSvg
+			<i class="fa fa-fw fa-right-to-bracket" aria-hidden="true"></i>
 		</NavLink>
 	</NotAuthorized>
 </AuthorizeView>
-
-@code {
-	// Inline SVGs — a package dependency is overkill for six icons, and shipping them
-	// inline means the rail never flashes an unicorn placeholder on a slow connection.
-	private static readonly MarkupString HomeSvg = new(
-		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg>""");
-
-	private static readonly MarkupString TrackSvg = new(
-		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c1-5 3-8 6-8s5 3 6 8"/><circle cx="8" cy="8" r="2.5"/><circle cx="18" cy="16" r="2.5"/></svg>""");
-
-	private static readonly MarkupString GroupSvg = new(
-		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/><circle cx="17" cy="7" r="2.5"/><path d="M17 12c3 0 5 2 5 5"/></svg>""");
-
-	private static readonly MarkupString ImportSvg = new(
-		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>""");
-
-	private static readonly MarkupString SettingsSvg = new(
-		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.03a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>""");
-
-	private static readonly MarkupString WelcomeSvg = new(
-		"""<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/><path d="M20 5v14"/></svg>""");
-}

@@ -56,11 +56,11 @@ public sealed class NavMenuTests : BunitContext
 	}
 
 	[Fact]
-	public async Task IconRail_EveryLink_HasAccessibleLabel_AndNoVisibleText()
+	public async Task Rail_EveryLink_CarriesAFontAwesomeGlyph_AndAnAccessibleName()
 	{
-		// §18.6: the rail is icon-only. A screen reader (aria-label) and a mouse hover
-		// (title) both need to name the destination, and the anchor's text content must
-		// stay empty — a stray "Home" caption next to the icon breaks the rail visually.
+		// The glyph is a font class: invisible to a screen reader, and absent entirely if
+		// the stylesheet fails to load. With no visible caption beside it, aria-label and
+		// title are the whole of the destination's accessible name.
 		AuthState auth = WireAuth();
 		await auth.ApplySessionAsync(new TokenResponse(
 			AccessToken: "access",
@@ -78,13 +78,21 @@ public sealed class NavMenuTests : BunitContext
 			foreach (AngleSharp.Dom.IElement link in links)
 			{
 				link.HasAttribute("aria-label").ShouldBeTrue(
-					"§18.6: every icon-only link needs an aria-label — a screen-reader user cannot see the SVG.");
+					"a font glyph has no accessible name of its own — the anchor must carry one.");
 				link.HasAttribute("title").ShouldBeTrue(
-					"§18.6: a mouse hover surfaces the destination name via the title attribute.");
-				link.QuerySelectorAll("svg").Length.ShouldBe(1,
-					"§18.6: each rail item renders exactly one inline SVG — no icon-font sprites, no image tags.");
+					"a mouse hover surfaces the destination name via the title attribute.");
+
+				AngleSharp.Dom.IElement glyph = link.QuerySelectorAll("i").ShouldHaveSingleItem();
+				glyph.ClassList.ShouldContain("fa",
+					"the rail is drawn with Font Awesome — `fa` is what resolves the family and the solid weight.");
+				glyph.ClassList.Any(name => name.StartsWith("fa-", StringComparison.Ordinal)
+					&& name != "fa-fw").ShouldBeTrue("each item names an actual icon, not just the fixed-width modifier.");
+				glyph.GetAttribute("aria-hidden").ShouldBe("true",
+					"the glyph is decoration; announcing it would read the destination name twice.");
+
 				link.TextContent.Trim().ShouldBeEmpty(
-					"§18.6: the rail is text-free — a caption next to the icon breaks the shared portrait/landscape layout.");
+					"the rail is glyph-only. Which is exactly why the two attributes above are not "
+					+ "optional — with no caption, they are the only name the destination has.");
 			}
 		}, timeout: TimeSpan.FromSeconds(3));
 	}

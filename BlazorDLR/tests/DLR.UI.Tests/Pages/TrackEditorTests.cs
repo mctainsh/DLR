@@ -94,8 +94,16 @@ public sealed class TrackEditorTests : BunitContext
 		await component.InvokeAsync(() => confirm.Respond(accept));
 	}
 
-	private static AngleSharp.Dom.IElement Button(IRenderedComponent<TrackEditor> component, string text) =>
-		component.FindAll("button").First(b => b.TextContent.Contains(text, StringComparison.Ordinal));
+	/// <summary>
+	/// A trim button, by its exact face. Exact and not Contains: "◀ 1" is a prefix of
+	/// "◀ 10" and sits after it in the DOM, so a substring match clicks the wrong one.
+	/// </summary>
+	private static AngleSharp.Dom.IElement Button(IRenderedComponent<TrackEditor> component, string face) =>
+		component.FindAll("button").First(b => string.Equals(b.TextContent.Trim(), face, StringComparison.Ordinal));
+
+	/// <summary>A button whose face carries a changing count — Undo and Apply.</summary>
+	private static AngleSharp.Dom.IElement ButtonStarting(IRenderedComponent<TrackEditor> component, string prefix) =>
+		component.FindAll("button").First(b => b.TextContent.Trim().StartsWith(prefix, StringComparison.Ordinal));
 
 	/// <summary>
 	/// The survivor count line as a human reads it. Asserted against text rather than markup
@@ -155,7 +163,7 @@ public sealed class TrackEditorTests : BunitContext
 		component.WaitForAssertion(() => Pin(component).Longitude.ShouldBe(0, tolerance: 1e-9),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await component.InvokeAsync(() => Button(component, "−1").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
 
 		component.WaitForAssertion(
 			() => Pin(component).Longitude.ShouldBe(-0.1, tolerance: 1e-9,
@@ -172,7 +180,7 @@ public sealed class TrackEditorTests : BunitContext
 
 		component.Markup.Contains("Tap a point on the track", StringComparison.Ordinal).ShouldBeTrue(
 			"before a cursor there is no 'before' or 'after' to trim from, so the page asks for one.");
-		component.FindAll("button").Any(b => b.TextContent.Contains("−10", StringComparison.Ordinal))
+		component.FindAll("button").Any(b => b.TextContent.Contains("◀ 10", StringComparison.Ordinal))
 			.ShouldBeFalse();
 
 		await component.InvokeAsync(() => map.RaiseViewport(UnitViewport));
@@ -182,10 +190,10 @@ public sealed class TrackEditorTests : BunitContext
 		{
 			component.Markup.Contains("Cursor on point <strong>5</strong>", StringComparison.Ordinal).ShouldBeTrue(
 				"the tap at the origin is on the sixth point of the line.");
-			component.FindAll("button").Any(b => b.TextContent.Contains("−10", StringComparison.Ordinal))
+			component.FindAll("button").Any(b => b.TextContent.Contains("◀ 10", StringComparison.Ordinal))
 				.ShouldBeTrue();
-			component.Markup.Contains("Trim back", StringComparison.Ordinal).ShouldBeTrue();
-			component.Markup.Contains("Trim forward", StringComparison.Ordinal).ShouldBeTrue();
+			component.Markup.Contains("◀ Back", StringComparison.Ordinal).ShouldBeTrue();
+			component.Markup.Contains("Forward ▶", StringComparison.Ordinal).ShouldBeTrue();
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -216,8 +224,8 @@ public sealed class TrackEditorTests : BunitContext
 
 		await component.InvokeAsync(() => map.RaiseViewport(UnitViewport));
 		await component.InvokeAsync(() => map.RaiseClick(0, 0));
-		await component.InvokeAsync(() => Button(component, "−1").Click());
-		await component.InvokeAsync(() => Button(component, "−1").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
 
 		component.WaitForAssertion(
 			() => component.Markup.Contains("remove 2 point(s)", StringComparison.Ordinal).ShouldBeTrue(),
@@ -239,26 +247,26 @@ public sealed class TrackEditorTests : BunitContext
 
 		await component.InvokeAsync(() => map.RaiseViewport(UnitViewport));
 		await component.InvokeAsync(() => map.RaiseClick(0, 0));
-		await component.InvokeAsync(() => Button(component, "−1").Click());
-		await component.InvokeAsync(() => Button(component, "−1").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
 
 		component.WaitForAssertion(
 			() => component.Markup.Contains("Undo (2)", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await component.InvokeAsync(() => Button(component, "Undo").Click());
+		await component.InvokeAsync(() => ButtonStarting(component, "Undo").Click());
 
 		component.WaitForAssertion(
 			() => Lead(component).ShouldContain("10 of 11 points remain"),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await component.InvokeAsync(() => Button(component, "Undo").Click());
+		await component.InvokeAsync(() => ButtonStarting(component, "Undo").Click());
 
 		component.WaitForAssertion(() =>
 		{
 			Lead(component).ShouldContain("11 of 11 points remain",
 				customMessage: "undo reaches all the way back to the track as loaded.");
-			Button(component, "Apply").HasAttribute("disabled").ShouldBeTrue(
+			ButtonStarting(component, "Apply").HasAttribute("disabled").ShouldBeTrue(
 				"with nothing struck out there is nothing to apply.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -272,9 +280,9 @@ public sealed class TrackEditorTests : BunitContext
 
 		await component.InvokeAsync(() => map.RaiseViewport(UnitViewport));
 		await component.InvokeAsync(() => map.RaiseClick(0, 0));
-		await component.InvokeAsync(() => Button(component, "−1").Click());
-		await component.InvokeAsync(() => Button(component, "−1").Click());
-		await component.InvokeAsync(() => Button(component, "Apply").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
+		await component.InvokeAsync(() => ButtonStarting(component, "Apply").Click());
 
 		await AnswerConfirmAsync(component, accept: true);
 
@@ -298,8 +306,8 @@ public sealed class TrackEditorTests : BunitContext
 
 		await component.InvokeAsync(() => map.RaiseViewport(UnitViewport));
 		await component.InvokeAsync(() => map.RaiseClick(0, 0));
-		await component.InvokeAsync(() => Button(component, "−1").Click());
-		await component.InvokeAsync(() => Button(component, "Apply").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
+		await component.InvokeAsync(() => ButtonStarting(component, "Apply").Click());
 
 		await AnswerConfirmAsync(component, accept: false);
 
@@ -318,8 +326,8 @@ public sealed class TrackEditorTests : BunitContext
 
 		await component.InvokeAsync(() => map.RaiseViewport(UnitViewport));
 		await component.InvokeAsync(() => map.RaiseClick(0, 0));
-		await component.InvokeAsync(() => Button(component, "−1").Click());
-		await component.InvokeAsync(() => Button(component, "Apply").Click());
+		await component.InvokeAsync(() => Button(component, "◀ 1").Click());
+		await component.InvokeAsync(() => ButtonStarting(component, "Apply").Click());
 
 		await AnswerConfirmAsync(component, accept: true);
 
@@ -327,8 +335,11 @@ public sealed class TrackEditorTests : BunitContext
 		{
 			component.Markup.Contains("Applied.", StringComparison.Ordinal).ShouldBeTrue();
 
-			Button(component, "Undo").HasAttribute("disabled").ShouldBeTrue(
-				"the client history does not survive a commit — there is nothing to walk back to.");
+			component.FindAll("button")
+				.Where(b => b.TextContent.Contains("Undo", StringComparison.Ordinal))
+				.ShouldBeEmpty(
+					"the client history does not survive a commit. The page reloads into a fresh session "
+					+ "with no cursor and no steps, so the trim block — Undo included — is not even drawn.");
 
 			component.Markup.Contains("retained until", StringComparison.Ordinal).ShouldBeFalse(
 				"an undo offered after the point of no return is one that gets trusted at the wrong moment.");

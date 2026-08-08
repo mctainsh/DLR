@@ -95,11 +95,15 @@ services:
       # public signup; it is load-bearing for registration, not just for rate limiting.
       ForwardedHeaders__KnownProxies__0: ${CADDY_IP:-172.18.0.2}
 
+      # The keys on the left must match EmailOptions' property names exactly — UserName and
+      # FromAddress, not User and From. A misspelt key binds to nothing and the failure is
+      # silent until the first confirmation email does not arrive.
       Email__Host: ${EMAIL_HOST:-smtp.zoho.com.au}
       Email__Port: ${EMAIL_PORT:-587}
-      Email__User: ${EMAIL_USER:-}
+      Email__UserName: ${EMAIL_USER:-}
       Email__Password: ${EMAIL_PASSWORD:-}
-      Email__From: ${EMAIL_FROM:-}
+      Email__FromAddress: ${EMAIL_FROM:-}
+      Email__FromName: ${EMAIL_FROM_NAME:-Dumb Luck Routes}
 
       Links__BaseUrl: ${PUBLIC_URL:?set PUBLIC_URL in deploy/.env}
       About__SourceUrl: ${SOURCE_URL:-https://github.com/dumbluckrides/dlr}

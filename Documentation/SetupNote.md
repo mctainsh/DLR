@@ -3,6 +3,11 @@
 Steps to get a fresh clone of DLR running against a local PostgreSQL. Skip
 any you have already done.
 
+For a server rather than a workstation: `deploy/README.md` covers the
+supported Docker deployment, [SetupNote-IIS.md](SetupNote-IIS.md) covers
+Windows Server under IIS, and [SetupNote-Linux.md](SetupNote-Linux.md)
+covers Linux without Docker.
+
 ## 1. Install PostgreSQL
 
 Download the Windows installer from

@@ -38,8 +38,10 @@
     --dlr-good:          #4ade80;
 
     /* Rail sizes */
-    --dlr-rail-width:    64px;
-    --dlr-rail-height:   64px;
+    /* Wide enough for the longest rail label ("Settings") at the caption size, and for
+       the bar along the bottom to clear a 48 px tap target plus that label. */
+    --dlr-rail-width:    72px;
+    --dlr-rail-height:   60px;
 }
 
 :root[data-theme="light"] {

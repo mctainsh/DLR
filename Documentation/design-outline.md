@@ -1515,11 +1515,12 @@ public interface IEmailSender
 
 ```ini
 # The entire cutover, once ZeptoMail's domain + DKIM are verified:
-# Email:Host       smtp.zoho.com.au    →  smtp.zeptomail.com
-# Email:Port       587
-# Email:User       no-reply@example    →  emailapikey
-# Email:Password   <app password>      →  <ZeptoMail send-mail token>
-# Email:From       no-reply@example       (unchanged)
+# Email:Host         smtp.zoho.com.au    →  smtp.zeptomail.com
+# Email:Port         587
+# Email:UserName     no-reply@example    →  emailapikey
+# Email:Password     <app password>      →  <ZeptoMail send-mail token>
+# Email:FromAddress  no-reply@example       (unchanged)
+# Email:FromName     Dumb Luck Routes       (unchanged)
 ```
 
 **Cut over when any of these is true:** store submission is close, sends exceed ~100/day, or you need to know whether mail actually arrived. A mailbox gives no bounce tracking, no suppression list and no delivery events — so a hard-bouncing address is retried forever, silently, and Zoho's own terms steer automated sending to ZeptoMail regardless. Treat the ZeptoMail DKIM records as a distinct task from the Zoho Mail ones; sharing a vendor does not mean sharing DNS setup.

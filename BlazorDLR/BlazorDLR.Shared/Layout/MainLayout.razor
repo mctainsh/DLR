@@ -7,10 +7,17 @@
 @*
 	The one layout every page composes with (§18.6).
 
-	Portrait (screen taller than wide): the icon rail lives on the LEFT.
-	Landscape (screen wider than tall): the icon rail moves to the BOTTOM.
-	Both are pure CSS — the orientation media query on `.shell` picks the flex-direction,
-	and NavMenu draws the same DOM either way.
+	Normally: the nav rail lives on the LEFT.
+	Under 560 px wide: it moves to a bar along the BOTTOM, and a page taller than the
+	screen scrolls underneath it.
+
+	Both are pure CSS — one width media query on `.shell` picks the flex-direction, and
+	NavMenu draws the same DOM either way. There is no collapsed state at any width: the
+	rail always shows every destination.
+
+	The breakpoint is width, not orientation. What decides whether a left rail is
+	affordable is how many horizontal pixels the content keeps after it — so a phone held
+	landscape is wide enough to keep the rail, and the same phone upright is not.
 
 	The wrapper is `.shell`, not `.page`: `.page` is the shared *content column* every
 	page uses (wwwroot/app.css), and the two must not fight over the same name.

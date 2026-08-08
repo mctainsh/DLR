@@ -3,12 +3,25 @@
 
 <head>
 	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	@* viewport-fit=cover so the bottom nav bar's env(safe-area-inset-bottom) padding is a
+	   real number on a notched phone. Without it the browser reports 0 and the icons sit
+	   under the home indicator — the web build is used on phones too, not just desktops. *@
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 	<base href="/" />
 	<ResourcePreloader />
 	<link rel="stylesheet" href="_content/BlazorDLR.Shared/lib/bootstrap/dist/css/bootstrap.min.css" />
+	@* Vendored, not a CDN: the nav is icons, and a rider out of signal must still be able
+	   to read their own menu. Same reason Bootstrap sits next to it. *@
+	<link rel="stylesheet" href="_content/BlazorDLR.Shared/lib/fontawesome/css/all.min.css" />
 	<link rel="stylesheet" href="_content/BlazorDLR.Shared/app.css" />
-	@* <link rel="stylesheet" href="BlazorDLR.Web.styles.css" /> *@
+	@*
+		The scoped-component bundle. Named for the ASSEMBLY, not the project, and this
+		one's assembly name is DLR.Server (.csproj) — the old `BlazorDLR.Web.styles.css`
+		404'd, which is presumably why it ended up commented out. With it absent the web
+		host rendered every .razor.css in the shared RCL as nothing at all: MainLayout and
+		NavMenu had no rail layout, on the one host where you notice a window resize.
+	*@
+	<link rel="stylesheet" href="DLR.Server.styles.css" />
 	<ImportMap />
 	<link rel="icon" type="image/png" href="_content/BlazorDLR.Shared/favicon.png" />
 	<HeadOutlet @rendermode="@ClientRenderMode" />
