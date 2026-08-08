@@ -9,7 +9,7 @@
 // between us and OSM. Permanent attribution is declared on the tile source; removing it
 // removes the tile source.
 
-import { dispatch } from "./interop.js";
+import { dispatch, createViewportReporter } from "./interop.js";
 
 // Version pinned so a build is reproducible.
 //
@@ -99,18 +99,18 @@ export async function createMap(hostElement, options, callbacks) {
     });
 
     // Every base-map module emits this exact shape (§4.5 v0.21).
-    const emitViewport = () => {
+    const readViewport = () => {
         const view = map.getView();
         const size = map.getSize();
-        if (!view || !size) return;
+        if (!view || !size) return null;
         const extent = view.calculateExtent(size);
-        if (!extent) return;
+        if (!extent) return null;
         // extent is [minX, minY, maxX, maxY] in view projection (Web Mercator).
         // Corners come back in lat/lon so the overlay does not have to know about it.
         const [tlLon, tlLat] = toLonLat([extent[0], extent[3]]);
         const [brLon, brLat] = toLonLat([extent[2], extent[1]]);
         const dpr = window.devicePixelRatio || 1;
-        dispatch(callbacks?.onViewportChanged, "OnViewportChanged", {
+        return {
             topLeftLatitude: tlLat,
             topLeftLongitude: tlLon,
             bottomRightLatitude: brLat,
@@ -120,9 +120,21 @@ export async function createMap(hostElement, options, callbacks) {
             canvasWidthPx: Math.round(size[0] * dpr),
             canvasHeightPx: Math.round(size[1] * dpr),
             devicePixelRatio: dpr,
-        });
+        };
     };
 
+    const reporter = createViewportReporter(readViewport, () => callbacks?.onViewportChanged);
+    const emitViewport = reporter.report;
+
+    // OpenLayers is the one provider that hands us its own frame hook, so it needs no
+    // pump: `postrender` fires after every frame the map paints, including each frame of
+    // a drag, a wheel-zoom animation and a kinetic fling. Sampling the view *after* the
+    // paint is also what keeps the overlay in register — the extent we read is the one
+    // that was just drawn, not the one that is about to be. Frames where nothing moved
+    // (tiles fading in) are dropped by the reporter and never reach C#.
+    map.on("postrender", emitViewport);
+
+    // Belt and braces: a view change that somehow paints nothing still settles here.
     map.on("moveend", emitViewport);
 
     // A tap on the map, in lat / lon (§16.1). OpenLayers' "click" fires only for a real
@@ -153,6 +165,7 @@ export async function createMap(hostElement, options, callbacks) {
             // then C# has disposed the DotNetObjectReference — dispatching into it logs
             // "no tracked object with id N" for a result nobody is waiting for.
             callbacks = null;
+            reporter.dispose();
             try { map.setTarget(null); } catch { /* already gone */ }
         },
     };

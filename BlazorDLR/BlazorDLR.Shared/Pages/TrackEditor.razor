@@ -1,6 +1,7 @@
 @page "/rides/{TrackId:guid}/edit"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
+@using BlazorDLR.Shared.Services
 @using DLR.Core.Contracts.Tracks
 @using DLR.Core.Tracks
 @inject IApiClient Api
@@ -55,6 +56,16 @@
 			Version: <strong>@_points.Version</strong>.
 		</p>
 
+		@*
+			The line under the numbers. This is the SIMPLIFIED polyline from
+			GET /tracks/{id} — display only, exactly as the ride page draws it — while the
+			indices typed below address the raw points (§15.5). Drawing the raw stream here
+			instead would be tens of thousands of segments repainted on every pan for a line
+			the eye cannot tell apart, and would invite reading a point off the picture and
+			typing its position as an index, which is the one mistake §15.5 exists to prevent.
+		*@
+		<RideMap Camera="_mapCamera" Route="_route" />
+
 		<fieldset>
 			<legend>Add a removal</legend>
 			<label>
@@ -87,15 +98,15 @@
 			@(_busy ? "Applying…" : $"Apply {_removals.Count} removal(s)")
 		</button>
 
-		@if (_editResult is not null)
+		@if (_editResult is not null && _before is { } before)
 		{
 			<div class="result">
 				<h3>Applied.</h3>
 				<p>
 					Distance: <strong>@FormatKm(_editResult.Track.DistanceM)</strong>
-					(was @FormatKm(_track.Track.DistanceM)).
+					(was @FormatKm(before.DistanceM)).
 					Points: <strong>@_editResult.Track.PointCount</strong>
-					(was @_track.Track.PointCount).
+					(was @before.PointCount).
 				</p>
 				@if (_editResult.UndoAvailableUntilUtc is { } undoUntil)
 				{
@@ -124,6 +135,16 @@
 	private string? _error;
 	private bool _busy;
 
+	/// <summary>
+	/// The numbers the result panel compares against — snapshotted immediately before an edit
+	/// or an undo, because <see cref="_track"/> is reloaded afterwards so the map draws what
+	/// the track now is. Without the snapshot "(was …)" would quote the new figure back.
+	/// </summary>
+	private TrackSummary? _before;
+
+	private MapCamera _mapCamera = new(0, 0, 2);
+	private RouteOverlay? _route;
+
 	private bool IsWeb => FormFactor.GetFormFactor().Equals("Desktop", StringComparison.OrdinalIgnoreCase)
 		|| FormFactor.GetPlatform().Contains("Web", StringComparison.OrdinalIgnoreCase);
 
@@ -133,11 +154,37 @@
 
 		try
 		{
-			_track = await Api.GetTrackAsync(TrackId);
-			_points = await Api.GetTrackPointsAsync(TrackId);
+			await LoadAsync();
 		}
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
 		catch (Exception exception) { _error = exception.Message; }
+	}
+
+	/// <summary>
+	/// Fetches the track, its raw point stream and the line the map draws. Called again after
+	/// an edit or an undo — the whole point of trimming is that the shape changes, and a map
+	/// still showing the span you just removed is worse than no map.
+	/// </summary>
+	private async Task LoadAsync()
+	{
+		_track = await Api.GetTrackAsync(TrackId);
+		_points = await Api.GetTrackPointsAsync(TrackId);
+
+		// Frame on the bounding box and hand the simplified line to the overlay, the same way
+		// the ride page does (§15.5). A track with no bounds — nothing stored, or a fake in a
+		// test — keeps the whole-world camera rather than claiming a position off the Gulf of
+		// Guinea.
+		if (_track.Bounds is { } bounds)
+		{
+			_mapCamera = new MapCamera(
+				Latitude: (bounds.MinLatitude + bounds.MaxLatitude) / 2,
+				Longitude: (bounds.MinLongitude + bounds.MaxLongitude) / 2,
+				ZoomLevel: 11);
+		}
+
+		_route = _track.Polyline.Count > 0
+			? new RouteOverlay(PolylineCodec.EncodePoints(_track.Polyline))
+			: null;
 	}
 
 	private Task AddRemovalAsync()
@@ -155,15 +202,20 @@
 
 	private async Task CommitAsync()
 	{
-		if (_busy || _points is null) return;
+		if (_busy || _track is null || _points is null) return;
 		_busy = true;
 		_error = null;
 		try
 		{
+			_before = _track.Track;
 			_editResult = await Api.EditTrackAsync(TrackId, new EditTrackRequest(
 				Version: _points.Version,
 				Removals: _removals.ToList()));
 			_removals.Clear();
+
+			// Reload rather than patch: the server recomputes everything from the surviving
+			// points (§15.7), and the version the next edit has to quote moved with it.
+			await LoadAsync();
 		}
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
 		finally { _busy = false; }
@@ -174,9 +226,9 @@
 		_busy = true;
 		try
 		{
+			_before = _track?.Track;
 			_editResult = await Api.UndoTrackEditAsync(TrackId);
-			_track = await Api.GetTrackAsync(TrackId);
-			_points = await Api.GetTrackPointsAsync(TrackId);
+			await LoadAsync();
 		}
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
 		finally { _busy = false; }
@@ -202,7 +254,7 @@
 <style>
 	.editor .mobile-note {
 		margin: 1rem 0; padding: 0.75rem 1rem;
-		background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px;
+		background: #fef3c730; border: 1px solid #fde68a; border-radius: 6px;
 	}
 	/* The trim controls read as one line, not a stack — labels and inputs stay inline. */
 	.editor label { display: inline-block; margin: 0.4rem 0.5rem 0.4rem 0; }

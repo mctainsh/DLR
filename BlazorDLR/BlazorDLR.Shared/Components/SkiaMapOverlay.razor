@@ -1,5 +1,6 @@
 @using BlazorDLR.Shared.Markers
 @using BlazorDLR.Shared.Services
+@using DLR.Core.Tracks
 @using SkiaSharp
 @using SkiaSharp.Views.Blazor
 @inject IJSRuntime JS
@@ -34,7 +35,7 @@
 	[Parameter] public MapViewport Viewport { get; set; }
 
 	private SKCanvasView? _view;
-	private List<SKPoint>? _decodedRoute;
+	private IReadOnlyList<(double Latitude, double Longitude)>? _decodedRoute;
 	private string? _decodedRouteKey;
 
 	protected override void OnParametersSet()
@@ -49,7 +50,11 @@
 		}
 		else if (!ReferenceEquals(Route.EncodedPolyline, _decodedRouteKey))
 		{
-			_decodedRoute = DecodePolyline(Route.EncodedPolyline);
+			// PolylineCodec is the only implementation of this encoding (§15.5) and the one
+			// the server encodes with. A second decoder here is how the line ended up drawn
+			// at a tenth of its coordinates — precision 5 against a precision 6 encoder puts
+			// a Sydney ride off the Gulf of Guinea, so the map looked empty rather than wrong.
+			_decodedRoute = PolylineCodec.DecodePoints(Route.EncodedPolyline);
 			_decodedRouteKey = Route.EncodedPolyline;
 		}
 
@@ -129,9 +134,9 @@
 
 		using SKPath path = new();
 		bool first = true;
-		foreach (SKPoint lonLat in _decodedRoute)
+		foreach ((double latitude, double longitude) in _decodedRoute)
 		{
-			SKPoint screen = Project(lonLat.Y, lonLat.X);
+			SKPoint screen = Project(latitude, longitude);
 			if (first) { path.MoveTo(screen); first = false; }
 			else { path.LineTo(screen); }
 		}
@@ -405,42 +410,6 @@
 
 	private bool InsideCanvas(SKPoint p) =>
 		p.X >= -32 && p.Y >= -32 && p.X <= Viewport.CanvasWidthPx + 32 && p.Y <= Viewport.CanvasHeightPx + 32;
-
-	/// <summary>
-	/// Decode a Google-style encoded polyline to a list of points where the X coordinate is
-	/// longitude and the Y coordinate is latitude. Kept in the overlay so nothing else needs
-	/// to know about the encoding.
-	/// </summary>
-	private static List<SKPoint> DecodePolyline(string encoded)
-	{
-		List<SKPoint> points = new();
-		if (string.IsNullOrEmpty(encoded)) return points;
-
-		int index = 0, lat = 0, lon = 0;
-		while (index < encoded.Length)
-		{
-			(int dlat, index) = DecodeValue(encoded, index);
-			lat += dlat;
-			(int dlon, index) = DecodeValue(encoded, index);
-			lon += dlon;
-			points.Add(new SKPoint((float)(lon * 1e-5), (float)(lat * 1e-5)));
-		}
-		return points;
-	}
-
-	private static (int Value, int NextIndex) DecodeValue(string encoded, int index)
-	{
-		int result = 0, shift = 0, byteValue;
-		do
-		{
-			byteValue = encoded[index++] - 63;
-			result |= (byteValue & 0x1f) << shift;
-			shift += 5;
-		}
-		while (byteValue >= 0x20);
-		int value = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-		return (value, index);
-	}
 
 	private static SKColor ParseColour(string hex)
 	{

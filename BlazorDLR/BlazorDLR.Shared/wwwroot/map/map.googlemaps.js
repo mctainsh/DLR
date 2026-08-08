@@ -7,7 +7,7 @@
 // via `options.apiKey`. The key is not compiled into the app; it is a config value on
 // the host, and §14.2 has the rules about where it lives (never `appsettings.json`).
 
-import { dispatch } from "./interop.js";
+import { dispatch, createViewportReporter } from "./interop.js";
 
 const SCRIPT_ID = "google-maps-js";
 let loadPromise = null;
@@ -72,14 +72,14 @@ export async function createMap(hostElement, options, callbacks) {
     });
 
     // Every base-map module emits this shape (§4.5 v0.21).
-    const emitViewport = () => {
+    const readViewport = () => {
         const bounds = map.getBounds();
-        if (!bounds) return;
+        if (!bounds) return null;
         const ne = bounds.getNorthEast();
         const sw = bounds.getSouthWest();
         const rect = hostElement.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        dispatch(callbacks?.onViewportChanged, "OnViewportChanged", {
+        return {
             topLeftLatitude: ne.lat(),
             topLeftLongitude: sw.lng(),
             bottomRightLatitude: sw.lat(),
@@ -89,10 +89,20 @@ export async function createMap(hostElement, options, callbacks) {
             canvasWidthPx: Math.round(rect.width * dpr),
             canvasHeightPx: Math.round(rect.height * dpr),
             devicePixelRatio: dpr,
-        });
+        };
     };
 
-    map.addListener("idle", emitViewport);
+    const reporter = createViewportReporter(readViewport, () => callbacks?.onViewportChanged);
+    const emitViewport = reporter.report;
+
+    // "idle" is the settle event — on its own it leaves the overlay frozen for the whole
+    // of a pan. `bounds_changed` fires as the view moves, but Google raises it per changed
+    // value rather than per frame, so it is used as the "the map is moving" signal and the
+    // pump samples getBounds() every frame until "idle" says it stopped. Starting the pump
+    // is idempotent, so the run of bounds_changed events a single drag produces is one run.
+    map.addListener("bounds_changed", reporter.startTracking);
+    map.addListener("heading_changed", reporter.startTracking);
+    map.addListener("idle", reporter.stopTracking);
 
     // A tap on the map, in lat / lon (§16.1). Google raises "click" only for a tap, not
     // for the mouse-up that ends a pan, so dragging the map never places a marker.
@@ -119,6 +129,7 @@ export async function createMap(hostElement, options, callbacks) {
             // Drop the callbacks first — teardown can emit one last idle event, and by then
             // C# has disposed the DotNetObjectReference it would dispatch into.
             callbacks = null;
+            reporter.dispose();
             // Google Maps has no explicit destroy, but detaching from the DOM and letting
             // GC run is the documented pattern.
             hostElement.replaceChildren();

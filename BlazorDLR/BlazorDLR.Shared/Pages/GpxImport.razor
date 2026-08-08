@@ -49,7 +49,7 @@
 						<span>@FormatKm(track.DistanceM), @track.PointCount points, @track.SegmentCount segments</span>
 						@if (track.AscentM is { } a)
 						{
-							<span>, @a:0 m ascent</span>
+							<span>, @a.ToString("N0")m ascent</span>
 						}
 						@if (track.DurationS is { } d)
 						{
@@ -214,6 +214,6 @@
 	.import .preview { padding: 1rem; background: #fff2; border: 1px solid #e5e7eb; border-radius: 6px; }
 	.import .file-name { font-family: ui-monospace, monospace; opacity: 0.75; }
 	.import li { padding: 0.75rem; background: #fff3; border-radius: 4px; margin-bottom: 0.5rem; }
-	.import .badge.route { background: #fef3c7; }
+	.import .badge.route { background: #fef3c730; }
 	.import .badge.track { background: #d1fae5; }
 </style>

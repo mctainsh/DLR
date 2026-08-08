@@ -202,6 +202,12 @@ if (args.Contains("--migrate", StringComparer.Ordinal))
 // rather than a 500 on somebody's first sign-in attempt.
 SigningKeySource.Validate(app.Configuration, app.Environment.ContentRootPath);
 
+// Alongside the signing key and for the same reason, and deliberately not before the
+// `--migrate` branch: applying a schema needs a database, not somewhere to put photographs.
+// An unset value is not inert here — it resolves relative to the working directory, so the
+// server comes up perfectly happily and writes uploads into the source tree (§9.1).
+RequiredSettings.ValidateBlobRoot(app.Configuration);
+
 // Before anything that reads an address. Every per-address rule in §7.8 depends on
 // this having run, and the ladder in particular breaks registration outright without
 // it — every signup would look like it came from Caddy.

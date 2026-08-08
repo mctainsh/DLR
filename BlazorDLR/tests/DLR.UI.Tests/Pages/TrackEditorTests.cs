@@ -1,9 +1,15 @@
+using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Pages;
 using BlazorDLR.Shared.Services;
 using Bunit;
 using DLR.Core.Contracts.Tracks;
+using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+
+// DLR.Core.Tracks carries a TrackEditor of its own — the domain operation that applies the
+// removals. This file is about the page, so the bare name is pinned to it.
+using TrackEditor = BlazorDLR.Shared.Pages.TrackEditor;
 
 namespace DLR.UI.Tests.Pages;
 
@@ -23,19 +29,31 @@ public sealed class TrackEditorTests : BunitContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-	private static (FakeApiClient api, FakeFormFactor form) WireServices(BunitContext context, string formFactor)
+	private static (FakeApiClient api, FakeFormFactor form) WireServices(
+		BunitContext context,
+		string formFactor,
+		TrackBounds? bounds = null,
+		IReadOnlyList<TrackPoint>? polyline = null)
 	{
 		FakeApiClient api = new()
 		{
 			TrackDetailResult = new TrackDetail(
 				new TrackSummary(Guid.NewGuid(), "Test ride", FixedInstant, null, null, 3600, 25_000, 300, 100, 0, 1, TrackSourceDto.Recorded, 1),
-				null,
-				Array.Empty<DLR.Core.Tracks.TrackPoint>()),
+				bounds,
+				polyline ?? Array.Empty<TrackPoint>()),
 			TrackPointsResult = new TrackPointsResponse(Version: 7, PointCount: 200, Polyline: "", TimeOffsets: null, ElevationDecimetres: null, SegmentStarts: new[] { 0 }),
 		};
 		FakeFormFactor form = new() { FormFactor = formFactor, Platform = formFactor };
 		context.Services.AddSingleton<IApiClient>(api);
 		context.Services.AddSingleton<IFormFactor>(form);
+
+		// The editor draws the track it is trimming. InitAsync throws so RideMap takes its
+		// stated-error branch and never reports a viewport — SkiaMapOverlay's SKCanvasView is
+		// browser-only and would throw on render.
+		context.Services.AddSingleton<IMapInterop>(new FakeMapInterop
+		{
+			InitException = new InvalidOperationException("Test host — map interop is stubbed."),
+		});
 		return (api, form);
 	}
 
@@ -51,6 +69,43 @@ public sealed class TrackEditorTests : BunitContext
 			"§6.1: on a phone the editor renders the redirect note, not the composer.");
 		api.Calls.ShouldNotContain("GetTrackPointsAsync",
 			"loading the point stream on a device that cannot edit is wasted bytes over a mobile connection.");
+	}
+
+	[Fact]
+	public void OnDesktop_DrawsTheTrackAndFramesTheMapOnIt()
+	{
+		TrackPoint[] polyline =
+		[
+			new(-33.8688, 151.2093),
+			new(-33.8700, 151.2110),
+			new(-33.8725, 151.2148),
+		];
+		WireServices(this, formFactor: "Desktop",
+			bounds: new TrackBounds(-33.8725, 151.2093, -33.8688, 151.2148),
+			polyline: polyline);
+
+		// The map's own logic is real; only SkiaMapOverlay's browser-only canvas is dropped.
+		ComponentFactories.Add<RideMap, StubRideMap>();
+
+		IRenderedComponent<TrackEditor> component = Render<TrackEditor>(parameters => parameters
+			.Add(p => p.TrackId, Guid.NewGuid()));
+
+		component.WaitForAssertion(() =>
+		{
+			RideMap map = component.FindComponent<StubRideMap>().Instance;
+
+			// §15.5: the line the editor draws is the simplified polyline off the detail
+			// endpoint, encoded by the one codec — the overlay decodes with the same one, so a
+			// precision mismatch cannot put the track a continent away and leave the map blank.
+			map.Route.ShouldNotBeNull("a track editor that draws no track is the bug this asserts against.");
+			PolylineCodec.DecodePoints(map.Route!.EncodedPolyline)
+				.Select(point => point.Latitude)
+				.ShouldBe(polyline.Select(point => point.Latitude), tolerance: 1e-6);
+
+			// Framed on the bounding box, so the line opens in view rather than at null island.
+			map.Camera.Latitude.ShouldBe(-33.87065, tolerance: 1e-6);
+			map.Camera.Longitude.ShouldBe(151.21205, tolerance: 1e-6);
+		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]
