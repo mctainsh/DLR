@@ -4,7 +4,7 @@
 @using DLR.Core.Contracts.Rides
 @inject IApiClient Api
 
-<PageTitle>Group rides — Dumb Luck Rides</PageTitle>
+<PageTitle>Group rides — Dumb Luck Routes</PageTitle>
 
 @*
 	The signed-in entry point to group rides (§5.2).
@@ -51,7 +51,7 @@
 					{
 						<li class="ride">
 							<a class="ride-link" href="/group-rides/@ride.Id">
-								<strong>@ride.Name</strong>
+								<h2>@ride.Name</h2>
 								<span class="meta">
 									@ride.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")
 									· @ride.MemberCount member@(ride.MemberCount == 1 ? "" : "s")

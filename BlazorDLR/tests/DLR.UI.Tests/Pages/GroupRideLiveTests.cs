@@ -62,6 +62,7 @@ public sealed class GroupRideLiveTests : BunitContext
 		Services.AddSingleton<TimeProvider>(clock);
 		Services.AddSingleton(auth);
 		Services.AddSingleton<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(auth);
+		Services.AddSingleton<ConfirmService>();
 		Services.AddRealAuthorizationPipeline();
 		this.CascadeAuthenticationState(auth);
 

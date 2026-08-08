@@ -31,7 +31,7 @@ public sealed record GpxWaypointOut(
 public static class GpxWriter
 {
 	/// <summary>The creator string written into the file.</summary>
-	public const string Creator = "Dumb Luck Rides";
+	public const string Creator = "Dumb Luck Routes";
 
 	private const string GpxNamespace = "http://www.topografix.com/GPX/1/1";
 

@@ -1,19 +1,19 @@
 @page "/group-rides/{RideId:guid}"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
-@using DLR.Core.Contracts.Comments
+@using BlazorDLR.Shared.Markers
 @using DLR.Core.Contracts.Markers
-@using DLR.Core.Contracts.Moderation
 @using DLR.Core.Contracts.Rides
 @using DLR.Core.Contracts.Tracks
 @using DLR.Core.Tracks
 @inject IApiClient Api
 @inject IRideHubClient Hub
 @inject AuthState Auth
+@inject ConfirmService Confirm
 @inject NavigationManager Nav
 @implements IAsyncDisposable
 
-<PageTitle>@Title — Dumb Luck Rides</PageTitle>
+<PageTitle>@Title — Dumb Luck Routes</PageTitle>
 
 <div class="page page-wide live">
 	@if (_ride is null && _error is null)
@@ -55,8 +55,9 @@
 
 		<div class="grid">
 			<div class="map-panel">
-				<RideMap Camera="_camera" Markers="_markerLayer" ShowUserLocation="false"
-						 OnViewportReported="OnMapViewportReported" />
+				<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" ShowUserLocation="false"
+						 OnViewportReported="OnMapViewportReported"
+						 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="false" />
 			</div>
 
 			<aside class="side">
@@ -95,6 +96,59 @@
 					}
 				</div>
 
+				@*
+					The map's pins carry an icon and a title and nothing else — the Skia overlay
+					is `pointer-events: none` so gestures reach the base map (RideMap), which
+					means a pin cannot be tapped for its detail. This list is where a marker's
+					note, its photo and its delete live (§16.4, §16.5).
+				*@
+				<div class="markers">
+					<h3>Markers</h3>
+
+					@if (_markers.Count == 0)
+					{
+						<p class="hint">Nothing marked on this ride yet.</p>
+					}
+					else
+					{
+						<ul class="marker-list">
+							@foreach (MarkerDto marker in OrderedMarkers)
+							{
+								bool open = _openMarkerId == marker.Id;
+
+								<li class="@(open ? "open" : null)">
+									<button type="button" class="marker-head"
+											aria-expanded="@(open ? "true" : "false")"
+											@onclick="() => ToggleMarkerAsync(marker)">
+										<span class="glyph" aria-hidden="true">@MarkerIconGlyphs.Emoji(marker.Icon)</span>
+										<span class="what">
+											<strong>@marker.Title</strong>
+											<em>@marker.CreatedByUserName</em>
+										</span>
+										<span class="badges">
+											@if (!string.IsNullOrWhiteSpace(marker.Note))
+											{
+												<span title="Has a note">📝</span>
+											}
+											@if (marker.PhotoId is not null)
+											{
+												<span title="Has a photo">📷</span>
+											}
+										</span>
+									</button>
+
+									@if (open)
+									{
+										<MarkerDetails Marker="marker" CanDelete="CanDelete(marker)"
+													   Deleting="_deletingMarkerId == marker.Id"
+													   OnDelete="DeleteMarkerAsync" />
+									}
+								</li>
+							}
+						</ul>
+					}
+				</div>
+
 				@if (_ride.IsOrganiser)
 				{
 					<div class="organiser">
@@ -120,6 +174,36 @@
 					<ConsentPrompt RideName="@_ride.Name"
 								   OnShare="OnConsentShareAsync"
 								   OnDismiss="OnConsentDismissAsync" />
+				}
+
+				@if (NearbyMarkers is { Count: > 0 } nearby)
+				{
+					<div class="nearby-dialog" role="dialog" aria-modal="true" aria-label="Markers near that point"
+						 @onclick="CloseNearby">
+						<div class="nearby-card" @onclick:stopPropagation="true">
+							<header>
+								<h2>
+									@(nearby.Count == 1 ? "1 marker here" : $"{nearby.Count} markers here")
+								</h2>
+								<button type="button" class="close" @onclick="CloseNearby" aria-label="Close">×</button>
+							</header>
+
+							@foreach (MarkerDto marker in nearby)
+							{
+								<section class="nearby-marker">
+									<h3>
+										<span class="glyph" aria-hidden="true">@MarkerIconGlyphs.Emoji(marker.Icon)</span>
+										@marker.Title
+									</h3>
+									<p class="by">@marker.CreatedByUserName</p>
+
+									<MarkerDetails Marker="marker" CanDelete="CanDelete(marker)"
+												   Deleting="_deletingMarkerId == marker.Id"
+												   OnDelete="DeleteMarkerAsync" />
+								</section>
+							}
+						</div>
+					</div>
 				}
 
 				@if (_showEndDialog)
@@ -175,7 +259,175 @@
 	private bool _showEndDialog;
 	private bool _busy;
 
+	/// <summary>Which marker's detail is expanded, or null when the list is all collapsed.</summary>
+	private Guid? _openMarkerId;
+
+	/// <summary>
+	/// The markers a tap on the map landed on, nearest first — identified by id rather than
+	/// held as DTOs so the popup follows <see cref="_markers"/>. An edit arriving on the hub
+	/// updates what is on screen, and a marker deleted underneath simply drops out; keeping
+	/// copies would leave the popup showing a marker nobody else can see any more.
+	/// </summary>
+	private IReadOnlyList<Guid> _nearbyMarkerIds = Array.Empty<Guid>();
+
+	private RideMap? _map;
+
+	/// <summary>
+	/// The marker whose delete is in flight. Deliberately not <see cref="_busy"/>: that one
+	/// disables the sharing switch and the organiser's lifecycle buttons, and none of those
+	/// have anything to do with removing a pin.
+	/// </summary>
+	private Guid? _deletingMarkerId;
+
 	private string Title => _ride?.Name ?? "Ride";
+
+	/// <summary>
+	/// Oldest first, which is the order the list endpoint returns (§16.5). Sorting on read
+	/// rather than keeping a parallel list means a marker arriving on the hub lands in the
+	/// same place it would have on a reload, and an edit never shuffles the rows underneath
+	/// the person reading them.
+	/// </summary>
+	private IEnumerable<MarkerDto> OrderedMarkers =>
+		_markers.Values.OrderBy(marker => marker.CreatedUtc);
+
+	/// <summary>
+	/// The markers the last tap landed on, resolved against the live set. Null when nothing
+	/// was tapped, so the popup is simply absent rather than an empty card.
+	/// </summary>
+	private IReadOnlyList<MarkerDto>? NearbyMarkers
+	{
+		get
+		{
+			if (_nearbyMarkerIds.Count == 0)
+			{
+				return null;
+			}
+
+			List<MarkerDto> found = new(_nearbyMarkerIds.Count);
+			foreach (Guid id in _nearbyMarkerIds)
+			{
+				if (_markers.TryGetValue(id, out MarkerDto? marker))
+				{
+					found.Add(marker);
+				}
+			}
+
+			return found.Count == 0 ? null : found;
+		}
+	}
+
+	/// <summary>Zoom a marker is brought to when it is chosen. Street level, not suburb level.</summary>
+	private const double FocusZoom = 16;
+
+	/// <summary>
+	/// A tap on the base map lists every marker near that point (§16.4). The arithmetic is
+	/// <see cref="MarkerHitTest"/>'s; this decides what to do with the answer.
+	/// </summary>
+	private async Task OnMapTappedAsync(MapClick click)
+	{
+		// A tap arriving before the map has reported a frame has nothing to hit-test against.
+		if (_mapViewport is not { } viewport)
+		{
+			return;
+		}
+
+		_nearbyMarkerIds = [.. MarkerHitTest.Near(viewport, _markers.Values, click).Select(marker => marker.Id)];
+
+		await InvokeAsync(StateHasChanged);
+	}
+
+	private void CloseNearby() => _nearbyMarkerIds = Array.Empty<Guid>();
+
+	/// <summary>
+	/// Expands a row and brings the map to it. Collapsing leaves the camera alone — somebody
+	/// closing a panel is done reading, not asking to be taken somewhere.
+	/// </summary>
+	private async Task ToggleMarkerAsync(MarkerDto marker)
+	{
+		if (_openMarkerId == marker.Id)
+		{
+			_openMarkerId = null;
+			return;
+		}
+
+		_openMarkerId = marker.Id;
+		await FocusAsync(marker);
+	}
+
+	/// <summary>
+	/// Centres the map on a marker and zooms in, without zooming <em>out</em> on somebody who
+	/// is already closer than <see cref="FocusZoom"/> — pulling the view back would throw away
+	/// detail they had chosen.
+	/// <para>
+	/// Driven through the component rather than by assigning <c>_camera</c>: a parameter only
+	/// moves the map when its value differs from the last one applied, so choosing the same
+	/// marker twice — the obvious thing to do after panning away — would do nothing at all
+	/// the second time.
+	/// </para>
+	/// </summary>
+	private async Task FocusAsync(MarkerDto marker)
+	{
+		if (_map is null)
+		{
+			return;
+		}
+
+		double zoom = Math.Max(_mapViewport?.ZoomLevel ?? FocusZoom, FocusZoom);
+
+		_camera = new MapCamera(
+			PositionScale.ToDegrees(marker.Lat),
+			PositionScale.ToDegrees(marker.Lon),
+			zoom);
+
+		try
+		{
+			await _map.SetCameraAsync(_camera);
+		}
+		catch
+		{
+			// A base map that failed to attach shows its own stated error (§4.5). Refusing to
+			// move a camera that does not exist is not worth a second error over the top.
+		}
+	}
+
+	/// <summary>
+	/// Who may remove a marker: the rider who placed it, or the ride's organiser (§16.5).
+	/// Mirrors <c>MarkerController.CanWriteAsync</c> so the button is simply absent rather
+	/// than there and 403-ing — the server stays the one that decides either way.
+	/// </summary>
+	private bool CanDelete(MarkerDto marker) =>
+		marker.CreatedByUserId == Auth.UserId || _ride?.IsOrganiser == true;
+
+	private async Task DeleteMarkerAsync(MarkerDto marker)
+	{
+		bool ok = await Confirm.AskAsync(
+			"Delete marker?",
+			$"“{marker.Title}” disappears from everyone's map. This cannot be undone.",
+			confirmText: "Delete",
+			danger: true);
+
+		if (!ok) return;
+
+		_deletingMarkerId = marker.Id;
+		try
+		{
+			await Api.DeleteMarkerAsync(marker.Id);
+
+			// The server broadcasts MarkerRemoved to the ride group and OnMarkerRemoved would
+			// do exactly this — but only for a client whose hub connection came up. §5.3's rule
+			// is that the snapshot is authoritative and the hub is the delta on top, so the
+			// caller drops its own copy too. Both paths are one dictionary remove and are happy
+			// to run one after the other.
+			_markers.Remove(marker.Id);
+			if (_openMarkerId == marker.Id)
+			{
+				_openMarkerId = null;
+			}
+			RebuildMapLayer();
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+		finally { _deletingMarkerId = null; }
+	}
 
 	/// <summary>
 	/// Opens the marker composer on the view the rider is actually looking at, so the picker
@@ -219,6 +471,8 @@
 		_markerLayer.Clear();
 		_markers.Clear();
 		_positions.Clear();
+		_openMarkerId = null;
+		_nearbyMarkerIds = Array.Empty<Guid>();
 		_windDownEndsUtc = null;
 
 		WireHub();
@@ -346,6 +600,13 @@
 	{
 		if (rideId != RideId) return;
 		_markers.Remove(markerId);
+		// Somebody else's delete can land while its detail is open on this screen. Collapsing
+		// it is the honest response — the alternative is an expanded panel describing a marker
+		// that no longer exists.
+		if (_openMarkerId == markerId)
+		{
+			_openMarkerId = null;
+		}
 		RebuildMapLayer();
 		_ = InvokeAsync(StateHasChanged);
 	}
@@ -580,11 +841,109 @@
 			font-size: 1rem;
 		}
 
-	.live .sharing, .live .thread-link, .live .organiser {
+	.live .sharing, .live .thread-link, .live .organiser, .live .markers {
 		padding: 0.75rem;
 		background: #fff2;
 		border-radius: 6px;
 	}
+
+	.live .marker-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+		.live .marker-list li + li {
+			border-top: 1px solid #ffffff1f;
+		}
+
+	/* The whole row is the disclosure control, so it is a button — but it has to read as a
+	   list row, which means unpicking the button chrome rather than styling around it. */
+	.live .marker-head {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.4rem 0;
+		background: transparent;
+		border: 0;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+
+		.live .marker-head .glyph {
+			font-size: 1.25rem;
+			line-height: 1;
+		}
+
+		.live .marker-head .what {
+			flex: 1;
+			min-width: 0;
+		}
+
+			/* A title is capped at 40 characters but the sidebar is narrower than that,
+			   and a wrapped one would push the badges out of line. */
+			.live .marker-head .what strong,
+			.live .marker-head .what em {
+				display: block;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.live .marker-head .what em {
+				font-size: 0.8rem;
+				opacity: 0.7;
+			}
+
+		.live .marker-head .badges {
+			font-size: 0.8rem;
+			opacity: 0.8;
+		}
+
+	.live .marker-body {
+		padding: 0 0 0.6rem 1.75rem;
+	}
+
+		.live .marker-body .kind {
+			margin: 0 0 0.35rem;
+			font-size: 0.8rem;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			opacity: 0.7;
+		}
+
+		/* A note is free text somebody typed at the side of a road — it keeps its own line
+		   breaks, and a long unbroken string must not widen the sidebar. */
+		.live .marker-body .note {
+			margin: 0 0 0.5rem;
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
+		}
+
+		.live .marker-body .marker-photo {
+			display: block;
+			max-width: 100%;
+			border-radius: 4px;
+			margin-bottom: 0.5rem;
+		}
+
+		.live .marker-body .danger {
+			padding: 0.35rem 0.7rem;
+			background: #b91c1c;
+			color: white;
+			border: 0;
+			border-radius: 4px;
+			cursor: pointer;
+			font: inherit;
+		}
+
+			.live .marker-body .danger:disabled {
+				opacity: 0.6;
+				cursor: default;
+			}
 
 	.live .quiet {
 		font-size: 0.85rem;
@@ -600,6 +959,80 @@
 		margin-top: 0.5rem;
 		padding: 0.4rem 0.8rem;
 	}
+
+	/* Tap-a-pin popup. Same modal treatment as the end-ride dialog — on a phone the map fills
+	   the screen, so anything anchored to the tapped point would sit under the finger. */
+	.live .nearby-dialog {
+		position: fixed;
+		inset: 0;
+		background: rgba(0,0,0,0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		padding: 1rem;
+	}
+
+	.live .nearby-card {
+		background: var(--dlr-surface, #1f2937);
+		color: var(--dlr-text, #f9fafb);
+		border-radius: 8px;
+		padding: 1rem 1.25rem 1.25rem;
+		max-width: 28rem;
+		width: 100%;
+		/* Several markers under one tap is normal at low zoom; the card scrolls rather
+		   than growing past the viewport. */
+		max-height: min(80vh, 40rem);
+		overflow-y: auto;
+	}
+
+		.live .nearby-card header {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 0.5rem;
+		}
+
+		.live .nearby-card h2 {
+			margin: 0 0 0.5rem;
+			font-size: 1.1rem;
+		}
+
+		.live .nearby-card .close {
+			background: transparent;
+			border: 0;
+			color: inherit;
+			font-size: 1.5rem;
+			line-height: 1;
+			cursor: pointer;
+			padding: 0 0.25rem;
+		}
+
+	.live .nearby-marker + .nearby-marker {
+		border-top: 1px solid #ffffff1f;
+		margin-top: 0.75rem;
+		padding-top: 0.75rem;
+	}
+
+		.live .nearby-marker h3 {
+			margin: 0;
+			font-size: 1rem;
+		}
+
+			.live .nearby-marker h3 .glyph {
+				font-size: 1.25rem;
+			}
+
+		.live .nearby-marker .by {
+			margin: 0;
+			font-size: 0.8rem;
+			opacity: 0.7;
+		}
+
+		/* Inside the popup the detail is the content, not an indented disclosure. */
+		.live .nearby-marker .marker-body {
+			padding-left: 0;
+		}
 
 	.live .end-dialog {
 		position: fixed;

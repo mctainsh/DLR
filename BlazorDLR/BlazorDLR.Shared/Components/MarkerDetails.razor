@@ -1,0 +1,59 @@
+@using BlazorDLR.Shared.Markers
+@using DLR.Core.Contracts.Markers
+
+@*
+	Everything behind a pin that the map itself cannot show: the icon's name, the note, the
+	photograph, and the delete (§16.4, §16.5).
+
+	Two callers, deliberately one component — the live ride page's sidebar list and its
+	tap-a-pin popup show the same marker and must show it the same way. The alternative was
+	two copies of the note/photo/delete block, which drift.
+
+	No <style> block here on purpose. The only page that mounts this owns the `.marker-body`
+	rules, and a component that can render several times over would otherwise emit the same
+	<style> element once per instance.
+*@
+
+<div class="marker-body">
+	<p class="kind">@MarkerIconGlyphs.Label(Marker.Icon)</p>
+
+	@if (!string.IsNullOrWhiteSpace(Marker.Note))
+	{
+		@* Plain text, never HTML or Markdown (§16.2). *@
+		<p class="note">@Marker.Note</p>
+	}
+	else
+	{
+		<p class="hint">No note.</p>
+	}
+
+	@if (Marker.PhotoId is { } photoId)
+	{
+		@* An <img src> cannot carry a bearer token, so the bytes are fetched and inlined (§16.4). *@
+		<AuthedImage Url="@($"/api/v1/photos/{photoId}")" Alt="@Marker.Title" Class="marker-photo" />
+	}
+
+	@if (CanDelete)
+	{
+		<button type="button" class="danger" disabled="@Deleting" @onclick="() => OnDelete.InvokeAsync(Marker)">
+			@(Deleting ? "Deleting…" : "Delete marker")
+		</button>
+	}
+</div>
+
+@code {
+	/// <summary>The marker being shown.</summary>
+	[Parameter, EditorRequired] public MarkerDto Marker { get; set; } = default!;
+
+	/// <summary>
+	/// Whether to offer the delete. The caller decides — this component has no view of who is
+	/// signed in, and the server enforces the rule regardless (§16.5).
+	/// </summary>
+	[Parameter] public bool CanDelete { get; set; }
+
+	/// <summary>Whether this marker's delete is already in flight.</summary>
+	[Parameter] public bool Deleting { get; set; }
+
+	/// <summary>Raised when the delete is pressed. Confirmation is the caller's business.</summary>
+	[Parameter] public EventCallback<MarkerDto> OnDelete { get; set; }
+}

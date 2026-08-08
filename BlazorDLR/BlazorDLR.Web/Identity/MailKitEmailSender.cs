@@ -43,7 +43,7 @@ public sealed class EmailOptions
 	public string FromAddress { get; set; } = string.Empty;
 
 	/// <summary>The display name on the From header.</summary>
-	public string FromName { get; set; } = "Dumb Luck Rides";
+	public string FromName { get; set; } = "Dumb Luck Routes";
 }
 
 /// <summary>

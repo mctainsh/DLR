@@ -72,7 +72,7 @@ public sealed class TestHarnessTests(PostgresFixture postgres)
 
 		await sender.SendAsync(new EmailMessage(
 			To: "rider@example.com",
-			Subject: "Your Dumb Luck Rides account",
+			Subject: "Your Dumb Luck Routes account",
 			PlainTextBody: $"Nothing has happened here since {clock.GetUtcNow():yyyy-MM-dd}."));
 
 		app.Emails.Sent.ShouldHaveSingleItem();

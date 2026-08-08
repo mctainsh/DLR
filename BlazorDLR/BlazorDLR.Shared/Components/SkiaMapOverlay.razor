@@ -391,55 +391,16 @@
 
 	/// <summary>
 	/// Web Mercator projection from geographic degrees to overlay pixel coordinates.
-	/// The base map is already in this projection — every one of the three we support —
-	/// so a pixel here lands on the corresponding tile pixel.
+	/// <para>
+	/// The arithmetic lives in <see cref="MapGeometry.ProjectToCanvas"/> rather than here,
+	/// because the live ride page hit-tests taps against the pins this method draws — and two
+	/// copies of a projection agree right up until somebody rotates the map.
+	/// </para>
 	/// </summary>
 	private SKPoint Project(double lat, double lon)
 	{
-		// Convert lat/lon to normalised Mercator [0, 1] × [0, 1].
-		double x = (lon + 180.0) / 360.0;
-		double sinLat = Math.Sin(lat * Math.PI / 180.0);
-		// Clamp so a pole does not blow up the logarithm.
-		sinLat = Math.Max(-0.9999, Math.Min(0.9999, sinLat));
-		double y = 0.5 - Math.Log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
-
-		// Where is the viewport in the same normalised space?
-		double tlX = (Viewport.TopLeftLongitude + 180.0) / 360.0;
-		double brX = (Viewport.BottomRightLongitude + 180.0) / 360.0;
-		double tlSin = Math.Max(-0.9999, Math.Min(0.9999, Math.Sin(Viewport.TopLeftLatitude * Math.PI / 180.0)));
-		double brSin = Math.Max(-0.9999, Math.Min(0.9999, Math.Sin(Viewport.BottomRightLatitude * Math.PI / 180.0)));
-		double tlY = 0.5 - Math.Log((1 + tlSin) / (1 - tlSin)) / (4 * Math.PI);
-		double brY = 0.5 - Math.Log((1 + brSin) / (1 - brSin)) / (4 * Math.PI);
-
-		double widthPx = Viewport.CanvasWidthPx;
-		double heightPx = Viewport.CanvasHeightPx;
-
-		// Guard against a degenerate viewport (canvas not yet measured).
-		if (Math.Abs(brX - tlX) < 1e-12 || Math.Abs(brY - tlY) < 1e-12)
-		{
-			return new SKPoint((float)(widthPx / 2), (float)(heightPx / 2));
-		}
-
-		float px = (float)(widthPx * (x - tlX) / (brX - tlX));
-		float py = (float)(heightPx * (y - tlY) / (brY - tlY));
-
-		// Apply the base map's rotation. The overlay draws north-up in Mercator; the
-		// base map's rotation is applied here so the pixels stay in register when a
-		// heading-up map is in use (§4.5 rule about heading-up rendering).
-		if (Math.Abs(Viewport.HeadingDeg) > 1e-6)
-		{
-			float cx = (float)(widthPx / 2);
-			float cy = (float)(heightPx / 2);
-			double rad = -Viewport.HeadingDeg * Math.PI / 180.0;
-			double cos = Math.Cos(rad);
-			double sin = Math.Sin(rad);
-			double dx = px - cx;
-			double dy = py - cy;
-			px = (float)(cx + dx * cos - dy * sin);
-			py = (float)(cy + dx * sin + dy * cos);
-		}
-
-		return new SKPoint(px, py);
+		CanvasPoint point = MapGeometry.ProjectToCanvas(Viewport, lat, lon);
+		return new SKPoint((float)point.X, (float)point.Y);
 	}
 
 	private bool InsideCanvas(SKPoint p) =>

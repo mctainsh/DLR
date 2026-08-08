@@ -32,7 +32,7 @@ public sealed class SourceOfferFooterTests : BunitContext
 		{
 			AboutResult = new AboutInfo(
 				Licence: "AGPL-3.0-only",
-				SourceUrl: "https://github.com/dumbluckrides/dlr-render-test",
+				SourceUrl: "https://github.com/mctainsh/dlr-render-test",
 				Commit: "abcd1234567890abcd1234567890abcd12345678",
 				Version: "1.0.0+abcd1234",
 				BuiltUtc: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)),
@@ -59,7 +59,7 @@ public sealed class SourceOfferFooterTests : BunitContext
 	public void PlaceholderCopyIsHonestBeforeTheApiAnswers()
 	{
 		// Even before the async About call resolves, the footer renders the licence as a
-		// placeholder — "© Dumb Luck Rides · AGPL-3.0-only" — because that line is true
+		// placeholder — "© Dumb Luck Routes · AGPL-3.0-only" — because that line is true
 		// regardless of whether the endpoint answered. The rest fills in later.
 		Services.AddSingleton<IApiClient>(new FakeApiClient());
 

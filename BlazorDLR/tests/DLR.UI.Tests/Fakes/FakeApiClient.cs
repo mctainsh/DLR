@@ -29,7 +29,7 @@ public sealed class FakeApiClient : IApiClient
 
 	// Result fields — set from a test, read from the interface method.
 	public AboutInfo AboutResult { get; set; } =
-		new("AGPL-3.0-only", "https://github.com/dumbluckrides/dlr", "abcd1234", "1.0.0+abcd1234", null);
+		new("AGPL-3.0-only", "https://github.com/mctainsh/dlr", "abcd1234", "1.0.0+abcd1234", null);
 
 	public TokenResponse? TokenResult { get; set; }
 	public bool UserNameAvailableResult { get; set; } = true;
@@ -264,7 +264,11 @@ public sealed class FakeApiClient : IApiClient
 	}
 	public Task<IReadOnlyList<MarkerDto>> ListRideMarkersAsync(Guid rideId, CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListRideMarkersAsync), MarkersResult));
 	public Task<MarkerDto> UpdateMarkerAsync(Guid markerId, UpdateMarkerRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-	public Task DeleteMarkerAsync(Guid markerId, CancellationToken cancellationToken = default) { Record(nameof(DeleteMarkerAsync)); return Task.CompletedTask; }
+
+	/// <summary>Every marker id passed to <see cref="DeleteMarkerAsync"/>, in order.</summary>
+	public List<Guid> DeletedMarkers { get; } = new();
+
+	public Task DeleteMarkerAsync(Guid markerId, CancellationToken cancellationToken = default) { Record(nameof(DeleteMarkerAsync)); DeletedMarkers.Add(markerId); return Task.CompletedTask; }
 	public Task AttachMarkerPhotoAsync(Guid markerId, AttachPhotoRequest request, CancellationToken cancellationToken = default) { Record(nameof(AttachMarkerPhotoAsync)); return Task.CompletedTask; }
 
 	public Task<PhotoUploaded> UploadPhotoAsync(Stream content, string contentType, string fileName, CancellationToken cancellationToken = default) => throw new NotImplementedException();

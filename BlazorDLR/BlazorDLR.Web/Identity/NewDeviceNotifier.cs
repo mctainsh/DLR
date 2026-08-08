@@ -40,7 +40,7 @@ public sealed class NewDeviceNotifier(
 			await email.SendAsync(
 				new EmailMessage(
 					user.Email,
-					"New sign-in to your Dumb Luck Rides account",
+					"New sign-in to your Dumb Luck Routes account",
 					$"""
 					Your account was signed in on {device} at {clock.GetUtcNow():u}.
 

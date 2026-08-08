@@ -27,7 +27,7 @@ public sealed class MainLayoutTests : BunitContext
 	{
 		FakeApiClient api = new()
 		{
-			AboutResult = new AboutInfo("AGPL-3.0-only", "https://github.com/dumbluckrides/dlr",
+			AboutResult = new AboutInfo("AGPL-3.0-only", "https://github.com/mctainsh/dlr",
 				"abcd123456789012", "1.0.0+abcd1234", FixedInstant),
 		};
 		FakeTokenStore tokens = new();

@@ -46,7 +46,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 				$"""
 				Hello {user.UserName},
 
-				Confirm this address so your Dumb Luck Rides account can be recovered if you
+				Confirm this address so your Dumb Luck Routes account can be recovered if you
 				forget your password or lose your phone:
 
 				{link}
@@ -73,7 +73,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 		return email.SendAsync(
 			new EmailMessage(
 				user.Email!,
-				"Reset your Dumb Luck Rides password",
+				"Reset your Dumb Luck Routes password",
 				$"""
 				Hello {user.UserName},
 
@@ -108,7 +108,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 				$"""
 				Hello {owner.UserName},
 
-				Somebody just tried to create a Dumb Luck Rides account using this email
+				Somebody just tried to create a Dumb Luck Routes account using this email
 				address. Your account has not changed and nobody has been given access to it.
 
 				If that was you, you already have an account — sign in as {owner.UserName}, or
@@ -138,7 +138,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 		email.SendAsync(
 			new EmailMessage(
 				user.Email!,
-				"Your Dumb Luck Rides account will be deleted",
+				"Your Dumb Luck Routes account will be deleted",
 				$"""
 				Hello {user.UserName},
 

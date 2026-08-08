@@ -194,7 +194,7 @@ public sealed class NightlyMaintenanceService(
 		await scope.ServiceProvider.GetRequiredService<IEmailSender>().SendAsync(
 			new EmailMessage(
 				settings.AlertEmail,
-				$"Dumb Luck Rides nightly maintenance — {(report.WasDryRun ? "dry run" : "live")}",
+				$"Dumb Luck Routes nightly maintenance — {(report.WasDryRun ? "dry run" : "live")}",
 				$"""
 				Run at {now:u}.
 

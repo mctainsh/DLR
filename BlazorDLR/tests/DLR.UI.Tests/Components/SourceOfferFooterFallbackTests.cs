@@ -35,7 +35,7 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 		{
 			AboutResult = new AboutInfo(
 				Licence: "AGPL-3.0-only",
-				SourceUrl: "https://github.com/dumbluckrides/dlr",
+				SourceUrl: "https://github.com/mctainsh/dlr",
 				Commit: "abc123",
 				Version: "1.0.0+abc123",
 				BuiltUtc: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)),
@@ -58,7 +58,7 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 		{
 			AboutResult = new AboutInfo(
 				Licence: "AGPL-3.0-only",
-				SourceUrl: "https://github.com/dumbluckrides/dlr",
+				SourceUrl: "https://github.com/mctainsh/dlr",
 				Commit: string.Empty,
 				Version: "1.0.0",
 				BuiltUtc: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)),
@@ -90,7 +90,7 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 			string markup = component.Markup;
 			markup.Contains("AGPL-3.0-only", StringComparison.Ordinal).ShouldBeTrue(
 				"§14.6.2: the licence line is a constant of the design and must render even when the About endpoint failed.");
-			markup.Contains("Dumb Luck Rides", StringComparison.Ordinal).ShouldBeTrue(
+			markup.Contains("Dumb Luck Routes", StringComparison.Ordinal).ShouldBeTrue(
 				"the placeholder line names the app so the copy is complete even without the endpoint answer.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}

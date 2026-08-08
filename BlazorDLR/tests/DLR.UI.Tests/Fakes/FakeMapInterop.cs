@@ -43,6 +43,16 @@ public sealed class FakeMapInterop : IMapInterop
 	public void RaiseClick(double latitudeDeg, double longitudeDeg) =>
 		Clicked?.Invoke(new MapClick(latitudeDeg, longitudeDeg));
 
+	/// <summary>
+	/// Stands in for the base map reporting a view. Separate from <see cref="InitAsync"/> so a
+	/// test can hand a page a viewport while still using <see cref="InitException"/> to keep
+	/// <c>SkiaMapOverlay</c> — whose <c>SKCanvasView</c> is browser-only — unmounted.
+	/// </summary>
+	public void RaiseViewport(MapViewport viewport) => ViewportChanged?.Invoke(viewport);
+
+	/// <summary>Every camera passed to <see cref="SetCameraAsync"/>, in order.</summary>
+	public List<MapCamera> Cameras { get; } = new();
+
 	public ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		InitCount++;
@@ -54,7 +64,11 @@ public sealed class FakeMapInterop : IMapInterop
 		return ValueTask.CompletedTask;
 	}
 
-	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default)
+	{
+		Cameras.Add(camera);
+		return ValueTask.CompletedTask;
+	}
 
 	public ValueTask DisposeAsync(CancellationToken cancellationToken = default)
 	{

@@ -18,7 +18,7 @@
 	(§4.5) — the try/catch below is where that decision is made once for every provider.
 *@
 
-<div class="dlr-map-container @(OnMapClicked.HasDelegate ? "picking" : "")">
+<div class="dlr-map-container @(OnMapClicked.HasDelegate && ShowPickingCursor ? "picking" : "")">
 	<div @ref="_host" class="dlr-map-base"></div>
 
 	@if (_viewport is { CanvasWidthPx: > 0 } vp)
@@ -57,6 +57,17 @@
 	/// which is the one screen where a tap means "here" (§16.1).
 	/// </summary>
 	[Parameter] public EventCallback<MapClick> OnMapClicked { get; set; }
+
+	/// <summary>
+	/// Whether a wired-up <see cref="OnMapClicked"/> also turns the pointer into a crosshair.
+	/// <para>
+	/// On by default, because the composer was the only caller and there a tap means "put it
+	/// here" (§16.1). The live ride page turns it off: a tap there <em>interrogates</em> what is
+	/// already on the map rather than placing anything, and a crosshair over a whole live ride
+	/// invites people to think they are about to drop a pin.
+	/// </para>
+	/// </summary>
+	[Parameter] public bool ShowPickingCursor { get; set; } = true;
 
 	/// <summary>
 	/// Fired whenever the base map pans, zooms or rotates. Lets a caller carry the view the

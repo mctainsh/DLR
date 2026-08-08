@@ -26,6 +26,77 @@ public sealed class MapGeometryTests
 		MapGeometry.ScreenBearingDeg(bearing, mapHeading).ShouldBe(expected, tolerance: 1e-9);
 	}
 
+	/// <summary>
+	/// A square view one degree across, 1000 px on a side, centred on the origin. Mercator's
+	/// latitude distortion is negligible this close to the equator, so the expected pixels are
+	/// plain arithmetic.
+	/// </summary>
+	private static readonly MapViewport UnitViewport = new(
+		TopLeftLatitude: 0.5, TopLeftLongitude: -0.5,
+		BottomRightLatitude: -0.5, BottomRightLongitude: 0.5,
+		ZoomLevel: 12, HeadingDeg: 0,
+		CanvasWidthPx: 1000, CanvasHeightPx: 1000, DevicePixelRatio: 1);
+
+	[Fact]
+	public void ProjectToCanvas_PutsTheViewCentreAtTheCanvasCentre()
+	{
+		CanvasPoint centre = MapGeometry.ProjectToCanvas(UnitViewport, 0, 0);
+
+		centre.X.ShouldBe(500, tolerance: 0.5);
+		centre.Y.ShouldBe(500, tolerance: 0.5);
+	}
+
+	[Fact]
+	public void ProjectToCanvas_PutsNorthAtTheTop_AndEastAtTheRight()
+	{
+		// The one that a flipped sign gets wrong, and the one that makes every marker land in
+		// the wrong quadrant when it does.
+		CanvasPoint northEast = MapGeometry.ProjectToCanvas(UnitViewport, 0.25, 0.25);
+
+		northEast.X.ShouldBeGreaterThan(500, "east of centre draws right of centre.");
+		northEast.Y.ShouldBeLessThan(500, "north of centre draws *above* centre — Y grows downward.");
+	}
+
+	[Fact]
+	public void ProjectToCanvas_OnAnUnmeasuredCanvas_CollapsesToTheCentre()
+	{
+		MapViewport unmeasured = UnitViewport with
+		{
+			TopLeftLongitude = 0,
+			BottomRightLongitude = 0,
+		};
+
+		CanvasPoint point = MapGeometry.ProjectToCanvas(unmeasured, 0.25, 0.25);
+
+		point.X.ShouldBe(500);
+		point.Y.ShouldBe(500);
+	}
+
+	[Theory]
+	[InlineData(37)]
+	[InlineData(90)]
+	[InlineData(180)]
+	public void ProjectToCanvas_RotatesAboutTheCanvasCentre(double headingDeg)
+	{
+		// A heading-up map turns the whole canvas about its middle, so the centre pixel is the
+		// fixed point and distances from it are preserved. Both are what the tap hit test on
+		// the live ride page leans on.
+		MapViewport rotated = UnitViewport with { HeadingDeg = headingDeg };
+
+		CanvasPoint centre = MapGeometry.ProjectToCanvas(rotated, 0, 0);
+		centre.X.ShouldBe(500, tolerance: 0.5);
+		centre.Y.ShouldBe(500, tolerance: 0.5);
+
+		double northUp = MapGeometry.ProjectToCanvas(UnitViewport, 0.25, 0.1)
+			.DistanceTo(new CanvasPoint(500, 500));
+		double turned = MapGeometry.ProjectToCanvas(rotated, 0.25, 0.1)
+			.DistanceTo(new CanvasPoint(500, 500));
+
+		turned.ShouldBe(northUp, tolerance: 1e-6,
+			"rotation is an isometry — turning the map must not move a pin nearer to or " +
+			"further from the middle of the screen.");
+	}
+
 	[Fact]
 	public void ScreenBearing_IsAlwaysAPositiveAngle()
 	{
