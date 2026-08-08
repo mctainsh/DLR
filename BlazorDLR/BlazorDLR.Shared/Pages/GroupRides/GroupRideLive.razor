@@ -4,8 +4,6 @@
 @using BlazorDLR.Shared.Markers
 @using DLR.Core.Contracts.Markers
 @using DLR.Core.Contracts.Rides
-@using DLR.Core.Contracts.Tracks
-@using DLR.Core.Tracks
 @inject IApiClient Api
 @inject IRideHubClient Hub
 @inject AuthState Auth
@@ -13,106 +11,122 @@
 @inject NavigationManager Nav
 @implements IAsyncDisposable
 
+@*
+	The live ride (§5.3). The map IS the page: it fills everything the nav rail is not
+	using, and every other affordance is reached from the hamburger in the top-right.
+
+	Why a hamburger here and nowhere else. NavMenu.razor states the app-wide rule — the
+	rail never collapses behind a toggle, because hiding *navigation* is hiding the app.
+	This menu hides no destination: the rail is still on screen next to it. It holds this
+	one screen's *actions*, which is what a screen with no room for a toolbar does.
+
+	Everything that reads rather than acts — who is on the ride, the gaps, the join code,
+	the sharing switch, the organiser's controls — lives on GroupRideInfo, one tap away
+	under "Info". A rider looking at a live map wants the map.
+*@
+
 <PageTitle>@Title — Dumb Luck Routes</PageTitle>
 
-<div class="page page-wide live">
-	@if (_ride is null && _error is null)
+<div class="page-full live">
+	@if (_session.Ride is null && _session.Error is null)
 	{
 		<p class="empty">Loading…</p>
 	}
-	else if (_error is not null)
+	else if (_session.Ride is not { } ride)
 	{
-		<p class="error">@_error</p>
+		<p class="error">@_session.Error</p>
 	}
-	else if (_ride is not null)
+	else
 	{
-		<div class="header">
-			<h1>@_ride.Name</h1>
-			<span class="state @_ride.State.ToString().ToLowerInvariant()">@_ride.State</span>
+		<div class="map-fill">
+			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" ShowUserLocation="false"
+					 OnViewportReported="OnMapViewportReported"
+					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="false" />
 		</div>
 
-		<p class="lead">
-			@(_ride.Description ?? "")
-		</p>
-
-		@if (_ride.IsOrganiser && _ride.JoinCode is not null)
+		@* An error raised by something the menu did — the map underneath is still usable, so
+		   this is a dismissible strip rather than a page that replaced itself with a message. *@
+		@if (_session.Error is { } problem)
 		{
-			<div class="join-code">
-				<strong>Join code:</strong> <span class="code">@_ride.JoinCode</span>
-				<em>Only you see this. Share it with the people you want on the ride.</em>
+			<div class="map-error error" role="alert">
+				<span>@problem</span>
+				<button type="button" class="close" @onclick="_session.ClearError" aria-label="Dismiss">×</button>
 			</div>
 		}
 
-		@if (_windDownEndsUtc is { } endsUtc)
+		@* Catches the tap that dismisses the menu. It covers the map and nothing else — over
+		   the nav rail too and a tap meant for Home would only close a menu. *@
+		@if (_menuOpen)
 		{
-			<div class="wind-down" role="alert">
-				<strong>Sharing wind-down active.</strong>
-				Members who kept sharing on can carry on until they stop — or until
-				<strong>@endsUtc.ToLocalTime().ToString("HH:mm")</strong>, when the server
-				stops it for everyone still on.
-			</div>
+			<div class="menu-backdrop" @onclick="CloseMenu"></div>
 		}
 
-		<div class="grid">
-			<div class="map-panel">
-				<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" ShowUserLocation="false"
-						 OnViewportReported="OnMapViewportReported"
-						 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="false" />
-			</div>
+		<div class="chrome">
+			<button type="button" class="hamburger @(_menuOpen ? "open" : null)"
+					@onclick="ToggleMenu"
+					aria-haspopup="menu"
+					aria-expanded="@(_menuOpen ? "true" : "false")"
+					aria-label="Ride actions">
+				<i class="fa fa-bars" aria-hidden="true"></i>
+			</button>
 
-			<aside class="side">
-				<MemberList Members="_ride.Members" />
+			@if (_menuOpen)
+			{
+				<div class="menu" role="menu">
+					<button type="button" role="menuitem" @onclick="GoToInfo">
+						<i class="fa fa-fw fa-circle-info" aria-hidden="true"></i> Info
+					</button>
 
-				@if (_ride.State == RideStateDto.Live)
-				{
-					<GapList Route="_routePolyline" Positions="_positions" />
-				}
-
-				@if (_ride.State == RideStateDto.Live || _ride.State == RideStateDto.Open)
-				{
-					<div class="sharing">
-						<h3>My sharing</h3>
-						<label class="switch">
-							<input type="checkbox" checked="@_sharing" @onchange="ToggleSharingAsync" disabled="@_busy" />
-							Broadcast my location to this ride
-						</label>
-						<p class="hint">
-							You can turn this off at any moment. Turning it off deletes the
-							stored fix — merely stopping the broadcast would leave a last-known
-							point on the map.
-						</p>
-					</div>
-				}
-
-				<div class="thread-link">
-					<a href="/group-rides/@RideId/thread">Ride thread</a>
-					@if (_ride.Permissions.AllowMemberMarkers || _ride.IsOrganiser)
+					@if (ride.Permissions.AllowMemberMarkers || ride.IsOrganiser)
 					{
-						<a href="/group-rides/@RideId/markers/new" @onclick="GoToComposer" @onclick:preventDefault="true">Add marker</a>
+						<button type="button" role="menuitem" @onclick="GoToComposer">
+							<i class="fa fa-fw fa-circle-plus" aria-hidden="true"></i> Add marker
+						</button>
 					}
-					@if (_ride.State == RideStateDto.Live)
-					{
-						<span class="quiet">— quiet while the ride is live</span>
-					}
+
+					<button type="button" role="menuitem" @onclick="GoToThread">
+						<i class="fa fa-fw fa-comments" aria-hidden="true"></i> Ride thread
+						@if (ride.State == RideStateDto.Live)
+						{
+							<span class="quiet">quiet while live</span>
+						}
+					</button>
+
+					<hr />
+
+					<button type="button" role="menuitem" @onclick="ShowMarkers">
+						<i class="fa fa-fw fa-map-pin" aria-hidden="true"></i> Markers
+						<span class="count">@_session.Markers.Count</span>
+					</button>
 				</div>
+			}
+		</div>
 
-				@*
-					The map's pins carry an icon and a title and nothing else — the Skia overlay
-					is `pointer-events: none` so gestures reach the base map (RideMap), which
-					means a pin cannot be tapped for its detail. This list is where a marker's
-					note, its photo and its delete live (§16.4, §16.5).
-				*@
-				<div class="markers">
-					<h3>Markers</h3>
+		@*
+			The map's pins carry an icon and a title and nothing else — the Skia overlay is
+			`pointer-events: none` so gestures reach the base map (RideMap), which means a pin
+			cannot be tapped for its detail. This list is where a marker's note, its photo and
+			its delete live (§16.4, §16.5). It used to be a permanent sidebar; on a full-screen
+			map it is what the menu's "Markers" opens.
+		*@
+		@if (_showMarkers)
+		{
+			<div class="overlay markers-dialog" role="dialog" aria-modal="true" aria-label="Markers"
+				 @onclick="CloseMarkers">
+				<div class="overlay-card markers" @onclick:stopPropagation="true">
+					<header>
+						<h2>Markers</h2>
+						<button type="button" class="close" @onclick="CloseMarkers" aria-label="Close">×</button>
+					</header>
 
-					@if (_markers.Count == 0)
+					@if (_session.Markers.Count == 0)
 					{
 						<p class="hint">Nothing marked on this ride yet.</p>
 					}
 					else
 					{
 						<ul class="marker-list">
-							@foreach (MarkerDto marker in OrderedMarkers)
+							@foreach (MarkerDto marker in _session.OrderedMarkers)
 							{
 								bool open = _openMarkerId == marker.Id;
 
@@ -139,7 +153,7 @@
 
 									@if (open)
 									{
-										<MarkerDetails Marker="marker" CanDelete="CanDelete(marker)"
+										<MarkerDetails Marker="marker" CanDelete="_session.CanDelete(marker)"
 													   Deleting="_deletingMarkerId == marker.Id"
 													   OnDelete="DeleteMarkerAsync" />
 									}
@@ -148,123 +162,66 @@
 						</ul>
 					}
 				</div>
+			</div>
+		}
 
-				@if (_ride.IsOrganiser)
-				{
-					<div class="organiser">
-						<h3>Organiser</h3>
-						<a href="/group-rides/@RideId/requests">Join requests</a>
-						<a href="/group-rides/@RideId/permissions">Content permissions</a>
+		@if (_showConsent)
+		{
+			<ConsentPrompt RideName="@ride.Name"
+						   OnShare="OnConsentShareAsync"
+						   OnDismiss="OnConsentDismissAsync" />
+		}
 
-						@if (_ride.State == RideStateDto.Open)
-						{
-							<button type="button" class="primary" @onclick="StartRideAsync" disabled="@_busy">Start ride</button>
-						}
-						@if (_ride.State == RideStateDto.Live)
-						{
-							<button type="button" class="primary" @onclick="() => _showEndDialog = true" disabled="@_busy">
-								End ride…
-							</button>
-						}
-					</div>
-				}
+		@if (NearbyMarkers is { Count: > 0 } nearby)
+		{
+			<div class="overlay nearby-dialog" role="dialog" aria-modal="true" aria-label="Markers near that point"
+				 @onclick="CloseNearby">
+				<div class="overlay-card" @onclick:stopPropagation="true">
+					<header>
+						<h2>
+							@(nearby.Count == 1 ? "1 marker here" : $"{nearby.Count} markers here")
+						</h2>
+						<button type="button" class="close" @onclick="CloseNearby" aria-label="Close">×</button>
+					</header>
 
-				@if (_showConsent)
-				{
-					<ConsentPrompt RideName="@_ride.Name"
-								   OnShare="OnConsentShareAsync"
-								   OnDismiss="OnConsentDismissAsync" />
-				}
+					@foreach (MarkerDto marker in nearby)
+					{
+						<section class="nearby-marker">
+							<h3>
+								<span class="glyph" aria-hidden="true">@MarkerIconGlyphs.Emoji(marker.Icon)</span>
+								@marker.Title
+							</h3>
+							<p class="by">@marker.CreatedByUserName</p>
 
-				@if (NearbyMarkers is { Count: > 0 } nearby)
-				{
-					<div class="nearby-dialog" role="dialog" aria-modal="true" aria-label="Markers near that point"
-						 @onclick="CloseNearby">
-						<div class="nearby-card" @onclick:stopPropagation="true">
-							<header>
-								<h2>
-									@(nearby.Count == 1 ? "1 marker here" : $"{nearby.Count} markers here")
-								</h2>
-								<button type="button" class="close" @onclick="CloseNearby" aria-label="Close">×</button>
-							</header>
-
-							@foreach (MarkerDto marker in nearby)
-							{
-								<section class="nearby-marker">
-									<h3>
-										<span class="glyph" aria-hidden="true">@MarkerIconGlyphs.Emoji(marker.Icon)</span>
-										@marker.Title
-									</h3>
-									<p class="by">@marker.CreatedByUserName</p>
-
-									<MarkerDetails Marker="marker" CanDelete="CanDelete(marker)"
-												   Deleting="_deletingMarkerId == marker.Id"
-												   OnDelete="DeleteMarkerAsync" />
-								</section>
-							}
-						</div>
-					</div>
-				}
-
-				@if (_showEndDialog)
-				{
-					<div class="end-dialog" role="dialog">
-						<div class="end-card">
-							<h2>End @_ride.Name?</h2>
-							<p>Choose what happens to everyone's sharing.</p>
-							<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.Immediate)"
-									disabled="@_busy">
-								Stop sharing for everyone now
-							</button>
-							<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.WindDown)"
-									disabled="@_busy">
-								Let riders stop themselves (2-hour wind-down)
-							</button>
-							<button type="button" class="cancel" @onclick="() => _showEndDialog = false">
-								Cancel
-							</button>
-							<p class="note">
-								The wind-down is capped, cannot be extended, and force-stops on the
-								server. A rider who forgets is not tracked forever.
-							</p>
-						</div>
-					</div>
-				}
-			</aside>
-		</div>
+							<MarkerDetails Marker="marker" CanDelete="_session.CanDelete(marker)"
+										   Deleting="_deletingMarkerId == marker.Id"
+										   OnDelete="DeleteMarkerAsync" />
+						</section>
+					}
+				</div>
+			</div>
+		}
 	}
 </div>
 
 @code {
 	[Parameter] public Guid RideId { get; set; }
 
-	private RideDetail? _ride;
-	private string? _error;
+	private RideSession _session = default!;
 	private MapCamera _camera = new(-33.868, 151.209, 11);
 	private MapViewport? _mapViewport;
 	private readonly Dictionary<Guid, MapMarker> _markerLayer = new();
-	private readonly Dictionary<Guid, MarkerDto> _markers = new();
-	private readonly Dictionary<Guid, RiderPositionDto> _positions = new();
 
-	// The planned route's raw points, when the ride has one. §5.4's gap list needs a
-	// route to project against; today the hub tells us via RouteUpdated when the route
-	// changes but the initial RideDetail does not carry the route id, so the initial
-	// load path shows an empty GapList until the route arrives on the hub — see
-	// SharedFrontend.md Phase 3 for the deferred server change that would let the
-	// initial fetch populate this immediately.
-	private IReadOnlyList<TrackPoint>? _routePolyline;
-	private DateTimeOffset? _windDownEndsUtc;
-	private bool _sharing;
+	private bool _menuOpen;
+	private bool _showMarkers;
 	private bool _showConsent;
-	private bool _showEndDialog;
-	private bool _busy;
 
 	/// <summary>Which marker's detail is expanded, or null when the list is all collapsed.</summary>
 	private Guid? _openMarkerId;
 
 	/// <summary>
 	/// The markers a tap on the map landed on, nearest first — identified by id rather than
-	/// held as DTOs so the popup follows <see cref="_markers"/>. An edit arriving on the hub
+	/// held as DTOs so the popup follows the session's marker set. An edit arriving on the hub
 	/// updates what is on screen, and a marker deleted underneath simply drops out; keeping
 	/// copies would leave the popup showing a marker nobody else can see any more.
 	/// </summary>
@@ -273,22 +230,13 @@
 	private RideMap? _map;
 
 	/// <summary>
-	/// The marker whose delete is in flight. Deliberately not <see cref="_busy"/>: that one
-	/// disables the sharing switch and the organiser's lifecycle buttons, and none of those
-	/// have anything to do with removing a pin.
+	/// The marker whose delete is in flight. Deliberately not the session's <c>Busy</c>: that
+	/// one disables the sharing switch and the organiser's lifecycle buttons over on the info
+	/// page, and none of those have anything to do with removing a pin.
 	/// </summary>
 	private Guid? _deletingMarkerId;
 
-	private string Title => _ride?.Name ?? "Ride";
-
-	/// <summary>
-	/// Oldest first, which is the order the list endpoint returns (§16.5). Sorting on read
-	/// rather than keeping a parallel list means a marker arriving on the hub lands in the
-	/// same place it would have on a reload, and an edit never shuffles the rows underneath
-	/// the person reading them.
-	/// </summary>
-	private IEnumerable<MarkerDto> OrderedMarkers =>
-		_markers.Values.OrderBy(marker => marker.CreatedUtc);
+	private string Title => _session?.Ride?.Name ?? "Ride";
 
 	/// <summary>
 	/// The markers the last tap landed on, resolved against the live set. Null when nothing
@@ -306,7 +254,7 @@
 			List<MarkerDto> found = new(_nearbyMarkerIds.Count);
 			foreach (Guid id in _nearbyMarkerIds)
 			{
-				if (_markers.TryGetValue(id, out MarkerDto? marker))
+				if (_session.Markers.TryGetValue(id, out MarkerDto? marker))
 				{
 					found.Add(marker);
 				}
@@ -318,6 +266,108 @@
 
 	/// <summary>Zoom a marker is brought to when it is chosen. Street level, not suburb level.</summary>
 	private const double FocusZoom = 16;
+
+	protected override void OnInitialized()
+	{
+		_session = new RideSession(Api, Hub, Auth);
+		_session.Changed += OnSessionChanged;
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (_session.RideId == RideId)
+		{
+			// Same ride, re-supplied parameters. Reloading here would drop every marker and
+			// every position for the length of a round trip, for nothing.
+			return;
+		}
+
+		_openMarkerId = null;
+		_nearbyMarkerIds = Array.Empty<Guid>();
+		_menuOpen = false;
+		_showMarkers = false;
+
+		await _session.LoadAsync(RideId);
+
+		// Consent prompt: shown once per joined ride that we do not yet share with. §5.6's
+		// rule is dismissing = "not now", which is a no-op — closing the modal simply removes it.
+		if (!_session.Sharing && _session.Ride?.State == RideStateDto.Open)
+		{
+			_showConsent = true;
+		}
+	}
+
+	private void OnSessionChanged()
+	{
+		RebuildMapLayer();
+		_ = InvokeAsync(StateHasChanged);
+	}
+
+	// -- The menu -----------------------------------------------------------------------------
+
+	private void ToggleMenu() => _menuOpen = !_menuOpen;
+
+	private void CloseMenu() => _menuOpen = false;
+
+	private void GoToInfo()
+	{
+		_menuOpen = false;
+		Nav.NavigateTo($"/group-rides/{RideId}/info");
+	}
+
+	private void GoToThread()
+	{
+		_menuOpen = false;
+		Nav.NavigateTo($"/group-rides/{RideId}/thread");
+	}
+
+	private void ShowMarkers()
+	{
+		_menuOpen = false;
+		_showMarkers = true;
+	}
+
+	private void CloseMarkers()
+	{
+		_showMarkers = false;
+		_openMarkerId = null;
+	}
+
+	/// <summary>
+	/// Opens the marker composer on the view the rider is actually looking at, so the picker
+	/// starts on the same ground rather than on a default somewhere else entirely (§16.1).
+	/// <para>
+	/// Built at click time, not baked into an <c>href</c>: keeping one current would mean
+	/// re-rendering this page on every pan.
+	/// </para>
+	/// </summary>
+	private void GoToComposer()
+	{
+		_menuOpen = false;
+
+		string composer = $"/group-rides/{RideId}/markers/new";
+
+		if (_mapViewport is not { CanvasWidthPx: > 0 } vp)
+		{
+			// No viewport yet: the composer's own ride-centred fallback takes over.
+			Nav.NavigateTo(composer);
+			return;
+		}
+
+		// GetUriWithQueryParameters handles invariant formatting and escaping, and survives a
+		// route rename better than string concatenation.
+		Nav.NavigateTo(Nav.GetUriWithQueryParameters(composer, new Dictionary<string, object?>
+		{
+			["lat"] = Math.Round(vp.CentreLatitude, 5),
+			["lon"] = Math.Round(vp.CentreLongitude, 5),
+			["zoom"] = Math.Round(vp.ZoomLevel, 2),
+		}));
+	}
+
+	// -- The map ------------------------------------------------------------------------------
+
+	// Pure field assignment: nothing on screen depends on it until GoToComposer reads it.
+	private void OnMapViewportReported(MapViewport viewport) => _mapViewport = viewport;
 
 	/// <summary>
 	/// A tap on the base map lists every marker near that point (§16.4). The arithmetic is
@@ -331,7 +381,7 @@
 			return;
 		}
 
-		_nearbyMarkerIds = [.. MarkerHitTest.Near(viewport, _markers.Values, click).Select(marker => marker.Id)];
+		_nearbyMarkerIds = [.. MarkerHitTest.Near(viewport, _session.Markers.Values, click).Select(marker => marker.Id)];
 
 		await InvokeAsync(StateHasChanged);
 	}
@@ -391,12 +441,36 @@
 	}
 
 	/// <summary>
-	/// Who may remove a marker: the rider who placed it, or the ride's organiser (§16.5).
-	/// Mirrors <c>MarkerController.CanWriteAsync</c> so the button is simply absent rather
-	/// than there and 403-ing — the server stays the one that decides either way.
+	/// Positions + markers merge into one Skia layer. Both draw as pins today; a Phase 3 pass
+	/// gives markers their icon-key visuals (§16.3) — the shape is the same either way.
 	/// </summary>
-	private bool CanDelete(MarkerDto marker) =>
-		marker.CreatedByUserId == Auth.UserId || _ride?.IsOrganiser == true;
+	private void RebuildMapLayer()
+	{
+		_markerLayer.Clear();
+		foreach (RiderPositionDto position in _session.Positions.Values)
+		{
+			_markerLayer[position.UserId] = new MapMarker(
+				Id: position.UserId,
+				Latitude: PositionScale.ToDegrees(position.Lat),
+				Longitude: PositionScale.ToDegrees(position.Lon),
+				IconKey: string.Empty,
+				Title: string.IsNullOrEmpty(position.UserName) ? "?" : position.UserName,
+				DirectionDeg: position.HeadingDeg,
+				Kind: MarkerKind.Rider);
+		}
+		foreach (MarkerDto marker in _session.Markers.Values)
+		{
+			_markerLayer[marker.Id] = new MapMarker(
+				Id: marker.Id,
+				Latitude: PositionScale.ToDegrees(marker.Lat),
+				Longitude: PositionScale.ToDegrees(marker.Lon),
+				IconKey: marker.Icon,
+				Title: marker.Title,
+				DirectionDeg: marker.DirectionDeg);
+		}
+	}
+
+	// -- Markers ------------------------------------------------------------------------------
 
 	private async Task DeleteMarkerAsync(MarkerDto marker)
 	{
@@ -411,292 +485,25 @@
 		_deletingMarkerId = marker.Id;
 		try
 		{
-			await Api.DeleteMarkerAsync(marker.Id);
+			await _session.DeleteMarkerAsync(marker.Id);
 
-			// The server broadcasts MarkerRemoved to the ride group and OnMarkerRemoved would
-			// do exactly this — but only for a client whose hub connection came up. §5.3's rule
-			// is that the snapshot is authoritative and the hub is the delta on top, so the
-			// caller drops its own copy too. Both paths are one dictionary remove and are happy
-			// to run one after the other.
-			_markers.Remove(marker.Id);
+			// Somebody's own delete can land while its detail is open. Collapsing it is the
+			// honest response — the alternative is an expanded panel describing a marker that
+			// no longer exists.
 			if (_openMarkerId == marker.Id)
 			{
 				_openMarkerId = null;
 			}
-			RebuildMapLayer();
 		}
-		catch (ApiException apiException) { _error = apiException.Error.Title; }
 		finally { _deletingMarkerId = null; }
 	}
 
-	/// <summary>
-	/// Opens the marker composer on the view the rider is actually looking at, so the picker
-	/// starts on the same ground rather than on a default somewhere else entirely (§16.1).
-	/// <para>
-	/// Built at click time, not baked into the <c>href</c>. Keeping an href current would
-	/// mean re-rendering this page on every pan — and a render here re-runs
-	/// <see cref="GapList"/>'s projection for every rider against the whole route polyline,
-	/// which is the most expensive thing on the screen. Nobody needs a fresh URL until the
-	/// moment they click.
-	/// </para>
-	/// </summary>
-	private void GoToComposer()
-	{
-		string composer = $"/group-rides/{RideId}/markers/new";
-
-		if (_mapViewport is not { CanvasWidthPx: > 0 } vp)
-		{
-			// No viewport yet: the composer's own ride-centred fallback takes over.
-			Nav.NavigateTo(composer);
-			return;
-		}
-
-		// GetUriWithQueryParameters handles invariant formatting and escaping, and survives a
-		// route rename better than string concatenation.
-		Nav.NavigateTo(Nav.GetUriWithQueryParameters(composer, new Dictionary<string, object?>
-		{
-			["lat"] = Math.Round(vp.CentreLatitude, 5),
-			["lon"] = Math.Round(vp.CentreLongitude, 5),
-			["zoom"] = Math.Round(vp.ZoomLevel, 2),
-		}));
-	}
-
-	// Pure field assignment: nothing on screen depends on it until GoToComposer reads it.
-	private void OnMapViewportReported(MapViewport viewport) => _mapViewport = viewport;
-
-	protected override async Task OnParametersSetAsync()
-	{
-		_ride = null;
-		_error = null;
-		_markerLayer.Clear();
-		_markers.Clear();
-		_positions.Clear();
-		_openMarkerId = null;
-		_nearbyMarkerIds = Array.Empty<Guid>();
-		_windDownEndsUtc = null;
-
-		WireHub();
-
-		try
-		{
-			_ride = await Api.GetRideAsync(RideId);
-			_sharing = _ride.Members.FirstOrDefault(m => m.UserId == Auth.UserId)?.Sharing ?? false;
-
-			// Positions snapshot: on load we ask for what everyone's fix is now (§5.3).
-			IReadOnlyList<RiderPositionDto> snapshot = await Api.GetPositionsSnapshotAsync(RideId);
-			foreach (RiderPositionDto position in snapshot)
-			{
-				_positions[position.UserId] = position;
-			}
-
-			// Markers snapshot.
-			foreach (MarkerDto marker in await Api.ListRideMarkersAsync(RideId))
-			{
-				_markers[marker.Id] = marker;
-			}
-
-			RebuildMapLayer();
-
-			// Consent prompt: shown once per joined ride that we do not yet share with.
-			// §5.6's rule is dismissing = "not now", which is a no-op — closing the modal
-			// simply removes it.
-			if (!_sharing && _ride.State == RideStateDto.Open)
-			{
-				_showConsent = true;
-			}
-
-			try
-			{
-				await Hub.ConnectAsync();
-				await Hub.JoinRideAsync(RideId);
-			}
-			catch
-			{
-				// The realtime updates are a nice-to-have on top of the snapshot; if the hub
-				// is unreachable the page still shows what the API returned. §5.3 sets the
-				// shape: the snapshot is authoritative, the hub is the delta on top.
-			}
-		}
-		catch (ApiException apiException)
-		{
-			_error = apiException.Error.Title;
-		}
-		catch (Exception exception)
-		{
-			_error = exception.Message;
-		}
-	}
-
-	private void WireHub()
-	{
-		Hub.PositionsUpdated += OnPositions;
-		Hub.MemberJoined += OnMemberJoined;
-		Hub.MemberLeft += OnMemberLeft;
-		Hub.MemberSharingChanged += OnMemberSharing;
-		Hub.MarkerAdded += OnMarkerAdded;
-		Hub.MarkerUpdated += OnMarkerAdded; // same treatment — upsert
-		Hub.MarkerRemoved += OnMarkerRemoved;
-		Hub.RouteUpdated += OnRouteUpdated;
-		Hub.RideStateChanged += OnRideStateChanged;
-		Hub.SharingWindDownStarted += OnWindDownStarted;
-		Hub.PermissionsChanged += OnPermissionsChanged;
-	}
-
-	private void OnPositions(PositionBatch batch)
-	{
-		if (batch.RideId != RideId) return;
-		foreach (PositionFix fix in batch.Positions)
-		{
-			_positions[fix.UserId] = new RiderPositionDto(
-				fix.UserId,
-				_positions.TryGetValue(fix.UserId, out var existing) ? existing.UserName : string.Empty,
-				fix.Lat, fix.Lon, fix.SpeedMps, fix.HeadingDeg, fix.RecordedUtc);
-		}
-		RebuildMapLayer();
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	private void OnMemberJoined(Guid rideId, RideMemberSummary member)
-	{
-		if (rideId != RideId || _ride is null) return;
-		_ride = _ride with { Members = _ride.Members.Concat(new[] { member }).ToList() };
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	private void OnMemberLeft(Guid rideId, Guid userId)
-	{
-		if (rideId != RideId || _ride is null) return;
-		_ride = _ride with { Members = _ride.Members.Where(m => m.UserId != userId).ToList() };
-		_positions.Remove(userId);
-		RebuildMapLayer();
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	private void OnMemberSharing(Guid rideId, Guid userId, bool sharing)
-	{
-		if (rideId != RideId || _ride is null) return;
-		_ride = _ride with
-		{
-			Members = _ride.Members.Select(m =>
-				m.UserId == userId ? m with { Sharing = sharing } : m).ToList()
-		};
-		if (!sharing)
-		{
-			_positions.Remove(userId);
-			RebuildMapLayer();
-		}
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	private void OnMarkerAdded(Guid rideId, MarkerDto marker)
-	{
-		if (rideId != RideId) return;
-		_markers[marker.Id] = marker;
-		RebuildMapLayer();
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	private void OnMarkerRemoved(Guid rideId, Guid markerId)
-	{
-		if (rideId != RideId) return;
-		_markers.Remove(markerId);
-		// Somebody else's delete can land while its detail is open on this screen. Collapsing
-		// it is the honest response — the alternative is an expanded panel describing a marker
-		// that no longer exists.
-		if (_openMarkerId == markerId)
-		{
-			_openMarkerId = null;
-		}
-		RebuildMapLayer();
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	private void OnRideStateChanged(Guid rideId, RideStateDto state)
-	{
-		if (rideId != RideId || _ride is null) return;
-		_ride = _ride with { State = state };
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	private async void OnRouteUpdated(Guid rideId, Guid trackId)
-	{
-		if (rideId != RideId) return;
-
-		try
-		{
-			// The polyline the server hands us here is simplified for display, and that
-			// is fine for the gap list — GapCalculator's error against a simplified line
-			// is bounded by the simplifier's tolerance (§15.5), which is well below the
-			// off-route threshold. Trading a full-resolution fetch for a lighter request
-			// is a good deal when the alternative is nothing at all.
-			TrackDetail detail = await Api.GetTrackAsync(trackId);
-			_routePolyline = detail.Polyline;
-			await InvokeAsync(StateHasChanged);
-		}
-		catch
-		{
-			// A route the client cannot fetch is treated the same as no route: gap list
-			// stays empty rather than showing wrong numbers. A retry happens automatically
-			// on the next RouteUpdated event.
-			_routePolyline = null;
-		}
-	}
-
-	private void OnWindDownStarted(Guid rideId, DateTimeOffset endsUtc)
-	{
-		if (rideId != RideId) return;
-		_windDownEndsUtc = endsUtc;
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	private void OnPermissionsChanged(Guid rideId, RidePermissions permissions)
-	{
-		if (rideId != RideId || _ride is null) return;
-		_ride = _ride with { Permissions = permissions };
-		_ = InvokeAsync(StateHasChanged);
-	}
-
-	/// <summary>
-	/// Positions + markers merge into one Skia layer. Both draw as pins today; a Phase 3
-	/// pass gives markers their icon-key visuals (§16.3) — the shape is the same either way.
-	/// </summary>
-	private void RebuildMapLayer()
-	{
-		_markerLayer.Clear();
-		foreach (RiderPositionDto position in _positions.Values)
-		{
-			_markerLayer[position.UserId] = new MapMarker(
-				Id: position.UserId,
-				Latitude: PositionScale.ToDegrees(position.Lat),
-				Longitude: PositionScale.ToDegrees(position.Lon),
-				IconKey: string.Empty,
-				Title: string.IsNullOrEmpty(position.UserName) ? "?" : position.UserName,
-				DirectionDeg: position.HeadingDeg,
-				Kind: MarkerKind.Rider);
-		}
-		foreach (MarkerDto marker in _markers.Values)
-		{
-			_markerLayer[marker.Id] = new MapMarker(
-				Id: marker.Id,
-				Latitude: PositionScale.ToDegrees(marker.Lat),
-				Longitude: PositionScale.ToDegrees(marker.Lon),
-				IconKey: marker.Icon,
-				Title: marker.Title,
-				DirectionDeg: marker.DirectionDeg);
-		}
-	}
+	// -- Consent ------------------------------------------------------------------------------
 
 	private async Task OnConsentShareAsync()
 	{
 		_showConsent = false;
-		_busy = true;
-		try
-		{
-			await Api.SetSharingAsync(RideId, new SetSharingRequest(true));
-			_sharing = true;
-		}
-		catch (ApiException apiException) { _error = apiException.Error.Title; }
-		finally { _busy = false; }
+		await _session.SetSharingAsync(true);
 	}
 
 	private Task OnConsentDismissAsync()
@@ -705,146 +512,180 @@
 		return Task.CompletedTask;
 	}
 
-	private async Task ToggleSharingAsync(ChangeEventArgs args)
-	{
-		bool wants = args.Value is bool b && b;
-		_busy = true;
-		try
-		{
-			await Api.SetSharingAsync(RideId, new SetSharingRequest(wants));
-			_sharing = wants;
-		}
-		catch (ApiException apiException) { _error = apiException.Error.Title; }
-		finally { _busy = false; }
-	}
-
-	private async Task StartRideAsync()
-	{
-		_busy = true;
-		try
-		{
-			await Api.StartRideAsync(RideId);
-		}
-		catch (ApiException apiException) { _error = apiException.Error.Title; }
-		finally { _busy = false; }
-	}
-
-	private async Task EndRideAsync(RideEndingDto ending)
-	{
-		_busy = true;
-		_showEndDialog = false;
-		try
-		{
-			await Api.EndRideAsync(RideId, new EndRideRequest(ending));
-		}
-		catch (ApiException apiException) { _error = apiException.Error.Title; }
-		finally { _busy = false; }
-	}
-
 	public async ValueTask DisposeAsync()
 	{
-		Hub.PositionsUpdated -= OnPositions;
-		Hub.MemberJoined -= OnMemberJoined;
-		Hub.MemberLeft -= OnMemberLeft;
-		Hub.MemberSharingChanged -= OnMemberSharing;
-		Hub.MarkerAdded -= OnMarkerAdded;
-		Hub.MarkerUpdated -= OnMarkerAdded;
-		Hub.MarkerRemoved -= OnMarkerRemoved;
-		Hub.RouteUpdated -= OnRouteUpdated;
-		Hub.RideStateChanged -= OnRideStateChanged;
-		Hub.SharingWindDownStarted -= OnWindDownStarted;
-		Hub.PermissionsChanged -= OnPermissionsChanged;
-
-		try { await Hub.LeaveRideAsync(RideId); }
-		catch { /* connection may already be down */ }
+		_session.Changed -= OnSessionChanged;
+		await _session.DisposeAsync();
 	}
 }
 
 <style>
-	.live .lead {
-		margin: 0.5rem 0;
+	/* The map is the page — it fills the shell that .page-full pinned to the content area. */
+	.live .map-fill {
+		position: absolute;
+		inset: 0;
 	}
 
-	.live .state {
-		font-size: 0.85rem;
-		padding: 0.2rem 0.6rem;
-		border-radius: 4px;
-		background: #eef1f520;
+	.live .map-fill .dlr-map-container {
+		height: 100%;
+		min-height: 0;
 	}
 
-		.live .state.open {
-			background: #dbeafe;
-			color: #1e40af;
-		}
-
-		.live .state.live {
-			background: #d1fae5;
-			color: #14532d;
-		}
-
-		.live .state.completed, .live .state.archived {
-			background: #fef3c730;
-			color: #92400e;
-		}
-
-	.live .join-code {
-		margin: 0.75rem 0;
-		padding: 0.5rem 0.75rem;
-		background: #eff6ff20;
-		border: 1px solid #bfdbfe;
-		border-radius: 4px;
-		font-size: 0.9rem;
+	/*
+		The hamburger and its menu. `position: absolute` inside .page-full rather than fixed,
+		so the whole assembly lands inside the content area on both rail placements without
+		restating the rail's geometry a second time.
+	*/
+	.live .chrome {
+		position: absolute;
+		top: max(0.75rem, env(safe-area-inset-top));
+		right: max(0.75rem, env(safe-area-inset-right));
+		z-index: 20;
 	}
 
-		.live .join-code .code {
-			font-family: ui-monospace, monospace;
-			font-weight: bold;
-			letter-spacing: 0.15em;
-		}
-
-		.live .join-code em {
-			display: block;
-			opacity: 0.7;
-			margin-top: 0.25rem;
-			font-size: 0.85rem;
-		}
-
-	.live .wind-down {
-		margin: 0.75rem 0;
-		padding: 0.75rem 1rem;
-		background: #fef3c730;
-		border: 1px solid #fde68a;
-		border-radius: 4px;
-	}
-
-	.live .grid {
-		display: grid;
-		grid-template-columns: 1fr 20rem;
-		gap: 1rem;
-		margin-top: 1rem;
-	}
-
-	@@media (max-width: 720px) {
-		.live .grid {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	.live .side {
+	.live .hamburger {
 		display: flex;
-		flex-direction: column;
-		gap: 1rem;
+		align-items: center;
+		justify-content: center;
+		/* 48 px is the tap target the rail uses; a menu opened with gloves on is the point. */
+		width: 48px;
+		height: 48px;
+		padding: 0;
+		background: var(--dlr-accent);
+		color: var(--dlr-accent-fg);
+		border: 2px solid var(--dlr-accent-fg);
+		border-radius: 8px;
+		font-size: 20px;
+		cursor: pointer;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.35);
 	}
 
-		.live .side h3 {
-			margin: 0 0 0.5rem;
-			font-size: 1rem;
-		}
+	/* Sits under the hamburger and over the map: a tap that dismisses must not also pan.
+	   Absolute inside .page-full, so it stops at the nav rail rather than swallowing it. */
+	.live .menu-backdrop {
+		position: absolute;
+		inset: 0;
+		z-index: 19;
+	}
 
-	.live .sharing, .live .thread-link, .live .organiser, .live .markers {
-		padding: 0.75rem;
-		background: #fff2;
-		border-radius: 6px;
+	.live .menu {
+		position: absolute;
+		top: calc(48px + 0.5rem);
+		right: 0;
+		min-width: 15rem;
+		padding: 0.35rem 0;
+		background: var(--dlr-surface);
+		border: 1px solid var(--dlr-border);
+		border-radius: 8px;
+		box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+	}
+
+	.live .menu button {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		width: 100%;
+		padding: 0.6rem 1rem;
+		background: transparent;
+		border: 0;
+		color: var(--dlr-fg);
+		font: inherit;
+		text-align: left;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+
+	.live .menu button:hover {
+		background: var(--dlr-accent-soft);
+	}
+
+	.live .menu button i {
+		color: var(--dlr-fg-muted);
+	}
+
+	.live .menu .count, .live .menu .quiet {
+		margin-left: auto;
+		font-size: 0.8rem;
+		color: var(--dlr-fg-muted);
+	}
+
+	.live .menu hr {
+		margin: 0.35rem 0;
+		border: 0;
+		border-top: 1px solid var(--dlr-border);
+	}
+
+	/* A stated failure from a menu action, over a map that still works. */
+	.live .map-error {
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
+		top: max(0.75rem, env(safe-area-inset-top));
+		z-index: 15;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		max-width: min(28rem, calc(100% - 5rem));
+	}
+
+	.live .map-error .close {
+		background: transparent;
+		border: 0;
+		color: inherit;
+		font-size: 1.25rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	/*
+		One modal treatment for both popups — the tapped-pin list and the markers panel. On a
+		phone the map fills the screen, so anything anchored to a point sits under the finger.
+	*/
+	.live .overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0,0,0,0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		padding: 1rem;
+	}
+
+	.live .overlay-card {
+		background: var(--dlr-surface, #1f2937);
+		color: var(--dlr-text, #f9fafb);
+		border-radius: 8px;
+		padding: 1rem 1.25rem 1.25rem;
+		max-width: 28rem;
+		width: 100%;
+		/* Several markers under one tap is normal at low zoom; the card scrolls rather than
+		   growing past the viewport. */
+		max-height: min(80vh, 40rem);
+		overflow-y: auto;
+	}
+
+	.live .overlay-card header {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.live .overlay-card h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1.1rem;
+	}
+
+	.live .overlay-card .close {
+		background: transparent;
+		border: 0;
+		color: inherit;
+		font-size: 1.5rem;
+		line-height: 1;
+		cursor: pointer;
+		padding: 0 0.25rem;
 	}
 
 	.live .marker-list {
@@ -853,9 +694,9 @@
 		padding: 0;
 	}
 
-		.live .marker-list li + li {
-			border-top: 1px solid #ffffff1f;
-		}
+	.live .marker-list li + li {
+		border-top: 1px solid #ffffff1f;
+	}
 
 	/* The whole row is the disclosure control, so it is a button — but it has to read as a
 	   list row, which means unpicking the button chrome rather than styling around it. */
@@ -883,8 +724,8 @@
 			min-width: 0;
 		}
 
-			/* A title is capped at 40 characters but the sidebar is narrower than that,
-			   and a wrapped one would push the badges out of line. */
+			/* A title is capped at 40 characters but the card is narrower than that, and a
+			   wrapped one would push the badges out of line. */
 			.live .marker-head .what strong,
 			.live .marker-head .what em {
 				display: block;
@@ -916,7 +757,7 @@
 		}
 
 		/* A note is free text somebody typed at the side of a road — it keeps its own line
-		   breaks, and a long unbroken string must not widen the sidebar. */
+		   breaks, and a long unbroken string must not widen the card. */
 		.live .marker-body .note {
 			margin: 0 0 0.5rem;
 			white-space: pre-wrap;
@@ -945,69 +786,6 @@
 				cursor: default;
 			}
 
-	.live .quiet {
-		font-size: 0.85rem;
-		opacity: 0.7;
-	}
-
-	.live .organiser a, .live .thread-link a {
-		display: block;
-		margin: 0.25rem 0;
-	}
-
-	.live .organiser button {
-		margin-top: 0.5rem;
-		padding: 0.4rem 0.8rem;
-	}
-
-	/* Tap-a-pin popup. Same modal treatment as the end-ride dialog — on a phone the map fills
-	   the screen, so anything anchored to the tapped point would sit under the finger. */
-	.live .nearby-dialog {
-		position: fixed;
-		inset: 0;
-		background: rgba(0,0,0,0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		padding: 1rem;
-	}
-
-	.live .nearby-card {
-		background: var(--dlr-surface, #1f2937);
-		color: var(--dlr-text, #f9fafb);
-		border-radius: 8px;
-		padding: 1rem 1.25rem 1.25rem;
-		max-width: 28rem;
-		width: 100%;
-		/* Several markers under one tap is normal at low zoom; the card scrolls rather
-		   than growing past the viewport. */
-		max-height: min(80vh, 40rem);
-		overflow-y: auto;
-	}
-
-		.live .nearby-card header {
-			display: flex;
-			align-items: baseline;
-			justify-content: space-between;
-			gap: 0.5rem;
-		}
-
-		.live .nearby-card h2 {
-			margin: 0 0 0.5rem;
-			font-size: 1.1rem;
-		}
-
-		.live .nearby-card .close {
-			background: transparent;
-			border: 0;
-			color: inherit;
-			font-size: 1.5rem;
-			line-height: 1;
-			cursor: pointer;
-			padding: 0 0.25rem;
-		}
-
 	.live .nearby-marker + .nearby-marker {
 		border-top: 1px solid #ffffff1f;
 		margin-top: 0.75rem;
@@ -1032,38 +810,5 @@
 		/* Inside the popup the detail is the content, not an indented disclosure. */
 		.live .nearby-marker .marker-body {
 			padding-left: 0;
-		}
-
-	.live .end-dialog {
-		position: fixed;
-		inset: 0;
-		background: rgba(0,0,0,0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-	}
-
-	.live .end-card {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 8px;
-		max-width: 32rem;
-		width: calc(100vw - 2rem);
-	}
-
-		.live .end-card button {
-			display: block;
-			width: 100%;
-			margin-top: 0.5rem;
-			padding: 0.6rem 1rem;
-		}
-
-			.live .end-card button.cancel {
-				background: transparent;
-			}
-
-		.live .end-card .note {
-			margin-top: 0.75rem;
 		}
 </style>

@@ -1,0 +1,310 @@
+@page "/group-rides/{RideId:guid}/info"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Components
+@using DLR.Core.Contracts.Rides
+@inject IApiClient Api
+@inject IRideHubClient Hub
+@inject AuthState Auth
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+@*
+	Everything about a group ride that is not the map (§5.1, §5.4, §5.6, §5.8) — who is
+	on it, how far apart they are, the join code, this rider's sharing switch, and the
+	organiser's lifecycle controls.
+
+	These used to be a sidebar beside the live map. The map is now the whole screen, so
+	they moved here and the map's hamburger points at them under "Info". The data behind
+	both screens is the same RideSession: one snapshot, the same hub deltas on top (§5.3),
+	so a state change made here is on the map before the rider gets back to it.
+
+	Deliberately NOT here: the marker list, the "add marker" composer and the ride thread.
+	Those are things you do while riding, and they stay one tap from the map.
+*@
+
+<PageTitle>@Title — Dumb Luck Routes</PageTitle>
+
+<div class="page page-medium ride-info">
+	<a class="back" href="/group-rides/@RideId">← Back to the map</a>
+
+	@if (_session.Ride is null && _session.Error is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (_session.Ride is not { } ride)
+	{
+		<p class="error">@_session.Error</p>
+	}
+	else
+	{
+		<div class="header">
+			<h1>@ride.Name</h1>
+			<span class="state @ride.State.ToString().ToLowerInvariant()">@ride.State</span>
+		</div>
+
+		<p class="lead">
+			@(ride.Description ?? "")
+		</p>
+
+		@if (_session.Error is { } problem)
+		{
+			<p class="error">@problem</p>
+		}
+
+		@if (ride.IsOrganiser && ride.JoinCode is not null)
+		{
+			<div class="join-code">
+				<strong>Join code:</strong> <span class="code">@ride.JoinCode</span>
+				<em>Only you see this. Share it with the people you want on the ride.</em>
+			</div>
+		}
+
+		@if (_session.WindDownEndsUtc is { } endsUtc)
+		{
+			<div class="wind-down" role="alert">
+				<strong>Sharing wind-down active.</strong>
+				Members who kept sharing on can carry on until they stop — or until
+				<strong>@endsUtc.ToLocalTime().ToString("HH:mm")</strong>, when the server
+				stops it for everyone still on.
+			</div>
+		}
+
+		<div class="panels">
+			<MemberList Members="ride.Members" />
+
+			@if (ride.State == RideStateDto.Live)
+			{
+				<GapList Route="_session.RoutePolyline" Positions="_session.Positions" />
+			}
+
+			@if (ride.State == RideStateDto.Live || ride.State == RideStateDto.Open)
+			{
+				<div class="sharing">
+					<h3>My sharing</h3>
+					<label class="switch">
+						<input type="checkbox" checked="@_session.Sharing" @onchange="ToggleSharingAsync"
+							   disabled="@_session.Busy" />
+						Broadcast my location to this ride
+					</label>
+					<p class="hint">
+						You can turn this off at any moment. Turning it off deletes the
+						stored fix — merely stopping the broadcast would leave a last-known
+						point on the map.
+					</p>
+				</div>
+			}
+
+			@if (ride.IsOrganiser)
+			{
+				<div class="organiser">
+					<h3>Organiser</h3>
+					<a href="/group-rides/@RideId/requests">Join requests</a>
+					<a href="/group-rides/@RideId/permissions">Content permissions</a>
+
+					@if (ride.State == RideStateDto.Open)
+					{
+						<button type="button" class="primary" @onclick="_session.StartAsync" disabled="@_session.Busy">
+							Start ride
+						</button>
+					}
+					@if (ride.State == RideStateDto.Live)
+					{
+						<button type="button" class="primary" @onclick="() => _showEndDialog = true"
+								disabled="@_session.Busy">
+							End ride…
+						</button>
+					}
+				</div>
+			}
+		</div>
+
+		@if (_showEndDialog)
+		{
+			<div class="end-dialog" role="dialog">
+				<div class="end-card">
+					<h2>End @ride.Name?</h2>
+					<p>Choose what happens to everyone's sharing.</p>
+					<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.Immediate)"
+							disabled="@_session.Busy">
+						Stop sharing for everyone now
+					</button>
+					<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.WindDown)"
+							disabled="@_session.Busy">
+						Let riders stop themselves (2-hour wind-down)
+					</button>
+					<button type="button" class="cancel" @onclick="() => _showEndDialog = false">
+						Cancel
+					</button>
+					<p class="note">
+						The wind-down is capped, cannot be extended, and force-stops on the
+						server. A rider who forgets is not tracked forever.
+					</p>
+				</div>
+			</div>
+		}
+	}
+</div>
+
+@code {
+	[Parameter] public Guid RideId { get; set; }
+
+	private RideSession _session = default!;
+	private bool _showEndDialog;
+
+	private string Title => _session?.Ride?.Name ?? "Ride";
+
+	protected override void OnInitialized()
+	{
+		_session = new RideSession(Api, Hub, Auth);
+		_session.Changed += OnSessionChanged;
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (_session.RideId == RideId)
+		{
+			return;
+		}
+
+		_showEndDialog = false;
+		await _session.LoadAsync(RideId);
+	}
+
+	private void OnSessionChanged() => _ = InvokeAsync(StateHasChanged);
+
+	private Task ToggleSharingAsync(ChangeEventArgs args) =>
+		_session.SetSharingAsync(args.Value is bool wants && wants);
+
+	private Task EndRideAsync(RideEndingDto ending)
+	{
+		_showEndDialog = false;
+		return _session.EndAsync(ending);
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		_session.Changed -= OnSessionChanged;
+		await _session.DisposeAsync();
+	}
+}
+
+<style>
+	.ride-info .lead {
+		margin: 0.5rem 0;
+	}
+
+	.ride-info .state {
+		font-size: 0.85rem;
+		padding: 0.2rem 0.6rem;
+		border-radius: 4px;
+		background: #eef1f520;
+	}
+
+		.ride-info .state.open {
+			background: #dbeafe;
+			color: #1e40af;
+		}
+
+		.ride-info .state.live {
+			background: #d1fae5;
+			color: #14532d;
+		}
+
+		.ride-info .state.completed, .ride-info .state.archived {
+			background: #fef3c730;
+			color: #92400e;
+		}
+
+	.ride-info .join-code {
+		margin: 0.75rem 0;
+		padding: 0.5rem 0.75rem;
+		background: #eff6ff20;
+		border: 1px solid #bfdbfe;
+		border-radius: 4px;
+		font-size: 0.9rem;
+	}
+
+		.ride-info .join-code .code {
+			font-family: ui-monospace, monospace;
+			font-weight: bold;
+			letter-spacing: 0.15em;
+		}
+
+		.ride-info .join-code em {
+			display: block;
+			opacity: 0.7;
+			margin-top: 0.25rem;
+			font-size: 0.85rem;
+		}
+
+	.ride-info .wind-down {
+		margin: 0.75rem 0;
+		padding: 0.75rem 1rem;
+		background: #fef3c730;
+		border: 1px solid #fde68a;
+		border-radius: 4px;
+	}
+
+	/* One column of panels. The sidebar this replaced was 20 rem wide because a map sat
+	   beside it; with the whole column to itself the same panels simply stack. */
+	.ride-info .panels {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		margin-top: 1rem;
+	}
+
+		.ride-info .panels h3 {
+			margin: 0 0 0.5rem;
+			font-size: 1rem;
+		}
+
+	.ride-info .sharing, .ride-info .organiser {
+		padding: 0.75rem;
+		background: #fff2;
+		border-radius: 6px;
+	}
+
+	.ride-info .organiser a {
+		display: block;
+		margin: 0.25rem 0;
+	}
+
+	.ride-info .organiser button {
+		margin-top: 0.5rem;
+		padding: 0.4rem 0.8rem;
+	}
+
+	.ride-info .end-dialog {
+		position: fixed;
+		inset: 0;
+		background: rgba(0,0,0,0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.ride-info .end-card {
+		background: white;
+		padding: 1.5rem;
+		border-radius: 8px;
+		max-width: 32rem;
+		width: calc(100vw - 2rem);
+	}
+
+		.ride-info .end-card button {
+			display: block;
+			width: 100%;
+			margin-top: 0.5rem;
+			padding: 0.6rem 1rem;
+		}
+
+			.ride-info .end-card button.cancel {
+				background: transparent;
+			}
+
+		.ride-info .end-card .note {
+			margin-top: 0.75rem;
+		}
+</style>

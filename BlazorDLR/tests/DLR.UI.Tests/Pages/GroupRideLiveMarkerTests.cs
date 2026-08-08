@@ -16,9 +16,10 @@ namespace DLR.UI.Tests.Pages;
 /// The live ride page's marker list (§16.4, §16.5).
 /// <para>
 /// The map's pins are drawn on the Skia overlay, which is <c>pointer-events: none</c> so
-/// gestures reach the base map — a pin cannot be tapped. The list beside the map is
-/// therefore the only place a marker's note, its photograph and its delete exist, and these
-/// tests are what say so.
+/// gestures reach the base map — a pin cannot be tapped. The list under the hamburger's
+/// "Markers" is therefore the only place a marker's note, its photograph and its delete
+/// exist, and these tests are what say so. It is a popup rather than the sidebar it used
+/// to be, so every test that reads a row opens it first.
 /// </para>
 /// <para>
 /// The delete rule mirrors <c>MarkerController.CanWriteAsync</c>: the rider who placed it,
@@ -145,15 +146,43 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 			CreatedUtc: FixedInstant,
 			UpdatedUtc: FixedInstant);
 
-	/// <summary>Expands the one marker row and returns the rendered page.</summary>
+	/// <summary>Waits for the snapshot to land, then opens the hamburger's "Markers" popup.</summary>
+	private static async Task OpenMarkersAsync(IRenderedComponent<GroupRideLive> component)
+	{
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
+		await component.InvokeAsync(() => component.FindAll(".menu button")
+			.First(button => button.TextContent.Contains("Markers", StringComparison.Ordinal))
+			.Click());
+
+		component.WaitForAssertion(
+			() => component.FindAll(".markers-dialog").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>Opens the markers popup and expands its first row.</summary>
 	private static async Task OpenFirstMarkerAsync(IRenderedComponent<GroupRideLive> component)
 	{
+		await OpenMarkersAsync(component);
+
 		component.WaitForAssertion(
 			() => component.FindAll("button.marker-head").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => component.Find("button.marker-head").Click());
 	}
+
+	/// <summary>
+	/// Waits for the page to be ready without opening anything. The map-tap tests use this:
+	/// the markers popup would sit over the very dialog they are looking for.
+	/// </summary>
+	private static void WaitForMap(IRenderedComponent<GroupRideLive> component) =>
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
 
 	[Fact]
 	public async Task MarkerList_ShowsTitleAndAuthor_WithoutExpanding()
@@ -165,6 +194,8 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
+
+		await OpenMarkersAsync(component);
 
 		component.WaitForAssertion(() =>
 		{
@@ -186,12 +217,14 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
+		await OpenMarkersAsync(component);
+
 		component.WaitForAssertion(() =>
 			component.Markup.ShouldNotContain("Whole corner",
 				customMessage: "A note is the detail behind the pin — it stays collapsed until asked for."),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await OpenFirstMarkerAsync(component);
+		await component.InvokeAsync(() => component.Find("button.marker-head").Click());
 
 		component.WaitForAssertion(() =>
 			component.Find(".marker-body .note").TextContent
@@ -364,9 +397,7 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(() =>
-			component.FindAll("button.marker-head").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
+		WaitForMap(component);
 
 		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
 
@@ -395,9 +426,7 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(() =>
-			component.FindAll("button.marker-head").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
+		WaitForMap(component);
 
 		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
 
@@ -421,9 +450,7 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(() =>
-			component.FindAll("button.marker-head").Count.ShouldBe(2),
-			timeout: TimeSpan.FromSeconds(3));
+		WaitForMap(component);
 
 		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
 		await component.InvokeAsync(() => _map.RaiseClick(0, 0));
@@ -450,9 +477,7 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(() =>
-			component.FindAll("button.marker-head").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
+		WaitForMap(component);
 
 		// No RaiseViewport: the base map has not reported a frame, so there are no pixels to
 		// measure "near" in. Answering anything here would mean answering "everything".
@@ -473,9 +498,7 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(() =>
-			component.FindAll("button.marker-head").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
+		WaitForMap(component);
 
 		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
 		await component.InvokeAsync(() => _map.RaiseClick(0, 0));
@@ -553,9 +576,7 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(() =>
-			component.FindAll("button.marker-head").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
+		await OpenMarkersAsync(component);
 
 		// Someone already zoomed in past the focus level.
 		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport with { ZoomLevel = 18 }));

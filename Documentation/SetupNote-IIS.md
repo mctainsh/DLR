@@ -201,6 +201,12 @@ repository.
 > an elevated PowerShell**, do not save it anywhere as `applicationHost.config`.
 
 ```powershell
+
+#Script to make 48 byte key
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); $b = New-Object byte[] 48; $rng.GetBytes($b); [Convert]::ToBase64String($b)
+
+
+
 function Set-DlrEnv($name, $value) {
 	$filter = "system.applicationHost/applicationPools/add[@name='DLR']/environmentVariables"
 

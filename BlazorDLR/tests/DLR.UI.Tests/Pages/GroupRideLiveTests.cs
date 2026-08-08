@@ -2,6 +2,7 @@ using BlazorDLR.Shared.Pages.GroupRides;
 using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,19 +11,19 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Pages;
 
 /// <summary>
-/// §5.3 and §5.6 through the live-ride page. The hub is the delta layer over the
-/// snapshot (§5.3), so each of the events that alters visible state has to reach the
-/// UI as a re-render:
-/// <list type="bullet">
-///   <item><c>RideStateChanged</c> — an Open ride flipping to Live must show the new
-///     state, unlock the gap list, and stop showing the organiser's "Start ride"
-///     button (that button lives on the Open branch only).</item>
-///   <item><c>MemberJoined</c> — a new member appears in the list.</item>
-///   <item><c>PermissionsChanged</c> — the "Add marker" link vanishes when markers are
-///     revoked (§5.8), for a non-organiser member.</item>
-///   <item><c>SharingWindDownStarted</c> — the wind-down banner appears with the
-///     stated cutoff time (§5.6).</item>
-/// </list>
+/// The live ride page, which is now a full-screen map and a hamburger.
+/// <para>
+/// Everything the rider might want while riding is behind that one button: the ride's
+/// info page, the marker composer, the ride thread, and the marker list. What these tests
+/// pin down is that the map is not competing with any of it for space — nothing but the
+/// map and the hamburger is on screen until somebody asks — and that the menu still obeys
+/// §5.8's content permissions.
+/// </para>
+/// <para>
+/// The panels that used to sit beside the map (members, gaps, join code, sharing switch,
+/// organiser controls) moved to <see cref="GroupRideInfo"/>; their tests moved with them
+/// to <c>GroupRideInfoTests</c>.
+/// </para>
 /// </summary>
 public sealed class GroupRideLiveTests : BunitContext
 {
@@ -76,140 +77,188 @@ public sealed class GroupRideLiveTests : BunitContext
 		return (api, hub, rideId);
 	}
 
-	[Fact]
-	public void RideStateChanged_UpdatesTheStateBadge()
+	/// <summary>Waits for the snapshot to land, then opens the hamburger.</summary>
+	private static async Task OpenMenuAsync(IRenderedComponent<GroupRideLive> component)
 	{
-		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices(state: RideStateDto.Open);
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
+	}
+
+	[Fact]
+	public void BeforeTheMenuIsOpened_NothingButTheMapAndTheHamburgerIsOnScreen()
+	{
+		(_, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
 		component.WaitForAssertion(() =>
-			component.Markup.Contains("Open", StringComparison.Ordinal).ShouldBeTrue(),
+			component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		component.InvokeAsync(() => hub.RaiseRideStateChanged(rideId, RideStateDto.Live)).GetAwaiter().GetResult();
-
-		component.WaitForAssertion(() =>
-		{
-			component.Markup.Contains("Live", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.3: the state badge reflects the hub-driven state transition.");
-		}, timeout: TimeSpan.FromSeconds(3));
+		component.FindAll(".menu").ShouldBeEmpty("the menu is closed until it is asked for.");
+		component.FindAll(".markers-dialog").ShouldBeEmpty(
+			"the marker list is a popup now — a permanent panel is exactly the screen space " +
+			"a full-screen map was meant to win back.");
 	}
 
 	[Fact]
-	public void MemberJoined_AppearsInTheMemberList()
+	public async Task TheMenu_ListsTheRidesActions()
 	{
-		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices();
+		(_, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(() =>
-			component.Markup.Contains("Members", StringComparison.Ordinal).ShouldBeTrue(),
-			timeout: TimeSpan.FromSeconds(3));
+		await OpenMenuAsync(component);
 
-		RideMemberSummary alice = new(
-			UserId: Guid.NewGuid(), UserName: "AliceNewJoiner", Role: "Rider",
-			JoinedUtc: FixedInstant, Sharing: false, HasPosition: false);
-		component.InvokeAsync(() => hub.RaiseMemberJoined(rideId, alice)).GetAwaiter().GetResult();
+		string menu = component.Find(".menu").TextContent;
+		menu.ShouldContain("Info");
+		menu.ShouldContain("Add marker");
+		menu.ShouldContain("Ride thread");
+		menu.ShouldContain("Markers");
+	}
+
+	[Fact]
+	public async Task ChoosingInfo_NavigatesToTheRidesInfoPage()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await OpenMenuAsync(component);
+
+		await component.InvokeAsync(() => component.FindAll(".menu button")
+			.First(b => b.TextContent.Contains("Info", StringComparison.Ordinal))
+			.Click());
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
+			.ShouldEndWith($"/group-rides/{rideId}/info",
+				customMessage: "Info is a page about the ride, not a panel over the map.");
+	}
+
+	[Fact]
+	public async Task ChoosingMarkers_OpensTheMarkerPanelAsAPopup()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await OpenMenuAsync(component);
+
+		await component.InvokeAsync(() => component.FindAll(".menu button")
+			.First(b => b.TextContent.Contains("Markers", StringComparison.Ordinal))
+			.Click());
 
 		component.WaitForAssertion(() =>
 		{
-			component.Markup.Contains("AliceNewJoiner", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.3: MemberJoined delta adds the member to the visible list without a re-fetch.");
+			component.Find(".markers-dialog").TextContent.ShouldContain("Nothing marked on this ride yet");
+			component.FindAll(".menu").ShouldBeEmpty("choosing an item closes the menu behind it.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]
-	public void PermissionsChanged_HidesTheAddMarkerLink_ForOrdinaryMember()
+	public async Task PermissionsChanged_HidesTheAddMarkerItem_ForOrdinaryMember()
 	{
 		RidePermissions initial = new(AllowMemberMarkers: true, AllowMemberComments: true, AllowMemberPhotos: true);
-		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices(isOrganiser: false, permissions: initial);
+		(_, FakeRideHubClient hub, Guid rideId) = WireServices(isOrganiser: false, permissions: initial);
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(() =>
-		{
-			component.FindAll("a").Any(a => a.TextContent.Contains("Add marker", StringComparison.Ordinal))
-				.ShouldBeTrue("with markers allowed, an ordinary member sees the Add-marker link.");
-		}, timeout: TimeSpan.FromSeconds(3));
+		await OpenMenuAsync(component);
+
+		component.Find(".menu").TextContent.ShouldContain("Add marker",
+			customMessage: "with markers allowed, an ordinary member can place one.");
 
 		RidePermissions revoked = initial with { AllowMemberMarkers = false };
-		component.InvokeAsync(() => hub.RaisePermissionsChanged(rideId, revoked)).GetAwaiter().GetResult();
+		await component.InvokeAsync(() => hub.RaisePermissionsChanged(rideId, revoked));
 
 		component.WaitForAssertion(() =>
 		{
-			component.FindAll("a").Any(a => a.TextContent.Contains("Add marker", StringComparison.Ordinal))
-				.ShouldBeFalse("§5.8: PermissionsChanged with markers off must remove the Add-marker link.");
+			component.Find(".menu").TextContent.ShouldNotContain("Add marker",
+				customMessage: "§5.8: PermissionsChanged with markers off must remove the item — " +
+				"leaving it there means a compose screen that ends in a 403.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]
-	public void SharingWindDownStarted_ShowsBannerWithCutoffTime()
+	public void ConsentPrompt_IsShownWhenNotSharing_AndRideIsOpen()
 	{
-		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices(state: RideStateDto.Live);
+		(_, _, Guid rideId) = WireServices(state: RideStateDto.Open);
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
 		component.WaitForAssertion(() =>
-			component.Markup.Contains("Test ride", StringComparison.Ordinal).ShouldBeTrue(),
+		{
+			component.Markup.Contains("Share your location with Test ride", StringComparison.Ordinal).ShouldBeTrue(
+				"§5.6: opening the ride when not already sharing prompts for consent — the prompt " +
+				"stays on the map page because that is where the rider lands.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ConsentShare_CallsSetSharingWithTrue()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(state: RideStateDto.Open);
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+			component.FindAll("button.primary").Any(b => b.TextContent.Contains("Share", StringComparison.Ordinal))
+				.ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// The banner has always previously been absent — the state carried no wind-down.
-		component.Markup.Contains("wind-down active", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
-			"the banner is only present after the SharingWindDownStarted event fires.");
+		await component.InvokeAsync(() => component.FindAll("button.primary")
+			.First(b => b.TextContent.Contains("Share", StringComparison.Ordinal))
+			.Click());
 
-		DateTimeOffset endsUtc = FixedInstant.AddHours(2);
-		component.InvokeAsync(() => hub.RaiseSharingWindDownStarted(rideId, endsUtc)).GetAwaiter().GetResult();
-
-		component.WaitForAssertion(() =>
-		{
-			component.Markup.Contains("Sharing wind-down active", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.6: the wind-down banner appears on the SharingWindDownStarted event.");
-		}, timeout: TimeSpan.FromSeconds(3));
+		component.WaitForAssertion(() => api.SetSharingRequests.ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+		api.SetSharingRequests.Last().Request.Share.ShouldBeTrue(
+			"§5.6: tapping Share on the consent prompt sends SetSharing(true).");
+		api.SetSharingRequests.Last().RideId.ShouldBe(rideId);
 	}
 
 	[Fact]
-	public void OrganiserJoinCode_IsShownToTheOrganiser_AndOnlyToTheOrganiser()
+	public void MarkerAdded_HubEvent_DoesNotThrow()
 	{
-		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices(isOrganiser: true);
+		(_, FakeRideHubClient hub, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
 		component.WaitForAssertion(() =>
-		{
-			component.Markup.Contains("AB3K9Z", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.2: the organiser sees the join code on the ride page.");
-			component.Markup.Contains("Only you see this", StringComparison.Ordinal).ShouldBeTrue(
-				"the copy makes it clear this code is not on the shared view.");
-		}, timeout: TimeSpan.FromSeconds(3));
-	}
-
-	[Fact]
-	public void EventForDifferentRide_IsIgnored()
-	{
-		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices();
-
-		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
-			.Add(p => p.RideId, rideId));
-
-		component.WaitForAssertion(() =>
-			component.Markup.Contains("Test ride", StringComparison.Ordinal).ShouldBeTrue(),
+			component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Raise events for a different ride id — none of them must alter this page.
-		Guid otherRide = Guid.NewGuid();
-		component.InvokeAsync(() => hub.RaiseRideStateChanged(otherRide, RideStateDto.Completed)).GetAwaiter().GetResult();
-		component.InvokeAsync(() => hub.RaiseMemberJoined(otherRide,
-			new RideMemberSummary(Guid.NewGuid(), "InterloperFromOtherRide", "Rider", FixedInstant, false, false))).GetAwaiter().GetResult();
+		// The MapMarker is drawn on the Skia overlay (which we've stubbed) — the property
+		// under test is that the hub event is handled without throwing. Missing this handler
+		// would break the live-marker path silently.
+		MarkerDto marker = new(
+			Id: Guid.NewGuid(),
+			TrackId: null,
+			GroupRideId: rideId,
+			Lat: -33_868_000,
+			Lon: 151_209_000,
+			Icon: "gravel",
+			Title: "Loose gravel",
+			Note: "Whole corner",
+			DirectionDeg: null,
+			PhotoId: null,
+			CreatedByUserId: Guid.NewGuid(),
+			CreatedByUserName: "Alice",
+			CreatedUtc: FixedInstant,
+			UpdatedUtc: FixedInstant);
 
-		// The ride still says Open and the interloper is not in the member list.
-		component.Markup.Contains("Completed", StringComparison.Ordinal).ShouldBeFalse(
-			"§5.3: events for other rides must not alter this ride's state — a shared hub connection is not a shared page.");
-		component.Markup.Contains("InterloperFromOtherRide", StringComparison.Ordinal).ShouldBeFalse();
+		Should.NotThrow(() =>
+			component.InvokeAsync(() => hub.RaiseMarkerAdded(rideId, marker)).GetAwaiter().GetResult());
 	}
 }

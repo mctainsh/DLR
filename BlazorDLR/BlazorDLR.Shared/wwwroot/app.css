@@ -203,6 +203,39 @@ input:focus, textarea:focus, select:focus {
    down the viewport than a page you navigated to from the rail. */
 .page-standalone { margin-top: 3rem; }
 
+/*
+    FULL-BLEED PAGES — opt in with `class="page-full"` INSTEAD of `class="page"`.
+
+    For the screen where the content IS the viewport: the live ride map. A `.page`
+    column cannot express that, however wide you make it — a centred column with a
+    max-width and margins is the opposite of what a map wants.
+
+    A fixed layer pinned to the content area, not a `height: 100%` child, because the
+    nav rail is `position: sticky` (wide) or `position: fixed` (narrow) and neither
+    leaves a box in the flow for a child to measure itself against. The offsets below
+    therefore restate the rail's geometry — which is why they read from the same
+    --dlr-rail-* variables and use the same 560 px breakpoint as MainLayout.razor.css.
+    Change the breakpoint there and change it here.
+
+    Being positioned, it is also the containing block for anything a full-bleed page
+    absolutely positions over its map (the ride page's hamburger, for one).
+*/
+.page-full {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: var(--dlr-rail-width);
+    overflow: hidden;
+}
+
+@media (max-width: 559.98px) {
+    .page-full {
+        left: 0;
+        bottom: calc(var(--dlr-rail-height) + env(safe-area-inset-bottom));
+    }
+}
+
 /* The one-line "here is what this page is" strap under the <h1>. */
 .tagline, .lead { opacity: 0.8; }
 
