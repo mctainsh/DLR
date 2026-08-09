@@ -107,6 +107,20 @@ public sealed class RideSession : IAsyncDisposable
 			StringComparison.Ordinal);
 
 	/// <summary>
+	/// One member of the ride, or null for a user id the snapshot does not know about.
+	/// <para>
+	/// The live map asks this per rider per repaint, for the name and the colour their marker is
+	/// drawn in (§16.3) — neither of which travels with a position fix. A scan rather than an
+	/// index: a ride is capped at fifty members, and an index would be a second copy of the member
+	/// list to keep in step with every join, departure and sharing change on the hub.
+	/// </para>
+	/// </summary>
+	/// <param name="userId">Which rider.</param>
+	/// <returns>Their member row, or null before the snapshot lands.</returns>
+	public RideMemberSummary? Member(Guid userId) =>
+		Ride?.Members.FirstOrDefault(member => member.UserId == userId);
+
+	/// <summary>
 	/// Who may remove a marker: the rider who placed it, or the ride's organiser (§16.5).
 	/// Mirrors <c>MarkerController.CanWriteAsync</c> so the button is simply absent rather than
 	/// there and 403-ing — the server stays the one that decides either way.

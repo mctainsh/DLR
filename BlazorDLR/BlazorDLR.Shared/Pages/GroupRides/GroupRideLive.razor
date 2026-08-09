@@ -497,8 +497,8 @@
 	}
 
 	/// <summary>
-	/// Positions + markers merge into one Skia layer. Both draw as pins today; a Phase 3 pass
-	/// gives markers their icon-key visuals (§16.3) — the shape is the same either way.
+	/// Positions + markers merge into one Skia layer: riders draw as a named pill in their own
+	/// colour, authored markers as their icon on a plate (§16.3).
 	/// </summary>
 	private void RebuildMapLayer()
 	{
@@ -513,14 +513,22 @@
 		_markerLayer.Clear();
 		foreach (RiderPositionDto position in _session.Positions.Values)
 		{
+			// The colour and the name both come off the member row, not the fix. A position
+			// batch carries neither (§5.3) — the username because it is immutable and would be
+			// bytes repeated every tick, the colour for the same reason — so the fix says where
+			// somebody is and the member list says who and how they are drawn.
+			RideMemberSummary? member = _session.Member(position.UserId);
+
 			_markerLayer[position.UserId] = new MapMarker(
 				Id: position.UserId,
 				Latitude: PositionScale.ToDegrees(position.Lat),
 				Longitude: PositionScale.ToDegrees(position.Lon),
 				IconKey: string.Empty,
-				Title: string.IsNullOrEmpty(position.UserName) ? "?" : position.UserName,
+				Title: string.IsNullOrEmpty(position.UserName) ? member?.UserName ?? "?" : position.UserName,
 				DirectionDeg: position.HeadingDeg,
-				Kind: MarkerKind.Rider);
+				Kind: MarkerKind.Rider,
+				SpeedMps: position.SpeedMps,
+				Colour: member?.MarkerColour);
 		}
 		foreach (MarkerDto marker in _session.Markers.Values)
 		{

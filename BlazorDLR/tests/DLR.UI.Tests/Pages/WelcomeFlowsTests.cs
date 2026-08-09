@@ -4,6 +4,7 @@ using BlazorDLR.Shared.State;
 using Bunit;
 using Bunit.TestDoubles;
 using DLR.Core.Contracts.Identity;
+using DLR.UI.Tests.Components;
 using DLR.UI.Tests.Fakes;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -18,6 +19,7 @@ namespace DLR.UI.Tests.Pages;
 /// so <c>AuthorizeView</c> re-renders, and (c) navigate to <c>/</c>. Missing any of
 /// the three would leave the caller stuck on the sign-in form after a good password.
 /// </summary>
+[Collection(SourceOfferFooterCollection.Name)]
 public sealed class WelcomeFlowsTests : BunitContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);

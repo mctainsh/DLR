@@ -146,13 +146,24 @@ public sealed record RidePermissions(
 /// waiting at a junction, and collapsing them is the kind of small ambiguity that gets someone
 /// left behind.
 /// </param>
+/// <param name="MarkerColour">
+/// The background this member's marker is drawn in on the live map, as <c>#rrggbb</c>, or null
+/// for the default (§16.3).
+/// <para>
+/// It rides on the member row rather than on the position batch: the batch is sent to every
+/// member once per tick and a colour changes about as often as a username does, so repeating it
+/// five times a second would be bytes spent on something that does not move. The map reads it
+/// from here and applies it to whichever fix arrives for that rider.
+/// </para>
+/// </param>
 public sealed record RideMemberSummary(
 	Guid UserId,
 	string UserName,
 	string Role,
 	DateTimeOffset JoinedUtc,
 	bool Sharing = false,
-	bool HasPosition = false);
+	bool HasPosition = false,
+	string? MarkerColour = null);
 
 /// <summary>
 /// One row of the "my rides" landing (§5.2). A summary rather than a full <see cref="RideDetail"/>

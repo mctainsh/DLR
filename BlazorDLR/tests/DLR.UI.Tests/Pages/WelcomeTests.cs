@@ -2,6 +2,7 @@ using BlazorDLR.Shared.Pages;
 using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.UI.Tests.Components;
 using DLR.UI.Tests.Fakes;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,7 @@ namespace DLR.UI.Tests.Pages;
 ///     what to fix, not "The details you entered were rejected."</item>
 /// </list>
 /// </summary>
+[Collection(SourceOfferFooterCollection.Name)]
 public sealed class WelcomeTests : BunitContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);

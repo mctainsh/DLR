@@ -5,6 +5,7 @@ using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Moderation;
+using DLR.Core.Display;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -40,8 +41,16 @@ public sealed class SettingsTests : BunitContext
 	private FakeApiClient WireCommon()
 	{
 		FakeApiClient api = new();
+		FakeTimeProvider clock = new(FixedInstant);
 		Services.AddSingleton<IApiClient>(api);
-		Services.AddSingleton<TimeProvider>(new FakeTimeProvider(FixedInstant));
+		Services.AddSingleton<TimeProvider>(clock);
+		// Profile's marker preview names the rider by username, because that — never the display
+		// name — is what a map pin carries (§7.2). Signed out here, so it falls back to "You".
+		Services.AddSingleton<ITokenStore>(new FakeTokenStore());
+		Services.AddSingleton(serviceProvider => new AuthState(
+			serviceProvider.GetRequiredService<IApiClient>(),
+			serviceProvider.GetRequiredService<ITokenStore>(),
+			serviceProvider.GetRequiredService<TimeProvider>()));
 		// Profile injects ThemeState (§18.6 appearance toggle). The in-memory service
 		// is a scoped-lifetime stand-in — no localStorage / MAUI preferences in tests.
 		Services.AddSingleton<IThemeService, InMemoryThemeService>();
@@ -117,6 +126,110 @@ public sealed class SettingsTests : BunitContext
 		sent.DisplayName.ShouldBe("Dave Smith", "§7.3: the display name is trimmed before the wire.");
 		sent.ShareDisplayName.ShouldBeTrue("the switch's new value must reach the API.");
 		sent.ShareEmail.ShouldBeFalse("the untouched share-email switch stays off — the caller does not flip it accidentally.");
+	}
+
+	// ---------- Profile: the map marker colour (§16.3) ----------
+
+	[Fact]
+	public void Profile_MarkerColour_OffersThePaletteAndMarksTheOneInForce()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, null, false, false, false, false, MarkerColour: "#16a34a");
+
+		IRenderedComponent<Profile> component = Render<Profile>();
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement[] swatches = component.FindAll("button.swatch").ToArray();
+
+			swatches.Length.ShouldBe(MarkerColours.Palette.Count);
+
+			swatches.Count(swatch => swatch.GetAttribute("aria-pressed") == "true").ShouldBe(1,
+				"exactly one swatch is in force, and the screen has to say which — a picker that " +
+				"does not show the current answer is a picker nobody can tell they have used.");
+
+			swatches.Single(swatch => swatch.GetAttribute("aria-pressed") == "true")
+				.GetAttribute("aria-label").ShouldBe("#16a34a");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The pairing rule, on screen: the rider picks a background and the app picks the ink, so no
+	/// choice can produce a marker nobody can read (§16.3).
+	/// </summary>
+	[Fact]
+	public async Task Profile_MarkerColour_PreviewInksItselfForContrast()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, null, false, false, false, false, MarkerColour: "#ffffff");
+
+		IRenderedComponent<Profile> component = Render<Profile>();
+
+		component.WaitForAssertion(
+			() => PreviewStyle(component).ShouldContain("#000000"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Near-black. The ink has to flip with it.
+		await component.InvokeAsync(() => component.FindAll("button.swatch")
+			.Single(swatch => swatch.GetAttribute("aria-label") == "#111827")
+			.Click());
+
+		component.WaitForAssertion(() =>
+		{
+			string style = PreviewStyle(component);
+
+			style.ShouldContain("#111827");
+			style.ShouldContain("#ffffff", customMessage:
+				"black text on a near-black label is the marker that disappears at the junction " +
+				"where somebody is looking for it.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>The inline style on the preview pill, which carries both the background and the ink.</summary>
+	private static string PreviewStyle(IRenderedComponent<Profile> component) =>
+		component.Find(".marker-preview .pill").GetAttribute("style") ?? string.Empty;
+
+	[Fact]
+	public async Task Profile_MarkerColour_ChosenSwatch_ReachesTheApiOnSave()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, null, false, false, false, false);
+
+		IRenderedComponent<Profile> component = Render<Profile>();
+
+		component.WaitForAssertion(() => component.FindAll("button.swatch").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.FindAll("button.swatch")
+			.Single(swatch => swatch.GetAttribute("aria-label") == "#dc2626")
+			.Click());
+
+		await component.InvokeAsync(() => component.Find("form").Submit());
+
+		component.WaitForAssertion(() => api.LastUpdateProfileRequest.ShouldNotBeNull(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		api.LastUpdateProfileRequest!.MarkerColour.ShouldBe("#dc2626");
+	}
+
+	/// <summary>
+	/// A swatch is not a submit button. Tapping one while comparing colours must not send the
+	/// half-filled form under it.
+	/// </summary>
+	[Fact]
+	public async Task Profile_MarkerColour_ChoosingASwatch_DoesNotSaveByItself()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, null, false, false, false, false);
+
+		IRenderedComponent<Profile> component = Render<Profile>();
+
+		component.WaitForAssertion(() => component.FindAll("button.swatch").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.FindAll("button.swatch")[3].Click());
+
+		api.LastUpdateProfileRequest.ShouldBeNull();
 	}
 
 	// ---------- Profile: the private area (§10.1, §18.6) ----------

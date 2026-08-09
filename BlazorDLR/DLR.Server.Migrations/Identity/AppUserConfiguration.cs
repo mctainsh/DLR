@@ -53,6 +53,11 @@ public sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
 		builder.Property(user => user.DisplayName).HasMaxLength(60);
 		builder.Property(user => user.PhoneNumber).HasMaxLength(20);
 
+		// Exactly the width of "#rrggbb". The endpoint refuses anything that is not one
+		// (MarkerColours.TryNormalise), and this is the same rule stated where a migration or a
+		// manual UPDATE would also meet it.
+		builder.Property(user => user.MarkerColour).HasMaxLength(7);
+
 		// All three default false in the database as well as in the object, so a row inserted
 		// by anything other than the registration endpoint — a migration, a fixture, a manual
 		// INSERT during an incident — is also closed by default (§7.3).

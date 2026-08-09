@@ -13,6 +13,7 @@ namespace DLR.UI.Tests.Components;
 /// a build's commit is embedded rather than hand-maintained. The tests reach for the
 /// values the server would emit and check that the footer renders them verbatim.
 /// </summary>
+[Collection(SourceOfferFooterCollection.Name)]
 public sealed class SourceOfferFooterTests : BunitContext
 {
 	public SourceOfferFooterTests()

@@ -141,6 +141,17 @@ public readonly record struct MapViewport(
 /// <param name="Title">Rendered beside the icon.</param>
 /// <param name="DirectionDeg">Null means "no direction", never zero (§16.2).</param>
 /// <param name="Kind">What the overlay draws. Defaults to an authored marker.</param>
+/// <param name="SpeedMps">
+/// How fast the fix said the rider was going (metres/second), when it said. Riders only: it is what decides
+/// between the heading arrow and the stopped dot (§16.3). Null means the fix carried no speed,
+/// which reads as stopped — an arrow is a claim about direction, and a fix with no speed is not
+/// evidence for one.
+/// </param>
+/// <param name="Colour">
+/// The label's background as <c>#rrggbb</c>, or null for <c>MarkerColours.Default</c>. Riders
+/// only — it is the rider's own choice from their profile (§7.14, §16.3), and the text and border
+/// are drawn in whichever of black or white reads on it.
+/// </param>
 public sealed record MapMarker(
 	Guid Id,
 	double Latitude,
@@ -148,7 +159,9 @@ public sealed record MapMarker(
 	string IconKey,
 	string Title,
 	double? DirectionDeg = null,
-	MarkerKind Kind = MarkerKind.Authored);
+	MarkerKind Kind = MarkerKind.Authored,
+	double? SpeedMps = null,
+	string? Colour = null);
 
 /// <summary>
 /// Which of the overlay's two renderings a <see cref="MapMarker"/> gets (§16.3).
@@ -165,7 +178,11 @@ public enum MarkerKind
 	/// <summary>Something a rider placed: icon on a disc, with its title beneath (§16.2).</summary>
 	Authored = 0,
 
-	/// <summary>A live position: the bare heading dart, no icon and no disc (§5.3).</summary>
+	/// <summary>
+	/// A live position: a heading arrow — or a dot when stopped — on the rounded end of a label
+	/// carrying the rider's name in their own colour (§5.3, §16.3). No icon: which of twenty
+	/// people this is, and which way they are going, is the whole of what a live position says.
+	/// </summary>
 	Rider = 1,
 }
 

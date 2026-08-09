@@ -1,4 +1,5 @@
 using System.Globalization;
+using DLR.Core.Display;
 
 namespace BlazorDLR.Shared.Services;
 
@@ -162,21 +163,6 @@ public sealed record RouteStyle(
 	/// </summary>
 	/// <param name="colour">The candidate colour.</param>
 	/// <param name="fallback">What to answer when it is not a six-digit hex colour.</param>
-	public static string NormaliseColour(string? colour, string fallback)
-	{
-		if (colour is not { Length: 7 } || colour[0] != '#')
-		{
-			return fallback;
-		}
-
-		for (int index = 1; index < colour.Length; index++)
-		{
-			if (!Uri.IsHexDigit(colour[index]))
-			{
-				return fallback;
-			}
-		}
-
-		return colour.ToLowerInvariant();
-	}
+	public static string NormaliseColour(string? colour, string fallback) =>
+		HexColour.Normalise(colour, fallback);
 }

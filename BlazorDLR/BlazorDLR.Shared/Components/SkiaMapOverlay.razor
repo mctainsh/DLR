@@ -1,6 +1,7 @@
 ﻿@using BlazorDLR.Shared.Markers
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
+@using DLR.Core.Display
 @using DLR.Core.Tracks
 @using SkiaSharp
 @using SkiaSharp.Views.Blazor
@@ -280,7 +281,7 @@
 	/// <summary>The circle's edge, in canvas pixels.</summary>
 	private const float CircleRingWidthPx = 2f;
 
-	/// <summary>The dot on a circle's centre — the same size as a rider's headingless disc, for the same reason.</summary>
+	/// <summary>The dot on a circle's centre — small enough to point at a spot, big enough to find.</summary>
 	private const float CircleCentreDotRadius = 5f;
 
 	private void DrawRoutes(SKCanvas canvas)
@@ -585,82 +586,166 @@
 
 		SKSamplingOptions sampling = new(SKFilterMode.Linear, SKMipmapMode.Linear);
 
+		// Riders carry a colour each (§16.3), so the paints that draw them cannot be the shared
+		// static ones below — those are immutable configuration precisely so nothing mutates them
+		// per marker. One pair for the whole frame, recoloured per rider: a twenty-rider map at
+		// 1 Hz would otherwise build forty native paints a second for no gain.
+		using SKPaint riderFill = new() { Style = SKPaintStyle.Fill, IsAntialias = true };
+		using SKPaint riderStroke = new() { Style = SKPaintStyle.Stroke, IsAntialias = true, StrokeJoin = SKStrokeJoin.Round };
+
 		foreach (MapMarker marker in Markers.Values)
 		{
 			SKPoint screen = Project(marker.Latitude, marker.Longitude);
 			if (!InsideCanvas(screen)) continue;
 
+			if (marker.Kind == MarkerKind.Rider)
+			{
+				DrawRider(canvas, screen, marker, riderFill, riderStroke);
+
+				continue;
+			}
+
 			// Null means "no direction", never zero — zero is due north, a real bearing
-			// (§16.2). A fix that carried no heading gets no arrow rather than one
+			// (§16.2). A marker that carries no bearing gets no arrow rather than one
 			// confidently pointing north.
 			bool hasHeading = marker.DirectionDeg is not null;
-			bool isRider = marker.Kind == MarkerKind.Rider;
 
-			if (isRider)
+			// An authored marker may also carry a bearing ("face this way", §16.2). It
+			// gets the same arrow at reduced scale, pushed clear of the icon disc, so it
+			// decorates the icon rather than replacing it.
+			if (marker.DirectionDeg is { } markerBearing)
 			{
-				// A rider *is* the arrow — no disc, no icon. Where someone is and which way
-				// they are facing is the whole of what a live position says (§5.3); an icon
-				// on top only competes with the marker pins that do carry meaning.
-				if (marker.DirectionDeg is { } riderBearing)
-				{
-					DrawHeadingArrow(canvas, screen, riderBearing, 1f, 0f);
-				}
-				else
-				{
-					// Heading unknown: a plain disc in the same blue, so the rider is still
-					// placed and still obviously the same kind of thing as an arrow.
-					canvas.DrawCircle(screen, RiderDotRadius, ArrowHalo);
-					canvas.DrawCircle(screen, RiderDotRadius, ArrowEdge);
-					canvas.DrawCircle(screen, RiderDotRadius, ArrowFill);
-				}
+				DrawHeadingArrow(canvas, screen, markerBearing, MarkerArrowScale, MarkerArrowOffset);
+			}
+
+			SKImage? glyph = GlyphImage(MarkerIconGlyphs.Emoji(marker.IconKey));
+
+			if (glyph is null)
+			{
+				// Glyph not rasterised yet (or the host cannot). A plain pin holds the
+				// place — the marker is still on the map and still labelled.
+				canvas.DrawCircle(screen, 6f, PinFill);
+				canvas.DrawCircle(screen, 6f, PinRing);
 			}
 			else
 			{
-				// An authored marker may also carry a bearing ("face this way", §16.2). It
-				// gets the same arrow at reduced scale, pushed clear of the icon disc, so it
-				// decorates the icon rather than replacing it.
-				if (marker.DirectionDeg is { } markerBearing)
-				{
-					DrawHeadingArrow(canvas, screen, markerBearing, MarkerArrowScale, MarkerArrowOffset);
-				}
-
-				SKImage? glyph = GlyphImage(MarkerIconGlyphs.Emoji(marker.IconKey));
-
-				if (glyph is null)
-				{
-					// Glyph not rasterised yet (or the host cannot). A plain pin holds the
-					// place — the marker is still on the map and still labelled.
-					canvas.DrawCircle(screen, 6f, PinFill);
-					canvas.DrawCircle(screen, 6f, PinRing);
-				}
-				else
-				{
-					canvas.DrawCircle(screen, PlateRadius, Plate);
-					canvas.DrawCircle(screen, PlateRadius, PlateRing);
-					SKRect target = new(
-						screen.X - GlyphSize / 2, screen.Y - GlyphSize / 2,
-						screen.X + GlyphSize / 2, screen.Y + GlyphSize / 2);
-					canvas.DrawImage(glyph, target, sampling);
-				}
+				canvas.DrawCircle(screen, PlateRadius, Plate);
+				canvas.DrawCircle(screen, PlateRadius, PlateRing);
+				SKRect target = new(
+					screen.X - GlyphSize / 2, screen.Y - GlyphSize / 2,
+					screen.X + GlyphSize / 2, screen.Y + GlyphSize / 2);
+				canvas.DrawImage(glyph, target, sampling);
 			}
 
 			if (!string.IsNullOrEmpty(marker.Title))
 			{
-				// Clear whatever was drawn above, so a south-facing rider's name is never
-				// printed over their own heading. Four cases, so a table rather than nested
-				// ternaries whose guards have to be re-derived by hand when a radius changes.
-				float clearance = (isRider, hasHeading) switch
-				{
-					(true, true) => ArrowTipLength + LabelGap,
-					(true, false) => RiderDotRadius + LabelGap + 2f,
-					(false, true) => MarkerArrowOffset + (ArrowTipLength * MarkerArrowScale) + LabelGap,
-					(false, false) => PlateRadius + LabelGap + 2f,
-				};
+				// Clear whatever was drawn above, so a south-facing marker's title is never
+				// printed over its own bearing arrow.
+				float clearance = hasHeading
+					? MarkerArrowOffset + (ArrowTipLength * MarkerArrowScale) + LabelGap
+					: PlateRadius + LabelGap + 2f;
 
 				float ty = screen.Y + clearance;
 				canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, LabelFont, LabelHalo);
 				canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, LabelFont, LabelText);
 			}
+		}
+	}
+
+	/// <summary>
+	/// Draws one rider: their name on a pill in their own colour, with the pill's rounded end
+	/// centred on the fix, and on top of that end either an arrow pointing the way they are going
+	/// or a dot saying they have stopped (§5.3, §16.3).
+	/// <para>
+	/// <strong>The label runs to the right of the position, not under it.</strong> Twenty riders
+	/// on a phone screen at regroup are twenty overlapping pins; a name centred beneath each one
+	/// puts every label in every other label's way, while a pill anchored at the point keeps the
+	/// thing being named and the name in one shape that the eye can follow apart from its
+	/// neighbours.
+	/// </para>
+	/// <para>
+	/// <strong>The rider picks the background and nothing else.</strong> Text and border are
+	/// <see cref="MarkerColours.ForegroundFor"/>'s answer — black or white, whichever reads —
+	/// because a rider free to choose both could pick a pairing that disappears, and the person
+	/// who pays for that is whoever is looking for them at a junction.
+	/// </para>
+	/// </summary>
+	/// <param name="canvas">The overlay canvas.</param>
+	/// <param name="at">Where the rider is, in canvas pixels.</param>
+	/// <param name="marker">The rider's marker, carrying their colour, speed and heading.</param>
+	/// <param name="fill">The frame's shared fill paint. Recoloured here.</param>
+	/// <param name="stroke">The frame's shared stroke paint. Recoloured and re-widthed here.</param>
+	private void DrawRider(SKCanvas canvas, SKPoint at, MapMarker marker, SKPaint fill, SKPaint stroke)
+	{
+		SKColor back = ParseColour(MarkerColours.Or(marker.Colour));
+		SKColor fore = ParseColour(MarkerColours.ForegroundFor(marker.Colour));
+
+		string text = RiderMarker.Label(marker.Title);
+
+		float textWidth = LabelFont.MeasureText(text) + LabelPadPx;
+
+		// The pill: a rectangle to the right, closed on the left by a semicircle centred on the
+		// fix. Skia measures the arc clockwise from +X, so 90° → 270° is the left half.
+		using SKPath pill = new();
+		pill.MoveTo(at.X, at.Y - LabelHalfHeight);
+		pill.LineTo(at.X + LabelHalfHeight + textWidth, at.Y - LabelHalfHeight);
+		pill.LineTo(at.X + LabelHalfHeight + textWidth, at.Y + LabelHalfHeight);
+		pill.LineTo(at.X, at.Y + LabelHalfHeight);
+		pill.ArcTo(
+			new SKRect(at.X - LabelHalfHeight, at.Y - LabelHalfHeight, at.X + LabelHalfHeight, at.Y + LabelHalfHeight),
+			90,
+			180,
+			false);
+		pill.Close();
+
+		fill.Color = back;
+		canvas.DrawPath(pill, fill);
+
+		stroke.Color = fore;
+		stroke.StrokeWidth = LabelBorderPx;
+		canvas.DrawPath(pill, stroke);
+
+		fill.Color = fore;
+		canvas.DrawText(text, at.X + LabelHalfHeight + LabelInsetPx, at.Y + LabelBaselineOffset, SKTextAlign.Left, LabelFont, fill);
+
+		// Arrow or dot, drawn last so it sits on top of the pill's rounded end rather than being
+		// half-covered by it.
+		bool moving = RiderMarker.IsMoving(marker.SpeedMps, marker.DirectionDeg);
+
+		canvas.Save();
+		try
+		{
+			canvas.Translate(at.X, at.Y);
+
+			if (moving)
+			{
+				// Canvas Y grows downward, so screen-up is -Y — which is where RiderArrowPath
+				// points — and a clockwise rotation by the screen bearing carries the tip round
+				// to the compass point. Same conversion the authored-marker arrow uses, so a
+				// heading-up map turns both together.
+				canvas.RotateDegrees((float)MapGeometry.ScreenBearingDeg(marker.DirectionDeg!.Value, Viewport.HeadingDeg));
+			}
+
+			SKPath shape = moving ? RiderArrowPath : RiderDotPath;
+
+			// Three passes, widest first. The fore-coloured outline separates the shape from the
+			// rider's own label colour, the fill says moving or stopped, and the hairline in the
+			// opposite ink keeps the two apart on a label whose colour happens to be close to
+			// either of them.
+			stroke.Color = fore;
+			stroke.StrokeWidth = GpsEdgePx;
+			canvas.DrawPath(shape, stroke);
+
+			fill.Color = moving ? RiderMovingColour : RiderStoppedColour;
+			canvas.DrawPath(shape, fill);
+
+			stroke.Color = fore == SKColors.Black ? SKColors.White : SKColors.Black;
+			stroke.StrokeWidth = GpsHairlinePx;
+			canvas.DrawPath(shape, stroke);
+		}
+		finally
+		{
+			canvas.Restore();
 		}
 	}
 
@@ -676,6 +761,97 @@
 	private static readonly SKFont LabelFont = new() { Size = 12f };
 	private static readonly SKPaint LabelText = new() { IsAntialias = true, Color = SKColors.Black };
 	private static readonly SKPaint LabelHalo = new() { IsAntialias = true, Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 3f };
+
+	// -- The rider pill (§16.3) ---------------------------------------------------------------
+	//
+	// Everything below is sized off LabelFont so the pill is exactly tall enough for the name in
+	// it. Declared after the font on purpose: static initialisers run in source order, and a
+	// height derived from a font that has not been built yet is zero.
+
+	/// <summary>
+	/// Half the pill's height, which is also the radius of its rounded end and therefore the
+	/// radius the arrow and the dot are drawn within. One number, so the shape stays a pill and
+	/// the marker on it stays centred on the fix however the font size changes.
+	/// </summary>
+	private static readonly float LabelHalfHeight = (LabelFont.Size / 2f) + 1f;
+
+	/// <summary>
+	/// Baseline offset from the fix, so the name sits optically centred in the pill rather than
+	/// hanging off its top edge. Derived from the font's own ascent and descent — a hand-tuned
+	/// constant here is a constant that has to be re-tuned when the size changes.
+	/// </summary>
+	private static readonly float LabelBaselineOffset = -(LabelFont.Metrics.Ascent + LabelFont.Metrics.Descent) / 2f;
+
+	/// <summary>Breathing room after the text, so the pill does not end flush against the last letter.</summary>
+	private const float LabelPadPx = 4f;
+
+	/// <summary>Gap between the rounded end and the first letter.</summary>
+	private const float LabelInsetPx = 2f;
+
+	/// <summary>The pill's border, drawn in the same ink as its text.</summary>
+	private const float LabelBorderPx = 1f;
+
+	/// <summary>Outline around the arrow or dot, in the label's ink.</summary>
+	private const float GpsEdgePx = 2f;
+
+	/// <summary>The thin opposite-ink line inside that outline. See <c>DrawRider</c>.</summary>
+	private const float GpsHairlinePx = 1f;
+
+	/// <summary>
+	/// Travelling: the same blue the authored-marker arrow uses, so one shape means one thing
+	/// across the whole overlay.
+	/// </summary>
+	private static readonly SKColor RiderMovingColour = new(0x25, 0x63, 0xeb);
+
+	/// <summary>
+	/// Stopped, or moving too slowly to claim a direction (<see cref="RiderMarker.MovingAtLeastMps"/>).
+	/// Red because a stopped rider on a group ride is the one somebody needs to notice.
+	/// </summary>
+	private static readonly SKColor RiderStoppedColour = new(0xdc, 0x26, 0x26);
+
+	/// <summary>
+	/// The rider's arrow: pointing up (screen-up is -Y), centred on the fix, and sized to sit
+	/// within the pill's rounded end. Swallow-tailed for the reason <see cref="ArrowPath"/> gives
+	/// — a plain triangle stops reading as a direction once it is rotated away from vertical.
+	/// <para>
+	/// Its own path rather than a scaled <see cref="ArrowPath"/>: this one has to fit a circle the
+	/// font decides the size of, and a scale factor between the two is a number nobody could
+	/// re-derive later.
+	/// </para>
+	/// </summary>
+	private static readonly SKPath RiderArrowPath = BuildRiderArrowPath();
+
+	private static SKPath BuildRiderArrowPath()
+	{
+		// Tip 1.5 radii ahead; rear corners 1.2 radii back at ±135° from the heading, which puts
+		// them at 0.8485 (= 1.2 × cos 45°) either way; the tail notch half a radius behind.
+		const float tip = 1.5f;
+		const float corner = 0.8485f;
+		const float notch = 0.5f;
+
+		SKPath path = new();
+		path.MoveTo(0f, -tip * LabelHalfHeight);
+		path.LineTo(corner * LabelHalfHeight, corner * LabelHalfHeight);
+		path.LineTo(0f, notch * LabelHalfHeight);
+		path.LineTo(-corner * LabelHalfHeight, corner * LabelHalfHeight);
+		path.Close();
+
+		return path;
+	}
+
+	/// <summary>
+	/// The stopped dot: a disc inside the pill's rounded end, small enough that the label's border
+	/// still reads as a ring around it.
+	/// </summary>
+	private static readonly SKPath RiderDotPath = BuildRiderDotPath();
+
+	private static SKPath BuildRiderDotPath()
+	{
+		SKPath path = new();
+		path.AddCircle(0f, 0f, LabelHalfHeight - 2f);
+
+		return path;
+	}
 
 	// A white disc under the glyph. Emoji are drawn in their own colours, and OSM tiles run
 	// from near-white sand to dark green forest — without a plate the same icon is crisp over
@@ -701,12 +877,13 @@
 	private const float LabelGap = 11f;
 
 	/// <summary>
-	/// Draws the heading dart, pointing where the fix said the rider was last travelling (§5.3).
+	/// Draws the bearing dart an authored marker may carry — "face this way" (§16.2). Riders get
+	/// <c>RiderArrowPath</c> instead, which is sized to their label rather than to an icon disc.
 	/// </summary>
 	/// <param name="canvas">The overlay canvas.</param>
-	/// <param name="centre">Where the rider is, in canvas pixels.</param>
+	/// <param name="centre">Where the marker is, in canvas pixels.</param>
 	/// <param name="bearingDeg">Degrees clockwise from true north.</param>
-	/// <param name="scale">1 for a rider, smaller when the arrow decorates a marker icon.</param>
+	/// <param name="scale">Size relative to <see cref="ArrowPath"/>'s own.</param>
 	/// <param name="forwardOffset">Push along the bearing, to clear an icon disc. Unscaled pixels.</param>
 	private void DrawHeadingArrow(
 		SKCanvas canvas,
@@ -748,7 +925,7 @@
 	}
 
 	/// <summary>
-	/// The dart, pointing up (screen-up is -Y), centred on the rider's position. Four points:
+	/// The dart, pointing up (screen-up is -Y), centred on the marker's position. Four points:
 	/// tip, the two rear corners, and a notch between them — the swallowtail is what makes
 	/// the pointing end unambiguous at a glance, which a plain triangle is not once it is
 	/// rotated away from vertical.
@@ -781,9 +958,6 @@
 
 	/// <summary>Half the span across the rear corners.</summary>
 	private const float ArrowHalfWidth = 9f;
-
-	/// <summary>Radius of the disc drawn for a rider whose fix carried no heading.</summary>
-	private const float RiderDotRadius = 6f;
 
 	/// <summary>
 	/// The emoji bitmaps, wrapped as Skia images. <see cref="MarkerGlyphCache"/> deliberately

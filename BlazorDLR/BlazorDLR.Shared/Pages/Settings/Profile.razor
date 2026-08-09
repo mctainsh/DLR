@@ -4,7 +4,9 @@
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
 @using DLR.Core.Contracts.Identity
+@using DLR.Core.Display
 @inject IApiClient Api
+@inject AuthState Auth
 @inject ThemeState Theme
 @inject PrivateAreaState PrivateAreas
 
@@ -78,6 +80,47 @@
 						not delete it — it stays your recovery address either way.
 					</p>
 				}
+			</fieldset>
+
+			@*
+				§16.3. Only the background is chosen: the text and the border are whichever of
+				black or white reads on it, so a colour that would leave someone invisible on a
+				ride map cannot be picked in the first place.
+			*@
+			<fieldset class="marker-colour">
+				<legend>Map marker colour</legend>
+
+				<p class="note">
+					How you appear on a group ride's live map. The arrow points the way you are
+					going; it turns into a red dot when you stop. Everyone on the ride sees this
+					colour — that is the whole point of it.
+				</p>
+
+				<p class="marker-preview">
+					<span class="pill" style="background: @MarkerBackground; color: @MarkerForeground; border-color: @MarkerForeground;">
+						<span class="dot" style="border-color: @MarkerForeground;"></span>
+						<span class="who">@MarkerLabel</span>
+					</span>
+				</p>
+
+				<div class="swatches" role="group" aria-label="Marker colour">
+					@foreach (string option in MarkerColours.Palette)
+					{
+						bool chosen = string.Equals(option, MarkerBackground, StringComparison.OrdinalIgnoreCase);
+
+						<button type="button" class="swatch @(chosen ? "chosen" : null)"
+								style="background: @option"
+								aria-pressed="@(chosen ? "true" : "false")"
+								aria-label="@option"
+								title="@option"
+								@onclick="() => _markerColour = option"></button>
+					}
+				</div>
+
+				<label class="custom-colour">
+					Any other colour
+					<input type="color" value="@MarkerBackground" @onchange="OnCustomColourChosen" />
+				</label>
 			</fieldset>
 
 			<fieldset>
@@ -217,6 +260,25 @@
 	private bool _saving;
 	private string? _status;
 
+	/// <summary>
+	/// The marker background being composed, always a <c>#rrggbb</c> string (§16.3). Held
+	/// normalised rather than as the raw stored value so the swatch comparison and the preview do
+	/// not each have to decide what an account with nothing stored looks like.
+	/// </summary>
+	private string _markerColour = MarkerColours.Default;
+
+	/// <summary>The chosen background, as both the preview and the swatch comparison read it.</summary>
+	private string MarkerBackground => MarkerColours.Or(_markerColour);
+
+	/// <summary>Black or white — the ink the map will draw the name and the border in.</summary>
+	private string MarkerForeground => MarkerColours.ForegroundFor(_markerColour);
+
+	/// <summary>
+	/// What the preview pill says. The username, because that — never the display name — is what
+	/// a map pin carries (§7.2). "You" while the session is still warming up.
+	/// </summary>
+	private string MarkerLabel => RiderMarker.Label(Auth.UserName ?? "You");
+
 	protected override async Task OnInitializedAsync()
 	{
 		_profile = await Api.GetProfileAsync();
@@ -225,12 +287,26 @@
 		_shareDisplayName = _profile.ShareDisplayName;
 		_sharePhoneNumber = _profile.SharePhoneNumber;
 		_shareEmail = _profile.ShareEmail;
+		_markerColour = MarkerColours.Or(_profile.MarkerColour);
 
 		// The theme has already been loaded by MainLayout on the interactive pass —
 		// `Theme.Preference` is set. This page just reads it for the radio's checked-state.
 	}
 
 	private Task OnThemeSelectedAsync(AppTheme theme) => Theme.SetAsync(theme);
+
+	/// <summary>
+	/// The colour well's answer. Browsers hand back <c>#rrggbb</c>, and anything else is dropped
+	/// rather than sent — the server would refuse it, and a save that fails over a control the
+	/// rider cannot see the state of is a save nobody can fix.
+	/// </summary>
+	private void OnCustomColourChosen(ChangeEventArgs args)
+	{
+		if (args.Value is string chosen && HexColour.IsHex(chosen))
+		{
+			_markerColour = chosen.ToLowerInvariant();
+		}
+	}
 
 	// -- Private area (§10.1, §18.6) --------------------------------------------------------
 
@@ -449,9 +525,11 @@
 				PhoneNumber: string.IsNullOrWhiteSpace(_phoneNumber) ? null : _phoneNumber.Trim(),
 				ShareDisplayName: _shareDisplayName,
 				SharePhoneNumber: _sharePhoneNumber,
-				ShareEmail: _shareEmail));
+				ShareEmail: _shareEmail,
+				MarkerColour: MarkerBackground));
 			_status = "Saved.";
 			_profile = await Api.GetProfileAsync();
+			_markerColour = MarkerColours.Or(_profile.MarkerColour);
 		}
 		catch (Exception exception)
 		{
@@ -469,6 +547,64 @@
 	.profile .badge.good { background: #d1fae5; color: #196c2e; }
 	.profile .badge.bad { background: #fef3c730; color: #92400e; }
 	.profile .status { margin-top: 1rem; }
+
+	/* The preview is the marker the map draws, in HTML: a pill with a rounded end, the rider's
+	   colour behind it and the contrasting ink on top. Not pixel-identical to the Skia version
+	   and not trying to be — what it has to get right is the pairing. */
+	.profile .marker-preview {
+		margin: 0.75rem 0;
+	}
+
+		.profile .marker-preview .pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+			padding: 0.2rem 0.7rem 0.2rem 0.2rem;
+			border: 1px solid;
+			border-radius: 999px;
+			font-weight: 600;
+			line-height: 1.2;
+		}
+
+		.profile .marker-preview .dot {
+			width: 0.85rem;
+			height: 0.85rem;
+			border: 1px solid;
+			border-radius: 50%;
+			/* The travelling blue. The map turns it red below walking pace; the preview shows the
+			   moving state because that is the one a rider spends a ride looking at. */
+			background: #2563eb;
+		}
+
+	.profile .swatches {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+		.profile .swatches .swatch {
+			/* 44 px square: the same gloved-thumb target the rest of the app uses. */
+			width: 44px;
+			height: 44px;
+			padding: 0;
+			border: 2px solid var(--dlr-border);
+			border-radius: 8px;
+			cursor: pointer;
+		}
+
+		.profile .swatches .swatch.chosen {
+			/* Outline rather than a tick: a tick would have to be black or white and would
+			   disappear into whichever end of the palette it was drawn over. */
+			border-color: var(--dlr-fg);
+			box-shadow: 0 0 0 2px var(--dlr-surface) inset;
+		}
+
+	.profile .custom-colour {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
 
 	.profile .private-area {
 		margin-top: 2.5rem;

@@ -1,5 +1,5 @@
-using BlazorDLR.Shared.Pages.GroupRides;
 using BlazorDLR.Shared.Components;
+using BlazorDLR.Shared.Pages.GroupRides;
 using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Stubs;
 using BlazorDLR.Shared.State;
@@ -267,6 +267,82 @@ public sealed class GroupRideLiveTests : BunitContext
 
 		Should.NotThrow(() =>
 			component.InvokeAsync(() => hub.RaiseMarkerAdded(rideId, marker)).GetAwaiter().GetResult());
+	}
+
+	// ---------- How riders reach the overlay (§16.3) ----------
+
+	/// <summary>
+	/// The overlay draws a rider's own colour, and needs their speed to decide between the heading
+	/// arrow and the stopped dot. Neither travels with a position fix — the colour comes off the
+	/// member row and the speed off the fix — so this is the join that has to be right.
+	/// </summary>
+	[Fact]
+	public void ARidersMarker_CarriesTheirColourFromTheMemberList_AndTheirSpeedFromTheFix()
+	{
+		Guid riderId = Guid.NewGuid();
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		api.RideResult = api.RideResult! with
+		{
+			Members = [new RideMemberSummary(riderId, "DaveSmith", "Rider", FixedInstant, true, true, "#16a34a")],
+		};
+
+		api.PositionsResult =
+		[
+			new RiderPositionDto(riderId, "DaveSmith", -33_868_000, 151_209_000, SpeedMps: 8, HeadingDeg: 90, FixedInstant),
+		];
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+		{
+			MapMarker drawn = component.FindComponent<RideMap>().Instance.Markers!.Values
+				.Single(marker => marker.Kind == MarkerKind.Rider);
+
+			drawn.Colour.ShouldBe("#16a34a",
+				"the colour is on the member row, not the fix — the map has to look it up per rider.");
+			drawn.SpeedMps.ShouldBe(8);
+			drawn.DirectionDeg.ShouldBe(90);
+			drawn.Title.ShouldBe("DaveSmith", "§7.2: the pin carries the username.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A hub batch carries no username (§5.3) — the client is expected to already have it. Before
+	/// this, a rider whose first sighting was a batch rather than the snapshot was drawn as "?".
+	/// </summary>
+	[Fact]
+	public async Task ARiderFirstSeenOnTheHub_IsStillNamedFromTheMemberList()
+	{
+		Guid riderId = Guid.NewGuid();
+		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices();
+
+		api.RideResult = api.RideResult! with
+		{
+			Members = [new RideMemberSummary(riderId, "DaveSmith", "Rider", FixedInstant, true, false)],
+		};
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => hub.RaisePositionsUpdated(new PositionBatch(rideId,
+		[
+			new PositionFix(riderId, -33_868_000, 151_209_000, SpeedMps: 0, HeadingDeg: null, FixedInstant),
+		])));
+
+		component.WaitForAssertion(() =>
+		{
+			MapMarker drawn = component.FindComponent<RideMap>().Instance.Markers!.Values
+				.Single(marker => marker.Kind == MarkerKind.Rider);
+
+			drawn.Title.ShouldBe("DaveSmith");
+			drawn.SpeedMps.ShouldBe(0, "a stopped rider is drawn as a dot, which needs the speed to have arrived.");
+		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	// ---------- The rider's own private area on the live map (§10.1) ----------

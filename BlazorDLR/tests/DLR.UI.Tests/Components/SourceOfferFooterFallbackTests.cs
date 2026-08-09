@@ -20,6 +20,7 @@ namespace DLR.UI.Tests.Components;
 ///     text is still visible.</item>
 /// </list>
 /// </summary>
+[Collection(SourceOfferFooterCollection.Name)]
 public sealed class SourceOfferFooterFallbackTests : BunitContext
 {
 	public SourceOfferFooterFallbackTests()

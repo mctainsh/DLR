@@ -92,4 +92,21 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 
 	/// <inheritdoc />
 	public bool ShareEmail { get; set; }
+
+	/// <summary>
+	/// The background this rider's marker is drawn in on a live ride map, as <c>#rrggbb</c>, or
+	/// null for <c>MarkerColours.Default</c> (§16.3).
+	/// <para>
+	/// <strong>No sharing switch, unlike the three fields above it.</strong> The other optional
+	/// fields are facts about a person and default to private; this one is only meaningful to the
+	/// riders already looking at the map it is drawn on, and a colour nobody else could see would
+	/// be a setting with no effect.
+	/// </para>
+	/// <para>
+	/// Null rather than a stored default, so an account created before the column existed and an
+	/// account that never chose are the same row. Every render path goes through
+	/// <c>MarkerColours.Or</c>, which is where the default lives.
+	/// </para>
+	/// </summary>
+	public string? MarkerColour { get; set; }
 }

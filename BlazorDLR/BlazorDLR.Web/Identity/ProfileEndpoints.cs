@@ -1,4 +1,5 @@
 using DLR.Core.Contracts.Identity;
+using DLR.Core.Display;
 using DLR.Server.Data;
 using DLR.Server.Data.Identity;
 using DLR.Server.Data.Rides;
@@ -90,6 +91,20 @@ public sealed class ProfileController : ControllerBase
 			return Unauthorized();
 		}
 
+		// Before anything is written. A colour that is not #rrggbb is a client bug, and defaulting
+		// it quietly would leave a rider retrying a setting that never had a chance of sticking
+		// (§16.3). Blank is not a bug — it is how they go back to the default.
+		if (!MarkerColours.TryNormalise(request.MarkerColour, out string? markerColour))
+		{
+			return new BadRequestObjectResult(new ValidationProblemDetails(new Dictionary<string, string[]>
+			{
+				[nameof(UpdateProfileRequest.MarkerColour)] = ["A marker colour must be #rrggbb, or absent for the default."],
+			}))
+			{
+				ContentTypes = { "application/problem+json" },
+			};
+		}
+
 		user.DisplayName = Trimmed(request.DisplayName);
 
 		// Identity's own column, reused. PhoneNumberConfirmed is never touched here and must
@@ -105,6 +120,10 @@ public sealed class ProfileController : ControllerBase
 		user.ShareDisplayName = request.ShareDisplayName;
 		user.SharePhoneNumber = request.SharePhoneNumber;
 		user.ShareEmail = request.ShareEmail;
+
+		// No switch of its own: this one is how the rider appears on a map their co-members are
+		// already looking at, not a fact about them that could sensibly be withheld (§16.3).
+		user.MarkerColour = markerColour;
 
 		IdentityResult result = await users.UpdateAsync(user);
 
@@ -126,7 +145,8 @@ public sealed class ProfileController : ControllerBase
 		user.EmailConfirmed,
 		user.ShareDisplayName,
 		user.SharePhoneNumber,
-		user.ShareEmail);
+		user.ShareEmail,
+		user.MarkerColour);
 
 	private static string? Trimmed(string? value) =>
 		string.IsNullOrWhiteSpace(value) ? null : value.Trim();

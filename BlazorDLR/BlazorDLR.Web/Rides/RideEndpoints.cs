@@ -530,7 +530,12 @@ public sealed class RideController : ControllerBase
 					member.Role.ToString(),
 					member.JoinedUtc,
 					member.ShareLocation,
-					located.Contains(member.UserId)))]);
+					located.Contains(member.UserId),
+
+					// How this member's marker is painted on the live map (§16.3). Sent with the
+					// member rather than with their position: the position batch goes out every
+					// tick and this changes about as often as a username does.
+					member.User.MarkerColour))]);
 	}
 }
 

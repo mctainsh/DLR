@@ -470,6 +470,42 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 			.ShouldBe(HttpStatusCode.NotFound);
 	}
 
+	/// <summary>
+	/// A member's marker colour reaches the ride's other members (§16.3).
+	/// <para>
+	/// It rides on the member row rather than on the position batch, which is sent to everybody
+	/// once per tick: a colour changes about as often as a username does, and repeating it five
+	/// times a second would be bytes spent on something that does not move. That makes this
+	/// projection the only path by which the live map learns how to paint anybody.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task RideDetail_CarriesEachMembersMarkerColour()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		using HttpResponseMessage chosen = await rider.PutAsJsonAsync(
+			"/api/v1/me/profile",
+			new UpdateProfileRequest(MarkerColour: "#16a34a"));
+
+		chosen.StatusCode.ShouldBe(HttpStatusCode.OK, await chosen.Content.ReadAsStringAsync());
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Open);
+
+		await JoinAsync(rider, ride.JoinCode!);
+
+		RideDetail seen = (await organiser.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{ride.Id}"))!;
+
+		seen.Members.Single(member => member.UserName == "SamJones").MarkerColour.ShouldBe("#16a34a",
+			"the map paints somebody else's marker, so somebody else's client has to be told the colour.");
+
+		seen.Members.Single(member => member.UserName == "DaveSmith").MarkerColour.ShouldBeNull(
+			"a member who never chose sends nothing — the default is applied where it is drawn.");
+	}
+
 	private static async Task<RideDetail> CreateRideAsync(
 		HttpClient organiser,
 		JoinPolicyDto policy,

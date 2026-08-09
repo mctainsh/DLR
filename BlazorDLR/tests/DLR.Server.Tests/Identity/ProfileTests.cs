@@ -168,6 +168,93 @@ public sealed class ProfileTests(PostgresFixture postgres)
 		stored.DisplayName.ShouldBe("RideLeader");
 	}
 
+	// ---------- The map marker colour (§16.3) ----------
+
+	/// <summary>
+	/// Null rather than a stored default, so an account created before the column existed and one
+	/// that never chose are the same row. The default lives in <c>MarkerColours.Or</c>, on the
+	/// render path, which is the only place that can be wrong about it.
+	/// </summary>
+	[Fact]
+	public async Task MarkerColour_FreshAccount_HasNoneStored()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		TokenResponse session = await client.RegisterAsync("DaveSmith");
+
+		using HttpClient authed = app.CreateClient().Authenticated(session);
+
+		(await authed.GetFromJsonAsync<OwnProfile>(ProfileUrl))!.MarkerColour.ShouldBeNull();
+
+		(await StoredAsync(app, session.User.Id)).MarkerColour.ShouldBeNull();
+	}
+
+	[Fact]
+	public async Task MarkerColour_IsStoredLowerCased_AndReadBack()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		TokenResponse session = await client.RegisterAsync("DaveSmith");
+
+		using HttpClient authed = app.CreateClient().Authenticated(session);
+
+		OwnProfile saved = await UpdateAsync(authed, new UpdateProfileRequest(MarkerColour: "#16A34A"));
+
+		saved.MarkerColour.ShouldBe("#16a34a");
+		(await StoredAsync(app, session.User.Id)).MarkerColour.ShouldBe("#16a34a",
+			"one spelling in the database, so a swatch comparison never has to be case-insensitive.");
+	}
+
+	/// <summary>
+	/// Blank is how a rider goes back to the default. Refusing it would make the setting one-way.
+	/// </summary>
+	[Fact]
+	public async Task MarkerColour_ClearedByOmission_GoesBackToNone()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		TokenResponse session = await client.RegisterAsync("DaveSmith");
+
+		using HttpClient authed = app.CreateClient().Authenticated(session);
+
+		await UpdateAsync(authed, new UpdateProfileRequest(MarkerColour: "#dc2626"));
+
+		(await UpdateAsync(authed, new UpdateProfileRequest(MarkerColour: null))).MarkerColour.ShouldBeNull();
+	}
+
+	/// <summary>
+	/// A colour that is not <c>#rrggbb</c> is a client bug. Defaulting it quietly would leave a
+	/// rider retrying a setting that never had a chance of sticking.
+	/// </summary>
+	[Theory]
+	[InlineData("chartreuse")]
+	[InlineData("#fff")]
+	[InlineData("16a34a")]
+	public async Task MarkerColour_NotAColour_IsRefused(string colour)
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		TokenResponse session = await client.RegisterAsync("DaveSmith");
+
+		using HttpClient authed = app.CreateClient().Authenticated(session);
+
+		using HttpResponseMessage response = await authed.PutAsJsonAsync(
+			ProfileUrl,
+			new UpdateProfileRequest(DisplayName: "Dave", MarkerColour: colour));
+
+		response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+		AppUser stored = await StoredAsync(app, session.User.Id);
+
+		stored.MarkerColour.ShouldBeNull();
+		stored.DisplayName.ShouldBeNull(
+			"the colour is validated before anything is written — a rejected request changes nothing.");
+	}
+
 	[Fact]
 	public async Task Profile_WithoutAToken_IsRejected()
 	{
