@@ -5,7 +5,6 @@ using DLR.Server.Maintenance;
 using DLR.Server.Positions;
 using DLR.TestSupport.Database;
 using DLR.TestSupport.Email;
-using DLR.TestSupport.Identity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -106,12 +105,6 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 
 	/// <summary>Everything the server has logged. Read by the §7.11 dry-run test and nothing else.</summary>
 	public CapturedLogs Logs { get; } = new();
-
-	/// <summary>
-	/// The breach corpus, as this test decides it. Nothing here reaches Pwned Passwords —
-	/// which is also the only way to exercise §7.2's "service unreachable" clause on demand.
-	/// </summary>
-	public FakeBreachedPasswordCheck Breaches { get; } = new();
 
 	/// <summary>The connection string this instance is using, for a test that needs it directly.</summary>
 	public string ConnectionString => _connectionString;
@@ -247,12 +240,6 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 
 			services.RemoveAll<IEmailSender>();
 			services.AddSingleton<IEmailSender>(Emails);
-
-			// RemoveAll also takes out the typed HttpClient registration behind the real
-			// implementation, which is the point: a test suite that can reach the internet
-			// is a test suite that fails for reasons it did not cause.
-			services.RemoveAll<IBreachedPasswordCheck>();
-			services.AddSingleton<IBreachedPasswordCheck>(Breaches);
 
 			services.AddSingleton<IStartupFilter, LoopbackConnection>();
 		});

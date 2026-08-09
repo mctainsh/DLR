@@ -169,6 +169,96 @@ public sealed class WelcomeTests : BunitContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
+	/// <summary>
+	/// The meter is Register-only, and only once something is typed. On Sign in the password
+	/// is one the rider already has — grading it there is advice about a decision they cannot
+	/// act on from that form.
+	/// </summary>
+	[Fact]
+	public async Task StrengthMeter_AppearsOnRegisterAsTheRiderTypes_AndNeverOnSignIn()
+	{
+		WireServices();
+
+		IRenderedComponent<Welcome> component = Render<Welcome>();
+
+		// Sign in is the default tab. Even with a password in the box there is no meter.
+		await component.InvokeAsync(() => component.Find("input[type=password]").Input("Ride4mountains"));
+
+		component.FindAll(".pw-strength").ShouldBeEmpty(
+			"§7.2: sign-in does not grade a password the rider chose long ago.");
+
+		await ClickRegisterTabAsync(component);
+
+		// An empty field draws no meter at all — asserted on the component itself, since a
+		// DEBUG build pre-fills this form's password to save typing during development.
+		await component.InvokeAsync(() => component.Find("input[type=password]").Input("Ride4mountains"));
+
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll(".pw-strength").Count.ShouldBe(1);
+			component.Markup.Contains("Good", StringComparison.Ordinal).ShouldBeTrue(
+				"the meter states its verdict in a word, not colour alone.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A password that will be refused says so while the rider is still in the field. This is
+	/// the only warning left on the way in — v0.23 removed the breach check, so nothing
+	/// downstream will second-guess a password that passes the composition rules.
+	/// </summary>
+	[Fact]
+	public async Task StrengthMeter_NamesTheRulesAPasswordStillBreaks()
+	{
+		WireServices();
+
+		IRenderedComponent<Welcome> component = Render<Welcome>();
+		await ClickRegisterTabAsync(component);
+
+		await component.InvokeAsync(() => component.Find("input[type=password]").Input("abcdef"));
+
+		component.WaitForAssertion(() =>
+		{
+			string markup = component.Markup;
+			markup.Contains("Weak", StringComparison.Ordinal).ShouldBeTrue();
+			markup.Contains("an uppercase letter", StringComparison.Ordinal).ShouldBeTrue();
+			markup.Contains("a digit", StringComparison.Ordinal).ShouldBeTrue();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Both forms carry the reveal button. On Register it is how a rider checks the password
+	/// they are inventing; on Sign in it is how they find the typo — and on an account with no
+	/// email there is no reset path to fall back on when they cannot.
+	/// </summary>
+	[Fact]
+	public async Task ShowPasswordButton_IsOnBothForms_AndTogglesTheField()
+	{
+		WireServices();
+
+		IRenderedComponent<Welcome> component = Render<Welcome>();
+
+		component.FindAll("button.pw-reveal").Count.ShouldBe(1, "sign in has one password field.");
+
+		await component.InvokeAsync(() => component.Find("button.pw-reveal").Click());
+
+		component.FindAll("input#signin-password[type=text]").Count.ShouldBe(1,
+			"the sign-in password is now readable.");
+
+		await ClickRegisterTabAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			// Switching tabs re-masks: the reveal is a deliberate act on the field in front of
+			// the rider, not a setting that follows them from one form to the next.
+			component.FindAll("input#register-password[type=password]").Count.ShouldBe(1);
+			component.Find("button.pw-reveal").GetAttribute("aria-label").ShouldBe("Show password");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find("button.pw-reveal").Click());
+
+		component.FindAll("input#register-password[type=text]").Count.ShouldBe(1);
+	}
+
 	[Fact]
 	public async Task SignInTab_IsActiveByDefault_AndRegisterTabSwitches()
 	{

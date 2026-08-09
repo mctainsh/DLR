@@ -1,4 +1,5 @@
 @page "/welcome"
+@using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
 @using DLR.Core.Contracts.Identity
@@ -60,14 +61,22 @@
 						<p class="hint @_availabilityKind">@_availability</p>
 					}
 
-					<label>
-						Password
-						<input @bind="_password" type="password" autocomplete="new-password" required />
+					@*
+						The meter is Register-only. On Sign in the password is one the rider
+						already has, and grading it there is advice about a decision they cannot
+						revisit from that form.
+					*@
+					<PasswordField @key="Tab.Register"
+								   Id="register-password"
+								   Label="Password"
+								   @bind-Value="_password"
+								   Autocomplete="new-password"
+								   ShowStrength="true">
 						<span class="rule-hint">
 							At least 6 characters, and at least one uppercase letter,
 							one lowercase letter and one digit.
 						</span>
-					</label>
+					</PasswordField>
 
 					<label>
 						Email (optional — see below)
@@ -98,10 +107,11 @@
 						User name
 						<input @bind="_userName" autocomplete="username" required />
 					</label>
-					<label>
-						Password
-						<input @bind="_password" type="password" autocomplete="current-password" required />
-					</label>
+					<PasswordField @key="Tab.SignIn"
+								   Id="signin-password"
+								   Label="Password"
+								   @bind-Value="_password"
+								   Autocomplete="current-password" />
 					<button type="submit" class="primary" disabled="@_busy">
 						@(_busy ? "Signing in…" : "Sign in")
 					</button>

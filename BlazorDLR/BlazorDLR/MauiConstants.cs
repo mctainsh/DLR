@@ -16,14 +16,16 @@ internal static class MauiConstants
 {
 	/// <summary>
 	/// The API origin the mobile app talks to when no environment override is set.
-	/// The Android emulator's <c>10.0.2.2</c> shortcut reaches the host machine; an
-	/// iOS simulator can reach <c>127.0.0.1</c> because it shares a kernel with the
-	/// host. A real device build must override this with the LAN address of the
-	/// server, or with a production URL — via <c>DLR_API_BASE</c>.
+	/// Android and iOS ship pointing at production, so an installed build works on a
+	/// real device with no configuration. Other MAUI targets (Windows / Mac Catalyst
+	/// stubs) stay on the loopback address they build against. To develop against a
+	/// local server, set <c>DLR_API_BASE</c> — <c>http://10.0.2.2:5005/</c> from the
+	/// Android emulator (its shortcut to the host machine), <c>http://127.0.0.1:5005/</c>
+	/// from the iOS simulator (it shares a kernel with the host).
 	/// </summary>
 	public const string DefaultApiBase =
-#if ANDROID
-		"http://10.0.2.2:5005/";
+#if ANDROID || IOS
+		"https://dlr.securehub.net/";
 #else
 		"http://127.0.0.1:5005/";
 #endif

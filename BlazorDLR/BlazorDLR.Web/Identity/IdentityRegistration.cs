@@ -44,15 +44,12 @@ public static class IdentityRegistration
 					PasswordResetTokenProvider.ProviderName;
 			})
 			.AddUserValidator<UserNameValidator>()
-			.AddPasswordValidator<BreachedPasswordValidator>()
 			.AddEntityFrameworkStores<DlrDbContext>()
 			.AddTokenProvider<EmailConfirmationTokenProvider>(EmailConfirmationTokenProvider.ProviderName)
 			.AddTokenProvider<PasswordResetTokenProvider>(PasswordResetTokenProvider.ProviderName);
 
 		// The token providers seal their payload with it (§7.7).
 		services.AddDataProtection();
-
-		PwnedPasswordsClient.AddPwnedPasswords(services);
 
 		services.AddSingleton<AccessTokenIssuer>();
 
@@ -87,9 +84,10 @@ public static class IdentityRegistration
 	/// corpus and passes them all. The operator has decided the trade-off differently:
 	/// each rule below produces a specific, obvious error message ("no uppercase letter",
 	/// "no digit") that a signing-up user can act on, at the cost of pushing toward the
-	/// well-known bad shape §7.2 warned about. The Pwned-Passwords check (still in place
-	/// via <see cref="BreachedPasswordValidator"/>) is what stops that shape actually
-	/// landing in the database.
+	/// well-known bad shape §7.2 warned about. The breached-password lookup that used to
+	/// backstop that shape was removed at operator request (v0.23) — the composition rules
+	/// are now the whole policy, which is the accepted trade for an application where the
+	/// security impact of a weak password is judged not to be significant.
 	/// </para>
 	/// <para>
 	/// <c>RequireNonAlphanumeric</c> stays <c>false</c> — a special-character requirement

@@ -165,6 +165,8 @@
 | 0.21 | `IMapRenderer` and `MapCapabilities` **now describe the car heads only** (§4.5, §4.6, §18.3) | The phone and the web speak `IMapInterop` for the base map and `IMapOverlay` for authored content; the car still speaks `IMapRenderer` because Skia-into-a-Surface is one renderer, not a stack. The startup rule that every `MapHostKind` has a factory still holds |
 | **0.22** | **Password policy revised at operator request** (§7.2). Minimum 6 characters, require one uppercase, one lowercase and one digit; no non-alphanumeric requirement. Every rule the sign-up form is measured against surfaces as a specific server-side message the client renders verbatim | Deliberately reverses §7.2's "length over composition" stance. §7.2's original argument still applies as context — composition rules push people toward `Passw0rd!` — but the operator's trade-off is that a signing-up user who cannot get past the form is worse than a predictable-shape password. The Pwned Passwords check remains in place and catches the shape §7.2 was worried about |
 | 0.22 | **Client renders `ProblemDetails` bodies verbatim** (§18.2). `HttpApiClient` throws `ApiException` carrying the parsed body; screens list the server's messages one line at a time | `EnsureSuccessStatusCode` was discarding the reasons the server put in the response. A user who types a too-short password now sees "Passwords must be at least 6 characters" from Identity itself, not "The details you entered were rejected". Same shape as §18.2's rule that a shared component crosses the wire with the DTOs from `DLR.Core.Contracts` unchanged — the error DTO gets the same treatment |
+| **0.23** | **The breached-password check is removed** (§7.2). `IBreachedPasswordCheck`, `BreachedPasswordValidator` and `PwnedPasswordsClient` are deleted, along with the fake on the test factory; v0.22's composition rules are now the whole password policy | Operator decision: the security impact of a weak password on this application is judged not to be significant, and the check was the registration path's only third-party call. What goes with it is the argument v0.22 leaned on — nothing now stops `Passw0rd!` — and §7.2's outage clause, which no longer has anything to be unavailable |
+| 0.23 | **Welcome grows a reveal button on both password fields, and a strength meter on Register** (§7.2, §18.2). One `PasswordField` component; the meter reads `PasswordStrength`, four segments and a word, naming the rules a password still breaks | Partly the removal above — with no corpus lookup left, the sign-up form is the only place a rider is told anything about their password. Partly the field itself: a masked box on a phone keyboard, for an account that may have no email and therefore no reset path, is how somebody is locked out on their first ride. The meter advises and never gates — the server decides what it accepts, and a client that blocks on a rule the server does not have is a rider who cannot register |
 
 ---
 
@@ -925,7 +927,7 @@ The ride creator decides whether members may contribute markers, comments and ph
 
 **`AllowMemberPhotos` is enforced on the *attach*, not on the upload** *(settled in SRV-28)*. A photo is a standalone resource with no ride context — it is taken at the top of a hill and uploaded whenever there is signal, which is the whole reason §16.4 separates the two requests. `POST /photos` therefore has no ride whose switch it could consult, and the check lands where the image is bound to something in that ride: `PATCH /markers/{id}/photo`, and a comment carrying a `photoId`. The consequence worth knowing is that a member can still *upload* against their own quota while photos are off for a ride; they simply cannot attach it there.
 
-**All three checks go through one method**, `RideContentPermissions.Allows`, for the reason SRV-21 learned the hard way about the four delete paths: markers, comments and both photo attachments are separate write paths carrying the same obligation, and four copies of a rule is how one of them eventually stops applying it. The switch arm for an unrecognised content type **throws** rather than defaulting permissive — a new kind of content that nobody wired a switch to must not be allowed everywhere by omission (the same mistake §7.2's breach-outcome switch already made this project pay for once).
+**All three checks go through one method**, `RideContentPermissions.Allows`, for the reason SRV-21 learned the hard way about the four delete paths: markers, comments and both photo attachments are separate write paths carrying the same obligation, and four copies of a rule is how one of them eventually stops applying it. The switch arm for an unrecognised content type **throws** rather than defaulting permissive — a new kind of content that nobody wired a switch to must not be allowed everywhere by omission (the same mistake the breach-outcome switch §7.2 used to carry already made this project pay for once, before v0.23 removed that check).
 
 ```csharp
 Task RidePermissionsChanged(RidePermissions permissions);   // → IRideClient, §5.3
@@ -1080,7 +1082,7 @@ Password hashing, confirm/reset token generation, and lockout are exactly the pa
 ```
 username + password   [+ optional email]
 	→ username availability check
-	→ policy: >= 10 chars, no composition rules, breached-password check
+	→ policy: >= 6 chars, one each of upper / lower / digit (§7.2)
 	→ per-IP ladder: 4th+ account from this IP today REQUIRES an email (§7.8)
 	→ UserManager.CreateAsync
 	→ if email supplied: send 24 h confirmation link (§7.7)
@@ -1130,9 +1132,11 @@ The app also prompts to add a recovery email at two natural moments — after th
 
 **Username enumeration is unavoidable and accepted.** Uniqueness means registration has to tell you whether a name is taken. This is a deliberate reversal of the enumeration-resistance stance in §7.8 for *this one endpoint*: a username is a public handle shown on the map, not a private identifier like an email. Login stays generic ("invalid username or password"), and forgot-password stays generic on the email address.
 
-**Password policy** *(revised in v0.22 at operator request).* Minimum 6 characters and one each of uppercase / lowercase / digit; no non-alphanumeric requirement. Kept: the **breached-password check** against the Pwned Passwords range API — k-anonymity, free, no API key, only the first five SHA-1 hex characters ever leave the server. If that service is unreachable, **registration proceeds**: a third-party outage must not stop signups.
+**Password policy** *(revised in v0.22, narrowed again in v0.23, both at operator request).* Minimum 6 characters and one each of uppercase / lowercase / digit; no non-alphanumeric requirement. **There is no breached-password check** — v0.23 removed it, so this list is the entire policy and registration makes no third-party call.
 
-The pre-v0.22 stance argued the opposite — length over composition — because composition rules do not measure strength; they measure compliance, and what people comply with is `Passw0rd!`, a string that satisfies every rule and is in every breach corpus. That argument still stands as context. The v0.22 trade-off accepts pushing toward that predictable shape in exchange for a form where every rejected password comes back with a specific, actionable message ("must have at least one uppercase letter") rather than a generic *"password too weak"*. The Pwned-Passwords check is what stops the shape actually landing in the database, and it is why it stayed. Password strength matters more here than in most apps, because for an email-less account it is the *only* credential and there is no reset path.
+The pre-v0.22 stance argued the opposite — length over composition — because composition rules do not measure strength; they measure compliance, and what people comply with is `Passw0rd!`, a string that satisfies every rule and is in every breach corpus. That argument still stands as context. The v0.22 trade-off accepted pushing toward that predictable shape in exchange for a form where every rejected password comes back with a specific, actionable message ("must have at least one uppercase letter") rather than a generic *"password too weak"*, and leaned on the Pwned Passwords lookup to stop the shape actually landing in the database. v0.23 removed that lookup as unnecessary for an application whose security impact the operator judges not to be significant, which means the predictable shape now lands: `Passw0rd1` is an accepted password. Worth knowing when weighing it, because for an email-less account the password is the *only* credential and there is no reset path.
+
+**The sign-up form is where the rider is told this** *(v0.23)*. The Register password box carries a four-segment strength meter that states its verdict as a word — Weak / Fair / Good / Strong — and names any rule still unmet ("still needs an uppercase letter, a digit"). It is scored on length and character variety, with repetition discounted; a passphrase reaches the top of the bar without a symbol in it, because §7.2 does not require one. It is **advice, never a gate**: the server decides what it accepts, and nothing in the client disables the button. Both password fields — Register and Sign in — also carry a reveal button. Revealing is per-field and per-visit: switching tabs re-masks.
 
 **No email gate on group rides.** v0.4 required a confirmed email to create or join a ride; v0.5 removes that entirely, because the organiser now controls both entry paths (§5.2) — a stronger guarantee than email verification. The one remaining use of confirmation is the IP ladder in §7.8.
 
@@ -1673,8 +1677,7 @@ Username_CannotBeChangedByAnyEndpoint
 Register_CanReuseUsernameOfDeletedAccount
 Register_DuplicateEmail_ReturnsGenericSuccessAndNotifiesOwner
 Register_NullEmails_DoNotCollideOnUniqueIndex
-Register_WeakOrBreachedPassword_IsRejected
-Register_BreachServiceUnavailable_StillAllowsRegistration
+Register_WeakPassword_IsRejectedAndCreatesNoAccount
 Register_FourthAccountFromSameIpInOneDay_RequiresEmail
 Register_FourthAccountFromDifferentIp_DoesNotRequireEmail
 Register_LadderCountSurvivesProcessRestart

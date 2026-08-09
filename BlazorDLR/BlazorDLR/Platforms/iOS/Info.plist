@@ -29,12 +29,41 @@
     <key>XSAppIconAssets</key>
     <string>Assets.xcassets/appicon.appiconset</string>
 	
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+	</array>
+
+	<key>CFBundleDisplayName</key>
+	<string>DLR</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	
 	<key>CFBundleShortVersionString</key>
 	<string>8.0.0</string>
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 	<key>CFBundleVersion</key>
-	<string>16</string>
+	<string>17</string>
+
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Share your location to allow other users on the same adventure</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Always share your location to allow other users on the same adventure as you to find you and vice versa</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Always share your location to allow other users on the same adventure as you to find you and vice versa</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We use your camera for taking and sharing photos of items such as cool spots and nice views</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>You can share items in you library for example photos nice views</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Bluetooth is used to improve location accuracy by detecting nearby devices.</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
 
     <!--
         .gpx share-sheet / "Open with" integration (SharedFrontend.md §7 Phase 1).

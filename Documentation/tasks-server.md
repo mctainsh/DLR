@@ -160,18 +160,20 @@ list, and the first migration.
 the username is a map label.
 **Refs:** §7.2, §7.13
 
-### SRV-07 — Password policy and the breach check ✅
-**Status:** done. Ten characters, all four composition rules explicitly off,
-`BreachedPasswordValidator` over `IBreachedPasswordCheck`, and `PwnedPasswordsClient` doing the
-k-anonymity range lookup with a 3-second timeout. The fake is on the factory as `app.Breaches`, so
-no test reaches the network and the outage clause is reachable on demand.
-**Watch out:** the outcome switch names every case and *throws* on the discard. Written with a
-permissive default, deleting the `Unavailable` arm changes nothing until a real outage arrives —
-which is exactly what happened the first time this was checked by breaking it deliberately.
-**First red test:** `Register_WeakOrBreachedPassword_IsRejected`
-**Then:** `Register_BreachServiceUnavailable_StillAllowsRegistration`
-**Then build:** 10-character minimum, no composition rules, Pwned Passwords range API behind an
-interface so the test can fake an outage. **A third-party outage must not stop signups.**
+### SRV-07 — Password policy ✅
+**Status:** done, and twice revised. v0.22 replaced the original ten-characters-no-composition rule
+with six characters plus one each of uppercase / lowercase / digit, so every rejection comes back as
+a message the client can render. **v0.23 removed the breach check entirely** at operator request —
+`IBreachedPasswordCheck`, `BreachedPasswordValidator`, `PwnedPasswordsClient` and the factory's
+`app.Breaches` fake are all gone, and `ApplyPasswordPolicy` in `IdentityRegistration` is now the
+whole policy.
+**Watch out:** registration no longer calls anything outside the process, so there is no outage
+clause left to get wrong — and equally nothing stopping `Passw0rd1`, which the composition rules
+alone accept. That is the accepted trade, not an oversight.
+**Tests:** `Register_PasswordMissingARequirement_IsRejected` (a theory, one case per rule),
+`Register_WeakPassword_IsRejectedAndCreatesNoAccount`,
+`Register_PasswordRejection_CarriesPerFieldMessagesTheClientCanRender`,
+`Register_PasswordMeetingEveryRequirement_IsAccepted`.
 **Refs:** §7.2
 
 ### SRV-08 — `/auth/token`: JWT access tokens ✅
