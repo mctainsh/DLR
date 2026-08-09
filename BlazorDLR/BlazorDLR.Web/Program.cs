@@ -159,6 +159,12 @@ builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
 builder.Services.AddScoped<IDeviceSettings, InMemoryDeviceSettings>();
 builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
+// The private area (§10.1, §18.6). Registered for the prerender because the profile screen
+// injects it; the SSR pass reads an empty in-memory store, so it renders "no private area"
+// and the WASM client re-resolves against localStorage the moment it boots. Nothing on this
+// host ever writes it — the value is the device's and the server is not told it exists.
+builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
+
 // The one confirm modal is mounted in MainLayout, which renders in the SSR pass too;
 // registering here keeps prerender from throwing on the ConfirmDialog @inject.
 builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();

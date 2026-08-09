@@ -121,6 +121,47 @@ public static class MapGeometry
 	}
 
 	/// <summary>
+	/// How many canvas pixels a distance on the ground covers, at a given latitude in a given view.
+	/// <para>
+	/// Measured rather than derived: the same distance is projected twice through
+	/// <see cref="ProjectToCanvas"/> and the pixels between the two results are counted. Web
+	/// Mercator's scale changes with latitude, so a closed-form answer would need the projection's
+	/// derivative — a second piece of arithmetic that has to agree with the first one forever, on
+	/// a canvas where disagreement shows up as a circle that does not sit on what it encircles.
+	/// Rotation drops out, being rigid.
+	/// </para>
+	/// <para>
+	/// The offset is taken toward the equator so a point near the top of the projection cannot be
+	/// clamped at <see cref="MercatorLimitDeg"/> and silently measure short.
+	/// </para>
+	/// </summary>
+	/// <param name="viewport">The base map's current view.</param>
+	/// <param name="latitudeDeg">Where on the map the distance is being measured.</param>
+	/// <param name="metres">The ground distance.</param>
+	/// <returns>The distance in canvas pixels; zero for a canvas with no extent yet.</returns>
+	public static double MetresToCanvasPixels(MapViewport viewport, double latitudeDeg, double metres)
+	{
+		if (!double.IsFinite(metres) || metres <= 0)
+		{
+			return 0;
+		}
+
+		double degrees = metres / MetresPerDegreeLatitude;
+		double towardEquator = latitudeDeg >= 0 ? latitudeDeg - degrees : latitudeDeg + degrees;
+
+		CanvasPoint from = ProjectToCanvas(viewport, latitudeDeg, 0);
+		CanvasPoint to = ProjectToCanvas(viewport, towardEquator, 0);
+
+		return from.DistanceTo(to);
+	}
+
+	/// <summary>
+	/// Metres in one degree of latitude. Constant enough for this — the ellipsoid varies it by
+	/// about a fifth of a percent pole to equator, which on a circle drawn on a phone is nothing.
+	/// </summary>
+	private const double MetresPerDegreeLatitude = Math.PI * DLR.Core.Tracks.Distance.EarthRadiusM / 180.0;
+
+	/// <summary>
 	/// The latitude Web Mercator stops at. Beyond it the projection runs to infinity, which is
 	/// why every slippy map in the world is a square that omits the poles.
 	/// </summary>

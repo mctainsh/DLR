@@ -115,6 +115,12 @@ internal class Program
 		builder.Services.AddScoped<IDeviceSettings, LocalStorageDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
+		// The private area (§10.1, §18.6): a point and a radius this browser never sends
+		// anywhere. It gates recording and publishing, neither of which the web host does
+		// (§18.6) — it is registered here so the profile screen can set one for the phone
+		// that will, and because a device-local setting is per-browser by construction.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
+
 		// The one confirm modal for every destructive action in the app. Mounted in
 		// MainLayout; pages call `await Confirm.AskAsync(...)` in place of `window.confirm`.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();

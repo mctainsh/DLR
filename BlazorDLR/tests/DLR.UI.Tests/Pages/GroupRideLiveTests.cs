@@ -1,5 +1,7 @@
 using BlazorDLR.Shared.Pages.GroupRides;
+using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Stubs;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Markers;
@@ -73,6 +75,11 @@ public sealed class GroupRideLiveTests : BunitContext
 		{
 			InitException = new InvalidOperationException("Test host — map interop is stubbed."),
 		});
+
+		// The rider's own private area is drawn on this map (§10.1), so the page injects the
+		// state that holds it. In-memory stand-in for the device store, as everywhere else.
+		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
+		Services.AddSingleton<PrivateAreaState>();
 
 		return (api, hub, rideId);
 	}
@@ -260,5 +267,68 @@ public sealed class GroupRideLiveTests : BunitContext
 
 		Should.NotThrow(() =>
 			component.InvokeAsync(() => hub.RaiseMarkerAdded(rideId, marker)).GetAwaiter().GetResult());
+	}
+
+	// ---------- The rider's own private area on the live map (§10.1) ----------
+
+	[Fact]
+	public void WithNoPrivateAreaSet_TheMapCarriesNoCircle()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+			component.FindComponent<RideMap>().Instance.Circles.ShouldBeNull(
+				"a device that never set an area draws nothing extra — the shipped state."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task APrivateAreaSetOnThisDevice_IsDrawnOnTheRideMap()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		PrivateAreaState areas = Services.GetRequiredService<PrivateAreaState>();
+		await areas.SetAsync(new PrivateArea(-33.868, 151.209, 1_500));
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+		{
+			IReadOnlyList<MapCircle> circles = component.FindComponent<RideMap>().Instance.Circles!;
+			circles.ShouldNotBeNull();
+			circles.Count.ShouldBe(1);
+			circles[0].Latitude.ShouldBe(-33.868, tolerance: 1e-6);
+			circles[0].RadiusM.ShouldBe(1_500,
+				"the circle on the ride map is the area that is actually in force, radius and all.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task MovingThePrivateArea_RedrawsTheRideMapWithoutAReload()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		PrivateAreaState areas = Services.GetRequiredService<PrivateAreaState>();
+		await areas.SetAsync(new PrivateArea(-33.868, 151.209, 1_000));
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindComponent<RideMap>().Instance.Circles.ShouldNotBeNull(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// The settings screen and this page share one scoped state, so a change made in another
+		// tab of the same app has to land here without the rider reopening the ride.
+		await component.InvokeAsync(() => areas.ClearAsync());
+
+		component.WaitForAssertion(
+			() => component.FindComponent<RideMap>().Instance.Circles.ShouldBeNull(
+				"removing the area must take the circle off the map, not leave a stale one."),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 }

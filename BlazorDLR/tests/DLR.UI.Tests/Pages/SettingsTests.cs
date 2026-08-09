@@ -26,6 +26,17 @@ public sealed class SettingsTests : BunitContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
+	/// <summary>
+	/// The map behind Profile's private-area picker. <c>InitAsync</c> throws so
+	/// <c>SkiaMapOverlay</c> — whose <c>SKCanvasView</c> is browser-only — never mounts;
+	/// <c>RideMap</c> shows its stated-error branch and still forwards taps, which is what
+	/// these tests drive.
+	/// </summary>
+	private readonly FakeMapInterop _map = new()
+	{
+		InitException = new InvalidOperationException("No base map in bUnit."),
+	};
+
 	private FakeApiClient WireCommon()
 	{
 		FakeApiClient api = new();
@@ -35,6 +46,10 @@ public sealed class SettingsTests : BunitContext
 		// is a scoped-lifetime stand-in — no localStorage / MAUI preferences in tests.
 		Services.AddSingleton<IThemeService, InMemoryThemeService>();
 		Services.AddSingleton<ThemeState>();
+		// …and PrivateAreaState (§10.1), over the same in-memory stand-in for the device store.
+		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
+		Services.AddSingleton<PrivateAreaState>();
+		Services.AddSingleton<IMapInterop>(_map);
 		return api;
 	}
 
@@ -102,6 +117,154 @@ public sealed class SettingsTests : BunitContext
 		sent.DisplayName.ShouldBe("Dave Smith", "§7.3: the display name is trimmed before the wire.");
 		sent.ShareDisplayName.ShouldBeTrue("the switch's new value must reach the API.");
 		sent.ShareEmail.ShouldBeFalse("the untouched share-email switch stays off — the caller does not flip it accidentally.");
+	}
+
+	// ---------- Profile: the private area (§10.1, §18.6) ----------
+
+	/// <summary>
+	/// Renders Profile and waits for the private-area picker, which appears only once
+	/// <c>PrivateAreaState</c> has read the device — the section shows "Reading this device…"
+	/// until then, because a screen that offered the controls first would be inviting somebody
+	/// to overwrite an area it had not looked at yet.
+	/// </summary>
+	private IRenderedComponent<Profile> RenderProfileWithPicker()
+	{
+		IRenderedComponent<Profile> component = Render<Profile>();
+
+		component.WaitForAssertion(() =>
+			component.FindAll(".area-picker").Count.ShouldBe(1),
+			timeout: TimeSpan.FromSeconds(3));
+
+		return component;
+	}
+
+	private async Task PlaceAndSaveAreaAsync(IRenderedComponent<Profile> component, double latitude, double longitude)
+	{
+		// The real base maps raise this from a JS SDK event; the fake raises it directly.
+		await component.InvokeAsync(() => _map.RaiseClick(latitude, longitude));
+
+		await component.InvokeAsync(() =>
+			component.Find(".area-actions button.primary").Click());
+	}
+
+	[Fact]
+	public async Task Profile_PrivateArea_TapPlacesTheCentre_AndSavingStoresItOnTheDevice()
+	{
+		WireCommon();
+
+		IRenderedComponent<Profile> component = RenderProfileWithPicker();
+		await PlaceAndSaveAreaAsync(component, -33.868, 151.209);
+
+		PrivateAreaState state = Services.GetRequiredService<PrivateAreaState>();
+
+		component.WaitForAssertion(() => state.IsSet.ShouldBeTrue(), timeout: TimeSpan.FromSeconds(3));
+
+		state.Area!.Latitude.ShouldBe(-33.868, tolerance: 1e-6);
+		state.Area.Longitude.ShouldBe(151.209, tolerance: 1e-6);
+		state.Area.RadiusM.ShouldBe(PrivateArea.DefaultRadiusM,
+			"§10.1: a newly placed area is a kilometre until the rider says otherwise.");
+
+		// And the gate it exists to drive is now closed over that point.
+		state.HidesLocation(-33.868, 151.209).ShouldBeTrue();
+		state.HidesLocation(-33.918, 151.209).ShouldBeFalse();
+	}
+
+	[Fact]
+	public async Task Profile_PrivateArea_NeverReachesTheServer()
+	{
+		FakeApiClient api = WireCommon();
+
+		IRenderedComponent<Profile> component = RenderProfileWithPicker();
+		await PlaceAndSaveAreaAsync(component, -33.868, 151.209);
+
+		PrivateAreaState state = Services.GetRequiredService<PrivateAreaState>();
+		component.WaitForAssertion(() => state.IsSet.ShouldBeTrue(), timeout: TimeSpan.FromSeconds(3));
+
+		// The headline claim of the feature, asserted rather than assumed: saving an area makes
+		// no profile write at all. An area that travelled would be a precise statement of where
+		// the rider lives, held by the one party the setting is meant to keep it from.
+		api.LastUpdateProfileRequest.ShouldBeNull(
+			"§10.1: the private area is device-local — it must not ride along on a profile PUT.");
+		api.Calls.ShouldNotContain(nameof(IApiClient.UpdateProfileAsync));
+	}
+
+	[Fact]
+	public async Task Profile_PrivateArea_Remove_ForgetsIt_AndSaysSharingResumes()
+	{
+		WireCommon();
+
+		IRenderedComponent<Profile> component = RenderProfileWithPicker();
+		await PlaceAndSaveAreaAsync(component, -33.868, 151.209);
+
+		PrivateAreaState state = Services.GetRequiredService<PrivateAreaState>();
+		component.WaitForAssertion(() => state.IsSet.ShouldBeTrue(), timeout: TimeSpan.FromSeconds(3));
+
+		// The remove button only exists once there is something to remove.
+		await component.InvokeAsync(() =>
+			component.Find(".area-actions button.danger").Click());
+
+		component.WaitForAssertion(() =>
+		{
+			state.IsSet.ShouldBeFalse();
+			state.HidesLocation(-33.868, 151.209).ShouldBeFalse(
+				"removing the area means this device shares from everywhere again.");
+			component.FindAll(".area-actions button.danger").ShouldBeEmpty(
+				"with no area set there is nothing to remove.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Profile_PrivateArea_Reopened_OpensTheMapOverTheStoredArea()
+	{
+		WireCommon();
+
+		// Deliberately nowhere near the camera the picker opens on when nothing is stored —
+		// an area placed *at* the default would make every assertion below true either way.
+		const double PerthLatitude = -31.95;
+		const double PerthLongitude = 115.86;
+
+		// First visit: place an area and save it.
+		IRenderedComponent<Profile> first = RenderProfileWithPicker();
+		await PlaceAndSaveAreaAsync(first, PerthLatitude, PerthLongitude);
+
+		PrivateAreaState state = Services.GetRequiredService<PrivateAreaState>();
+		first.WaitForAssertion(() => state.IsSet.ShouldBeTrue(), timeout: TimeSpan.FromSeconds(3));
+
+		// Reopen the screen. PrivateAreaState is scoped, so it has already read the device and
+		// the picker renders on the *first* pass — before any OnAfterRender work could move it.
+		IRenderedComponent<Profile> reopened = RenderProfileWithPicker();
+
+		reopened.WaitForAssertion(() =>
+		{
+			// The camera the base map was actually opened with, not the parameter the component
+			// happens to hold afterwards: a camera changed after init is a camera the map has no
+			// way to notice, and the symptom is a picker sitting on the shipped default.
+			_map.LastOptions.ShouldNotBeNull();
+			_map.LastOptions!.Camera.Latitude.ShouldBe(PerthLatitude, tolerance: 1e-6,
+				"reopening the screen must open the map over the area that is in force, not over the default.");
+			_map.LastOptions.Camera.Longitude.ShouldBe(PerthLongitude, tolerance: 1e-6);
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		// And the boxes agree with the map.
+		reopened.Find("input[step='0.000001']").GetAttribute("value").ShouldNotBeNullOrEmpty();
+	}
+
+	[Fact]
+	public void Profile_PrivateArea_CopyStatesThatItStaysOnTheDevice_AndThatYouStillAppearInTheRide()
+	{
+		WireCommon();
+
+		IRenderedComponent<Profile> component = RenderProfileWithPicker();
+		string markup = component.Markup;
+
+		// §10.1's discipline: the copy has to describe what the code does. Both halves matter —
+		// what the setting protects, and what it costs (no other device knows about it).
+		markup.Contains("never sent to the server", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+			"the rider is entitled to know the area is not held anywhere but here.");
+		markup.Contains("present", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+			"§5.6: inside the area you are still in the ride — you simply have no position on the map.");
+		markup.Contains("another phone", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+			"the cost of device-local storage is stated, not buried.");
 	}
 
 	// ---------- Account (change password) ----------

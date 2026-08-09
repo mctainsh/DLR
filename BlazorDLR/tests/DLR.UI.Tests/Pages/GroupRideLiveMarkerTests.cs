@@ -110,6 +110,12 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		this.CascadeAuthenticationState(auth);
 		Services.AddSingleton<IMapInterop>(_map);
 
+		// The rider's own private area is drawn on this map (§10.1), so the page injects the
+		// state that holds it. In-memory stand-in for the device store; these tests set none,
+		// so the map carries no circle.
+		Services.AddSingleton<IDeviceSettings, BlazorDLR.Shared.Services.Stubs.InMemoryDeviceSettings>();
+		Services.AddSingleton<PrivateAreaState>();
+
 		// The page's own RideMap logic is what turns an interop viewport into a hit-testable
 		// frame; only its rendering is impossible here. See StubRideMap.
 		ComponentFactories.Add<RideMap, StubRideMap>();

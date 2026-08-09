@@ -98,6 +98,47 @@ public sealed class MapGeometryTests
 	}
 
 	[Fact]
+	public void MetresToCanvasPixels_ScalesADistanceOnTheGroundIntoTheView()
+	{
+		// One degree of latitude across 1000 px, so a degree's worth of metres is the canvas.
+		const double MetresPerDegree = Math.PI * DLR.Core.Tracks.Distance.EarthRadiusM / 180.0;
+
+		MapGeometry.MetresToCanvasPixels(UnitViewport, 0, MetresPerDegree)
+			.ShouldBe(1000, tolerance: 1,
+				"the private-area circle is a radius on the ground (§10.1) — if this drifts, the " +
+				"ring stops enclosing the area the setting actually suppresses.");
+
+		MapGeometry.MetresToCanvasPixels(UnitViewport, 0, MetresPerDegree / 2)
+			.ShouldBe(500, tolerance: 1);
+	}
+
+	[Theory]
+	[InlineData(37)]
+	[InlineData(90)]
+	[InlineData(180)]
+	public void MetresToCanvasPixels_IsUnchangedByAHeadingUpMap(double headingDeg)
+	{
+		// Rotation is rigid, so a radius is a radius however the map is turned. A circle that
+		// grew when the rider rotated the map would be reporting a protected area they do not have.
+		double northUp = MapGeometry.MetresToCanvasPixels(UnitViewport, 0, 5_000);
+		double turned = MapGeometry.MetresToCanvasPixels(UnitViewport with { HeadingDeg = headingDeg }, 0, 5_000);
+
+		turned.ShouldBe(northUp, tolerance: 1e-6);
+	}
+
+	[Fact]
+	public void MetresToCanvasPixels_OnAnUnmeasuredCanvas_IsZero()
+	{
+		// Everything collapses to the canvas centre before there is a view, and a circle of
+		// radius zero draws nothing rather than a dot of arbitrary size.
+		MapViewport unmeasured = UnitViewport with { TopLeftLongitude = 0, BottomRightLongitude = 0 };
+
+		MapGeometry.MetresToCanvasPixels(unmeasured, 0, 1_000).ShouldBe(0);
+		MapGeometry.MetresToCanvasPixels(UnitViewport, 0, 0).ShouldBe(0);
+		MapGeometry.MetresToCanvasPixels(UnitViewport, 0, double.NaN).ShouldBe(0);
+	}
+
+	[Fact]
 	public void ScreenBearing_IsAlwaysAPositiveAngle()
 	{
 		// Skia's RotateDegrees copes with negatives, but a normalised value is what makes

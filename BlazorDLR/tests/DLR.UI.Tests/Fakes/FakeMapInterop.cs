@@ -32,6 +32,13 @@ public sealed class FakeMapInterop : IMapInterop
 	public int InitCount { get; private set; }
 	public int DisposeCount { get; private set; }
 
+	/// <summary>
+	/// The options the last <see cref="InitAsync"/> was given — recorded even when
+	/// <see cref="InitException"/> makes the call throw, because the camera a map <em>opens</em>
+	/// on is decided before the base map has a chance to fail.
+	/// </summary>
+	public MapOptions? LastOptions { get; private set; }
+
 	public event Action<MapViewport>? ViewportChanged;
 
 	public event Action<MapClick>? Clicked;
@@ -56,6 +63,7 @@ public sealed class FakeMapInterop : IMapInterop
 	public ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		InitCount++;
+		LastOptions = options;
 		if (InitException is not null)
 		{
 			throw InitException;

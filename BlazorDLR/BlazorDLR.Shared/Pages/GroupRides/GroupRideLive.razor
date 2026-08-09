@@ -9,6 +9,7 @@
 @inject AuthState Auth
 @inject ConfirmService Confirm
 @inject NavigationManager Nav
+@inject PrivateAreaState PrivateAreas
 @implements IAsyncDisposable
 
 @*
@@ -39,7 +40,8 @@
 	else
 	{
 		<div class="map-fill">
-			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" Routes="_routeLayer" ShowUserLocation="false"
+			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" Routes="_routeLayer"
+					 Circles="_privateAreaLayer" ShowUserLocation="false"
 					 OnViewportReported="OnMapViewportReported"
 					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="false" />
 		</div>
@@ -218,6 +220,17 @@
 	/// </summary>
 	private IReadOnlyList<RouteOverlay> _routeLayer = [];
 
+	/// <summary>
+	/// This rider's own private area (§10.1), drawn so they can see where the map stops carrying
+	/// them. Null when none is set, which is every device by default.
+	/// <para>
+	/// <strong>Nobody else sees this.</strong> It is drawn from the device's own store and is not
+	/// part of the ride's data — the server has never been told it exists, so there is nothing for
+	/// another member's client to draw even if it wanted to.
+	/// </para>
+	/// </summary>
+	private IReadOnlyList<MapCircle>? _privateAreaLayer;
+
 	private bool _menuOpen;
 	private bool _showMarkers;
 	private bool _showConsent;
@@ -277,7 +290,44 @@
 	{
 		_session = new RideSession(Api, Hub, Auth);
 		_session.Changed += OnSessionChanged;
+
+		// The area can be placed, moved or removed on the settings screen while this page is
+		// still mounted — PrivateAreaState is scoped, so it is the same instance — and the map
+		// should agree with the setting without a reload.
+		PrivateAreas.Changed += OnPrivateAreaChanged;
+		RebuildPrivateAreaLayer();
 	}
+
+	/// <summary>
+	/// Reads the device's private area after first render. On the web the store is behind JS
+	/// interop, which does not exist during the prerender pass; idempotent, so this costs nothing
+	/// on a device the settings screen has already read.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+		{
+			return;
+		}
+
+		await PrivateAreas.LoadAsync();
+	}
+
+	private void OnPrivateAreaChanged()
+	{
+		RebuildPrivateAreaLayer();
+		_ = InvokeAsync(StateHasChanged);
+	}
+
+	/// <summary>
+	/// Projects the device's area into the overlay's circle list. A fresh list is what tells the
+	/// canvas to repaint, so this runs on change rather than per render — the live map already
+	/// repaints about once a second on positions alone.
+	/// </summary>
+	private void RebuildPrivateAreaLayer() =>
+		_privateAreaLayer = PrivateAreas.Area is { } area
+			? [new MapCircle(area.Latitude, area.Longitude, area.RadiusM)]
+			: null;
 
 	protected override async Task OnParametersSetAsync()
 	{
@@ -529,6 +579,7 @@
 	public async ValueTask DisposeAsync()
 	{
 		_session.Changed -= OnSessionChanged;
+		PrivateAreas.Changed -= OnPrivateAreaChanged;
 		await _session.DisposeAsync();
 	}
 }

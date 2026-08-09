@@ -36,6 +36,13 @@
 	/// <summary>Markers to draw. Ordered by ascending latitude so higher pins draw over lower.</summary>
 	[Parameter] public IReadOnlyDictionary<Guid, MapMarker>? Markers { get; set; }
 
+	/// <summary>
+	/// Ground circles drawn beneath everything else — the private-area picker's radius (§10.1)
+	/// is the only caller today. Under the routes and pins because a circle is an area the other
+	/// two are read against, and a wash over the top of a line would recolour it.
+	/// </summary>
+	[Parameter] public IReadOnlyList<MapCircle>? Circles { get; set; }
+
 	/// <summary>The base map's current view. Passed in by <c>RideMap.razor</c>.</summary>
 	[Parameter] public MapViewport Viewport { get; set; }
 
@@ -193,9 +200,88 @@
 			return;
 		}
 
+		DrawCircles(canvas);
 		DrawRoutes(canvas);
 		DrawMarkers(canvas);
 	}
+
+	/// <summary>
+	/// Draws each ground circle: a wash inside, a ring on the edge, and a dot on the centre.
+	/// <para>
+	/// The dot is not decoration. A 1 km circle at street zoom is wider than the canvas, so
+	/// without it the only thing on screen is a tint the rider cannot tell from a map style —
+	/// and the point they are being asked to position is the centre.
+	/// </para>
+	/// </summary>
+	private void DrawCircles(SKCanvas canvas)
+	{
+		if (Circles is not { Count: > 0 } circles) return;
+
+		foreach (MapCircle circle in circles)
+		{
+			SKPoint centre = Project(circle.Latitude, circle.Longitude);
+			float radius = (float)MapGeometry.MetresToCanvasPixels(Viewport, circle.Latitude, circle.RadiusM);
+
+			SKColor colour = ParseColour(circle.Colour);
+
+			if (radius > 0.5f)
+			{
+				// Both passes are skipped for a circle drawn entirely off screen — at low zoom a
+				// ride's worth of panning can leave the centre thousands of pixels away, and Skia
+				// would otherwise rasterise a ring that intersects nothing.
+				if (centre.X + radius >= -CanvasMarginPx && centre.X - radius <= Viewport.CanvasWidthPx + CanvasMarginPx
+					&& centre.Y + radius >= -CanvasMarginPx && centre.Y - radius <= Viewport.CanvasHeightPx + CanvasMarginPx)
+				{
+					using SKPaint wash = new()
+					{
+						Style = SKPaintStyle.Fill,
+						IsAntialias = true,
+						Color = colour.WithAlpha(CircleWashAlpha),
+					};
+
+					using SKPaint ring = new()
+					{
+						Style = SKPaintStyle.Stroke,
+						StrokeWidth = CircleRingWidthPx,
+						IsAntialias = true,
+						Color = colour,
+					};
+
+					canvas.DrawCircle(centre, radius, wash);
+					canvas.DrawCircle(centre, radius, ring);
+				}
+			}
+
+			if (!InsideCanvas(centre)) continue;
+
+			using SKPaint dotEdge = new()
+			{
+				Style = SKPaintStyle.Stroke,
+				StrokeWidth = 2f,
+				IsAntialias = true,
+				Color = SKColors.White,
+			};
+
+			using SKPaint dotFill = new()
+			{
+				Style = SKPaintStyle.Fill,
+				IsAntialias = true,
+				Color = colour,
+			};
+
+			canvas.DrawCircle(centre, CircleCentreDotRadius, dotFill);
+			canvas.DrawCircle(centre, CircleCentreDotRadius, dotEdge);
+		}
+	}
+
+	/// <summary>How opaque the wash inside a circle is. Enough to read as an area, sheer enough to leave the tiles legible under it.</summary>
+	private const byte CircleWashAlpha = 0x33;
+
+	/// <summary>The circle's edge, in canvas pixels.</summary>
+	private const float CircleRingWidthPx = 2f;
+
+	/// <summary>The dot on a circle's centre — the same size as a rider's headingless disc, for the same reason.</summary>
+	private const float CircleCentreDotRadius = 5f;
 
 	private void DrawRoutes(SKCanvas canvas)
 	{

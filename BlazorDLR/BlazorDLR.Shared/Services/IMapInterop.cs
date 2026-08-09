@@ -184,3 +184,19 @@ public enum MarkerKind
 /// <param name="Colour">Hex colour string — the palette's answer, before the device's preferences are applied.</param>
 /// <param name="TrackId">The track this line is, when it is one. <c>null</c> for the editor's unsaved working copy.</param>
 public sealed record RouteOverlay(string EncodedPolyline, string Colour = "#2563eb", Guid? TrackId = null);
+
+/// <summary>
+/// A ground circle drawn by the Skia overlay: a centre, a radius in <em>metres</em>, and a dot
+/// on the middle so the centre is findable when the ring is off screen.
+/// <para>
+/// Metres rather than pixels because every circle this app draws is a statement about the
+/// ground — today the private area on the profile screen (§10.1, §18.6), whose whole meaning is
+/// "this far around here". A pixel radius would grow and shrink the protected area as the rider
+/// zoomed, which is exactly the wrong thing for a control someone is trying to reason about.
+/// </para>
+/// </summary>
+/// <param name="Latitude">Centre latitude in decimal degrees.</param>
+/// <param name="Longitude">Centre longitude in decimal degrees.</param>
+/// <param name="RadiusM">Radius on the ground, in metres.</param>
+/// <param name="Colour">Hex colour for the ring and the wash inside it.</param>
+public sealed record MapCircle(double Latitude, double Longitude, double RadiusM, string Colour = "#dc2626");

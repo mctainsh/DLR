@@ -1,10 +1,12 @@
 @page "/settings/profile"
 @attribute [Authorize]
+@using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
 @using DLR.Core.Contracts.Identity
 @inject IApiClient Api
 @inject ThemeState Theme
+@inject PrivateAreaState PrivateAreas
 
 <PageTitle>Profile — Dumb Luck Routes</PageTitle>
 
@@ -105,6 +107,104 @@
 			}
 		</form>
 	}
+
+	@*
+		The private area (§10.1). Deliberately outside the form above: that form is a PUT to
+		the server, and this setting must never be part of one. It renders whether or not the
+		profile fetch succeeded, for the same reason — a privacy control that is unreachable
+		because the network is down is a privacy control that is unreachable when it matters.
+	*@
+	<section class="private-area">
+		<h2>Home private area</h2>
+
+		<p class="note">
+			Pick a point and a radius around somewhere you would rather not be watched — your
+			house is the obvious one. Inside that circle this device
+			<strong>records nothing and sends nothing</strong>: riders on a group ride still see
+			you as present, you simply have no position on their map until you ride out of it.
+		</p>
+
+		<p class="note">
+			<strong>This stays on this device.</strong> The point, the radius and the fact that
+			you set one at all are never sent to the server and never shown to another rider. The
+			circle is drawn on your own ride map so you can see how far it reaches — on this
+			device and nobody else's. The cost of that is real and worth stating: it does not
+			follow you to another phone, and reinstalling the app forgets it.
+		</p>
+
+		@if (!PrivateAreas.IsLoaded)
+		{
+			<p class="empty">Reading this device…</p>
+		}
+		else
+		{
+			<div class="area-picker">
+				<RideMap Camera="_areaCamera" Circles="_areaCircle" OnMapClicked="OnAreaMapClicked" />
+			</div>
+
+			<p class="hint">
+				@if (_areaLat is null)
+				{
+					<span>Tap the map to place the centre, or type the coordinates below.</span>
+				}
+				else
+				{
+					<span>Tap the map again to move the centre. The circle is drawn to scale.</span>
+				}
+			</p>
+
+			<div class="area-fields">
+				<label>
+					Latitude (degrees)
+					<input @bind="_areaLat" @bind:after="OnAreaCoordinateTyped" type="number" step="0.000001" />
+				</label>
+				<label>
+					Longitude (degrees)
+					<input @bind="_areaLon" @bind:after="OnAreaCoordinateTyped" type="number" step="0.000001" />
+				</label>
+				<label>
+					Radius (metres)
+					<input @bind="_areaRadiusM" @bind:after="OnAreaRadiusTyped" type="number"
+						   min="@PrivateArea.MinRadiusM" max="@PrivateArea.MaxRadiusM" step="50" />
+				</label>
+			</div>
+
+			<p class="note">
+				Between @PrivateArea.MinRadiusM m and @(PrivateArea.MaxRadiusM / 1000) km. Anything
+				smaller is inside a phone GPS's own error, and anything larger is really
+				"don't share on this ride" — which is the switch on the ride itself.
+			</p>
+
+			<div class="area-actions">
+				<button type="button" class="primary" disabled="@(_areaLat is null || !_areaDirty)"
+						@onclick="SaveAreaAsync">
+					@(PrivateAreas.IsSet ? "Update private area" : "Save private area")
+				</button>
+
+				@if (PrivateAreas.IsSet)
+				{
+					<button type="button" class="danger" @onclick="ClearAreaAsync">
+						Remove private area
+					</button>
+				}
+			</div>
+
+			@if (_areaDirty && _areaLat is not null)
+			{
+				@* What is drawn and what is in force differ here, and saying which is which is
+				   the whole job of this line. *@
+				<p class="status unsaved">
+					@(PrivateAreas.IsSet
+						? "Not saved yet — this device is still using the area you saved before."
+						: "Not saved yet — this device is still sharing from here.")
+				</p>
+			}
+			else if (_areaStatus is not null)
+			{
+				<p class="status">@_areaStatus</p>
+			}
+		}
+	</section>
 </div>
 
 @code {
@@ -131,6 +231,204 @@
 	}
 
 	private Task OnThemeSelectedAsync(AppTheme theme) => Theme.SetAsync(theme);
+
+	// -- Private area (§10.1, §18.6) --------------------------------------------------------
+
+	/// <summary>
+	/// The centre being composed, or null when none has been placed. Nullable rather than
+	/// defaulted to a coordinate, because "no area" is the shipped state and a pre-filled pair
+	/// of numbers would draw a circle around somewhere the rider never chose.
+	/// </summary>
+	private double? _areaLat;
+
+	/// <inheritdoc cref="_areaLat" />
+	private double? _areaLon;
+
+	private double _areaRadiusM = PrivateArea.DefaultRadiusM;
+
+	/// <summary>Where the picker opens. Over the stored area when there is one — see <see cref="LoadAreaAsync"/>.</summary>
+	private MapCamera _areaCamera = new(DefaultAreaLatitude, DefaultAreaLongitude, DefaultAreaZoom);
+
+	/// <summary>
+	/// Whether the controls hold something the device has not been told about yet. Drives both
+	/// the save button and the warning under it: a circle drawn on screen protects nothing, and
+	/// the difference between "drawn" and "in force" is the one thing this screen must not blur.
+	/// </summary>
+	private bool _areaDirty;
+
+	private string? _areaStatus;
+
+	/// <summary>
+	/// The circle handed to the map, rebuilt only when it changes. A fresh list is what tells the
+	/// overlay to repaint, so building one per render would repaint the canvas on every keystroke
+	/// elsewhere on the page.
+	/// </summary>
+	private IReadOnlyList<MapCircle>? _areaCircle;
+
+	/// <summary>Where the picker opens when this device has never set an area, matching the marker composer's default.</summary>
+	private const double DefaultAreaLatitude = -33.868;
+
+	/// <inheritdoc cref="DefaultAreaLatitude" />
+	private const double DefaultAreaLongitude = 151.209;
+
+	/// <summary>Street-level, not continent-level: the rider is looking for their own roof.</summary>
+	private const double DefaultAreaZoom = 14;
+
+	/// <summary>Whether the stored area has been copied into the controls, however it got there.</summary>
+	private bool _areaApplied;
+
+	/// <summary>
+	/// Copies the stored area into the controls <em>before</em> the picker's first render, on
+	/// every visit after the first.
+	/// <para>
+	/// <see cref="PrivateAreaState"/> is scoped, so on a second visit to this screen it has
+	/// already read the device and the picker renders immediately — with whatever camera this
+	/// component was constructed with. Deriving the camera here rather than in
+	/// <see cref="OnAfterRenderAsync"/> is what stops the map opening on the default: a camera
+	/// changed *after* that first render has to race the base map's own attach, and a parameter
+	/// that changes while <c>InitAsync</c> is in flight is not one the map has any way to notice.
+	/// </para>
+	/// </summary>
+	protected override void OnInitialized()
+	{
+		if (PrivateAreas.IsLoaded)
+		{
+			ApplyStoredArea();
+		}
+	}
+
+	/// <summary>
+	/// The first-visit path: reads the device after first render — <em>not</em> in
+	/// <c>OnInitializedAsync</c>. On the web the store is behind JS interop, which does not exist
+	/// during the prerender pass. The picker is not rendered until this lands, so the camera it
+	/// opens with is right the first time.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender || _areaApplied)
+		{
+			return;
+		}
+
+		await PrivateAreas.LoadAsync();
+		ApplyStoredArea();
+
+		// The section renders "Reading this device…" until this lands, so the state change has to
+		// be published even when nothing was stored.
+		StateHasChanged();
+	}
+
+	private void ApplyStoredArea()
+	{
+		_areaApplied = true;
+
+		if (PrivateAreas.Area is not { } area)
+		{
+			return;
+		}
+
+		_areaLat = area.Latitude;
+		_areaLon = area.Longitude;
+		_areaRadiusM = area.RadiusM;
+		_areaCamera = new MapCamera(area.Latitude, area.Longitude, DefaultAreaZoom);
+		RebuildAreaCircle();
+	}
+
+	/// <summary>A tap on the base map places the centre. Same gesture as the marker composer (§16.1).</summary>
+	private void OnAreaMapClicked(MapClick click)
+	{
+		const double FACTOR = 1_000;
+		_areaLat = (int)(click.Latitude * FACTOR) / FACTOR;
+		_areaLon = (int)(click.Longitude * FACTOR) / FACTOR;
+		MarkAreaDirty();
+
+		// No camera move, for the reason the marker composer gives: shifting the view under
+		// someone's finger sends their next tap somewhere they did not choose.
+	}
+
+	/// <summary>
+	/// The coordinate boxes are the other half of the same two numbers — typing one moves the
+	/// camera so the circle does not sit off the edge of the map.
+	/// </summary>
+	private void OnAreaCoordinateTyped()
+	{
+		if (_areaLat is { } latitude && _areaLon is { } longitude)
+		{
+			_areaCamera = new MapCamera(latitude, longitude, _areaCamera.ZoomLevel);
+		}
+
+		MarkAreaDirty();
+	}
+
+	private void OnAreaRadiusTyped()
+	{
+		_areaRadiusM = Math.Clamp(
+			double.IsFinite(_areaRadiusM) ? _areaRadiusM : PrivateArea.DefaultRadiusM,
+			PrivateArea.MinRadiusM,
+			PrivateArea.MaxRadiusM);
+
+		MarkAreaDirty();
+	}
+
+	private void MarkAreaDirty()
+	{
+		_areaDirty = true;
+		_areaStatus = null;
+		RebuildAreaCircle();
+	}
+
+	private void RebuildAreaCircle() =>
+		_areaCircle = _areaLat is { } latitude && _areaLon is { } longitude
+			? [new MapCircle(latitude, longitude, _areaRadiusM)]
+			: null;
+
+	private async Task SaveAreaAsync()
+	{
+		if (_areaLat is not { } latitude || _areaLon is not { } longitude)
+		{
+			return;
+		}
+
+		try
+		{
+			await PrivateAreas.SetAsync(new PrivateArea(latitude, longitude, _areaRadiusM));
+
+			// Read back what was actually stored rather than echoing what was typed: the radius
+			// is clamped on the way in, and a screen that reports a number the device is not
+			// using is the kind of lie this feature cannot afford.
+			if (PrivateAreas.Area is { } stored)
+			{
+				_areaRadiusM = stored.RadiusM;
+				RebuildAreaCircle();
+			}
+
+			_areaDirty = false;
+			_areaStatus = "Saved on this device.";
+		}
+		catch (Exception exception)
+		{
+			_areaStatus = $"Could not save on this device: {exception.Message}";
+		}
+	}
+
+	private async Task ClearAreaAsync()
+	{
+		try
+		{
+			await PrivateAreas.ClearAsync();
+
+			_areaLat = null;
+			_areaLon = null;
+			_areaRadiusM = PrivateArea.DefaultRadiusM;
+			_areaDirty = false;
+			_areaCircle = null;
+			_areaStatus = "Removed. This device shares from everywhere again.";
+		}
+		catch (Exception exception)
+		{
+			_areaStatus = $"Could not remove it: {exception.Message}";
+		}
+	}
 
 	private static string ThemeLabel(AppTheme theme) => theme switch
 	{
@@ -171,4 +469,49 @@
 	.profile .badge.good { background: #d1fae5; color: #196c2e; }
 	.profile .badge.bad { background: #fef3c730; color: #92400e; }
 	.profile .status { margin-top: 1rem; }
+
+	.profile .private-area {
+		margin-top: 2.5rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid #8888884d;
+	}
+
+	/* Smaller than the marker composer's picker: this one is placed once and then left
+		   alone, and it sits below a form somebody came here to fill in. Big enough to find a
+		   roof at street zoom, not big enough to become the page. */
+	.profile .area-picker {
+		position: relative;
+		height: 16rem;
+		margin-top: 1rem;
+	}
+
+		.profile .area-picker .dlr-map-container {
+			min-height: 0;
+			height: 100%;
+		}
+
+	.profile .area-fields {
+		display: grid;
+		grid-template-columns: 1fr 1fr 1fr;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
+	}
+
+	@@media (max-width: 560px) {
+		.profile .area-fields {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.profile .area-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 1rem;
+	}
+
+	/* The one state on this screen where what is drawn and what is in force disagree. */
+	.profile .status.unsaved {
+		color: red;
+	}
 </style>

@@ -77,6 +77,77 @@ public sealed class RideMapForwardTests : BunitContext
 			"§4.5: initialising twice on a re-render would double-bind JS handlers and often crash the module.");
 	}
 
+	[Fact]
+	public async Task ACameraChangedWhileTheMapIsAttaching_IsStillApplied()
+	{
+		// The window is real and it is where the private-area picker lost its camera: a caller
+		// that learns where to open from a device read can set Camera after its first render but
+		// before InitAsync resolves. OnParametersSetAsync sees no applied camera yet and returns,
+		// so unless init re-checks on the way out the move is dropped for good.
+		SlowInitMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, Camera));
+
+		component.WaitForAssertion(() => map.Started.ShouldBeTrue(), timeout: TimeSpan.FromSeconds(3));
+
+		// The camera moves while the base map is still attaching.
+		MapCamera moved = new(-31.95, 115.86, 15);
+		component.Render(parameters => parameters.Add(p => p.Camera, moved));
+
+		await component.InvokeAsync(map.CompleteInit);
+
+		component.WaitForAssertion(
+			() => map.Cameras.ShouldContain(moved,
+				"a camera set during init must reach the base map — the alternative is a map " +
+				"stuck on whatever it happened to open with."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// An <see cref="IMapInterop"/> whose <c>InitAsync</c> hangs until the test releases it, and
+	/// which never announces a viewport — so <c>SkiaMapOverlay</c>, browser-only, never mounts.
+	/// </summary>
+	private sealed class SlowInitMapInterop : IMapInterop
+	{
+		private readonly TaskCompletionSource _init = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		public bool Started { get; private set; }
+
+		public List<MapCamera> Cameras { get; } = new();
+
+		public MapProvider Provider => MapProvider.OpenLayersOsm;
+
+		public event Action<MapViewport>? ViewportChanged;
+
+		public event Action<MapClick>? Clicked;
+
+		public void CompleteInit() => _init.TrySetResult();
+
+		public async ValueTask InitAsync(Microsoft.AspNetCore.Components.ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
+		{
+			Started = true;
+			Cameras.Add(options.Camera);
+			await _init.Task;
+		}
+
+		public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default)
+		{
+			Cameras.Add(camera);
+			return ValueTask.CompletedTask;
+		}
+
+		public ValueTask DisposeAsync(CancellationToken cancellationToken = default)
+		{
+			// Nothing to release, and the two events exist only to satisfy the interface — this
+			// fake deliberately never raises either.
+			_ = ViewportChanged;
+			_ = Clicked;
+			return ValueTask.CompletedTask;
+		}
+	}
+
 	/// <summary>An <see cref="IMapInterop"/> that records init arguments before delegating.</summary>
 	private sealed class ObservedMapInterop : IMapInterop
 	{

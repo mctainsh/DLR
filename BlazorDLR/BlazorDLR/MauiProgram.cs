@@ -140,6 +140,12 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IDeviceSettings, PreferencesDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
+		// The private area (§10.1, §18.6). This is the host that records and publishes fixes,
+		// so this is the host where the gate matters: every fix goes through
+		// PrivateAreaState.HidesLocation before it is stored or sent, and the state answers
+		// "hide" until LoadAsync has read the device — see its remarks.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
+
 		// The one confirm modal for every destructive action in the app (§18.6).
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
 

@@ -34,7 +34,7 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 	<key>CFBundleVersion</key>
-	<string>13</string>
+	<string>14</string>
 
     <!--
         .gpx share-sheet / "Open with" integration (SharedFrontend.md §7 Phase 1).
