@@ -134,6 +134,12 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IThemeService, PreferencesThemeService>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
 
+		// Device-local preferences that are not the theme (§18.6), also in MAUI Preferences.
+		// RouteStyleState broadcasts to the Skia overlay so a change made on the ride's info
+		// page is on the map before the rider gets back to it.
+		builder.Services.AddScoped<BlazorDLR.Shared.Services.IDeviceSettings, PreferencesDeviceSettings>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
+
 		// The one confirm modal for every destructive action in the app (§18.6).
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
 

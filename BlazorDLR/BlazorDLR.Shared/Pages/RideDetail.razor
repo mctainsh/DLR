@@ -82,8 +82,10 @@
 
 			if (_track.Polyline.Count > 0)
 			{
+				// Keyed on the track, so a colour pinned to it on a ride's info page is the
+				// colour it is drawn in here too — it is the same line either way.
 				string encoded = PolylineCodec.EncodePoints(_track.Polyline);
-				_routes = [new RouteOverlay(encoded)];
+				_routes = [new RouteOverlay(encoded, TrackId: TrackId)];
 			}
 		}
 		catch (Exception exception)

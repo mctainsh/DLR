@@ -169,7 +169,18 @@ public enum MarkerKind
 	Rider = 1,
 }
 
-/// <summary>A route drawn as a polyline overlay by the Skia layer.</summary>
+/// <summary>
+/// A route drawn as a polyline overlay by the Skia layer.
+/// <para>
+/// <see cref="Colour"/> is what the <em>caller</em> asks for — the per-route palette entry
+/// (§5.4). It is not necessarily what gets drawn: the overlay resolves it against the device's
+/// own route-display preferences (§18.6), which can pin a colour to <see cref="TrackId"/> or
+/// paint every route the same. Resolving here rather than in each calling page keeps the answer
+/// in one place; a page that omits <see cref="TrackId"/> simply cannot be individually
+/// recoloured, which is the right answer for a line that is not a saved track.
+/// </para>
+/// </summary>
 /// <param name="EncodedPolyline">Google-style encoded polyline; the overlay decodes it once.</param>
-/// <param name="Colour">Hex colour string.</param>
-public sealed record RouteOverlay(string EncodedPolyline, string Colour = "#2563eb");
+/// <param name="Colour">Hex colour string — the palette's answer, before the device's preferences are applied.</param>
+/// <param name="TrackId">The track this line is, when it is one. <c>null</c> for the editor's unsaved working copy.</param>
+public sealed record RouteOverlay(string EncodedPolyline, string Colour = "#2563eb", Guid? TrackId = null);

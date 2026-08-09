@@ -454,8 +454,11 @@
 	{
 		// The lines arrive already encoded (§15.5), so this is a projection of the session's list
 		// rather than any geometry work — the overlay decodes each line once and keeps it.
+		// The track id rides along so the overlay can honour a colour the rider has pinned to
+		// this particular route on the info page (§18.6). Without it the line would fall back
+		// to its position in the list, which is the palette's answer, not theirs.
 		_routeLayer = [.. _session.Routes.Select((route, index) =>
-			new RouteOverlay(route.EncodedPolyline, RoutePalette.At(index)))];
+			new RouteOverlay(route.EncodedPolyline, RoutePalette.At(index), route.TrackId))];
 
 		_markerLayer.Clear();
 		foreach (RiderPositionDto position in _session.Positions.Values)

@@ -109,6 +109,12 @@ internal class Program
 		builder.Services.AddScoped<IThemeService, LocalStorageThemeService>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
 
+		// Device-local preferences that are not the theme (§18.6), also in localStorage.
+		// RouteStyleState broadcasts to the Skia overlay so a change made on the ride's info
+		// page is on the map before the rider gets back to it.
+		builder.Services.AddScoped<IDeviceSettings, LocalStorageDeviceSettings>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
+
 		// The one confirm modal for every destructive action in the app. Mounted in
 		// MainLayout; pages call `await Confirm.AskAsync(...)` in place of `window.confirm`.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();

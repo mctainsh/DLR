@@ -1,4 +1,4 @@
-@page "/group-rides/{RideId:guid}/info"
+﻿@page "/group-rides/{RideId:guid}/info"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
 @using DLR.Core.Contracts.Rides
@@ -7,6 +7,7 @@
 @inject IRideHubClient Hub
 @inject AuthState Auth
 @inject NavigationManager Nav
+@inject RouteStyleState RouteStyles
 @implements IAsyncDisposable
 
 @*
@@ -94,7 +95,17 @@
 							RideRoute route = _session.Routes[index];
 
 							<li>
-								<span class="swatch" style="background: @RoutePalette.At(index)" aria-hidden="true"></span>
+								@*
+									The swatch is the control, not a picture of one. It already had to
+									be the colour the line is drawn in for the list to be readable
+									against the map; making it the picker means the colour is changed
+									where it is shown, and the row keeps its shape.
+								*@
+								<input type="color" class="swatch"
+									   value="@RouteStyles.ColourFor(route.TrackId, RoutePalette.At(index))"
+									   @onchange="args => OnRouteColourChangedAsync(route.TrackId, args)"
+									   aria-label="@($"Colour for {route.Name ?? "unnamed route"}")" />
+
 								<span class="what">
 									<strong>@(route.Name ?? "Unnamed route")</strong>
 									<em>
@@ -106,6 +117,21 @@
 										}
 									</em>
 								</span>
+
+								@*
+									Only once there is something to undo. A permanently-present
+									"auto" beside every route would read as a second colour
+									control on a row that already has one.
+								*@
+								@if (RouteStyles.HasRouteColour(route.TrackId))
+								{
+									<button type="button" class="auto-colour"
+											@onclick="() => ClearRouteColourAsync(route.TrackId)"
+											aria-label="@($"Use the automatic colour for {route.Name ?? "unnamed route"}")"
+											title="Back to the automatic colour">
+										Auto
+									</button>
+								}
 
 								@if (_session.CanManageRoutes)
 								{
@@ -175,6 +201,92 @@
 						</div>
 					}
 				}
+			</div>
+
+			@*
+				How this device draws those routes (§18.6). It sits directly under the route
+				list because that list is the thing it changes the look of — the swatches above
+				follow these controls, so the effect of a choice is visible without leaving the
+				panel.
+
+				Every member gets these, organiser or not, and they are not part of the ride:
+				legibility depends on the phone, the mount and the sunlight in front of one
+				rider, and two riders on the same ride can hold different answers without
+				either being wrong.
+			*@
+			<div class="route-style">
+				<h3>Route display</h3>
+				<p class="hint">
+					Stored on this device only. It is never sent to the server, and nobody
+					else on the ride sees your choices.
+				</p>
+
+				<label class="switch one-colour">
+					<input type="checkbox" checked="@(Style.FillColour is not null)"
+						   @onchange="OnFillOverrideToggledAsync" />
+					Draw every route in the same colour
+				</label>
+
+				@if (Style.FillColour is { } fill)
+				{
+					<label class="field">
+						<span>Line colour</span>
+						<input type="color" value="@fill" @onchange="OnFillColourChangedAsync"
+							   aria-label="Line colour" />
+						<em>@fill</em>
+					</label>
+				}
+				else
+				{
+					@* §5.4 assigns a colour per route by position, which is what makes a
+					   three-route ride readable. Say so, rather than leaving the control
+					   above looking like it does nothing. *@
+					<p class="note">
+						Each route keeps its own colour, so the list above and the map name the
+						same route the same way.
+					</p>
+				}
+
+				@* The two colour controls overlap, and which wins is not guessable. Said once,
+				   here, next to the switch it qualifies. *@
+				<p class="note">
+					To colour one route on its own, tap its swatch in the list above — that
+					beats whichever of these applies.
+				</p>
+
+				<label class="field">
+					<span>Outline colour</span>
+					<input type="color" value="@Style.OutlineColour" @onchange="OnOutlineColourChangedAsync"
+						   aria-label="Line outline colour" />
+					<em>@Style.OutlineColour</em>
+				</label>
+
+				<label class="field">
+					<span>Line width</span>
+					<input type="range" min="@RouteStyle.MinLineWidthPx" max="@RouteStyle.MaxLineWidthPx" step="1"
+						   value="@Style.LineWidthPx.ToString("0")" @onchange="OnLineWidthChangedAsync"
+						   aria-label="Line width in pixels" />
+					<em>@Style.LineWidthPx.ToString("0") px</em>
+				</label>
+
+				<label class="switch arrows">
+					<input type="checkbox" checked="@Style.ShowDirectionArrows" @onchange="OnArrowsToggledAsync" />
+					Show direction arrows along the route
+				</label>
+
+				@if (Style.ShowDirectionArrows)
+				{
+					<label class="field">
+						<span>Arrow colour</span>
+						<input type="color" value="@Style.ArrowColour" @onchange="OnArrowColourChangedAsync"
+							   aria-label="Direction arrow colour" />
+						<em>@Style.ArrowColour</em>
+					</label>
+				}
+
+				<button type="button" class="cancel" @onclick="ResetStyleAsync" disabled="@(!RouteStyles.IsCustomised)">
+					Reset to defaults
+				</button>
 			</div>
 
 			@if (ride.State == RideStateDto.Live)
@@ -290,10 +402,28 @@
 		}
 	}
 
+	/// <summary>How this device draws routes. Read through, never copied — a stale copy would
+	/// leave the swatches disagreeing with the map the controls just changed.</summary>
+	private RouteStyle Style => RouteStyles.Style;
+
 	protected override void OnInitialized()
 	{
 		_session = new RideSession(Api, Hub, Auth);
 		_session.Changed += OnSessionChanged;
+
+		// Same handler as the session's: both mean "something this page renders has moved".
+		RouteStyles.Changed += OnSessionChanged;
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			// Not in OnInitialized — the web binding reads localStorage over JS interop, which
+			// is unreachable on the prerender pass. Idempotent, so this costs nothing on a
+			// device where a map has already loaded it.
+			await RouteStyles.LoadAsync();
+		}
 	}
 
 	protected override async Task OnParametersSetAsync()
@@ -360,6 +490,82 @@
 
 	private Task RemoveRouteAsync(RideRoute route) => _session.RemoveRouteAsync(route.TrackId);
 
+	// -- Route display (§18.6) ----------------------------------------------------------------
+	//
+	// Each control writes straight through: there is no Save button, because there is nothing
+	// to fail and nothing to validate — the map behind this page is already drawing the new
+	// value by the time the slider stops moving, which is the only confirmation worth having.
+
+	/// <summary>
+	/// Switches between "each route its own colour" and one colour for all of them.
+	/// <para>
+	/// Turning it on seeds the override with the palette's first entry — the colour a
+	/// single-route ride is already drawn in — so the control does something visible without
+	/// jumping to a colour the rider never chose.
+	/// </para>
+	/// </summary>
+	private Task OnFillOverrideToggledAsync(ChangeEventArgs args)
+	{
+		bool wantsOneColour = args.Value is bool value && value;
+		return RouteStyles.SetAsync(Style with { FillColour = wantsOneColour ? RoutePalette.At(0) : null });
+	}
+
+	private Task OnFillColourChangedAsync(ChangeEventArgs args) =>
+		RouteStyles.SetAsync(Style with
+		{
+			// Falls back to the current value rather than the shipped default: a browser whose
+			// colour input degraded to a text box can hand back anything, and losing the
+			// colour you had is a worse answer than ignoring the keystroke.
+			FillColour = RouteStyle.NormaliseColour(args.Value?.ToString(), Style.FillColour ?? RoutePalette.At(0)),
+		});
+
+	private Task OnOutlineColourChangedAsync(ChangeEventArgs args) =>
+		RouteStyles.SetAsync(Style with
+		{
+			OutlineColour = RouteStyle.NormaliseColour(args.Value?.ToString(), Style.OutlineColour),
+		});
+
+	private Task OnArrowColourChangedAsync(ChangeEventArgs args) =>
+		RouteStyles.SetAsync(Style with
+		{
+			ArrowColour = RouteStyle.NormaliseColour(args.Value?.ToString(), Style.ArrowColour),
+		});
+
+	private Task OnArrowsToggledAsync(ChangeEventArgs args) =>
+		RouteStyles.SetAsync(Style with { ShowDirectionArrows = args.Value is bool value && value });
+
+	private Task OnLineWidthChangedAsync(ChangeEventArgs args)
+	{
+		// A range input posts a string. Invariant because that is what the browser sends
+		// regardless of locale, and InvariantGlobalization is on solution-wide anyway.
+		if (!double.TryParse(
+				args.Value?.ToString(),
+				System.Globalization.NumberStyles.Float,
+				System.Globalization.CultureInfo.InvariantCulture,
+				out double width))
+		{
+			return Task.CompletedTask;
+		}
+
+		// Out-of-range values are clamped by RouteStyle rather than rejected here.
+		return RouteStyles.SetAsync(Style with { LineWidthPx = width });
+	}
+
+	/// <summary>
+	/// Pins a colour to one route (§5.4). Keyed on the track rather than on the row, so the
+	/// colour follows that GPX onto the next ride it is attached to instead of following
+	/// whatever ends up second in some other list.
+	/// </summary>
+	private Task OnRouteColourChangedAsync(Guid trackId, ChangeEventArgs args)
+	{
+		string? picked = args.Value?.ToString();
+		return picked is null ? Task.CompletedTask : RouteStyles.SetRouteColourAsync(trackId, picked);
+	}
+
+	private Task ClearRouteColourAsync(Guid trackId) => RouteStyles.ClearRouteColourAsync(trackId);
+
+	private Task ResetStyleAsync() => RouteStyles.ResetAsync();
+
 	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
 
 	private void OnSessionChanged() => _ = InvokeAsync(StateHasChanged);
@@ -376,6 +582,7 @@
 	public async ValueTask DisposeAsync()
 	{
 		_session.Changed -= OnSessionChanged;
+		RouteStyles.Changed -= OnSessionChanged;
 		await _session.DisposeAsync();
 	}
 }
@@ -451,11 +658,79 @@
 			font-size: 1rem;
 		}
 
-	.ride-info .sharing, .ride-info .organiser, .ride-info .routes {
+	.ride-info .sharing, .ride-info .organiser, .ride-info .routes, .ride-info .route-style {
 		padding: 0.75rem;
 		background: #fff2;
 		border-radius: 6px;
 	}
+
+	/* Label on the left, control on the right, current value after it. One row per setting,
+	   so a phone in a bar mount shows the whole panel without horizontal scrolling. */
+	.ride-info .route-style .field {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		margin: 0.5rem 0;
+	}
+
+		.ride-info .route-style .field > span {
+			flex: 0 0 8rem;
+		}
+
+		/* A colour input is a button-sized swatch on every platform we ship on, and its
+		   default chrome is a thick grey bevel that fights the panel. */
+		.ride-info .route-style .field input[type="color"] {
+			flex: 0 0 auto;
+			width: 2.75rem;
+			height: 1.75rem;
+			padding: 0;
+			background: transparent;
+			border: 1px solid var(--dlr-border, #ffffff33);
+			border-radius: 4px;
+			cursor: pointer;
+		}
+
+		.ride-info .route-style .field input[type="range"] {
+			flex: 1;
+			min-width: 6rem;
+		}
+
+		/* The value beside the control: the hex the picker landed on, or the width in px.
+		   Monospaced so the row does not reflow as the slider moves through 9 → 10. */
+		.ride-info .route-style .field em {
+			flex: 0 0 4.5rem;
+			font-family: ui-monospace, monospace;
+			font-size: 0.85rem;
+			font-style: normal;
+			opacity: 0.75;
+		}
+
+	.ride-info .route-style .switch {
+		display: block;
+		margin: 0.5rem 0;
+	}
+
+	.ride-info .route-style .note {
+		margin: 0.25rem 0 0.5rem;
+		font-size: 0.85rem;
+		opacity: 0.75;
+	}
+
+	.ride-info .route-style > button {
+		margin-top: 0.5rem;
+		padding: 0.35rem 0.7rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border, #ffffff33);
+		border-radius: 4px;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+
+		.ride-info .route-style > button:disabled {
+			opacity: 0.5;
+			cursor: default;
+		}
 
 	.ride-info .route-list, .ride-info .track-list {
 		list-style: none;
@@ -474,13 +749,33 @@
 			border-top: 1px solid #ffffff1f;
 		}
 
-	/* The colour this route is drawn in on the map, so the list and the map agree. */
+	/* The colour this route is drawn in on the map, so the list and the map agree — and the
+	   control that changes it. Sized as a tap target rather than as the 0.9 rem chip it used
+	   to be: a swatch you are meant to press on a phone in a bar mount cannot be 14 px. */
 	.ride-info .route-list .swatch {
 		flex: 0 0 auto;
-		width: 0.9rem;
-		height: 0.9rem;
-		border-radius: 3px;
+		width: 1.75rem;
+		height: 1.75rem;
+		padding: 0;
+		background: transparent;
+		border-radius: 4px;
 		border: 1px solid #0006;
+		cursor: pointer;
+	}
+
+	/* Sits between the name and Remove. Deliberately quieter than either — it undoes a
+	   preference, which is not a destructive action and should not compete with one. */
+	.ride-info .route-list .auto-colour {
+		flex: 0 0 auto;
+		padding: 0.25rem 0.5rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border, #ffffff33);
+		border-radius: 4px;
+		color: inherit;
+		font: inherit;
+		font-size: 0.8rem;
+		opacity: 0.8;
+		cursor: pointer;
 	}
 
 	.ride-info .route-list .what {

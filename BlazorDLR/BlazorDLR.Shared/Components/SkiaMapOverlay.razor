@@ -1,9 +1,11 @@
-@using BlazorDLR.Shared.Markers
+﻿@using BlazorDLR.Shared.Markers
 @using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
 @using DLR.Core.Tracks
 @using SkiaSharp
 @using SkiaSharp.Views.Blazor
 @inject IJSRuntime JS
+@inject RouteStyleState RouteStyles
 @implements IAsyncDisposable
 
 @*
@@ -39,10 +41,27 @@
 
 	private SKCanvasView? _view;
 
-	/// <summary>One route's line, decoded and ready to project. Rebuilt on every parameter set.</summary>
+	/// <summary>
+	/// One route's line, decoded and ready to project. Rebuilt on every parameter set.
+	/// <para>
+	/// The colour is kept as the caller's <em>request</em> — the palette entry and the track it
+	/// belongs to — rather than as a resolved <see cref="SKColor"/>. What actually gets drawn
+	/// depends on the device's preferences, which change without any parameter changing, so
+	/// resolving at decode time would leave a repaint showing the previous answer.
+	/// </para>
+	/// </summary>
 	private readonly record struct DecodedRoute(
 		IReadOnlyList<(double Latitude, double Longitude)> Points,
-		SKColor Colour);
+		Guid? TrackId,
+		string PaletteColour);
+
+	/// <summary>
+	/// Scratch space for one route's points in canvas coordinates. Reused across routes and
+	/// frames: the line is walked twice per frame — once to build the path, once to space the
+	/// direction chevrons along it — and projecting several thousand points twice per repaint,
+	/// on a surface that repaints on every pan, is exactly the cost this buffer removes.
+	/// </summary>
+	private readonly List<SKPoint> _projected = [];
 
 	private IReadOnlyList<DecodedRoute> _decodedRoutes = [];
 
@@ -54,6 +73,16 @@
 	/// </summary>
 	private readonly Dictionary<string, IReadOnlyList<(double Latitude, double Longitude)>> _lineCache =
 		new(StringComparer.Ordinal);
+
+	/// <summary>
+	/// Subscribes to the device's route-style preference (§18.6). The style is not a parameter
+	/// — no caller of this component knows or should know about it, and threading it down from
+	/// four pages would be four places to forget it — so the change signal comes from the
+	/// shared state instead, and lands as a repaint.
+	/// </summary>
+	protected override void OnInitialized() => RouteStyles.Changed += OnRouteStyleChanged;
+
+	private void OnRouteStyleChanged() => _ = InvokeAsync(() => _view?.Invalidate());
 
 	protected override void OnParametersSet()
 	{
@@ -82,7 +111,7 @@
 					_lineCache[route.EncodedPolyline] = points;
 				}
 
-				decoded.Add(new DecodedRoute(points, ParseColour(route.Colour)));
+				decoded.Add(new DecodedRoute(points, route.TrackId, route.Colour));
 			}
 
 			// A route detached is a line nobody will ask for again. Without this the editor —
@@ -109,6 +138,15 @@
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
+		if (firstRender)
+		{
+			// After first render, not in OnInitialized: the web binding reads localStorage
+			// through JS interop, which is unreachable during the prerender pass. Idempotent,
+			// so whichever map or settings panel gets here first pays for the read and the
+			// rest are free. The Changed it raises is what repaints this canvas.
+			await RouteStyles.LoadAsync();
+		}
+
 		if (Markers is null || Markers.Count == 0)
 		{
 			return;
@@ -163,13 +201,32 @@
 	{
 		if (_decodedRoutes.Count == 0) return;
 
-		// One paint for every line, with only its colour changed between them. This is the
-		// per-frame allocation the static paints above exist to avoid; a route list is short
-		// enough that the loop is cheap and long enough that a paint each would not be.
+		// The rider's own answer for this device (§18.6) — colours, thickness and whether the
+		// line says which way round it goes. Read once per frame rather than per route: it
+		// cannot change mid-paint, and RouteStyleState raises Changed when it does, which is
+		// what invalidates this canvas.
+		RouteStyle style = RouteStyles.Style;
+
+		float lineWidth = (float)style.LineWidthPx;
+		SKColor casingColour = ParseColour(style.OutlineColour);
+
+		// Two paints for every line, with only the fill's colour changed between them. This is
+		// the per-frame allocation the static paints below exist to avoid; a route list is short
+		// enough that the loop is cheap and long enough that a pair of paints each would not be.
+		using SKPaint casing = new()
+		{
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = lineWidth + CasingWidthPx,
+			IsAntialias = true,
+			StrokeCap = SKStrokeCap.Round,
+			StrokeJoin = SKStrokeJoin.Round,
+			Color = casingColour,
+		};
+
 		using SKPaint stroke = new()
 		{
 			Style = SKPaintStyle.Stroke,
-			StrokeWidth = 4f,
+			StrokeWidth = lineWidth,
 			IsAntialias = true,
 			StrokeCap = SKStrokeCap.Round,
 			StrokeJoin = SKStrokeJoin.Round,
@@ -179,20 +236,262 @@
 		{
 			if (route.Points.Count < 2) continue;
 
-			stroke.Color = route.Colour;
-
-			using SKPath path = new();
-			bool first = true;
+			_projected.Clear();
 			foreach ((double latitude, double longitude) in route.Points)
 			{
-				SKPoint screen = Project(latitude, longitude);
-				if (first) { path.MoveTo(screen); first = false; }
-				else { path.LineTo(screen); }
+				_projected.Add(Project(latitude, longitude));
 			}
 
+			using SKPath path = new();
+			path.MoveTo(_projected[0]);
+			for (int index = 1; index < _projected.Count; index++)
+			{
+				path.LineTo(_projected[index]);
+			}
+
+			// Most-specific-wins, resolved by RouteStyleState: a colour pinned to this track,
+			// then the "same colour for every route" choice, then the palette entry the calling
+			// page assigned by position.
+			stroke.Color = ParseColour(RouteStyles.ColourFor(route.TrackId, route.PaletteColour));
+
+			// Casing first, under the line and wider than it, so the pair reads as one edged
+			// stroke. OSM tiles run from near-white sand to dark green forest and a bare line
+			// is legible over about half of them.
+			canvas.DrawPath(path, casing);
 			canvas.DrawPath(path, stroke);
+
+			if (style.ShowDirectionArrows)
+			{
+				DrawDirectionArrows(canvas, lineWidth, ParseColour(style.ArrowColour), casingColour);
+			}
 		}
 	}
+
+	/// <summary>
+	/// Draws chevrons along the projected line in <see cref="_projected"/>, evenly spaced in
+	/// <em>screen</em> pixels and pointing the way the route runs.
+	/// <para>
+	/// Screen-spaced rather than spaced by GPX point, because a GPX's points are as dense as
+	/// whatever recorded it: one chevron per point puts a solid ribbon of arrowheads on a
+	/// 1 Hz recording and two arrows on a hand-drawn route of the same length.
+	/// </para>
+	/// </summary>
+	/// <param name="canvas">The overlay canvas.</param>
+	/// <param name="lineWidth">The line's own width, which the chevrons scale with.</param>
+	/// <param name="arrowColour">The rider's chosen chevron colour.</param>
+	/// <param name="casingColour">The line's casing colour, reused to edge each chevron so it stays visible on a line of its own colour.</param>
+	private void DrawDirectionArrows(SKCanvas canvas, float lineWidth, SKColor arrowColour, SKColor casingColour)
+	{
+		// Chevrons grow with the line so they still read on a 12 px stroke, but not linearly —
+		// a chevron three times the size wants more than three times the gap or the line turns
+		// into a chain of arrowheads.
+		float scale = Math.Clamp(lineWidth / RouteStyleDefaultWidthPx, 0.8f, 2.2f);
+		float spacing = ArrowSpacingPx * scale;
+
+		using SKPaint edge = new()
+		{
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = (ChevronStrokePx * scale) + 2f,
+			IsAntialias = true,
+			StrokeCap = SKStrokeCap.Round,
+			StrokeJoin = SKStrokeJoin.Round,
+			Color = casingColour,
+		};
+
+		using SKPaint fill = new()
+		{
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = ChevronStrokePx * scale,
+			IsAntialias = true,
+			StrokeCap = SKStrokeCap.Round,
+			StrokeJoin = SKStrokeJoin.Round,
+			Color = arrowColour,
+		};
+
+		// Distance still to run before the next chevron is due. Carried across segments so the
+		// spacing is even along the whole line rather than restarting at every GPX point —
+		// restarting would put a chevron on every point, which is the failure this method's
+		// remarks describe.
+		float untilNext = spacing / 2f;
+
+		for (int index = 1; index < _projected.Count; index++)
+		{
+			SKPoint from = _projected[index - 1];
+			SKPoint to = _projected[index];
+
+			float dx = to.X - from.X;
+			float dy = to.Y - from.Y;
+			float length = MathF.Sqrt((dx * dx) + (dy * dy));
+
+			// Duplicate fixes are common in recorded GPX. A zero-length segment has no
+			// direction to point in, and normalising it would divide by zero.
+			if (length < 0.001f) continue;
+
+			if (length < untilNext)
+			{
+				untilNext -= length;
+				continue;
+			}
+
+			int count = (int)((length - untilNext) / spacing) + 1;
+
+			// Where the next segment picks up. Computed from the arithmetic rather than from
+			// wherever the drawing loop below stopped, because that loop only walks the part of
+			// the segment that is on screen.
+			float carriedOn = untilNext + (count * spacing) - length;
+
+			// A segment can be millions of pixels long at high zoom — the canvas is the small
+			// window in the middle of it. Clipping first means the loop runs once per *visible*
+			// chevron instead of once per chevron on a line that mostly leaves the country.
+			if (ClipToCanvas(from, to, out float enters, out float leaves))
+			{
+				float bearingDeg = MathF.Atan2(dy, dx) * 180f / MathF.PI;
+				float first = enters * length;
+
+				float along = untilNext;
+				if (first > along)
+				{
+					along += MathF.Ceiling((first - along) / spacing) * spacing;
+				}
+
+				float last = MathF.Min(leaves * length, length);
+				for (; along <= last; along += spacing)
+				{
+					float fraction = along / length;
+					DrawChevron(canvas, new SKPoint(from.X + (dx * fraction), from.Y + (dy * fraction)), bearingDeg, scale, edge, fill);
+				}
+			}
+
+			untilNext = carriedOn;
+		}
+	}
+
+	/// <summary>Draws one chevron, rotated onto the segment it sits on.</summary>
+	/// <param name="canvas">The overlay canvas.</param>
+	/// <param name="at">Where it goes, in canvas pixels.</param>
+	/// <param name="bearingDeg">Screen bearing of the segment, degrees clockwise from +X.</param>
+	/// <param name="scale">Chevron size relative to <see cref="ChevronPath"/>'s own.</param>
+	/// <param name="edge">The wider, darker pass.</param>
+	/// <param name="fill">The chevron's own colour.</param>
+	private static void DrawChevron(SKCanvas canvas, SKPoint at, float bearingDeg, float scale, SKPaint edge, SKPaint fill)
+	{
+		canvas.Save();
+		try
+		{
+			canvas.Translate(at.X, at.Y);
+
+			// ChevronPath points along +X, and the bearing is already measured in canvas space
+			// (atan2 of the projected delta), so no north-relative conversion happens here —
+			// unlike the rider dart, which starts from a compass heading.
+			canvas.RotateDegrees(bearingDeg);
+			canvas.Scale(scale);
+
+			canvas.DrawPath(ChevronPath, edge);
+			canvas.DrawPath(ChevronPath, fill);
+		}
+		finally
+		{
+			canvas.Restore();
+		}
+	}
+
+	/// <summary>
+	/// Liang–Barsky clip of a segment against the canvas (plus the same margin
+	/// <see cref="InsideCanvas"/> uses), as the fraction of the segment that is on screen.
+	/// </summary>
+	/// <param name="from">Segment start, canvas pixels.</param>
+	/// <param name="to">Segment end, canvas pixels.</param>
+	/// <param name="enters">Fraction along the segment where it comes on screen.</param>
+	/// <param name="leaves">Fraction where it goes off again.</param>
+	/// <returns><c>false</c> when no part of the segment is visible, in which case the two fractions are meaningless.</returns>
+	private bool ClipToCanvas(SKPoint from, SKPoint to, out float enters, out float leaves)
+	{
+		enters = 0f;
+		leaves = 1f;
+
+		float dx = to.X - from.X;
+		float dy = to.Y - from.Y;
+
+		// Left, right, top, bottom. Each is "how far the segment may run before it crosses
+		// this edge", expressed as the pair Liang–Barsky wants.
+		return ClipEdge(-dx, from.X + CanvasMarginPx, ref enters, ref leaves)
+			&& ClipEdge(dx, Viewport.CanvasWidthPx + CanvasMarginPx - from.X, ref enters, ref leaves)
+			&& ClipEdge(-dy, from.Y + CanvasMarginPx, ref enters, ref leaves)
+			&& ClipEdge(dy, Viewport.CanvasHeightPx + CanvasMarginPx - from.Y, ref enters, ref leaves);
+	}
+
+	private static bool ClipEdge(float denominator, float numerator, ref float enters, ref float leaves)
+	{
+		if (denominator == 0f)
+		{
+			// Parallel to this edge: visible only if it starts on the inside of it.
+			return numerator >= 0f;
+		}
+
+		float crossing = numerator / denominator;
+
+		if (denominator < 0f)
+		{
+			if (crossing > leaves) return false;
+			if (crossing > enters) enters = crossing;
+		}
+		else
+		{
+			if (crossing < enters) return false;
+			if (crossing < leaves) leaves = crossing;
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// How much wider the casing is than the line it sits under — 1.5 px of edge either side,
+	/// which is enough to separate the line from a tile without reading as a second line.
+	/// </summary>
+	private const float CasingWidthPx = 3f;
+
+	/// <summary>
+	/// The line width the chevron scale is expressed relative to. Deliberately the same number
+	/// as <c>RouteStyle.Default.LineWidthPx</c>, so a device on the defaults draws chevrons at
+	/// exactly the size <see cref="ChevronPath"/> is authored at.
+	/// </summary>
+	private const float RouteStyleDefaultWidthPx = 4f;
+
+	/// <summary>Gap between direction chevrons along the line, in canvas pixels at scale 1.</summary>
+	private const float ArrowSpacingPx = 72f;
+
+	/// <summary>Stroke width of a chevron at scale 1.</summary>
+	private const float ChevronStrokePx = 2.2f;
+
+	/// <summary>How far outside the canvas something may sit and still be worth drawing.</summary>
+	private const float CanvasMarginPx = 32f;
+
+	/// <summary>
+	/// The direction chevron: an open "greater-than" pointing along +X, centred on the point it
+	/// is drawn at. Open rather than a filled triangle because it is stroked in the same round
+	/// cap the line uses, so at any size it reads as part of the line rather than as a marker
+	/// dropped on it — and the line's own colour shows through the middle.
+	/// <para>
+	/// Built once, for the same reason <see cref="ArrowPath"/> is: a long route at low zoom
+	/// carries dozens of these per frame.
+	/// </para>
+	/// </summary>
+	private static readonly SKPath ChevronPath = BuildChevronPath();
+
+	private static SKPath BuildChevronPath()
+	{
+		SKPath path = new();
+		path.MoveTo(-ChevronHalfLength, -ChevronHalfSpan);
+		path.LineTo(ChevronHalfLength, 0f);
+		path.LineTo(-ChevronHalfLength, ChevronHalfSpan);
+		return path;
+	}
+
+	/// <summary>Chevron tip to the line through its two tails, along the direction of travel.</summary>
+	private const float ChevronHalfLength = 3.5f;
+
+	/// <summary>Half the span across the chevron's two tails.</summary>
+	private const float ChevronHalfSpan = 4.5f;
 
 	private void DrawMarkers(SKCanvas canvas)
 	{
@@ -459,7 +758,8 @@
 	}
 
 	private bool InsideCanvas(SKPoint p) =>
-		p.X >= -32 && p.Y >= -32 && p.X <= Viewport.CanvasWidthPx + 32 && p.Y <= Viewport.CanvasHeightPx + 32;
+		p.X >= -CanvasMarginPx && p.Y >= -CanvasMarginPx
+		&& p.X <= Viewport.CanvasWidthPx + CanvasMarginPx && p.Y <= Viewport.CanvasHeightPx + CanvasMarginPx;
 
 	private static SKColor ParseColour(string hex)
 	{
@@ -476,6 +776,7 @@
 
 	public ValueTask DisposeAsync()
 	{
+		RouteStyles.Changed -= OnRouteStyleChanged;
 		_view = null;
 		return ValueTask.CompletedTask;
 	}

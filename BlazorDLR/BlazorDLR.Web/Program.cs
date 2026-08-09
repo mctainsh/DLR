@@ -153,6 +153,12 @@ builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternal
 builder.Services.AddScoped<IThemeService, InMemoryThemeService>();
 builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
 
+// Device-local preferences (§18.6). Same story as the theme above: the prerender has no
+// device to read from, so it renders the shipped RouteStyle defaults and the WASM client
+// re-resolves against localStorage once it boots.
+builder.Services.AddScoped<IDeviceSettings, InMemoryDeviceSettings>();
+builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
+
 // The one confirm modal is mounted in MainLayout, which renders in the SSR pass too;
 // registering here keeps prerender from throwing on the ConfirmDialog @inject.
 builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();

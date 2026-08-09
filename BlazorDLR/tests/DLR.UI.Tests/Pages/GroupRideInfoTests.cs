@@ -1,5 +1,6 @@
 ﻿using BlazorDLR.Shared.Pages.GroupRides;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Stubs;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Rides;
@@ -67,6 +68,13 @@ public sealed class GroupRideInfoTests : BunitContext
 		Services.AddSingleton(auth);
 		Services.AddSingleton<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(auth);
 		Services.AddSingleton<ConfirmService>();
+
+		// The route-display panel (§18.6). In-memory rather than a fake: the real
+		// RouteStyleState over a store that forgets at process exit is exactly what the SSR
+		// host binds, and it lets a test set a preference and read back what the page renders.
+		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
+		Services.AddSingleton<RouteStyleState>();
+
 		Services.AddRealAuthorizationPipeline();
 		this.CascadeAuthenticationState(auth);
 
@@ -108,10 +116,10 @@ public sealed class GroupRideInfoTests : BunitContext
 
 		// The swatch is the colour that route is drawn in on the map. Two routes in one colour is
 		// a list that cannot be read against the map beside it.
-		(component.FindAll(".route-list .swatch")[0].GetAttribute("style") ?? string.Empty)
-			.ShouldContain(RoutePalette.At(0), Case.Insensitive);
-		(component.FindAll(".route-list .swatch")[1].GetAttribute("style") ?? string.Empty)
-			.ShouldContain(RoutePalette.At(1), Case.Insensitive);
+		(component.FindAll(".route-list .swatch")[0].GetAttribute("value") ?? string.Empty)
+			.ShouldBe(RoutePalette.At(0), StringCompareShould.IgnoreCase);
+		(component.FindAll(".route-list .swatch")[1].GetAttribute("value") ?? string.Empty)
+			.ShouldBe(RoutePalette.At(1), StringCompareShould.IgnoreCase);
 	}
 
 	[Fact]
@@ -450,6 +458,229 @@ public sealed class GroupRideInfoTests : BunitContext
 			timeout: TimeSpan.FromSeconds(3));
 		api.SetSharingRequests.Last().Request.Share.ShouldBeTrue(
 			"§5.6: the switch is the rider's own control over their broadcast, and it reaches the server.");
+	}
+
+	// -- Route display (§18.6) ----------------------------------------------------------------
+
+	[Fact]
+	public void RouteDisplay_IsOfferedToEveryMember_NotJustTheOrganiser()
+	{
+		(_, _, Guid rideId) = WireServices(isOrganiser: false);
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		// It changes nothing about the ride and nothing anybody else sees — it is legibility on
+		// the screen in front of one rider, so gating it behind the organiser would be wrong.
+		component.WaitForAssertion(
+			() => component.FindAll(".route-style").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".route-style input[type=range]").ShouldNotBeEmpty("line width is one of the settings.");
+		component.FindAll(".route-style input[type=color]").ShouldNotBeEmpty("the colours are pickers, not free text.");
+	}
+
+	[Fact]
+	public async Task RouteDisplay_ChangingTheWidth_PersistsOnTheDevice()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-style input[type=range]").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find(".route-style input[type=range]").Change("9"));
+
+		component.WaitForAssertion(
+			() => styles.Style.LineWidthPx.ShouldBe(9),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Through the device store, not just the in-memory state — the whole point of the
+		// panel is that the answer is still there after a restart.
+		RouteStyleState afterRestart = new(Services.GetRequiredService<IDeviceSettings>());
+		await afterRestart.LoadAsync();
+		afterRestart.Style.LineWidthPx.ShouldBe(9);
+	}
+
+	[Fact]
+	public async Task RouteDisplay_TurningDirectionArrowsOff_HidesTheirColour()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-style input[aria-label='Direction arrow colour']").ShouldNotBeEmpty(
+				"arrows are on by default, so their colour is worth showing."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find(".route-style .arrows input").Change(false));
+
+		component.WaitForAssertion(
+			() => styles.Style.ShowDirectionArrows.ShouldBeFalse(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// A colour for something that is not drawn is a control that does nothing.
+		component.WaitForAssertion(
+			() => component.FindAll(".route-style input[aria-label='Direction arrow colour']").ShouldBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task RouteDisplay_OneColourForEveryRoute_ChangesTheSwatchesToMatchTheMap()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		api.RoutesResult.Add(Route("The long way"));
+		api.RoutesResult.Add(Route("The short way"));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .swatch").Count.ShouldBe(2),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => styles.SetAsync(RouteStyle.Default with { FillColour = "#ff8800" }));
+
+		// The swatch claims the colour the line is drawn in. Overriding the palette and leaving
+		// the list showing the palette would make the list lie about the map beside it.
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .swatch")
+				.ShouldAllBe(swatch => string.Equals(swatch.GetAttribute("value"), "#ff8800", StringComparison.OrdinalIgnoreCase)),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task RouteColour_IsPickedPerRoute_FromItsOwnSwatch()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		Guid firstTrack = Guid.NewGuid();
+		api.RoutesResult.Add(Route("The long way", trackId: firstTrack));
+		api.RoutesResult.Add(Route("The short way"));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .swatch").Count.ShouldBe(2),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.FindAll(".route-list .swatch")[0].Change("#ff8800"));
+
+		component.WaitForAssertion(
+			() => styles.ColourFor(firstTrack, RoutePalette.At(0)).ShouldBe("#ff8800"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Only that route. The whole point of a per-route colour is that it is not the
+		// all-routes control sitting below it.
+		styles.ColourFor(api.RoutesResult[1].TrackId, RoutePalette.At(1)).ShouldBe(RoutePalette.At(1));
+
+		// Keyed on the track, so the colour follows that GPX onto the next ride it joins
+		// rather than following second-place in some other list.
+		RouteStyleState afterRestart = new(Services.GetRequiredService<IDeviceSettings>());
+		await afterRestart.LoadAsync();
+		afterRestart.ColourFor(firstTrack, RoutePalette.At(0)).ShouldBe("#ff8800");
+	}
+
+	[Fact]
+	public async Task RouteColour_BeatsTheOneColourForEveryRouteChoice()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		Guid firstTrack = Guid.NewGuid();
+		api.RoutesResult.Add(Route("The long way", trackId: firstTrack));
+		api.RoutesResult.Add(Route("The short way"));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .swatch").Count.ShouldBe(2),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => styles.SetRouteColourAsync(firstTrack, "#ff8800"));
+		await component.InvokeAsync(() => styles.SetAsync(RouteStyle.Default with { FillColour = "#000000" }));
+
+		// Most-specific-wins is the only ordering that leaves both controls usable: if the
+		// blanket colour won, the per-route picker would silently do nothing.
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .swatch")[0].GetAttribute("value")
+				.ShouldBe("#ff8800", StringCompareShould.IgnoreCase),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".route-list .swatch")[1].GetAttribute("value")
+			.ShouldBe("#000000", StringCompareShould.IgnoreCase);
+	}
+
+	[Fact]
+	public async Task RouteColour_AutoButton_AppearsOnlyWhenThereIsSomethingToUndo()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		Guid trackId = Guid.NewGuid();
+		api.RoutesResult.Add(Route("The long way", trackId: trackId));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .swatch").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".route-list .auto-colour").ShouldBeEmpty(
+			"a route on the palette has nothing to go back to.");
+
+		await component.InvokeAsync(() => styles.SetRouteColourAsync(trackId, "#ff8800"));
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .auto-colour").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find(".route-list .auto-colour").Click());
+
+		component.WaitForAssertion(
+			() => styles.HasRouteColour(trackId).ShouldBeFalse(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .swatch")[0].GetAttribute("value")
+				.ShouldBe(RoutePalette.At(0), StringCompareShould.IgnoreCase),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task RouteDisplay_Reset_GoesBackToTheDefaults()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		Guid trackId = Guid.NewGuid();
+		api.RoutesResult.Add(Route("The long way", trackId: trackId));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-style").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => styles.SetAsync(RouteStyle.Default with { LineWidthPx = 11, FillColour = "#ff8800" }));
+		await component.InvokeAsync(() => styles.SetRouteColourAsync(trackId, "#00ffcc"));
+
+		await ClickAsync(component, "Reset to defaults");
+
+		component.WaitForAssertion(
+			() => styles.Style.ShouldBe(RouteStyle.Default),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// One button, everything this device chose. A reset that left the per-route colours
+		// behind would leave the panel claiming defaults over a map that is not on them.
+		styles.RouteColours.ShouldBeEmpty();
+		styles.IsCustomised.ShouldBeFalse();
 	}
 
 	private static async Task OpenEndDialogAsync(IRenderedComponent<GroupRideInfo> component)
