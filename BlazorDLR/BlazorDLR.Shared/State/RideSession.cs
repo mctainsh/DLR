@@ -1,7 +1,6 @@
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
-using DLR.Core.Contracts.Tracks;
 using DLR.Core.Tracks;
 
 namespace BlazorDLR.Shared.State;
@@ -67,11 +66,19 @@ public sealed class RideSession : IAsyncDisposable
 	public IReadOnlyDictionary<Guid, MarkerDto> Markers => _markers;
 
 	/// <summary>
-	/// The planned route's raw points, when the ride has one. §5.4's gap list needs a route to
-	/// project against; today the hub tells us via RouteUpdated when the route changes but the
-	/// initial RideDetail does not carry the route id, so the initial load path leaves this null
-	/// until the route arrives on the hub — see SharedFrontend.md Phase 3 for the deferred server
-	/// change that would let the initial fetch populate it immediately.
+	/// The ride's planned routes, oldest attachment first (§5.4). Empty until the snapshot lands,
+	/// and empty for a ride nobody has attached anything to.
+	/// </summary>
+	public IReadOnlyList<RideRoute> Routes { get; private set; } = [];
+
+	/// <summary>
+	/// The points §5.4's gap list projects riders against, or null when the ride has no routes.
+	/// <para>
+	/// <strong>The first route, when there are several.</strong> "Distance along the route" needs
+	/// one line to be along, and the oldest attachment is the stable choice — it does not move when
+	/// the organiser adds the long option the night before, so nobody's place in the list changes
+	/// because somebody else attached a file.
+	/// </para>
 	/// </summary>
 	public IReadOnlyList<TrackPoint>? RoutePolyline { get; private set; }
 
@@ -83,6 +90,21 @@ public sealed class RideSession : IAsyncDisposable
 
 	/// <summary>Whether this rider runs the ride. False before the snapshot lands.</summary>
 	public bool IsOrganiser => Ride?.IsOrganiser == true;
+
+	/// <summary>
+	/// Who may attach or detach a planned route: the organiser, or a leader (§5.4).
+	/// <para>
+	/// Mirrors <c>RideRouteController.AuthoriseWriteAsync</c> so the controls are simply absent
+	/// rather than there and 403-ing — the same arrangement as <see cref="CanDelete"/>, and for
+	/// the same reason: the server stays the one that decides either way.
+	/// </para>
+	/// </summary>
+	public bool CanManageRoutes =>
+		IsOrganiser
+		|| string.Equals(
+			Ride?.Members.FirstOrDefault(member => member.UserId == _auth.UserId)?.Role,
+			"Leader",
+			StringComparison.Ordinal);
 
 	/// <summary>
 	/// Who may remove a marker: the rider who placed it, or the ride's organiser (§16.5).
@@ -110,6 +132,7 @@ public sealed class RideSession : IAsyncDisposable
 		_rideId = rideId;
 		Ride = null;
 		Error = null;
+		Routes = [];
 		RoutePolyline = null;
 		WindDownEndsUtc = null;
 		Sharing = false;
@@ -132,6 +155,12 @@ public sealed class RideSession : IAsyncDisposable
 			{
 				_markers[marker.Id] = marker;
 			}
+
+			// The ride-scoped route endpoint, not GET /tracks/{id} — that one is owner-scoped and
+			// answers 404 to every member but the organiser (§15.4). Fetched here rather than
+			// waiting for a hub event, so a ride opened with the hub unreachable still draws its
+			// routes: §5.3's rule is that the snapshot is authoritative and the hub is the delta.
+			ApplyRoutes(await _api.ListRideRoutesAsync(rideId));
 
 			Raise();
 
@@ -172,6 +201,34 @@ public sealed class RideSession : IAsyncDisposable
 
 	/// <summary>Organiser only: Open → Live (§5.1).</summary>
 	public Task StartAsync() => RunAsync(() => _api.StartRideAsync(_rideId));
+
+	/// <summary>
+	/// Organiser or leader: attaches one of their own tracks as a planned route (§5.4).
+	/// <para>
+	/// The server broadcasts <c>RideRoutesChanged</c> and <see cref="OnRoutesChanged"/> would
+	/// refetch — but only for a client whose hub connection came up, so the caller applies the
+	/// answer it was given. Both paths end at the same list.
+	/// </para>
+	/// </summary>
+	/// <param name="trackId">Which of the caller's tracks.</param>
+	public Task AddRouteAsync(Guid trackId) =>
+		RunAsync(async () =>
+		{
+			await _api.AddRideRouteAsync(_rideId, new AddRideRouteRequest(trackId));
+			ApplyRoutes(await _api.ListRideRoutesAsync(_rideId));
+		});
+
+	/// <summary>
+	/// Organiser or leader: detaches a planned route (§5.4). The track itself is untouched — this
+	/// removes it from the ride, not from the owner's library.
+	/// </summary>
+	/// <param name="trackId">Which route.</param>
+	public Task RemoveRouteAsync(Guid trackId) =>
+		RunAsync(async () =>
+		{
+			await _api.RemoveRideRouteAsync(_rideId, trackId);
+			ApplyRoutes(await _api.ListRideRoutesAsync(_rideId));
+		});
 
 	/// <summary>Organiser only: Live → Completed, immediately or on a wind-down (§5.6).</summary>
 	public Task EndAsync(RideEndingDto ending) =>
@@ -240,7 +297,7 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MarkerAdded += OnMarkerUpserted;
 		_hub.MarkerUpdated += OnMarkerUpserted; // same treatment — upsert
 		_hub.MarkerRemoved += OnMarkerRemoved;
-		_hub.RouteUpdated += OnRouteUpdated;
+		_hub.RoutesChanged += OnRoutesChanged;
 		_hub.RideStateChanged += OnRideStateChanged;
 		_hub.SharingWindDownStarted += OnWindDownStarted;
 		_hub.PermissionsChanged += OnPermissionsChanged;
@@ -255,7 +312,7 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MarkerAdded -= OnMarkerUpserted;
 		_hub.MarkerUpdated -= OnMarkerUpserted;
 		_hub.MarkerRemoved -= OnMarkerRemoved;
-		_hub.RouteUpdated -= OnRouteUpdated;
+		_hub.RoutesChanged -= OnRoutesChanged;
 		_hub.RideStateChanged -= OnRideStateChanged;
 		_hub.SharingWindDownStarted -= OnWindDownStarted;
 		_hub.PermissionsChanged -= OnPermissionsChanged;
@@ -331,27 +388,45 @@ public sealed class RideSession : IAsyncDisposable
 		Raise();
 	}
 
-	private async void OnRouteUpdated(Guid rideId, Guid trackId)
+	private async void OnRoutesChanged(Guid rideId)
 	{
 		if (rideId != _rideId) return;
 
 		try
 		{
-			// The polyline the server hands us here is simplified for display, and that is fine
-			// for the gap list — GapCalculator's error against a simplified line is bounded by
-			// the simplifier's tolerance (§15.5), which is well below the off-route threshold.
-			TrackDetail detail = await _api.GetTrackAsync(trackId);
-			RoutePolyline = detail.Polyline;
+			ApplyRoutes(await _api.ListRideRoutesAsync(_rideId));
 		}
 		catch
 		{
-			// A route the client cannot fetch is treated the same as no route: the gap list stays
-			// empty rather than showing wrong numbers. A retry happens automatically on the next
-			// RouteUpdated event.
-			RoutePolyline = null;
+			// Routes the client cannot fetch leave the ones it already had on screen. Dropping
+			// them would blank the map because a single request failed, and the next change to
+			// the set — or the next load of the ride — refetches anyway.
 		}
 
 		Raise();
+	}
+
+	/// <summary>
+	/// Takes a fetched route list and derives what §5.4 projects riders against.
+	/// <para>
+	/// The lines arrive encoded (§15.5) and are decoded through <see cref="PolylineCodec"/>,
+	/// which is the encoder the server used — a second decoder is how a Sydney ride ended up
+	/// drawn off the Gulf of Guinea once already.
+	/// </para>
+	/// </summary>
+	private void ApplyRoutes(IReadOnlyList<RideRoute> routes)
+	{
+		Routes = routes;
+
+		// The first route, and only the first. "Distance along the route" needs one line to be
+		// along; the oldest attachment is the one that does not move when the organiser adds
+		// another option. A simplified line is fine here — GapCalculator's error against it is
+		// bounded by the simplifier's tolerance (§15.5), well below the off-route threshold.
+		RoutePolyline = routes.Count == 0
+			? null
+			: [.. PolylineCodec
+				.DecodePoints(routes[0].EncodedPolyline)
+				.Select(point => new TrackPoint(point.Latitude, point.Longitude))];
 	}
 
 	private void OnWindDownStarted(Guid rideId, DateTimeOffset endsUtc)

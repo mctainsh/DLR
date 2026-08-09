@@ -3,6 +3,8 @@ using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Rides;
+using DLR.Core.Contracts.Tracks;
+using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -73,6 +75,160 @@ public sealed class GroupRideInfoTests : BunitContext
 
 	private IRenderedComponent<GroupRideInfo> RenderInfo(Guid rideId) =>
 		Render<GroupRideInfo>(parameters => parameters.Add(p => p.RideId, rideId));
+
+	/// <summary>A route as the ride's route endpoint describes it (§5.4).</summary>
+	private static RideRoute Route(string name, double distanceM = 42_000, Guid trackId = default) => new(
+		TrackId: trackId == default ? Guid.NewGuid() : trackId,
+		Name: name,
+		DistanceM: distanceM,
+		PointCount: 2,
+		EncodedPolyline: PolylineCodec.EncodePoints([new TrackPoint(-33.86, 151.20), new TrackPoint(-33.87, 151.21)]),
+		Bounds: null,
+		AddedUtc: FixedInstant,
+		AddedByUserId: Guid.NewGuid(),
+		AddedByUserName: "DaveSmith");
+
+	[Fact]
+	public void Routes_AreListed_InTheColourTheMapDrawsThem()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		api.RoutesResult.Add(Route("The long way"));
+		api.RoutesResult.Add(Route("The short way"));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list li").Count.ShouldBe(2,
+				"§5.4: a ride carries a set of planned routes, and the panel lists all of them."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Markup.Contains("The long way", StringComparison.Ordinal).ShouldBeTrue();
+		component.Markup.Contains("The short way", StringComparison.Ordinal).ShouldBeTrue();
+
+		// The swatch is the colour that route is drawn in on the map. Two routes in one colour is
+		// a list that cannot be read against the map beside it.
+		(component.FindAll(".route-list .swatch")[0].GetAttribute("style") ?? string.Empty)
+			.ShouldContain(RoutePalette.At(0), Case.Insensitive);
+		(component.FindAll(".route-list .swatch")[1].GetAttribute("style") ?? string.Empty)
+			.ShouldContain(RoutePalette.At(1), Case.Insensitive);
+	}
+
+	[Fact]
+	public void Routes_AddAndRemove_AreHiddenFromAnOrdinaryMember()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: false);
+
+		api.RoutesResult.Add(Route("The long way"));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list li").ShouldNotBeEmpty(
+				"a member still sees which routes the ride is on — reading is membership."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Mirrors the server's owner-or-leader check, so the control is absent rather than there
+		// and 403-ing.
+		component.FindAll(".route-list .remove").ShouldBeEmpty(
+			"§5.4: the organiser decides which routes a ride has.");
+		component.FindAll("button").Any(button => button.TextContent.Contains("Add a route", StringComparison.Ordinal))
+			.ShouldBeFalse();
+	}
+
+	[Fact]
+	public async Task Organiser_AddsARoute_FromTheirOwnTracks()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		Guid trackId = Guid.NewGuid();
+		api.TracksResult =
+		[
+			new TrackSummary(trackId, "Saturday loop", FixedInstant, null, null, 42_000, null, null, null, 900, 1,
+				TrackSourceDto.Imported, 1),
+		];
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		await ClickAsync(component, "Add a route");
+
+		component.WaitForAssertion(
+			() => component.FindAll(".track-list button").ShouldNotBeEmpty(
+				"the picker offers the caller's own tracks — the only ones §15.4 lets them attach."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find(".track-list button").Click());
+
+		component.WaitForAssertion(
+			() => api.AddedRoutes.ShouldContain((rideId, trackId)),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(
+			() => component.Markup.Contains("Saturday loop", StringComparison.Ordinal).ShouldBeTrue(
+				"the attached route appears in the panel without a reload."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Organiser_RemovesARoute_AndItLeavesTheRide()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		RideRoute route = Route("The long way");
+		api.RoutesResult.Add(route);
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .remove").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find(".route-list .remove").Click());
+
+		component.WaitForAssertion(
+			() => api.RemovedRoutes.ShouldContain((rideId, route.TrackId)),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(
+			() => component.Markup.Contains("The long way", StringComparison.Ordinal).ShouldBeFalse(
+				"detaching removes it from the ride — the owner's track itself is untouched."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task RoutesChanged_HubEvent_RefetchesTheSet()
+	{
+		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		component.WaitForAssertion(
+			() => component.Markup.Contains("No route on this ride yet", StringComparison.Ordinal).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Somebody else attached one. The event carries the ride, not the routes — the lines are
+		// the largest thing a ride owns, so the client refetches rather than being pushed them.
+		api.RoutesResult.Add(Route("Added by the organiser"));
+
+		await component.InvokeAsync(() => hub.RaiseRoutesChanged(rideId));
+
+		component.WaitForAssertion(
+			() => component.Markup.Contains("Added by the organiser", StringComparison.Ordinal).ShouldBeTrue(
+				"§5.3: the hub is the delta on top of the snapshot."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	private static async Task ClickAsync(IRenderedComponent<GroupRideInfo> component, string text)
+	{
+		component.WaitForAssertion(
+			() => component.FindAll("button").Any(button => button.TextContent.Contains(text, StringComparison.Ordinal))
+				.ShouldBeTrue($"expected a button reading '{text}'."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.FindAll("button")
+			.First(button => button.TextContent.Contains(text, StringComparison.Ordinal))
+			.Click());
+	}
 
 	[Fact]
 	public async Task RideStateChanged_UpdatesTheStateBadge()

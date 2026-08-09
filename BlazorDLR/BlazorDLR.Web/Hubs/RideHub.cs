@@ -34,6 +34,18 @@ public interface IRideClient
 	/// <param name="state">Where it is now.</param>
 	Task RideStateChanged(RideStateDto state);
 
+	/// <summary>
+	/// A planned route was attached to or detached from the ride (§5.4).
+	/// <para>
+	/// A signal, not the routes themselves. The lines are the largest thing a ride owns, they
+	/// change rarely, and a client that has just been told the set moved is about to fetch it
+	/// anyway — pushing several thousand encoded points to every connection to save one GET
+	/// would be paying the fan-out cost for the payload §5.5 is careful about.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride's routes changed.</param>
+	Task RideRoutesChanged(Guid rideId);
+
 	/// <summary>Somebody placed a marker (§16.6).</summary>
 	/// <param name="marker">The marker.</param>
 	Task MarkerAdded(MarkerDto marker);

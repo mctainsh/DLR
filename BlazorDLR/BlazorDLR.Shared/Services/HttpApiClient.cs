@@ -223,6 +223,24 @@ public sealed class HttpApiClient : IApiClient
 		await ThrowIfFailedAsync(response, cancellationToken);
 	}
 
+	// -- Planned routes --
+
+	/// <inheritdoc />
+	public async Task<IReadOnlyList<RideRoute>> ListRideRoutesAsync(Guid rideId, CancellationToken cancellationToken = default) =>
+		await GetAsync<List<RideRoute>>($"/api/v1/group-rides/{rideId}/routes", cancellationToken);
+
+	/// <inheritdoc />
+	public Task<RideRoute> AddRideRouteAsync(Guid rideId, AddRideRouteRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<AddRideRouteRequest, RideRoute>($"/api/v1/group-rides/{rideId}/routes", request, cancellationToken);
+
+	/// <inheritdoc />
+	public async Task RemoveRideRouteAsync(Guid rideId, Guid trackId, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.DeleteAsync(
+			$"/api/v1/group-rides/{rideId}/routes/{trackId}", cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
 	// -- Positions --
 
 	/// <inheritdoc />

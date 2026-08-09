@@ -62,7 +62,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	/// <inheritdoc />
 	public event Action<Guid, RideStateDto>? RideStateChanged;
 	/// <inheritdoc />
-	public event Action<Guid, Guid>? RouteUpdated;
+	public event Action<Guid>? RoutesChanged;
 	/// <inheritdoc />
 	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
 	/// <inheritdoc />
@@ -115,7 +115,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.On<Guid, RideMemberSummary>("MemberJoined", (r, m) => MemberJoined?.Invoke(r, m));
 		connection.On<Guid, Guid>("MemberLeft", (r, u) => MemberLeft?.Invoke(r, u));
 		connection.On<Guid, RideStateDto>("RideStateChanged", (r, s) => RideStateChanged?.Invoke(r, s));
-		connection.On<Guid, Guid>("RouteUpdated", (r, t) => RouteUpdated?.Invoke(r, t));
+		connection.On<Guid>("RideRoutesChanged", r => RoutesChanged?.Invoke(r));
 		connection.On<Guid, JoinRequestSummary>("JoinRequestReceived", (r, req) => JoinRequestReceived?.Invoke(r, req));
 		connection.On<Guid, JoinResult>("JoinRequestDecided", (r, res) => JoinRequestDecided?.Invoke(r, res));
 		connection.On<Guid, MarkerDto>("MarkerAdded", (r, m) => MarkerAdded?.Invoke(r, m));

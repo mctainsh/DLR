@@ -40,4 +40,14 @@ public sealed class RideOptions
 	/// </para>
 	/// </summary>
 	public int MaxConcurrentLiveRidesPerUser { get; set; } = 5;
+
+	/// <summary>
+	/// How many planned routes one ride may carry (§5.4).
+	/// <para>
+	/// A ride has a handful — the short one, the long one, the way home. The cap is here because
+	/// every member downloads every route's line on every load of the ride, so an unbounded set is
+	/// a payload an organiser can grow on everyone else's connection.
+	/// </para>
+	/// </summary>
+	public int MaxRoutesPerRide { get; set; } = 10;
 }

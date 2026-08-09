@@ -39,7 +39,7 @@
 	else
 	{
 		<div class="map-fill">
-			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" ShowUserLocation="false"
+			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" Routes="_routeLayer" ShowUserLocation="false"
 					 OnViewportReported="OnMapViewportReported"
 					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="false" />
 		</div>
@@ -211,6 +211,12 @@
 	private MapCamera _camera = new(-33.868, 151.209, 11);
 	private MapViewport? _mapViewport;
 	private readonly Dictionary<Guid, MapMarker> _markerLayer = new();
+
+	/// <summary>
+	/// The ride's planned routes as the overlay draws them (§5.4), in the session's order so a
+	/// route's colour matches the one the info page's list gives it.
+	/// </summary>
+	private IReadOnlyList<RouteOverlay> _routeLayer = [];
 
 	private bool _menuOpen;
 	private bool _showMarkers;
@@ -446,6 +452,11 @@
 	/// </summary>
 	private void RebuildMapLayer()
 	{
+		// The lines arrive already encoded (§15.5), so this is a projection of the session's list
+		// rather than any geometry work — the overlay decodes each line once and keeps it.
+		_routeLayer = [.. _session.Routes.Select((route, index) =>
+			new RouteOverlay(route.EncodedPolyline, RoutePalette.At(index)))];
+
 		_markerLayer.Clear();
 		foreach (RiderPositionDto position in _session.Positions.Values)
 		{

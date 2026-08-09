@@ -42,8 +42,16 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <summary>The ride's lifecycle changed (§5.1).</summary>
 	event Action<Guid, RideStateDto>? RideStateChanged;
 
-	/// <summary>The planned route was replaced.</summary>
-	event Action<Guid, Guid>? RouteUpdated;
+	/// <summary>
+	/// A route was attached to or detached from the ride (§5.4).
+	/// <para>
+	/// Carries the ride, not the routes — the receiver refetches, because the lines are the
+	/// largest thing a ride owns and they change rarely. Replaces the single-route
+	/// <c>RouteUpdated(rideId, trackId)</c> this used to declare: a ride carries a set of
+	/// routes now, so "the route was replaced" is no longer a thing that can happen.
+	/// </para>
+	/// </summary>
+	event Action<Guid>? RoutesChanged;
 
 	/// <summary>A pending request arrived — organiser only (§5.2).</summary>
 	event Action<Guid, JoinRequestSummary>? JoinRequestReceived;

@@ -105,6 +105,23 @@ public interface IApiClient
 	/// <summary><c>DELETE /api/v1/group-rides/{id}/members/{userId}</c> — organiser removes a member.</summary>
 	Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default);
 
+	// -- Planned routes (§5.4) ------------------------------------------------------------
+
+	/// <summary>
+	/// <c>GET /api/v1/group-rides/{id}/routes</c> — the ride's planned routes, oldest first.
+	/// <para>
+	/// The only way a member reads a route somebody else owns: <c>GET /tracks/{id}</c> is
+	/// owner-scoped and answers 404 to everybody else (§15.4).
+	/// </para>
+	/// </summary>
+	Task<IReadOnlyList<RideRoute>> ListRideRoutesAsync(Guid rideId, CancellationToken cancellationToken = default);
+
+	/// <summary><c>POST /api/v1/group-rides/{id}/routes</c> — attach one of the caller's tracks.</summary>
+	Task<RideRoute> AddRideRouteAsync(Guid rideId, AddRideRouteRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary><c>DELETE /api/v1/group-rides/{id}/routes/{trackId}</c> — detach; the track is untouched.</summary>
+	Task RemoveRideRouteAsync(Guid rideId, Guid trackId, CancellationToken cancellationToken = default);
+
 	// -- Positions (§5.3, §5.7) -----------------------------------------------------------
 
 	/// <summary><c>GET /api/v1/group-rides/{id}/positions</c> — snapshot after reconnect (§5.3).</summary>

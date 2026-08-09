@@ -236,6 +236,55 @@ public sealed class FakeApiClient : IApiClient
 	public Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default) { Record(nameof(LeaveRideAsync)); return Task.CompletedTask; }
 	public Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default) { Record(nameof(RemoveMemberAsync)); return Task.CompletedTask; }
 
+	/// <summary>
+	/// What <see cref="ListRideRoutesAsync"/> hands back (§5.4). Mutable rather than a fixed list,
+	/// because attaching and detaching are meant to be visible in a later call — a test that adds
+	/// a route asserts on what the panel shows afterwards.
+	/// </summary>
+	public List<RideRoute> RoutesResult { get; } = new();
+
+	/// <summary>Every track id passed to <see cref="AddRideRouteAsync"/>, in order.</summary>
+	public List<(Guid RideId, Guid TrackId)> AddedRoutes { get; } = new();
+
+	/// <summary>Every track id passed to <see cref="RemoveRideRouteAsync"/>, in order.</summary>
+	public List<(Guid RideId, Guid TrackId)> RemovedRoutes { get; } = new();
+
+	public Task<IReadOnlyList<RideRoute>> ListRideRoutesAsync(Guid rideId, CancellationToken cancellationToken = default) =>
+		Task.FromResult(Recorded(nameof(ListRideRoutesAsync), (IReadOnlyList<RideRoute>)[.. RoutesResult]));
+
+	public Task<RideRoute> AddRideRouteAsync(Guid rideId, AddRideRouteRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(AddRideRouteAsync));
+		AddedRoutes.Add((rideId, request.TrackId));
+
+		// The server answers with the whole set refreshed; the fake keeps that true by adding to
+		// its own list, so a component that refetches after attaching sees what it just added.
+		TrackSummary? track = TracksResult.FirstOrDefault(row => row.Id == request.TrackId);
+
+		RideRoute added = new(
+			request.TrackId,
+			track?.Name,
+			track?.DistanceM ?? 0,
+			track?.PointCount ?? 0,
+			EncodedPolyline: string.Empty,
+			Bounds: null,
+			AddedUtc: SampleInstant,
+			AddedByUserId: Guid.Empty,
+			AddedByUserName: "test");
+
+		RoutesResult.Add(added);
+
+		return Task.FromResult(added);
+	}
+
+	public Task RemoveRideRouteAsync(Guid rideId, Guid trackId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(RemoveRideRouteAsync));
+		RemovedRoutes.Add((rideId, trackId));
+		RoutesResult.RemoveAll(route => route.TrackId == trackId);
+		return Task.CompletedTask;
+	}
+
 	public Task<IReadOnlyList<RiderPositionDto>> GetPositionsSnapshotAsync(Guid rideId, CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(GetPositionsSnapshotAsync), PositionsResult));
 	public Task<PublishResult> PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 

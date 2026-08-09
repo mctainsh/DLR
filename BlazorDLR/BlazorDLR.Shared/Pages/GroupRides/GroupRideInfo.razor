@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
 @using DLR.Core.Contracts.Rides
+@using DLR.Core.Contracts.Tracks
 @inject IApiClient Api
 @inject IRideHubClient Hub
 @inject AuthState Auth
@@ -71,6 +72,110 @@
 
 		<div class="panels">
 			<MemberList Members="ride.Members" />
+
+			@*
+				The ride's planned routes (§5.4). A set rather than one line, because a day out is
+				commonly the short option and the long option, or the way out and the way home.
+				Each row's swatch is the colour that route is drawn in on the map, so the list and
+				the map name the same thing the same way.
+			*@
+			<div class="routes">
+				<h3>Routes</h3>
+
+				@if (_session.Routes.Count == 0)
+				{
+					<p class="hint">No route on this ride yet.</p>
+				}
+				else
+				{
+					<ul class="route-list">
+						@for (int index = 0; index < _session.Routes.Count; index++)
+						{
+							RideRoute route = _session.Routes[index];
+
+							<li>
+								<span class="swatch" style="background: @RoutePalette.At(index)" aria-hidden="true"></span>
+								<span class="what">
+									<strong>@(route.Name ?? "Unnamed route")</strong>
+									<em>
+										@FormatKm(route.DistanceM)
+										@if (index == 0 && _session.Routes.Count > 1)
+										{
+											@* §5.4 projects riders against one line, and it is this one. *@
+											<span class="primary" title="Gaps and off-route warnings use this route">· gaps use this</span>
+										}
+									</em>
+								</span>
+
+								@if (_session.CanManageRoutes)
+								{
+									<button type="button" class="remove"
+											@onclick="() => RemoveRouteAsync(route)"
+											disabled="@_session.Busy"
+											aria-label="@($"Remove {route.Name ?? "unnamed route"} from this ride")">
+										Remove
+									</button>
+								}
+							</li>
+						}
+					</ul>
+				}
+
+				@if (_session.CanManageRoutes)
+				{
+					@if (!_addingRoute)
+					{
+						<button type="button" class="primary" @onclick="OpenRoutePickerAsync" disabled="@_session.Busy">
+							Add a route…
+						</button>
+					}
+					else
+					{
+						<div class="route-picker">
+							@* The error is tested first: a failed fetch leaves _tracks null so that
+							   re-opening the picker tries again, which means "still null" and
+							   "could not be fetched" would otherwise look the same. *@
+							@if (_tracksError is { } trouble)
+							{
+								<p class="error">@trouble</p>
+							}
+							else if (_tracks is null)
+							{
+								<p class="hint">Loading your tracks…</p>
+							}
+							else if (Attachable.Count == 0)
+							{
+								@*
+									Only the caller's own tracks can be attached (§15.4) — a route
+									somebody sent you is added by importing the GPX they sent, which
+									is the copy feature and needs no endpoint of its own.
+								*@
+								<p class="hint">
+									Nothing left to add. Routes come from your own tracks —
+									<a href="/import">import a GPX</a> or record a ride first.
+								</p>
+							}
+							else
+							{
+								<ul class="track-list">
+									@foreach (TrackSummary track in Attachable)
+									{
+										<li>
+											<button type="button" @onclick="() => AddRouteAsync(track)"
+													disabled="@_session.Busy">
+												<strong>@(track.Name ?? "Unnamed track")</strong>
+												<em>@FormatKm(track.DistanceM)</em>
+											</button>
+										</li>
+									}
+								</ul>
+							}
+
+							<button type="button" class="cancel" @onclick="CloseRoutePicker">Cancel</button>
+						</div>
+					}
+				}
+			</div>
 
 			@if (ride.State == RideStateDto.Live)
 			{
@@ -151,7 +256,39 @@
 	private RideSession _session = default!;
 	private bool _showEndDialog;
 
+	/// <summary>Whether the "add a route" picker is open.</summary>
+	private bool _addingRoute;
+
+	/// <summary>
+	/// The caller's own tracks, fetched when the picker is first opened rather than on load.
+	/// Most visits to this page never attach anything, and the list is only useful to the two
+	/// people who may.
+	/// </summary>
+	private IReadOnlyList<TrackSummary>? _tracks;
+
+	private string? _tracksError;
+
 	private string Title => _session?.Ride?.Name ?? "Ride";
+
+	/// <summary>
+	/// The tracks that could still be added: the caller's own, minus the ones already on the ride.
+	/// Filtered here rather than server-side because the server's list endpoint is the ordinary
+	/// track list and has no business knowing about this screen.
+	/// </summary>
+	private IReadOnlyList<TrackSummary> Attachable
+	{
+		get
+		{
+			if (_tracks is null)
+			{
+				return [];
+			}
+
+			HashSet<Guid> attached = [.. _session.Routes.Select(route => route.TrackId)];
+
+			return [.. _tracks.Where(track => !attached.Contains(track.Id))];
+		}
+	}
 
 	protected override void OnInitialized()
 	{
@@ -167,8 +304,63 @@
 		}
 
 		_showEndDialog = false;
+		CloseRoutePicker();
+
+		// Cleared rather than kept: a different ride is a different set of already-attached
+		// tracks, and a stale list would offer one that is on this ride already.
+		_tracks = null;
+		_tracksError = null;
+
 		await _session.LoadAsync(RideId);
 	}
+
+	// -- Routes (§5.4) ------------------------------------------------------------------------
+
+	private async Task OpenRoutePickerAsync()
+	{
+		_addingRoute = true;
+
+		if (_tracks is not null)
+		{
+			return;
+		}
+
+		// Cleared before the retry, so a second attempt that succeeds does not leave the previous
+		// failure showing above the list it contradicts.
+		_tracksError = null;
+
+		try
+		{
+			_tracks = await Api.ListTracksAsync();
+		}
+		catch (ApiException apiException)
+		{
+			// Stated where the picker is, not over the whole page: the rest of the ride is fine,
+			// and the next tap of "Add a route…" tries again.
+			_tracksError = apiException.Error.Title;
+		}
+		catch (Exception exception)
+		{
+			_tracksError = exception.Message;
+		}
+	}
+
+	private void CloseRoutePicker() => _addingRoute = false;
+
+	private async Task AddRouteAsync(TrackSummary track)
+	{
+		await _session.AddRouteAsync(track.Id);
+
+		// Left open on failure so the stated error sits next to the list it came from.
+		if (_session.Error is null)
+		{
+			CloseRoutePicker();
+		}
+	}
+
+	private Task RemoveRouteAsync(RideRoute route) => _session.RemoveRouteAsync(route.TrackId);
+
+	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
 
 	private void OnSessionChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -259,10 +451,119 @@
 			font-size: 1rem;
 		}
 
-	.ride-info .sharing, .ride-info .organiser {
+	.ride-info .sharing, .ride-info .organiser, .ride-info .routes {
 		padding: 0.75rem;
 		background: #fff2;
 		border-radius: 6px;
+	}
+
+	.ride-info .route-list, .ride-info .track-list {
+		list-style: none;
+		margin: 0 0 0.5rem;
+		padding: 0;
+	}
+
+	.ride-info .route-list li {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.35rem 0;
+	}
+
+		.ride-info .route-list li + li {
+			border-top: 1px solid #ffffff1f;
+		}
+
+	/* The colour this route is drawn in on the map, so the list and the map agree. */
+	.ride-info .route-list .swatch {
+		flex: 0 0 auto;
+		width: 0.9rem;
+		height: 0.9rem;
+		border-radius: 3px;
+		border: 1px solid #0006;
+	}
+
+	.ride-info .route-list .what {
+		flex: 1;
+		min-width: 0;
+	}
+
+		/* A track name is whatever a GPX file called it, which can be very long. */
+		.ride-info .route-list .what strong {
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.ride-info .route-list .what em {
+			font-size: 0.85rem;
+			opacity: 0.75;
+		}
+
+		.ride-info .route-list .what .primary {
+			margin-left: 0.35rem;
+		}
+
+	.ride-info .route-list .remove {
+		flex: 0 0 auto;
+		padding: 0.25rem 0.6rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border, #ffffff33);
+		border-radius: 4px;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+
+		.ride-info .route-list .remove:disabled {
+			opacity: 0.6;
+			cursor: default;
+		}
+
+	.ride-info .routes > button {
+		padding: 0.4rem 0.8rem;
+	}
+
+	.ride-info .track-list li + li {
+		border-top: 1px solid #ffffff1f;
+	}
+
+	/* The whole row picks the track, so it is a button that has to read as a list row. */
+	.ride-info .track-list button {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+		width: 100%;
+		padding: 0.45rem 0;
+		background: transparent;
+		border: 0;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+
+		.ride-info .track-list button strong {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.ride-info .track-list button em {
+			flex: 0 0 auto;
+			font-size: 0.85rem;
+			opacity: 0.75;
+		}
+
+	.ride-info .route-picker .cancel {
+		padding: 0.35rem 0.7rem;
+		background: transparent;
+		border: 0;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
 	}
 
 	.ride-info .organiser a {

@@ -24,7 +24,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<Guid, RideMemberSummary>? MemberJoined;
 	public event Action<Guid, Guid>? MemberLeft;
 	public event Action<Guid, RideStateDto>? RideStateChanged;
-	public event Action<Guid, Guid>? RouteUpdated;
+	public event Action<Guid>? RoutesChanged;
 	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
 	public event Action<Guid, JoinResult>? JoinRequestDecided;
 	public event Action<Guid, MarkerDto>? MarkerAdded;
@@ -75,7 +75,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public void RaiseReactionsUpdated(Guid commentId, ReactionCounts counts) => ReactionsUpdated?.Invoke(commentId, counts);
 	public void RaiseRideStateChanged(Guid rideId, RideStateDto state) => RideStateChanged?.Invoke(rideId, state);
 	public void RaisePermissionsChanged(Guid rideId, RidePermissions permissions) => PermissionsChanged?.Invoke(rideId, permissions);
-	public void RaiseRouteUpdated(Guid rideId, Guid trackId) => RouteUpdated?.Invoke(rideId, trackId);
+	public void RaiseRoutesChanged(Guid rideId) => RoutesChanged?.Invoke(rideId);
 	public void RaiseMemberJoined(Guid rideId, RideMemberSummary member) => MemberJoined?.Invoke(rideId, member);
 	public void RaiseMemberLeft(Guid rideId, Guid userId) => MemberLeft?.Invoke(rideId, userId);
 	public void RaiseMemberSharingChanged(Guid rideId, Guid userId, bool sharing) => MemberSharingChanged?.Invoke(rideId, userId, sharing);

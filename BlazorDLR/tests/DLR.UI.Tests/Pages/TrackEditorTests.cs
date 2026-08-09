@@ -142,8 +142,10 @@ public sealed class TrackEditorTests : BunitContext
 		// §15.5: the line is encoded by the one codec, and the overlay decodes with the same
 		// one — a precision mismatch here is what once drew every track a continent away and
 		// left the map looking empty rather than wrong.
-		drawn.Route.ShouldNotBeNull("a track editor that draws no track cannot be tapped.");
-		PolylineCodec.DecodePoints(drawn.Route!.EncodedPolyline)
+		// One line, because an editor edits one track — the parameter is a list only because a
+		// group ride may have several planned routes on the same map (§5.4).
+		drawn.Routes.ShouldNotBeNull("a track editor that draws no track cannot be tapped.");
+		PolylineCodec.DecodePoints(drawn.Routes!.Single().EncodedPolyline)
 			.Select(point => point.Longitude)
 			.ShouldBe(Line.Select(point => point.Longitude), tolerance: 1e-6);
 

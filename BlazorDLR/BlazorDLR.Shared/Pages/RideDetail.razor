@@ -40,7 +40,7 @@
 			<dd>@_track.Track.PointCount</dd>
 		</dl>
 
-		<RideMap Camera="_mapCamera" Route="_route" />
+		<RideMap Camera="_mapCamera" Routes="_routes" />
 	}
 </div>
 
@@ -50,7 +50,7 @@
 	private TrackDetail? _track;
 	private string? _error;
 	private MapCamera _mapCamera = new(0, 0, 2);
-	private RouteOverlay? _route;
+	private IReadOnlyList<RouteOverlay>? _routes;
 
 	private string Title => _track?.Track.Name ?? "Ride";
 
@@ -58,7 +58,7 @@
 	{
 		_track = null;
 		_error = null;
-		_route = null;
+		_routes = null;
 
 		try
 		{
@@ -83,7 +83,7 @@
 			if (_track.Polyline.Count > 0)
 			{
 				string encoded = PolylineCodec.EncodePoints(_track.Polyline);
-				_route = new RouteOverlay(encoded);
+				_routes = [new RouteOverlay(encoded)];
 			}
 		}
 		catch (Exception exception)

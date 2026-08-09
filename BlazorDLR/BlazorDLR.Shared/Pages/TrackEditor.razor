@@ -87,7 +87,7 @@
 			server's: an interior cut becomes a segment break there (§15.3), which one
 			polyline overlay cannot express.
 		*@
-		<RideMap Camera="_mapCamera" Route="_route" Markers="_cursorLayer"
+		<RideMap Camera="_mapCamera" Routes="_routes" Markers="_cursorLayer"
 				 OnMapClicked="OnMapTapped" OnViewportReported="OnViewportReported" />
 
 		@if (session.Cursor is { } cursor)
@@ -155,7 +155,7 @@
 	private bool _busy;
 
 	private MapCamera _mapCamera = new(0, 0, 2);
-	private RouteOverlay? _route;
+	private IReadOnlyList<RouteOverlay>? _routes;
 	private IReadOnlyDictionary<Guid, MapMarker>? _cursorLayer;
 	private MapViewport? _viewport;
 
@@ -322,7 +322,7 @@
 
 		IReadOnlyList<TrackPoint> line = DisplayLine(session.SurvivingPoints);
 
-		_route = line.Count > 1 ? new RouteOverlay(PolylineCodec.EncodePoints(line)) : null;
+		_routes = line.Count > 1 ? [new RouteOverlay(PolylineCodec.EncodePoints(line))] : null;
 
 		// MarkerKind.Rider is the overlay's bare disc-and-label rendering — no icon, no emoji
 		// (§16.3). That is exactly what a cursor wants: every curated icon key means something

@@ -25,8 +25,11 @@
 			  class="dlr-map-overlay" />
 
 @code {
-	/// <summary>Route drawn under the pins.</summary>
-	[Parameter] public RouteOverlay? Route { get; set; }
+	/// <summary>
+	/// Routes drawn under the pins, in the order they should stack — later ones over earlier.
+	/// A ride may have several planned routes (§5.4); a track detail has exactly one.
+	/// </summary>
+	[Parameter] public IReadOnlyList<RouteOverlay>? Routes { get; set; }
 
 	/// <summary>Markers to draw. Ordered by ascending latitude so higher pins draw over lower.</summary>
 	[Parameter] public IReadOnlyDictionary<Guid, MapMarker>? Markers { get; set; }
@@ -35,27 +38,65 @@
 	[Parameter] public MapViewport Viewport { get; set; }
 
 	private SKCanvasView? _view;
-	private IReadOnlyList<(double Latitude, double Longitude)>? _decodedRoute;
-	private string? _decodedRouteKey;
+
+	/// <summary>One route's line, decoded and ready to project. Rebuilt on every parameter set.</summary>
+	private readonly record struct DecodedRoute(
+		IReadOnlyList<(double Latitude, double Longitude)> Points,
+		SKColor Colour);
+
+	private IReadOnlyList<DecodedRoute> _decodedRoutes = [];
+
+	/// <summary>
+	/// Decoded lines, keyed on the encoded string they came from. Encoded polylines are large
+	/// but stable, so a ride whose positions arrive once a second must not re-decode several
+	/// thousand points per frame. Keyed rather than indexed so adding a route does not
+	/// invalidate the ones already decoded.
+	/// </summary>
+	private readonly Dictionary<string, IReadOnlyList<(double Latitude, double Longitude)>> _lineCache =
+		new(StringComparer.Ordinal);
 
 	protected override void OnParametersSet()
 	{
-		// Route encoded polylines are large but stable; decode once per unique polyline
-		// rather than on every paint. Keying on the encoded string lets a caller swap the
-		// whole overlay without keeping any state we would have to invalidate.
-		if (Route is null)
+		if (Routes is not { Count: > 0 } routes)
 		{
-			_decodedRoute = null;
-			_decodedRouteKey = null;
+			_decodedRoutes = [];
+			_lineCache.Clear();
 		}
-		else if (!ReferenceEquals(Route.EncodedPolyline, _decodedRouteKey))
+		else
 		{
-			// PolylineCodec is the only implementation of this encoding (§15.5) and the one
-			// the server encodes with. A second decoder here is how the line ended up drawn
-			// at a tenth of its coordinates — precision 5 against a precision 6 encoder puts
-			// a Sydney ride off the Gulf of Guinea, so the map looked empty rather than wrong.
-			_decodedRoute = PolylineCodec.DecodePoints(Route.EncodedPolyline);
-			_decodedRouteKey = Route.EncodedPolyline;
+			List<DecodedRoute> decoded = new(routes.Count);
+			HashSet<string> live = new(routes.Count, StringComparer.Ordinal);
+
+			foreach (RouteOverlay route in routes)
+			{
+				live.Add(route.EncodedPolyline);
+
+				if (!_lineCache.TryGetValue(route.EncodedPolyline, out IReadOnlyList<(double, double)>? points))
+				{
+					// PolylineCodec is the only implementation of this encoding (§15.5) and the
+					// one the server encodes with. A second decoder here is how the line ended up
+					// drawn at a tenth of its coordinates — precision 5 against a precision 6
+					// encoder puts a Sydney ride off the Gulf of Guinea, so the map looked empty
+					// rather than wrong.
+					points = PolylineCodec.DecodePoints(route.EncodedPolyline);
+					_lineCache[route.EncodedPolyline] = points;
+				}
+
+				decoded.Add(new DecodedRoute(points, ParseColour(route.Colour)));
+			}
+
+			// A route detached is a line nobody will ask for again. Without this the editor —
+			// which hands this component a freshly encoded line on every cursor drag — would
+			// accumulate a decoded copy of every intermediate state it ever showed.
+			if (_lineCache.Count > live.Count)
+			{
+				foreach (string stale in _lineCache.Keys.Where(key => !live.Contains(key)).ToList())
+				{
+					_lineCache.Remove(stale);
+				}
+			}
+
+			_decodedRoutes = decoded;
 		}
 
 		_view?.Invalidate();
@@ -114,14 +155,17 @@
 			return;
 		}
 
-		DrawRoute(canvas);
+		DrawRoutes(canvas);
 		DrawMarkers(canvas);
 	}
 
-	private void DrawRoute(SKCanvas canvas)
+	private void DrawRoutes(SKCanvas canvas)
 	{
-		if (_decodedRoute is null || _decodedRoute.Count < 2) return;
+		if (_decodedRoutes.Count == 0) return;
 
+		// One paint for every line, with only its colour changed between them. This is the
+		// per-frame allocation the static paints above exist to avoid; a route list is short
+		// enough that the loop is cheap and long enough that a paint each would not be.
 		using SKPaint stroke = new()
 		{
 			Style = SKPaintStyle.Stroke,
@@ -129,19 +173,25 @@
 			IsAntialias = true,
 			StrokeCap = SKStrokeCap.Round,
 			StrokeJoin = SKStrokeJoin.Round,
-			Color = ParseColour(Route?.Colour ?? "#2563eb"),
 		};
 
-		using SKPath path = new();
-		bool first = true;
-		foreach ((double latitude, double longitude) in _decodedRoute)
+		foreach (DecodedRoute route in _decodedRoutes)
 		{
-			SKPoint screen = Project(latitude, longitude);
-			if (first) { path.MoveTo(screen); first = false; }
-			else { path.LineTo(screen); }
-		}
+			if (route.Points.Count < 2) continue;
 
-		canvas.DrawPath(path, stroke);
+			stroke.Color = route.Colour;
+
+			using SKPath path = new();
+			bool first = true;
+			foreach ((double latitude, double longitude) in route.Points)
+			{
+				SKPoint screen = Project(latitude, longitude);
+				if (first) { path.MoveTo(screen); first = false; }
+				else { path.LineTo(screen); }
+			}
+
+			canvas.DrawPath(path, stroke);
+		}
 	}
 
 	private void DrawMarkers(SKCanvas canvas)

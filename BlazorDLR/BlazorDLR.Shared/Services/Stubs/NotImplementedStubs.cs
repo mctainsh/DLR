@@ -70,6 +70,9 @@ public sealed class ThrowingApiClient : IApiClient
 	public Task SetSharingAsync(Guid rideId, SetSharingRequest request, CancellationToken cancellationToken = default) => AsyncVoidThrow();
 	public Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default) => AsyncVoidThrow();
 	public Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default) => AsyncVoidThrow();
+	public Task<IReadOnlyList<RideRoute>> ListRideRoutesAsync(Guid rideId, CancellationToken cancellationToken = default) => AsyncThrow<IReadOnlyList<RideRoute>>();
+	public Task<RideRoute> AddRideRouteAsync(Guid rideId, AddRideRouteRequest request, CancellationToken cancellationToken = default) => AsyncThrow<RideRoute>();
+	public Task RemoveRideRouteAsync(Guid rideId, Guid trackId, CancellationToken cancellationToken = default) => AsyncVoidThrow();
 	public Task<IReadOnlyList<RiderPositionDto>> GetPositionsSnapshotAsync(Guid rideId, CancellationToken cancellationToken = default) => AsyncThrow<IReadOnlyList<RiderPositionDto>>();
 	public Task<PublishResult> PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default) => AsyncThrow<PublishResult>();
 	public Task<MarkerDto> CreateMarkerAsync(CreateMarkerRequest request, CancellationToken cancellationToken = default) => AsyncThrow<MarkerDto>();
@@ -110,7 +113,7 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 	public event Action<Guid, RideMemberSummary>? MemberJoined;
 	public event Action<Guid, Guid>? MemberLeft;
 	public event Action<Guid, RideStateDto>? RideStateChanged;
-	public event Action<Guid, Guid>? RouteUpdated;
+	public event Action<Guid>? RoutesChanged;
 	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
 	public event Action<Guid, JoinResult>? JoinRequestDecided;
 	public event Action<Guid, MarkerDto>? MarkerAdded;

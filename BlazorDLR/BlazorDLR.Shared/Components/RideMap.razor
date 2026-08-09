@@ -23,7 +23,7 @@
 
 	@if (_viewport is { CanvasWidthPx: > 0 } vp)
 	{
-		<SkiaMapOverlay Viewport="vp" Markers="Markers" Route="Route" />
+		<SkiaMapOverlay Viewport="vp" Markers="Markers" Routes="Routes" />
 	}
 </div>
 
@@ -42,8 +42,11 @@
 	/// <summary>Whether the base map draws its own current-position marker.</summary>
 	[Parameter] public bool ShowUserLocation { get; set; }
 
-	/// <summary>The route drawn under the pins (§15.5).</summary>
-	[Parameter] public RouteOverlay? Route { get; set; }
+	/// <summary>
+	/// The routes drawn under the pins (§15.5). A list, because a group ride may have several
+	/// planned routes (§5.4) — a track detail passes a one-element one.
+	/// </summary>
+	[Parameter] public IReadOnlyList<RouteOverlay>? Routes { get; set; }
 
 	/// <summary>Markers to draw (§16). Keyed on id for idempotent upsert on the Skia side.</summary>
 	[Parameter] public IReadOnlyDictionary<Guid, MapMarker>? Markers { get; set; }

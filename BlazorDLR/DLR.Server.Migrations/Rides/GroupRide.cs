@@ -168,6 +168,12 @@ public sealed class GroupRide
 
 	/// <summary>Everybody in.</summary>
 	public ICollection<GroupRideMember> Members { get; set; } = [];
+
+	/// <summary>
+	/// The planned routes, oldest attachment first (§5.4). Several, not one — a day out is
+	/// commonly the short option and the long option, or the way out and the way home.
+	/// </summary>
+	public ICollection<GroupRideRoute> Routes { get; set; } = [];
 }
 
 /// <summary>Somebody who is in a ride (§5.2).</summary>
