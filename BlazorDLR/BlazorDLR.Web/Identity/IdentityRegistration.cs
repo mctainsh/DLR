@@ -44,7 +44,7 @@ public static class IdentityRegistration
 					PasswordResetTokenProvider.ProviderName;
 			})
 			.AddUserValidator<UserNameValidator>()
-			//.AddPasswordValidator<BreachedPasswordValidator>()
+			.AddPasswordValidator<BreachedPasswordValidator>()
 			.AddEntityFrameworkStores<DlrDbContext>()
 			.AddTokenProvider<EmailConfirmationTokenProvider>(EmailConfirmationTokenProvider.ProviderName)
 			.AddTokenProvider<PasswordResetTokenProvider>(PasswordResetTokenProvider.ProviderName);

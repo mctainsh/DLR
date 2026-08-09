@@ -25,7 +25,12 @@ public sealed class EmailAndPasswordTests(PostgresFixture postgres)
 	private const string ChangeUrl = "/api/v1/auth/change-password";
 	private const string TokenUrl = "/api/v1/auth/token";
 
-	private const string NewPassword = "an-entirely-different-passphrase";
+	// Distinct from TestRegistration.ValidPassword and, like it, satisfying the composition rules
+	// the operator turned on in §7.2's revision — uppercase, lowercase, digit. None of the tests
+	// below are about the policy (ChangePassword_NewPasswordBelowPolicy_IsRejected is); the
+	// password is fixture data, and it only has to be accepted so the reset and revocation
+	// assertions are the ones that can fail.
+	private const string NewPassword = "An-Entirely-Different-Passphrase-7";
 
 	/// <summary>
 	/// The first test in §7.7, and it exists to catch a refactor rather than a bug.

@@ -48,8 +48,8 @@ public sealed class SourceOfferFooterTests : BunitContext
 			string markup = component.Markup;
 			markup.Contains("AGPL-3.0-only", StringComparison.Ordinal)
 				.ShouldBeTrue("the licence line is what §13 requires.");
-			markup.Contains("dumbluckrides/dlr", StringComparison.Ordinal)
-				.ShouldBeTrue("the source URL is the §13 offer.");
+			markup.Contains("mctainsh/dlr-render-test", StringComparison.Ordinal)
+				.ShouldBeTrue("the source URL is the §13 offer, rendered verbatim from the About response.");
 			markup.Contains("abcd123456", StringComparison.Ordinal)
 				.ShouldBeTrue("a commit is rendered truncated so it fits in a footer; the full SHA is in the DOM.");
 		}, timeout: TimeSpan.FromSeconds(3));

@@ -174,13 +174,17 @@ public sealed class SharingTests(PostgresFixture postgres)
 		Guid riderId = (await organiser.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{ride.Id}"))!
 			.Members.Single(member => member.UserName == "SamJones").UserId;
 
-		// No route accepts a user id here, so this is a 404 from routing rather than a refusal
-		// from a check somebody could delete.
+		// No route accepts a user id here, so this is refused by routing rather than by a check
+		// somebody could delete. Routing answers 405 rather than 404 because the host also serves
+		// the Blazor app: MapStaticAssets registers a `{**path:file}` catch-all limited to
+		// GET/HEAD, which claims every otherwise-unmatched path and turns a non-GET into "method
+		// not allowed". Either code carries the assertion — the point is that no PUT handler
+		// exists at this path, not which flavour of refusal the router reaches for.
 		using HttpResponseMessage byId = await organiser.PutAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/sharing/{riderId}",
 			new SetSharingRequest(Share: true));
 
-		byId.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+		byId.StatusCode.ShouldBeOneOf(HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed);
 
 		// And the organiser turning their own switch on moves nobody else's.
 		await ShareAsync(organiser, ride.Id, share: true);

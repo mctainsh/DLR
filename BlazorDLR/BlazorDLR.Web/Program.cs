@@ -233,7 +233,16 @@ else
 	app.UseHsts();
 }
 
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+// Re-executing a bodyless error response into the razor pipeline is right for a browser
+// navigation and wrong for every API caller, so it is scoped off /api/* for the same reason
+// the antiforgery branch below is. The re-execute rewrites the request to GET-or-POST
+// /not-found, which loses the original path and — worse — changes the status the client sees:
+// a 401 on `PUT /api/v1/me/profile` came back as 405 (the razor endpoint has no PUT), and a
+// 401 or 403 on any API POST came back as 400 (antiforgery runs on the re-executed path,
+// which no longer starts with /api). An API client must receive the status the endpoint chose.
+app.UseWhen(
+	static context => !context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase),
+	branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 
 app.UseAuthentication();
 app.UseAuthorization();
