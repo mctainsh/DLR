@@ -10,6 +10,8 @@
 @inject ConfirmService Confirm
 @inject NavigationManager Nav
 @inject PrivateAreaState PrivateAreas
+@inject IDeviceSettings Settings
+@inject TimeProvider Clock
 @implements IAsyncDisposable
 
 @*
@@ -42,7 +44,7 @@
 		<div class="map-fill">
 			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" Routes="_routeLayer"
 					 Circles="_privateAreaLayer" ShowUserLocation="false"
-					 OnViewportReported="OnMapViewportReported"
+					 OnViewportReported="OnMapViewportReportedAsync"
 					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="false" />
 		</div>
 
@@ -64,11 +66,14 @@
 		}
 
 		<div class="chrome">
-			<button type="button" class="hamburger @(_menuOpen ? "open" : null)"
+			@* The dot on the button says "this map is not sitting still because you left it there".
+			   Without it, a rider who has forgotten the mode is on reads the map undoing their pan
+			   as a fault rather than as the thing they asked for. *@
+			<button type="button" class="hamburger @(_menuOpen ? "open" : null) @(_followMe ? "following" : null)"
 					@onclick="ToggleMenu"
 					aria-haspopup="menu"
 					aria-expanded="@(_menuOpen ? "true" : "false")"
-					aria-label="Ride actions">
+					aria-label="@(_followMe ? "Ride actions — the map is following you" : "Ride actions")">
 				<i class="fa fa-bars" aria-hidden="true"></i>
 			</button>
 
@@ -95,6 +100,22 @@
 					</button>
 
 					<hr />
+
+					@*
+						Below the rule: what the map itself is doing, as opposed to where the
+						menu can take you. A checkbox rather than a plain item, because it is a
+						mode that stays on after the menu closes — role="menuitemcheckbox" is
+						what tells a screen reader that, and aria-checked is what carries it.
+					*@
+					<button type="button" role="menuitemcheckbox" class="@(_followMe ? "checked" : null)"
+							aria-checked="@(_followMe ? "true" : "false")"
+							@onclick="ToggleFollowMeAsync">
+						<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i> Follow me
+						@if (_followMe)
+						{
+							<span class="quiet">@(MyPosition is null ? "waiting for a fix" : "on")</span>
+						}
+					</button>
 
 					<button type="button" role="menuitem" @onclick="ShowMarkers">
 						<i class="fa fa-fw fa-map-pin" aria-hidden="true"></i> Markers
@@ -209,10 +230,52 @@
 @code {
 	[Parameter] public Guid RideId { get; set; }
 
+	/// <summary>
+	/// Where a ride opens when this device has nothing stored for it. Sydney, at city scale —
+	/// the same view this page has always opened on, kept as a constant now that
+	/// <see cref="RestoreViewAsync"/> and a change of ride both need something to go back to.
+	/// </summary>
+	private static readonly MapCamera DefaultCamera = new(-33.868, 151.209, 11);
+
+	/// <summary>
+	/// How often a pan may reach the device store. The map reports a viewport on every frame of
+	/// a drag, and <c>localStorage</c> behind JS interop is not a per-frame surface — so the view
+	/// is held in memory and written at this cadence, plus once on the way out
+	/// (<see cref="DisposeAsync"/>), which is the write that actually matters.
+	/// </summary>
+	private static readonly TimeSpan SaveInterval = TimeSpan.FromSeconds(5);
+
 	private RideSession _session = default!;
-	private MapCamera _camera = new(-33.868, 151.209, 11);
+	private MapCamera _camera = DefaultCamera;
 	private MapViewport? _mapViewport;
 	private readonly Dictionary<Guid, MapMarker> _markerLayer = new();
+
+	/// <summary>
+	/// Whether the map keeps this rider centred as their fixes arrive (§5.3).
+	/// <para>
+	/// Stays on until it is switched off here — a pan does not cancel it. Guessing "the rider
+	/// touched the map, so they meant to stop following" needs telling a rider's drag apart from
+	/// the map's own move, which the viewport event does not say; getting that wrong silently
+	/// drops the mode, and a mode that turns itself off is worse than one that has to be turned
+	/// off. The dot on the hamburger is what keeps it from being a surprise.
+	/// </para>
+	/// </summary>
+	private bool _followMe;
+
+	/// <summary>
+	/// Where the camera was last sent to follow this rider. Compared against the newest fix so a
+	/// stationary rider costs nothing: positions arrive about once a second whether or not anybody
+	/// has moved, and each one would otherwise be a JS interop call to re-centre on the same point.
+	/// </summary>
+	private (double Latitude, double Longitude)? _followedTo;
+
+	/// <summary>The view last written to the device store, so an unchanged one is not written twice.</summary>
+	private LiveMapView? _savedView;
+
+	/// <summary>The view waiting to be written, if the throttle has not let one through yet.</summary>
+	private LiveMapView? _pendingView;
+
+	private DateTimeOffset _lastSavedUtc;
 
 	/// <summary>
 	/// The ride's planned routes as the overlay draws them (§5.4), in the session's order so a
@@ -283,6 +346,23 @@
 		}
 	}
 
+	/// <summary>
+	/// This rider's own latest fix, or null when the ride has none for them.
+	/// <para>
+	/// The ride's own view of where they are — the same fix everyone else's map is drawing them
+	/// at — rather than a second read of the device's GPS. Following the pin the rider can see is
+	/// the behaviour the mode promises, and it works on every host: <see cref="ILocationProvider"/>
+	/// does not exist in a browser (§18.6), and a map that followed a private read would put the
+	/// rider somewhere their own suppressed position (§10.1) says nobody should be looking.
+	/// </para>
+	/// <para>
+	/// Null while not sharing, and until the first fix lands. That is what the menu item's
+	/// "waiting for a fix" says, rather than the mode looking broken.
+	/// </para>
+	/// </summary>
+	private RiderPositionDto? MyPosition =>
+		Auth.UserId is { } me && _session.Positions.TryGetValue(me, out RiderPositionDto? mine) ? mine : null;
+
 	/// <summary>Zoom a marker is brought to when it is chosen. Street level, not suburb level.</summary>
 	private const double FocusZoom = 16;
 
@@ -299,9 +379,10 @@
 	}
 
 	/// <summary>
-	/// Reads the device's private area after first render. On the web the store is behind JS
-	/// interop, which does not exist during the prerender pass; idempotent, so this costs nothing
-	/// on a device the settings screen has already read.
+	/// Reads what this device stored after first render: the private area, and the view this map
+	/// was last left on. On the web the store is behind JS interop, which does not exist during
+	/// the prerender pass. The area read is idempotent, so it costs nothing on a device the
+	/// settings screen has already read.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -311,6 +392,7 @@
 		}
 
 		await PrivateAreas.LoadAsync();
+		await RestoreViewAsync();
 	}
 
 	private void OnPrivateAreaChanged()
@@ -338,6 +420,19 @@
 			return;
 		}
 
+		// A different ride in the same component instance — the router reuses this page when only
+		// the route parameter changes. The ride being left keeps the ground it was left on (it is
+		// still _session.RideId at this point, which is what RememberViewAsync stamps), and the
+		// camera goes back to the default: the stored view names one ride, and applying it to
+		// another would open a Melbourne ride over Sydney.
+		if (_session.RideId != Guid.Empty)
+		{
+			await RememberViewAsync(now: true);
+			_camera = DefaultCamera;
+			_mapViewport = null;
+			_followedTo = null;
+		}
+
 		_openMarkerId = null;
 		_nearbyMarkerIds = Array.Empty<Guid>();
 		_menuOpen = false;
@@ -356,7 +451,14 @@
 	private void OnSessionChanged()
 	{
 		RebuildMapLayer();
-		_ = InvokeAsync(StateHasChanged);
+		_ = InvokeAsync(async () =>
+		{
+			StateHasChanged();
+
+			// Every position batch is a chance that this rider moved, and this is the only place
+			// that learns about one. Cheap when they did not — see _followedTo.
+			await FollowMeAsync();
+		});
 	}
 
 	// -- The menu -----------------------------------------------------------------------------
@@ -381,6 +483,28 @@
 	{
 		_menuOpen = false;
 		_showMarkers = true;
+	}
+
+	/// <summary>
+	/// Turns "keep me centred" on or off, and acts on it at once — a rider who has just panned
+	/// away and switched it on is asking to be brought back now, not at the next fix.
+	/// <para>
+	/// Persisted with the view, so it survives the trip to the info page and the next launch.
+	/// Written immediately rather than at the throttle's convenience: it is a deliberate choice,
+	/// not a by-product of a drag.
+	/// </para>
+	/// </summary>
+	private async Task ToggleFollowMeAsync()
+	{
+		_menuOpen = false;
+		_followMe = !_followMe;
+
+		// Forgetting where we last followed to is what makes switching it back on recentre even
+		// when the rider has not moved since.
+		_followedTo = null;
+
+		await FollowMeAsync();
+		await RememberViewAsync(now: true);
 	}
 
 	private void CloseMarkers()
@@ -422,8 +546,187 @@
 
 	// -- The map ------------------------------------------------------------------------------
 
-	// Pure field assignment: nothing on screen depends on it until GoToComposer reads it.
-	private void OnMapViewportReported(MapViewport viewport) => _mapViewport = viewport;
+	/// <summary>
+	/// Nothing on screen depends on the viewport until <see cref="GoToComposer"/> reads it — so no
+	/// render here. What it does do is remember where the rider is looking, throttled, so the map
+	/// re-opens on this ground rather than on the app's default.
+	/// <para>
+	/// Also the moment the base map first reports a frame, which is when a map opened with
+	/// following already on can finally act on it.
+	/// </para>
+	/// </summary>
+	private async Task OnMapViewportReportedAsync(MapViewport viewport)
+	{
+		_mapViewport = viewport;
+
+		if (_followMe && _followedTo is null)
+		{
+			await FollowMeAsync();
+		}
+
+		await RememberViewAsync();
+	}
+
+	/// <summary>
+	/// Brings the camera back to this rider, if the mode is on and the ride knows where they are.
+	/// <para>
+	/// Their zoom is kept — following is a promise about the centre of the screen, and taking a
+	/// rider's zoom away from them once a second would make the map unusable. Heading likewise
+	/// stays north-up: rotating the map under somebody reading it is a different feature.
+	/// </para>
+	/// </summary>
+	private async Task FollowMeAsync()
+	{
+		if (!_followMe || MyPosition is not { } mine)
+		{
+			return;
+		}
+
+		double latitude = PositionScale.ToDegrees(mine.Lat);
+		double longitude = PositionScale.ToDegrees(mine.Lon);
+
+		if (_followedTo == (latitude, longitude))
+		{
+			// A rider stopped at a light still publishes; re-sending the same camera would be an
+			// interop call a second for a map that is already where it should be.
+			return;
+		}
+
+		_followedTo = (latitude, longitude);
+
+		// Through the component only — _camera is deliberately left where it was. It is the
+		// camera the map *opens* on, and a following map re-aims about once a second: writing
+		// each of those into the parameter would have every render re-issue the move the
+		// component had already made, a second interop call a tick for nothing.
+		await ApplyCameraAsync(new MapCamera(
+			latitude,
+			longitude,
+			_mapViewport?.ZoomLevel ?? _camera.ZoomLevel));
+	}
+
+	/// <summary>
+	/// Reads back the view this map was last left on and opens there.
+	/// <para>
+	/// The camera only applies to the ride it was stored for; <see cref="LiveMapView.FollowMe"/>
+	/// carries across rides, because it describes how this rider likes to be ridden with rather
+	/// than one ride's ground.
+	/// </para>
+	/// <para>
+	/// Both halves of the handover are covered: assigning <see cref="_camera"/> is what a base map
+	/// that has not attached yet picks up at init, and <see cref="ApplyCameraAsync"/> is what moves
+	/// one that already has. Which of the two wins the race is a matter of whether the ride's
+	/// snapshot or the device store answered first, and neither order should cost the rider their
+	/// view.
+	/// </para>
+	/// </summary>
+	private async Task RestoreViewAsync()
+	{
+		LiveMapView? stored = LiveMapView.Decode(await Settings.GetAsync(LiveMapView.StorageKey));
+
+		if (stored is null)
+		{
+			return;
+		}
+
+		_savedView = stored;
+		_followMe = stored.FollowMe;
+
+		if (stored.IsFor(RideId))
+		{
+			_camera = stored.ToCamera();
+			await ApplyCameraAsync(_camera);
+		}
+
+		await InvokeAsync(StateHasChanged);
+
+		// After the camera, so a rider who left it following ends up on themselves rather than on
+		// the ground they were looking at a ride ago.
+		await FollowMeAsync();
+	}
+
+	/// <summary>
+	/// Holds the current view for the next time this map opens, and lets it through to the device
+	/// store at most every <see cref="SaveInterval"/> — or immediately when the caller says so.
+	/// </summary>
+	/// <param name="now">
+	/// True for a deliberate act (the follow toggle, leaving the page, leaving the ride), false for
+	/// the pan-by-pan stream that would otherwise write on every frame of a drag.
+	/// </param>
+	private Task RememberViewAsync(bool now = false)
+	{
+		// _session.RideId rather than the RideId parameter: on a change of ride the parameter is
+		// already the new one while the viewport on screen still belongs to the old.
+		if (_session.RideId == Guid.Empty)
+		{
+			return Task.CompletedTask;
+		}
+
+		LiveMapView? view = (_mapViewport is { CanvasWidthPx: > 0 } vp
+			? new LiveMapView(_session.RideId, vp.CentreLatitude, vp.CentreLongitude, vp.ZoomLevel, _followMe)
+			: new LiveMapView(_session.RideId, _camera.Latitude, _camera.Longitude, _camera.ZoomLevel, _followMe))
+			.Normalised();
+
+		if (view is null || view == _savedView)
+		{
+			return Task.CompletedTask;
+		}
+
+		_pendingView = view;
+
+		DateTimeOffset stamp = Clock.GetUtcNow();
+		if (!now && stamp - _lastSavedUtc < SaveInterval)
+		{
+			// Held, not dropped: DisposeAsync writes whatever is pending on the way out, so the
+			// throttle costs a rider at most the last few seconds of panning if the app is killed
+			// with the map open.
+			return Task.CompletedTask;
+		}
+
+		_lastSavedUtc = stamp;
+		return SaveViewAsync();
+	}
+
+	private async Task SaveViewAsync()
+	{
+		if (_pendingView is not { } view)
+		{
+			return;
+		}
+
+		_pendingView = null;
+		_savedView = view;
+
+		// IDeviceSettings never throws — a browser with site data blocked answers the same as a
+		// first run, and a view that cannot be persisted is not worth failing a live map over.
+		await Settings.SetAsync(LiveMapView.StorageKey, view.Encode());
+	}
+
+	/// <summary>
+	/// Moves the base map, tolerating one that never attached.
+	/// <para>
+	/// Driven through the component rather than by assigning <see cref="_camera"/> alone: a
+	/// parameter only moves the map when its value differs from the last one applied, so asking
+	/// for the same camera twice — following a rider back to a point they had panned away from,
+	/// or choosing the same marker again — would do nothing at all the second time.
+	/// </para>
+	/// </summary>
+	private async Task ApplyCameraAsync(MapCamera camera)
+	{
+		if (_map is null)
+		{
+			return;
+		}
+
+		try
+		{
+			await _map.SetCameraAsync(camera);
+		}
+		catch
+		{
+			// A base map that failed to attach shows its own stated error (§4.5). Refusing to
+			// move a camera that does not exist is not worth a second error over the top.
+		}
+	}
 
 	/// <summary>
 	/// A tap on the base map lists every marker near that point (§16.4). The arithmetic is
@@ -465,10 +768,9 @@
 	/// is already closer than <see cref="FocusZoom"/> — pulling the view back would throw away
 	/// detail they had chosen.
 	/// <para>
-	/// Driven through the component rather than by assigning <c>_camera</c>: a parameter only
-	/// moves the map when its value differs from the last one applied, so choosing the same
-	/// marker twice — the obvious thing to do after panning away — would do nothing at all
-	/// the second time.
+	/// Turns following off. Being carried to a marker and then dragged back to yourself a second
+	/// later is not a reading of "show me that pin" anybody holds; the rider asked to look at
+	/// something, and the mode has to yield to that.
 	/// </para>
 	/// </summary>
 	private async Task FocusAsync(MarkerDto marker)
@@ -478,6 +780,9 @@
 			return;
 		}
 
+		_followMe = false;
+		_followedTo = null;
+
 		double zoom = Math.Max(_mapViewport?.ZoomLevel ?? FocusZoom, FocusZoom);
 
 		_camera = new MapCamera(
@@ -485,15 +790,7 @@
 			PositionScale.ToDegrees(marker.Lon),
 			zoom);
 
-		try
-		{
-			await _map.SetCameraAsync(_camera);
-		}
-		catch
-		{
-			// A base map that failed to attach shows its own stated error (§4.5). Refusing to
-			// move a camera that does not exist is not worth a second error over the top.
-		}
+		await ApplyCameraAsync(_camera);
 	}
 
 	/// <summary>
@@ -588,6 +885,11 @@
 	{
 		_session.Changed -= OnSessionChanged;
 		PrivateAreas.Changed -= OnPrivateAreaChanged;
+
+		// The write that matters: leaving for the info page, the composer or the thread is the
+		// common way off this map, and coming straight back is the common way onto it.
+		await RememberViewAsync(now: true);
+
 		await _session.DisposeAsync();
 	}
 }
@@ -620,6 +922,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		/* Anchors the "following" dot below. */
+		position: relative;
 		/* 48 px is the tap target the rail uses; a menu opened with gloves on is the point. */
 		width: 48px;
 		height: 48px;
@@ -631,6 +935,23 @@
 		font-size: 20px;
 		cursor: pointer;
 		box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+	}
+
+	/*
+		Following is a mode that outlives the menu it was set from, so the closed menu has to
+		say so. A dot on the corner of the button rather than a second control beside it: the
+		map is the page and the chrome over it is rationed.
+	*/
+	.live .hamburger.following::after {
+		content: "";
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--dlr-accent-fg);
+		border: 2px solid var(--dlr-accent);
 	}
 
 	/* Sits under the hamburger and over the map: a tap that dismisses must not also pan.
@@ -670,6 +991,15 @@
 
 	.live .menu button:hover {
 		background: var(--dlr-accent-soft);
+	}
+
+	/* A mode that is on reads as on with the menu open too, not only from the dot outside it. */
+	.live .menu button.checked {
+		background: var(--dlr-accent-soft);
+	}
+
+	.live .menu button.checked i {
+		color: var(--dlr-accent);
 	}
 
 	.live .menu button i {

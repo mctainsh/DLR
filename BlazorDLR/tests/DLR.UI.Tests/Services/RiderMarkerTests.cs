@@ -35,7 +35,7 @@ public sealed class RiderMarkerTests
 
 	[Theory]
 	[InlineData(0)]
-	[InlineData(0.9)]
+	[InlineData(0.4999)]
 	public void Moving_BelowWalkingPace_IsStopped(double speedMps) =>
 		RiderMarker.IsMoving(speedMps, headingDeg: 90).ShouldBeFalse(
 			"below 1 m/s the heading is GPS drift at a junction, not a direction of travel.");

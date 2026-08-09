@@ -71,6 +71,19 @@
 	/// </summary>
 	private readonly List<SKPoint> _projected = [];
 
+	/// <summary>
+	/// The builder every per-frame path is assembled through. Paths are immutable in Skia now —
+	/// they are built here and taken with <see cref="SKPathBuilder.Detach"/>, which hands over the
+	/// path and leaves this empty for the next one.
+	/// <para>
+	/// Held rather than newed per path for the same reason the paints below are: a twenty-rider
+	/// map at 1 Hz builds a pill each per frame, and a builder each would be twenty native objects
+	/// a second bought for nothing. Safe as one instance because painting is synchronous and no
+	/// path is built while another is part-built.
+	/// </para>
+	/// </summary>
+	private readonly SKPathBuilder _pathBuilder = new();
+
 	private IReadOnlyList<DecodedRoute> _decodedRoutes = [];
 
 	/// <summary>
@@ -329,12 +342,13 @@
 				_projected.Add(Project(latitude, longitude));
 			}
 
-			using SKPath path = new();
-			path.MoveTo(_projected[0]);
+			_pathBuilder.MoveTo(_projected[0]);
 			for (int index = 1; index < _projected.Count; index++)
 			{
-				path.LineTo(_projected[index]);
+				_pathBuilder.LineTo(_projected[index]);
 			}
+
+			using SKPath path = _pathBuilder.Detach();
 
 			// Most-specific-wins, resolved by RouteStyleState: a colour pinned to this track,
 			// then the "same colour for every route" choice, then the palette entry the calling
@@ -567,11 +581,11 @@
 
 	private static SKPath BuildChevronPath()
 	{
-		SKPath path = new();
-		path.MoveTo(-ChevronHalfLength, -ChevronHalfSpan);
-		path.LineTo(ChevronHalfLength, 0f);
-		path.LineTo(-ChevronHalfLength, ChevronHalfSpan);
-		return path;
+		using SKPathBuilder builder = new();
+		builder.MoveTo(-ChevronHalfLength, -ChevronHalfSpan);
+		builder.LineTo(ChevronHalfLength, 0f);
+		builder.LineTo(-ChevronHalfLength, ChevronHalfSpan);
+		return builder.Detach();
 	}
 
 	/// <summary>Chevron tip to the line through its two tails, along the direction of travel.</summary>
@@ -686,17 +700,18 @@
 
 		// The pill: a rectangle to the right, closed on the left by a semicircle centred on the
 		// fix. Skia measures the arc clockwise from +X, so 90° → 270° is the left half.
-		using SKPath pill = new();
-		pill.MoveTo(at.X, at.Y - LabelHalfHeight);
-		pill.LineTo(at.X + LabelHalfHeight + textWidth, at.Y - LabelHalfHeight);
-		pill.LineTo(at.X + LabelHalfHeight + textWidth, at.Y + LabelHalfHeight);
-		pill.LineTo(at.X, at.Y + LabelHalfHeight);
-		pill.ArcTo(
+		_pathBuilder.MoveTo(at.X, at.Y - LabelHalfHeight);
+		_pathBuilder.LineTo(at.X + LabelHalfHeight + textWidth, at.Y - LabelHalfHeight);
+		_pathBuilder.LineTo(at.X + LabelHalfHeight + textWidth, at.Y + LabelHalfHeight);
+		_pathBuilder.LineTo(at.X, at.Y + LabelHalfHeight);
+		_pathBuilder.ArcTo(
 			new SKRect(at.X - LabelHalfHeight, at.Y - LabelHalfHeight, at.X + LabelHalfHeight, at.Y + LabelHalfHeight),
 			90,
 			180,
 			false);
-		pill.Close();
+		_pathBuilder.Close();
+
+		using SKPath pill = _pathBuilder.Detach();
 
 		fill.Color = back;
 		canvas.DrawPath(pill, fill);
@@ -829,14 +844,14 @@
 		const float corner = 0.8485f;
 		const float notch = 0.5f;
 
-		SKPath path = new();
-		path.MoveTo(0f, -tip * LabelHalfHeight);
-		path.LineTo(corner * LabelHalfHeight, corner * LabelHalfHeight);
-		path.LineTo(0f, notch * LabelHalfHeight);
-		path.LineTo(-corner * LabelHalfHeight, corner * LabelHalfHeight);
-		path.Close();
+		using SKPathBuilder builder = new();
+		builder.MoveTo(0f, -tip * LabelHalfHeight);
+		builder.LineTo(corner * LabelHalfHeight, corner * LabelHalfHeight);
+		builder.LineTo(0f, notch * LabelHalfHeight);
+		builder.LineTo(-corner * LabelHalfHeight, corner * LabelHalfHeight);
+		builder.Close();
 
-		return path;
+		return builder.Detach();
 	}
 
 	/// <summary>
@@ -847,10 +862,10 @@
 
 	private static SKPath BuildRiderDotPath()
 	{
-		SKPath path = new();
-		path.AddCircle(0f, 0f, LabelHalfHeight - 2f);
+		using SKPathBuilder builder = new();
+		builder.AddCircle(0f, 0f, LabelHalfHeight - 2f, SKPathDirection.Clockwise);
 
-		return path;
+		return builder.Detach();
 	}
 
 	// A white disc under the glyph. Emoji are drawn in their own colours, and OSM tiles run
@@ -938,13 +953,13 @@
 
 	private static SKPath BuildArrowPath()
 	{
-		SKPath path = new();
-		path.MoveTo(0f, -ArrowTipLength);
-		path.LineTo(ArrowHalfWidth, ArrowTailLength);
-		path.LineTo(0f, ArrowNotchDepth);
-		path.LineTo(-ArrowHalfWidth, ArrowTailLength);
-		path.Close();
-		return path;
+		using SKPathBuilder builder = new();
+		builder.MoveTo(0f, -ArrowTipLength);
+		builder.LineTo(ArrowHalfWidth, ArrowTailLength);
+		builder.LineTo(0f, ArrowNotchDepth);
+		builder.LineTo(-ArrowHalfWidth, ArrowTailLength);
+		builder.Close();
+		return builder.Detach();
 	}
 
 	/// <summary>Centre to tip, along the heading.</summary>
@@ -1037,6 +1052,7 @@
 	public ValueTask DisposeAsync()
 	{
 		RouteStyles.Changed -= OnRouteStyleChanged;
+		_pathBuilder.Dispose();
 		_view = null;
 		return ValueTask.CompletedTask;
 	}
