@@ -7,6 +7,7 @@
 	-->
 	<PropertyGroup>
 		<RootNamespace>DLR.Server.Data</RootNamespace>
+		<AssemblyVersion>8.0.0.13</AssemblyVersion>
 	</PropertyGroup>
 
 	<ItemGroup>

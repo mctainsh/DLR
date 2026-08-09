@@ -12,6 +12,7 @@
       Namespace stays as DLR.Server.* for the same reasons.
     -->
     <AssemblyName>DLR.Server</AssemblyName>
+	<AssemblyVersion>8.0.0.13</AssemblyVersion>
     <RootNamespace>BlazorDLR.Web</RootNamespace>
   </PropertyGroup>
 

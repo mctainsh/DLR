@@ -28,6 +28,13 @@
     </array>
     <key>XSAppIconAssets</key>
     <string>Assets.xcassets/appicon.appiconset</string>
+	
+	<key>CFBundleShortVersionString</key>
+	<string>8.0.0</string>
+	<key>UIUserInterfaceStyle</key>
+	<string>Dark</string>
+	<key>CFBundleVersion</key>
+	<string>13</string>
 
     <!--
         .gpx share-sheet / "Open with" integration (SharedFrontend.md §7 Phase 1).
