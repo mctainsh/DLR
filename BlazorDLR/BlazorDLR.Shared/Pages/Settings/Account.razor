@@ -1,5 +1,6 @@
 @page "/settings/account"
 @attribute [Authorize]
+@using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
 @using DLR.Core.Contracts.Identity
 @inject IApiClient Api
@@ -13,12 +14,20 @@
 		<h2>Change password</h2>
 		<form @onsubmit="ChangePasswordAsync" @onsubmit:preventDefault="true">
 			<label>
-				Current password
-				<input @bind="_currentPassword" type="password" autocomplete="current-password" required />
+				<PasswordField 
+						Id="signin-password"
+						Label="Current password"
+						@bind-Value="_currentPassword"
+						Autocomplete="current-password"/>
+
 			</label>
 			<label>
-				New password
-				<input @bind="_newPassword" type="password" autocomplete="new-password" required />
+				<PasswordField Id="signin-password"
+							   Label="New password"
+							   @bind-Value="_newPassword"
+							   Autocomplete="new-password"
+							   ShowStrength="true" />
+
 				<span class="rule-hint">
 					At least 6 characters, one uppercase letter, one lowercase letter,
 					and one digit.
