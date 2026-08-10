@@ -3,8 +3,8 @@
 @implements IAsyncDisposable
 
 @*
-	Composes the base map (§4.5 v0.21: Apple Maps / Google Maps / OpenLayers, chosen by
-	the host) with the shared Skia overlay that draws every marker, track and rider pin.
+	Composes the base map (§4.5 v0.24: MapLibre GL JS over OSM, the same module on every
+	host) with the shared Skia overlay that draws every marker, track and rider pin.
 
 	Two layers stacked in a positioned container:
 
@@ -15,7 +15,22 @@
 		 event.
 
 	"A map that cannot get a token shows a stated error, not a blank grey rectangle"
-	(§4.5) — the try/catch below is where that decision is made once for every provider.
+	(§4.5) — the try/catch below is where that decision is made. v0.24 removed the token,
+	but not the rule: an unreachable CDN or tile server fails here the same way.
+
+	The overlay gets an ErrorBoundary of its own, and the reason is a failure this project
+	has already had. The overlay used to be an <SKCanvasView> from SkiaSharp.Views.Blazor,
+	which initialises through `[JSImport]` — WebAssembly-only interop — so on a MAUI
+	BlazorWebView, where the runtime is Mono, its first render threw. An unhandled throw in
+	a child's OnAfterRenderAsync does not just lose that child: it takes down the Blazor
+	renderer for the whole app. On device that read as a base map that still panned, because
+	it is pure JS in the WebView, while every button on every page stopped responding.
+
+	v0.24 fixed the cause — the overlay now rasterises off-screen and hands the frame to an
+	<img> (see SkiaMapOverlay) — so this boundary is no longer catching anything. It stays
+	because the blast radius is the whole application rather than one component, and because
+	the overlay is the one child here that touches a native rasteriser on three different
+	runtimes. Cheap insurance against a class of bug that has already shipped once.
 *@
 
 <div class="dlr-map-container @(OnMapClicked.HasDelegate && ShowPickingCursor ? "picking" : "")">
@@ -23,7 +38,29 @@
 
 	@if (_viewport is { CanvasWidthPx: > 0 } vp)
 	{
-		<SkiaMapOverlay Viewport="vp" Markers="Markers" Routes="Routes" Circles="Circles" />
+		@*
+			@ref'd so a host that knows the overlay cannot work can decide not to mount it at
+			all. Without the boundary the failure is unrecoverable for the whole renderer, so
+			this is not the usual "wrap it just in case".
+		*@
+		<ErrorBoundary @ref="_overlayBoundary">
+			<ChildContent>
+				<SkiaMapOverlay Viewport="vp" Markers="Markers" Routes="Routes" Circles="Circles" />
+			</ChildContent>
+			<ErrorContent Context="overlayError">
+				@*
+					Deliberately not silent. Without the overlay there are no rider pins, no
+					markers and no route on the map — on a live group ride that is the whole
+					point of the screen, so a rider has to be told rather than left reading an
+					empty map as "nobody is moving" (§5.3, §16.3).
+				*@
+				<div class="dlr-map-overlay-error" role="alert">
+					<strong>Map markers unavailable</strong>
+					<p>The base map is working, but pins, tracks and rider positions cannot be drawn on this device.</p>
+					<p class="dlr-map-overlay-error-detail">@overlayError.Message</p>
+				</div>
+			</ErrorContent>
+		</ErrorBoundary>
 	}
 </div>
 
@@ -86,6 +123,7 @@
 	[Parameter] public EventCallback<MapViewport> OnViewportReported { get; set; }
 
 	private ElementReference _host;
+	private ErrorBoundary? _overlayBoundary;
 	private bool _initialised;
 	private MapCamera? _appliedCamera;
 	private string? _error;
@@ -196,6 +234,15 @@
 		position: relative;
 		width: 100%;
 		min-height: 480px;
+
+		/*
+		  Clips the overlay to the map. The overlay canvas is sized from the viewport the base
+		  map reported, and a viewport that arrives a frame stale — mid-resize, or on the first
+		  layout pass on a phone — describes a canvas larger than the container currently is.
+		  Without this the difference paints over whatever is below the map, which is how a
+		  track ended up drawn past the edge of the map window on device.
+		*/
+		overflow: hidden;
 	}
 	.dlr-map-base {
 		position: absolute;
@@ -219,4 +266,23 @@
 	}
 	.dlr-map-error strong { display: block; margin-bottom: 0.25rem; }
 	.dlr-map-error p { margin: 0; }
+
+	/* Sits over the base map rather than under it: the map still works, and the point is
+	   that what is *missing* from it is not obvious by looking. */
+	.dlr-map-overlay-error {
+		position: absolute;
+		left: 0.5rem;
+		right: 0.5rem;
+		bottom: 0.5rem;
+		z-index: 2;
+		padding: 0.6rem 0.85rem;
+		background: #fff3cd;
+		color: #4a3c00;
+		border: 1px solid #ffe69c;
+		border-radius: 4px;
+		font-size: 0.85rem;
+	}
+	.dlr-map-overlay-error strong { display: block; margin-bottom: 0.2rem; }
+	.dlr-map-overlay-error p { margin: 0; }
+	.dlr-map-overlay-error-detail { margin-top: 0.35rem; opacity: 0.75; font-size: 0.78rem; }
 </style>

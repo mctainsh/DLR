@@ -1,13 +1,29 @@
 # MapKit JS in an Android WebView — the policy question
 
-**Status:** **Closed by decision, not by answer.** Rather than wait on Apple's
-licensing clarification, the project has switched to a per-platform base-map choice
-plus a single shared overlay for authored content. The AGPL §7 permission (§14.6.5)
-already covers the proprietary linkage this introduces on Android.
+**Status:** **Moot.** MapKit JS is no longer used on any platform (v0.24, §4.5), so
+the licensing question this file was opened to answer cannot arise. Retained for the
+record, because the trajectory is the point.
 
-Answered 2026-08-02.
+Closed twice:
 
-## The decision
+| | | |
+|---|---|---|
+| **v0.21** — 2026-08-02 | Closed *by decision, not by answer* | Rather than wait on Apple's licensing clarification, the project switched to a per-platform base map plus a single shared Skia overlay for authored content. |
+| **v0.24** | Closed *by deletion* | Every host moved to MapLibre GL JS over OpenStreetMap. `map.mapkit.js`, `map.googlemaps.js`, `map.openlayers.js` and their interops are gone, along with the MapKit token endpoint and both map credentials. |
+
+**Why v0.21's answer did not last.** It was correct about the hard part — the Skia
+overlay is what made the base map interchangeable — and wrong about what followed from
+it. Once the overlay drew every marker, pin and route, the three base maps were being
+kept for the one job all three did identically: tiles and gestures. Each was still
+charging separately for it, and two of the three charged in credentials. v0.24 is
+v0.21's own argument carried one step further.
+
+**What this closes for good.** MapLibre GL JS is BSD-2-Clause. There is no per-platform
+licensing question, no vendor whose terms could change under the Android build, and no
+AGPL §7 linkage to reason about — the §14.6.5 permission still exists for the platform
+SDKs the app genuinely links (MAUI, the car heads), and no longer has to cover a map.
+
+## The v0.21 decision, as recorded at the time
 
 | Surface | Base map | Base map runs where | Notes |
 | --- | --- | --- | --- |
@@ -39,8 +55,10 @@ running against `SkiaSharp` — which is already in the dependency graph via Map
 
 ## What is committed and what is not
 
-Both proprietary map JS SDKs need a credential. AGPL §14.2 already tells us what to do
-with each:
+*(v0.21's answer, superseded by v0.24 — see below.)*
+
+Both proprietary map JS SDKs need a credential. §14.2 already tells us what to do with
+each:
 
 | Credential | Where it lives | Never commit |
 | --- | --- | --- |
@@ -48,10 +66,11 @@ with each:
 | **Google Maps API key (browser type, referrer-restricted)** | Config on the running instance, one value per environment; passed to the phone via `GET /api/v1/maps/google-key` (Phase 1) | ✅ Add to §14.2 |
 | Apple team id, key id | Server config | ✅ Already on §14.2 |
 
-The Google Maps key is a low-severity leak — bots harvesting it get a key restricted
-to our bundle id, so it "works" for nobody but us — but committing it is still the
-kind of leak that turns up on later scans and looks bad. The rule stays: user secrets
-locally, environment in production (§14.3).
+**v0.24 deleted every row in that table.** The `.p8`, the team and key ids, the Google
+browser key and the `google-key` endpoint that was going to deliver it were all removed
+along with the two proprietary SDKs. MapLibre needs no credential on the server or the
+client, so §14.2's map rows are gone rather than tightened — and the Phase 1 work to
+build a second credential-delivery endpoint was never done.
 
 ## The Skia overlay
 
@@ -59,8 +78,8 @@ One C# component in `BlazorDLR.Shared/Components/SkiaMapOverlay.razor`, backed b
 `SkiaSharp.Views.Blazor`. It receives:
 
 - the base map's current **viewport** — top-left latitude/longitude, bottom-right
-  latitude/longitude, zoom, rotation — from a viewport-changed event the three base
-  maps all emit,
+  latitude/longitude, zoom, rotation — from a viewport-changed event the base map
+  emits (three modules emitted it identically under v0.21; one does under v0.24),
 - the current **markers** and **route** to draw.
 
 It projects lat/lon to screen space using Web Mercator (`EPSG:3857`), which is what
@@ -69,6 +88,8 @@ the right tile pixel.
 
 ## Where the details land
 
+**v0.21:**
+
 - Design-outline revision entry: **v0.21** in `design-outline.md`.
 - Front-end plan: rewritten §5 in `SharedFrontend.md`.
 - Interface change: `IMapInterop` narrowed to the base map; new `IMapOverlay` for the
@@ -76,9 +97,20 @@ the right tile pixel.
 - Never-commit list: `design-outline.md` §14.2 gets a row for the Google Maps browser
   API key.
 
+**v0.24:**
+
+- Design-outline revision entries: **v0.24** in `design-outline.md`, and §4.5 rewritten.
+- Front-end plan: §5 and the Phase 0 spike records in `SharedFrontend.md`.
+- Interface change: none. `IMapInterop`, `IMapOverlay` and `MapBridge` are unchanged —
+  which is the evidence that v0.21 drew the seam in the right place.
+- Never-commit list: §14.2 **loses** both map rows.
+
 ## Superseded questions
 
 The original question at the top of this file — "does Apple permit MapKit JS in an
-Android WebView" — is **no longer on the critical path**. The design does not need an
-answer to it. Left here for the record; do not reopen unless a future maintainer
-wants to consolidate to Apple Maps on both phones.
+Android WebView" — cannot arise: no host runs MapKit JS. Left here for the record.
+
+**Do not reopen this to consolidate onto Apple Maps.** The reasons it was rejected are
+in §4.5 and they got stronger, not weaker: a `.p8` on the server, a token endpoint, an
+origin claim that the MAUI `BlazorWebView` (`app://0.0.0.0`) cannot satisfy, and no
+offline mode at any price — for a base map that draws tiles and nothing else.

@@ -1193,7 +1193,7 @@ other device stopped working.
 CASCADE` does not reach the filesystem.
 **Refs:** §6.3, §16.6, §10.1
 
-### SRV-34 — Web session cookie and the MapKit token endpoint ✅
+### SRV-34 — Web session cookie and the MapKit token endpoint ✅ *(map half removed in v0.24)*
 **Status:** `Identity/WebSessionCookie.cs`, `WebAuthEndpoints.cs`, `RegistrationService.cs`
 (extracted), `Device.Kind` + `JwtOptions.WebSessionDays` (migration `AddWebSessions`),
 `RefreshTokenService.RevokeByTokenAsync`; `Maps/MapKitOptions` + `MapKitSigningKey` +
@@ -1232,7 +1232,9 @@ browser's real clock. `Max-Age` is a duration, which is what "sliding" actually 
 whatever else kept a copy, which on the shared computer that made web sessions expire at all is the
 entire scenario. `RevokeByTokenAsync` ends the whole family, and answers the same 204 for an unknown
 token so it is not an oracle.
-**A real bug the MapKit tests caught, and it succeeds on the first call.** `using ECDsa key =
+**A real bug the MapKit tests caught, and it succeeds on the first call.** *(Both the code and
+the tests were deleted in v0.24; kept because the trap is about IdentityModel, not about MapKit,
+and the next `SecurityKey` this project holds will hit it.)* `using ECDsa key =
 ECDsa.Create()` inside the request works exactly once: IdentityModel caches the signature provider it
 builds around a `SecurityKey`, so the second request reaches a provider whose `ECDsa` the first
 already disposed and throws `ObjectDisposedException`. Found by the rate-limit test, which was the
@@ -1255,6 +1257,15 @@ antiforgery on the token endpoint, the 30-day sliding web expiry, and the static
 login/logout/register form posts — **a cookie cannot be set from inside a running WASM client**.
 **Also:** `GET /maps/token` minting a short-lived ES256 MapKit JS token. The `.p8` never leaves the
 server; an unavailable token must produce a stated error, not a blank map.
+
+> **v0.24 deleted the map half of this task.** `Maps/MapKitOptions`, `MapKitSigningKey`,
+> `MapKitEndpoints`, `Contracts/Maps/MapToken.cs`, `RateLimits:MapTokenPerHourPerAddress` and
+> `MapKitTokenTests` are gone: every host moved to MapLibre over OSM, which needs no credential,
+> so the map is no longer a server dependency (§4.5). **The web-session-cookie half stands
+> unchanged** — it is the larger and still-live part of SRV-34. The one rule that outlived the
+> endpoint is the stated-error branch in `RideMap.razor`, which now fires for an unreachable CDN
+> or tile server instead of a missing token.
+
 **Refs:** §7.5, §18.5, §4.5
 
 ### SRV-35 — Deployment, backups and alerts ✅

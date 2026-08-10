@@ -3,21 +3,26 @@ using Microsoft.AspNetCore.Components;
 namespace BlazorDLR.Shared.Services;
 
 /// <summary>
-/// The base-map seam behind <c>RideMap.razor</c> KD(§4.5, §18.3, v0.21).
+/// The base-map seam behind <c>RideMap.razor</c> (§4.5, §18.3, v0.24).
 /// <para>
-/// <strong>The base map is one of three JavaScript SDKs</strong> — Apple Maps on iOS
-/// (MapKit JS), Google Maps on Android (JavaScript API), OpenLayers + OSM on the web —
-/// chosen at host registration. Each module handles pan / zoom / rotate / tiles /
-/// attribution, and emits a Web-Mercator <see cref="MapViewport"/> whenever the view
-/// moves. <strong>None of them draws markers or tracks.</strong> Authored content lives
-/// in <see cref="IMapOverlay"/>, a single C# component running SkiaSharp on top of
-/// whichever base map is under it.
+/// <strong>One JavaScript SDK on every surface</strong> — MapLibre GL JS over OpenStreetMap
+/// tiles, implemented once in <see cref="MapLibreInterop"/> and registered identically by
+/// all three hosts. The module handles pan / zoom / rotate / tiles / attribution, and emits
+/// a Web-Mercator <see cref="MapViewport"/> whenever the view moves. <strong>It does not
+/// draw markers or tracks.</strong> Authored content lives in <see cref="IMapOverlay"/>, a
+/// single C# component running SkiaSharp on top of it.
 /// </para>
 /// <para>
-/// <strong>Failure branch is the shared component's, not the module's</strong>
-/// (§4.5). A map that cannot get an API key or a token shows a stated error, not a
-/// grey rectangle — that decision lives in <c>RideMap.razor</c>, where it renders once
-/// for every provider.
+/// <strong>The interface survives the consolidation on purpose.</strong> v0.24 removed the
+/// three providers this seam was built to abstract (§4.5), which is an argument for deleting
+/// it — but §13 Q26 moves the tile source to self-hosted PMTiles before public announcement,
+/// and an offline-pack renderer is the case it would be needed for again. The cost of
+/// keeping it is one interface and one registration line per host.
+/// </para>
+/// <para>
+/// <strong>Failure branch is the shared component's, not the module's</strong> (§4.5). A map
+/// that cannot reach its tiles or its library shows a stated error, not a grey rectangle —
+/// that decision lives in <c>RideMap.razor</c>, where it renders once.
 /// </para>
 /// </summary>
 public interface IMapInterop
@@ -33,9 +38,8 @@ public interface IMapInterop
 	event Action<MapViewport>? ViewportChanged;
 
 	/// <summary>
-	/// Fired when the user taps or clicks a point on the base map. The three SDKs all
-	/// report a tap in their own coordinate space; each module converts to lat / lon
-	/// before raising this, so a subscriber never learns which provider is under it.
+	/// Fired when the user taps or clicks a point on the base map, converted to lat / lon
+	/// by the module so a subscriber never learns what is under it.
 	/// <para>
 	/// This is how the marker composer lets an author place a point by pointing at it
 	/// (§16.1) instead of typing two decimal numbers. Nothing consumes it during a live
@@ -54,17 +58,19 @@ public interface IMapInterop
 	ValueTask DisposeAsync(CancellationToken cancellationToken = default);
 }
 
-/// <summary>Which base map is behind the interop, and therefore which attribution string is required (§4.5, v0.21).</summary>
+/// <summary>
+/// Which base map is behind the interop, and therefore which attribution string is required
+/// (§4.5, v0.24).
+/// <para>
+/// One member since v0.24. It is still an enum rather than a deleted concept because the
+/// attribution obligation is per tile source, not per app: the PMTiles move scheduled by §13
+/// Q26 changes who must be credited, and that is the change this type exists to make visible.
+/// </para>
+/// </summary>
 public enum MapProvider
 {
-	/// <summary>Apple Maps via MapKit JS — iOS.</summary>
-	AppleMaps = 0,
-
-	/// <summary>Google Maps via the JavaScript API — Android.</summary>
-	GoogleMaps = 1,
-
-	/// <summary>OpenLayers with OpenStreetMap tiles — web.</summary>
-	OpenLayersOsm = 2,
+	/// <summary>MapLibre GL JS with OpenStreetMap tiles — every host (§4.5 v0.24).</summary>
+	MapLibreOsm = 0,
 }
 
 /// <summary>Bootstrap options for <see cref="IMapInterop.InitAsync"/>.</summary>
@@ -80,7 +86,7 @@ public readonly record struct MapClick(double Latitude, double Longitude);
 /// <summary>A camera position (§4.5).</summary>
 /// <param name="Latitude">Decimal degrees.</param>
 /// <param name="Longitude">Decimal degrees.</param>
-/// <param name="ZoomLevel">Whatever the provider means by "zoom"; the three we support agree.</param>
+/// <param name="ZoomLevel">Web-Mercator zoom, as MapLibre and OSM both number it.</param>
 /// <param name="HeadingDeg">Degrees clockwise from true north.</param>
 public sealed record MapCamera(double Latitude, double Longitude, double ZoomLevel, double HeadingDeg = 0);
 
@@ -88,10 +94,13 @@ public sealed record MapCamera(double Latitude, double Longitude, double ZoomLev
 /// The base map's current view, as the shared overlay needs it to draw in register with
 /// the tiles under it (§4.5 v0.21).
 /// <para>
-/// Every base-map module emits this exact shape on pan / zoom / rotate. The overlay
-/// projects lat / lon → pixels through Web Mercator, which is the projection the three
-/// base maps we support render natively — so a pixel here lands on the corresponding
-/// tile pixel.
+/// The base-map module emits this exact shape on pan / zoom / rotate. The overlay
+/// projects lat / lon → pixels through Web Mercator, which is the projection MapLibre
+/// renders natively — so a pixel here lands on the corresponding tile pixel.
+/// <para>
+/// The shape is still a contract rather than MapLibre's own types, because the overlay is
+/// the half of the map this project owns and it must not learn what is under it (§4.5 v0.21).
+/// </para>
 /// </para>
 /// </summary>
 /// <param name="TopLeftLatitude">Northmost latitude visible in the canvas.</param>

@@ -12,9 +12,9 @@ public static class MauiProgram
 	public static MauiApp CreateMauiApp()
 	{
 		// URLs come from MauiConstants — a compile-time constant per platform with an
-		// environment-variable override (DLR_API_BASE / DLR_HUB_URL). Never any API key:
-		// MapKit's private .p8 stays on the server and reaches the client as a short-
-		// lived JWT via GET /api/v1/maps/token (§14.2, §14.3).
+		// environment-variable override (DLR_API_BASE / DLR_HUB_URL). Never any API key,
+		// and since v0.24 there is no map credential on the client at all: MapLibre over
+		// OSM needs none (§4.5, §14.2, §14.3).
 		string apiBase = MauiConstants.ResolveApiBase();
 		string hubUrl = MauiConstants.ResolveHubUrl(apiBase);
 
@@ -41,8 +41,9 @@ public static class MauiProgram
 		// reaching for one before its dependency is built fails with the reason.
 		//
 		// Mobile-only implementations (ILocationProvider on Android/iOS, SecureStorage-
-		// backed ITokenStore, MediaPicker, FCM/APNs, MapKit JS interop) each land in
-		// their own file under BlazorDLR/Services/ or BlazorDLR/Platforms/ in Phase 1.
+		// backed ITokenStore, MediaPicker, FCM/APNs) each land in their own file under
+		// BlazorDLR/Services/ or BlazorDLR/Platforms/ in Phase 1. The map is no longer
+		// among them — v0.24 moved it into BlazorDLR.Shared for every host.
 		// Fully-qualified names on the shared-DI registrations: MAUI ships its own
 		// IMediaPicker in Microsoft.Maui.Media, so the shared abstraction has to be
 		// qualified here to disambiguate. Every other seam has a unique name.
@@ -106,29 +107,17 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IExternalSignInProvider>(_ =>
 			new UnavailableExternalSignInProvider(BlazorDLR.Shared.Services.ExternalProvider.Google));
 
-		// The base map differs per phone platform (§4.5 v0.21): Apple Maps on iOS,
-		// Google Maps on Android. A host is not a shared component, so a per-target
-		// conditional here is legitimate — the architecture rule that forbids #if in
-		// shared components deliberately does not cover this file.
+		// One base map on every surface (§4.5 v0.24): MapLibre GL JS over OSM tiles, the
+		// same class the web hosts register. The per-target #if that used to live here is
+		// gone with the providers it selected — MapKit JS needed a server-minted token and
+		// Google Maps needed a browser API key in the bundle, and MapLibre needs neither,
+		// so there is nothing left for a platform conditional to decide.
 		//
-		// Every rider pin, marker and track lands on the shared Skia overlay, which
-		// resolves the same way on both platforms and is bound below.
+		// Every rider pin, marker and track lands on the shared Skia overlay, bound below.
 		// Transient, not scoped: one interop instance per <RideMap>. Each owns a JS map and
 		// a DotNetObjectReference bridge, so a shared instance lets one map's teardown
 		// dispose another's bridge — see the note in BlazorDLR.Web.Client/Program.cs.
-#if IOS || MACCATALYST
-		builder.Services.AddTransient<BlazorDLR.Shared.Services.IMapInterop, AppleMapsInterop>();
-#elif ANDROID
-		builder.Services.AddTransient<BlazorDLR.Shared.Services.IMapInterop, GoogleMapsInterop>();
-		// The Google Maps browser API key. Phase 0 reads from a compile-time constant —
-		// good enough for a spike, and §14.2 already forbids the constant being anything
-		// but a placeholder in committed code. Phase 1 fetches from the server.
-		builder.Services.AddSingleton(new GoogleMapsApiKey(MauiConstants.GoogleMapsKey));
-#else
-		// Windows / other MAUI targets — the desktop head is not shipped, but the build
-		// still needs to resolve. A stub keeps `dotnet build` on Windows honest.
-		builder.Services.AddScoped<BlazorDLR.Shared.Services.IMapInterop, UninitialisedMapInterop>();
-#endif
+		builder.Services.AddTransient<BlazorDLR.Shared.Services.IMapInterop, BlazorDLR.Shared.Services.MapLibreInterop>();
 
 		// Theme preference (§18.6): dark by default, persisted in MAUI Preferences.
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IThemeService, PreferencesThemeService>();

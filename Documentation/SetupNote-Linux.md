@@ -214,21 +214,21 @@ Email__FromName=Dumb Luck Routes
 Maintenance__DryRun=true
 Maintenance__AlertEmail=you@example.com
 
-# Optional (§4.5). Without them the map states it has no credentials, which is a supported
-# state rather than a broken one. The PEM's newlines must survive — see the note below.
-Maps__MapKit__TeamId=
-Maps__MapKit__KeyId=
-Maps__MapKit__Origin=https://dumbluckrides.example
+# Nothing for maps (§4.5). See the note below.
 ```
 
 Generate the signing key with `openssl rand -base64 48`.
 
-**The MapKit private key does not fit in an `EnvironmentFile`.** systemd's parser does not handle a
-multi-line value, and the `.p8` is a PEM with real newlines. Either put it on one line with `\n`
-escapes in a `systemd`-quoted `Environment=` directive in a drop-in, or leave MapKit unconfigured
-until you need it. What must not happen is the `.p8` landing in the deploy directory: §14.2 has it
-on the never-commit list, and a file in `/srv/dlr` is a file the next `rsync --delete` will
-either wipe or preserve, neither of which you want to be guessing about.
+**There is no map configuration, and there is nothing missing.** v0.24 put every host on MapLibre
+GL JS over OpenStreetMap tiles, which needs no credential anywhere — the MapKit `.p8` that used to
+need a `systemd` drop-in to survive its own newlines is gone, and so is the token endpoint that
+made the map a server dependency. If you are following an older copy of this note, the
+`Maps__MapKit__*` variables it lists now bind to nothing.
+
+The tile source is the one thing here with a deadline on it: `tile.openstreetmap.org` is a donated
+service whose usage policy does not cover a public announcement (§13 Q26), so before you announce
+this deployment the map moves to a self-hosted PMTiles archive served by Caddy over HTTP range
+requests. That is a disk and a URL, not a key.
 
 **A note on the email keys.** They are `Email__UserName` and `Email__FromAddress` — not `User` and
 `From`. Configuration binds by property name on `EmailOptions`, so a near-miss binds to nothing and

@@ -12,7 +12,6 @@ using DLR.Server.Data;
 using DLR.Server.Hubs;
 using DLR.Server.Identity;
 using DLR.Server.Maintenance;
-using DLR.Server.Maps;
 using DLR.Server.Markers;
 using DLR.Server.Moderation;
 using DLR.Server.Photos;
@@ -101,9 +100,6 @@ builder.Services.AddSingletonHostedService<NightlyMaintenanceService>();
 builder.Services.AddAntiforgery(options => options.HeaderName = "X-DLR-Antiforgery");
 builder.Services.AddSingleton<WebSessionCookie>();
 builder.Services.AddScoped<RegistrationService>();
-
-builder.Services.Configure<MapKitOptions>(builder.Configuration.GetSection(MapKitOptions.Section));
-builder.Services.AddSingleton<MapKitSigningKey>();
 
 builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.Section));

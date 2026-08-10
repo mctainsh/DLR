@@ -4,13 +4,23 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-	<AssemblyVersion>8.0.0.17</AssemblyVersion>
+	<AssemblyVersion>8.0.0.18</AssemblyVersion>
     <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
     <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
+    <!--
+      The wasm build of libSkiaSharp, for SkiaMapOverlay (§4.5, §16.3).
+
+      Named here rather than inherited: until v0.24 it arrived transitively through
+      BlazorDLR.Shared's SkiaSharp.Views.Blazor reference, and dropping that package —
+      because its SKCanvasView is [JSImport]-based and therefore browser-only, which is
+      what broke the map on both phones — took the native assets with it. The shared
+      project must stay host-agnostic, so each host names the native assets it needs.
+    -->
+    <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" Version="4.151.0" />
   </ItemGroup>
 
   <ItemGroup>

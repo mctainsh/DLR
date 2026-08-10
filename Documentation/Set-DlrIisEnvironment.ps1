@@ -66,11 +66,12 @@ Set-DlrEnv 'Email__FromName'         'Dumb Luck Routes'
 Set-DlrEnv 'Maintenance__DryRun'     'true'
 Set-DlrEnv 'Maintenance__AlertEmail' 'you@example.com'
 
-# The Maps__MapKit__* lines from the original file are deliberately NOT here. With placeholder
-# values the options object reports itself configured, so MapKitSigningKey.Resolve() calls
-# ImportFromPem on the text '…' and throws CryptographicException on the first map load — a
-# harder failure than having no key at all. Unset, §4.5's map states it has no credentials,
-# which is a supported state. Add them when the real .p8 exists.
+# There are no map settings, and nothing is missing. v0.24 put every host on MapLibre GL JS over
+# OpenStreetMap tiles, which needs no credential (§4.5) — the Maps__MapKit__* lines that older
+# copies of this script warned about now bind to nothing at all.
+#
+# The tile source is the one map decision still outstanding: OSM's donated tiles do not cover a
+# public announcement (§13 Q26), so a self-hosted PMTiles archive replaces them before launch.
 
 # ---------------------------------------------------------------------------
 # The blob directory

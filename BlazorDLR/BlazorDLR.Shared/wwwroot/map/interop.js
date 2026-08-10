@@ -1,8 +1,12 @@
-// The JS half of the base-map callback contract (§4.5 v0.21).
+// The JS half of the base-map callback contract (§4.5 v0.24).
 //
-// Every provider module (map.openlayers.js, map.mapkit.js, map.googlemaps.js) reports back
-// to C# through this one function, so the method names below pair with exactly one place on
-// the other side: MapBridge's [JSInvokable] methods in BlazorDLR.Shared/Services.
+// The base-map module (map.maplibre.js) reports back to C# through this one function, so the
+// method names below pair with exactly one place on the other side: MapBridge's [JSInvokable]
+// methods in BlazorDLR.Shared/Services.
+//
+// Kept as its own file after v0.24 collapsed three modules into one, because the rule below
+// is about Blazor's marshalling and not about any provider — a second module (an offline
+// PMTiles renderer, §13 Q26) would need it stated exactly once, here.
 //
 // That pairing has already been got wrong once. Blazor marshals a DotNetObjectReference
 // across as an object carrying `invokeMethodAsync` — NOT as a callable function — so
@@ -25,26 +29,24 @@ export function dispatch(target, method, payload) {
 
 // How many consecutive still frames end a tracking run on their own.
 //
-// Every provider stops its own pump on its settle event, so this is the backstop for the
-// one that never arrives — an `idle` lost because the tab was hidden mid-drag, a
-// `region-change-end` swallowed by a cancelled gesture. Without it that run samples the
-// view forever.
+// The module stops its own pump on its settle event, so this is the backstop for the one
+// that never arrives — a `moveend` lost because the tab was hidden mid-drag, a `rotateend`
+// swallowed by a cancelled gesture. Without it that run samples the view forever.
 //
 // Ten seconds at 60 Hz, not half a second, and the difference is a bug: a finger resting
-// mid-drag is still a drag, and on MapKit nothing would restart the pump until the gesture
-// ended — the overlay would freeze again for the rest of a pan the user paused. The cost of
-// erring long is one extent calculation per frame, dispatching nothing.
+// mid-drag is still a drag, and nothing would restart the pump until the gesture ended —
+// the overlay would freeze for the rest of a pan the user paused. The cost of erring long
+// is one bounds calculation per frame, dispatching nothing.
 const StillFramesBeforeStop = 600;
 
 /**
  * The viewport half of the base-map contract: builds a payload, drops it when nothing
  * moved, and can sample once per animation frame while the map is in motion.
  *
- * The overlay has to repaint *during* a pan, not after it. A provider that only reports on
- * its settle event leaves every marker and track frozen while the tiles slide underneath —
- * so each module reports continuously, either from a per-frame hook of its own
- * (OpenLayers' `postrender`) or from the frame pump below (MapKit, Google Maps), which
- * runs between the provider's move-start and move-end events.
+ * The overlay has to repaint *during* a pan, not after it. Reporting only on the settle
+ * event leaves every marker and track frozen while the tiles slide underneath — so the
+ * module reports continuously, from the frame pump below, which runs between the base
+ * map's move-start and move-end events.
  *
  * Sampling per frame is why the dedupe matters: a map that is being rendered but not moved
  * — tiles fading in, a finger held still mid-drag — would otherwise cross the interop

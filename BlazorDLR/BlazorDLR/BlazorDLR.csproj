@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
 	<!--
@@ -47,7 +47,7 @@
 
 	<!-- Versions -->
 	<ApplicationDisplayVersion>8.0.0</ApplicationDisplayVersion>
-	<ApplicationVersion>17</ApplicationVersion>
+	<ApplicationVersion>18</ApplicationVersion>
 
 	<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 	<WindowsPackageType>None</WindowsPackageType>

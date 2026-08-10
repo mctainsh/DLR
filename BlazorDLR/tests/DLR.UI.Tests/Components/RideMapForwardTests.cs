@@ -117,7 +117,7 @@ public sealed class RideMapForwardTests : BunitContext
 
 		public List<MapCamera> Cameras { get; } = new();
 
-		public MapProvider Provider => MapProvider.OpenLayersOsm;
+		public MapProvider Provider => MapProvider.MapLibreOsm;
 
 		public event Action<MapViewport>? ViewportChanged;
 

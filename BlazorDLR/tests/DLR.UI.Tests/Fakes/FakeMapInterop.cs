@@ -4,18 +4,20 @@ using Microsoft.AspNetCore.Components;
 namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
-/// A hand-rolled <see cref="IMapInterop"/> that lets bUnit render <c>RideMap</c> against
-/// any of the three real providers (§4.5 v0.21) without loading a JS SDK. Two levers:
+/// A hand-rolled <see cref="IMapInterop"/> that lets bUnit render <c>RideMap</c> without
+/// loading a JS SDK (§4.5 v0.24). Two levers:
 /// <list type="bullet">
-///   <item><c>Provider</c> — which of Apple, Google, OpenLayers the fake reports.</item>
+///   <item><c>Provider</c> — what the fake reports. One value since v0.24, kept settable
+///     because the property is on the interface and a future offline renderer would add
+///     another (§13 Q26).</item>
 ///   <item><c>InitException</c> — the exception <see cref="InitAsync"/> should throw, if any.
-///     Set this to reproduce the "MapKit token unavailable" branch and the "provider key
-///     absent" branch, since both surface identically to <c>RideMap</c>.</item>
+///     Set this to reproduce the CDN-unreachable and tile-server-unreachable branches, which
+///     surface identically to <c>RideMap</c>.</item>
 /// </list>
 /// </summary>
 public sealed class FakeMapInterop : IMapInterop
 {
-	public MapProvider Provider { get; set; } = MapProvider.OpenLayersOsm;
+	public MapProvider Provider { get; set; } = MapProvider.MapLibreOsm;
 
 	/// <summary>If set, <see cref="InitAsync"/> throws this exception instead of announcing a viewport.</summary>
 	public Exception? InitException { get; set; }

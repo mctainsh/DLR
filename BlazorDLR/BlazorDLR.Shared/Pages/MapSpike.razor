@@ -10,9 +10,9 @@
 @*
 	The Phase 0 "20 pins updating every 5 s" spike (SharedFrontend.md §7 and §10.3).
 
-	Post-v0.21 shape:
-	  - The base map is one of three JS SDKs (Apple / Google / OpenLayers), chosen by
-		the host. It handles tiles, pan, zoom.
+	Post-v0.24 shape:
+	  - The base map is MapLibre GL JS over OSM tiles, the same module on every host.
+		It handles tiles, pan, zoom.
 	  - The 20 pins land on the shared Skia overlay via RideMap's Markers parameter.
 		The overlay draws once per viewport event.
 

@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 using DLR.Core.Contracts.Account;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
-using DLR.Core.Contracts.Maps;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Moderation;
 using DLR.Core.Contracts.Photos;
@@ -408,16 +407,6 @@ public sealed class HttpApiClient : IApiClient
 		using HttpResponseMessage response = await _http.SendAsync(message, cancellationToken);
 		await ThrowIfFailedAsync(response, cancellationToken);
 	}
-
-	// -- MapKit token — not on IApiClient because only the map interop calls it --
-
-	/// <summary>
-	/// <c>GET /api/v1/maps/token</c> — the MapKit JS credential (§4.5). Not on
-	/// <see cref="IApiClient"/> because only the map interop calls it and the interface
-	/// stays small on purpose.
-	/// </summary>
-	public Task<MapToken> GetMapTokenAsync(CancellationToken cancellationToken = default) =>
-		GetAsync<MapToken>("/api/v1/maps/token", cancellationToken);
 
 	// -- Helpers --
 

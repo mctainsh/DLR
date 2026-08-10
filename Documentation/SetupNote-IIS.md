@@ -237,19 +237,19 @@ Set-DlrEnv 'Email__FromName'         'Dumb Luck Routes'
 Set-DlrEnv 'Maintenance__DryRun'     'true'
 Set-DlrEnv 'Maintenance__AlertEmail' 'you@example.com'
 
-# Optional (§4.5). Without them the map says it has no credentials, which is a supported state.
-# Set all four or none — placeholder values are worse than nothing, because the options object
-# then reports itself configured and MapKitSigningKey.Resolve() throws CryptographicException on
-# the first map load rather than the map stating it has no key.
-Set-DlrEnv 'Maps__MapKit__TeamId'         'A1B2C3D4E5'
-Set-DlrEnv 'Maps__MapKit__KeyId'          'F6G7H8I9J0'
-Set-DlrEnv 'Maps__MapKit__PrivateKeyPem'  (Get-Content C:\keys\AuthKey_F6G7H8I9J0.p8 -Raw)
-Set-DlrEnv 'Maps__MapKit__Origin'         'https://dumbluckrides.example'
+# Nothing for maps (§4.5). See the note below.
 ```
 
-Read the `.p8` from wherever you are holding it, as above — the value is the key's *contents*, not
-its path, and the file must not end up in the publish folder (§14.2 has it on the never-commit
-list).
+**There is no map configuration, and there is nothing missing.** v0.24 put every host on MapLibre
+GL JS over OpenStreetMap tiles, which needs no credential anywhere — the MapKit `.p8` this note
+used to walk you through reading off disk is gone, and so is the token endpoint that made the map
+a server dependency. If you are following an older copy of this note, the `Maps__MapKit__*`
+variables it lists now bind to nothing.
+
+The tile source is the one thing here with a deadline on it: `tile.openstreetmap.org` is a donated
+service whose usage policy does not cover a public announcement (§13 Q26), so before you announce
+this deployment the map moves to a self-hosted PMTiles archive. That is a disk and a URL, not a
+key.
 
 Generate the signing key with something that is actually random. It must be at least 32 bytes or
 the server refuses to start — HS256 is only as strong as its key:

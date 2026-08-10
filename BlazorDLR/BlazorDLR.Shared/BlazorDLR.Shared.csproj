@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-	<AssemblyVersion>8.0.0.17</AssemblyVersion>
+	<AssemblyVersion>8.0.0.18</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,10 +28,20 @@
     <!--
       §4.5 v0.21: one drawing surface for every rider pin, marker and route, on top of
       whichever base map is under it. SkiaSharp is already in the graph via Mapsui and
-      the server's image ingest (§14.6.3, §16.4), so this adds a Blazor binding for the
-      same primitive rather than a new dependency to licence-check. MIT.
+      the server's image ingest (§14.6.3, §16.4), so this is the same primitive rather
+      than a new dependency to licence-check. MIT.
+
+      Plain SkiaSharp, NOT SkiaSharp.Views.Blazor (v0.24). That package's SKCanvasView
+      initialises through [JSImport] — WebAssembly-only interop — so on a MAUI
+      BlazorWebView, where the runtime is Mono, it threw on first render and took the
+      Blazor renderer down with it: the base map kept panning and every button in the app
+      stopped responding. Rasterising off-screen and handing the frame to an <img> works
+      on every host, and it is why this project reference must stay credential- and
+      binding-free. Each host supplies its own native assets: the MAUI SDK for
+      Android/iOS, SkiaSharp.NativeAssets.WebAssembly in BlazorDLR.Web.Client, and
+      SkiaSharp.NativeAssets.Linux in BlazorDLR.Web for the SSR pass and image ingest.
     -->
-    <PackageReference Include="SkiaSharp.Views.Blazor" Version="4.151.0" />
+    <PackageReference Include="SkiaSharp" Version="4.151.0" />
   </ItemGroup>
 
   <ItemGroup>

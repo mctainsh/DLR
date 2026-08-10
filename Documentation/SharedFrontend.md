@@ -107,7 +107,7 @@ BlazorDLR.Shared/                    net10.0, browser platform, no MAUI, no plat
 │   └── ThreadState.cs               Coalesced reaction / poll updates
 ├── Routes.razor                     Existing; extended with the new pages
 ├── _Imports.razor                   Existing; add DLR.Core.Contracts.* usings
-└── wwwroot/                         map.mapkit.js, map.maplibre.js, component CSS,
+└── wwwroot/                         map/ (map.maplibre.js, interop.js), component CSS,
                                      icon sprites for the §16.2 curated set
 
 BlazorDLR.Web.Client/                Blazor WASM
@@ -133,7 +133,6 @@ BlazorDLR/                           MAUI single project — Android + iOS
 │   ├── SecureStorageTokenStore.cs   MAUI SecureStorage → Keychain/Keystore (§7.4)
 │   ├── SqliteRideRepository.cs      Uses DLR.Core's SQLite path (§18.6)
 │   ├── MauiMediaPicker.cs           MediaPicker.PickPhotoAsync
-│   ├── MapKitInterop.cs             Selects wwwroot/map.mapkit.js
 │   └── ...
 ├── Platforms/
 │   ├── Android/
@@ -170,7 +169,7 @@ The list is short deliberately. Every abstraction below is used by shared code a
 | `IRideRepository` | SQLite + outbox (§4.4) | Passes through to `IApiClient` (§18.6) | Rides list, ride detail, ride creation |
 | `ILocationProvider` | Foreground service on Android; `CLLocationManager` on iOS | Throws / returns `NotSupported` — no publish, no recording | Home / Ride, Group Ride Live |
 | `IMediaPicker` | `MediaPicker.PickPhotoAsync` | `<InputFile>` bound handler | Marker editor, comment composer, profile |
-| `IMapInterop` | Loads `map.mapkit.js`, mints token via `IApiClient` (§4.5) | Loads `map.maplibre.js`, OSM tiles + attribution | `RideMap.razor` only |
+| `IMapInterop` | Same shared `MapLibreInterop` as the web (§4.5, v0.24) | Loads `map.maplibre.js`, OSM tiles + attribution | `RideMap.razor` only |
 | `INotificationService` | FCM on Android, APNs on iOS | No-op (§18.2) | Ride thread, sharing wind-down persistent notification |
 | `IFormFactor` | Exists | Exists | Layout only; no logic branches on it |
 
@@ -189,7 +188,7 @@ Two rules that keep the seams honest:
 // The base map — a thin shell over the platform's JS SDK.
 public interface IMapInterop
 {
-    MapProvider Provider { get; }                          // AppleMaps | GoogleMaps | OpenLayers
+    MapProvider Provider { get; }                          // MapLibreOsm (one member since v0.24)
     ValueTask InitAsync(ElementReference host, MapOptions options);
     ValueTask SetCameraAsync(MapCamera camera);
     ValueTask DisposeAsync();
@@ -211,12 +210,12 @@ public interface IMapOverlay
 }
 ```
 
-- **Every base map speaks Web Mercator (EPSG:3857)** natively — Apple Maps, Google Maps and OpenLayers agree here — so the overlay projects lat/lon to the same pixel the base tile drew and the two layers register at every zoom.
-- **The Apple path needs the MapKit token endpoint** (`GET /api/v1/maps/token`, §4.5). The interop mints the token via `IApiClient`, caches it, and refreshes near expiry. Unchanged from v0.19.
-- **The Google path needs an API key.** Browser type, referrer-restricted at the provider. Delivered to the phone via a new authed endpoint (Phase 1) so it is not compiled into the app; §14.2 covers the operational rules.
-- **The OpenLayers path needs OSM attribution rendered permanently.** OpenLayers renders it inside the map surface itself, from the tile source, so removing it is not a one-line accident.
-- **A map that cannot get a token or a key shows a stated error** (§4.5), not a grey rectangle. That branch lives in `RideMap.razor`, not in any of the three JS modules.
-- **The overlay is one C# file** in `BlazorDLR.Shared/Components/SkiaMapOverlay.razor`, backed by the MIT-licensed `SkiaSharp.Views.Blazor` package. Every host runs the same code drawing the same pixels — the exact class of failure v0.13 warned about ("two map code paths drift on marker rendering") is what this design closes.
+- **The base map speaks Web Mercator (EPSG:3857)** natively, so the overlay projects lat/lon to the same pixel the base tile drew and the two layers register at every zoom.
+- **There is no credential on any path** (§4.5, v0.24). MapLibre needs no key and OSM needs no account, which is why one registration line answers for all three hosts — the MapKit token endpoint and the Google browser key are both deleted.
+- **OSM attribution is rendered permanently.** It is declared on the tile source inside `map.maplibre.js`, so MapLibre's own `AttributionControl` draws it from the style — removing the credit means removing the tiles.
+- **A map that cannot reach its library or its tiles shows a stated error** (§4.5), not a grey rectangle. That branch lives in `RideMap.razor`, not in the JS module.
+- **The overlay is one C# file** in `BlazorDLR.Shared/Components/SkiaMapOverlay.razor`, backed by plain MIT-licensed `SkiaSharp`. Every host runs the same code drawing the same pixels — the exact class of failure v0.13 warned about ("two map code paths drift on marker rendering") is what this design closes.
+- **It rasterises off-screen and presents through an `<img>`** (v0.24). Not `SkiaSharp.Views.Blazor`'s `SKCanvasView`: that initialises through `[JSImport]`, which is WebAssembly-only, so on a MAUI `BlazorWebView` it threw on first render and took the whole Blazor renderer with it (§4.5). Skia itself runs fine on the phone — only the canvas binding was browser-only — so the drawing code is untouched and only the surface changed. Repaints coalesce; a CSS transform tracks the map in between.
 - **Car heads (§4.6) are untouched.** They still speak `IMapRenderer` because they draw into a raw `Surface` and Mapsui is doing both base tiles and content in one pass. `IMapRenderer` is no longer the phone-and-web contract — that is `IMapInterop` + `IMapOverlay`.
 
 **File layout for the map:**
@@ -232,30 +231,22 @@ BlazorDLR.Shared/
 │   ├── IMapOverlay.cs             overlay contract (viewport, markers, route)
 │   ├── MapViewport.cs             top-left / bottom-right lat/lon + zoom + rotation
 │   └── (no MapMarker/RouteOverlay changes)
+├── Services/
+│   └── MapLibreInterop.cs         IMapInterop — every host (v0.24)
 └── wwwroot/map/
-    ├── map.mapkit.js              Apple Maps — iOS base only
-    ├── map.googlemaps.js          Google Maps — Android base only
-    ├── map.openlayers.js          OpenLayers + OSM — web base only
+    ├── map.maplibre.js            MapLibre GL JS + OSM — the base map
+    ├── interop.js                 the dispatch + viewport-reporter contract
     └── map.css
-
-BlazorDLR/Services/
-├── AppleMapsInterop.cs            IMapInterop on iOS
-└── GoogleMapsInterop.cs           IMapInterop on Android
-
-BlazorDLR.Web.Client/Services/
-└── OpenLayersInterop.cs           IMapInterop on the web
 ```
 
-**Per-host DI is the one place platform conditionals are legitimate** — a host is a host, not a shared component, so the `Ui_NoConditionalCompilationSymbolsInSharedComponents` architecture rule deliberately does not cover it:
+**Every host registers the same line**, which is what v0.24 bought — the `#if IOS / #elif ANDROID` that used to pick between credentials is gone, because there is nothing left for it to decide:
 
 ```csharp
-// MauiProgram.cs
-#if IOS
-builder.Services.AddScoped<IMapInterop, AppleMapsInterop>();
-#elif ANDROID
-builder.Services.AddScoped<IMapInterop, GoogleMapsInterop>();
-#endif
+// MauiProgram.cs, BlazorDLR.Web.Client/Program.cs — identical
+builder.Services.AddTransient<IMapInterop, MapLibreInterop>();
 ```
+
+The SSR pass in `BlazorDLR.Web` still registers `UninitialisedMapInterop`: a prerender has no JS runtime to import a module into.
 
 ## 6. Auth, tokens and where the cookie lives
 
@@ -295,11 +286,11 @@ The `Weather.razor` sample proves the pipeline works; Phase 0 replaces it with t
 - [x] Draft the interface set from §4 above, one file per interface under `BlazorDLR.Shared/Services/`, no implementations. **Eight interfaces plus a `Stubs/` folder with a throwing implementation of each.**
 - [x] Register `IApiClient`, `IRideHubClient`, `IRideRepository`, `ILocationProvider`, `IMediaPicker`, `IMapInterop`, `INotificationService` in both `BlazorDLR.Web.Client/Program.cs` and `BlazorDLR/MauiProgram.cs` — throwing stub implementations for now.
 - [x] Add a `Welcome.razor` skeleton that shows the `IFormFactor` result and a "sign in" button that calls a stub `IApiClient` — proves the shared pipeline compiles into both hosts.
-- [x] **Spike: OpenLayers + OSM in the web WASM host** *(v0.21: replaces the MapLibre variant, base-map role only).* *Code shipped: `OpenLayersInterop.cs` loads `map.openlayers.js` from `BlazorDLR.Shared`'s wwwroot, imports OpenLayers 9.x from CDN, renders OSM raster tiles with mandatory attribution declared on the tile source, and emits `viewportchanged` events the shared overlay consumes.* Markers are no longer this module's job — they land in the `SkiaMapOverlay` on top. The measurement half — open `/map-spike` in a browser — is a one-tap thing once the site is running.
-- [x] **Spike: Apple Maps on iOS (code)** *(v0.21: iOS-only, was "both phones").* *Code shipped: `AppleMapsInterop.cs` mints a JWT via `HttpApiClient.GetMapTokenAsync()`, caches it with a one-minute pre-expiry buffer via `TimeProvider`, hands it to `map.mapkit.js`. The private `.p8` never touches the client (§4.5, §14.2).* Battery measurement needs a real iPhone with the app deployed and 30 minutes of screen-on time. Not a code task.
-- [x] **Spike: Google Maps on Android (code)** *(new in v0.21).* *Code shipped: `GoogleMapsInterop.cs` fetches a referrer-restricted browser API key via `HttpApiClient.GetGoogleMapsKeyAsync()` (Phase 1 wires the endpoint), hands it to `map.googlemaps.js` which loads the Google Maps JavaScript API and emits the same viewport events as the other two base maps.* Same "stated error, not blank rectangle" (§4.5) when the key is missing. Battery measurement on a real Android phone remains the second half of this spike.
-- [x] **Decision: Apple's Android licensing question is closed.** *Rather than wait for Apple, the design switched to a per-platform base map plus a shared Skia overlay — see `Documentation/AppleMapKitAndroidQuestion.md`.* The overlay is now the piece that costs the same on every platform; the base maps are the vendors' problem.
-- [x] **Spike: shared Skia overlay (code).** *Code shipped: `SkiaMapOverlay.razor` backed by `SkiaSharp.Views.Blazor`. Receives a viewport plus markers plus route, projects lat/lon through Web Mercator, draws pins and polylines. One C# file for all three surfaces (§4.5 v0.21).* The frame-rate measurement — 20 pins at 5 s ticks, then at 500 ms — is a matter of running `/map-spike` on each host and reading DevTools / Instruments.
+- [x] **Spike: MapLibre GL JS + OSM, every host** *(v0.24: replaces the OpenLayers, MapKit and Google Maps variants together).* *Code shipped: `MapLibreInterop.cs` in `BlazorDLR.Shared` loads `map.maplibre.js` from the shared wwwroot, imports MapLibre GL JS 4.x from CDN, renders OSM raster tiles with mandatory attribution declared on the tile source, and emits `viewportchanged` events the shared overlay consumes.* Markers are not this module's job — they land in the `SkiaMapOverlay` on top. The measurement half — open `/map-spike` on each host — is a one-tap thing once the site is running.
+- [x] ~~**Spike: Apple Maps on iOS (code)**~~ **Removed in v0.24.** `AppleMapsInterop`, `map.mapkit.js` and the token endpoint they depended on are deleted (§4.5). The battery measurement it was carrying moves to the MapLibre spike above, which now answers for every host at once.
+- [x] ~~**Spike: Google Maps on Android (code)**~~ **Removed in v0.24.** `GoogleMapsInterop`, `map.googlemaps.js` and the browser API key are deleted, and the Phase 1 key-delivery endpoint they implied is never being built (§4.5, §14.2).
+- [x] **Decision: Apple's Android licensing question is closed, twice.** *v0.21 stopped putting MapKit on Android; v0.24 removed MapKit altogether — see `Documentation/AppleMapKitAndroidQuestion.md`.* The overlay is the piece that costs the same on every platform, and as of v0.24 so is the base map.
+- [x] **Spike: shared Skia overlay (code).** *Code shipped: `SkiaMapOverlay.razor` backed by `SkiaSharp.Views.Blazor`. Receives a viewport plus markers plus route, projects lat/lon through Web Mercator, draws pins and polylines. One C# file for all three surfaces (§4.5 v0.21) — and the reason v0.24 could delete three base maps without touching a screen.* The frame-rate measurement — 20 pins at 5 s ticks, then at 500 ms — is a matter of running `/map-spike` on each host and reading DevTools / Instruments.
 - [x] **Spike: SignalR reconnect (code).** *Code shipped: `SignalRRideHubClient.cs` wraps `HubConnection` with `WithAutomaticReconnect` and a jittered exponential curve (0/2/5/10/30 s, ± 25 %), re-joins any ride groups on reconnect, treats reconnect as a hint to fetch a fresh snapshot rather than replay history (§5.3). Access-token expiration is deliberately not enforced on the connection (§7.6).* The real hardware exercise — pull wifi during a 2 h ride, watch it come back — needs a running server and a real device.
 - [x] Wire `AGPL §13` footer (`SourceOfferFooter.razor`) into the shared `MainLayout.razor`. Read `commit` and `sourceUrl` from `GET /api/v1/about` (§14.6.2). **Component renders licence + source URL + truncated commit; degrades to a static "© Dumb Luck Rides · AGPL-3.0-only" line when the endpoint is unreachable.**
 
@@ -387,8 +378,8 @@ Runs alongside Phases 1–3, called out separately because it is the second-orde
 - [x] **`AuthStateTests`** — `ConcurrentRefresh_HitsTheTokenEndpointOnce` fires 20 concurrent `GetOrRefresh` calls through a `DelegatingApiClient` wrapper that instruments the `TokenAsync` count; the `SemaphoreSlim` single-flight guarantees exactly one server round trip. Covers the failure branch (`TokenException`) drops the state to signed-out.
 - [x] `MarkerEditor_RendersDirectionAndIcon_WithoutAMap` — `AddMarkerTests` renders the composer against no map at all: every curated icon appears as a radio option, the direction switch starts off and the bearing field is genuinely absent (not merely hidden), and saving with the switch off sends `DirectionDeg: null` — not zero, which §16.2 calls out as a real bearing. A second test flips the switch, types 270, and asserts the request carries `(short)270`.
 - [x] `TrackEditor_RangeSelection_MapsToRawIndices` — **`TrackEditorTests`** verifies the composer passes the user-typed From/To to `EditTrackAsync` as raw indices with the version quoted back from the points response (§15.5). The mobile branch also asserted: on a phone the composer is hidden and `GetTrackPointsAsync` is not called (§6.1).
-- [x] `Map_SameComponentRenders_AgainstBothJsModules` (broadened to all three providers per v0.21) — `RideMapTests` parameterises across `AppleMaps`, `GoogleMaps` and `OpenLayersOsm` via `FakeMapInterop`. The test forces the stated-error branch on every provider so bUnit never renders `SkiaMapOverlay` — `SKCanvasView`'s `OnAfterRenderAsync` reaches for `System.Runtime.InteropServices.JavaScript`, which is a browser-only API. The failing render still proves the same C# reaches `InitAsync` regardless of which module answered, and the error message carries the provider name.
-- [x] `Map_MapKitTokenUnavailable_ShowsStatedErrorNotBlankMap` — `RideMapTests.MapKitTokenUnavailable_ShowsStatedError_NotBlankMap` reproduces MapKit's exact failure mode (an `InvalidOperationException` from `InitAsync`) and asserts the "Map unavailable" message with the reason surfaces, the base-map host `<div>` is still emitted (so retry can attach), and the branch fires for §4.5's exact wording.
+- [x] `Map_SameComponentInitialisesWhateverIsRegistered` (v0.24: was parameterised across three providers) — `RideMapTests.SameComponent_InitialisesWhateverIsRegistered_WithoutNamingIt` registers a `FakeMapInterop` reporting a `MapProvider` production never uses, so a component that grew a check against `MapLibreOsm` fails here rather than in a WebView. It forces the stated-error branch so bUnit never renders `SkiaMapOverlay` — `SKCanvasView`'s `OnAfterRenderAsync` reaches for `System.Runtime.InteropServices.JavaScript`, a browser-only API. The failing render still proves the same C# reaches `InitAsync` regardless of what answered.
+- [x] `Map_BaseMapUnavailable_ShowsStatedErrorNotBlankMap` — `RideMapTests.BaseMapUnavailable_ShowsStatedError_NotBlankMap` reproduces `map.maplibre.js`'s CDN-unreachable failure (an `InvalidOperationException` from `InitAsync`) and asserts the "Map unavailable" message with the reason surfaces, the base-map host `<div>` is still emitted (so retry can attach), and the branch fires for §4.5's exact wording.
 - [ ] `Map_AttributionIsPresent_OnEveryProvider` — OSM and Apple attribution requirements (§4.5). **Live-JS smoke, not a bUnit test.** Each JS module (`open-layers-interop.js`, `apple-maps-interop.js`, `google-maps-interop.js`) draws its provider's attribution as part of tile rendering, and inspecting that requires the module to be loaded. Verified by running `/map-spike` on each host and reading the DOM (the checklist item lives in Phase 0's spike walk-through).
 
 **Phase 4 status (this pass):** 128 UI tests + 136 DLR.Core tests + 15 architecture tests all green in a plain `dotnet test` pass — 279 tests total. Core coverage now includes `TrackStats` (distance sums per segment, ascent noise threshold, null-vs-zero for absent elevation/time, monotonic-timestamp guard, per-segment duration, bounds), `TrackGeometry` (implicit zero start, out-of-range/duplicate drop, sorted starts, Legs never spans a break), `Distance` (haversine symmetry, one-degree-of-latitude sanity, antipodal check, short crossing over the date line), `PointRange` (half-open Contains invariant), `TrackBlobCodec` (lossless round-trip, null-not-zero survives elevation/time, stats-identical invariant, content hash equal for equal content, magic-byte guard), `MarkerIcons` (curated set, GPX symbol mapping, forward-compat key survival, storable-key charset + max length), `MarkerText` (bidi override strip, whitespace/tabs/newlines behaviour, GPX name splitter lossless). UI coverage adds the Phase-0 stub surface (`ThrowingApiClient` names the phase in every message; `NoopLocationProvider`, `NoopMediaPicker`, `NoopNotificationService`, `CookieBackedTokenStore`, `UnavailableExternalSignInProvider` behave as documented) and `SourceOfferFooter`'s fallback branches (short commit renders in full, empty commit renders "unknown", API failure surfaces placeholder with the AGPL line intact). Layout coverage now includes `NavMenu` (anonymous vs authenticated branches) and `MainLayout` (AGPL footer plus `#blazor-error-ui` element), plus the `RedirectToWelcome` anonymous-redirect and `NotFound` copy. Component-scope tests round out `PollCard` (multi-select add/remove, close-button visibility rules, disabled targets when closed) and `PollComposer` (2–6 cap, remove-below-min guard, UTC-normalised `ClosesUtc`, `AllowMultiple` flag). `RideThread` coverage adds pinned-vs-ordinary sectioning, `CommentPosted` hub insertion, the live-ride "quiet" note, load-older cursor state, and the compose→PostCommentAsync path (trimmed body + fresh `ClientGuid`). `GroupRideLive` coverage adds the organiser Start button + hidden-for-members, the end-ride two-choice dialog (immediate vs wind-down), the consent prompt lifecycle (`SetSharing(true)` on Share), and `MemberLeft` / `MarkerAdded` hub deltas. `RideMapForwardTests` proves the base-map SDK is initialised once with the parameters the caller supplied, even across re-renders. `WelcomeFlowsTests` proves both sign-in and register happy paths apply the returned session to `AuthState` and navigate to `/`. UI coverage spans every page in `BlazorDLR.Shared/Pages/`: Welcome (register/sign-in, password policy, availability check, per-rule server errors), Home, Group Rides landing / JoinRide / CreateRide / RideRequests / RidePermissionsPage / GroupRideLive (hub-driven `RideStateChanged`, `MemberJoined`, `PermissionsChanged`, `SharingWindDownStarted`, cross-ride isolation) / RideThread / AddMarker / TrackEditor, MyRides, RideDetail, GpxImport, plus every Settings subpage (Profile with §7.3 unconfirmed-email disable, Account with per-rule password errors, Devices with the "current session" invariant §7.10, Blocks with the "not told" copy §17.7, DataAndExport with §6.3's password-gated delete flow). The infrastructure — project, fakes, architecture guard rail — is done; the remaining bullets are specific component-level tests deferred until the components they target need coverage against regression. `SourceOfferFooter` reset a private static `_cached` field between tests via reflection (the cache is production-correct and per-process; only the test isolation needs a reset).
@@ -399,8 +390,8 @@ Follows §14.3.
 
 - [x] `BlazorDLR.Web.Client/wwwroot/appsettings.json` — `Api:BaseUrl` and `Api:HubUrl`, both empty by default so the WASM host uses same-origin (Caddy fronts Kestrel in prod; dev serves from the same origin). No API key here or anywhere else on the client.
 - [x] `BlazorDLR/MauiProgram.cs` — reads URLs from `MauiConstants.ResolveApiBase()` and `MauiConstants.ResolveHubUrl(...)`, which fall back to the compile-time platform defaults but honour `DLR_API_BASE` and `DLR_HUB_URL` environment variables. No key here either — Google's is `null` in committed code and is expected to arrive from a Phase 1 config fetch.
-- [x] MapKit JS: **the private `.p8` never reaches a client** (§4.5). Verified by the seam — `AppleMapsInterop` calls `HttpApiClient.GetMapTokenAsync()` and passes the returned short-lived JWT to `map.mapkit.js` (see `SharedFrontend.md §7 Phase 0` spike record). The endpoint is authed and rate-limited (§7.8).
-- [x] MapLibre + OSM: no key at all — the web uses OpenLayers with OSM tiles via `OpenLayersInterop`. Attribution is drawn by the OL module (§4.5); the identifying `User-Agent` on tile fetches is the browser's default, which is what OSM's tile-usage policy asks for on unauthenticated in-browser use.
+- [x] **No map credential exists anywhere, on any host** (§4.5, v0.24). Not "is kept off the client" — the MapKit `.p8`, its token endpoint and the Google browser API key are all deleted, so there is nothing to protect. This is the strongest form the check can take, and it replaces two rows that each described careful handling of a real secret.
+- [x] MapLibre + OSM: attribution is declared on the tile source in `map.maplibre.js` so MapLibre's `AttributionControl` renders it from the style (§4.5); the identifying `User-Agent` on tile fetches is the browser's default, which is what OSM's tile-usage policy asks for on unauthenticated in-browser use.
 
 ## 9. Risks specific to the front end
 
@@ -408,8 +399,8 @@ Adds to §12 rather than restating it.
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| **MapKit JS misbehaves in an Android WebView** | High | Phase 0 spike, in writing (§4.5, §11). Fallback is MapLibre on Android; the mobile host swaps its `IMapInterop` registration. |
-| **MapKit JS is not licensed for an Android WebView** | High | Same. If unlicensed, MapLibre on Android is the answer and costs only cross-phone consistency (§4.5). |
+| ~~**MapKit JS misbehaves in an Android WebView**~~ | — | Retired in v0.24: MapKit is deleted. What survives is the general WebView frame-rate/battery question, now measured once against MapLibre for every host (§4.5, §11). |
+| ~~**MapKit JS is not licensed for an Android WebView**~~ | — | Retired in v0.24. MapLibre GL JS is BSD-2-Clause and raises no per-platform licensing question (§4.5). |
 | **A component leaks a platform API into `BlazorDLR.Shared`** | High | `Ui_NoProjectReferenceToMauiAssemblies` and `Ui_NoConditionalCompilationSymbolsInSharedComponents` — see Phase 0. Convention plus a build enforcing it. |
 | **A page bypasses `IRideRepository` and calls the API directly** | Medium | Convention plus a scoped review rule: pages resolve `IRideRepository`, not `IApiClient`. Add an architecture test if it recurs. |
 | **A refresh token reaches the browser's JS heap** | High | `HttpOnly` cookie, `credentials: 'include'`, and `CookieTokenStore` is a no-op — there is no shared code path that reads the value at all (§18.5). |
@@ -439,5 +430,5 @@ Answered by their number here, not renumbered against §13 of the outline.
 
 - [x] Reviewed against `design-outline.md` §18 sentence by sentence for anything contradicted. The three revisions that landed in this working copy — per-platform base maps in v0.21, the password-policy composition messages in v0.22, and the gap-list surfacing as a pure-geometry component rather than a server hop — are recorded in the design-outline's revision entries with the reasons the pass surfaced.
 - [x] Reviewed against the file layout the solution actually has today — nothing above renames a file the solution needs. Every path in this document resolves; `BlazorDLR.slnx` names the projects this doc names; the `[ProjectReference]` graph matches §3.
-- [x] Reviewed by whoever will build Phase 0 — the spike questions in §7 are the ones Phase 0 answered. `AppleMapKitAndroidQuestion.md` records the decision (per-platform base + shared Skia overlay); the map-spike walk-through and the AGPL footer wire-up left the questions in a decided state before Phase 1 began.
+- [x] Reviewed by whoever will build Phase 0 — the spike questions in §7 are the ones Phase 0 answered. `AppleMapKitAndroidQuestion.md` records both decisions (v0.21's per-platform base + shared Skia overlay, and v0.24's consolidation onto MapLibre); the map-spike walk-through and the AGPL footer wire-up left the questions in a decided state before Phase 1 began.
 - [x] Task checkboxes above are the actual work list; ticking one moves it from "planned" to "shipped". Confirmed by this pass: every ticked box in Phases 0–4 corresponds to committed code, a test, or a documented decision — no aspirational check marks.

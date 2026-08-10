@@ -321,15 +321,18 @@ public sealed class InMemoryDeviceSettings : IDeviceSettings
 }
 
 /// <summary>
-/// A base-map interop that answers every question with "not initialised". The real
-/// implementations live in the host projects — Apple Maps and Google Maps in
-/// <c>BlazorDLR</c>, OpenLayers in <c>BlazorDLR.Web.Client</c> — because the JS modules
-/// they load are host-relative resources.
+/// A base-map interop that answers every question with "not initialised".
+/// <para>
+/// Since v0.24 the real implementation is <see cref="MapLibreInterop"/> and every
+/// interactive host registers it, so this survives for one caller: the SSR pass in
+/// <c>BlazorDLR.Web</c>, which has no JS runtime to import a module into. A prerender that
+/// tried would fail mid-render rather than hand the client a shell to hydrate.
+/// </para>
 /// </summary>
 public sealed class UninitialisedMapInterop : IMapInterop
 {
 	/// <inheritdoc />
-	public MapProvider Provider => MapProvider.OpenLayersOsm;
+	public MapProvider Provider => MapProvider.MapLibreOsm;
 
 	/// <inheritdoc />
 	public event Action<MapViewport>? ViewportChanged

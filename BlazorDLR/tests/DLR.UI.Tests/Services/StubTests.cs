@@ -141,7 +141,7 @@ public sealed class StubTests
 	{
 		UninitialisedMapInterop map = new();
 
-		map.Provider.ShouldBe(MapProvider.OpenLayersOsm,
+		map.Provider.ShouldBe(MapProvider.MapLibreOsm,
 			"the stub reports a provider so callers reading only the flag do not blow up on a null property.");
 
 		// Init on an uninitialised interop must fail loudly with the phase message.

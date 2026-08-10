@@ -167,6 +167,12 @@
 | 0.22 | **Client renders `ProblemDetails` bodies verbatim** (§18.2). `HttpApiClient` throws `ApiException` carrying the parsed body; screens list the server's messages one line at a time | `EnsureSuccessStatusCode` was discarding the reasons the server put in the response. A user who types a too-short password now sees "Passwords must be at least 6 characters" from Identity itself, not "The details you entered were rejected". Same shape as §18.2's rule that a shared component crosses the wire with the DTOs from `DLR.Core.Contracts` unchanged — the error DTO gets the same treatment |
 | **0.23** | **The breached-password check is removed** (§7.2). `IBreachedPasswordCheck`, `BreachedPasswordValidator` and `PwnedPasswordsClient` are deleted, along with the fake on the test factory; v0.22's composition rules are now the whole password policy | Operator decision: the security impact of a weak password on this application is judged not to be significant, and the check was the registration path's only third-party call. What goes with it is the argument v0.22 leaned on — nothing now stops `Passw0rd!` — and §7.2's outage clause, which no longer has anything to be unavailable |
 | 0.23 | **Welcome grows a reveal button on both password fields, and a strength meter on Register** (§7.2, §18.2). One `PasswordField` component; the meter reads `PasswordStrength`, four segments and a word, naming the rules a password still breaks | Partly the removal above — with no corpus lookup left, the sign-up form is the only place a rider is told anything about their password. Partly the field itself: a masked box on a phone keyboard, for an account that may have no email and therefore no reset path, is how somebody is locked out on their first ride. The meter advises and never gates — the server decides what it accepts, and a client that blocks on a rule the server does not have is a rider who cannot register |
+| **0.24** | **One base map everywhere: MapLibre GL JS over OpenStreetMap.** `map.mapkit.js`, `map.googlemaps.js` and `map.openlayers.js` are deleted along with `AppleMapsInterop`, `GoogleMapsInterop` and `OpenLayersInterop`; one `MapLibreInterop` in `BlazorDLR.Shared` is registered identically by all three hosts (§4.5, §18.3) | Withdraws v0.21's per-platform split and v0.19's Apple-Maps-on-both-phones, and restores v0.16's "one map everywhere" on a renderer that needs no credential. v0.21 had already moved every marker onto the Skia overlay, which left the three base maps drawing nothing but tiles — three vendor relationships, two secrets and a server dependency, for the one job all three did identically |
+| 0.24 | **`GET /api/v1/maps/token` is deleted**, with `MapKitOptions`, `MapKitSigningKey`, the `MapToken` contract and `RateLimits:MapTokenPerHourPerAddress` (§4.5, §7.8) | The map stops being a server dependency, which is what v0.19 introduced and called "the part most likely to be discovered late". It was: a deployment with no key showed *"Map unavailable — Map credentials unavailable"* on the phone, and the diagnosis ran through a token endpoint, an origin claim and a `.p8` before reaching the map |
+| 0.24 | **Both map credentials leave §14.2's never-commit list** — the MapKit `.p8` and the Google Maps browser API key (§4.5, §14.2) | Not a relaxation. The rows go because the secrets no longer exist: MapLibre needs no key on the server and none in the app bundle, so there is nothing left to leak or to restrict at a provider. The strongest form of §14.2 is a shorter list |
+| 0.24 | **Offline maps are possible again** — v0.19's "gone, not deferred" is withdrawn (§4.5, §13 Q26) | MapKit JS had no offline mode and no tile cache to point at a local file, and for an app whose premise is a trailhead with no signal that was the sharpest thing the decision cost. It is now a tile-source question rather than an SDK limitation, and §13 Q26's PMTiles work is the same work |
+| 0.24 | **The Skia overlay moves off `SkiaSharp.Views.Blazor`** — it rasterises off-screen and hands a PNG frame to an `<img>` through `map/overlay.js`, tracking the map with a CSS transform between repaints (§4.5, §16.3) | `SKCanvasView` initialises through `[JSImport]`, which is WebAssembly-only, so on a MAUI `BlazorWebView` it threw on first render — and an unhandled throw in `OnAfterRenderAsync` takes down the Blazor renderer, not just the component. On device that read as a base map that still panned while every button in the app stopped responding. **The overlay had never rendered on a phone**: before v0.24 the map failed first (no MapKit token on iOS, no Google key on Android), so it was never mounted, and §4.5's claim that one C# file drew every pixel on every surface had only ever been true on the web |
+| 0.24 | **§13 Q26 is now the only outstanding map decision, and it is on the critical path to launch** (§4.5, §9.1, §13) | Unchanged in substance — OSM's donated tiles never covered a public announcement — but it is no longer competing with three vendor integrations for attention, and the renderer it lands on is already the one shipping |
 
 ---
 
@@ -199,7 +205,7 @@ A **User** records **or imports** **Tracks**. A **GroupRide** has a planned **Ro
 │  │  BlazorWebView              │  │   │ ┌──────────────┐ │
 │  │  ┌───────────────────────┐  │  │   │ │  DLR.UI      │ │ ← the SAME
 │  │  │  DLR.UI (Razor RCL)   │◄─┼──┼───┼─┤  (Razor RCL) │ │   components
-│  │  │  + MapKit JS (Apple)  │  │  │   │ │  + MapLibre  │ │   (§18)
+│  │  │  + MapLibre + OSM     │  │  │   │ │  + MapLibre  │ │   (§18)
 │  │  │                       │  │  │   │ │    + OSM     │ │   (§4.5)
 │  │  └───────────────────────┘  │  │   │ └──────────────┘ │
 │  └─────────────────────────────┘  │   └────────┬─────────┘
@@ -382,79 +388,95 @@ ViewModels only ever see this interface; both platform implementations stay thin
 - Conflict rule: **a track has exactly one writer at any moment** — the recording device until the full-resolution upload completes, the server from then on *(restated in v0.12; through v0.11 this read "tracks are append-only and immutable once ended", which web editing would contradict)*. Points are still append-only while recording, and the device never edits, so the two writers can never overlap. The only real conflicts remain on group-ride metadata — last-write-wins on the server, owner wins ties.
 - Once the server owns a track, the device's copy is a **cache**: an edit (§15.5) bumps `Version`, and the next sync replaces the local copy wholesale rather than merging. Merging point lists is a problem this design never has to solve, and that is deliberate.
 
-### 4.5 Maps — Apple Maps on the phone, OSM on the web, Mapsui for the car
+### 4.5 Maps — MapLibre over OpenStreetMap, everywhere; Mapsui for the car
 
-The renderer set, as of **v0.19**:
+The renderer set, as of **v0.24**:
 
 | Surface | Renderer | Tiles | Cost |
 |---|---|---|---|
-| **Android + iOS** | **MapKit JS** in the `BlazorWebView` | Apple's | Free within a generous daily quota; needs an Apple Developer account |
-| **Web** | **MapLibre GL JS** | **OpenStreetMap**, *"to begin with"* | Free, but see the usage-policy note below |
+| **iOS + Android + Web** | **MapLibre GL JS** in the `BlazorWebView` / the browser | **OpenStreetMap**, *"to begin with"* | Free. No key, no account, no server dependency |
 | **Android Auto / CarPlay** | **Mapsui / SkiaSharp** into a raw `Surface` | Whatever it is given | Unchanged since v0.9 (§4.6) |
 
-**Apple Maps on Android is not a mistake in that table.** MapKit JS is a *web* SDK — it runs in any modern browser, and since v0.16 the mobile UI **is** a browser (§18). So the same map renders on both phones, which is a better outcome for consistency than the platform-native split this project started with. Two things about it have to be verified rather than assumed, and both are Phase 0 (§11):
-
-1. **Does it render and perform acceptably in an Android `WebView`?** Apple test against Safari and the major desktop browsers; an Android WebView is not on anyone's headline support matrix.
-2. **Do Apple's MapKit JS terms permit it there?** Nothing in the SDK is OS-locked, but "runs" and "is licensed to run" are different questions, and this one is worth an answer in writing before the Android build depends on it.
-
-If either answer is no, the fallback is the web's stack — MapLibre — on Android only, which is a swap of one JS module (below), not a redesign.
-
-#### What this costs: v0.16's "one map everywhere" is withdrawn
-
-v0.16 claimed the phone and the web would run *identical* map code, and listed that as a benefit. **Two providers means that is no longer true**, and the honest accounting is:
-
-- `RideMap.razor` remains **one component** in `DLR.UI` with one C# surface. ViewModels, markers, route overlays and camera control are unchanged and still written once.
-- Behind it sit **two JS modules** — `map.mapkit.js` and `map.maplibre.js` — implementing one interop contract, chosen at host registration.
-- So the seam is one file boundary, not a fork of the UI. Every other screen in §4.1 is unaffected.
+**One module, one interop class, three hosts.** `map.maplibre.js` and `MapLibreInterop` live in `BlazorDLR.Shared`, and every host registers the same line:
 
 ```csharp
-// DLR.UI/Components/RideMap.razor.cs — the JS side implements this shape
-public interface IMapInterop
-{
-	ValueTask InitAsync(MapOptions options);
-	ValueTask SetCameraAsync(MapCamera camera);
-	ValueTask SetRouteAsync(RouteOverlay? route);
-	ValueTask UpsertMarkerAsync(MarkerDto marker);   // riders and §16 markers
-	ValueTask RemoveMarkerAsync(Guid id);
-	MapCapabilities Capabilities { get; }            // §4.5 rule 3, unchanged
-}
+builder.Services.AddTransient<IMapInterop, MapLibreInterop>();
 ```
 
-The `MapCapabilities` flags earn their keep for a third time: MapKit JS and MapLibre do not support exactly the same things, and the UI degrades against the flags rather than against a provider name.
+Base-map role only — tiles, camera, rotation, attribution. **Every rider pin, marker and track is drawn by `SkiaMapOverlay`** (v0.21, unchanged and still the design's centre of gravity here).
 
-#### MapKit JS makes the map a server dependency
+#### Why three base maps became one
 
-This is new, and it is the part most likely to be discovered late. **MapKit JS authenticates with a short-lived JWT signed ES256 with a private key issued by Apple**, and that `.p8` key must never reach a client. So:
+v0.21 left the project with Apple Maps on iOS, Google Maps on Android and OpenLayers on the web. That was a defensible answer to a question that had stopped being asked, because v0.21 itself had already changed the terms:
 
-```
-GET /api/v1/maps/token        authed → { token, expiresUtc }
-```
+- **v0.21 moved every marker, pin and route onto the Skia overlay.** After that the base map draws tiles and handles gestures. Nothing else.
+- So the three SDKs were being kept for the one job all three do identically, and each was charging for it separately: MapKit JS wanted a `.p8`, an ES256 token endpoint and an origin claim; Google Maps wanted a browser API key shipped inside the app bundle and restricted at the provider; OpenLayers wanted neither but only ran on the web.
+- **Two of the three made the map a server dependency or a secret-management problem, and neither bought a pixel the third could not draw.**
 
-- The key lives with the other secrets (§14.3) and is added to the never-commit list (§14.2). It is in the same class as the APNs key: leaking it means someone else bills their map usage to you.
-- Tokens are short-lived and minted on demand, cached in memory on the client until near expiry.
-- The endpoint is authenticated and rate-limited like the rest of §7.8. A public token endpoint is a free map quota for the internet.
-- **A map that cannot get a token shows a stated error, not an empty grey rectangle.** The same rule §4.6 applies to a car screen: a blank map is a worse failure than an honest one.
+What that cost in practice is worth recording, because it is the kind of bill that arrives late. A deployment with no MapKit key showed *"Map unavailable — Map credentials unavailable"* on the phone; diagnosing it ran through a token endpoint, a rate limiter, an options object, a signing key and an origin claim before arriving at "this server was never given a `.p8`". None of that machinery was drawing anything.
 
-#### Offline maps are gone, not deferred
+#### The overlay had never run on a phone
 
-**MapKit JS has no offline mode**, and there is no tile cache to point at a local file. For an app whose premise is a trailhead with no signal, this deserves stating bluntly rather than in a capability table:
+Worth recording separately, because it is the more embarrassing half of the same story and it was found by shipping v0.24 rather than by reasoning.
 
-> Recording, markers, the thread and the whole app keep working with no signal (§4.4, §7.9). **The map behind them does not.** A rider in a dead zone sees their track and their position over a blank background.
+`SkiaMapOverlay` was built on `SKCanvasView` from `SkiaSharp.Views.Blazor`. That package initialises through `[JSImport]` — **WebAssembly-only** interop — so on a MAUI `BlazorWebView`, where the runtime is Mono, the overlay's first render throws `System.Runtime.InteropServices.JavaScript is not supported on this platform`. An unhandled exception in a child's `OnAfterRenderAsync` does not merely lose that child: **it takes down the Blazor renderer for the whole application.** The observed symptom was exact — the base map still panned, because it is pure JS inside the WebView, and every button on every page stopped responding, because nothing Blazor was running any more.
 
-That is a real regression against the Phase 3 ambition of MBTiles/PMTiles offline packs, and it is the one thing Apple Maps costs that the alternatives did not. It is survivable because the recorded data is never at risk — but it should be a deliberate acceptance, not a surprise. The `MapProvider` setting (below) is what keeps the door open: a self-hosted PMTiles option can be added later for riders who want offline maps, without touching anything but the module registration.
+This was not introduced by the consolidation. It was *revealed* by it. Before v0.24 the base map failed first on both phones — no MapKit token on iOS, no Google browser key on Android — so `RideMap` never reached the branch that mounts the overlay. v0.21's headline claim, *one C# file drawing the same pixels on every surface*, had only ever been exercised on the web.
 
-#### OpenStreetMap on the web — and the words "to begin with"
+The fix keeps the drawing code and replaces the surface:
 
-MapLibre with OSM raster tiles is free, needs nothing hosted, and is the right way to get the web app onto a map this week. Two obligations come with it:
+- **`PaintOverlay(SKCanvas)` is unchanged.** All ~1,100 lines of pin, route, label and circle drawing take an `SKCanvas` and always did, which is why this cost a surface rather than a rendering rewrite.
+- It draws into an off-screen `SKSurface`, encodes PNG, and hands the frame to an `<img>` through `map/overlay.js`. Plain SkiaSharp runs natively on Android and iOS — only the *canvas binding* was browser-only.
+- **Repaints are coalesced, and the frame is CSS-transformed between them.** A repaint costs a rasterise, an encode and a bridge hop; viewport events arrive once per animation frame during a drag. A pan and a zoom are exactly the changes a translate-and-scale can express, so the frame already on screen follows the map for free, and a real repaint is started only for what it cannot express: new content, a rotation, or a resize. `MapViewport` carries an axis-aligned extent, which is *why* rotation cannot be tracked — turning the map changes the shape of the box the frame was drawn for.
+- `BlazorDLR.Shared` now references plain `SkiaSharp`. Each host names its own native assets: the MAUI SDK for Android/iOS, `SkiaSharp.NativeAssets.WebAssembly` in `BlazorDLR.Web.Client`, `SkiaSharp.NativeAssets.Linux` in `BlazorDLR.Web`.
+
+`RideMap` also wraps the overlay in an `ErrorBoundary`. It catches nothing today, and it stays because the blast radius of this class of failure is the whole application rather than one component. Note that an `ErrorBoundary` does **not** catch failures during component instantiation — a missing DI service throws before the boundary applies — so it is not a general safety net.
+
+**The regression test runs on the desktop CLR**, which is the same not-wasm situation as the phone: `Overlay_RasterisesAFrame_OnARuntimeThatIsNotWebAssembly` mounts the real overlay and asserts a real PNG reaches `present()`. It failed before the fix and passes after it. Every *other* map test in the suite forces `InitException`, which is precisely how the overlay reached production having never been mounted outside a browser.
+
+#### What the consolidation removes
+
+| Gone | Was |
+|---|---|
+| `map.mapkit.js`, `map.googlemaps.js`, `map.openlayers.js` | Three base-map modules implementing one contract |
+| `AppleMapsInterop`, `GoogleMapsInterop`, `OpenLayersInterop` | Three interops, two of them host-specific |
+| `GET /api/v1/maps/token`, `MapKitOptions`, `MapKitSigningKey`, `MapToken` | The map as a server dependency |
+| `RateLimits:MapTokenPerHourPerAddress` | A ceiling on an endpoint that no longer exists |
+| The MapKit `.p8` and the Google browser API key | Two rows on §14.2's never-commit list |
+| The `#if IOS / #elif ANDROID` in `MauiProgram.cs` | A platform conditional selecting between credentials |
+
+`IMapInterop`, `MapProvider` and `MapBridge` **survive**. The seam is what let three providers be deleted and one added without touching a screen, and §13 Q26's offline renderer is the case it exists for again. `MapProvider` is down to one member and stays an enum because the attribution obligation is per tile source, not per app.
+
+#### Offline maps are possible again
+
+v0.19 recorded this bluntly and it deserves the same treatment on the way back:
+
+> **MapKit JS has no offline mode**, and there is no tile cache to point at a local file… A rider in a dead zone sees their track and their position over a blank background.
+
+That was the sharpest thing the Apple decision cost, for an app whose premise is a trailhead with no signal. It is now a **tile-source** question rather than an SDK limitation — MapLibre will render from a local PMTiles archive as readily as from a tile server — which means §13 Q26's work and an offline map pack are the same work, not two projects.
+
+This is not shipped. It is unblocked, which is a different claim and the only one being made here.
+
+#### OpenStreetMap — and the words "to begin with"
+
+Unchanged from v0.19, and now the **only** outstanding map decision:
 
 - **OSM's tile usage policy is a real constraint, not a formality.** `tile.openstreetmap.org` is a donated service: it forbids bulk downloading and heavy or commercial use, and it requires an identifying `User-Agent`. It is appropriate for development and a handful of friends; it is **not** appropriate for a public launch, and continuing to lean on it at scale would be taking something that was given for a different purpose.
-- **Attribution is mandatory and permanent** — "© OpenStreetMap contributors" under ODbL on the web, and Apple's required attribution on the phone. Both live in the map component so they cannot be forgotten per screen.
+- **Attribution is mandatory and permanent** — "© OpenStreetMap contributors" under ODbL. It is declared on the tile source inside `map.maplibre.js`, so MapLibre's own `AttributionControl` renders it and removing the credit means removing the tiles.
 
-So *"to begin with"* is load-bearing, and it is written into the plan rather than left as an intention: **before the web app is publicly announced, the tile source moves** to self-hosted PMTiles (§9.1) or a paid tier. Recorded as §13 Q26.
+So *"to begin with"* is still load-bearing: **before the web app is publicly announced, the tile source moves** to self-hosted PMTiles (§9.1) or a paid tier. Recorded as §13 Q26, and now on the critical path to launch rather than competing with three vendor integrations for attention.
+
+#### What this costs
+
+Honest accounting, because the previous three revisions each claimed a win here:
+
+- **The tile bill is no longer deferrable by leaning on a vendor.** v0.19 got tile hosting *out* of Phase 1 by letting Apple serve the phone and OSM serve the web. Half of that is now gone: there is no vendor serving anyone, and §13 Q26 is the whole answer. A regional extract is a few GB for Australia against ~100 GB for the planet (§9.1) — real disk on a 40 GB VPS, and a real decision about which region.
+- **Cartography is a step down on the phone.** Apple Maps is better-looking than raster OSM, and an iPhone user knows what Apple Maps looks like. The overlay draws everything this app authors, so what is lost is the base tiles' polish — worth stating rather than pretending the consolidation is free.
+- **The CDN is still a network dependency.** `map.maplibre.js` loads the library from jsDelivr and the tiles from OSM. Neither works offline today; the difference from MapKit is that neither *has* to stay remote.
 
 #### One thing this gives back
 
-v0.16 pulled tile hosting into Phase 1 and put a multi-gigabyte extract on a 40 GB VPS disk (§9.1). **Both of those go away again**: Apple hosts the phone's tiles, OSM hosts the web's, and the disk pressure from §9.1 eases considerably. The v0.16 "bill" is deferred rather than paid — with the note above about when it comes due.
+Every host now fails the same way, so the stated-error branch in `RideMap.razor` has one shape to get right instead of three, and a map bug reproduces on a laptop. §14.2's list is two rows shorter, and shipping the Android build no longer depends on an Apple Developer account — the coupling v0.19 flagged as "unusual enough to deserve being visible" is simply gone.
 
 ---
 
@@ -514,7 +536,7 @@ public interface IMapRenderer
 
 **The `MapProvider` setting**, as of v0.19: `Apple | Osm | Offline` — defaulting to `Apple` on the phone and `Osm` on the web, with `Offline` present but not selectable until a PMTiles pack exists. The setting has survived three renderer changes without its shape altering, which is the point of having had it since v0.2.
 
-**[Mapsui](https://mapsui.com/) remains, scoped to the car.** It is the only renderer that can draw into an Android Auto `Surface` or a CarPlay window (§4.6), which was true in v0.9 and is unaffected by anything since — head units have no browser, and MapKit JS is a browser SDK. It keeps `IMapRenderer` alive as a contract with exactly one implementation and two hosts.
+**[Mapsui](https://mapsui.com/) remains, scoped to the car.** It is the only renderer that can draw into an Android Auto `Surface` or a CarPlay window (§4.6), which was true in v0.9 and is unaffected by anything since — head units have no browser, and MapLibre GL JS is a browser SDK. It keeps `IMapRenderer` alive as a contract with exactly one implementation and two hosts.
 
 **Tiles are somebody else's problem again** (v0.19): Apple serves the phone, OSM serves the web. Self-hosted **PMTiles** — a regional extract served off the VPS by Caddy over HTTP range requests (§9.1) — is now the *planned replacement* for OSM before public launch, and the route to an offline option, rather than Phase 1 work.
 
@@ -989,7 +1011,7 @@ Permissions_Changed_IsBroadcastAndRecordedInTheThread
 | Concern | Choice | Rationale |
 |---|---|---|
 | Rendering | **Blazor WebAssembly** for the signed-in app, from the shared `DLR.UI` library; **static SSR** for public and auth-landing pages | One component set with the mobile app (§18); SSR keeps the public pages fast and indexable |
-| Map | **MapLibre GL JS + OpenStreetMap tiles** via a small JS interop wrapper (§4.5) | Free and hosted by someone else, which is the right trade for getting onto a map early. *"To begin with"* is doing real work in that sentence — OSM's usage policy does not cover a public launch (§13 Q26). The phone runs the same **component** but a different module: Apple Maps (v0.19) |
+| Map | **MapLibre GL JS + OpenStreetMap tiles** via a small JS interop wrapper (§4.5) | Free and hosted by someone else, which is the right trade for getting onto a map early. *"To begin with"* is doing real work in that sentence — OSM's usage policy does not cover a public launch (§13 Q26). Since v0.24 the phone runs the same **component and the same module** — one base map on every host, and no credential on any of them |
 | Auth | ASP.NET Core Identity — **HttpOnly refresh cookie** for web, JWT + rotating refresh in the keychain for mobile | Full design in **§7**; the divergence and its reasoning in §18.5 |
 | Data | **PostgreSQL** + EF Core | Free, portable, JSONB for flexible bits; PostGIS optional |
 | Live positions | Raw **Npgsql** (§5.5) | Deliberate second idiom — see below |
@@ -1048,7 +1070,6 @@ GET    /api/v1/me/export                       full data export — a ZIP: expor
                                                as GPX, photographs as files (§16.6)
 DELETE /api/v1/me                              account + data deletion; body carries the
                                                current password, and blobs go explicitly (§16.6)
-GET    /api/v1/maps/token                      authed → short-lived MapKit JS token (§4.5)
 GET    /api/v1/about                           licence, source URL, running commit — anon (§14.6.2)
 WS     /hubs/ride                              SignalR
 ```
@@ -1898,7 +1919,7 @@ The whole workload is two to three orders of magnitude inside the allowance. **A
 
 **Map tiles — not ours to serve, for now** *(revised in v0.19)*. Apple serves the phone's tiles and OSM serves the web's (§4.5), so **no tile extract sits on this disk in Phase 1** and the traffic table above overstates the tile row until that changes.
 
-When it does change — before the web app is publicly announced, because OSM's usage policy does not cover that (§13 Q26) — the answer is already designed: self-hosted **PMTiles, served straight off the VPS by Caddy.** PMTiles is a single file read over HTTP range requests, which Caddy's `file_server` handles natively, so the usual "PMTiles needs object storage plus a Worker" setup is not required here. A regional extract is the practical unit: a few GB for Australia, versus ~100 GB for the planet. That is also the route to an offline map pack, which MapKit JS cannot provide (§4.5).
+When it does change — before the web app is publicly announced, because OSM's usage policy does not cover that (§13 Q26) — the answer is already designed: self-hosted **PMTiles, served straight off the VPS by Caddy.** PMTiles is a single file read over HTTP range requests, which Caddy's `file_server` handles natively, so the usual "PMTiles needs object storage plus a Worker" setup is not required here. A regional extract is the practical unit: a few GB for Australia, versus ~100 GB for the planet. That is also the route to an offline map pack — which v0.19 through v0.23 could not have had at any price, because MapKit JS has no offline mode, and which v0.24 unblocked by putting every host on a renderer that will read a local PMTiles archive (§4.5).
 
 **Blobs.** Track blobs and photos live on a **Docker volume on the VPS**, not in object storage. One place to back up, no S3 credentials in the running process, and no egress bill. `IBlobStore` keeps the seam, so moving to S3-compatible storage later is a registration change — but doing it now would add a dependency to save nothing.
 
@@ -2099,8 +2120,8 @@ Each phase leads with the first failing test.
 
 | Phase | First failing test | Scope | Exit criterion |
 |---|---|---|---|
-| **0 — Spikes** (1–2 wk) | `Replay_KnownGpx_ProducesExpectedDistanceAndAscent` | GPX replay harness; background GPS on both platforms; **`DLR.UI` skeleton rendering in both a `BlazorWebView` and WASM (§18)**; **MapKit JS in the WebView on both phones, 20 pins updating every 5 s — measure battery, and settle whether Apple's terms permit the Android case (§4.5)**; SignalR through Caddy; **verify an `androidx.car.app` .NET binding exists** (§4.6) | A 2-hour ride recorded with the screen off on a real iPhone **and** a real Android, no gaps — plus written answers on the Android Auto binding **and MapKit JS on Android**, and a battery number for the WebView map against §10.3's 8 %/hour |
-| **1 — Solo** | `Register_UsernameAndPasswordOnly_Succeeds` | Username/password registration, permanent refresh tokens, IP ladder, optional email + confirm/reset, `last_active_utc`. Record, store, list, view, GPX export. Track upload. **GPX import on app and web, with the full hostile-input corpus (§15.3)**. **`DLR.UI` shared components in both hosts; the map in both modules — MapKit JS on the phones with its token endpoint, MapLibre + OSM on the web (§4.5)**. Web track view. **`LICENSE` + `/api/v1/about` + footer source link, and the CI licence gate** (§14.6) | Install on your own phone and stop using anything else — including a reinstall that signs straight back in without typing a password |
+| **0 — Spikes** (1–2 wk) | `Replay_KnownGpx_ProducesExpectedDistanceAndAscent` | GPX replay harness; background GPS on both platforms; **`DLR.UI` skeleton rendering in both a `BlazorWebView` and WASM (§18)**; **MapLibre GL JS in the WebView on both phones, 20 pins updating every 5 s — measure battery (§4.5)**; SignalR through Caddy; **verify an `androidx.car.app` .NET binding exists** (§4.6) | A 2-hour ride recorded with the screen off on a real iPhone **and** a real Android, no gaps — plus a written answer on the Android Auto binding, and a battery number for the WebView map against §10.3's 8 %/hour |
+| **1 — Solo** | `Register_UsernameAndPasswordOnly_Succeeds` | Username/password registration, permanent refresh tokens, IP ladder, optional email + confirm/reset, `last_active_utc`. Record, store, list, view, GPX export. Track upload. **GPX import on app and web, with the full hostile-input corpus (§15.3)**. **`DLR.UI` shared components in both hosts; one map module — MapLibre + OSM — on every host, with no credential and no token endpoint (§4.5)**. Web track view. **`LICENSE` + `/api/v1/about` + footer source link, and the CI licence gate** (§14.6) | Install on your own phone and stop using anything else — including a reinstall that signs straight back in without typing a password |
 | **2 — Group rides** | `JoinByCode_ApprovalRide_CreatesPendingRequestOnly` | Both join paths + admit/decline, **join-time sharing consent, per-ride toggle and the ride-end wind-down (§5.6)**, **multi-ride membership and publishing (§5.7)**, **organiser content switches (§5.8)**, planned route, live map, member list, batched fan-out, position cache + 10 s flush (§5.5), hub membership authz. **Web track editor + undo window (§15.5–15.6)**. **Markers with photos (§16)**, rendering fully — MapLibre draws icons, rotation and labels from Phase 1, so v0.13's degraded-pin fallback never has to ship (§18.3). **Ride thread: text, photos, pinning, reactions, and the Live-ride notification rules (§17.1, §17.6)** | 4 people, 1 real ride, all pins moving; one joined by code, one admitted from a request; kill and restart the server mid-ride and watch the map come back warm. **One rider joins without sharing and stays invisible on the map while still seeing everyone; end the ride with a wind-down and watch it expire on its own with every phone switched off.** **Trim your own house off a real recorded ride, watch the distance change, undo it, then purge the original.** **Drop a hazard marker with a photo mid-ride and have it appear on three other phones; confirm the stored image carries no EXIF GPS** |
 | **3 — Polish + car** | `Snapshot_GapList_OrdersRidersAlongRoute` | `IRideSessionState` + gap list, **Mapsui renderer** (on the critical path for both the car *and* markers, §16.3), **full marker rendering — icons, rotation, labels**, **Android Auto + CarPlay heads (§4.6)**, inactivity cleanup behind dry-run, push notifications, **polls (§17.5)**, **report/block moderation (§17.7)**, off-route alerts, ride summaries, load test, **social sign-in + guest riders (§7.16)** | Store submission; a real ride navigated from a head unit; a week of dry-run deletion logs read |
 | **4 — Beyond** | — | Ride photos on the timeline, leader hand-off, public ride discovery, TOTP 2FA, Wear OS / watchOS glances | — |
@@ -2139,10 +2160,10 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 | Mapsui is now on the critical path, not optional | Medium | Car support cannot use the native map control at all (§4.6). `IMapRenderer` was designed for exactly this swap, and `MapHostKind` makes an unsupported pairing a startup failure rather than a blank screen |
 | Auto/CarPlay review rejection on distraction grounds | Medium | Templates enforce most rules mechanically; two-screen depth, capped list rows and single-tap actions are design constraints from the start (§4.6), not late fixes. DHU and CarPlay Simulator before hardware, one real head unit before submission |
 | ~~Built-in map's pin limits force an early Mapsui swap~~ | — | **Retired in v0.16.** There is no built-in map in the design any more (§18.3) |
-| **A JS map in a WebView misses the battery or frame-rate target** | **High** | The genuine unknown since v0.16, sharpened by v0.19: the module on Android is now **MapKit JS in an Android WebView**, further off Apple's tested path than MapLibre was. **Phase 0 spike** with a number attached (§10.3's 8 %/hour). Fallback is MapLibre on Android — the web's module, already written (§4.5) |
-| **MapKit JS is not licensed, or not usable, in an Android WebView** | **High** | Nothing in the SDK is OS-locked, but "runs" and "is licensed to run" are different questions and the Android build would depend on the answer. **Phase 0, in writing**, exactly as §4.6 treats the `androidx.car.app` binding. Fallback is MapLibre on Android, which costs consistency between the two phones and nothing else (§4.5) |
-| **Shipping Android depends on an Apple Developer account** | Medium | An unusual coupling worth keeping visible: if Apple changes MapKit JS terms or pricing, the map disappears from *Android* as well as iOS. The account is already required for iOS and CarPlay (§4.6), so this adds no new cost — only a new failure mode, mitigated by the MapLibre module already existing |
-| **Offline maps are lost, not deferred** | Medium | MapKit JS has no offline mode (§4.5). Recording, markers and the thread all work in a dead zone; the map behind them does not. Accepted deliberately for v1, with `MapProvider`'s `Offline` option and the PMTiles work (§9.1) as the route back if riders complain |
+| **A JS map in a WebView misses the battery or frame-rate target** | **High** | The genuine unknown since v0.16, and the one map risk v0.24 did not retire — it made it easier to measure. Every host now runs **MapLibre GL JS**, so one **Phase 0 spike** with a number attached (§10.3's 8 %/hour) answers for all three instead of one per provider. There is no fallback module any more: the fallback is the tile source (raster → vector, or a lighter style), which is §13 Q26's decision anyway |
+| ~~**MapKit JS is not licensed, or not usable, in an Android WebView**~~ | — | **Retired in v0.24.** Closed twice over: v0.21 stopped putting MapKit on Android, and v0.24 removed MapKit entirely. MapLibre GL JS is BSD-2-Clause and carries no per-platform licensing question at all (§4.5) |
+| ~~**Shipping Android depends on an Apple Developer account**~~ | — | **Retired in v0.24.** No host depends on an Apple credential for its map. The account is still required to ship iOS and CarPlay (§4.6) — what is gone is the coupling that let an Apple terms change take the map off *Android* |
+| **Offline maps are still not shipped** | Medium | v0.24 withdrew v0.19's "lost, not deferred": MapLibre will render from a local PMTiles archive, so this is a tile-source question again rather than an SDK wall (§4.5). It remains a *risk* because nothing has been built — recording, markers and the thread work in a dead zone; the map behind them still does not, until §13 Q26 lands |
 | OSM's tile usage policy stops covering the web app | Medium | It is a donated service and the policy forbids heavy or commercial use. Fine for development and a handful of friends, not for a public launch — so the move to self-hosted PMTiles is scheduled against the announcement, not against a complaint (§13 Q26) |
 | Two map modules drift in behaviour | Low–Med | Back in scope as of v0.19, having been eliminated by v0.16. `MapCapabilities` declared per module keeps differences explicit, and §18.8 tests both. The marker rendering in §16.3 is the most likely place to diverge |
 | Shared components drift into two implementations | Medium | `#if ANDROID` in `DLR.UI` is the failure mode, and it starts as one harmless line. Banned by architecture test (§10.4, §18.2); the correct move is always an interface with a per-host registration |
@@ -2169,7 +2190,7 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 | Thread storage grows without bound | Low–Med | Caps per ride, `Archived` making threads read-only (§17.6), and photos already quota'd (§16.4). Text is cheap; the photos attached to it are not |
 | **UGC rules bite at store review** | Medium | Photos and notes visible to other riders make this a UGC app: Apple and Play require reporting, blocking, and a response commitment (§10.2, §16.5). Cheap to build with the feature, a whole review cycle to add afterwards |
 | Photo storage outgrows the €4 budget | Medium | Photos are an order of magnitude larger than tracks, and they land on the same 40 GB disk as everything else (§9.1). Downscale to 2048 px, thumbnails for callouts, per-account quotas (§13 Q13), and Caddy caching the reads. Uploads go through the VPS deliberately (§16.4) — that cost is accepted to keep metadata stripping non-optional |
-| ~~Marker icons cannot render on the Phase 1 native map~~ | — | **Retired in v0.16.** Both JS modules draw icons, rotation and labels from Phase 1 (§16.3), so v0.13's degradation path now applies only to the car renderer — and to the one MapKit JS caveat about persistent labels |
+| ~~Marker icons cannot render on the Phase 1 native map~~ | — | **Retired in v0.16**, and closed for good by v0.21: every icon, rotation and label is drawn by `SkiaMapOverlay`, not by a base map (§16.3). v0.13's degradation path now applies only to the car renderer |
 | Orphaned photo blobs after a delete | Low–Med | `ON DELETE CASCADE` does not reach object storage, so blob deletion is explicit and the nightly job sweeps orphans as a backstop (§16.6, §7.11). An orphan here is a privacy failure wearing a storage bill's clothes |
 | **Trimmed points survive in backups** | Medium | Unavoidable and therefore disclosed rather than mitigated: the UI and privacy policy say the removed points leave the live database immediately (or after the undo window) but persist in nightly backups until retention rolls (§10.1, §15.6). Bounded backup retention is the only real control |
 | A dependency arrives under a licence that cannot ship in an AGPL project | Low–Med | Allow-list plus a CI licence scan that also fails on *unknown* (§14.6.3). Cheap to fix at PR time, expensive to unpick after release |
@@ -2204,8 +2225,8 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 24. **Does the web need offline at all?** *(new in v0.16)* — §18.6 makes the WASM client online-only. A service worker plus IndexedDB would give the planning surface some resilience, but it duplicates the sync engine that already exists for mobile (§4.4) in a second, weaker form. Probably not worth it — worth asking once rather than drifting into it.
 25. **Native fallback for the live map** *(new in v0.16)* — if the Phase 0 WebView battery spike (§18.3) fails, does the live ride screen become a native MAUI page while everything else stays shared? That is the designed retreat, and it is worth knowing in advance which screens would follow it down.
 26. **When does the web leave OSM tiles?** *(new in v0.19)* — "to begin with" needs a trigger, not a hope. `tile.openstreetmap.org` is donated infrastructure whose policy does not cover a public launch (§4.5), so the honest answer is *before the web app is announced to anyone outside the test group*, with self-hosted PMTiles (§9.1) as the destination. The open part is only whether that is worth doing earlier, since it also unlocks the offline map option.
-27. **Do riders actually miss offline maps?** *(new in v0.19)* — MapKit JS cannot do them (§4.5), and the alternative costs a third module plus a few GB of tiles on the phone. Worth answering with real riders in a real dead zone rather than in advance; the answer decides whether `MapProvider.Offline` ever becomes selectable.
-28. **Should CarPlay use native MapKit instead of Mapsui?** *(new in v0.19)* — now that Apple Maps is the phone's provider, a native `MKMapView` inside the `CPWindow` would be the natural pairing and would look better than a Skia-drawn map. It would also mean a *fourth* renderer, since Android Auto still needs Mapsui. Not worth it today; worth revisiting if CarPlay quality ever becomes the thing being judged.
+27. **Do riders actually miss offline maps?** *(new in v0.19, reopened in v0.24)* — no longer blocked on an SDK: MapLibre reads a local PMTiles archive, so the cost is a few GB on the phone and the packaging around it, not a third renderer (§4.5). Still worth answering with real riders in a real dead zone rather than in advance, because it decides whether the §13 Q26 archive gets a phone-side download or stays server-only.
+28. **Should CarPlay use native MapKit instead of Mapsui?** *(new in v0.19, weakened by v0.24)* — the argument was that Apple Maps was already the phone's provider, so a native `MKMapView` inside the `CPWindow` was the natural pairing. That pairing is gone: the phone is on MapLibre, so native MapKit on CarPlay would now be a *second* Apple dependency rather than a consistent one, on top of Mapsui for Android Auto. Weaker than when it was asked; revisit only if CarPlay quality becomes the thing being judged.
 29. **Closing the flush-versus-delete race** *(new in SRV-22)* — a write-behind flush already in flight can re-insert a position row that a concurrent delete has just removed (§5.5). One round trip wide, and it needs a delete to land inside it, but what it leaves behind is the position at rest §10.1 forbids, and with the §7.11 nightly sweep as the only backstop the exposure is up to a day. Two candidate fixes, neither expensive: a tombstone set the flush filters its batch against immediately before writing, or a join to `group_ride_member` in the upsert so the statement itself cannot write a row for a rider who has stopped sharing. The second is self-maintaining and costs the hot path a join; the first is cheaper and needs its tombstones expired somewhere. **Worth closing before live sharing is switched on for anyone real.**
 
 ---
@@ -2248,9 +2269,7 @@ Note that the licence choice makes part of this a *product* requirement rather t
 | **FCM service-account JSON / APNs key** | Sends push notifications to your entire userbase |
 | **Backblaze B2 credentials and the `restic` repository password** (§9.1) | The credentials read every backup; the password decrypts them. Store them apart — an encrypted backup whose key sits beside it is an unencrypted backup |
 | **`google-services.json`, `GoogleService-Info.plist`** | Not strictly confidential, but they carry API keys that get scraped from public repos within hours. Commit templates instead |
-| **MapKit JS private key** (`.p8`) plus its key ID and team ID (§4.5) | Signs the tokens that authorise every Apple Maps view on iOS (v0.21 narrowed this from "both phones"). Same class as the APNs key: a leak means someone else's map usage billed to your Apple account, and the key is **not** shipped to clients — the server mints tokens (v0.19) |
-| **Google Maps browser API key** for Android (§4.5, v0.21) | Ships inside the Android app to authenticate the Google Maps JavaScript API. Referrer-restricted at the provider — same discipline as the tile API key row above — but committing it publishes a key our project pays for. User secrets locally, environment in production (§14.3), rotated at the provider if it ever leaks |
-| **Map tile API key**, if a paid tier ever replaces OSM (§4.5) | See the note below. *(Through v0.15 this row named the Google Maps Android key; v0.16 removed the native map; v0.19 removed the need for a tile key at all for now — OSM and Apple both authenticate differently.)* |
+| **Map tile API key**, if a paid tier ever replaces OSM (§4.5) | See the note below. *(This row has outlived three map decisions. Through v0.15 it named the Google Maps Android key; v0.16 removed the native map; v0.19 replaced it with the MapKit `.p8`; v0.21 added the Google browser key beside it. **v0.24 deleted both** — MapLibre over OSM authenticates with nothing — so the row is again a placeholder against §13 Q26 choosing a paid tile tier.)* |
 | `appsettings.Development.json`, `appsettings.Production.json`, `.env` | Wherever the real values actually live |
 | **`pg_dump` output, any `*.sql.gz`, `backups/`** | Real user data, including last-known positions and email addresses |
 | Server SSH keys, Caddy's `data` volume (ACME account keys) | Shell and certificate control |
@@ -2776,7 +2795,7 @@ The built-in `Map` control cannot draw this feature. §4.5's capability table al
 | Note on tap | ⚠️ callout text only | ✅ | ✅ | ✅ callout delegate |
 | Photo thumbnail in the callout | ❌ | ✅ | ✅ | ✅ callout is arbitrary DOM |
 
-**Two providers means the marker rendering is written twice**, once per JS module (§4.5). `MapCapabilities` is what keeps that from becoming two behaviours: the flags are declared per module and the component degrades against the flags, so a difference in what MapKit and MapLibre can draw shows up as a *declared* difference rather than a surprise on one platform.
+**That whole table is now history.** It compares what four *base maps* could draw, and since v0.21 no base map draws a marker at all — `SkiaMapOverlay` does, in one C# file, identically on every host (§4.5). v0.24 went further and left one base map anyway. The table is retained because it is why the overlay exists: every row in it is a difference that would otherwise have had to be reconciled per provider, and `MapCapabilities` — which was built to declare those differences — now describes the car heads only (§4.6).
 
 So **v0.9 promoted Mapsui to the critical path for the car, and v0.13 promoted it for the phone as well** — which is where this section stood until §18 replaced the phone's renderer entirely. The through-line is that the built-in control was ruled out three separate times, by three unrelated requirements, before it was finally removed.
 
@@ -3342,11 +3361,10 @@ Thread_PostingDisabled_WhenPermissionRevoked          — §5.8 through the UI
 MarkerEditor_RendersDirectionAndIcon_WithoutAMap
 TrackEditor_RangeSelection_MapsToRawIndices           — §15.5 in the component
 
-Map_SameComponentRenders_AgainstBothJsModules         — §4.5, v0.19
-Map_MobileHost_ResolvesMapKitModule
-Map_WebHost_ResolvesMapLibreModule
-Map_MapKitTokenUnavailable_ShowsStatedErrorNotBlankMap
-Map_AttributionIsPresent_OnEveryProvider
+Map_SameComponentInitialisesWhateverIsRegistered      — §4.5, v0.24
+Map_EveryHost_ResolvesTheMapLibreModule
+Map_BaseMapUnavailable_ShowsStatedErrorNotBlankMap
+Map_AttributionIsPresent_AndDeclaredOnTheTileSource
 Map_CarSurface_UsesMapsuiNotAJsModule                 — §18.3
 MapHostKind_EveryHostHasAFactory                      — unchanged from §4.6
 

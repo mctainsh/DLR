@@ -7,9 +7,9 @@ namespace BlazorDLR;
 /// client does, so the "base URL" that would live in configuration lives here as a
 /// constant instead. An environment variable named <c>DLR_API_BASE</c> or
 /// <c>DLR_HUB_URL</c> — read at startup — overrides these for local development and
-/// CI. <strong>Never</strong> a real API key: MapKit's private <c>.p8</c> stays on
-/// the server and reaches the client as a short-lived JWT via
-/// <c>GET /api/v1/maps/token</c>. This file carries only URLs.
+/// CI. <strong>This file carries only URLs, and since v0.24 there is no map credential
+/// left anywhere on the client to tempt anyone otherwise</strong> — MapLibre over OSM
+/// needs no key on any host (§4.5, §14.2).
 /// </para>
 /// </summary>
 internal static class MauiConstants
@@ -36,15 +36,6 @@ internal static class MauiConstants
 	/// </summary>
 	public static string DefaultHubUrl(string apiBase) =>
 		new Uri(new Uri(apiBase), "/hubs/ride").ToString();
-
-	/// <summary>
-	/// The Google Maps browser API key on Android. <strong>Never a real value in
-	/// committed code</strong> (§14.2). Real deployments provide it through a
-	/// build-time constant override or a Phase 1 configuration fetch. Null renders
-	/// the "stated error" branch in <c>RideMap.razor</c> — the correct behaviour
-	/// when the key is absent.
-	/// </summary>
-	public const string? GoogleMapsKey = null;
 
 	/// <summary>Read an override from the environment; returns the fallback when empty.</summary>
 	public static string ResolveApiBase() =>
