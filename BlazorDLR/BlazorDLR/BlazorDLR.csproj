@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Razor">
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
 	<!--
@@ -7,7 +7,7 @@
 	  it first ensures the plural TargetFrameworks below is authoritative.
 	-->
 	<TargetFramework></TargetFramework>
-	<TargetFrameworks>net10.0-android</TargetFrameworks>
+	<TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
 	<!--
 	  iOS and MacCatalyst build only on macOS: they invoke Xcode, and on any other host MSBuild
 	  fails to spin up the task host with a MSB4216 that names neither the SDK nor the reason.
@@ -15,7 +15,6 @@
 	  Android and Windows heads that make sense on their machine.
 	-->
 	<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
-	<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
 
 	<!-- Note for MacCatalyst:
 	  The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
@@ -58,6 +57,15 @@
 	<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 	<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 	<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)'=='net10.0-ios'">
+    <CodesignKey>Apple Development: Created via API (YVHC5A2RQW)</CodesignKey>
+    <CodesignProvision>VS: WildCard Development</CodesignProvision>
   </PropertyGroup>
 
   <ItemGroup>
