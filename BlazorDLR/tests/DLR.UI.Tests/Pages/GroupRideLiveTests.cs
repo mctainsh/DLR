@@ -149,6 +149,61 @@ public sealed class GroupRideLiveTests : BunitContext
 	}
 
 	[Fact]
+	public async Task ChoosingAddMarker_ArmsTheMap_RatherThanOpeningTheComposer()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		string before = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri;
+
+		await OpenMenuAsync(component);
+
+		await component.InvokeAsync(() => component.FindAll(".menu button")
+			.First(b => b.TextContent.Contains("Add marker", StringComparison.Ordinal))
+			.Click());
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find(".placing").TextContent.ShouldContain("Tap the map",
+				customMessage: "§16.1: the point is the rider's to choose, so the item arms the map and " +
+				"says so — an armed map that looks exactly like an unarmed one is a screen that has " +
+				"quietly stopped answering taps the way it did a second ago.");
+			component.FindAll(".menu").ShouldBeEmpty("choosing an item closes the menu behind it.");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri.ShouldBe(before,
+			"Nothing navigates until the point exists — the composer used to open on the centre of " +
+			"the view, which is a guess, and the middle of the screen is exactly where the rider is.");
+	}
+
+	[Fact]
+	public async Task CancellingPlacement_TakesTheStripAwayAgain()
+	{
+		(_, _, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await OpenMenuAsync(component);
+
+		await component.InvokeAsync(() => component.FindAll(".menu button")
+			.First(b => b.TextContent.Contains("Add marker", StringComparison.Ordinal))
+			.Click());
+
+		component.WaitForAssertion(() => component.FindAll(".placing").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find(".placing button").Click());
+
+		component.WaitForAssertion(() =>
+			component.FindAll(".placing").ShouldBeEmpty(
+				"A mode has to have a way out that is not 'place a marker you no longer want'."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
 	public async Task ChoosingMarkers_OpensTheMarkerPanelAsAPopup()
 	{
 		(_, _, Guid rideId) = WireServices();

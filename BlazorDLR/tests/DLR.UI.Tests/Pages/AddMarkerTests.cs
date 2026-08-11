@@ -100,18 +100,25 @@ public sealed class AddMarkerTests : BunitContext
 			"an unknown key degrades to the note glyph rather than throwing or drawing nothing.");
 	}
 
+	/// <summary>
+	/// The composer offers no direction at all. The field is still on the marker — it is stored,
+	/// it round-trips through GPX and the overlay rotates a pin that has one — but typing a
+	/// bearing in degrees at the side of a road is not how anybody says which way a hazard faces,
+	/// so this screen no longer asks. What it must never do is send a zero instead of a null:
+	/// zero is due north (§16.2).
+	/// </summary>
 	[Fact]
-	public void DirectionSwitch_IsOffByDefault_AndBearingFieldIsHidden()
+	public void TheComposer_OffersNoDirectionControl()
 	{
 		WireServices(this);
 
 		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
 			.Add(p => p.RideId, Guid.NewGuid()));
 
-		// The bearing input is inside an @if(_hasDirection) block; when off, it must not exist.
-		int bearingLabels = component.Markup.IndexOf("Bearing", StringComparison.Ordinal);
-		bearingLabels.ShouldBe(-1,
-			"§16.2: null-not-zero. With the switch off the bearing field must not exist — a hidden but present <input> would still submit a value.");
+		component.Markup.IndexOf("Bearing", StringComparison.Ordinal).ShouldBe(-1,
+			"the bearing box went with the switch — a hidden but present <input> would still submit.");
+		component.Markup.IndexOf("direction", StringComparison.OrdinalIgnoreCase).ShouldBe(-1,
+			"and so did the switch that revealed it.");
 	}
 
 	[Fact]
@@ -147,36 +154,23 @@ public sealed class AddMarkerTests : BunitContext
 		sent.Icon.ShouldBe("note", "the composer starts on the 'note' icon; assert it survives the round trip.");
 	}
 
+	/// <summary>
+	/// A title is optional (§16.2): the icon is what carries the meaning of most pins, and
+	/// "gravel" typed under a gravel pin is the word twice. An empty box has to reach the server
+	/// as an untitled marker rather than being caught by a required field.
+	/// </summary>
 	[Fact]
-	public async Task SaveWithDirection_SendsBearingAsAShort()
+	public async Task SaveWithNoTitle_IsAllowed_AndSendsAnEmptyOne()
 	{
 		FakeApiClient api = WireServices(this);
 
 		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
 			.Add(p => p.RideId, Guid.NewGuid()));
 
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement titleInput = component.FindAll("input[placeholder='Gravel on the corner']").Single();
-			titleInput.Change("Crest");
-		});
+		component.FindAll("input[placeholder='Gravel on the corner'][required]").ShouldBeEmpty(
+			"a required attribute would have the browser refuse the submit before any of this runs.");
 
-		// Flip the "has direction" switch.
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement hasDir = component.FindAll("input[type=checkbox]").Single();
-			hasDir.Change(true);
-		});
-
-		// Type a bearing.
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement bearing = component
-				.FindAll("input[type=number]")
-				.Last(); // last number input is the bearing (lat/lon come first).
-			bearing.Change("270");
-		});
-
+		// Nothing typed anywhere. The icon is the whole marker.
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement save = component
@@ -188,9 +182,8 @@ public sealed class AddMarkerTests : BunitContext
 		component.WaitForAssertion(() => api.LastCreateMarkerRequest.ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		CreateMarkerRequest sent = api.LastCreateMarkerRequest!;
-		sent.DirectionDeg.ShouldBe((short)270,
-			"§16.2: with the switch on and 270 typed, the request carries 270 as a short — the DTO shape.");
+		api.LastCreateMarkerRequest!.Title.ShouldBeEmpty(
+			"an untitled marker travels as an empty title — the overlay draws the plate alone.");
 	}
 
 	[Fact]
@@ -246,5 +239,55 @@ public sealed class AddMarkerTests : BunitContext
 
 		component.Markup.Contains("Tap the map to place the pin", StringComparison.Ordinal).ShouldBeTrue(
 			"§16.1: tapping is the primary way to place a marker, so the composer has to say so before anything is placed.");
+	}
+
+	/// <summary>
+	/// The live map hands the point over on the query string (§16.1). It arrives <em>placed</em>:
+	/// the rider chose it on a full screen of map, and a composer that opened unplaced would be
+	/// asking for the same answer a second time, in a 22 rem box.
+	/// </summary>
+	[Fact]
+	public async Task APointHandedOverByTheLiveMap_OpensAlreadyPlaced_AndIsWhatGetsSaved()
+	{
+		FakeApiClient api = WireServices(this);
+		Guid rideId = Guid.NewGuid();
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>()
+			.NavigateTo($"/group-rides/{rideId}/markers/new?lat=-37.81402&lon=144.96328&zoom=16");
+
+		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+		{
+			component.Markup.Contains("-37.81402", StringComparison.Ordinal).ShouldBeTrue(
+				"the handed-over point fills the coordinate boxes, which are the second view of it.");
+			component.Markup.Contains("144.96328", StringComparison.Ordinal).ShouldBeTrue();
+			component.Markup.Contains("Tap the map again to move the pin", StringComparison.Ordinal).ShouldBeTrue(
+				"the pin is already down, so the prompt offers to move it rather than asking for a point " +
+				"the rider has just given.");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() =>
+		{
+			AngleSharp.Dom.IElement titleInput = component.FindAll("input[placeholder='Gravel on the corner']").Single();
+			titleInput.Change("Tram tracks");
+		});
+
+		await component.InvokeAsync(() =>
+		{
+			AngleSharp.Dom.IElement save = component
+				.FindAll("button.primary")
+				.First(b => b.TextContent.Contains("Save marker", StringComparison.Ordinal));
+			save.Click();
+		});
+
+		component.WaitForAssertion(() => api.LastCreateMarkerRequest.ShouldNotBeNull(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		CreateMarkerRequest sent = api.LastCreateMarkerRequest!;
+		sent.Lat.ShouldBe(DLR.Core.Contracts.Rides.PositionScale.FromDegrees(-37.81402),
+			"the point chosen on the live map is what reaches the server, without a second tap.");
+		sent.Lon.ShouldBe(DLR.Core.Contracts.Rides.PositionScale.FromDegrees(144.96328));
 	}
 }

@@ -3,7 +3,7 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Services;
 
 /// <summary>
-/// The phone's <see cref="IMediaPicker"/> — MAUI's <see cref="MediaPicker"/> for photos
+/// The phone's <see cref="Shared.Services.IMediaPicker"/> — MAUI's <see cref="MediaPicker"/> for photos
 /// and <see cref="FilePicker"/> for GPX (§16.4, §15.2).
 /// <para>
 /// The share sheet / open-with registration for <c>.gpx</c> is declared in the manifest
@@ -12,7 +12,7 @@ namespace BlazorDLR.Services;
 /// hands to <see cref="IApiClient"/>.
 /// </para>
 /// </summary>
-public sealed class MauiMediaPicker : BlazorDLR.Shared.Services.IMediaPicker
+public sealed class MauiMediaPicker : Shared.Services.IMediaPicker
 {
 	/// <inheritdoc />
 	public bool CanCapture => MediaPicker.Default.IsCaptureSupported;

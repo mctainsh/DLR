@@ -184,6 +184,50 @@ public sealed class MarkerTests(PostgresFixture postgres)
 		placed.Title.Length.ShouldBe(40);
 	}
 
+	/// <summary>
+	/// A title is optional (§16.2). The icon is what carries the meaning of a pin read at speed,
+	/// and "gravel" typed under a gravel pin is the word twice — so an empty one is a marker,
+	/// not a 400. It is stored as empty rather than null: the column is NOT NULL, and every
+	/// reader already treats "" as "draw the icon alone".
+	/// </summary>
+	[Theory]
+	[InlineData("")]
+	[InlineData("   ")]
+	public async Task Marker_WithNoTitle_IsAccepted(string title)
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+
+		RideDetail ride = await CreateRideAsync(organiser);
+
+		MarkerDto placed = await CreateAsync(organiser, Request(ride.Id) with { Title = title });
+
+		placed.Title.ShouldBeEmpty("whitespace cleans to the same thing as empty — one untitled marker.");
+
+		string stored = await app.WithDatabaseAsync(database =>
+			database.Set<Marker>()
+				.Where(marker => marker.Id == placed.Id)
+				.Select(marker => marker.Title)
+				.SingleAsync());
+
+		stored.ShouldBeEmpty();
+
+		// And an edit can take a label off one that has it, which is the same rule running the
+		// other way — a title you can add but never remove is a trap.
+		MarkerDto titled = await CreateAsync(organiser, Request(ride.Id) with { Title = "Gravel" });
+
+		using HttpResponseMessage cleared = await organiser.PutAsJsonAsync(
+			$"{MarkersUrl}/{titled.Id}",
+			new UpdateMarkerRequest(titled.Lat, titled.Lon, titled.Icon, string.Empty));
+
+		cleared.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+		MarkerDto after = (await cleared.Content.ReadFromJsonAsync<MarkerDto>())!;
+
+		after.Title.ShouldBeEmpty();
+	}
+
 	[Fact]
 	public async Task Marker_OnGroupRide_ByNonMember_Returns403()
 	{

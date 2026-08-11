@@ -212,6 +212,36 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
+	/// <summary>
+	/// A title is optional (§16.2). On the map that means a bare icon, which is the point of it —
+	/// but a list row with an empty name column reads as data that failed to load, so the icon's
+	/// own name stands in there.
+	/// </summary>
+	[Fact]
+	public async Task AnUntitledMarker_IsListedUnderItsIconsName()
+	{
+		(_, _, _, Guid rideId) = await WireServicesAsync(new[]
+		{
+			Marker(Guid.NewGuid(), AliceId, "Alice", title: string.Empty),
+		});
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await OpenMarkersAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			// Marker() places a "gravel" pin; MarkerIconGlyphs labels that key "Gravel".
+			AngleSharp.Dom.IElement head = component.Find("button.marker-head");
+			head.TextContent.ShouldContain("Gravel",
+				customMessage: "an untitled marker still needs a name in a list — the icon's is the one " +
+				"its author would have typed.");
+			head.QuerySelector("strong")!.TextContent.ShouldNotBeNullOrWhiteSpace(
+				"a blank row is indistinguishable from a broken one.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
 	[Fact]
 	public async Task ExpandingAMarker_ShowsItsNote()
 	{
@@ -490,6 +520,120 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		await component.InvokeAsync(() => _map.RaiseClick(0, 0));
 
 		component.FindAll(".nearby-dialog").ShouldBeEmpty();
+	}
+
+	/// <summary>Opens the hamburger and arms the map with "Add marker" (§16.1).</summary>
+	private static async Task ArmPlacementAsync(IRenderedComponent<GroupRideLive> component)
+	{
+		WaitForMap(component);
+
+		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
+		await component.InvokeAsync(() => component.FindAll(".menu button")
+			.First(button => button.TextContent.Contains("Add marker", StringComparison.Ordinal))
+			.Click());
+
+		component.WaitForAssertion(
+			() => component.FindAll(".placing").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ArmedTap_OpensTheComposerOnThatPoint()
+	{
+		(_, _, _, Guid rideId) = await WireServicesAsync(Array.Empty<MarkerDto>());
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await ArmPlacementAsync(component);
+
+		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
+		await component.InvokeAsync(() => _map.RaiseClick(-37.81402, 144.96328));
+
+		string uri = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri;
+
+		uri.ShouldContain($"/group-rides/{rideId}/markers/new",
+			customMessage: "The tap is what opens the composer — the menu item only armed the map.");
+		uri.ShouldContain("lat=-37.81402",
+			customMessage: "§16.1: the composer opens on the point the rider pointed at, to the wire's " +
+			"five decimal places, so the number they chose is the number that gets stored.");
+		uri.ShouldContain("lon=144.96328");
+		uri.ShouldContain("zoom=12",
+			customMessage: "The scale the point was chosen at travels with it — a street-level choice " +
+			"re-shown at city level is one nobody can check.");
+	}
+
+	[Fact]
+	public async Task ArmedTap_OnAMarker_PlacesRatherThanOpeningItsDetail()
+	{
+		(_, _, _, Guid rideId) = await WireServicesAsync(new[]
+		{
+			Marker(Guid.NewGuid(), AliceId, "Alice", title: "Loose gravel"),
+		});
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await ArmPlacementAsync(component);
+
+		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
+
+		// Straight onto the pin at the origin — the tap the unarmed map answers with a popup.
+		await component.InvokeAsync(() => _map.RaiseClick(0, 0));
+
+		component.FindAll(".nearby-dialog").ShouldBeEmpty(
+			"An armed tap means one thing. Placing a marker *and* opening the detail of whatever " +
+			"was under it is a tap that did two things, one of them unasked for.");
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
+			.ShouldContain("markers/new", customMessage: "the point still reaches the composer.");
+	}
+
+	[Fact]
+	public async Task CancellingPlacement_GivesTheOrdinaryTapBack()
+	{
+		(_, _, _, Guid rideId) = await WireServicesAsync(new[]
+		{
+			Marker(Guid.NewGuid(), AliceId, "Alice", title: "Loose gravel"),
+		});
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await ArmPlacementAsync(component);
+		await component.InvokeAsync(() => component.Find(".placing button").Click());
+
+		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
+		await component.InvokeAsync(() => _map.RaiseClick(0, 0));
+
+		component.WaitForAssertion(() =>
+			component.Find(".nearby-dialog").TextContent.ShouldContain("Loose gravel",
+				customMessage: "Cancelling has to put the map back to interrogating its pins — a mode " +
+				"that half-exits leaves a map that answers neither way."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
+			.ShouldNotContain("markers/new", customMessage: "a cancelled placement places nothing.");
+	}
+
+	[Fact]
+	public async Task ArmedTap_BeforeTheMapReportsAViewport_StillPlaces()
+	{
+		(_, _, _, Guid rideId) = await WireServicesAsync(Array.Empty<MarkerDto>());
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await ArmPlacementAsync(component);
+
+		// No RaiseViewport. Hit-testing needs pixels to measure "near" in and stays inert without
+		// them; placing does not — the tap arrives carrying its own coordinates.
+		await component.InvokeAsync(() => _map.RaiseClick(-37.81402, 144.96328));
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
+			.ShouldContain("lat=-37.81402",
+				customMessage: "A rider who armed the map before it had reported a frame still asked for " +
+				"a marker at the point they touched.");
 	}
 
 	[Fact]

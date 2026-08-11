@@ -15,16 +15,32 @@
 	Marker editor for a group ride (§16.1, §16.2).
 
 	Two things this enforces:
-	  1. Direction is nullable-not-zero (§16.2). Zero is due north — a real bearing.
-		 Empty means "no direction". The UI reflects that: a separate switch, off by
-		 default, and only when it is on is the bearing enabled.
-	  2. Icon key is a string from the curated set, and the client renders the label
+	  1. Icon key is a string from the curated set, and the client renders the label
 		 (§16.2). An unknown key would degrade to `note` if this UI ever hit one.
+	  2. A title is optional. A pin whose icon already says "gravel" does not need the
+		 word typed under it, and the overlay draws the plate alone when there is no
+		 label (SkiaMapOverlay). An empty box saves as an untitled marker; the lists and
+		 popups that need a name for a row fall back to the icon's own
+		 (MarkerIconGlyphs.Name).
+
+	WHAT IS DELIBERATELY NOT HERE: a direction. The bearing is still a field on the
+	marker — it is stored, it round-trips through GPX, and the overlay rotates a pin that
+	has one (§16.2's null-is-not-zero rule is unchanged, and it is the DTO and the server
+	that hold it). What went is the switch-and-bearing-box pair on this screen: typing a
+	number of degrees at the side of a road is not how anybody says which way a hazard
+	faces, and a control nobody can use correctly is worse than no control. Markers placed
+	here have no direction; ones imported from a file keep theirs.
 
 	The point is placed by tapping the map (§16.1) — the coordinate boxes stay, because
 	a hand-typed fix off a GPS unit is a real workflow, but nobody should have to reach
 	for one to drop a "gravel on the corner" pin. Map and boxes are two views of the same
 	two numbers: a tap writes them, editing them moves the camera.
+
+	Reached from the live ride the point is already chosen: "Add marker" there arms the
+	full-screen map, and the tap that answers it hands the point over on the query string
+	(see PointLatitude). This screen then opens with the pin down and the map as a
+	confirmation — the picker below is a 22 rem box, and asking someone to re-aim in it at
+	a point they had just chosen on a whole screen of map is asking for a worse answer.
 
 	Photo attaches through PATCH /markers/{id}/photo after upload (§16.4). Web callers
 	reach the file through <InputFile>; phones can also use IMediaPicker (Phase 2 keeps
@@ -79,30 +95,16 @@
 		</label>
 
 		<label>
-			Title
-			<input @bind="_title" @bind:after="RebuildPreview" required maxlength="40" placeholder="Gravel on the corner" />
+			Title <em>(optional)</em>
+			<input @bind="_title" @bind:after="RebuildPreview" maxlength="40" placeholder="Gravel on the corner" />
 		</label>
+		<p class="hint">Leave it empty for a pin that is just its icon.</p>
 
 		<label>
 			Note (optional)
 			<textarea @bind="_note" rows="3" maxlength="500"
 					  placeholder="What is here, and what to look out for."></textarea>
 		</label>
-
-		<fieldset>
-			<legend>Direction</legend>
-			<label class="switch">
-				<input type="checkbox" @bind="_hasDirection" @bind:after="RebuildPreview" />
-				Has a direction to face
-			</label>
-			@if (_hasDirection)
-			{
-				<label>
-					Bearing (degrees clockwise from north — 0 is north, 90 east)
-					<input @bind="_directionDeg" @bind:after="RebuildPreview" type="number" min="0" max="359" required />
-				</label>
-			}
-		</fieldset>
 
 		<fieldset>
 			<legend>Photo (optional)</legend>
@@ -149,16 +151,29 @@
 	[Parameter] public Guid RideId { get; set; }
 
 	/// <summary>
-	/// The view the ride map was showing when "Add marker" was pressed (§16.1). The composer
-	/// opens on the same ground, because the place you want to mark is almost always the
-	/// place you were just looking at. Absent when the composer is reached by URL.
+	/// The point the author tapped on the live ride map (§16.1). The pin opens <em>placed</em>
+	/// there — this is a decision the rider has already made on a map they were reading, not a
+	/// hint about where to look.
+	/// <para>
+	/// It used to be the centre of the view they had open, which is why the composer opened
+	/// unplaced: a viewport centre is a guess, and the one point a rider never means to mark is
+	/// the middle of their own screen, because that is where they are.
+	/// </para>
+	/// <para>
+	/// Absent when the composer is reached by URL — then the picker centres on the ride and
+	/// waits to be tapped, which is what <see cref="_placed"/> being false says on screen.
+	/// </para>
 	/// </summary>
-	[SupplyParameterFromQuery(Name = "lat")] public double? ViewLatitude { get; set; }
+	[SupplyParameterFromQuery(Name = "lat")] public double? PointLatitude { get; set; }
 
-	/// <inheritdoc cref="ViewLatitude" />
-	[SupplyParameterFromQuery(Name = "lon")] public double? ViewLongitude { get; set; }
+	/// <inheritdoc cref="PointLatitude" />
+	[SupplyParameterFromQuery(Name = "lon")] public double? PointLongitude { get; set; }
 
-	/// <inheritdoc cref="ViewLatitude" />
+	/// <summary>
+	/// The zoom the point was chosen at, so the picker re-shows it at the scale it was picked —
+	/// a street-level choice re-drawn at city level is one nobody can check. Independent of the
+	/// point itself: a URL may carry it, and the default takes over when it does not.
+	/// </summary>
 	[SupplyParameterFromQuery(Name = "zoom")] public double? ViewZoom { get; set; }
 
 	/// <summary>
@@ -175,8 +190,6 @@
 	private string _icon = MarkerIcons.Fallback;
 	private string _title = string.Empty;
 	private string _note = string.Empty;
-	private bool _hasDirection;
-	private short _directionDeg = 0;
 	private PickedPhoto? _photo;
 	private ApiError? _error;
 	private bool _busy;
@@ -202,8 +215,12 @@
 			Latitude: _latDeg,
 			Longitude: _lonDeg,
 			IconKey: _icon,
-			Title: string.IsNullOrWhiteSpace(_title) ? "New marker" : _title.Trim(),
-			DirectionDeg: _hasDirection ? _directionDeg : null),
+			// Exactly what will be saved, empty title and all. It used to show "New marker" for
+			// a blank box, which was a stand-in for a title the composer was going to insist on
+			// — now that it will not, the preview would be showing a label nobody is going to
+			// see on the ride.
+			Title: _title.Trim(),
+			DirectionDeg: null),
 	};
 
 	/// <summary>
@@ -217,21 +234,27 @@
 	/// Open the picker over the ride, not over a hard-coded default. A composer that
 	/// starts on the wrong side of the country makes tap-to-place useless.
 	/// <para>
-	/// Best source is the view the rider was just looking at, handed over on the query
-	/// string. Failing that, centre on whatever of this ride is already mapped — its
-	/// markers first, then the riders' last fixes. A ride with neither keeps the default
-	/// and the author pans.
+	/// Best source is the point the rider tapped on the live map, handed over on the query
+	/// string — that one arrives already placed, and the map is only here to confirm it and
+	/// to nudge it. Failing that, centre on whatever of this ride is already mapped — its
+	/// markers first, then the riders' last fixes — and wait to be tapped. A ride with
+	/// neither keeps the default and the author pans.
 	/// </para>
 	/// </summary>
 	protected override async Task OnInitializedAsync()
 	{
 		RebuildPreview();
 
-		if (ViewLatitude is { } viewLat && ViewLongitude is { } viewLon)
+		if (PointLatitude is { } pointLat && PointLongitude is { } pointLon)
 		{
-			_latDeg = Snap(viewLat);
-			_lonDeg = Snap(viewLon);
+			_latDeg = Snap(pointLat);
+			_lonDeg = Snap(pointLon);
 			_camera = new MapCamera(_latDeg, _lonDeg, ViewZoom ?? DefaultZoom);
+
+			// Placed, not merely looked at: the rider chose this point on the live map, and a
+			// composer that then asked them to tap it again would be asking twice for the same
+			// answer — the second one aimed at a map a fifth the size of the one they chose on.
+			_placed = true;
 			RebuildPreview();
 			return;
 		}
@@ -338,7 +361,9 @@
 				Icon: _icon,
 				Title: _title.Trim(),
 				Note: string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
-				DirectionDeg: _hasDirection ? _directionDeg : (short?)null));
+				// Always absent from this screen — see the note at the top. Null, never zero:
+				// zero is due north, and a marker that claimed one would be lying (§16.2).
+				DirectionDeg: null));
 
 			if (_photo is not null)
 			{

@@ -105,7 +105,10 @@ public sealed class MarkerController : ControllerBase
 			Lon = request.Lon,
 			DirectionDeg = request.DirectionDeg,
 			Icon = request.Icon.Trim(),
-			Title = MarkerText.Clean(request.Title)!,
+			// Empty, not null: the column is NOT NULL and an untitled marker is the absence of a
+			// label rather than a missing row value. Every reader already treats "" as "no title"
+			// — the overlay skips the plate's text, the lists fall back to the icon's name.
+			Title = MarkerText.Clean(request.Title) ?? string.Empty,
 			Note = MarkerText.Clean(request.Note),
 			CreatedUtc = now,
 			UpdatedUtc = now,
@@ -205,7 +208,9 @@ public sealed class MarkerController : ControllerBase
 		marker.Lon = request.Lon;
 		marker.DirectionDeg = request.DirectionDeg;
 		marker.Icon = request.Icon.Trim();
-		marker.Title = MarkerText.Clean(request.Title)!;
+		// Same rule as creation: cleared is untitled, not rejected — so an edit can take a label
+		// off a pin as well as put one on.
+		marker.Title = MarkerText.Clean(request.Title) ?? string.Empty;
 		marker.Note = MarkerText.Clean(request.Note);
 		marker.UpdatedUtc = clock.GetUtcNow();
 
@@ -498,15 +503,12 @@ public sealed class MarkerController : ControllerBase
 				detail: $"An icon key is up to {MarkerIcons.MaxLength} lowercase letters, digits and hyphens.");
 		}
 
-		string? cleaned = MarkerText.Clean(title);
-
-		if (cleaned is null)
-		{
-			return Problem(
-				statusCode: StatusCodes.Status400BadRequest,
-				title: "Title required",
-				detail: "A marker needs a label to render beside its icon.");
-		}
+		// No title is a marker, not a mistake. The icon is the thing that carries the meaning on
+		// a map read at speed, and "gravel" typed under a gravel pin is the word twice; the
+		// overlay draws the plate alone when there is no label. What is still checked is the
+		// length of one that IS there — that limit is a rendering constraint, not a rule about
+		// whether the field was filled in.
+		string cleaned = MarkerText.Clean(title) ?? string.Empty;
 
 		return cleaned.Length > limits.TitleMaxChars
 			? Problem(

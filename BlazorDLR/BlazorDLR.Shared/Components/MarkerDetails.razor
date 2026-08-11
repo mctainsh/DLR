@@ -30,7 +30,10 @@
 	@if (Marker.PhotoId is { } photoId)
 	{
 		@* An <img src> cannot carry a bearer token, so the bytes are fetched and inlined (§16.4). *@
-		<AuthedImage Url="@($"/api/v1/photos/{photoId}")" Alt="@Marker.Title" Class="marker-photo" />
+		@* Name, not Title: an untitled marker (§16.2) would otherwise give the photo an empty
+		   alt, which reads to a screen reader as an image nobody bothered to describe. *@
+		<AuthedImage Url="@($"/api/v1/photos/{photoId}")"
+					 Alt="@MarkerIconGlyphs.Name(Marker.Title, Marker.Icon)" Class="marker-photo" />
 	}
 
 	@if (CanDelete)

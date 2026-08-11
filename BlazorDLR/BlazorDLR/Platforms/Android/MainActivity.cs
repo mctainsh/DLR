@@ -1,6 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
+using Android.OS;
+using Android.Views;
 
 namespace BlazorDLR;
 
@@ -20,20 +23,53 @@ namespace BlazorDLR;
 	MainLauncher = true,
 	ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
 [IntentFilter(
-	new[] { Intent.ActionView },
+	[Intent.ActionView],
 	Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
 	DataSchemes = new[] { "content", "file" },
 	DataMimeType = "application/gpx+xml")]
 [IntentFilter(
-	new[] { Intent.ActionView },
+	[Intent.ActionView],
 	Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
 	DataSchemes = new[] { "content", "file" },
 	DataMimeType = "*/*",
 	DataPathPattern = ".*\\.gpx")]
 [IntentFilter(
-	new[] { Intent.ActionSend },
+	[Intent.ActionSend],
 	Categories = new[] { Intent.CategoryDefault },
 	DataMimeType = "application/gpx+xml")]
+[SuppressMessage("Interoperability", "CA1422:Validate platform compatibility")]
 public class MainActivity : MauiAppCompatActivity
 {
+
+	protected override void OnCreate(Bundle? savedInstanceState)
+	{
+		base.OnCreate(savedInstanceState);
+
+		Window!.SetFlags(WindowManagerFlags.Fullscreen,
+						WindowManagerFlags.Fullscreen);
+
+		Window.DecorView.SystemUiFlags =
+			SystemUiFlags.ImmersiveSticky |
+			SystemUiFlags.HideNavigation |
+			SystemUiFlags.Fullscreen |
+			SystemUiFlags.LayoutHideNavigation |
+			SystemUiFlags.LayoutFullscreen |
+			SystemUiFlags.LayoutStable;
+	}
+
+
+	protected override void OnResume()
+	{
+		base.OnResume();
+
+		Window!.DecorView.SystemUiFlags =
+			SystemUiFlags.ImmersiveSticky |
+			SystemUiFlags.HideNavigation |
+			SystemUiFlags.Fullscreen |
+			SystemUiFlags.LayoutHideNavigation |
+			SystemUiFlags.LayoutFullscreen |
+			SystemUiFlags.LayoutStable;
+	}
+
+
 }

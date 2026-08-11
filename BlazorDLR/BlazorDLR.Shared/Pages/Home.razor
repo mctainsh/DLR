@@ -49,17 +49,3 @@
 		works today.
 	</p>
 </div>
-
-
-@* @code {
-	override protected async Task OnInitializedAsync()
-	{
-		var state = await AuthState.GetAuthenticationStateAsync();
-		var user = state.User;
-		var isLoggedIn = user.Identity?.IsAuthenticated ?? false;
-		if (!isLoggedIn)
-		{
-			Nav.NavigateTo("/Welcome");
-		}
-	}
-} *@

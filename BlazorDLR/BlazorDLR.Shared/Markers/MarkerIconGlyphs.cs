@@ -82,6 +82,26 @@ public static class MarkerIconGlyphs
 
 		return ByKey.TryGetValue(icon, out MarkerIconOption option) ? option.Label : icon;
 	}
+
+	/// <summary>
+	/// What to call a marker in a row, a heading or a confirmation — its title, or the icon's
+	/// name when it has none (§16.2).
+	/// <para>
+	/// A title is optional: on the map that is the point, because the pin is its icon and the
+	/// overlay simply draws no label. In a <em>list</em> it is not — a row reading only
+	/// "Alice" with a blank where the name goes looks like data that failed to load rather
+	/// than like a marker somebody chose not to name. "Gravel" is what they would have typed.
+	/// </para>
+	/// <para>
+	/// Deliberately not used by the overlay. Drawing the icon's own name under the icon is the
+	/// word twice, and the map is the one place with no room for it.
+	/// </para>
+	/// </summary>
+	/// <param name="title">The stored title, which may be empty.</param>
+	/// <param name="icon">The marker's icon key, used for the fallback.</param>
+	/// <returns>Something safe to render as a name.</returns>
+	public static string Name(string? title, string? icon) =>
+		string.IsNullOrWhiteSpace(title) ? Label(icon) : title;
 }
 
 /// <summary>One row in the composer's icon picker.</summary>

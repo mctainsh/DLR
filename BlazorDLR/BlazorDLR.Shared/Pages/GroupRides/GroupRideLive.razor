@@ -42,10 +42,13 @@
 	else
 	{
 		<div class="map-fill">
+			@* ShowPickingCursor follows the mode rather than being off outright: an ordinary tap
+			   here interrogates what is already on the map, but a tap while placing does put
+			   something down, and that is the one time a crosshair is honest. *@
 			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" Routes="_routeLayer"
 					 Circles="_privateAreaLayer" ShowUserLocation="false"
 					 OnViewportReported="OnMapViewportReportedAsync"
-					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="false" />
+					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="_placingMarker" />
 		</div>
 
 		@* An error raised by something the menu did — the map underneath is still usable, so
@@ -55,6 +58,23 @@
 			<div class="map-error error" role="alert">
 				<span>@problem</span>
 				<button type="button" class="close" @onclick="_session.ClearError" aria-label="Dismiss">×</button>
+			</div>
+		}
+
+		@*
+			The one mode this screen has: the next tap on the map is a marker's point (§16.1).
+
+			It has to be visible, because an armed map behaves differently from the map the
+			rider was just using — a tap on a pin stops opening its detail — and a mode nobody
+			can see is a screen that has quietly stopped answering. It carries its own way out
+			for the same reason: the alternative is placing a marker you no longer want just to
+			get the map back.
+		*@
+		@if (_placingMarker)
+		{
+			<div class="placing" role="status">
+				<span>Tap the map where the marker goes.</span>
+				<button type="button" @onclick="CancelPlacingMarker">Cancel</button>
 			</div>
 		}
 
@@ -86,7 +106,9 @@
 
 					@if (ride.Permissions.AllowMemberMarkers || ride.IsOrganiser)
 					{
-						<button type="button" role="menuitem" @onclick="GoToComposer">
+						@* Arms the map rather than opening the composer: the point is chosen here,
+						   on the map the rider is already reading. *@
+						<button type="button" role="menuitem" @onclick="StartPlacingMarker">
 							<i class="fa fa-fw fa-circle-plus" aria-hidden="true"></i> Add marker
 						</button>
 					}
@@ -159,7 +181,10 @@
 											@onclick="() => ToggleMarkerAsync(marker)">
 										<span class="glyph" aria-hidden="true">@MarkerIconGlyphs.Emoji(marker.Icon)</span>
 										<span class="what">
-											<strong>@marker.Title</strong>
+											@* A title is optional (§16.2). On the map that means a bare icon, which is
+											   the point of it; in a list it would mean a row with nothing in the name
+											   column, so the icon's own name stands in. *@
+											<strong>@MarkerIconGlyphs.Name(marker.Title, marker.Icon)</strong>
 											<em>@marker.CreatedByUserName</em>
 										</span>
 										<span class="badges">
@@ -212,7 +237,7 @@
 						<section class="nearby-marker">
 							<h3>
 								<span class="glyph" aria-hidden="true">@MarkerIconGlyphs.Emoji(marker.Icon)</span>
-								@marker.Title
+								@MarkerIconGlyphs.Name(marker.Title, marker.Icon)
 							</h3>
 							<p class="by">@marker.CreatedByUserName</p>
 
@@ -297,6 +322,22 @@
 	private bool _menuOpen;
 	private bool _showMarkers;
 	private bool _showConsent;
+
+	/// <summary>
+	/// Whether the next tap on the map is a marker's point rather than a question about what is
+	/// already there (§16.1).
+	/// <para>
+	/// "Add marker" arms this instead of opening the composer, because the point is a thing the
+	/// rider picks on the map they are already reading. The composer used to open on the centre
+	/// of that view, which is a guess — and the one place a rider never wants to mark is the
+	/// middle of their own screen, because that is where they are.
+	/// </para>
+	/// <para>
+	/// It survives nothing: a change of ride clears it, and so does the tap that spends it. The
+	/// strip over the map is the only thing that says it is on, so it must never outlive that.
+	/// </para>
+	/// </summary>
+	private bool _placingMarker;
 
 	/// <summary>Which marker's detail is expanded, or null when the list is all collapsed.</summary>
 	private Guid? _openMarkerId;
@@ -437,6 +478,8 @@
 		_nearbyMarkerIds = Array.Empty<Guid>();
 		_menuOpen = false;
 		_showMarkers = false;
+		// Armed on one ride, spent on another is a marker on the wrong ride.
+		_placingMarker = false;
 
 		await _session.LoadAsync(RideId);
 
@@ -514,33 +557,48 @@
 	}
 
 	/// <summary>
-	/// Opens the marker composer on the view the rider is actually looking at, so the picker
-	/// starts on the same ground rather than on a default somewhere else entirely (§16.1).
+	/// Arms the map: the next tap is the marker's point (§16.1). The composer opens from that
+	/// tap, not from this menu item.
 	/// <para>
-	/// Built at click time, not baked into an <c>href</c>: keeping one current would mean
+	/// Closes everything else on the way in. A popup left open over the map would be sitting on
+	/// the very gesture the rider has just been asked for.
+	/// </para>
+	/// </summary>
+	private void StartPlacingMarker()
+	{
+		_menuOpen = false;
+		_showMarkers = false;
+		_nearbyMarkerIds = Array.Empty<Guid>();
+		_placingMarker = true;
+	}
+
+	private void CancelPlacingMarker() => _placingMarker = false;
+
+	/// <summary>
+	/// Opens the marker composer on the point the rider tapped (§16.1), so the composer starts
+	/// with the pin already where they put it rather than on a guess at what they meant.
+	/// <para>
+	/// The zoom rides along so the composer's own picker opens at the scale the point was chosen
+	/// at — a point picked at street level and re-shown at city level is a point nobody can check.
+	/// Rounded to the wire's five decimal places (<see cref="PositionScale"/>), so the number in
+	/// the composer's coordinate box is the one that will be stored.
+	/// </para>
+	/// <para>
+	/// Built at tap time, not baked into an <c>href</c>: keeping one current would mean
 	/// re-rendering this page on every pan.
 	/// </para>
 	/// </summary>
-	private void GoToComposer()
+	private void OpenComposerAt(MapClick point)
 	{
-		_menuOpen = false;
-
-		string composer = $"/group-rides/{RideId}/markers/new";
-
-		if (_mapViewport is not { CanvasWidthPx: > 0 } vp)
-		{
-			// No viewport yet: the composer's own ride-centred fallback takes over.
-			Nav.NavigateTo(composer);
-			return;
-		}
+		_placingMarker = false;
 
 		// GetUriWithQueryParameters handles invariant formatting and escaping, and survives a
 		// route rename better than string concatenation.
-		Nav.NavigateTo(Nav.GetUriWithQueryParameters(composer, new Dictionary<string, object?>
+		Nav.NavigateTo(Nav.GetUriWithQueryParameters($"/group-rides/{RideId}/markers/new", new Dictionary<string, object?>
 		{
-			["lat"] = Math.Round(vp.CentreLatitude, 5),
-			["lon"] = Math.Round(vp.CentreLongitude, 5),
-			["zoom"] = Math.Round(vp.ZoomLevel, 2),
+			["lat"] = Math.Round(point.Latitude, 5),
+			["lon"] = Math.Round(point.Longitude, 5),
+			["zoom"] = Math.Round(_mapViewport?.ZoomLevel ?? _camera.ZoomLevel, 2),
 		}));
 	}
 
@@ -729,11 +787,24 @@
 	}
 
 	/// <summary>
-	/// A tap on the base map lists every marker near that point (§16.4). The arithmetic is
-	/// <see cref="MarkerHitTest"/>'s; this decides what to do with the answer.
+	/// A tap on the base map either places a marker or asks what is already there (§16.1, §16.4).
+	/// Which one it is depends on <see cref="_placingMarker"/>; the "what is here" arithmetic is
+	/// <see cref="MarkerHitTest"/>'s, and this decides what to do with the answer.
 	/// </summary>
 	private async Task OnMapTappedAsync(MapClick click)
 	{
+		// Placing is answered first, and deliberately ahead of the viewport guard below: the tap
+		// arrives carrying its own coordinates, so a map that has not reported a frame yet can
+		// still place a marker. It is hit-testing that needs pixels to measure "near" in.
+		//
+		// It also means an armed tap never opens a pin's detail. Both at once would be a tap that
+		// silently did two things, one of which the rider did not ask for.
+		if (_placingMarker)
+		{
+			OpenComposerAt(click);
+			return;
+		}
+
 		// A tap arriving before the map has reported a frame has nothing to hit-test against.
 		if (_mapViewport is not { } viewport)
 		{
@@ -845,7 +916,8 @@
 	{
 		bool ok = await Confirm.AskAsync(
 			"Delete marker?",
-			$"“{marker.Title}” disappears from everyone's map. This cannot be undone.",
+			$"“{MarkerIconGlyphs.Name(marker.Title, marker.Icon)}” disappears from everyone's map. " +
+			"This cannot be undone.",
 			confirmText: "Delete",
 			danger: true);
 
@@ -1021,6 +1093,54 @@
 		margin: 0.35rem 0;
 		border: 0;
 		border-top: 1px solid var(--dlr-border);
+	}
+
+	/*
+		"Tap the map where the marker goes."
+
+		Along the BOTTOM, not the top: the top edge already carries the compass on one side and
+		the hamburger on the other, and a strip threaded between them on a phone has about
+		270 px to say anything in. The bottom is empty, it is where the thumb already is for
+		the Cancel button, and it leaves the ground the rider is aiming at unobscured.
+
+		Inside .page-full, which on a phone already stops above the nav bar — the safe-area
+		term is what keeps it off the home indicator in landscape, where the map does run to
+		the bottom of the screen.
+	*/
+	.live .placing {
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
+		bottom: max(0.75rem, env(safe-area-inset-bottom));
+		z-index: 18;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		max-width: min(28rem, calc(100% - 1.5rem));
+		padding: 0.5rem 0.5rem 0.5rem 1rem;
+		background: var(--dlr-surface);
+		color: var(--dlr-fg);
+		border: 1px solid var(--dlr-border);
+		border-radius: 8px;
+		box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+	}
+
+	.live .placing button {
+		flex-shrink: 0;
+		/* The same 48 px tap target the hamburger and the rail use — this one is pressed with
+		   gloves on, at the side of a road, to get out of a mode. */
+		min-height: 48px;
+		padding: 0 0.9rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border-strong);
+		border-radius: 6px;
+		color: var(--dlr-fg);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.live .placing button:hover {
+		background: var(--dlr-accent-soft);
 	}
 
 	/* A stated failure from a menu action, over a map that still works. */
