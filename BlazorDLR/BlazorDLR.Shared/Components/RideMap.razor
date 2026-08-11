@@ -284,13 +284,18 @@
 	  notch on a phone. `--dlr-map-control-top` is the same expression the hamburger uses, so
 	  the two cannot drift apart.
 
+	  The left inset is the plain token and not a second `env(safe-area-inset-left)`: every
+	  container this map sits in already starts to the right of the nav rail, and the rail is
+	  what carries the landscape notch (MainLayout.razor.css). Adding the inset again here
+	  would push the compass a notch's width into the map for nothing.
+
 	  The z-index lifts it within the base map. The overlay canvas still paints above it, but
 	  the overlay is transparent everywhere it has not drawn, so the compass shows through and
 	  stays clickable — the overlay is pointer-events: none.
 	*/
 	.dlr-map-base .maplibregl-ctrl-top-left {
 		top: var(--dlr-map-control-top);
-		left: max(var(--dlr-map-control-inset), env(safe-area-inset-left));
+		left: var(--dlr-map-control-inset);
 		z-index: 3;
 	}
 

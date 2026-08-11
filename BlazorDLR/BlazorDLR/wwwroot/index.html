@@ -13,6 +13,11 @@
 	<link rel="stylesheet" href="app.css" />
 	<link rel="stylesheet" href="BlazorDLR.styles.css" />
 	<link rel="icon" href="data:,">
+	<!-- Publishes which edge the camera cutout is on as `data-notch`, because in landscape
+	     iOS reports the same side inset on both edges and the nav rail only wants clearance
+	     on the one that has a cutout. In <head> and not deferred: it has to have run before
+	     the first paint, or the rail lands in the wrong place and slides. -->
+	<script src="_content/BlazorDLR.Shared/safe-area.js"></script>
 </head>
 
 <body>

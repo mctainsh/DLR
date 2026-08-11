@@ -913,9 +913,12 @@
 	*/
 	.live .chrome {
 		position: absolute;
-		/* Shared with the base map's compass on the opposite edge, so the two line up (app.css). */
+		/* Shared with the base map's compass on the opposite edge, so the two line up (app.css).
+		   --dlr-safe-right rather than the raw env(): landscape reports a side inset on both
+		   edges, and the raw one would float this button a cutout's width in from a right edge
+		   that has no cutout. */
 		top: var(--dlr-map-control-top);
-		right: max(var(--dlr-map-control-inset), env(safe-area-inset-right));
+		right: max(var(--dlr-map-control-inset), var(--dlr-safe-right));
 		z-index: 20;
 	}
 

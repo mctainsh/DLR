@@ -24,6 +24,11 @@
 	<link rel="stylesheet" href="DLR.Server.styles.css" />
 	<ImportMap />
 	<link rel="icon" type="image/png" href="_content/BlazorDLR.Shared/favicon.png" />
+	@* Publishes which edge the camera cutout is on as `data-notch`, because in landscape iOS
+	   reports the same side inset on both edges and the nav rail only wants clearance on the
+	   one that has a cutout. The web build is used on phones too. Not deferred: it has to
+	   have run before the first paint, or the rail lands in the wrong place and slides. *@
+	<script src="_content/BlazorDLR.Shared/safe-area.js"></script>
 	<HeadOutlet @rendermode="@ClientRenderMode" />
 </head>
 

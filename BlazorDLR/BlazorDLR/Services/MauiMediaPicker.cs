@@ -22,7 +22,15 @@ public sealed class MauiMediaPicker : BlazorDLR.Shared.Services.IMediaPicker
 	{
 		try
 		{
-			FileResult? result = await MediaPicker.Default.PickPhotoAsync();
+			// PickPhotoAsync is obsolete; PickPhotosAsync is the supported call and returns an
+			// empty list when the user cancels. SelectionLimit isn't honoured on every platform,
+			// so take the first result rather than trusting the picker to enforce "one".
+			IEnumerable<FileResult> results = await MediaPicker.Default.PickPhotosAsync(new MediaPickerOptions
+			{
+				SelectionLimit = 1,
+			});
+
+			FileResult? result = results?.FirstOrDefault();
 			if (result is null)
 			{
 				return null;

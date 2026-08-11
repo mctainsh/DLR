@@ -64,6 +64,15 @@
 	<string>Bluetooth is used to improve location accuracy by detecting nearby devices.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<!--
+		White clock and battery, app-wide. The strip they sit on is black
+		(wwwroot/app.css, .status-bar-safe-area); the default style resolves its contrast
+		against the view controller's traits, not against what the WebView painted, so
+		leaving it to decide is how you get black glyphs on a black bar.
+		UIViewControllerBasedStatusBarAppearance above is what makes this key the last word.
+	-->
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
 
     <!--
         .gpx share-sheet / "Open with" integration (SharedFrontend.md §7 Phase 1).

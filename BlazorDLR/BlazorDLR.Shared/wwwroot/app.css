@@ -49,10 +49,47 @@
        as a pair, and two that are a few pixels apart read as a mistake.
 
        The inset respects the safe area. Without it a control sits under the notch on a
-       phone — which is exactly how the compass first shipped. */
+       phone — which is exactly how the compass first shipped.
+
+       The top is the safe area PLUS the inset, not the larger of the two. `max()` puts the
+       control's top edge exactly on the status bar's bottom edge, with nothing between
+       them; the sum gives it the same 0.75rem of air below the status bar that it has from
+       every other edge. Off a phone the env() is 0 and this is just the inset. */
     --dlr-map-control-size:  48px;
     --dlr-map-control-inset: 0.75rem;
-    --dlr-map-control-top:   max(var(--dlr-map-control-inset), env(safe-area-inset-top));
+    --dlr-map-control-top:   calc(env(safe-area-inset-top) + var(--dlr-map-control-inset));
+}
+
+/*
+    THE SIDE SAFE AREAS — always these, never env(safe-area-inset-left/right) directly.
+
+    In landscape iOS reports the SAME non-zero side inset on both edges, whichever edge the
+    camera cutout is physically on: UIKit mirrors it so a layout does not jump when the
+    phone is flipped end for end. Honouring both leaves a cutout's width of dead space on
+    the edge that has no cutout — the strip that showed to the left of the nav rail's icons
+    in landscape with the island on the right.
+
+    safe-area.js reads the orientation angle, which does know, and publishes `data-notch` on
+    <html>. These two tokens are where that answer is applied, once, so no component has to
+    ask the question again.
+
+    The bare :root value is the full inset on both sides. That is the fallback when the
+    script has not run or the angle is unreadable, and it is the safe way round: a wasted
+    strip, never a nav icon under the cutout. Off a phone every env() here is 0.
+*/
+:root {
+    --dlr-safe-left:  env(safe-area-inset-left);
+    --dlr-safe-right: env(safe-area-inset-right);
+}
+
+:root[data-notch="left"]  { --dlr-safe-right: 0px; }
+:root[data-notch="right"] { --dlr-safe-left:  0px; }
+
+/* Portrait. The cutout is on the top edge, which the side insets do not describe and iOS
+   reports as 0 anyway — stated so the tokens do not depend on that staying true. */
+:root[data-notch="none"] {
+    --dlr-safe-left:  0px;
+    --dlr-safe-right: 0px;
 }
 
 :root[data-theme="light"] {
@@ -236,7 +273,10 @@ input:focus, textarea:focus, select:focus {
     top: 0;
     right: 0;
     bottom: 0;
-    left: var(--dlr-rail-width);
+    /* The rail's total width, safe area included — `--dlr-rail-width` of icons plus what a
+       landscape cutout on that side costs it. Restating only the variable would park the
+       map's left edge under the rail's far side. */
+    left: calc(var(--dlr-rail-width) + var(--dlr-safe-left));
     overflow: hidden;
 }
 

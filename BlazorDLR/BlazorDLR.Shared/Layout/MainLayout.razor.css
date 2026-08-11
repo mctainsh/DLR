@@ -18,6 +18,15 @@
 	The `.rail` element uses `env(safe-area-inset-*)` so the icons do not disappear under
 	an iOS home indicator or an Android system bar. Web browsers ignore the env() and get
 	0, which is what we want.
+
+	**The inset is added to the rail's size, never taken out of it.** The rail is
+	`box-sizing: border-box` (bootstrap's reset), so a bare `height: var(--dlr-rail-height)`
+	with an inset-sized padding leaves the icons whatever is left over — 60 px minus a 34 px
+	home indicator is 26 px of bar, and the rest of the app still reserves the full
+	`rail-height + inset` for it (`.page-full`, `.content`). That mismatch is the strip of
+	page background that showed between an iOS live map and the bottom bar. Same story for
+	the left rail under a landscape notch: `width` carries the inset, `padding-left` puts
+	the icons the other side of it.
 */
 
 .app {
@@ -41,7 +50,15 @@
 	align-items: center;
 	padding: 0.25rem 0.25rem;
 	gap: 1.25rem;
-	width: var(--dlr-rail-width);
+	/* Landscape on a notched phone puts the cutout down one long edge, and the rail is the
+	   thing sitting there. The inset widens the rail; the padding pushes the icons clear of
+	   the cutout instead of under it. `.page-full` offsets by the same total (app.css).
+
+	   --dlr-safe-left and not env(safe-area-inset-left): iOS reports that env() on BOTH
+	   edges in landscape whichever edge the cutout is on, so the raw value costs the rail a
+	   dead strip half the time. The token is the one that knows (app.css, safe-area.js). */
+	width: calc(var(--dlr-rail-width) + var(--dlr-safe-left));
+	padding-left: max(0.25rem, var(--dlr-safe-left));
 	padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 	padding-top: max(0.75rem, env(safe-area-inset-top));
 	position: sticky;
@@ -128,7 +145,10 @@
 		align-items: stretch;
 		gap: 0.25rem;
 		width: 100%;
-		height: var(--dlr-rail-height);
+		/* The bar is rail-height of icons *plus* whatever the home indicator claims under
+		   it — the same total `.page-full` and `.content` reserve. See the note at the top
+		   of this file for why the inset is added rather than absorbed. */
+		height: calc(var(--dlr-rail-height) + env(safe-area-inset-bottom));
 		border-right: none;
 		border-top: 1px solid var(--dlr-border);
 		position: fixed;
@@ -137,8 +157,8 @@
 		left: 0;
 		right: 0;
 		padding: 0.25rem 0.25rem;
-		padding-left: max(0.25rem, env(safe-area-inset-left));
-		padding-right: max(0.25rem, env(safe-area-inset-right));
+		padding-left: max(0.25rem, var(--dlr-safe-left));
+		padding-right: max(0.25rem, var(--dlr-safe-right));
 		padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
 		padding-top: 0.25rem;
 	}

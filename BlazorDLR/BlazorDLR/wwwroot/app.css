@@ -1,3 +1,20 @@
+/*
+	The band behind the iOS status bar.
+
+	The WebView is edge-to-edge (viewport-fit=cover in index.html), so without this the
+	clock and the battery sit straight on top of whatever the page is drawing — which on
+	the live ride is a map. This is the opaque strip they sit on instead, exactly
+	env(safe-area-inset-top) tall and sticky, so it stays put while the page scrolls.
+
+	Black, not the template's #f7f7f7: this app is dark, the strip runs along the top of a
+	full-bleed map, and a white bar over a dark app reads as a rendering fault. It is paired
+	with UIStatusBarStyle = LightContent in Platforms/iOS/Info.plist — change one and the
+	clock disappears into the other.
+
+	The @supports test is the standard "this is a WebKit-on-iOS build" probe; every other
+	host gets display: none and no strip at all.
+*/
+
 .status-bar-safe-area {
 	display: none;
 }
@@ -8,12 +25,8 @@
 		position: sticky;
 		top: 0;
 		height: env(safe-area-inset-top);
-		background-color: #f7f7f7;
+		background-color: #000;
 		width: 100%;
 		z-index: 1;
-	}
-
-	.flex-column, .navbar-brand {
-		padding-left: env(safe-area-inset-left);
 	}
 }
