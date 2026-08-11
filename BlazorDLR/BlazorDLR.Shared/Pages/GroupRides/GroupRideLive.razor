@@ -913,8 +913,9 @@
 	*/
 	.live .chrome {
 		position: absolute;
-		top: max(0.75rem, env(safe-area-inset-top));
-		right: max(0.75rem, env(safe-area-inset-right));
+		/* Shared with the base map's compass on the opposite edge, so the two line up (app.css). */
+		top: var(--dlr-map-control-top);
+		right: max(var(--dlr-map-control-inset), env(safe-area-inset-right));
 		z-index: 20;
 	}
 
@@ -924,9 +925,10 @@
 		justify-content: center;
 		/* Anchors the "following" dot below. */
 		position: relative;
-		/* 48 px is the tap target the rail uses; a menu opened with gloves on is the point. */
-		width: 48px;
-		height: 48px;
+		/* 48 px is the tap target the rail uses; a menu opened with gloves on is the point.
+		   Shared with the compass on the opposite edge (app.css) — they are a matched pair. */
+		width: var(--dlr-map-control-size);
+		height: var(--dlr-map-control-size);
 		padding: 0;
 		background: var(--dlr-accent);
 		color: var(--dlr-accent-fg);

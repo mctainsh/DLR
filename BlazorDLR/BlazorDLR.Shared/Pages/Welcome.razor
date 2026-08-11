@@ -6,8 +6,10 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @inject IApiClient Api
 @inject AuthState Auth
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject IEnumerable<IExternalSignInProvider> ExternalProviders
+@implements IDisposable
 
 <PageTitle>Welcome — Dumb Luck Routes</PageTitle>
 
@@ -23,8 +25,14 @@
 
 <AuthorizeView>
 	<Authorized>
+		@*
+			Nobody should ever have to read this. An authenticated caller on /welcome is
+			sent to the home page by OnAuthenticationStateChanged / OnInitializedAsync
+			below; this is the frame or two before that navigation lands, and the fallback
+			if it cannot (a host that suppresses navigation during prerender).
+		*@
 		<div class="page page-form form-page welcome">
-			<p>You are already signed in as <strong>@context.User.Identity!.Name</strong>.</p>
+			<p>Signed in as <strong>@context.User.Identity!.Name</strong> — taking you to your rides…</p>
 			<button type="button" class="primary" @onclick="GoHome">Continue</button>
 		</div>
 	</Authorized>
@@ -166,8 +174,8 @@
 	private Tab _tab = Tab.SignIn;
 
 #if DEBUG
-		private string _userName = "JRM";
-		private string _password = "AAAaaa111";
+	private string _userName = "JRM";
+	private string _password = "AAAaaa111";
 #else
 	private string _userName = string.Empty;
 	private string _password = string.Empty;
@@ -177,6 +185,38 @@
 	private bool _busy;
 	private string? _availability;
 	private string _availabilityKind = string.Empty;
+	private bool _navigated;
+
+	/// <summary>
+	/// If already signed in jump straight to the home page — no button to push.
+	/// <para>
+	/// The arrival can be later than the first render: the session is restored
+	/// asynchronously, so a rider can land here anonymous and become authenticated a
+	/// moment later (a refresh in flight while <c>RedirectToWelcome</c> bounced them
+	/// here). That broadcast re-renders <c>AuthorizeView</c> but <em>not</em> this
+	/// page — the cascade is consumed by the child, not by us — which is why the check
+	/// has to hang off <see cref="AuthenticationStateProvider.AuthenticationStateChanged"/>
+	/// rather than off a render callback.
+	/// </para>
+	/// </summary>
+	override protected async Task OnInitializedAsync()
+	{
+		AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+
+		AuthenticationState authState = await AuthStateProvider.GetAuthenticationStateAsync();
+		GoHomeIfAuthenticated(authState);
+	}
+
+	private void OnAuthenticationStateChanged(Task<AuthenticationState> task) =>
+		_ = InvokeAsync(async () => GoHomeIfAuthenticated(await task));
+
+	private void GoHomeIfAuthenticated(AuthenticationState authState)
+	{
+		if (authState.User.Identity?.IsAuthenticated ?? false)
+			GoHome();
+	}
+
+	public void Dispose() => AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
 
 	private async Task CheckAvailabilityAsync()
 	{
@@ -265,7 +305,15 @@
 		}
 	}
 
-	private void GoHome() => Nav.NavigateTo("/", forceLoad: false);
+	// Sign-in, register and the auth-state broadcast can all reach here for the one event —
+	// ApplySessionAsync notifies before the calling flow navigates. Navigate once.
+	private void GoHome()
+	{
+		if (_navigated)
+			return;
+		_navigated = true;
+		Nav.NavigateTo("/", forceLoad: false);
+	}
 
 	private async Task SignInWithAsync(IExternalSignInProvider provider)
 	{

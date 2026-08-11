@@ -13,7 +13,7 @@
 // points at `tile.openstreetmap.org` directly, so no third-party style server sits between
 // us and OSM, and `TILES` below is the single line that moves when the tile source does.
 
-import { dispatch, createViewportReporter } from "./interop.js";
+import { dispatch, createViewportReporter, registerTracker, unregisterTracker } from "./interop.js";
 
 // Version pinned so a build is reproducible. `dist/maplibre-gl.js` is the UMD bundle:
 // one request, one copy of the library, everything hanging off the `maplibregl` global.
@@ -102,6 +102,27 @@ function osmRasterStyle() {
     };
 }
 
+// A north indicator, top left, shown only once the map is actually off north.
+//
+// MapLibre's own NavigationControl rather than a drawn arrow: it points north, and tapping it
+// turns the map back — which is the thing a rider who has rotated by accident actually wants,
+// and the hardest thing to rediscover once the tiles no longer read as a map.
+//
+// Hidden at bearing zero because a compass that always says "north is up" on a map that is
+// always north-up is furniture. The class it toggles is what the stylesheet keys off; the
+// threshold is half a degree so a fractional bearing left by a gesture does not flicker it.
+function addCompass(maplibregl, map, hostElement) {
+    map.addControl(
+        new maplibregl.NavigationControl({ showCompass: true, showZoom: false, visualizePitch: false }),
+        "top-left");
+
+    const sync = () => hostElement.classList.toggle("dlr-map-rotated", Math.abs(map.getBearing() ?? 0) > 0.5);
+
+    map.on("rotate", sync);
+    map.on("moveend", sync);
+    sync();
+}
+
 export async function createMap(hostElement, options, callbacks) {
     if (!hostElement) {
         throw new Error("map.maplibre.js: hostElement is required.");
@@ -114,6 +135,9 @@ export async function createMap(hostElement, options, callbacks) {
     hostElement.classList.remove("dlr-map-placeholder");
     hostElement.replaceChildren();
 
+    // Rotation is per screen; pitch is refused everywhere. See below.
+    const allowRotation = options.allowRotation !== false;
+
     const map = new maplibregl.Map({
         container: hostElement,
         style: osmRasterStyle(),
@@ -123,10 +147,35 @@ export async function createMap(hostElement, options, callbacks) {
         // The overlay draws every pin, so the base map never needs to be interrogated for
         // what is under the cursor. Turning this off skips a hit-test on every mouse move.
         interactive: true,
+
+        // No 3D, on any map, and this is a correctness constraint rather than a style choice.
+        // SkiaMapOverlay projects flat Web Mercator out of a MapViewport that carries no pitch
+        // term, so a tilted base map would leave every pin, track and circle drawn for a view
+        // nobody is looking at — the tiles would lean away and the markers would stay put.
+        //
+        // maxPitch alone is not enough: the gesture handlers have to be refused as well, or a
+        // two-finger drag still fights the camera before being clamped back to zero.
+        maxPitch: 0,
+        pitchWithRotate: false,
+        touchPitch: false,
+
+        // Rotation is fine for the overlay — MapViewport carries a heading and the tracking in
+        // overlay.js counter-rotates by the bearing delta — so this is a per-screen choice.
+        dragRotate: allowRotation,
+
         // Attribution is not optional (§4.5). Left at MapLibre's default control rather than
         // rendered by us, so it survives anyone editing the shared component.
         attributionControl: { compact: false },
     });
+
+    if (!allowRotation) {
+        // The constructor flag covers mouse drag. Touch is a separate handler, and on a phone
+        // it is the one that matters: a two-finger pinch on a picking map would otherwise turn
+        // it a few degrees on the way in, which is exactly the disorientation this prevents.
+        map.touchZoomRotate.disableRotation();
+    } else {
+        addCompass(maplibregl, map, hostElement);
+    }
 
     // The platform blue dot, on the hosts that asked for it. GeolocateControl is the base
     // map's own — distinct from the rider pins the Skia overlay draws from published fixes,
@@ -148,8 +197,11 @@ export async function createMap(hostElement, options, callbacks) {
         const canvas = map.getCanvas();
         if (!canvas) return null;
         // Axis-aligned, as OpenLayers' calculateExtent was before it: with a bearing applied
-        // this encloses the rotated view rather than tracing it. The overlay is handed
-        // headingDeg alongside and rotates its own drawing, so the two agree.
+        // this encloses the rotated view rather than tracing it, so the box is *bigger* than the
+        // canvas — by W*|cos| + H*|sin| across and W*|sin| + H*|cos| down. headingDeg goes with
+        // it, and MapGeometry.ProjectToCanvas divides that inflation back out before it rotates.
+        // Rotating without dividing it out is right at 0 and 180 and wrong at every other
+        // bearing, which is how it went unnoticed until someone turned a phone sideways.
         const northWest = bounds.getNorthWest();
         const southEast = bounds.getSouthEast();
         const dpr = window.devicePixelRatio || 1;
@@ -168,6 +220,18 @@ export async function createMap(hostElement, options, callbacks) {
             devicePixelRatio: dpr,
         };
     };
+
+    // Publish the live projection so SkiaMapOverlay can follow the map between repaints
+    // (see interop.js). This is MapLibre's own projection, asked at the moment of the frame —
+    // an earlier attempt re-derived it in C# from the reported viewport and put the pins in the
+    // wrong place, which is exactly the class of drift this hands back to the library.
+    registerTracker(hostElement, {
+        projectCss: (latitude, longitude) => map.project([longitude, latitude]),
+        zoom: () => map.getZoom() ?? 0,
+        bearing: () => map.getBearing() ?? 0,
+        onMove: (handler) => map.on("move", handler),
+        offMove: (handler) => map.off("move", handler),
+    });
 
     const reporter = createViewportReporter(readViewport, () => callbacks?.onViewportChanged);
 
@@ -232,6 +296,7 @@ export async function createMap(hostElement, options, callbacks) {
             // then C# has disposed the DotNetObjectReference — dispatching into it logs
             // "no tracked object with id N" for a result nobody is waiting for.
             callbacks = null;
+            unregisterTracker(hostElement);
             reporter.dispose();
             try { resize.disconnect(); } catch { /* already gone */ }
             if (geolocate) {

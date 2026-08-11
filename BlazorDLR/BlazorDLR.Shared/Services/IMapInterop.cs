@@ -76,7 +76,25 @@ public enum MapProvider
 /// <summary>Bootstrap options for <see cref="IMapInterop.InitAsync"/>.</summary>
 /// <param name="Camera">Where the map opens.</param>
 /// <param name="ShowUserLocation">Whether the platform's "blue dot" is drawn. Phone-only in practice.</param>
-public sealed record MapOptions(MapCamera Camera, bool ShowUserLocation = false);
+/// <param name="AllowRotation">
+/// Whether the rider may turn the map off north, and therefore whether a compass is offered.
+/// <para>
+/// On by default, and off on the screens where a tap <em>places</em> something — the private-area
+/// picker (§10.1) and the marker composer (§16.1). On those the map is a coordinate entry field:
+/// a rider who has rotated it and then taps is reasoning about a north-up mental image that is no
+/// longer on screen, and the point lands somewhere they did not mean.
+/// </para>
+/// <para>
+/// There is no matching option for pitch. Tilting is refused on every map, because the Skia
+/// overlay projects flat Web Mercator from a <see cref="MapViewport"/> that has no pitch term —
+/// a tilted base map would leave every pin, track and circle drawn for a view nobody is looking
+/// at. That is a constraint of the design, not a preference.
+/// </para>
+/// </param>
+public sealed record MapOptions(
+	MapCamera Camera,
+	bool ShowUserLocation = false,
+	bool AllowRotation = true);
 
 /// <summary>A point the user tapped on the base map, in decimal degrees (§16.1).</summary>
 /// <param name="Latitude">Decimal degrees.</param>

@@ -182,7 +182,7 @@ Two rules that keep the seams honest:
 
 *(Rewritten for **v0.21**. The earlier version had one interop with two JS modules that also drew every marker and track. v0.21 splits the surface: the base map is the vendor's, the overlay is ours.)*
 
-**One `RideMap.razor` component. One shared C# overlay. Three base-map modules — one per platform.** The base map handles pan/zoom/rotate/tiles; the overlay handles every rider pin, every marker, every track. Two seams instead of one, but each seam is honest about which side owns which pixels.
+**One `RideMap.razor` component. One shared C# overlay. One base-map module** — three, one per platform, until v0.24 consolidated them (§4.5). The base map handles pan/zoom/rotate/tiles; the overlay handles every rider pin, every marker, every track. Two seams instead of one, but each seam is honest about which side owns which pixels.
 
 ```csharp
 // The base map — a thin shell over the platform's JS SDK.
@@ -198,7 +198,7 @@ public interface IMapInterop
     event Action<MapViewport>? ViewportChanged;
 }
 
-// The overlay — one C# component, SkiaSharp.Views.Blazor under the hood.
+// The overlay — one C# component, plain SkiaSharp under the hood (v0.24).
 public interface IMapOverlay
 {
     ValueTask AttachAsync(ElementReference canvas, MapViewport initial);
@@ -215,7 +215,9 @@ public interface IMapOverlay
 - **OSM attribution is rendered permanently.** It is declared on the tile source inside `map.maplibre.js`, so MapLibre's own `AttributionControl` draws it from the style — removing the credit means removing the tiles.
 - **A map that cannot reach its library or its tiles shows a stated error** (§4.5), not a grey rectangle. That branch lives in `RideMap.razor`, not in the JS module.
 - **The overlay is one C# file** in `BlazorDLR.Shared/Components/SkiaMapOverlay.razor`, backed by plain MIT-licensed `SkiaSharp`. Every host runs the same code drawing the same pixels — the exact class of failure v0.13 warned about ("two map code paths drift on marker rendering") is what this design closes.
-- **It rasterises off-screen and presents through an `<img>`** (v0.24). Not `SkiaSharp.Views.Blazor`'s `SKCanvasView`: that initialises through `[JSImport]`, which is WebAssembly-only, so on a MAUI `BlazorWebView` it threw on first render and took the whole Blazor renderer with it (§4.5). Skia itself runs fine on the phone — only the canvas binding was browser-only — so the drawing code is untouched and only the surface changed. Repaints coalesce; a CSS transform tracks the map in between.
+- **It rasterises off-screen and presents into a `<canvas>`** (v0.24; the surface was an `<img>` until v0.25). Not `SkiaSharp.Views.Blazor`'s `SKCanvasView`: that initialises through `[JSImport]`, which is WebAssembly-only, so on a MAUI `BlazorWebView` it threw on first render and took the whole Blazor renderer with it (§4.5). Skia itself runs fine on the phone — only the canvas binding was browser-only — so the drawing code is untouched and only the surface changed. Repaints coalesce; between them a CSS transform tracks the map, computed inside the base map's own `move` handler rather than across the bridge (v0.25, §4.5).
+- **Every drawn length scales by `DevicePixelRatio`** (v0.25). The overlay's canvas is `devicePixelRatio` times the box it fills, so a constant authored in CSS pixels draws at a third of its weight on a 3× phone. `MapViewport` carries the ratio for this reason.
+- **`MapViewport`'s extent is axis-aligned, and is only meaningful together with `HeadingDeg`** (v0.25, §4.5). With a bearing applied the box *encloses* the turned view rather than tracing it, so it is larger than the canvas. Deriving a scale from the extent alone is right at 0° and 180° and wrong at every bearing between — the failure looks like "the middle of the screen is fine". `MapGeometry.ProjectToCanvas` is the one implementation, and hit tests go through it too.
 - **Car heads (§4.6) are untouched.** They still speak `IMapRenderer` because they draw into a raw `Surface` and Mapsui is doing both base tiles and content in one pass. `IMapRenderer` is no longer the phone-and-web contract — that is `IMapInterop` + `IMapOverlay`.
 
 **File layout for the map:**

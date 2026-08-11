@@ -182,7 +182,8 @@
 		else
 		{
 			<div class="area-picker">
-				<RideMap Camera="_areaCamera" Circles="_areaCircle" OnMapClicked="OnAreaMapClicked" />
+				<RideMap Camera="_areaCamera" Circles="_areaCircle" OnMapClicked="OnAreaMapClicked"
+						 AllowRotation="false" />
 			</div>
 
 			<p class="hint">
@@ -617,7 +618,7 @@
 		   roof at street zoom, not big enough to become the page. */
 	.profile .area-picker {
 		position: relative;
-		height: 16rem;
+		aspect-ratio: 1 / 1; /* height = width */
 		margin-top: 1rem;
 	}
 

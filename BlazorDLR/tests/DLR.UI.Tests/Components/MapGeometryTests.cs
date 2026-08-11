@@ -37,6 +37,63 @@ public sealed class MapGeometryTests
 		ZoomLevel: 12, HeadingDeg: 0,
 		CanvasWidthPx: 1000, CanvasHeightPx: 1000, DevicePixelRatio: 1);
 
+	/// <summary>
+	/// The same view on a canvas twice as wide as it is tall, so a quarter turn swaps two
+	/// different numbers. A square canvas cannot tell a correct projection from one that scales
+	/// each axis by the other's length, which is exactly how the bug below survived.
+	/// </summary>
+	private static readonly MapViewport WideViewport = new(
+		TopLeftLatitude: MapGeometry.InverseMercatorY(0.5), TopLeftLongitude: -1,
+		BottomRightLatitude: MapGeometry.InverseMercatorY(-0.5), BottomRightLongitude: 1,
+		ZoomLevel: 12, HeadingDeg: 0,
+		CanvasWidthPx: 800, CanvasHeightPx: 400, DevicePixelRatio: 1);
+
+	/// <summary>
+	/// The viewport a base map would actually report for a view turned to a bearing.
+	/// <para>
+	/// <strong>Setting <c>HeadingDeg</c> alone does not model a rotation.</strong> The bounds a
+	/// base map reports are axis-aligned, so turning the map <em>widens and heightens</em> them —
+	/// the box has to enclose the corners of the turned rectangle. A test that holds the bounds
+	/// still and only changes the heading is asserting against a view that cannot exist, and will
+	/// happily pass a projection that gets every off-centre pin wrong on a real screen.
+	/// </para>
+	/// </summary>
+	/// <param name="northUp">The view before it is turned.</param>
+	/// <param name="headingDeg">Degrees clockwise from north.</param>
+	/// <returns>The same view, turned, with the bounds a base map would report for it.</returns>
+	private static MapViewport Turned(MapViewport northUp, double headingDeg)
+	{
+		double radians = headingDeg * Math.PI / 180.0;
+		double absCos = Math.Abs(Math.Cos(radians));
+		double absSin = Math.Abs(Math.Sin(radians));
+
+		double topY = MapGeometry.MercatorY(northUp.TopLeftLatitude);
+		double bottomY = MapGeometry.MercatorY(northUp.BottomRightLatitude);
+
+		// Taken north-up, where the box is the canvas and the scale is unambiguous.
+		double degreesPerPixelX =
+			(northUp.BottomRightLongitude - northUp.TopLeftLongitude) / northUp.CanvasWidthPx;
+		double unitsPerPixelY = (topY - bottomY) / northUp.CanvasHeightPx;
+
+		// The axis-aligned box enclosing a W x H rectangle turned by theta.
+		double halfX = ((northUp.CanvasWidthPx * absCos) + (northUp.CanvasHeightPx * absSin))
+			* degreesPerPixelX / 2;
+		double halfY = ((northUp.CanvasWidthPx * absSin) + (northUp.CanvasHeightPx * absCos))
+			* unitsPerPixelY / 2;
+
+		double centreLon = (northUp.TopLeftLongitude + northUp.BottomRightLongitude) / 2;
+		double centreY = (topY + bottomY) / 2;
+
+		return northUp with
+		{
+			HeadingDeg = headingDeg,
+			TopLeftLongitude = centreLon - halfX,
+			BottomRightLongitude = centreLon + halfX,
+			TopLeftLatitude = MapGeometry.InverseMercatorY(centreY + halfY),
+			BottomRightLatitude = MapGeometry.InverseMercatorY(centreY - halfY),
+		};
+	}
+
 	[Fact]
 	public void ProjectToCanvas_PutsTheViewCentreAtTheCanvasCentre()
 	{
@@ -81,7 +138,7 @@ public sealed class MapGeometryTests
 		// A heading-up map turns the whole canvas about its middle, so the centre pixel is the
 		// fixed point and distances from it are preserved. Both are what the tap hit test on
 		// the live ride page leans on.
-		MapViewport rotated = UnitViewport with { HeadingDeg = headingDeg };
+		MapViewport rotated = Turned(UnitViewport, headingDeg);
 
 		CanvasPoint centre = MapGeometry.ProjectToCanvas(rotated, 0, 0);
 		centre.X.ShouldBe(500, tolerance: 0.5);
@@ -95,6 +152,46 @@ public sealed class MapGeometryTests
 		turned.ShouldBe(northUp, tolerance: 1e-6,
 			"rotation is an isometry — turning the map must not move a pin nearer to or " +
 			"further from the middle of the screen.");
+	}
+
+	[Fact]
+	public void ProjectToCanvas_OnAQuarterTurnedWideCanvas_KeepsAPinAtItsOwnDistanceFromTheCentre()
+	{
+		// The reported bug, at the bearing that showed it worst. A pin 200 px due north of the
+		// centre on a north-up 800 x 400 canvas has to be 200 px to the *left* of the centre once
+		// the map is turned to 90 degrees, because north now points left. Deriving the scale by
+		// dividing the axis-aligned span by the canvas side puts it at 100 px instead — the
+		// centre stays put, and the error grows with distance from it. At 0 and 180 the box is
+		// the canvas and the arithmetic is accidentally right, which is why the rider saw it come
+		// good again at half a turn.
+		CanvasPoint northUp = MapGeometry.ProjectToCanvas(WideViewport, MapGeometry.InverseMercatorY(0.5), 0);
+		northUp.X.ShouldBe(400, tolerance: 1e-6);
+		northUp.Y.ShouldBe(0, tolerance: 1e-6);
+
+		CanvasPoint turned = MapGeometry.ProjectToCanvas(
+			Turned(WideViewport, 90), MapGeometry.InverseMercatorY(0.5), 0);
+
+		turned.X.ShouldBe(200, tolerance: 1e-6, "a quarter turn clockwise carries north to the left.");
+		turned.Y.ShouldBe(200, tolerance: 1e-6, "and leaves it level with the centre.");
+	}
+
+	[Theory]
+	[InlineData(30)]
+	[InlineData(90)]
+	[InlineData(135)]
+	[InlineData(180)]
+	[InlineData(270)]
+	public void ProjectToCanvas_OnAWideCanvas_IsRigidAtEveryBearing(double headingDeg)
+	{
+		// The general form of the case above: a turn is an isometry, so no bearing may move a pin
+		// nearer to or further from the middle of the screen. Asserted on the oblong canvas
+		// because the square one cannot see the failure.
+		double northUp = MapGeometry.ProjectToCanvas(WideViewport, 0.3, 0.7)
+			.DistanceTo(new CanvasPoint(400, 200));
+		double turned = MapGeometry.ProjectToCanvas(Turned(WideViewport, headingDeg), 0.3, 0.7)
+			.DistanceTo(new CanvasPoint(400, 200));
+
+		turned.ShouldBe(northUp, tolerance: 1e-6);
 	}
 
 	[Fact]
@@ -121,7 +218,7 @@ public sealed class MapGeometryTests
 		// Rotation is rigid, so a radius is a radius however the map is turned. A circle that
 		// grew when the rider rotated the map would be reporting a protected area they do not have.
 		double northUp = MapGeometry.MetresToCanvasPixels(UnitViewport, 0, 5_000);
-		double turned = MapGeometry.MetresToCanvasPixels(UnitViewport with { HeadingDeg = headingDeg }, 0, 5_000);
+		double turned = MapGeometry.MetresToCanvasPixels(Turned(UnitViewport, headingDeg), 0, 5_000);
 
 		turned.ShouldBe(northUp, tolerance: 1e-6);
 	}

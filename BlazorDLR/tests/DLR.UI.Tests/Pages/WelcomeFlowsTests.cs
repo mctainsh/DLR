@@ -148,4 +148,59 @@ public sealed class WelcomeFlowsTests : BunitContext
 			nav.History.Last().Uri.EndsWith("/", StringComparison.Ordinal).ShouldBeTrue();
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
+
+	/// <summary>
+	/// A rider who is already signed in is not asked to confirm it. Landing on Welcome
+	/// with a live session goes straight home — no "Continue" to push.
+	/// </summary>
+	[Fact]
+	public async Task AlreadySignedIn_NavigatesHomeWithoutAnyInteraction()
+	{
+		(_, AuthState auth) = WireServices();
+		BunitNavigationManager nav = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
+
+		await auth.ApplySessionAsync(new TokenResponse(
+			AccessToken: "access-live",
+			ExpiresIn: 900,
+			RefreshToken: "refresh-live",
+			User: new AuthenticatedUser(Guid.NewGuid(), "DaveSmith", HasEmail: true, EmailConfirmed: true)));
+
+		IRenderedComponent<Welcome> component = Render<Welcome>();
+
+		component.WaitForAssertion(() =>
+		{
+			nav.History.Count.ShouldBeGreaterThan(0,
+				"an authenticated caller on /welcome is sent home on arrival.");
+			nav.History.Last().Uri.EndsWith("/", StringComparison.Ordinal).ShouldBeTrue();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The session can arrive after the page has rendered — a refresh that was still in
+	/// flight when <c>RedirectToWelcome</c> bounced the rider here. The broadcast re-renders
+	/// <c>AuthorizeView</c> but not the page, so the redirect has to hang off
+	/// <c>AuthenticationStateChanged</c>; this test fails if it hangs off a render callback.
+	/// </summary>
+	[Fact]
+	public async Task SessionArrivingAfterRender_NavigatesHome()
+	{
+		(_, AuthState auth) = WireServices();
+		BunitNavigationManager nav = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
+
+		IRenderedComponent<Welcome> component = Render<Welcome>();
+		nav.History.Count.ShouldBe(0, "an anonymous caller stays on Welcome.");
+
+		await component.InvokeAsync(() => auth.ApplySessionAsync(new TokenResponse(
+			AccessToken: "access-late",
+			ExpiresIn: 900,
+			RefreshToken: "refresh-late",
+			User: new AuthenticatedUser(Guid.NewGuid(), "LateArrival", HasEmail: false, EmailConfirmed: false))));
+
+		component.WaitForAssertion(() =>
+		{
+			nav.History.Count.ShouldBeGreaterThan(0,
+				"the session landing after first render still moves the rider off Welcome.");
+			nav.History.Last().Uri.EndsWith("/", StringComparison.Ordinal).ShouldBeTrue();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
 }

@@ -138,8 +138,60 @@ public sealed class RideMapTests : BunitContext
 		// bug: the canvas backing store stops agreeing with the coordinates the pins were
 		// plotted at, and every position is off by the ratio.
 		MapViewport viewport = new FakeMapInterop().InitialViewport;
-		last[2].ShouldBe(viewport.CanvasWidthPx, "the canvas backing store must match the viewport it was drawn for.");
-		last[3].ShouldBe(viewport.CanvasHeightPx, "same for height — a stale size skews every projected point.");
+		// One options object, the shape map.maplibre.js's createMap already established for this
+		// folder. Size, because a backing store that disagrees with the pixels the pins were
+		// plotted into is the "track in the wrong place, spilling past the edge of the map" bug.
+		// Centre, zoom and bearing, because overlay.js measures every later transform against
+		// them — without those the overlay can only sit still and wait for the next round trip,
+		// which is exactly the pan lag they remove.
+		object view = last[2].ShouldNotBeNull("present() is handed the view the frame was drawn for.");
+
+		ViewValue(view, "widthPx").ShouldBe(viewport.CanvasWidthPx);
+		ViewValue(view, "heightPx").ShouldBe(viewport.CanvasHeightPx);
+		ViewValue(view, "centreLat").ShouldBe(viewport.CentreLatitude);
+		ViewValue(view, "centreLon").ShouldBe(viewport.CentreLongitude);
+		ViewValue(view, "zoom").ShouldBe(viewport.ZoomLevel);
+		ViewValue(view, "bearingDeg").ShouldBe(viewport.HeadingDeg);
+	}
+
+	/// <summary>
+	/// Rotation is on by default and off on the two screens where a tap places something.
+	/// <para>
+	/// The picking screens — the private-area picker (§10.1) and the marker composer (§16.1) —
+	/// use the map as a coordinate entry field. A rider who has turned it off north is aiming at
+	/// a north-up mental image that is no longer on screen, and the point lands somewhere they
+	/// did not mean. Asserted at the seam rather than through the pages, because the pages state
+	/// it in one attribute each and this is the contract that attribute rides on.
+	/// </para>
+	/// </summary>
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public void AllowRotation_ReachesTheBaseMap(bool allowed)
+	{
+		FakeMapInterop map = new() { InitException = new InvalidOperationException("no base map in this test host.") };
+		Services.AddSingleton<IMapInterop>(map);
+
+		Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, SampleCamera)
+			.Add(p => p.AllowRotation, allowed));
+
+		map.LastOptions.ShouldNotBeNull("the base map is initialised with the options the component built.");
+		map.LastOptions!.AllowRotation.ShouldBe(allowed,
+			"the base map decides what a gesture may do, so the choice has to survive the seam.");
+	}
+
+	/// <summary>Left alone, a map rotates — only the picking screens opt out.</summary>
+	[Fact]
+	public void AllowRotation_DefaultsToOn()
+	{
+		FakeMapInterop map = new() { InitException = new InvalidOperationException("no base map in this test host.") };
+		Services.AddSingleton<IMapInterop>(map);
+
+		Render<RideMap>(parameters => parameters.Add(p => p.Camera, SampleCamera));
+
+		map.LastOptions!.AllowRotation.ShouldBeTrue(
+			"the live ride map turns with the rider; opting out is the exception, not the default.");
 	}
 
 	/// <summary>
@@ -188,6 +240,16 @@ public sealed class RideMapTests : BunitContext
 			"treated as device pixels — the bug that made tracks hairline-thin and the " +
 			"private-area circle invisible on both phones.");
 	}
+
+	/// <summary>
+	/// Reads one field off the anonymous options object handed to <c>present</c>. Reflection
+	/// because the type is compiler-generated — naming the members here is the point of the
+	/// assertion, since a rename on the C# side that JS does not follow is a silent break.
+	/// </summary>
+	private static object? ViewValue(object view, string name) =>
+		view.GetType().GetProperty(name)?.GetValue(view)
+		?? throw new InvalidOperationException(
+			$"present() was handed no '{name}' — map/overlay.js reads it by that name.");
 
 	private static MapViewport ViewportAtRatio(double ratio) => new(
 		TopLeftLatitude: 0.01, TopLeftLongitude: -0.01,

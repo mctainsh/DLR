@@ -57,6 +57,7 @@ public sealed class MapLibreInterop : IMapInterop
 			zoomLevel = options.Camera.ZoomLevel,
 			headingDeg = options.Camera.HeadingDeg,
 			showUserLocation = options.ShowUserLocation,
+			allowRotation = options.AllowRotation,
 		}, new { onViewportChanged = _bridge, onMapClicked = _bridge });
 	}
 

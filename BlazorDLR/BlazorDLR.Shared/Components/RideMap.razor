@@ -80,6 +80,18 @@
 	[Parameter] public bool ShowUserLocation { get; set; }
 
 	/// <summary>
+	/// Whether the rider may turn the map off north. On by default; a compass appears top-left
+	/// once they do, and tapping it turns the map back.
+	/// <para>
+	/// Set false on the two screens where a tap <em>places</em> something — the private-area
+	/// picker (§10.1) and the marker composer (§16.1). There the map is a coordinate entry
+	/// field, and a rider who has rotated it is aiming at a north-up mental image that is no
+	/// longer on screen. Tilting is refused everywhere regardless; see <see cref="MapOptions"/>.
+	/// </para>
+	/// </summary>
+	[Parameter] public bool AllowRotation { get; set; } = true;
+
+	/// <summary>
 	/// The routes drawn under the pins (§15.5). A list, because a group ride may have several
 	/// planned routes (§5.4) — a track detail passes a one-element one.
 	/// </summary>
@@ -170,7 +182,7 @@
 			// applied without ever having sent it, leaving the map on the old one for good.
 			MapCamera requested = Camera;
 
-			await Map.InitAsync(_host, new MapOptions(requested, ShowUserLocation));
+			await Map.InitAsync(_host, new MapOptions(requested, ShowUserLocation, AllowRotation));
 			_appliedCamera = requested;
 
 			if (Camera != requested)
@@ -251,6 +263,60 @@
 		height: 100%;
 		background: #eef1f520;
 	}
+	/*
+	  The compass, top left, only once the map is off north (§4.5). map.maplibre.js adds
+	  MapLibre's NavigationControl and toggles `dlr-map-rotated` on the base-map element as the
+	  bearing crosses half a degree; this is the half that decides what that means on screen.
+
+	  Hidden with visibility rather than display:none, because MapLibre measures its control
+	  containers and a control in a zero-size box reports a zero-size box back.
+	*/
+	.dlr-map-base:not(.dlr-map-rotated) .maplibregl-ctrl-top-left {
+		visibility: hidden;
+	}
+
+	/*
+	  Sized and placed to match the live ride's hamburger on the opposite edge — same tap
+	  target, same distance down the screen — from the shared tokens in app.css.
+
+	  The inset is the part that was actually wrong: MapLibre's default is a flat 10 px from
+	  the top of its container, which ignores the safe area and tucks the compass under the
+	  notch on a phone. `--dlr-map-control-top` is the same expression the hamburger uses, so
+	  the two cannot drift apart.
+
+	  The z-index lifts it within the base map. The overlay canvas still paints above it, but
+	  the overlay is transparent everywhere it has not drawn, so the compass shows through and
+	  stays clickable — the overlay is pointer-events: none.
+	*/
+	.dlr-map-base .maplibregl-ctrl-top-left {
+		top: var(--dlr-map-control-top);
+		left: max(var(--dlr-map-control-inset), env(safe-area-inset-left));
+		z-index: 3;
+	}
+
+	.dlr-map-base .maplibregl-ctrl-top-left .maplibregl-ctrl-group {
+		/* MapLibre's own 10 px margin, now that the container carries the inset. */
+		margin: 0;
+		border-radius: 8px;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+	}
+
+	.dlr-map-base .maplibregl-ctrl-top-left .maplibregl-ctrl-compass {
+		width: var(--dlr-map-control-size);
+		height: var(--dlr-map-control-size);
+		border-radius: 8px;
+	}
+
+	/*
+	  The needle is a background image on the button's inner span, and MapLibre rotates that
+	  span to point north. Enlarging the button alone would leave a small needle in a big box,
+	  so the image scales with it — background-size rather than a transform, which would fight
+	  the rotation.
+	*/
+	.dlr-map-base .maplibregl-ctrl-top-left .maplibregl-ctrl-compass .maplibregl-ctrl-icon {
+		background-size: 28px 28px;
+	}
+
 	/* A map wired for picking says so with the pointer — the provider's own canvas sets
 	   its cursor, so this has to reach inside it. */
 	.dlr-map-container.picking .dlr-map-base,

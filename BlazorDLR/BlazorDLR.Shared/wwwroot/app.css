@@ -42,6 +42,17 @@
        the bar along the bottom to clear a 48 px tap target plus that label. */
     --dlr-rail-width:    72px;
     --dlr-rail-height:   60px;
+
+    /* Controls floated over a map — the live ride's hamburger, the base map's compass.
+       One tap target and one inset, defined here rather than per page, because the whole
+       point is that they line up: two controls at the same height on opposite edges read
+       as a pair, and two that are a few pixels apart read as a mistake.
+
+       The inset respects the safe area. Without it a control sits under the notch on a
+       phone — which is exactly how the compass first shipped. */
+    --dlr-map-control-size:  48px;
+    --dlr-map-control-inset: 0.75rem;
+    --dlr-map-control-top:   max(var(--dlr-map-control-inset), env(safe-area-inset-top));
 }
 
 :root[data-theme="light"] {

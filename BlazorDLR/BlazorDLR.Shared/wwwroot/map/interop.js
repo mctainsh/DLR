@@ -14,6 +14,43 @@
 // and the event vanishes with no visible error. The map drew, and every viewport and click
 // it reported was silently discarded. One copy of this rule is the point of the file.
 
+// -- Base-map trackers -----------------------------------------------------------------------
+//
+// How the overlay follows the map between repaints, and the reason a pan no longer drags it.
+//
+// A repaint is a round trip: MapLibre moves, JS tells C#, C# re-renders, rasterises, encodes and
+// marshals a frame back. That is on the order of a hundred milliseconds, so during a continuous
+// pan the overlay is always showing where the map *was*. Redrawing faster cannot fix it — the
+// lag is the round trip, not the drawing.
+//
+// So the pixels already on screen are moved to follow the map, in JS, on the map's own frame.
+// The base-map module registers how to ask it where a ground point currently sits; the overlay
+// looks that up and transforms itself. C# is not involved and cannot be the bottleneck.
+//
+// Keyed on the host element the base map attached to, because that is the one object both sides
+// can name without either importing the other — the overlay finds it by walking up to the
+// shared container. A WeakMap so a disposed map does not pin its element.
+const trackers = new WeakMap();
+
+/**
+ * Publish a base map's live projection. Called by the base-map module on create.
+ * @param {Element} hostElement The element the base map attached to.
+ * @param {{projectCss: Function, zoom: Function, bearing: Function, onMove: Function, offMove: Function}} tracker
+ */
+export function registerTracker(hostElement, tracker) {
+	if (hostElement) trackers.set(hostElement, tracker);
+}
+
+/** Withdraw it again on dispose, so a stale map cannot be asked where anything is. */
+export function unregisterTracker(hostElement) {
+	if (hostElement) trackers.delete(hostElement);
+}
+
+/** The tracker for a base map, or null when none has registered — tracking is optional. */
+export function findTracker(hostElement) {
+	return (hostElement && trackers.get(hostElement)) || null;
+}
+
 /**
  * Forward a payload to a .NET callback.
  * @param {object|Function|null|undefined} target A DotNetObjectReference, or a plain

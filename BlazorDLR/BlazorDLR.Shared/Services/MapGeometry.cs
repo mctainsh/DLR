@@ -73,8 +73,19 @@ public static class MapGeometry
 	/// map, and then taps would land on markers that are no longer under the finger.
 	/// </para>
 	/// <para>
-	/// The base map is already in this projection — all three we support — so a pixel here
-	/// lands on the corresponding tile pixel.
+	/// The base map is already in this projection, so a pixel here lands on the corresponding
+	/// tile pixel.
+	/// </para>
+	/// <para>
+	/// <strong>The reported bounds are axis-aligned</strong> (see <c>readViewport</c> in
+	/// <c>map.maplibre.js</c>): with a bearing applied they <em>enclose</em> the rotated view
+	/// rather than trace it, so the box is bigger than the canvas — by
+	/// <c>W·|cos θ| + H·|sin θ|</c> across and <c>W·|sin θ| + H·|cos θ|</c> down. The scale is
+	/// therefore recovered from that inflated box rather than by dividing the span by the canvas
+	/// side. Dividing directly is right at 0° and 180°, where the box <em>is</em> the canvas, and
+	/// wrong everywhere else: at 90° it stretches X by <c>W/H</c> and squashes Y by <c>H/W</c>,
+	/// which leaves the centre pixel correct and everything else displaced in proportion to its
+	/// distance from it.
 	/// </para>
 	/// </summary>
 	/// <param name="viewport">The base map's current view.</param>
@@ -97,27 +108,28 @@ public static class MapGeometry
 			return new CanvasPoint(width / 2, height / 2);
 		}
 
-		double x = width * (longitudeDeg - viewport.TopLeftLongitude) / spanX;
-		double y = height * (MercatorY(latitudeDeg) - topY) / spanY;
-
-		if (Math.Abs(viewport.HeadingDeg) <= 1e-6)
-		{
-			return new CanvasPoint(x, y);
-		}
-
-		// The overlay projects north-up; the base map's rotation is applied here so the pixels
-		// stay in register when a heading-up map is in use (§4.5).
-		double centreX = width / 2;
-		double centreY = height / 2;
 		double radians = -viewport.HeadingDeg * Math.PI / 180.0;
 		double cos = Math.Cos(radians);
 		double sin = Math.Sin(radians);
-		double dx = x - centreX;
-		double dy = y - centreY;
 
+		// Undo the axis-aligned box's inflation to get pixels per degree along the map's own
+		// axes. Both of these are the same number on a square projection — Web Mercator is one —
+		// so they act as each other's cross-check; each is left to its own reported span so a
+		// base map that rounds its bounds is no worse off than it was north-up.
+		double pixelsPerDegreeX = ((width * Math.Abs(cos)) + (height * Math.Abs(sin))) / spanX;
+		double pixelsPerDegreeY = ((width * Math.Abs(sin)) + (height * Math.Abs(cos))) / spanY;
+
+		// Offsets from the view centre, north-up, in canvas pixels. The centre of an axis-aligned
+		// box is the centre of the view it encloses however the view is turned, so this is the one
+		// point the rotation leaves alone.
+		double dx = (longitudeDeg - (viewport.TopLeftLongitude + (spanX / 2))) * pixelsPerDegreeX;
+		double dy = (MercatorY(latitudeDeg) - (topY + (spanY / 2))) * pixelsPerDegreeY;
+
+		// The overlay projects north-up; the base map's rotation is applied here so the pixels
+		// stay in register when a heading-up map is in use (§4.5).
 		return new CanvasPoint(
-			centreX + (dx * cos) - (dy * sin),
-			centreY + (dx * sin) + (dy * cos));
+			(width / 2) + (dx * cos) - (dy * sin),
+			(height / 2) + (dx * sin) + (dy * cos));
 	}
 
 	/// <summary>

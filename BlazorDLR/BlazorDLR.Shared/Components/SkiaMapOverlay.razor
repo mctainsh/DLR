@@ -355,8 +355,23 @@
 				}
 
 				IJSObjectReference module = await LoadModuleAsync();
-				await module.InvokeVoidAsync(
-					"present", _surface, frame, target.CanvasWidthPx, target.CanvasHeightPx);
+
+				// The frame travels with the view it was drawn for. JS needs that to follow the
+				// map with these pixels until the next frame arrives, which is what stops a pan
+				// dragging the overlay behind it — the round trip that produced this frame is
+				// far too slow to be in the loop at gesture frame rate.
+				//
+				// One options object rather than six positional arguments, matching createMap in
+				// map.maplibre.js — the convention this folder already had.
+				await module.InvokeVoidAsync("present", _surface, frame, new
+				{
+					widthPx = target.CanvasWidthPx,
+					heightPx = target.CanvasHeightPx,
+					centreLat = target.CentreLatitude,
+					centreLon = target.CentreLongitude,
+					zoom = target.ZoomLevel,
+					bearingDeg = target.HeadingDeg,
+				});
 
 				ClearError();
 			}
@@ -854,10 +869,10 @@
 		}
 
 		_chevronPath?.Dispose();
-		_riderarrowPath?.Dispose();
-		_riderdotPath?.Dispose();
+		_riderArrowPath?.Dispose();
+		_riderDotPath?.Dispose();
 		_arrowPath?.Dispose();
-		_chevronPath = _riderarrowPath = _riderdotPath = _arrowPath = null;
+		_chevronPath = _riderArrowPath = _riderDotPath = _arrowPath = null;
 		_pathScale = _scale;
 	}
 
@@ -1016,14 +1031,14 @@
 
 			if (moving)
 			{
-				// Canvas Y grows downward, so screen-up is -Y — which is where (_riderarrowPath ??= BuildRiderArrowPath())
+				// Canvas Y grows downward, so screen-up is -Y — which is where (_riderArrowPath ??= BuildRiderArrowPath())
 				// points — and a clockwise rotation by the screen bearing carries the tip round
 				// to the compass point. Same conversion the authored-marker arrow uses, so a
 				// heading-up map turns both together.
 				canvas.RotateDegrees((float)MapGeometry.ScreenBearingDeg(marker.DirectionDeg!.Value, Viewport.HeadingDeg));
 			}
 
-			SKPath shape = moving ? (_riderarrowPath ??= BuildRiderArrowPath()) : (_riderdotPath ??= BuildRiderDotPath());
+			SKPath shape = moving ? (_riderArrowPath ??= BuildRiderArrowPath()) : (_riderDotPath ??= BuildRiderDotPath());
 
 			// Three passes, widest first. The fore-coloured outline separates the shape from the
 			// rider's own label colour, the fill says moving or stopped, and the hairline in the
@@ -1123,7 +1138,7 @@
 	/// re-derive later.
 	/// </para>
 	/// </summary>
-	private SKPath? _riderarrowPath;
+	private SKPath? _riderArrowPath;
 
 	private SKPath BuildRiderArrowPath()
 	{
@@ -1147,7 +1162,7 @@
 	/// The stopped dot: a disc inside the pill's rounded end, small enough that the label's border
 	/// still reads as a ring around it.
 	/// </summary>
-	private SKPath? _riderdotPath;
+	private SKPath? _riderDotPath;
 
 	private SKPath BuildRiderDotPath()
 	{
@@ -1182,7 +1197,7 @@
 
 	/// <summary>
 	/// Draws the bearing dart an authored marker may carry — "face this way" (§16.2). Riders get
-	/// <c>(_riderarrowPath ??= BuildRiderArrowPath())</c> instead, which is sized to their label rather than to an icon disc.
+	/// <c>(_riderArrowPath ??= BuildRiderArrowPath())</c> instead, which is sized to their label rather than to an icon disc.
 	/// </summary>
 	/// <param name="canvas">The overlay canvas.</param>
 	/// <param name="centre">Where the marker is, in canvas pixels.</param>
@@ -1347,8 +1362,8 @@
 		// device pixel ratio. As process-wide statics they never needed releasing; one per
 		// <RideMap> does, or every navigation into a ride page leaks a handful.
 		_chevronPath?.Dispose();
-		_riderarrowPath?.Dispose();
-		_riderdotPath?.Dispose();
+		_riderArrowPath?.Dispose();
+		_riderDotPath?.Dispose();
 		_arrowPath?.Dispose();
 
 		// Held across frames since the pan-performance change, so it is this component's to
@@ -1367,6 +1382,15 @@
 		// trap the base-map interop documents.
 		if (_module is not null)
 		{
+			// Unhook the move subscription first. It is held by the JS module against the
+			// canvas, so disposing the module reference without it leaves a listener attached
+			// to a live map for a canvas that has left the DOM — twenty visits to a ride page
+			// is twenty of them, all transforming an element nobody can see.
+			try { await _module.InvokeVoidAsync("detach", _surface); }
+			catch (JSDisconnectedException) { /* WebView or circuit already gone */ }
+			catch (ObjectDisposedException) { /* already released */ }
+			catch (JSException) { /* module never finished loading */ }
+
 			try { await _module.DisposeAsync(); }
 			catch (JSDisconnectedException) { /* WebView or circuit already gone */ }
 			catch (ObjectDisposedException) { /* already released */ }
@@ -1394,5 +1418,20 @@
 		  the container's CSS size by the two rules above, which is what keeps a pin drawn
 		  at Viewport.CanvasWidthPx landing on the tile pixel under it.
 		*/
+
+		/*
+		  Load-bearing, not decorative. overlay.js follows the map by transforming this
+		  element, and it measures the translation from the canvas centre — the pixel the
+		  painted view's centre coordinate landed on. This is the CSS default, stated
+		  because changing it silently offsets every tracked frame by half the map.
+		*/
+		transform-origin: 50% 50%;
+
+		/*
+		  The transform is recomputed on the map's own move event, so the browser must not
+		  interpolate between two positions that are already one frame apart — an eased
+		  overlay chasing an un-eased map is the drag this tracking exists to remove.
+		*/
+		transition: none;
 	}
 </style>
