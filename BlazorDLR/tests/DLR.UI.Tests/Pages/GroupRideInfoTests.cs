@@ -1,6 +1,6 @@
-﻿using BlazorDLR.Shared.Pages.GroupRides;
+using BlazorDLR.Shared.Pages.GroupRides;
 using BlazorDLR.Shared.Services;
-using BlazorDLR.Shared.Services.Stubs;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Rides;

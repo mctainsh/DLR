@@ -1,5 +1,5 @@
 using BlazorDLR.Shared.Services;
-using BlazorDLR.Shared.Services.Stubs;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using BlazorDLR.Web.Client.Services;
 using Microsoft.AspNetCore.Components.Authorization;

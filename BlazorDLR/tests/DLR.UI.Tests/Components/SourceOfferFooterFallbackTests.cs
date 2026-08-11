@@ -4,6 +4,8 @@ using BlazorDLR.Shared.Services;
 using Bunit;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace DLR.UI.Tests.Components;
 
@@ -15,9 +17,9 @@ namespace DLR.UI.Tests.Components;
 ///   <item>A short commit renders in full — the truncation is length-conditional.</item>
 ///   <item>An empty commit renders as "unknown" — never a blank between two separators
 ///     that would look like the footer was cut off.</item>
-///   <item>An API failure (either <see cref="NotImplementedException"/> from a Phase-0
-///     stub or any other exception) falls back to the placeholder line, so the licence
-///     text is still visible.</item>
+///   <item>An API failure (either <see cref="NotImplementedException"/> from a host whose
+///     client cannot answer About, or any other exception) falls back to the placeholder
+///     line, so the licence text is still visible.</item>
 /// </list>
 /// </summary>
 [Collection(SourceOfferFooterCollection.Name)]
@@ -78,9 +80,13 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 	[Fact]
 	public void ApiThrowsNotImplemented_FootersFallsBackToPlaceholder_WithLicenceLine()
 	{
-		// The Phase-0 stub throws NotImplementedException — the footer must catch it
-		// (it's a documented Phase-0 case) and render the placeholder line.
-		Services.AddSingleton<IApiClient>(new BlazorDLR.Shared.Services.Stubs.ThrowingApiClient());
+		// A host whose IApiClient cannot answer About throws NotImplementedException rather
+		// than returning a fabricated value — see InProcessAboutApiClient's SSR guard. The
+		// footer must catch it and render the placeholder line.
+		IApiClient api = Substitute.For<IApiClient>();
+		api.GetAboutAsync(Arg.Any<CancellationToken>())
+			.ThrowsAsync(new NotImplementedException("this host cannot answer /about"));
+		Services.AddSingleton(api);
 
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 

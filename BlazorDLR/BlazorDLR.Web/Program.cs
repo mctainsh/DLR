@@ -1,6 +1,6 @@
 using System.Reflection;
 using BlazorDLR.Shared.Services;
-using BlazorDLR.Shared.Services.Stubs;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using BlazorDLR.Web.Components;
 using BlazorDLR.Web.Services;
@@ -120,9 +120,11 @@ builder.Services.AddRazorComponents()
 // Device-specific services used by the BlazorDLR.Shared project.
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
-// Phase 0 (SharedFrontend.md §7): the SSR pass renders shared components before the WASM
-// client boots, so this host needs its own DI for every seam in §4 of that document — even
-// though the interactive session will re-resolve them against BlazorDLR.Web.Client's DI.
+// SharedFrontend.md §4: the SSR pass renders shared components before the WASM client boots,
+// so this host needs its own DI for every seam in that section — even though the interactive
+// session will re-resolve them against BlazorDLR.Web.Client's DI. Where a seam has no
+// meaningful answer during a static render, the binding comes from
+// BlazorDLR.Shared/Services/Platform/.
 //
 // IApiClient is bound to an in-process shim that answers /api/v1/about directly from the
 // same services the controller reads. Making the SSR pass call itself over HTTP for a value

@@ -285,9 +285,7 @@
 	{
 		List<(double Lat, double Lon)> found = points.ToList();
 		if (found.Count == 0)
-		{
 			return false;
-		}
 
 		_latDeg = Snap(found.Average(p => p.Lat));
 		_lonDeg = Snap(found.Average(p => p.Lon));

@@ -48,7 +48,7 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 	<key>CFBundleVersion</key>
-	<string>18</string>
+	<string>19</string>
 
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Share your location to allow other users on the same adventure</string>

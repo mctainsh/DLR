@@ -1,48 +1,24 @@
 using BlazorDLR.Shared.Services;
-using BlazorDLR.Shared.Services.Stubs;
+using BlazorDLR.Shared.Services.Platform;
 
 namespace DLR.UI.Tests.Services;
 
 /// <summary>
-/// The Phase-0 stubs. Every seam has one so a screen that reaches for it before its
-/// real binding is wired fails with a phase-named message rather than a null-reference.
-/// These tests pin the two properties that matter:
+/// The platform bindings in <c>BlazorDLR.Shared/Services/Platform/</c> — the implementations
+/// a host registers when the capability behind a seam does not exist there (no GPS in a
+/// browser, no JS runtime during a prerender, no device storage on the server). These are
+/// shipping behaviour, not scaffolding, so the tests pin the two properties that matter:
 /// <list type="bullet">
-///   <item>The message names the phase — "phase 0 stub, arrives in phase 1" — so a
-///     bug report has the reason without a stack read.</item>
-///   <item>The "noop" stubs (CookieBackedTokenStore, NoopMediaPicker,
-///     NoopLocationProvider, NoopNotificationService, UnavailableExternalSignInProvider)
-///     report their unavailability cleanly and do not throw. The Welcome page and every
-///     other consumer branches on the <c>IsAvailable</c>/<c>IsSupported</c> flag.</item>
+///   <item>The "unavailable" bindings report their unavailability cleanly and do not throw.
+///     The Welcome page and every other consumer branches on the
+///     <c>IsAvailable</c>/<c>IsSupported</c> flag, so a throw there would be a crash on a
+///     path the caller has already handled.</item>
+///   <item>Where a binding does throw, the message names the reason — which host, and what
+///     re-resolves the seam instead — so a bug report has the answer without a stack read.</item>
 /// </list>
 /// </summary>
-public sealed class StubTests
+public sealed class PlatformBindingTests
 {
-	// ---------- ThrowingApiClient ----------
-
-	[Fact]
-	public async Task ThrowingApiClient_EveryCall_ThrowsWithPhaseMessage()
-	{
-		ThrowingApiClient api = new();
-
-		NotImplementedException nx = await Should.ThrowAsync<NotImplementedException>(
-			() => api.GetAboutAsync());
-		nx.Message.Contains("Phase 0 stub", StringComparison.Ordinal).ShouldBeTrue(
-			"the message names the phase so a bug reader has the reason without a stack read.");
-		nx.Message.Contains("SharedFrontend.md", StringComparison.Ordinal).ShouldBeTrue();
-	}
-
-	[Fact]
-	public async Task ThrowingApiClient_VoidCalls_AlsoThrow()
-	{
-		ThrowingApiClient api = new();
-
-		// A void-returning stub must still throw — the caller cannot silently proceed
-		// on a no-op when the real endpoint would have altered state.
-		await Should.ThrowAsync<NotImplementedException>(
-			() => api.RevokeSessionAsync(Guid.NewGuid()));
-	}
-
 	// ---------- CookieBackedTokenStore ----------
 
 	[Fact]
@@ -142,11 +118,30 @@ public sealed class StubTests
 		UninitialisedMapInterop map = new();
 
 		map.Provider.ShouldBe(MapProvider.MapLibreOsm,
-			"the stub reports a provider so callers reading only the flag do not blow up on a null property.");
+			"the binding reports a provider so callers reading only the flag do not blow up on a null property.");
 
-		// Init on an uninitialised interop must fail loudly with the phase message.
+		// Init during a prerender must fail loudly, and name why.
 		NotImplementedException nx = Should.Throw<NotImplementedException>(() =>
 			map.InitAsync(default, new MapOptions(new MapCamera(0, 0, 0))).GetAwaiter().GetResult());
-		nx.Message.Contains("Phase 0 stub", StringComparison.Ordinal).ShouldBeTrue();
+		nx.Message.Contains("SSR", StringComparison.Ordinal).ShouldBeTrue(
+			"the message names the host that cannot answer, so a bug reader has the reason without a stack read.");
+		nx.Message.Contains("WASM client", StringComparison.Ordinal).ShouldBeTrue(
+			"and names what does initialise the map, so the reader knows this is by design rather than a missing registration.");
+	}
+
+	// ---------- ThrowingRideHubClient ----------
+
+	[Fact]
+	public async Task ThrowingRideHubClient_IsNotConnected_AndConnectThrowsWithReason()
+	{
+		await using ThrowingRideHubClient hub = new();
+
+		hub.IsConnected.ShouldBeFalse(
+			"a static render has no connection — callers reading the flag get the honest answer rather than a throw.");
+
+		NotImplementedException nx = await Should.ThrowAsync<NotImplementedException>(
+			() => hub.ConnectAsync());
+		nx.Message.Contains("SSR", StringComparison.Ordinal).ShouldBeTrue(
+			"the message names the host that cannot connect, so a bug reader has the reason without a stack read.");
 	}
 }

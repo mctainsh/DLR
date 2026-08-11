@@ -113,7 +113,7 @@ public sealed class GroupRideLiveMarkerTests : BunitContext
 		// The rider's own private area is drawn on this map (§10.1), so the page injects the
 		// state that holds it. In-memory stand-in for the device store; these tests set none,
 		// so the map carries no circle.
-		Services.AddSingleton<IDeviceSettings, BlazorDLR.Shared.Services.Stubs.InMemoryDeviceSettings>();
+		Services.AddSingleton<IDeviceSettings, BlazorDLR.Shared.Services.Platform.InMemoryDeviceSettings>();
 		Services.AddSingleton<PrivateAreaState>();
 
 		// The page's own RideMap logic is what turns an interop viewport into a hit-testable

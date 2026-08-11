@@ -1,6 +1,6 @@
 using BlazorDLR.Services;
 using BlazorDLR.Shared.Services;
-using BlazorDLR.Shared.Services.Stubs;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging;
@@ -35,10 +35,11 @@ public static class MauiProgram
 		// advance a fake clock rather than sleeping.
 		builder.Services.AddSingleton(TimeProvider.System);
 
-		// Phase 0 (SharedFrontend.md §7): every seam is registered so the shared
-		// pipeline compiles into both hosts and DI resolves; the real implementations
-		// arrive in Phase 1. Stubs throw with a message naming Phase 0, so a screen
-		// reaching for one before its dependency is built fails with the reason.
+		// Every seam in SharedFrontend.md §4 is registered so the shared pipeline compiles
+		// into this host and DI resolves. Where the capability does not exist here, the
+		// binding comes from BlazorDLR.Shared/Services/Platform/ — those report their
+		// unavailability through an IsSupported/IsAvailable flag, or throw with a message
+		// naming which host cannot answer and what handles the call instead.
 		//
 		// Mobile-only implementations (ILocationProvider on Android/iOS, SecureStorage-
 		// backed ITokenStore, MediaPicker, FCM/APNs) each land in their own file under

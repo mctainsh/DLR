@@ -1,6 +1,6 @@
 using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
-using BlazorDLR.Shared.Services.Stubs;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.UI.Tests.Fakes;
