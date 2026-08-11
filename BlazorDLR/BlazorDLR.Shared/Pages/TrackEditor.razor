@@ -43,9 +43,7 @@
 *@
 
 <div class="page page-medium editor">
-	<a class="back" href="/rides/@TrackId">← Back to ride</a>
-
-	<h1>Edit track</h1>
+	<PageNav Title="Edit track" BackHref="@($"/rides/{TrackId}")" BackLabel="Back to the track" />
 
 	@if (_session is null && _error is null)
 	{

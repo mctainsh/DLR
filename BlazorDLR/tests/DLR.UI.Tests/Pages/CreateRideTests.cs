@@ -15,7 +15,7 @@ namespace DLR.UI.Tests.Pages;
 /// reach the API as-selected, and the default-start time has to be driven by
 /// <see cref="TimeProvider"/> (§10.4) so tests advance a fake clock rather than sleeping.
 /// </summary>
-public sealed class CreateRideTests : BunitContext
+public sealed class CreateRideTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 6, 15, 10, 0, 0, TimeSpan.Zero);
 

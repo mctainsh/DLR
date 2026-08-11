@@ -25,7 +25,7 @@ namespace DLR.UI.Tests.Pages;
 ///   <item>The organiser's lifecycle controls: Start (§5.1) and the two-choice End (§5.6).</item>
 /// </list>
 /// </summary>
-public sealed class GroupRideInfoTests : BunitContext
+public sealed class GroupRideInfoTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 

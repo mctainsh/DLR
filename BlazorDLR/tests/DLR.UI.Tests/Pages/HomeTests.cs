@@ -16,7 +16,7 @@ namespace DLR.UI.Tests.Pages;
 ///     web-only branches like TrackEditor.</item>
 /// </list>
 /// </summary>
-public sealed class HomeTests : BunitContext
+public sealed class HomeTests : PageTestContext
 {
 	private FakeFormFactor WireServices(string formFactor = "Desktop", string platform = "Web")
 	{

@@ -12,7 +12,7 @@ namespace DLR.UI.Tests.Pages;
 /// import) and populated. §8's numbers-vs-null rule leans on this page — a null
 /// ascent must render as "—", not as "0", because zero ascent is a real value.
 /// </summary>
-public sealed class MyRidesTests : BunitContext
+public sealed class MyRidesTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 

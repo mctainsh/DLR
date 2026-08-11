@@ -24,7 +24,7 @@ namespace DLR.UI.Tests.Pages;
 ///   <item>what Apply sends is raw half-open index ranges quoting the points response's version.</item>
 /// </list>
 /// </summary>
-public sealed class TrackEditorTests : BunitContext
+public sealed class TrackEditorTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 

@@ -126,6 +126,11 @@ internal class Program
 		// MainLayout; pages call `await Confirm.AskAsync(...)` in place of `window.confirm`.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
 
+		// PageNav's back arrow asks this whether stepping back lands inside the app. Counted
+		// here rather than read from window.history.length, which also counts the pages the
+		// tab visited before this one — see the type's remarks.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.NavigationHistory>();
+
 		await builder.Build().RunAsync();
 	}
 }

@@ -25,7 +25,7 @@ namespace DLR.UI.Tests.Pages;
 /// so <c>SkiaMapOverlay</c> never mounts (its <c>SKCanvasView</c> is browser-only) while the
 /// click seam still reaches the page — which is the part with logic in it.
 /// </summary>
-public sealed class AddMarkerTests : BunitContext
+public sealed class AddMarkerTests : PageTestContext
 {
 	private static FakeApiClient WireServices(BunitContext context) => WireServices(context, out _);
 

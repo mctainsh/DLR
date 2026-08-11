@@ -7,7 +7,7 @@ namespace DLR.UI.Tests.Pages;
 /// The 404 page. Small enough that "does anything render" is the property under
 /// test: an empty NotFound would silently strand every mistyped URL.
 /// </summary>
-public sealed class NotFoundTests : BunitContext
+public sealed class NotFoundTests : PageTestContext
 {
 	[Fact]
 	public void Renders_ANotFoundMessage()

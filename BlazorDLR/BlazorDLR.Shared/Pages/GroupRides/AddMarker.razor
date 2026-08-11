@@ -48,9 +48,7 @@
 *@
 
 <div class="page page-medium form-page">
-	<a class="back" href="/group-rides/@RideId">← Back to ride</a>
-
-	<h1>Add marker</h1>
+	<PageNav Title="Add marker" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the ride" />
 
 	<form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
 		<fieldset class="place">

@@ -27,7 +27,7 @@ namespace DLR.UI.Tests.Pages;
 /// to <c>GroupRideInfoTests</c>.
 /// </para>
 /// </summary>
-public sealed class GroupRideLiveTests : BunitContext
+public sealed class GroupRideLiveTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 

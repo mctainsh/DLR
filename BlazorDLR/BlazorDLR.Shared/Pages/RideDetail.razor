@@ -11,6 +11,19 @@
 <PageTitle>@Title — Dumb Luck Routes</PageTitle>
 
 <div class="page detail">
+	@* Outside the load branches, so the bar — and the way back — is on screen while the
+	   track is still loading and if it fails to load at all. The actions inside it are
+	   what wait for the track, because neither can act on nothing. *@
+	<PageNav Title="@Title" BackHref="/rides" BackLabel="Back to my rides">
+		<Actions>
+			@if (_track is not null)
+			{
+				<a class="button" href="/rides/@TrackId/edit">Edit</a>
+				<button type="button" class="primary" @onclick="DownloadGpxAsync">Download GPX</button>
+			}
+		</Actions>
+	</PageNav>
+
 	@if (_track is null && _error is null)
 	{
 		<p class="empty">Loading…</p>
@@ -21,14 +34,6 @@
 	}
 	else if (_track is not null)
 	{
-		<div class="header">
-			<h1>@(_track.Track.Name ?? "Untitled")</h1>
-			<div class="header-actions">
-				<a class="button" href="/rides/@TrackId/edit">Edit</a>
-				<button type="button" class="primary" @onclick="DownloadGpxAsync">Download GPX</button>
-			</div>
-		</div>
-
 		<dl class="stats">
 			<dt>Distance</dt>
 			<dd>@FormatKm(_track.Track.DistanceM)</dd>
@@ -52,7 +57,10 @@
 	private MapCamera _mapCamera = new(0, 0, 2);
 	private IReadOnlyList<RouteOverlay>? _routes;
 
-	private string Title => _track?.Track.Name ?? "Ride";
+	// Two different "no name" cases, and they read differently: nothing has loaded yet
+	// (the generic word, so the bar is not blank), versus a track that loaded carrying no
+	// name of its own.
+	private string Title => _track is null ? "Ride" : (_track.Track.Name ?? "Untitled");
 
 	protected override async Task OnParametersSetAsync()
 	{
@@ -123,11 +131,6 @@
 }
 
 <style>
-	.detail .header-actions {
-		display: flex;
-		gap: 0.5rem;
-	}
-
 	.detail .stats {
 		display: grid;
 		grid-template-columns: max-content auto max-content auto;

@@ -26,7 +26,7 @@ namespace DLR.UI.Tests.Pages;
 /// and its camera are exactly what is under test, and only its pixels are impossible here.
 /// </para>
 /// </summary>
-public sealed class GroupRideLiveViewTests : BunitContext
+public sealed class GroupRideLiveViewTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 	private static readonly Guid MeId = Guid.Parse("11111111-1111-1111-1111-111111111111");

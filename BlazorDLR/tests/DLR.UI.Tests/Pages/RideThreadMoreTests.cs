@@ -16,7 +16,7 @@ namespace DLR.UI.Tests.Pages;
 /// hub-delivered posts, pin flips, coalesced reactions, poll updates, the "quiet
 /// while Live" note, the "Load older" cursor, and the compose→PostCommentAsync path.
 /// </summary>
-public sealed class RideThreadMoreTests : BunitContext
+public sealed class RideThreadMoreTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 
@@ -114,7 +114,7 @@ public sealed class RideThreadMoreTests : BunitContext
 	}
 
 	[Fact]
-	public void HubCommentPosted_InsertsAtTheTop()
+	public async Task HubCommentPosted_InsertsAtTheTop()
 	{
 		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices();
 
@@ -126,7 +126,7 @@ public sealed class RideThreadMoreTests : BunitContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		CommentDto arriving = Post(rideId, "Live update from the road.");
-		component.InvokeAsync(() => hub.RaiseCommentPosted(arriving)).GetAwaiter().GetResult();
+		await component.InvokeAsync(() => hub.RaiseCommentPosted(arriving));
 
 		component.WaitForAssertion(() =>
 			component.Markup.Contains("Live update from the road", StringComparison.Ordinal).ShouldBeTrue(

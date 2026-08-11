@@ -139,6 +139,11 @@ public static class MauiProgram
 		// The one confirm modal for every destructive action in the app (§18.6).
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
 
+		// PageNav's back arrow asks this whether stepping back lands inside the app. On the
+		// phone this is the count that matters: the WebView has no browser back button, so
+		// the arrow in the title bar is the only way back short of the rail.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.NavigationHistory>();
+
 		// The Skia overlay is a Blazor component (SkiaMapOverlay.razor), not a DI service —
 		// RideMap.razor renders it directly. No registration needed.
 

@@ -19,7 +19,7 @@ namespace DLR.UI.Tests.Pages;
 ///     moment of joining.</item>
 /// </list>
 /// </summary>
-public sealed class JoinRideTests : BunitContext
+public sealed class JoinRideTests : PageTestContext
 {
 	private FakeApiClient WireServices()
 	{

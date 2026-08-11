@@ -14,7 +14,7 @@ namespace DLR.UI.Tests.Pages;
 /// test can prove without an actual file upload flow (which needs
 /// <c>InputFileChangeEventArgs</c> plumbing that bUnit does not natively support).
 /// </summary>
-public sealed class GpxImportTests : BunitContext
+public sealed class GpxImportTests : PageTestContext
 {
 	private FakeApiClient WireServices()
 	{

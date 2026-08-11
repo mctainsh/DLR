@@ -340,21 +340,9 @@ input:focus, textarea:focus, select:focus {
     after the broader ones they need to beat.
 */
 
-/* An <h1> with an action button opposite it. */
-.header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-}
-
-/* "← Back to the ride" — quiet, above the heading. */
-.back {
-    display: inline-block;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-    opacity: 0.7;
-}
+/* The page heading, the back arrow beside it and any actions opposite are all PageNav's
+   now (Components/PageNav.razor.css) — `.header` and `.back` used to live here and have no
+   callers left. A page needing a heading row builds it from <PageNav>. */
 
 /* "Loading…", "No rides yet" — a centred placeholder where content will be. */
 .empty {

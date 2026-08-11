@@ -1,4 +1,4 @@
-﻿namespace BlazorDLR;
+namespace BlazorDLR;
 
 public partial class MainPage : ContentPage
 {

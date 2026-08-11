@@ -20,7 +20,7 @@ namespace DLR.UI.Tests.Pages;
 ///     distance (§8).</item>
 /// </list>
 /// </summary>
-public sealed class RideDetailTests : BunitContext
+public sealed class RideDetailTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 

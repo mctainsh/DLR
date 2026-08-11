@@ -15,7 +15,7 @@ namespace DLR.UI.Tests.Pages;
 /// the organiser. This is the "posting disabled when permission revoked" property
 /// that <c>SharedFrontend.md §7 Phase 4</c> names.
 /// </summary>
-public sealed class RideThreadTests : BunitContext
+public sealed class RideThreadTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 

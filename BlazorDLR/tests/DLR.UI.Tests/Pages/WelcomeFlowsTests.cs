@@ -20,7 +20,7 @@ namespace DLR.UI.Tests.Pages;
 /// the three would leave the caller stuck on the sign-in form after a good password.
 /// </summary>
 [Collection(SourceOfferFooterCollection.Name)]
-public sealed class WelcomeFlowsTests : BunitContext
+public sealed class WelcomeFlowsTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 

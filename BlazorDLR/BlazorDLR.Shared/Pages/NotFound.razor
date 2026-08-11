@@ -1,5 +1,12 @@
-﻿@page "/not-found"
+@page "/not-found"
 @layout MainLayout
 
-<h3>Not Found</h3>
-<p>Sorry, the content you are looking for does not exist.</p>
+<PageTitle>Page not found — Dumb Luck Routes</PageTitle>
+
+<div class="page page-medium">
+	@* Home rather than a parent route: a page that does not exist has no parent to walk
+	   up to, and the rider most likely followed a stale link from outside the app. *@
+	<PageNav Title="Page not found" BackHref="/" BackLabel="Back to home" />
+
+	<p>Sorry, the content you are looking for does not exist.</p>
+</div>

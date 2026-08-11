@@ -23,7 +23,7 @@ namespace DLR.UI.Tests.Pages;
 ///   <item><c>Blocks</c> — the list, unblock, and the "they are not told" copy (§17.7).</item>
 /// </list>
 /// </summary>
-public sealed class SettingsTests : BunitContext
+public sealed class SettingsTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
@@ -552,7 +552,7 @@ public sealed class SettingsTests : BunitContext
 	}
 
 	[Fact]
-	public void Delete_ButtonDisabled_UntilPasswordAndAckAreBothPresent()
+	public async Task Delete_ButtonDisabled_UntilPasswordAndAckAreBothPresent()
 	{
 		WireDataAndExport();
 
@@ -563,12 +563,12 @@ public sealed class SettingsTests : BunitContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		// Open the confirm panel.
-		component.InvokeAsync(() =>
+		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement openConfirm = component.FindAll("button.danger")
 				.First(b => b.TextContent.Contains("Delete my account…", StringComparison.Ordinal));
 			openConfirm.Click();
-		}).GetAwaiter().GetResult();
+		});
 
 		component.WaitForAssertion(() =>
 		{

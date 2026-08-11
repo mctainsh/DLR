@@ -28,9 +28,7 @@
 *@
 
 <div class="page page-medium thread">
-	<a class="back" href="/group-rides/@RideId">← Back to ride</a>
-
-	<h1>Ride thread</h1>
+	<PageNav Title="Ride thread" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the ride" />
 
 	@if (_ride is not null && _ride.State == RideStateDto.Live)
 	{

@@ -27,7 +27,17 @@
 <PageTitle>@Title — Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium ride-info">
-	<a class="back" href="/group-rides/@RideId">← Back to the map</a>
+	@* Outside the load branches: the way back to the map has to be there while the ride
+	   is loading and if it fails. The state badge waits, because there is no state to
+	   report until the ride answers. *@
+	<PageNav Title="@Title" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the map">
+		<Actions>
+			@if (_session.Ride is { } loaded)
+			{
+				<span class="state @loaded.State.ToString().ToLowerInvariant()">@loaded.State</span>
+			}
+		</Actions>
+	</PageNav>
 
 	@if (_session.Ride is null && _session.Error is null)
 	{
@@ -39,11 +49,6 @@
 	}
 	else
 	{
-		<div class="header">
-			<h1>@ride.Name</h1>
-			<span class="state @ride.State.ToString().ToLowerInvariant()">@ride.State</span>
-		</div>
-
 		<p class="lead">
 			@(ride.Description ?? "")
 		</p>

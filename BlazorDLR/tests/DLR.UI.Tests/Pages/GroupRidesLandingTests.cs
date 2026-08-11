@@ -13,7 +13,7 @@ namespace DLR.UI.Tests.Pages;
 /// would silently gate ride creation behind rediscovery of the URL — and that the two
 /// sections render even when they are empty.
 /// </summary>
-public sealed class GroupRidesLandingTests : BunitContext
+public sealed class GroupRidesLandingTests : PageTestContext
 {
 	private FakeApiClient WireServices()
 	{

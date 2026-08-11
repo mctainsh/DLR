@@ -8,10 +8,11 @@
 <PageTitle>My rides — Dumb Luck Routes</PageTitle>
 
 <div class="page rides">
-	<div class="header">
-		<h1>My rides</h1>
-		<a class="button" href="/import">Import GPX</a>
-	</div>
+	<PageNav Title="My rides" BackHref="/" BackLabel="Back to home">
+		<Actions>
+			<a class="button" href="/import">Import GPX</a>
+		</Actions>
+	</PageNav>
 
 	@if (_state == State.Loading)
 	{

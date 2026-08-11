@@ -28,7 +28,7 @@ namespace DLR.UI.Tests.Pages;
 /// as a broken app rather than as a decision somebody made.
 /// </para>
 /// </summary>
-public sealed class GroupRideLiveMarkerTests : BunitContext
+public sealed class GroupRideLiveMarkerTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 

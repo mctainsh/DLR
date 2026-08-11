@@ -13,7 +13,7 @@ namespace DLR.UI.Tests.Pages;
 /// The three buttons must reach the API as three distinct decisions — a wrong wire
 /// on decline-and-block is a case §7.7's reporting flow depends on.
 /// </summary>
-public sealed class RideRequestsTests : BunitContext
+public sealed class RideRequestsTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
 

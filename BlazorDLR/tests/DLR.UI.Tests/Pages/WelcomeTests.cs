@@ -26,7 +26,7 @@ namespace DLR.UI.Tests.Pages;
 /// </list>
 /// </summary>
 [Collection(SourceOfferFooterCollection.Name)]
-public sealed class WelcomeTests : BunitContext
+public sealed class WelcomeTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 

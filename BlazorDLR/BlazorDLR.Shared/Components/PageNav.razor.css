@@ -1,0 +1,101 @@
+/*
+	The page's title bar: back arrow, heading, optional actions.
+
+	Laid out as a grid rather than a flex row so the heading's start does not move
+	between a page that has a back arrow and one that does not — the first column is
+	the arrow's width whether or not an arrow is in it. Pages in a flow (settings →
+	profile → account) then keep their titles on one vertical line instead of shifting
+	sideways as the rider walks down.
+
+	`min-width: 0` on the title is what lets a long ride name ellipsize instead of
+	pushing the actions off the right edge — a grid item's default `min-width: auto`
+	refuses to shrink below its content.
+
+	Not sticky. The rail is the app's fixed chrome; a second pinned strip costs a phone
+	in landscape a real fraction of the map and route lists it came here to read.
+*/
+
+.page-nav {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: center;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid var(--dlr-border);
+}
+
+.page-nav-back {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* 44px: the smallest thing a thumb hits reliably, and the arrow glyph is nowhere
+	   near that on its own. */
+	width: 44px;
+	height: 44px;
+	margin-left: -0.5rem;
+	border-radius: 10px;
+	color: var(--dlr-fg-muted);
+	text-decoration: none;
+	transition: background 120ms ease, color 120ms ease;
+}
+
+.page-nav-back:hover,
+.page-nav-back:focus-visible {
+	background: var(--dlr-accent-soft);
+	color: var(--dlr-fg);
+}
+
+.page-nav-back i {
+	font-size: 18px;
+	line-height: 1;
+}
+
+.page-nav-title {
+	min-width: 0;
+	margin: 0;
+	font-size: 1.5rem;
+	line-height: 1.2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/*
+	The actions slot. `::deep` because the buttons and badges in here are rendered from
+	the *page's* markup, not this component's, so Blazor never stamps them with this
+	stylesheet's scope attribute — a bare `.page-nav-actions .button` would match
+	nothing. Same trap as the rail items in MainLayout.razor.css.
+*/
+.page-nav-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-shrink: 0;
+}
+
+.page-nav-actions ::deep .button,
+.page-nav-actions ::deep button {
+	white-space: nowrap;
+}
+
+/*
+	Narrow: the title carries the screen and the actions drop to their own row under it,
+	so a two-button page (the track detail's Edit / Download GPX) does not squeeze the
+	heading down to three characters and an ellipsis.
+*/
+@media (max-width: 559.98px) {
+	.page-nav {
+		grid-template-columns: auto 1fr;
+		row-gap: 0.5rem;
+	}
+
+	.page-nav-actions {
+		grid-column: 2;
+		flex-wrap: wrap;
+	}
+
+	.page-nav-title {
+		font-size: 1.25rem;
+	}
+}

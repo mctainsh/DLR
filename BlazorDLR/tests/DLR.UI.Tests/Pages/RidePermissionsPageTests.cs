@@ -18,7 +18,7 @@ namespace DLR.UI.Tests.Pages;
 ///     about who owns the ride.</item>
 /// </list>
 /// </summary>
-public sealed class RidePermissionsPageTests : BunitContext
+public sealed class RidePermissionsPageTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 

@@ -4,7 +4,6 @@ using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using BlazorDLR.Web.Components;
 using BlazorDLR.Web.Services;
-using Microsoft.AspNetCore.Components.Authorization;
 using DLR.Server;
 using DLR.Server.Api;
 using DLR.Server.Comments;
@@ -18,6 +17,7 @@ using DLR.Server.Photos;
 using DLR.Server.Positions;
 using DLR.Server.Rides;
 using DLR.Server.Tracks;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -166,6 +166,12 @@ builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
 // The one confirm modal is mounted in MainLayout, which renders in the SSR pass too;
 // registering here keeps prerender from throwing on the ConfirmDialog @inject.
 builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
+
+// PageNav's back arrow asks this whether there is in-app history to step into. A single
+// static render never navigates, so it answers "no" here and the arrow falls back to the
+// page's declared parent route — which is the right answer for a prerender, and the WASM
+// client starts its own count the moment it boots.
+builder.Services.AddScoped<BlazorDLR.Shared.State.NavigationHistory>();
 
 // Auth state for the SSR pass. Shared pages inject AuthState directly (Welcome) and via
 // AuthenticationStateProvider (Home, AuthorizeView), so both must resolve on this host
