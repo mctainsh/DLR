@@ -29,14 +29,46 @@
     <key>XSAppIconAssets</key>
     <string>Assets.xcassets/appicon.appiconset</string>
 	
+	<!--
+		`location` is what lets CLLocationManager.AllowsBackgroundLocationUpdates be set at all
+		(§4.3) — without this entry the assignment throws, and with it the app keeps receiving
+		fixes with the screen off. See Platforms/iOS/Location/AppleLocationProvider.cs.
+
+		`fetch` was removed in the release that added the receiver. Nothing in this app
+		implements background fetch, and App Review rejects a declared background mode the
+		binary never uses — "the app does not include features that require the persistent use
+		of the selected background modes" is a standard 2.5.4 rejection.
+	-->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
-		<string>fetch</string>
 	</array>
 
 	<key>CFBundleDisplayName</key>
 	<string>Dumb Luck Routes</string>
+
+	<!--
+		Declares that the app uses no encryption beyond HTTPS and the platform's own. Without
+		it, every single upload to App Store Connect stops on the export-compliance question
+		and the build cannot be submitted until somebody answers it by hand.
+
+		True as it stands: the app talks HTTPS to its own server and holds tokens in the
+		Keychain, both of which are exempt. If a release ever ships its own cryptography, this
+		key has to be revisited rather than left as a convenience.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!--
+		⚠ SUBMISSION BLOCKER IF LEFT AS-IS. NSAllowsArbitraryLoads turns App Transport Security
+		off for every host, which exists here so a debug build can talk to `http://` on a
+		developer's laptop. App Review asks for a justification for a blanket exception and
+		routinely refuses one from an app whose production API is HTTPS.
+
+		The fix is to scope it rather than to delete it: replace this with
+		NSExceptionDomains for the local development host only, or drop the key entirely for
+		Release. See Documentation/store-release.md, which tracks this as a release gate.
+	-->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -48,18 +80,27 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 	<key>CFBundleVersion</key>
-	<string>19</string>
+	<string>20</string>
 
+	<!--
+		Purpose strings. App Review reads these, and 5.1.1 rejections for location are almost
+		always a string that says *what* the app does rather than *why the rider benefits* —
+		so each one names the feature, the audience and the rider's control over it.
+
+		The "always" strings mention the screen being off explicitly, because that is the part
+		a rider is actually consenting to and the part Apple checks against the background mode
+		above.
+	-->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Share your location to allow other users on the same adventure</string>
+	<string>Dumb Luck Routes shows your position on the map and, when you turn sharing on for a group ride, lets the other riders on that ride see where you are.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Always share your location to allow other users on the same adventure as you to find you and vice versa</string>
+	<string>Keeps your position going to the group rides you have turned sharing on for while the app is in the background and the screen is off, so the group can still see you while you ride. You can turn sharing off at any time.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Always share your location to allow other users on the same adventure as you to find you and vice versa</string>
+	<string>Keeps your position going to the group rides you have turned sharing on for while the app is in the background and the screen is off, so the group can still see you while you ride. You can turn sharing off at any time, and you can set a private area around home that is never shared.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>We use your camera for taking and sharing photos of items such as cool spots and nice views</string>
+	<string>Take a photo to attach to a map marker, so the rest of your group can see the hazard, the turn or the view you are marking.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>You can share items in you library for example photos nice views</string>
+	<string>Choose a photo from your library to attach to a map marker or a ride post.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Bluetooth is used to improve location accuracy by detecting nearby devices.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

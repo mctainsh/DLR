@@ -104,9 +104,9 @@ public sealed class RideMapTests : BunitContext
 
 		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
 			.Add(p => p.Camera, SampleCamera)
-			// A circle rather than a marker: authored markers reach for an emoji glyph through
-			// JS, and this test is about the rasterise, not the glyph cache. DrawCircles needs
-			// nothing but Skia, which is exactly the layer that could not run off wasm.
+			// A circle rather than a marker: authored markers reach for their icon bitmap
+			// through JS, and this test is about the rasterise, not the icon cache. DrawCircles
+			// needs nothing but Skia, which is exactly the layer that could not run off wasm.
 			.Add(p => p.Circles, new List<MapCircle>
 			{
 				new(-33.868, 151.209, RadiusM: 250),

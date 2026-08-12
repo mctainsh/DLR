@@ -6,6 +6,9 @@
 @inject IApiClient Api
 @inject IRideHubClient Hub
 @inject AuthState Auth
+@inject ConfirmService Confirm
+@inject CurrentRideState CurrentRide
+@inject LocationBroadcastState Broadcast
 @inject NavigationManager Nav
 @inject RouteStyleState RouteStyles
 @implements IAsyncDisposable
@@ -313,6 +316,70 @@
 						stored fix — merely stopping the broadcast would leave a last-known
 						point on the map.
 					</p>
+
+					@*
+						What the switch actually produced (§4.3). The flag and the receiver are two
+						different things and either can be the one that is not working: permission
+						refused, no fix yet, or the rider standing inside their own private area.
+						Saying "sharing is on" and stopping there is how somebody ends up believing
+						they are on a map they are not on.
+					*@
+					@if (_session.SharingPending)
+					{
+						@*
+							Consent is recorded, and the ride has not started — so the server would
+							drop every fix (§5.1) and the receiver is deliberately not running.
+							Stated in place of the receiver's own status, which would otherwise read
+							"Not sharing your location" and flatly contradict the switch above it.
+						*@
+						<p class="gps-state" role="status">
+							<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i>
+							Your position starts going to the group when the organiser starts the
+							ride. Your phone's GPS stays off until then.
+						</p>
+					}
+					else
+					{
+						<p class="gps-state @(Broadcast.NeedsAttention ? "warn" : null)" role="status">
+							<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i>
+							@Broadcast.Describe()
+						</p>
+					}
+
+					@if (Broadcast.Status == LocationBroadcastStatus.Broadcasting)
+					{
+						<p class="hint">
+							Your phone keeps sending while the app is in the background or the screen
+							is off. It stops when you turn this off, leave the ride, or the ride ends.
+						</p>
+					}
+				</div>
+			}
+
+			@*
+				Leaving the ride (§5.2). Here rather than in the map's hamburger: that menu is what
+				a rider reaches for while riding, and every item on it is reversible. This one ends
+				the membership, and getting back on needs the join code or a new request.
+
+				Not offered to the organiser, and not because it is dangerous — the server refuses
+				it outright (409, "a ride nobody organises has nobody to decide who is in it"), so a
+				button here would be a control that cannot work. Their way out is End ride, below.
+			*@
+			@if (!ride.IsOrganiser)
+			{
+				<div class="membership">
+					<h3>This ride</h3>
+					@* app.css's `.danger`: destructive, but not the point of the page — the same
+					   treatment revoking a device gets, rather than the filled red of a delete
+					   that happens on the tap. This one opens a confirm. *@
+					<button type="button" class="danger leave" @onclick="LeaveRideAsync" disabled="@_session.Busy">
+						Leave ride…
+					</button>
+					<p class="hint">
+						Your sharing stops, the position the ride holds for you is deleted, and the
+						ride drops off your rail. You would need the join code — or a new request —
+						to get back on.
+					</p>
 				</div>
 			}
 
@@ -413,11 +480,12 @@
 
 	protected override void OnInitialized()
 	{
-		_session = new RideSession(Api, Hub, Auth);
+		_session = new RideSession(Api, Hub, Auth, Broadcast);
 		_session.Changed += OnSessionChanged;
 
 		// Same handler as the session's: both mean "something this page renders has moved".
 		RouteStyles.Changed += OnSessionChanged;
+		Broadcast.Changed += OnSessionChanged;
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -584,10 +652,53 @@
 		return _session.EndAsync(ending);
 	}
 
+	/// <summary>
+	/// Leaves the ride (§5.2), then takes the rider to the list — the page they are on is about a
+	/// ride they are no longer on, and the server would answer 404 to the next thing it asked for.
+	/// <para>
+	/// Confirmed first, through the app's one dialog rather than <c>window.confirm</c>: it is not
+	/// undoable from this screen, and "Leave" is one tap from "Info" on a phone in a mount.
+	/// </para>
+	/// <para>
+	/// A refused leave navigates nowhere. The session states what the server said, over the ride
+	/// that is still perfectly readable underneath it.
+	/// </para>
+	/// </summary>
+	private async Task LeaveRideAsync()
+	{
+		if (_session.Ride is not { } ride)
+		{
+			return;
+		}
+
+		bool confirmed = await Confirm.AskAsync(
+			$"Leave {ride.Name}?",
+			"Your sharing stops and the position this ride holds for you is deleted. "
+			+ "Getting back on needs the join code or a new request.",
+			confirmText: "Leave",
+			danger: true);
+
+		if (!confirmed || !await _session.LeaveRideAsync())
+		{
+			return;
+		}
+
+		// Before the navigation, so the rail is already right when the list renders: a globe still
+		// pointing at the ride they just left would be the app disagreeing with itself.
+		await CurrentRide.ForgetAsync(RideId);
+
+		Nav.NavigateTo("/group-rides");
+	}
+
 	public async ValueTask DisposeAsync()
 	{
 		_session.Changed -= OnSessionChanged;
 		RouteStyles.Changed -= OnSessionChanged;
+
+		// Unsubscribed, never stopped: the receiver belongs to the device and outlives this page
+		// for as long as a ride is being shared with (§4.3).
+		Broadcast.Changed -= OnSessionChanged;
+
 		await _session.DisposeAsync();
 	}
 }
@@ -663,11 +774,43 @@
 			font-size: 1rem;
 		}
 
-	.ride-info .sharing, .ride-info .organiser, .ride-info .routes, .ride-info .route-style {
+	.ride-info .sharing, .ride-info .organiser, .ride-info .routes, .ride-info .route-style,
+	.ride-info .membership {
 		padding: 0.75rem;
 		background: #fff2;
 		border-radius: 6px;
 	}
+
+	/* The receiver's own state, under the switch that asked for it. */
+	.ride-info .sharing .gps-state {
+		display: flex;
+		align-items: baseline;
+		gap: 0.4rem;
+		margin: 0.5rem 0 0;
+		font-size: 0.9rem;
+		color: var(--dlr-fg-muted);
+	}
+
+		/* Something the rider can act on — permission, or fixes not landing. */
+		.ride-info .sharing .gps-state.warn {
+			color: var(--dlr-error);
+		}
+
+	/* The 48 px target the rest of the app uses for anything pressed with gloves on — this one
+	   is pressed once, deliberately, and must not sit within a thumb's width of Reset. */
+	.ride-info .membership .leave {
+		min-height: 48px;
+		cursor: pointer;
+	}
+
+		.ride-info .membership .leave:disabled {
+			opacity: 0.6;
+			cursor: default;
+		}
+
+		.ride-info .membership .hint {
+			margin: 0.5rem 0 0;
+		}
 
 	/* Label on the left, control on the right, current value after it. One row per setting,
 	   so a phone in a bar mount shows the whole panel without horizontal scrolling. */

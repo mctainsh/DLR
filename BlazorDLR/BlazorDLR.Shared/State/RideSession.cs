@@ -1,3 +1,4 @@
+using System.Net;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
@@ -27,6 +28,7 @@ public sealed class RideSession : IAsyncDisposable
 	private readonly IApiClient _api;
 	private readonly IRideHubClient _hub;
 	private readonly AuthState _auth;
+	private readonly LocationBroadcastState? _broadcast;
 
 	private readonly Dictionary<Guid, RiderPositionDto> _positions = new();
 	private readonly Dictionary<Guid, MarkerDto> _markers = new();
@@ -35,11 +37,31 @@ public sealed class RideSession : IAsyncDisposable
 	private bool _joined;
 	private bool _disposed;
 
-	public RideSession(IApiClient api, IRideHubClient hub, AuthState auth)
+	/// <summary>Opens a session over one ride.</summary>
+	/// <param name="api">The REST client.</param>
+	/// <param name="hub">The realtime channel (§5.3).</param>
+	/// <param name="auth">Who is reading, which is what "mine" means throughout.</param>
+	/// <param name="broadcast">
+	/// The device's position broadcast (§5.7), or <c>null</c> for a caller that does not have one.
+	/// <para>
+	/// <strong>Why the sharing switch reaches the GPS from here.</strong> Sharing is a server flag
+	/// and the receiver is a device concern, and the two have to agree or the app lies in one of
+	/// two directions: a switch that is on with the GPS off shows the rider as sharing while their
+	/// pin never moves, and a receiver left running for a ride nobody is sharing with is a
+	/// foreground service and a battery bill for nothing. This is the one place both the toggle and
+	/// the load of an already-sharing ride pass through, so it is the one place they are kept in
+	/// step — rather than each of the two pages remembering to do it.
+	/// </para>
+	/// <para>
+	/// Optional so a test that only cares about markers or members can leave it out.
+	/// </para>
+	/// </param>
+	public RideSession(IApiClient api, IRideHubClient hub, AuthState auth, LocationBroadcastState? broadcast = null)
 	{
 		_api = api;
 		_hub = hub;
 		_auth = auth;
+		_broadcast = broadcast;
 
 		WireHub();
 	}
@@ -55,6 +77,22 @@ public sealed class RideSession : IAsyncDisposable
 
 	/// <summary>What went wrong, in the words the server used. Null when nothing has.</summary>
 	public string? Error { get; private set; }
+
+	/// <summary>
+	/// Whether the last load was told this ride is not there for this rider — it was deleted, or
+	/// they are no longer a member of it (§5.2).
+	/// <para>
+	/// <strong>Not the same as <see cref="Error"/> being set.</strong> A tunnel, a dead Wi-Fi
+	/// captive portal and a server restart all set an error too, and none of them is a reason to
+	/// act as though the ride is gone. Only the server saying so — a 404, which is also the answer
+	/// a non-member gets so that a ride id cannot be probed for existence, or a 403 — sets this.
+	/// </para>
+	/// <para>
+	/// What acts on it is <c>CurrentRideState</c>: the rail's globe must not keep leading back to a
+	/// ride the rider has been removed from for the rest of the app's life (§18.6).
+	/// </para>
+	/// </summary>
+	public bool RideUnavailable { get; private set; }
 
 	/// <summary>Whether a mutating call is in flight — the caller's cue to disable its controls.</summary>
 	public bool Busy { get; private set; }
@@ -87,6 +125,34 @@ public sealed class RideSession : IAsyncDisposable
 
 	/// <summary>Whether this rider is broadcasting to this ride.</summary>
 	public bool Sharing { get; private set; }
+
+	/// <summary>
+	/// Whether this ride is at a point in its lifecycle where a published fix lands in it at all
+	/// (§5.1).
+	/// <para>
+	/// <strong>The client mirrors the server's rule because the server's rule is silent.</strong>
+	/// <c>PositionStore.PublishAsync</c> writes a fix only into rides that are <c>Live</c> or inside
+	/// an unexpired wind-down; for anything earlier it accepts the publish and drops it. A device
+	/// that broadcasts anyway gets no error, no pin and no explanation — it just runs a foreground
+	/// service and a GPS on a rider's battery for fixes nothing keeps.
+	/// </para>
+	/// <para>
+	/// Only <c>Draft</c> and <c>Open</c> are refused here, which is narrower than the server's test
+	/// and deliberately so: <c>Completed</c> covers the wind-down (§5.6), and
+	/// <see cref="RideDetail"/> carries no end time, so a client that relaunched mid-wind-down
+	/// cannot tell a live one from an expired one. Refusing on that guess would take a rider off
+	/// the map during exactly the window the wind-down exists to protect;
+	/// <see cref="OnRideStateChanged"/> is what stops a ride that ended without one.
+	/// </para>
+	/// </summary>
+	public bool RideCarriesPositions => Ride is { State: not (RideStateDto.Draft or RideStateDto.Open) };
+
+	/// <summary>
+	/// Whether this rider has turned sharing on for a ride that cannot carry positions yet — the
+	/// state the ride screens say out loud rather than leaving a rider to infer it from a pin that
+	/// never appears.
+	/// </summary>
+	public bool SharingPending => Sharing && !RideCarriesPositions;
 
 	/// <summary>Whether this rider runs the ride. False before the snapshot lands.</summary>
 	public bool IsOrganiser => Ride?.IsOrganiser == true;
@@ -146,6 +212,7 @@ public sealed class RideSession : IAsyncDisposable
 		_rideId = rideId;
 		Ride = null;
 		Error = null;
+		RideUnavailable = false;
 		Routes = [];
 		RoutePolyline = null;
 		WindDownEndsUtc = null;
@@ -158,6 +225,21 @@ public sealed class RideSession : IAsyncDisposable
 		{
 			Ride = await _api.GetRideAsync(rideId);
 			Sharing = Ride.Members.FirstOrDefault(member => member.UserId == _auth.UserId)?.Sharing ?? false;
+
+			// The server is authoritative about sharing, so this is where a relaunched app learns
+			// that its receiver should be on: the flag survived the process, the GPS did not. It is
+			// also why the globe (§18.6) matters — opening the ride is what gets the rider back on
+			// the map after the OS reclaimed the app mid-ride.
+			//
+			// Started, not awaited. Bringing a receiver up can put a modal on screen (the
+			// background-location disclosure) and can wait on a platform permission dialog, and
+			// neither is something a ride's snapshot should be held behind — the map has landed and
+			// belongs on screen. The receiver reports its own progress through
+			// LocationBroadcastState, which is what the ride screens render.
+			if (Sharing)
+			{
+				StartBroadcast(rideId);
+			}
 
 			// Positions snapshot: on load we ask for what everyone's fix is now (§5.3).
 			foreach (RiderPositionDto position in await _api.GetPositionsSnapshotAsync(rideId))
@@ -194,10 +276,21 @@ public sealed class RideSession : IAsyncDisposable
 		catch (ApiException apiException)
 		{
 			Error = apiException.Error.Title;
+
+			// The snapshot is the only call whose failure says anything about whether the ride is
+			// still the caller's. The three that follow it are about parts of a ride we have
+			// already been handed — a 404 from the marker list is a missing endpoint, not a
+			// missing ride — but they cannot 404 for a member anyway, and the first call is the
+			// one that fails when the ride is gone.
+			RideUnavailable = apiException.Error.StatusCode
+				is HttpStatusCode.NotFound or HttpStatusCode.Forbidden or HttpStatusCode.Gone;
+
 			Raise();
 		}
 		catch (Exception exception)
 		{
+			// A transport failure — no status, no statement from the server. It stays an error and
+			// nothing more: a ride must never be forgotten because a phone went through a tunnel.
 			Error = exception.Message;
 			Raise();
 		}
@@ -205,13 +298,68 @@ public sealed class RideSession : IAsyncDisposable
 
 	// -- Actions ------------------------------------------------------------------------------
 
-	/// <summary>Turns this rider's broadcast on or off (§5.6).</summary>
+	/// <summary>
+	/// Turns this rider's broadcast on or off (§5.6), and starts or stops the device's receiver
+	/// with it (§5.7).
+	/// <para>
+	/// The server first, the GPS second. The flag is what decides whether a fix is copied into this
+	/// ride at all, so a receiver started before it was set would publish fixes the server drops —
+	/// and, worse on the way out, a receiver stopped before the flag was cleared would leave the
+	/// rider's last position sitting on everyone's map with nothing arriving to move it.
+	/// </para>
+	/// </summary>
+	/// <param name="share">True to broadcast to this ride, false to stop.</param>
 	public Task SetSharingAsync(bool share) =>
 		RunAsync(async () =>
 		{
 			await _api.SetSharingAsync(_rideId, new SetSharingRequest(share));
 			Sharing = share;
+
+			if (share)
+			{
+				// Not awaited — see LoadAsync. The switch has already done its job; leaving it
+				// spinning while a permission dialog is up would disable the screen behind it.
+				StartBroadcast(_rideId);
+			}
+			else if (_broadcast is not null)
+			{
+				await _broadcast.StopSharingAsync(_rideId);
+			}
 		});
+
+	/// <summary>
+	/// Brings the device's receiver up for a ride without waiting for it.
+	/// <para>
+	/// The continuation is what makes it safe to abandon: <see cref="LocationBroadcastState"/>
+	/// states its own failures, but an exception escaping the start would otherwise be an
+	/// unobserved task exception with nowhere to surface.
+	/// </para>
+	/// </summary>
+	private void StartBroadcast(Guid rideId)
+	{
+		if (_broadcast is not { } broadcast)
+		{
+			return;
+		}
+
+		if (!RideCarriesPositions)
+		{
+			// Consent stands — the flag is on the server and stays there — but the receiver does
+			// not come up for a ride that has not started. See RideCarriesPositions: everything it
+			// would produce would be dropped, and the rider would be paying a foreground service
+			// and a GPS for it while the app told them they were sharing.
+			//
+			// OnRideStateChanged starts it the moment the organiser starts the ride, so nobody has
+			// to come back and toggle anything.
+			return;
+		}
+
+		_ = broadcast.ShareWithAsync(rideId).ContinueWith(
+			started => Error ??= started.Exception?.GetBaseException().Message,
+			CancellationToken.None,
+			TaskContinuationOptions.OnlyOnFaulted,
+			TaskScheduler.Default);
+	}
 
 	/// <summary>Organiser only: Open → Live (§5.1).</summary>
 	public Task StartAsync() => RunAsync(() => _api.StartRideAsync(_rideId));
@@ -243,6 +391,57 @@ public sealed class RideSession : IAsyncDisposable
 			await _api.RemoveRideRouteAsync(_rideId, trackId);
 			ApplyRoutes(await _api.ListRideRoutesAsync(_rideId));
 		});
+
+	/// <summary>
+	/// Leaves the ride for good: the membership row goes, and the server deletes this rider's
+	/// stored position on the way out (<c>DELETE /members/me</c>).
+	/// <para>
+	/// <strong>Not <see cref="LeaveAsync"/></strong>, which is the hub group this client is
+	/// subscribed to and is undone by opening the ride again. This one is the rider saying they
+	/// are not on the ride any more, and getting back on means a join code or a request (§5.2).
+	/// </para>
+	/// <para>
+	/// Answers whether it worked, unlike the other actions here, because the caller has a
+	/// navigation to decide on: leaving means the ride's screens are no longer the caller's to
+	/// show, and a failed leave must leave them exactly where they were with the server's
+	/// sentence on screen. The organiser is the case that matters — the server answers 409 rather
+	/// than dissolving a ride nobody runs — though the control is not offered to them (§5.2).
+	/// </para>
+	/// </summary>
+	/// <returns>True when the server accepted it.</returns>
+	public async Task<bool> LeaveRideAsync()
+	{
+		Busy = true;
+		Raise();
+		try
+		{
+			await _api.LeaveRideAsync(_rideId);
+
+			// This rider is no longer a member, so the ride's screens must stop claiming to be
+			// showing one — the same state a load that 404s leaves behind, and what tells the
+			// caller's CurrentRideState to forget it.
+			RideUnavailable = true;
+
+			// And the receiver stops caring about this ride. It keeps running if another ride is
+			// still being shared with — see LocationBroadcastState.StopSharingAsync.
+			if (_broadcast is not null)
+			{
+				await _broadcast.StopSharingAsync(_rideId);
+			}
+
+			return true;
+		}
+		catch (ApiException apiException)
+		{
+			Error = apiException.Error.Title;
+			return false;
+		}
+		finally
+		{
+			Busy = false;
+			Raise();
+		}
+	}
 
 	/// <summary>Organiser only: Live → Completed, immediately or on a wind-down (§5.6).</summary>
 	public Task EndAsync(RideEndingDto ending) =>
@@ -357,6 +556,33 @@ public sealed class RideSession : IAsyncDisposable
 	private void OnMemberLeft(Guid rideId, Guid userId)
 	{
 		if (rideId != _rideId || Ride is null) return;
+
+		if (userId == _auth.UserId)
+		{
+			// The member who left is the one reading the screen — an organiser removed them (§5.2).
+			// The snapshot on screen describes a ride that is no longer theirs, and everything on
+			// it is about to start answering 404, so the ride goes rather than being left as a
+			// facsimile they can still tap around in.
+			//
+			// The server does not broadcast this today; a removed rider finds out on their next
+			// load, which sets the same two fields from the 404. This is here so the moment the
+			// hub does say it, the client is already right.
+			Ride = null;
+			Error = "You are no longer on this ride.";
+			RideUnavailable = true;
+			_positions.Clear();
+			_markers.Clear();
+
+			// Nothing this device sends would be copied into this ride any more, so the receiver
+			// stops running for it — a removed rider must not go on paying battery for a ride they
+			// are not on.
+			Sharing = false;
+			_ = _broadcast?.StopSharingAsync(_rideId);
+
+			Raise();
+			return;
+		}
+
 		Ride = Ride with { Members = Ride.Members.Where(member => member.UserId != userId).ToList() };
 		_positions.Remove(userId);
 		Raise();
@@ -399,6 +625,32 @@ public sealed class RideSession : IAsyncDisposable
 	{
 		if (rideId != _rideId || Ride is null) return;
 		Ride = Ride with { State = state };
+
+		// A ride ended immediately (§5.6) is one where the server has already cleared every
+		// member's sharing flag and deleted their positions — so a receiver still running for it
+		// is publishing into a ride that drops the fix, on a rider's battery.
+		//
+		// A wind-down is the opposite case and must not stop: its whole point is that riders who
+		// kept sharing carry on until they stop or the window closes. WindDownEndsUtc is what
+		// tells the two apart, and it is set by the hub event that precedes this one.
+		if (state == RideStateDto.Completed && WindDownEndsUtc is null && Sharing)
+		{
+			Sharing = false;
+			_ = _broadcast?.StopSharingAsync(_rideId);
+		}
+
+		// The other end of the same story: the organiser has started the ride, so a rider whose
+		// consent was already on — and whose receiver StartBroadcast therefore declined to bring up
+		// — is now on a ride that keeps what it is sent. Started here so nobody has to go back to
+		// the switch and toggle it twice to get on a map they already said yes to.
+		//
+		// Ride has been updated to the new state above, so RideCarriesPositions agrees, and
+		// ShareWithAsync is idempotent — a device already broadcasting for this ride does nothing.
+		if (state == RideStateDto.Live && Sharing)
+		{
+			StartBroadcast(_rideId);
+		}
+
 		Raise();
 	}
 

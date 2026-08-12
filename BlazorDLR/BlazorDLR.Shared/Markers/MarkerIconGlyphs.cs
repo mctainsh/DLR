@@ -3,27 +3,30 @@ using DLR.Core.Markers;
 namespace BlazorDLR.Shared.Markers;
 
 /// <summary>
-/// How the curated icon keys (§16.2) are shown to a human: a readable label and a colour
-/// emoji, for the composer's picker and for the map overlay.
+/// How the curated icon keys (§16.2) are shown to a human: a readable label and the PNG that
+/// draws them, for the composer's picker, the marker lists and the map overlay.
 /// <para>
 /// <strong>This lives on the client, not in <see cref="MarkerIcons"/>.</strong> §16.2's rule
 /// is that the server validates the key's length and character set and the client owns the
-/// drawing — an emoji is drawing. Keeping it here means a newer client can render
+/// drawing — a picture is drawing. Keeping it here means a newer client can render
 /// <c>ferry</c> without the server knowing what a ferry looks like.
 /// </para>
 /// <para>
-/// Emoji rather than a bespoke icon font because every host we ship is a browser or a
-/// WebView, all of which already have colour emoji, and because a key the running version
-/// has never seen still degrades to something drawable (<see cref="MarkerIcons.Fallback"/>)
-/// rather than to a blank.
+/// The artwork is a 48×48 PNG per key in <c>wwwroot/markers/</c>, shipped by the shared RCL so
+/// all three hosts draw the identical bytes — one picture per key, the same on iOS, Android and
+/// the web, and one we can draw for keys no font has a symbol for.
 /// </para>
 /// </summary>
 public static class MarkerIconGlyphs
 {
+	/// <summary>Where the shared RCL's icons are served from, on every host.</summary>
+	private const string AssetRoot = "_content/BlazorDLR.Shared/markers/";
+
 	/// <summary>
 	/// Every curated key, in the order the composer offers them: the things a rider marks
-	/// mid-ride first, the housekeeping keys last. Alphabetical would bury "hazard" between
-	/// "gravel" and "medical", and hazard is the one someone reaches for while pulled over.
+	/// mid-ride first, then the wildlife, then the housekeeping keys. Alphabetical would bury
+	/// "hazard" between "gravel" and "medical", and hazard is the one someone reaches for
+	/// while pulled over.
 	/// <para>
 	/// This is the single list. A key present in <see cref="MarkerIcons.Known"/> but absent
 	/// here is a real omission, and <c>AddMarkerTests</c> is what says so — an earlier
@@ -33,42 +36,55 @@ public static class MarkerIconGlyphs
 	/// </summary>
 	private static readonly MarkerIconOption[] Curated =
 	[
-		new("hazard", "Hazard", "⚠️"),
-		new("gravel", "Gravel", "\U0001FAA8"),
-		new("water-crossing", "Water crossing", "\U0001F30A"),
-		new("gate", "Gate", "\U0001F6A7"),
-		new("turn", "Turn", "↩️"),
-		new("regroup", "Regroup", "\U0001F91D"),
-		new("stopped", "Stopped", "\U0001F6D1"),
-		new("start", "Start", "\U0001F7E2"),
-		new("finish", "Finish", "\U0001F3C1"),
-		new("fuel", "Fuel", "⛽"),
-		new("food", "Food", "\U0001F354"),
-		new("coffee", "Coffee", "☕"),
-		new("water", "Drinking water", "\U0001F6B0"),
-		new("toilet", "Toilet", "\U0001F6BB"),
-		new("camping", "Camping", "\U0001F3D5️"),
-		new("parking", "Parking", "\U0001F17F️"),
-		new("viewpoint", "Viewpoint", "\U0001F3DE️"),
-		new("photo", "Photo", "\U0001F4F7"),
-		new("repair", "Repair", "\U0001F527"),
-		new("medical", "Medical", "\U0001F691"),
-		new(MarkerIcons.Fallback, "Note", "\U0001F4DD"),
+		new("hazard", "Hazard"),
+		new("crash", "Crash"),
+		new("gravel", "Gravel"),
+		new("water-crossing", "Water crossing"),
+		new("gate", "Gate"),
+		new("turn", "Turn"),
+		new("fire", "Fire"),
+		new("kangaroo", "Kangaroo"),
+		new("sheep", "Sheep"),
+		new("bear", "Bear"),
+		new("snake", "Snake"),
+		new("crocodile", "Crocodile"),
+		new("mushroom", "Mushroom"),
+		new("regroup", "Regroup"),
+		new("stopped", "Stopped"),
+		new("start", "Start"),
+		new("finish", "Finish"),
+		new("fuel", "Fuel"),
+		new("food", "Food"),
+		new("coffee", "Coffee"),
+		new("water", "Drinking water"),
+		new("toilet", "Toilet"),
+		new("camping", "Camping"),
+		new("parking", "Parking"),
+		new("viewpoint", "Viewpoint"),
+		new("photo", "Photo"),
+		new("repair", "Repair"),
+		new("medical", "Medical"),
+		new(MarkerIcons.Fallback, "Note"),
 	];
 
 	private static readonly Dictionary<string, MarkerIconOption> ByKey =
 		Curated.ToDictionary(option => option.Key, StringComparer.Ordinal);
 
-	/// <summary>Every curated key in picker order, with its label and emoji (§16.2).</summary>
+	/// <summary>Every curated key in picker order, with its label (§16.2).</summary>
 	public static IReadOnlyList<MarkerIconOption> PickerOptions => Curated;
 
-	/// <summary>The colour emoji for a key, falling back to the note glyph for unknown keys.</summary>
-	/// <param name="icon">The icon key, which may be one this version has never seen (§16.2).</param>
-	/// <returns>A colour emoji string.</returns>
-	public static string Emoji(string? icon) =>
-		icon is not null && ByKey.TryGetValue(icon, out MarkerIconOption option)
-			? option.Emoji
-			: ByKey[MarkerIcons.Fallback].Emoji;
+	/// <summary>
+	/// The URL of the icon for a key, falling back to the note icon for unknown keys.
+	/// <para>
+	/// Resolved through <see cref="ByKey"/> rather than by pasting the key into the path, so a
+	/// key this version has never seen lands on the note icon instead of on a 404 that would
+	/// leave a broken-image box on the map (§16.2).
+	/// </para>
+	/// </summary>
+	/// <param name="icon">The icon key, which may be one this version has never seen.</param>
+	/// <returns>A host-relative URL to a 48×48 PNG.</returns>
+	public static string AssetPath(string? icon) =>
+		AssetRoot + (icon is not null && ByKey.ContainsKey(icon) ? icon : MarkerIcons.Fallback) + ".png";
 
 	/// <summary>The human label for a key. An unknown key shows its own text rather than lying.</summary>
 	/// <param name="icon">The icon key.</param>
@@ -107,5 +123,4 @@ public static class MarkerIconGlyphs
 /// <summary>One row in the composer's icon picker.</summary>
 /// <param name="Key">The curated key that travels on the wire (§16.2).</param>
 /// <param name="Label">Readable name.</param>
-/// <param name="Emoji">A colour emoji.</param>
-public readonly record struct MarkerIconOption(string Key, string Label, string Emoji);
+public readonly record struct MarkerIconOption(string Key, string Label);

@@ -1,5 +1,6 @@
 using BlazorDLR.Shared.Layout;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Identity;
@@ -21,6 +22,8 @@ public sealed class NavMenuTests : BunitContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
+	private readonly InMemoryDeviceSettings _settings = new();
+
 	private AuthState WireAuth()
 	{
 		FakeApiClient api = new();
@@ -33,6 +36,24 @@ public sealed class NavMenuTests : BunitContext
 		Services.AddSingleton(auth);
 		Services.AddSingleton<AuthenticationStateProvider>(auth);
 		Services.AddRealAuthorizationPipeline();
+
+		// The globe's destination comes off the device store (§18.6) — the in-memory stand-in,
+		// as everywhere else in these tests.
+		Services.AddSingleton<IDeviceSettings>(_settings);
+		Services.AddSingleton<CurrentRideState>();
+
+		this.CascadeAuthenticationState(auth);
+		return auth;
+	}
+
+	private async Task<AuthState> SignInAsync()
+	{
+		AuthState auth = WireAuth();
+		await auth.ApplySessionAsync(new TokenResponse(
+			AccessToken: "access",
+			ExpiresIn: 900,
+			RefreshToken: "refresh",
+			User: new AuthenticatedUser(Guid.NewGuid(), "DaveSmith", HasEmail: true, EmailConfirmed: true)));
 		this.CascadeAuthenticationState(auth);
 		return auth;
 	}
@@ -48,10 +69,11 @@ public sealed class NavMenuTests : BunitContext
 		{
 			component.FindAll("a[href='welcome']").ShouldNotBeEmpty(
 				"§7.9: an anonymous nav must lead to Welcome — that is the only signed-out destination.");
-			component.FindAll("a[href='rides']").Count.ShouldBe(0,
+			component.FindAll("a[href='import']").Count.ShouldBe(0,
 				"§7.9: the signed-in surface must not appear on an anonymous nav — its links are dead until sign-in.");
 			component.FindAll("a[href='settings']").Count.ShouldBe(0);
-			component.FindAll("a[href='group-rides']").Count.ShouldBe(0);
+			component.FindAll("a[href='group-rides']").Count.ShouldBe(0,
+				"the globe falls back to the group rides list, so an anonymous rail must not carry that either.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -61,13 +83,7 @@ public sealed class NavMenuTests : BunitContext
 		// The glyph is a font class: invisible to a screen reader, and absent entirely if
 		// the stylesheet fails to load. With no visible caption beside it, aria-label and
 		// title are the whole of the destination's accessible name.
-		AuthState auth = WireAuth();
-		await auth.ApplySessionAsync(new TokenResponse(
-			AccessToken: "access",
-			ExpiresIn: 900,
-			RefreshToken: "refresh",
-			User: new AuthenticatedUser(Guid.NewGuid(), "DaveSmith", HasEmail: true, EmailConfirmed: true)));
-		this.CascadeAuthenticationState(auth);
+		await SignInAsync();
 
 		IRenderedComponent<NavMenu> component = Render<NavMenu>();
 
@@ -100,17 +116,8 @@ public sealed class NavMenuTests : BunitContext
 	[Fact]
 	public async Task Authenticated_ShowsFullSignedInSurface_NotWelcome()
 	{
-		AuthState auth = WireAuth();
-
 		// Sign in a synthetic session so AuthorizeView reaches the Authorized branch.
-		await auth.ApplySessionAsync(new TokenResponse(
-			AccessToken: "access",
-			ExpiresIn: 900,
-			RefreshToken: "refresh",
-			User: new AuthenticatedUser(Guid.NewGuid(), "DaveSmith", HasEmail: true, EmailConfirmed: true)));
-
-		// Refresh the cascaded state before rendering.
-		this.CascadeAuthenticationState(auth);
+		await SignInAsync();
 
 		IRenderedComponent<NavMenu> component = Render<NavMenu>();
 
@@ -118,7 +125,6 @@ public sealed class NavMenuTests : BunitContext
 		{
 			// Every signed-in destination is present.
 			component.FindAll("a[href='']").ShouldNotBeEmpty("Home link (href='') is the root the signed-in nav opens with.");
-			component.FindAll("a[href='rides']").ShouldNotBeEmpty("My rides is one of the signed-in links.");
 			component.FindAll("a[href='group-rides']").ShouldNotBeEmpty();
 			component.FindAll("a[href='import']").ShouldNotBeEmpty();
 			component.FindAll("a[href='settings']").ShouldNotBeEmpty();
@@ -127,5 +133,67 @@ public sealed class NavMenuTests : BunitContext
 			component.FindAll("a[href='welcome']").Count.ShouldBe(0,
 				"§7.9: the Welcome link is the signed-out entry point and disappears once the user signs in.");
 		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>The globe, found by its glyph — it is the one rail item whose href moves.</summary>
+	private static AngleSharp.Dom.IElement Globe(IRenderedComponent<NavMenu> component) =>
+		component.FindAll("a.rail-item").Single(link => link.QuerySelector("i.fa-globe") is not null);
+
+	[Fact]
+	public async Task Globe_OnADeviceWithNoRide_LeadsToTheGroupRidesList()
+	{
+		// Nothing written to the device store: the rider has not opened a ride on this device, so
+		// the one destination that makes sense is the list they pick one from. An item that led
+		// nowhere — or was absent until a ride existed — would be a rail that changes shape.
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement globe = Globe(component);
+			globe.GetAttribute("href").ShouldBe("group-rides");
+			globe.GetAttribute("aria-label").ShouldBe("Pick a group ride",
+				"the rail is glyph-only, so the name has to say which of the globe's two destinations is in force.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Globe_AfterARideWasOpened_LeadsBackToThatRide()
+	{
+		// The app restarting is exactly this: a device store that already holds a ride, and a rail
+		// rendered cold with no navigation to learn it from.
+		Guid rideId = Guid.NewGuid();
+		await _settings.SetAsync(CurrentRideState.StorageKey, rideId.ToString("N"));
+
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement globe = Globe(component);
+			globe.GetAttribute("href").ShouldBe($"group-rides/{rideId}",
+				"§18.6: the globe is the one-tap way back to the ride, including after a restart.");
+			globe.GetAttribute("aria-label").ShouldBe("Current ride");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Globe_FollowsARideOpenedWhileTheRailIsOnScreen()
+	{
+		// The rail is in MainLayout and outlives every page under it, so the ride is picked up
+		// from the shared state's broadcast rather than from a re-render of the nav itself.
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+		component.WaitForAssertion(() => Globe(component).GetAttribute("href").ShouldBe("group-rides"));
+
+		Guid rideId = Guid.NewGuid();
+		await Services.GetRequiredService<CurrentRideState>().SetAsync(rideId);
+
+		component.WaitForAssertion(
+			() => Globe(component).GetAttribute("href").ShouldBe($"group-rides/{rideId}"),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 }

@@ -211,6 +211,25 @@ public enum MarkerKind
 	/// people this is, and which way they are going, is the whole of what a live position says.
 	/// </summary>
 	Rider = 1,
+
+	/// <summary>
+	/// <em>You</em> — this device's own fix, read straight from the platform receiver rather than
+	/// from a published position (§4.3).
+	/// <para>
+	/// Drawn as a bare arrow or dot with no label, which is what tells it apart from
+	/// <see cref="Rider"/> at a glance: every other pin on the map is somebody with a name on it,
+	/// and the one without a name is the person holding the phone.
+	/// </para>
+	/// <para>
+	/// It exists because the rider pins are a round trip — the ride only carries positions once it
+	/// is <c>Live</c>, and the fan-out is on a 5 s tick (§5.3) — and none of that should stand
+	/// between somebody and seeing where they are. It replaces the base map's own "blue dot" on
+	/// the phone, which cannot work there: that one asks the WebView for <c>navigator.geolocation</c>,
+	/// a permission gate entirely separate from the one the app holds for
+	/// <see cref="ILocationProvider"/>, and neither MAUI host grants it.
+	/// </para>
+	/// </summary>
+	Self = 2,
 }
 
 /// <summary>

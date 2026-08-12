@@ -8,6 +8,8 @@
 @inject IRideHubClient Hub
 @inject AuthState Auth
 @inject ConfirmService Confirm
+@inject CurrentRideState CurrentRide
+@inject LocationBroadcastState Broadcast
 @inject NavigationManager Nav
 @inject PrivateAreaState PrivateAreas
 @inject IDeviceSettings Settings
@@ -45,11 +47,58 @@
 			@* ShowPickingCursor follows the mode rather than being off outright: an ordinary tap
 			   here interrogates what is already on the map, but a tap while placing does put
 			   something down, and that is the one time a crosshair is honest. *@
+			@*
+				ShowUserLocation is the base map's own blue dot, and it is asked for only on a host
+				that has no receiver of its own — the browser (§18.6). It cannot work on the phone:
+				MapLibre's GeolocateControl reads navigator.geolocation, which is the *WebView's*
+				permission gate and not the one the app holds for ILocationProvider — MAUI's
+				BlazorWebView grants it on neither platform, and it never resolves or errors. It
+				would also only start on a tap of its own button, which nothing here performs.
+
+				The phones draw themselves on the Skia overlay instead, from this device's own fix
+				— see SelfMarker. Note that the browser's dot answers a different question from the
+				rider pill beside it: where the machine reading the map is, which for somebody
+				watching a ride from a laptop is not where their bike is.
+			*@
 			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" Routes="_routeLayer"
-					 Circles="_privateAreaLayer" ShowUserLocation="false"
+					 Circles="_privateAreaLayer" ShowUserLocation="!HasOwnReceiver"
 					 OnViewportReported="OnMapViewportReportedAsync"
 					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="_placingMarker" />
 		</div>
+
+		@*
+			The receiver needs the rider to do something — grant permission, or read why fixes are
+			not landing (§4.3). It earns a strip over the map only when both halves are true: the
+			rider has asked to share, and the state is one they can act on. A rider who is not
+			sharing is not owed a GPS message at all.
+
+			Above the map's own error strip and styled the same way, because to a rider they are
+			the same kind of thing: something the app could not do, said out loud rather than left
+			to be inferred from a pin that never moves.
+		*@
+		@if (_session.Sharing && Broadcast.NeedsAttention)
+		{
+			<div class="map-error gps-alert error" role="alert">
+				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
+				<span>@Broadcast.Describe()</span>
+			</div>
+		}
+		else if (_session.SharingPending)
+		{
+			@*
+				Sharing is on and the ride has not started, so nothing this device sends would be
+				kept (§5.1) — and the receiver is not running, so there is nothing to report about
+				it either. Said out loud rather than left as an empty map: the rider has agreed to
+				share, been through the disclosure and the phone's permission prompts, and is owed
+				the reason they are still the only thing not on screen.
+
+				Not styled as an error. Nothing has gone wrong; the ride simply has not started.
+			*@
+			<div class="map-error gps-alert" role="status">
+				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
+				<span>Sharing is on. Your position starts going to the group when the organiser starts the ride.</span>
+			</div>
+		}
 
 		@* An error raised by something the menu did — the map underneath is still usable, so
 		   this is a dismissible strip rather than a page that replaced itself with a message. *@
@@ -135,7 +184,7 @@
 						<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i> Follow me
 						@if (_followMe)
 						{
-							<span class="quiet">@(MyPosition is null ? "waiting for a fix" : "on")</span>
+							<span class="quiet">@(MyPoint is null ? "waiting for a fix" : "on")</span>
 						}
 					</button>
 
@@ -143,6 +192,17 @@
 						<i class="fa fa-fw fa-map-pin" aria-hidden="true"></i> Markers
 						<span class="count">@_session.Markers.Count</span>
 					</button>
+
+					@*
+						What this device's own receiver is doing (§4.3). Not a control — sharing is
+						a consent decision and lives on the info page beside the words describing
+						it — but a rider mid-ride needs to be able to answer "am I on their map?"
+						without leaving the map, and the honest answer is not "the switch is on".
+					*@
+					<div class="gps" role="status">
+						<i class="fa fa-fw @BroadcastIcon" aria-hidden="true"></i>
+						<span>@Broadcast.Describe()</span>
+					</div>
 				</div>
 			}
 		</div>
@@ -179,7 +239,7 @@
 									<button type="button" class="marker-head"
 											aria-expanded="@(open ? "true" : "false")"
 											@onclick="() => ToggleMarkerAsync(marker)">
-										<span class="glyph" aria-hidden="true">@MarkerIconGlyphs.Emoji(marker.Icon)</span>
+										<img class="glyph" alt="" src="@MarkerIconGlyphs.AssetPath(marker.Icon)" />
 										<span class="what">
 											@* A title is optional (§16.2). On the map that means a bare icon, which is
 											   the point of it; in a list it would mean a row with nothing in the name
@@ -236,7 +296,7 @@
 					{
 						<section class="nearby-marker">
 							<h3>
-								<span class="glyph" aria-hidden="true">@MarkerIconGlyphs.Emoji(marker.Icon)</span>
+								<img class="glyph" alt="" src="@MarkerIconGlyphs.AssetPath(marker.Icon)" />
 								@MarkerIconGlyphs.Name(marker.Title, marker.Icon)
 							</h3>
 							<p class="by">@marker.CreatedByUserName</p>
@@ -324,6 +384,13 @@
 	private bool _showConsent;
 
 	/// <summary>
+	/// Whether this ride has already been dropped from the device's memory of "the ride you are
+	/// on" (§18.6). One ride's disappearance is one decision, and the session raises for plenty
+	/// of other reasons after it.
+	/// </summary>
+	private bool _forgotten;
+
+	/// <summary>
 	/// Whether the next tap on the map is a marker's point rather than a question about what is
 	/// already there (§16.1).
 	/// <para>
@@ -360,6 +427,20 @@
 	private Guid? _deletingMarkerId;
 
 	private string Title => _session?.Ride?.Name ?? "Ride";
+
+	/// <summary>
+	/// The glyph beside the receiver's state in the menu. Three shapes rather than one that
+	/// changes colour: the map is read through a visor in daylight, and colour alone is the first
+	/// thing to go (§18.6).
+	/// </summary>
+	private string BroadcastIcon => Broadcast.Status switch
+	{
+		LocationBroadcastStatus.Broadcasting => "fa-satellite-dish",
+		LocationBroadcastStatus.Suppressed => "fa-house-lock",
+		LocationBroadcastStatus.Starting or LocationBroadcastStatus.WaitingForFix => "fa-spinner",
+		LocationBroadcastStatus.Off => "fa-location-crosshairs",
+		_ => "fa-triangle-exclamation",
+	};
 
 	/// <summary>
 	/// The markers the last tap landed on, resolved against the live set. Null when nothing
@@ -404,13 +485,80 @@
 	private RiderPositionDto? MyPosition =>
 		Auth.UserId is { } me && _session.Positions.TryGetValue(me, out RiderPositionDto? mine) ? mine : null;
 
+	/// <summary>
+	/// Whether this host reads its own GPS — and therefore whether the ride's copy of this rider is
+	/// allowed onto this map at all.
+	/// <para>
+	/// <strong>The one thing that decides it, in both places it is decided.</strong> On a phone the
+	/// device's own fix is available and is strictly better, so the round-tripped copy is refused
+	/// outright. In a browser there is no receiver (§18.6) and the server's copy is the only answer
+	/// there has ever been, so refusing it would take a rider who is sharing from their phone off
+	/// the map they are watching on a laptop, for nothing.
+	/// </para>
+	/// </summary>
+	private bool HasOwnReceiver => Broadcast.IsSupported;
+
+	/// <summary>
+	/// Where this rider is, for this rider's own map: <strong>this device's own reading on a host
+	/// that has one, and the ride's copy only on a host that does not</strong> (see
+	/// <see cref="HasOwnReceiver"/>).
+	/// <para>
+	/// <strong>Why a phone refuses the round trip rather than merely preferring the local read.</strong>
+	/// The ride's copy is the same fix after a journey: filtered by <c>PositionGate</c> on the way
+	/// out (§4.2), kept only once the ride is <c>Live</c> (§5.1), and returned on a 5 s fan-out
+	/// tick (§5.3). Every one of those is right for showing the <em>other</em> riders — it is the
+	/// best anyone can know about somebody else — and every one is a reason not to show it back to
+	/// the person whose phone produced it, who has the current answer in their hand. Preferring the
+	/// device and falling back to the server was worse than either: the mark would track properly,
+	/// then jump backwards to a stale point the moment the GPS blinked.
+	/// </para>
+	/// <para>
+	/// The privacy rule that first put the ride's copy here survives on the host it applies to,
+	/// because it is enforced a layer down: <c>LocationBroadcastState.OwnFix</c> answers null while
+	/// the fix is suppressed by the private area (§10.1), so a phone following this never goes
+	/// anywhere the rider's own setting says nobody should be looking. In a browser the question
+	/// does not arise — a fix that was suppressed was never sent, so the server has nothing to
+	/// return.
+	/// </para>
+	/// </summary>
+	private (double Latitude, double Longitude)? MyPoint =>
+		HasOwnReceiver
+			? Broadcast.OwnFix is { } own ? (own.Latitude, own.Longitude) : null
+			: MyPosition is { } mine ? (PositionScale.ToDegrees(mine.Lat), PositionScale.ToDegrees(mine.Lon)) : null;
+
+	/// <summary>
+	/// This device drawn as itself (§4.3), or null when there is no fix of its own to draw — the
+	/// web, a receiver that is off or still warming up, or a fix inside the private area.
+	/// <para>
+	/// Only ever built from the device's own read; see <see cref="MyPoint"/> for why the ride's
+	/// copy of this rider is not an acceptable substitute.
+	/// </para>
+	/// </summary>
+	private MapMarker? SelfMarker => Broadcast.OwnFix is { } fix
+		? new MapMarker(
+			// Keyed on the rider rather than on a sentinel, so this occupies the same slot the
+			// server's copy of them would have — belt and braces behind RebuildMapLayer's skip.
+			Id: Auth.UserId ?? Guid.Empty,
+			Latitude: fix.Latitude,
+			Longitude: fix.Longitude,
+			IconKey: string.Empty,
+			Title: string.Empty,
+			DirectionDeg: fix.HeadingDeg,
+			Kind: MarkerKind.Self,
+			SpeedMps: fix.SpeedMps)
+		: null;
+
 	/// <summary>Zoom a marker is brought to when it is chosen. Street level, not suburb level.</summary>
 	private const double FocusZoom = 16;
 
 	protected override void OnInitialized()
 	{
-		_session = new RideSession(Api, Hub, Auth);
+		_session = new RideSession(Api, Hub, Auth, Broadcast);
 		_session.Changed += OnSessionChanged;
+
+		// The receiver's state is drawn on this screen — see the dot on the hamburger and the
+		// strip below it — and it moves on its own timetable, not the session's.
+		Broadcast.Changed += OnBroadcastChanged;
 
 		// The area can be placed, moved or removed on the settings screen while this page is
 		// still mounted — PrivateAreaState is scoped, so it is the same instance — and the map
@@ -435,6 +583,21 @@
 		await PrivateAreas.LoadAsync();
 		await RestoreViewAsync();
 	}
+
+	/// <summary>
+	/// The device's receiver moved. On the phone this — not the ride's position batch — is what
+	/// usually moves the map: this rider's own mark is drawn from the device's fix (see
+	/// <see cref="SelfMarker"/>) and the follow camera aims at it (see <see cref="MyPoint"/>), so a
+	/// fix arriving has to rebuild the layer and re-aim, exactly as a hub batch does.
+	/// </summary>
+	private void OnBroadcastChanged() => _ = InvokeAsync(async () =>
+	{
+		RebuildMapLayer();
+		StateHasChanged();
+
+		// Cheap when the rider has not moved — see _followedTo.
+		await FollowMeAsync();
+	});
 
 	private void OnPrivateAreaChanged()
 	{
@@ -478,10 +641,36 @@
 		_nearbyMarkerIds = Array.Empty<Guid>();
 		_menuOpen = false;
 		_showMarkers = false;
+		// A different ride is a different question of whether it still exists.
+		_forgotten = false;
 		// Armed on one ride, spent on another is a marker on the wrong ride.
 		_placingMarker = false;
 
 		await _session.LoadAsync(RideId);
+
+		// This is the ride the rail's globe leads back to from now on, and after the next launch
+		// (§18.6). Written here rather than on the join screen because this is the one page every
+		// route into a ride ends on — a code redeemed, a row tapped in the list, a link followed,
+		// or the globe itself.
+		//
+		// Only once the snapshot has landed: a ride id that 404s or that this rider is not a member
+		// of is not somewhere to be sent back to.
+		if (_session.Ride is not null)
+		{
+			await CurrentRide.SetAsync(RideId);
+		}
+		else if (_session.RideUnavailable)
+		{
+			// The server said this ride is not there for this rider — deleted, or they have been
+			// removed from it (§5.2). Forgotten, so the globe stops leading to a page that can only
+			// answer "no such ride". Only this ride: see CurrentRideState.ForgetAsync.
+			//
+			// A load that failed any other way keeps its place. A tunnel is not a reason to forget
+			// which ride somebody is on, and the rider who most needs the globe is the one whose
+			// phone has just lost signal in the middle of a ride.
+			_forgotten = true;
+			await CurrentRide.ForgetAsync(RideId);
+		}
 
 		// Consent prompt: shown once per joined ride that we do not yet share with. §5.6's
 		// rule is dismissing = "not now", which is a no-op — closing the modal simply removes it.
@@ -497,6 +686,15 @@
 		_ = InvokeAsync(async () =>
 		{
 			StateHasChanged();
+
+			// A removal can land while the map is open, not only between loads (§5.2). Same answer
+			// as the load that 404s, and once: the session goes on raising for everything else, and
+			// forgetting a ride is not something to re-decide on every frame.
+			if (_session.RideUnavailable && !_forgotten)
+			{
+				_forgotten = true;
+				await CurrentRide.ForgetAsync(RideId);
+			}
 
 			// Every position batch is a chance that this rider moved, and this is the only place
 			// that learns about one. Cheap when they did not — see _followedTo.
@@ -578,10 +776,13 @@
 	/// Opens the marker composer on the point the rider tapped (§16.1), so the composer starts
 	/// with the pin already where they put it rather than on a guess at what they meant.
 	/// <para>
-	/// The zoom rides along so the composer's own picker opens at the scale the point was chosen
-	/// at — a point picked at street level and re-shown at city level is a point nobody can check.
-	/// Rounded to the wire's five decimal places (<see cref="PositionScale"/>), so the number in
-	/// the composer's coordinate box is the one that will be stored.
+	/// Rounded to the wire's five decimal places (<see cref="PositionScale"/>), so the number
+	/// that travels is the one that will be stored.
+	/// </para>
+	/// <para>
+	/// The zoom used to ride along as well, so the composer's own picker could re-open at the
+	/// scale the point was chosen at. That picker is gone — this tap is now the only place the
+	/// point is chosen — so nothing reads a zoom on that route and it is no longer sent.
 	/// </para>
 	/// <para>
 	/// Built at tap time, not baked into an <c>href</c>: keeping one current would mean
@@ -598,7 +799,6 @@
 		{
 			["lat"] = Math.Round(point.Latitude, 5),
 			["lon"] = Math.Round(point.Longitude, 5),
-			["zoom"] = Math.Round(_mapViewport?.ZoomLevel ?? _camera.ZoomLevel, 2),
 		}));
 	}
 
@@ -635,13 +835,12 @@
 	/// </summary>
 	private async Task FollowMeAsync()
 	{
-		if (!_followMe || MyPosition is not { } mine)
+		if (!_followMe || MyPoint is not { } point)
 		{
 			return;
 		}
 
-		double latitude = PositionScale.ToDegrees(mine.Lat);
-		double longitude = PositionScale.ToDegrees(mine.Lon);
+		(double latitude, double longitude) = point;
 
 		if (_followedTo == (latitude, longitude))
 		{
@@ -879,8 +1078,29 @@
 			new RouteOverlay(route.EncodedPolyline, RoutePalette.At(index), route.TrackId))];
 
 		_markerLayer.Clear();
+
 		foreach (RiderPositionDto position in _session.Positions.Values)
 		{
+			if (HasOwnReceiver && position.UserId == Auth.UserId)
+			{
+				// This rider, as the server has them — dropped on a host that reads its own GPS,
+				// and dropped there whether or not the device currently has a fix.
+				//
+				// It is this phone's own fix after a round trip (§4.2, §5.3), so at best it is a
+				// worse copy of what SelfMarker already draws and at worst it is a second mark for
+				// one person: at a standstill they sit on top of each other, and at speed they read
+				// as two riders a few seconds apart. When there is no device fix — the GPS off or
+				// warming up, or the private area suppressing it (§10.1) — the honest answer is
+				// that this phone does not currently know where it is, not a point from before it
+				// stopped knowing.
+				//
+				// A browser keeps it, and draws it as an ordinary rider pill: it has no receiver to
+				// do better with (§18.6), and what it is showing really is the server's view of
+				// this rider — the same one everybody else on the ride is looking at. See
+				// HasOwnReceiver.
+				continue;
+			}
+
 			// The colour and the name both come off the member row, not the fix. A position
 			// batch carries neither (§5.3) — the username because it is immutable and would be
 			// bytes repeated every tick, the colour for the same reason — so the fix says where
@@ -907,6 +1127,14 @@
 				IconKey: marker.Icon,
 				Title: marker.Title,
 				DirectionDeg: marker.DirectionDeg);
+		}
+
+		if (SelfMarker is { } self)
+		{
+			// Last, so it is added after the authored markers as well as the riders. The overlay
+			// draws in dictionary order and this is the mark whose position the rider is reading
+			// the map to find.
+			_markerLayer[self.Id] = self;
 		}
 	}
 
@@ -957,6 +1185,10 @@
 	{
 		_session.Changed -= OnSessionChanged;
 		PrivateAreas.Changed -= OnPrivateAreaChanged;
+
+		// Unsubscribed, not stopped. Leaving this page is not leaving the ride: the receiver keeps
+		// running for as long as a ride is being shared with, which is the whole point of it (§4.3).
+		Broadcast.Changed -= OnBroadcastChanged;
 
 		// The write that matters: leaving for the info page, the composer or the thread is the
 		// common way off this map, and coming straight back is the common way onto it.
@@ -1087,6 +1319,34 @@
 		margin-left: auto;
 		font-size: 0.8rem;
 		color: var(--dlr-fg-muted);
+	}
+
+	/* The receiver's state. Reads as a caption under the menu's items rather than as another
+	   one of them — it is the only row that is not a control, and a row that looks tappable
+	   and is not is worse than one that is plainly a label. */
+	.live .menu .gps {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.6rem;
+		padding: 0.5rem 1rem 0.35rem;
+		margin-top: 0.35rem;
+		border-top: 1px solid var(--dlr-border);
+		font-size: 0.8rem;
+		color: var(--dlr-fg-muted);
+		/* The sentence wraps; the items above it deliberately do not. */
+		white-space: normal;
+		max-width: 18rem;
+	}
+
+	.live .menu .gps i {
+		margin-top: 0.15rem;
+	}
+
+	/* Sits where the map's own error strip does, and never at the same time as one — that one
+	   is raised by a menu action and this one by the receiver, and the rider is not doing both. */
+	.live .gps-alert {
+		top: max(0.75rem, env(safe-area-inset-top));
+		color: red;
 	}
 
 	.live .menu hr {
@@ -1243,8 +1503,10 @@
 	}
 
 		.live .marker-head .glyph {
-			font-size: 1.25rem;
-			line-height: 1;
+			width: 24px;
+			height: 24px;
+			flex: 0 0 auto;
+			display: block;
 		}
 
 		.live .marker-head .what {
@@ -1326,7 +1588,9 @@
 		}
 
 			.live .nearby-marker h3 .glyph {
-				font-size: 1.25rem;
+				width: 22px;
+				height: 22px;
+				vertical-align: -4px;
 			}
 
 		.live .nearby-marker .by {

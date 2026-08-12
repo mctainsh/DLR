@@ -48,6 +48,11 @@ public sealed class MainLayoutTests : BunitContext
 		Services.AddSingleton<IThemeService, InMemoryThemeService>();
 		Services.AddSingleton<ThemeState>();
 		Services.AddSingleton<ConfirmService>();
+
+		// The rail this layout mounts carries the current-ride globe (§18.6), which reads the
+		// device store for the ride it points at. In-memory here, as with the theme above.
+		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
+		Services.AddSingleton<CurrentRideState>();
 	}
 
 	[Fact]

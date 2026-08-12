@@ -11,8 +11,38 @@
 	pushing the actions off the right edge — a grid item's default `min-width: auto`
 	refuses to shrink below its content.
 
-	Not sticky. The rail is the app's fixed chrome; a second pinned strip costs a phone
-	in landscape a real fraction of the map and route lists it came here to read.
+	STICKY, AND THE TWO THINGS THAT MAKES FIDDLY.
+
+	1. It has to sit flush against the top of the scroll area, with no gap above it. A
+	   sticky header with air above it is a slot for scrolled text to show through, and
+	   on a phone that slot is exactly where the status bar is. So the bar pulls itself
+	   up through `--dlr-page-top` — the single token carrying all of a page's top
+	   spacing (app.css; `.content` has no top padding of its own for this reason). The
+	   invariant is MARGIN ONLY: this negative margin must equal the margin `.page` set,
+	   because that is what puts the bar's top edge on the scroll area's and keeps it
+	   there when `top: 0` catches it. It says nothing about the padding.
+
+	2. The padding is the bar's own air, and it is deliberately LESS than the margin it
+	   cancelled. A page with no title bar wants a generous 2rem before its heading; a
+	   title bar wants to look like a title bar, which means a tight, symmetric strip —
+	   hence 0.75rem, the same as the padding-bottom below. Giving back the whole 2rem
+	   (which this rule did when it read `padding-top: var(--dlr-page-top)`) is what left
+	   the visible slab of air above the title on web, on Android and in iOS portrait.
+	   The landscape override further down had been hiding the mistake: it replaces this
+	   padding with a literal, so landscape was the one case that looked right.
+
+	3. The safe-area inset is ADDED here, and it is also inside `--dlr-page-top`, and that
+	   is not double-counting — the two terms are doing different jobs. The margin above
+	   cancels the token in full, inset included, so the bar's top edge sits at y=0 with
+	   the inset's worth of its padding hidden behind the status bar. Take the inset out
+	   of this padding and the title rides up under the clock. Note the earlier iOS bug
+	   was NOT this sum: it was the MAUI host's status-bar strip reserving an inset of
+	   flow space on top of it (BlazorDLR/wwwroot/app.css). That strip is `fixed` now.
+
+	The background is opaque and the token is the app's own, so what scrolls under the
+	bar disappears rather than showing through the status bar. z-index sits above the
+	map's floated controls (3) and below the nav rail (10) and the modals (1000): a
+	stuck bar must cover a compass, and must never cover a confirm dialog.
 */
 
 .page-nav {
@@ -20,6 +50,15 @@
 	grid-template-columns: auto 1fr auto;
 	align-items: center;
 	gap: 0.75rem;
+
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	background: var(--dlr-bg);
+
+	margin-top: calc(-1 * var(--dlr-page-top));
+	padding-top: calc(0.75rem + env(safe-area-inset-top));
+
 	margin-bottom: 1rem;
 	padding-bottom: 0.75rem;
 	border-bottom: 1px solid var(--dlr-border);
@@ -97,5 +136,41 @@
 
 	.page-nav-title {
 		font-size: 1.25rem;
+	}
+}
+
+/*
+	Short viewports — a phone held landscape, which is where a pinned strip costs the most.
+	There are only ~390 px of height to spend and the rider came here to read a route list
+	or a map, so the bar gives back what it can: less air above and below, a smaller
+	heading, a tighter tap target.
+
+	Height, not width, and it stacks with the width query above rather than replacing it:
+	the same phone is narrow in both orientations, but only one of them is short.
+
+	The safe-area term is carried over from the base rule and only the literal shrinks —
+	0.75rem of air becomes 0.5rem. Restating the whole sum rather than trimming one half of
+	it is the point: drop the inset here and a landscape title lands under the notch. iOS
+	reports a top inset of 0 in landscape on the phones that have a cutout — it moves to a
+	side edge, which `--dlr-safe-left`/`--dlr-safe-right` own — so on those this costs
+	nothing, and it must not be dropped for the devices and orientations that do report one.
+*/
+@media (max-height: 480px) {
+	.page-nav {
+		/* Only the padding shrinks — the bar gets shorter, its top edge does not move. The
+		   negative margin above is what puts that edge on the scroll area's, and it stays
+		   the full `--dlr-page-top` it has to cancel whatever this padding ends up being. */
+		padding-top: calc(0.5rem + env(safe-area-inset-top));
+		padding-bottom: 0.4rem;
+		margin-bottom: 0.6rem;
+	}
+
+	.page-nav-title {
+		font-size: 1.1rem;
+	}
+
+	.page-nav-back {
+		width: 40px;
+		height: 40px;
 	}
 }

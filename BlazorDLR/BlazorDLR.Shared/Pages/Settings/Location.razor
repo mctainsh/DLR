@@ -1,0 +1,251 @@
+@page "/settings/location"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
+@inject GpsProfileState Gps
+@inject LocationBroadcastState Broadcast
+@implements IDisposable
+
+@*
+	The GPS screen (§4.2, §4.3, §18.6) — the accuracy profile, what the receiver is doing
+	right now, and a plain account of what "background" means on this phone.
+
+	Separate from the private area, which lives on the Profile screen beside the other
+	things a rider decides about what other people see. The two are related and are linked
+	to each other, but they answer different questions: this one is a battery decision, and
+	that one is a privacy decision.
+
+	It renders on the web too, where there is no receiver at all (§18.6). Rather than hide
+	the screen there, it says so — a rider who set a profile on their phone and then opens
+	the site is owed an explanation of why the same setting is showing "cannot share".
+*@
+
+<PageTitle>Location — Dumb Luck Routes</PageTitle>
+
+<div class="page page-medium location-settings">
+	<PageNav Title="Location" BackHref="/settings" BackLabel="Back to settings" />
+
+	<p class="lead">
+		How often this device takes a GPS fix while you are sharing with a group ride, and
+		what it is doing at the moment.
+	</p>
+
+	<div class="panel state">
+		<h2>Right now</h2>
+
+		<p class="gps-state @(Broadcast.NeedsAttention ? "warn" : null)" role="status">
+			<i class="fa fa-fw fa-satellite-dish" aria-hidden="true"></i>
+			@Broadcast.Describe()
+		</p>
+
+		@if (Broadcast.IsRequested)
+		{
+			<p class="hint">
+				@(Broadcast.Rides.Count == 1
+					? "One group ride is asking for your location."
+					: $"{Broadcast.Rides.Count} group rides are asking for your location.")
+				Turn sharing off on a ride's info page to stop it — the receiver switches off
+				when the last one does.
+			</p>
+		}
+		else if (Broadcast.IsSupported)
+		{
+			<p class="hint">
+				The GPS is off. It runs only while you have sharing turned on for at least one
+				group ride, and it stops the moment the last one is turned off.
+			</p>
+		}
+
+		@if (Broadcast.Status == LocationBroadcastStatus.PermissionBlocked)
+		{
+			<p class="hint">
+				Open the phone's Settings app, find Dumb Luck Routes, and allow location access.
+				For sharing to keep working with the screen off, choose <em>Always</em> —
+				<em>While using the app</em> stops the moment you put the phone away.
+			</p>
+		}
+	</div>
+
+	<div class="panel">
+		<h2>Accuracy</h2>
+
+		@*
+			Three radios rather than a slider: they are not points on a continuum, they are
+			three answers to "what are you doing today", and the copy under each is what
+			makes the choice possible without reading the design document.
+		*@
+		@foreach (AccuracyProfile profile in Profiles)
+		{
+			<label class="profile @(Gps.Profile == profile ? "chosen" : null)">
+				<input type="radio" name="gps-profile" value="@profile"
+					   checked="@(Gps.Profile == profile)"
+					   @onchange="() => ChooseAsync(profile)" />
+				<span class="what">
+					<strong>@Name(profile)</strong>
+					<em>@Cadence(profile)</em>
+					<span class="why">@Why(profile)</span>
+				</span>
+			</label>
+		}
+
+		<p class="hint">
+			A change takes effect immediately — if the GPS is running, it restarts on the new
+			profile.
+		</p>
+	</div>
+
+	<div class="panel">
+		<h2>Riding with the screen off</h2>
+
+		<p>
+			While you are sharing, this phone keeps sending your position with the app in the
+			background and the screen off. That is the whole point of it: a rider reaches for
+			their phone at a junction, not on the move.
+		</p>
+
+		<ul class="plain">
+			<li>
+				Android shows a permanent notification for as long as it is running. It cannot
+				be swiped away, and that is deliberate — it is how you can always tell.
+			</li>
+			<li>
+				iOS shows a blue indicator in the status bar for the same reason.
+			</li>
+			<li>
+				It stops when you turn sharing off, leave the ride, or the ride ends — not when
+				you close the app.
+			</li>
+		</ul>
+
+		<p class="hint">
+			Nothing is sent from inside your
+			<a href="/settings/profile">home private area</a>, whatever else is switched on.
+		</p>
+	</div>
+</div>
+
+@code {
+	/// <summary>The three §4.2 profiles, in the order the screen offers them: cheapest first.</summary>
+	private static readonly AccuracyProfile[] Profiles =
+		[AccuracyProfile.Eco, AccuracyProfile.Balanced, AccuracyProfile.Precise];
+
+	protected override void OnInitialized()
+	{
+		Gps.Changed += OnChanged;
+		Broadcast.Changed += OnChanged;
+	}
+
+	/// <summary>
+	/// Reads the stored profile after first render — the device store is behind JS interop on the
+	/// web, which does not exist during the prerender pass.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			await Gps.LoadAsync();
+		}
+	}
+
+	private Task ChooseAsync(AccuracyProfile profile) => Gps.SetAsync(profile);
+
+	private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+	private static string Name(AccuracyProfile profile) => profile switch
+	{
+		AccuracyProfile.Eco => "Eco",
+		AccuracyProfile.Precise => "Precise",
+		_ => "Balanced",
+	};
+
+	/// <summary>The numbers, said plainly — this is what the profile actually does.</summary>
+	private static string Cadence(AccuracyProfile profile) =>
+		$"every {PositionGate.MinInterval(profile).TotalSeconds:0} s, or every {PositionGate.MinDistanceM(profile):0} m";
+
+	private static string Why(AccuracyProfile profile) => profile switch
+	{
+		AccuracyProfile.Eco =>
+			"Touring. The kindest to your battery, and enough for a group that is staying together.",
+		AccuracyProfile.Precise =>
+			"Twisty roads and track days. Every corner, and the shortest battery life.",
+		_ =>
+			"The default, and the right answer for almost every ride.",
+	};
+
+	public void Dispose()
+	{
+		Gps.Changed -= OnChanged;
+		Broadcast.Changed -= OnChanged;
+	}
+}
+
+<style>
+	.location-settings .panel {
+		padding: 0.75rem 1rem;
+		margin-top: 1rem;
+		background: #fff2;
+		border-radius: 6px;
+	}
+
+	.location-settings .panel h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1rem;
+	}
+
+	.location-settings .gps-state {
+		display: flex;
+		align-items: baseline;
+		gap: 0.4rem;
+		margin: 0;
+	}
+
+		.location-settings .gps-state.warn {
+			color: var(--dlr-error);
+		}
+
+	/* The whole row is the control — a radio's own hit area is a few millimetres, and this
+	   screen is read in a car park with gloves on. */
+	.location-settings .profile {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		min-height: 48px;
+		padding: 0.6rem 0.5rem;
+		border-radius: 6px;
+		cursor: pointer;
+	}
+
+		.location-settings .profile + .profile {
+			border-top: 1px solid var(--dlr-border);
+		}
+
+		.location-settings .profile.chosen {
+			background: var(--dlr-accent-soft);
+		}
+
+		.location-settings .profile .what {
+			display: flex;
+			flex-direction: column;
+			gap: 0.15rem;
+		}
+
+		.location-settings .profile em {
+			font-size: 0.85rem;
+			color: var(--dlr-fg-muted);
+			font-style: normal;
+		}
+
+		.location-settings .profile .why {
+			font-size: 0.85rem;
+			opacity: 0.8;
+		}
+
+	.location-settings ul.plain {
+		margin: 0.5rem 0;
+		padding-left: 1.1rem;
+	}
+
+		.location-settings ul.plain li {
+			margin: 0.35rem 0;
+		}
+</style>

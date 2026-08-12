@@ -122,6 +122,15 @@ internal class Program
 		// that will, and because a device-local setting is per-browser by construction.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
 
+		// The ride the nav rail's globe leads back to (§18.6), kept in localStorage so a
+		// reloaded tab still knows which ride this browser is on.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
+
+		// GPS state (§4.2, §4.3). A browser has no continuous background GPS the app can trust
+		// (§18.6), so this is registered for the ride screens that ask and answers NotSupported.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.GpsProfileState>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.LocationBroadcastState>();
+
 		// The one confirm modal for every destructive action in the app. Mounted in
 		// MainLayout; pages call `await Confirm.AskAsync(...)` in place of `window.confirm`.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();

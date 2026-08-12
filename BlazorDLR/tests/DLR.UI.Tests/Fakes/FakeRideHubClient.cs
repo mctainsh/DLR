@@ -60,8 +60,22 @@ public sealed class FakeRideHubClient : IRideHubClient
 		return Task.CompletedTask;
 	}
 
-	public Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default) =>
-		Task.CompletedTask;
+	/// <summary>Every fix the device published through the hub, in order (§5.7).</summary>
+	public List<PositionUpdate> Published { get; } = [];
+
+	/// <summary>Set to make the hub refuse a publish — the reconnecting case the REST path covers.</summary>
+	public Exception? PublishException { get; set; }
+
+	public Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default)
+	{
+		if (PublishException is not null)
+		{
+			return Task.FromException(PublishException);
+		}
+
+		Published.Add(update);
+		return Task.CompletedTask;
+	}
 
 	public ValueTask DisposeAsync()
 	{

@@ -1,3 +1,7 @@
+@using BlazorDLR.Shared.State
+@inject CurrentRideState CurrentRide
+@implements IDisposable
+
 @*
 	The nav rail (§18.6). Font Awesome glyph over a short label, one anchor per
 	destination.
@@ -20,6 +24,13 @@
 
 	Every anchor keeps its `title` and `aria-label`. The visible label is small and
 	the icon does most of the work, so the accessible name must not depend on it.
+
+	One item is not a fixed destination: the globe is "the ride you are on", and where
+	it points comes from CurrentRideState (§18.6) — the ride last opened on this device,
+	remembered across a restart, or the group rides list when there is not one yet. It
+	took the slot "My rides" used to hold, which is still on the Home screen's cards: a
+	rail is five destinations wide, and mid-ride the one a rider reaches for repeatedly
+	is the ride, not the list of tracks they have recorded.
 *@
 
 <AuthorizeView>
@@ -27,8 +38,8 @@
 		<NavLink class="rail-item" href="" Match="NavLinkMatch.All" title="Home" aria-label="Home">
 			<i class="fa fa-fw fa-house" aria-hidden="true"></i>
 		</NavLink>
-		<NavLink class="rail-item" href="rides" title="My rides" aria-label="My rides">
-			<i class="fa fa-fw fa-route" aria-hidden="true"></i>
+		<NavLink class="rail-item" href="@CurrentRide.Href" title="@CurrentRideName" aria-label="@CurrentRideName">
+			<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
 		</NavLink>
 		<NavLink class="rail-item" href="group-rides" title="Group rides" aria-label="Group rides">
 			<i class="fa fa-fw fa-users" aria-hidden="true"></i>
@@ -46,3 +57,37 @@
 		</NavLink>
 	</NotAuthorized>
 </AuthorizeView>
+
+@code {
+	/// <summary>
+	/// The globe's accessible name, which has to say which of its two destinations is in force —
+	/// a rail is glyph-only, so this and the tooltip are the whole of what the item announces, and
+	/// "Current ride" on a device with no ride would be a promise the tap does not keep.
+	/// </summary>
+	private string CurrentRideName => CurrentRide.RideId is null ? "Pick a group ride" : "Current ride";
+
+	protected override void OnInitialized()
+	{
+		// Subscribed synchronously, before the read below: opening a ride writes through the same
+		// scoped state, and the rail has to follow that without waiting for a navigation of its own.
+		CurrentRide.Changed += OnCurrentRideChanged;
+	}
+
+	/// <summary>
+	/// Reads the remembered ride after first render, for the same reason MainLayout reads the
+	/// theme there: the device store is behind JS interop on the web, which does not exist during
+	/// the prerender pass. Until it resolves the globe points at the list, which is where a device
+	/// with nothing stored is sent anyway.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			await CurrentRide.LoadAsync();
+		}
+	}
+
+	private void OnCurrentRideChanged() => _ = InvokeAsync(StateHasChanged);
+
+	public void Dispose() => CurrentRide.Changed -= OnCurrentRideChanged;
+}

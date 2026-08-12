@@ -1,12 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:versionCode="19" android:versionName="8.0.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:versionCode="20" android:versionName="8.0.0">
     <application android:allowBackup="true" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true"></application>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+        Live location for group rides (§4.3, §5.7).
+
+        FINE, and COARSE beside it: from Android 12 the system dialog offers the rider
+        "precise" or "approximate", and it will not offer precise unless the app declares
+        both. An app that declares FINE alone gets the approximate answer with no choice
+        shown, which is a few hundred metres — enough to say which suburb somebody is in and
+        useless for saying which road.
+
+        BACKGROUND_LOCATION is what keeps fixes arriving once the phone is in the mount with
+        the screen off. It is requested separately and *after* foreground permission is
+        granted (see AndroidLocationProvider) because Android 11 refuses a request that
+        bundles the two. Play requires a separate declaration and a review for this
+        permission — see Documentation/store-release.md.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!--
+        The foreground service that holds the receiver. FOREGROUND_SERVICE_LOCATION is
+        mandatory from Android 14 for a service typed `location`: without it,
+        startForeground() throws SecurityException the moment a ride starts.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!--
+        Android 13+. The ongoing notification is the whole visible contract of background
+        location — a rider must be able to see that the app is using their position, and Play
+        judges the app against that. Refusing it does not stop the ride; it makes the
+        notification silent, which the settings screen says out loud.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+        Kept while a ride is recording so a dozing CPU still wakes for fixes. Not held by the
+        app directly — the foreground service's own lifetime is what holds it.
+    -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!--
+        Declares that the app *uses* GPS without *requiring* it, so a tablet with no GNSS can
+        still install and be used for everything that is not a live ride. Play filters the
+        install list on required features, and required="true" here would take the app off
+        every Wi-Fi-only device for the sake of one screen.
+    -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+
     <!--
         .gpx share-sheet / "Open with" integration lives on MainActivity via
         [IntentFilter] attributes in code (Platforms/Android/MainActivity.cs). MAUI
         generates the Android activity class name at build time, so declaring the
         filters inside <activity> here would either duplicate or miss the name.
+
+        The location foreground service is declared the same way, by [Service] on
+        LocationForegroundService — including its foregroundServiceType, which has to match
+        the permission above.
     -->
 </manifest>

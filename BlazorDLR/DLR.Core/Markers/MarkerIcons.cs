@@ -18,12 +18,21 @@ public static class MarkerIcons
 	/// <summary>Longest key the column accepts (§16.7).</summary>
 	public const int MaxLength = 32;
 
-	/// <summary>The keys this version knows how to draw (§16.2).</summary>
+	/// <summary>
+	/// The keys this version knows how to draw (§16.2).
+	/// <para>
+	/// A key is only in here when the client can actually draw it, which means there is a
+	/// <c>{key}.png</c> in <c>BlazorDLR.Shared/wwwroot/markers/</c>.
+	/// <c>MarkerIconAssetRules</c> is what holds the two together.
+	/// </para>
+	/// </summary>
 	public static readonly IReadOnlySet<string> Known = new HashSet<string>(StringComparer.Ordinal)
 	{
 		"hazard", "gravel", "water-crossing", "gate", "fuel", "food", "coffee", "water",
 		"toilet", "camping", "parking", "viewpoint", "photo", "repair", "medical",
-		"regroup", "stopped", "start", "finish", "turn", Fallback,
+		"regroup", "stopped", "start", "finish", "turn",
+		"fire", "crash", "mushroom", "sheep", "bear", "snake", "kangaroo", "crocodile",
+		Fallback,
 	};
 
 	/// <summary>
@@ -69,6 +78,15 @@ public static class MarkerIcons
 		["flag, red"] = "finish",
 		["finish"] = "finish",
 		["turn"] = "turn",
+		["fire"] = "fire",
+		["crash"] = "crash",
+		["accident"] = "crash",
+		["mushroom"] = "mushroom",
+		["sheep"] = "sheep",
+		["bear"] = "bear",
+		["snake"] = "snake",
+		["kangaroo"] = "kangaroo",
+		["crocodile"] = "crocodile",
 	};
 
 	/// <summary>Icon keys onto the GPX symbol name written on export.</summary>
@@ -94,6 +112,14 @@ public static class MarkerIcons
 		["start"] = "start",
 		["finish"] = "finish",
 		["turn"] = "turn",
+		["fire"] = "fire",
+		["crash"] = "crash",
+		["mushroom"] = "mushroom",
+		["sheep"] = "sheep",
+		["bear"] = "bear",
+		["snake"] = "snake",
+		["kangaroo"] = "kangaroo",
+		["crocodile"] = "crocodile",
 		[Fallback] = Fallback,
 	};
 

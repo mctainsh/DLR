@@ -4,7 +4,31 @@
 	The WebView is edge-to-edge (viewport-fit=cover in index.html), so without this the
 	clock and the battery sit straight on top of whatever the page is drawing — which on
 	the live ride is a map. This is the opaque strip they sit on instead, exactly
-	env(safe-area-inset-top) tall and sticky, so it stays put while the page scrolls.
+	env(safe-area-inset-top) tall.
+
+	FIXED, NOT STICKY — IT MUST NOT OCCUPY FLOW. A sticky element still takes its space in
+	the document, and this div sits above #app, so `sticky` pushed the entire app down by
+	one safe-area inset. PageNav then added the SAME inset to its own padding-top
+	(PageNav.razor.css) and the top bar was an inset too low: it slid up by that inset as
+	the page scrolled and only then latched to `top: 0`. The same phantom inset also made
+	`.app`'s 100vh taller than the viewport, so every page had that much scroll in it
+	whether its content needed any or not.
+
+	The inset is reserved exactly once, by whatever draws at the top of a page — PageNav's
+	padding on an ordinary page, --dlr-map-control-top on a full-bleed one. This strip only
+	paints; it reserves nothing. `.page-full` is already `position: fixed; top: 0` and never
+	saw the flow space, which is why the map was the one screen that looked right.
+
+	IT IS THE TOP LAYER, above PageNav's bar (5) and the nav rail (10), below the modals
+	(1000). The strip is full-bleed and PageNav's bar is only as wide as the page column, so
+	sitting it *under* the bar — which is what z-index 1 did — let the bar's opaque
+	background paint the navy over the middle of the band and leave black showing at the two
+	corners either side of the column. Nothing an individual page draws gets to decide what
+	is behind the clock: the band is one colour, all the way across, on every screen.
+
+	pointer-events: none because it now overlays content at all scroll positions rather than
+	only when scrolled — a fixed strip that swallowed taps would make the top of a map
+	unclickable.
 
 	Black, not the template's #f7f7f7: this app is dark, the strip runs along the top of a
 	full-bleed map, and a white bar over a dark app reads as a rendering fault. It is paired
@@ -21,12 +45,14 @@
 
 @supports (-webkit-touch-callout: none) {
 	.status-bar-safe-area {
-		display: flex;
-		position: sticky;
+		display: block;
+		position: fixed;
 		top: 0;
+		left: 0;
+		right: 0;
 		height: env(safe-area-inset-top);
 		background-color: #000;
-		width: 100%;
-		z-index: 1;
+		pointer-events: none;
+		z-index: 20;
 	}
 }

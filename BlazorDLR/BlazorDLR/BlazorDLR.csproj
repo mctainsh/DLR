@@ -47,7 +47,7 @@
 
 	<!-- Versions -->
 	<ApplicationDisplayVersion>8.0.0</ApplicationDisplayVersion>
-	<ApplicationVersion>19</ApplicationVersion>
+	<ApplicationVersion>20</ApplicationVersion>
 
 	<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 	<WindowsPackageType>None</WindowsPackageType>
@@ -66,6 +66,106 @@
   <PropertyGroup Condition="'$(TargetFramework)'=='net10.0-ios'">
     <CodesignKey>Apple Development: Created via API (YVHC5A2RQW)</CodesignKey>
     <CodesignProvision>VS: WildCard Development</CodesignProvision>
+  </PropertyGroup>
+
+  <!--
+    ============================ Store release configuration ============================
+    Everything below is about producing an artefact a store will accept. The full
+    submission procedure — the parts that are forms rather than builds — is
+    Documentation/store-release.md.
+
+    Nothing here hard-codes a credential. Signing material is read from environment
+    variables and every block is conditioned on them being present, so a developer
+    building Release locally gets an unsigned build rather than an error about a keystore
+    they do not have. §14.2 rates signing material the one mistake with no clean recovery.
+  -->
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <!--
+      Play has not accepted an APK for a new app or an update since August 2021: an app
+      bundle is the only publishable format. `dotnet publish -f net10.0-android -c Release`
+      produces the .aab with this set.
+    -->
+    <AndroidPackageFormat>aab</AndroidPackageFormat>
+
+    <!--
+      R8 in full mode, and the linker on the SDK assemblies only. Full trimming of a MAUI
+      Blazor Hybrid app removes types the WebView's reflection reaches at runtime, and the
+      failure is a blank page in Release that Debug never shows.
+    -->
+    <AndroidLinkTool>r8</AndroidLinkTool>
+    <TrimMode>partial</TrimMode>
+
+    <!-- A symbol file to upload with the bundle, so Play's crash reports are readable. -->
+    <AndroidEnableAssemblyCompression>true</AndroidEnableAssemblyCompression>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+
+  <!--
+    Upload signing for Play. Set these in the CI secret store or the local environment:
+
+      DLR_ANDROID_KEYSTORE       path to the .keystore / .jks   (never in the repo)
+      DLR_ANDROID_KEYSTORE_PASS  store password
+      DLR_ANDROID_KEY_ALIAS      key alias
+      DLR_ANDROID_KEY_PASS       key password
+
+    Play App Signing holds the *app* signing key; this is the *upload* key. Losing the
+    upload key is recoverable by asking Google to reset it — which is the whole reason to
+    be enrolled, and Documentation/store-release.md says so at the top.
+  -->
+  <PropertyGroup Condition="'$(Configuration)'=='Release'
+                            and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'
+                            and '$(DLR_ANDROID_KEYSTORE)' != ''">
+    <AndroidKeyStore>true</AndroidKeyStore>
+    <AndroidSigningKeyStore>$(DLR_ANDROID_KEYSTORE)</AndroidSigningKeyStore>
+    <AndroidSigningStorePass>$(DLR_ANDROID_KEYSTORE_PASS)</AndroidSigningStorePass>
+    <AndroidSigningKeyAlias>$(DLR_ANDROID_KEY_ALIAS)</AndroidSigningKeyAlias>
+    <AndroidSigningKeyPass>$(DLR_ANDROID_KEY_PASS)</AndroidSigningKeyPass>
+  </PropertyGroup>
+
+  <!--
+    Distribution signing for the App Store. Overrides the development pair above, and only
+    when the environment names a distribution identity — so a Mac with only a development
+    certificate still builds Release for a device.
+
+      DLR_IOS_CODESIGN_KEY   e.g. "Apple Distribution: Your Company (TEAMID)"
+      DLR_IOS_PROVISION      the App Store provisioning profile name
+  -->
+  <PropertyGroup Condition="'$(Configuration)'=='Release'
+                            and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'
+                            and '$(DLR_IOS_CODESIGN_KEY)' != ''">
+    <CodesignKey>$(DLR_IOS_CODESIGN_KEY)</CodesignKey>
+    <CodesignProvision>$(DLR_IOS_PROVISION)</CodesignProvision>
+    <ArchiveOnBuild>true</ArchiveOnBuild>
+    <!-- Bitcode has been dead since Xcode 14; leaving it on is a submission warning. -->
+    <MtouchEnableBitcode>false</MtouchEnableBitcode>
+  </PropertyGroup>
+
+  <!--
+    The privacy manifest (required for App Store submission since 1 May 2024). It has to
+    land at the root of the .app bundle under this exact name, which is what LogicalName
+    does — a manifest inside Platforms/iOS/ in the bundle is a manifest App Store Connect
+    does not find, and the rejection mail does not say why.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <BundleResource Include="Platforms\iOS\PrivacyInfo.xcprivacy" LogicalName="PrivacyInfo.xcprivacy" />
+  </ItemGroup>
+
+  <!--
+    Play Services pulls in AndroidX packages with tighter version constraints than the ones
+    .NET MAUI resolves to. The resolved versions are the *newer* ones in every case, which
+    is the combination MAUI itself ships and tests; NU1608 is restore reporting that a
+    transitive constraint was widened, not that anything is missing.
+
+    Project-wide rather than on the Android head, because restore evaluates the package graph
+    once for the whole project — conditioning it on the target framework left the same
+    warnings on the iOS build, which does not reference the package at all. No other project
+    in the solution carries this suppression, so a genuine version conflict elsewhere still
+    surfaces.
+  -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);NU1608</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -89,6 +189,21 @@
 	<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.90" />
 	<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.90" />
 	<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.10" />
+  </ItemGroup>
+
+  <!--
+	The fused location provider (§4.3): GNSS blended with Wi-Fi, cell and the motion sensors,
+	which is what keeps a fix alive between tall buildings and what makes the Balanced profile
+	cost what it claims to. Android only — it is a Play Services binding, and the iOS head has
+	CLLocationManager.
+
+	It is a preference, not a requirement. Play Services is absent on recent Huawei phones, on
+	de-Googled Android and in some emulators, so Platforms/Android/Location/ falls back to the
+	platform's own LocationManager at runtime when the availability check fails. That keeps the
+	app working on those devices instead of looking like a phone that cannot see the sky.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+	<PackageReference Include="Xamarin.GooglePlayServices.Location" Version="121.4.0" />
   </ItemGroup>
 
   <ItemGroup>

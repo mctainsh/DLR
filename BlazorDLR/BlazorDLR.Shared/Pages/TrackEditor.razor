@@ -322,7 +322,7 @@
 
 		_routes = line.Count > 1 ? [new RouteOverlay(PolylineCodec.EncodePoints(line))] : null;
 
-		// MarkerKind.Rider is the overlay's bare disc-and-label rendering — no icon, no emoji
+		// MarkerKind.Rider is the overlay's bare disc-and-label rendering — no icon at all
 		// (§16.3). That is exactly what a cursor wants: every curated icon key means something
 		// about the world, and a hazard triangle sitting where the rider is about to cut would
 		// read as a hazard.

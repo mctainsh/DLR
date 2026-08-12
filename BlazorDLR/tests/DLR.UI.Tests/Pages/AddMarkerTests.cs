@@ -19,68 +19,85 @@ namespace DLR.UI.Tests.Pages;
 ///     appears as a radio option so authors cannot type a key the server doesn't
 ///     recognise.</item>
 /// </list>
-/// The composer also owns the point itself: §16.1 places a marker by tapping the map, and
-/// the coordinate boxes are the second view of the same two numbers. The map here is the
-/// shared <c>RideMap</c> against <see cref="FakeMapInterop"/> with its init forced to fail,
-/// so <c>SkiaMapOverlay</c> never mounts (its <c>SKCanvasView</c> is browser-only) while the
-/// click seam still reaches the page — which is the part with logic in it.
+/// The composer does <em>not</em> own the point: §16.1 places a marker by tapping the live
+/// ride map, and that tap hands the point over on the query string. This screen takes it as
+/// an input — so almost every test here renders at a point, and the one that does not is
+/// asserting what the screen does when nobody supplied one.
 /// </summary>
 public sealed class AddMarkerTests : PageTestContext
 {
-	private static FakeApiClient WireServices(BunitContext context) => WireServices(context, out _);
+	private const double Lat = -37.81402;
+	private const double Lon = 144.96328;
 
-	private static FakeApiClient WireServices(BunitContext context, out FakeMapInterop map)
+	private static FakeApiClient WireServices(BunitContext context)
 	{
 		FakeApiClient api = new();
 		context.Services.AddSingleton<IApiClient>(api);
 
-		map = new FakeMapInterop
-		{
-			// Forces RideMap's stated-error branch so the Skia overlay stays unmounted.
-			// Clicked is raised by the fake directly, so the picker seam is still live.
-			InitException = new InvalidOperationException("No base map in this test host."),
-		};
-		context.Services.AddSingleton<IMapInterop>(map);
+		// Still bound although this screen no longer draws a map: the composer's own picker is
+		// gone, but leaving the seam registered keeps an accidental re-add failing here as the
+		// behaviour change it would be rather than as a missing service.
+		context.Services.AddSingleton<IMapInterop>(new FakeMapInterop());
 		return api;
 	}
 
+	/// <summary>
+	/// Renders the composer the way the live map opens it — with the chosen point on the query
+	/// string, which is the only route into this screen.
+	/// </summary>
+	private IRenderedComponent<AddMarker> RenderAt(Guid rideId, double lat = Lat, double lon = Lon)
+	{
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>()
+			.NavigateTo(FormattableString.Invariant(
+				$"/group-rides/{rideId}/markers/new?lat={lat}&lon={lon}"));
+
+		return Render<AddMarker>(parameters => parameters.Add(p => p.RideId, rideId));
+	}
+
+	private static async Task Save(IRenderedComponent<AddMarker> component) =>
+		await component.InvokeAsync(() =>
+		{
+			AngleSharp.Dom.IElement save = component
+				.FindAll("button.primary")
+				.First(b => b.TextContent.Contains("Save marker", StringComparison.Ordinal));
+			save.Click();
+		});
+
 	[Fact]
-	public void EveryCuratedIcon_IsRenderedAsADropDownOption()
+	public void EveryCuratedIcon_IsRenderedAsAPickerChoice()
 	{
 		WireServices(this);
 
-		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
-			.Add(p => p.RideId, Guid.NewGuid()));
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
 
 		// §16.2's curated set is authoritative — each key must be reachable in the picker.
 		foreach (string key in DLR.Core.Markers.MarkerIcons.Known)
 		{
 			component.Markup.Contains($"value=\"{key}\"", StringComparison.Ordinal).ShouldBeTrue(
-				$"the icon picker must expose the curated key '{key}' as an option value.");
+				$"the icon picker must expose the curated key '{key}' as a choice value.");
 		}
 	}
 
 	[Fact]
-	public void IconOptions_CarryBothTheEmojiAndTheLabel()
+	public void IconOptions_CarryBothTheIconAndTheLabel()
 	{
 		WireServices(this);
 
-		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
-			.Add(p => p.RideId, Guid.NewGuid()));
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
 
-		// The key is what travels on the wire; the human picks by emoji and words. A bare
+		// The key is what travels on the wire; the human picks by picture and words. A bare
 		// key list ("water-crossing") is what this replaced, so assert both halves render.
 		component.Markup.Contains("Water crossing", StringComparison.Ordinal).ShouldBeTrue(
-			"options are labelled in words, not with the raw curated key.");
-		component.Markup.Contains(MarkerIconGlyphs.Emoji("hazard"), StringComparison.Ordinal).ShouldBeTrue(
-			"§16.2: the client owns the drawing, and the picker's drawing is the colour emoji.");
+			"choices are labelled in words, not with the raw curated key.");
+		component.Markup.Contains(MarkerIconGlyphs.AssetPath("hazard"), StringComparison.Ordinal).ShouldBeTrue(
+			"§16.2: the client owns the drawing, and the picker's drawing is the icon PNG.");
 	}
 
 	[Fact]
-	public void EveryCuratedIcon_HasItsOwnGlyph_AndUnknownKeysDegrade()
+	public void EveryCuratedIcon_HasItsOwnArtwork_AndUnknownKeysDegrade()
 	{
-		// A key added to MarkerIcons.Known without a glyph here would silently render as
-		// the note emoji — reachable, but wrong and hard to spot by eye.
+		// A key added to MarkerIcons.Known without an entry here would silently render as
+		// the note icon — reachable, but wrong and hard to spot by eye.
 		foreach (string key in DLR.Core.Markers.MarkerIcons.Known)
 		{
 			if (key == DLR.Core.Markers.MarkerIcons.Fallback)
@@ -88,16 +105,19 @@ public sealed class AddMarkerTests : PageTestContext
 				continue;
 			}
 
-			MarkerIconGlyphs.Emoji(key).ShouldNotBe(
-				MarkerIconGlyphs.Emoji(DLR.Core.Markers.MarkerIcons.Fallback),
-				$"'{key}' is curated, so it needs its own emoji rather than falling through to the note glyph.");
+			MarkerIconGlyphs.AssetPath(key).ShouldNotBe(
+				MarkerIconGlyphs.AssetPath(DLR.Core.Markers.MarkerIcons.Fallback),
+				$"'{key}' is curated, so it needs its own artwork rather than falling through to the note icon.");
 			MarkerIconGlyphs.Label(key).ShouldNotBe(key,
 				$"'{key}' is curated, so it needs a human label rather than showing its raw key.");
 		}
 
-		// §16.2's forward-compatibility rule: a key from a newer client still draws.
-		MarkerIconGlyphs.Emoji("ferry").ShouldBe(MarkerIconGlyphs.Emoji(DLR.Core.Markers.MarkerIcons.Fallback),
-			"an unknown key degrades to the note glyph rather than throwing or drawing nothing.");
+		// §16.2's forward-compatibility rule: a key from a newer client still draws. It must
+		// resolve to the note icon rather than to markers/ferry.png, which would 404 and leave
+		// a broken-image box on the map.
+		MarkerIconGlyphs.AssetPath("ferry").ShouldBe(
+			MarkerIconGlyphs.AssetPath(DLR.Core.Markers.MarkerIcons.Fallback),
+			"an unknown key degrades to the note icon rather than to a URL that does not exist.");
 	}
 
 	/// <summary>
@@ -112,8 +132,7 @@ public sealed class AddMarkerTests : PageTestContext
 	{
 		WireServices(this);
 
-		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
-			.Add(p => p.RideId, Guid.NewGuid()));
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
 
 		component.Markup.IndexOf("Bearing", StringComparison.Ordinal).ShouldBe(-1,
 			"the bearing box went with the switch — a hidden but present <input> would still submit.");
@@ -121,28 +140,52 @@ public sealed class AddMarkerTests : PageTestContext
 			"and so did the switch that revealed it.");
 	}
 
+	/// <summary>
+	/// Picking an icon actually changes what is sent.
+	/// <para>
+	/// The picker is a radio group rather than a <c>&lt;select&gt;</c>, because an option element
+	/// may hold text and nothing else and the icons are pictures. Radios put the checked state in
+	/// the DOM where the browser also mutates it, which is the classic way for a rebuild of this
+	/// control to look right and bind nothing — every other test here would still pass, because
+	/// they all save on the default key.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task ChoosingAnIcon_SendsThatKey()
+	{
+		FakeApiClient api = WireServices(this);
+
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
+
+		await component.InvokeAsync(() =>
+		{
+			AngleSharp.Dom.IElement choice = component.FindAll("input[type=radio][value=water-crossing]").Single();
+			choice.Change("water-crossing");
+		});
+
+		await Save(component);
+
+		component.WaitForAssertion(() => api.LastCreateMarkerRequest.ShouldNotBeNull(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		api.LastCreateMarkerRequest!.Icon.ShouldBe("water-crossing",
+			"the key the rider picked is the key that travels on the wire (§16.2).");
+	}
+
 	[Fact]
 	public async Task SaveWithoutDirection_SendsNullDirection_NotZero()
 	{
 		FakeApiClient api = WireServices(this);
 
-		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
-			.Add(p => p.RideId, Guid.NewGuid()));
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
 
-		// Fill required fields: title. Lat/Lon default to the Sydney coords in _latDeg/_lonDeg.
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement titleInput = component.FindAll("input[placeholder='Gravel on the corner']").Single();
 			titleInput.Change("Gravel");
 		});
 
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement save = component
-				.FindAll("button.primary")
-				.First(b => b.TextContent.Contains("Save marker", StringComparison.Ordinal));
-			save.Click();
-		});
+		await Save(component);
 
 		component.WaitForAssertion(() => api.LastCreateMarkerRequest.ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
@@ -164,20 +207,13 @@ public sealed class AddMarkerTests : PageTestContext
 	{
 		FakeApiClient api = WireServices(this);
 
-		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
-			.Add(p => p.RideId, Guid.NewGuid()));
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
 
 		component.FindAll("input[placeholder='Gravel on the corner'][required]").ShouldBeEmpty(
 			"a required attribute would have the browser refuse the submit before any of this runs.");
 
 		// Nothing typed anywhere. The icon is the whole marker.
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement save = component
-				.FindAll("button.primary")
-				.First(b => b.TextContent.Contains("Save marker", StringComparison.Ordinal));
-			save.Click();
-		});
+		await Save(component);
 
 		component.WaitForAssertion(() => api.LastCreateMarkerRequest.ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
@@ -186,87 +222,35 @@ public sealed class AddMarkerTests : PageTestContext
 			"an untitled marker travels as an empty title — the overlay draws the plate alone.");
 	}
 
+	/// <summary>
+	/// The point is an input to this screen, not something it collects (§16.1). The composer
+	/// used to re-show it in a 22 rem map with coordinate boxes under it, asking the rider for
+	/// an answer they had just given on a full screen of map.
+	/// </summary>
 	[Fact]
-	public async Task TappingTheMap_SetsThePoint_AndItIsWhatGetsSaved()
-	{
-		FakeApiClient api = WireServices(this, out FakeMapInterop map);
-
-		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
-			.Add(p => p.RideId, Guid.NewGuid()));
-
-		// §16.1: the author points at the place instead of typing two decimal numbers.
-		await component.InvokeAsync(() => map.RaiseClick(-37.81402, 144.96328));
-
-		// The coordinate boxes are the second view of the same numbers — they must follow.
-		component.WaitForAssertion(() =>
-		{
-			component.Markup.Contains("-37.81402", StringComparison.Ordinal).ShouldBeTrue(
-				"a tap must write the latitude into the coordinate box; the boxes and the map are one value, not two.");
-			component.Markup.Contains("144.96328", StringComparison.Ordinal).ShouldBeTrue(
-				"a tap must write the longitude into the coordinate box.");
-		}, timeout: TimeSpan.FromSeconds(3));
-
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement titleInput = component.FindAll("input[placeholder='Gravel on the corner']").Single();
-			titleInput.Change("Tram tracks");
-		});
-
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement save = component
-				.FindAll("button.primary")
-				.First(b => b.TextContent.Contains("Save marker", StringComparison.Ordinal));
-			save.Click();
-		});
-
-		component.WaitForAssertion(() => api.LastCreateMarkerRequest.ShouldNotBeNull(),
-			timeout: TimeSpan.FromSeconds(3));
-
-		CreateMarkerRequest sent = api.LastCreateMarkerRequest!;
-		sent.Lat.ShouldBe(DLR.Core.Contracts.Rides.PositionScale.FromDegrees(-37.81402),
-			"the tapped point — not the composer's default — is what reaches the server.");
-		sent.Lon.ShouldBe(DLR.Core.Contracts.Rides.PositionScale.FromDegrees(144.96328));
-	}
-
-	[Fact]
-	public void WithNoMapClickYet_ThePromptAsksForOne()
+	public void TheComposer_OffersNoPlacePicker()
 	{
 		WireServices(this);
 
-		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
-			.Add(p => p.RideId, Guid.NewGuid()));
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid(), lat: -37.81402, lon: 144.96328);
 
-		component.Markup.Contains("Tap the map to place the pin", StringComparison.Ordinal).ShouldBeTrue(
-			"§16.1: tapping is the primary way to place a marker, so the composer has to say so before anything is placed.");
+		component.FindAll(".picker").ShouldBeEmpty("the second map is gone — the point arrives decided.");
+		component.FindAll("input[type=number]").ShouldBeEmpty(
+			"and so did the coordinate boxes that were its other half.");
+		component.Markup.IndexOf("Tap the map", StringComparison.OrdinalIgnoreCase).ShouldBe(-1,
+			"nothing on this screen asks for a point any more.");
 	}
 
 	/// <summary>
-	/// The live map hands the point over on the query string (§16.1). It arrives <em>placed</em>:
-	/// the rider chose it on a full screen of map, and a composer that opened unplaced would be
-	/// asking for the same answer a second time, in a 22 rem box.
+	/// The live map hands the point over on the query string (§16.1), and that is the point
+	/// that gets filed — no second tap, and no default standing in for one.
 	/// </summary>
 	[Fact]
-	public async Task APointHandedOverByTheLiveMap_OpensAlreadyPlaced_AndIsWhatGetsSaved()
+	public async Task ThePointHandedOverByTheLiveMap_IsWhatGetsSaved()
 	{
 		FakeApiClient api = WireServices(this);
-		Guid rideId = Guid.NewGuid();
 
-		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>()
-			.NavigateTo($"/group-rides/{rideId}/markers/new?lat=-37.81402&lon=144.96328&zoom=16");
-
-		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
-			.Add(p => p.RideId, rideId));
-
-		component.WaitForAssertion(() =>
-		{
-			component.Markup.Contains("-37.81402", StringComparison.Ordinal).ShouldBeTrue(
-				"the handed-over point fills the coordinate boxes, which are the second view of it.");
-			component.Markup.Contains("144.96328", StringComparison.Ordinal).ShouldBeTrue();
-			component.Markup.Contains("Tap the map again to move the pin", StringComparison.Ordinal).ShouldBeTrue(
-				"the pin is already down, so the prompt offers to move it rather than asking for a point " +
-				"the rider has just given.");
-		}, timeout: TimeSpan.FromSeconds(3));
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid(), lat: -37.81402, lon: 144.96328);
 
 		await component.InvokeAsync(() =>
 		{
@@ -274,13 +258,7 @@ public sealed class AddMarkerTests : PageTestContext
 			titleInput.Change("Tram tracks");
 		});
 
-		await component.InvokeAsync(() =>
-		{
-			AngleSharp.Dom.IElement save = component
-				.FindAll("button.primary")
-				.First(b => b.TextContent.Contains("Save marker", StringComparison.Ordinal));
-			save.Click();
-		});
+		await Save(component);
 
 		component.WaitForAssertion(() => api.LastCreateMarkerRequest.ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
@@ -289,5 +267,30 @@ public sealed class AddMarkerTests : PageTestContext
 		sent.Lat.ShouldBe(DLR.Core.Contracts.Rides.PositionScale.FromDegrees(-37.81402),
 			"the point chosen on the live map is what reaches the server, without a second tap.");
 		sent.Lon.ShouldBe(DLR.Core.Contracts.Rides.PositionScale.FromDegrees(144.96328));
+		sent.Title.ShouldBe("Tram tracks");
+	}
+
+	/// <summary>
+	/// Reached without a point — a bookmark, or a hand-typed URL. There is nothing to compose,
+	/// and the screen has to say so: a composer that rendered its form here would file a
+	/// plausible-looking marker at whatever the fields defaulted to, onto a ride people are
+	/// following.
+	/// </summary>
+	[Fact]
+	public void WithNoPointOnTheQueryString_TheFormIsNotOffered()
+	{
+		FakeApiClient api = WireServices(this);
+
+		IRenderedComponent<AddMarker> component = Render<AddMarker>(parameters => parameters
+			.Add(p => p.RideId, Guid.NewGuid()));
+
+		component.FindAll("form").ShouldBeEmpty(
+			"with no point there is no marker to compose — offering the form invites a pin in the wrong place.");
+		component.Markup.Contains("point you have already chosen", StringComparison.Ordinal).ShouldBeTrue(
+			"and the screen says where the point is meant to come from rather than failing silently.");
+		component.FindAll("a.button").ShouldNotBeEmpty("with a way back to the ride to go and choose one.");
+
+		api.Calls.ShouldBeEmpty(
+			"and it asks the server nothing: the ride read only ever existed to centre the picker that is gone.");
 	}
 }

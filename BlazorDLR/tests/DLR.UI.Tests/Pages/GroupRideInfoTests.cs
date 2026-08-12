@@ -75,6 +75,22 @@ public sealed class GroupRideInfoTests : PageTestContext
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
 		Services.AddSingleton<RouteStyleState>();
 
+		// Leaving the ride has to forget it too, or the rail's globe would go on pointing at a
+		// ride this rider is no longer on (§18.6).
+		Services.AddSingleton<CurrentRideState>();
+
+		// The GPS seam (§4.3). The fake provider stands in for the phone's receiver; a page test
+		// never emits a fix, so this only has to resolve — turning sharing on is what would start
+		// it, and LocationBroadcastStateTests is where that path is exercised.
+		//
+		// PrivateAreaState comes with it rather than for this page: the broadcaster consults it
+		// before anything else touches a fix (§10.1), so it is part of the GPS graph even on a
+		// screen that draws no circle.
+		Services.AddSingleton<PrivateAreaState>();
+		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
+		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationBroadcastState>();
+
 		Services.AddRealAuthorizationPipeline();
 		this.CascadeAuthenticationState(auth);
 
@@ -681,6 +697,119 @@ public sealed class GroupRideInfoTests : PageTestContext
 		// behind would leave the panel claiming defaults over a map that is not on them.
 		styles.RouteColours.ShouldBeEmpty();
 		styles.IsCustomised.ShouldBeFalse();
+	}
+
+	// -- Leaving the ride (§5.2) ----------------------------------------------------------------
+
+	[Fact]
+	public async Task LeaveRide_AsksFirst_ThenLeaves_ForgetsTheRide_AndGoesToTheList()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		// The ride this device is on — what the rail's globe leads back to until this test's rider
+		// stops being a member of it.
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		await current.SetAsync(rideId);
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
+
+		await ClickAsync(component, "Leave ride…");
+
+		// ConfirmDialog lives in MainLayout, which a page-only render does not mount — answering
+		// the service directly is what the dialog's confirm button does.
+		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(
+			"leaving cannot be undone from this screen, so it asks."), timeout: TimeSpan.FromSeconds(3));
+
+		confirm.Current!.Danger.ShouldBeTrue();
+		confirm.Current!.Message.ShouldContain("join code",
+			customMessage: "the consequence that matters is that getting back on is not a tap.");
+
+		await component.InvokeAsync(() => confirm.Respond(true));
+
+		component.WaitForAssertion(
+			() => api.Calls.ShouldContain(nameof(IApiClient.LeaveRideAsync)),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(() =>
+		{
+			current.RideId.ShouldBeNull("§18.6: the globe must not lead back to a ride nobody is on.");
+			current.Href.ShouldBe("group-rides");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
+			.ShouldEndWith("/group-rides",
+				customMessage: "the page describes a ride this rider is no longer on — staying on it "
+				+ "would be a screen whose next request 404s.");
+	}
+
+	[Fact]
+	public async Task LeaveRide_Cancelled_ChangesNothing()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		await current.SetAsync(rideId);
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
+
+		await ClickAsync(component, "Leave ride…");
+
+		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
+		await component.InvokeAsync(() => confirm.Respond(false));
+
+		api.Calls.ShouldNotContain(nameof(IApiClient.LeaveRideAsync));
+		current.RideId.ShouldBe(rideId, "a cancelled leave is not a leave.");
+	}
+
+	[Fact]
+	public void LeaveRide_IsNotOfferedToTheOrganiser()
+	{
+		// The server answers 409 — "a ride nobody organises has nobody to decide who is in it" —
+		// so the control is simply absent rather than there and failing, the same arrangement the
+		// marker delete and the route controls use.
+		(_, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll(".organiser").ShouldNotBeEmpty("the ride has loaded as the organiser's.");
+			component.FindAll(".membership").ShouldBeEmpty();
+			component.FindAll("button").Any(button => button.TextContent.Contains("Leave ride", StringComparison.Ordinal))
+				.ShouldBeFalse();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task LeaveRide_RefusedByTheServer_StaysPut_AndSaysWhy()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+		api.LeaveRideException = new ApiException(new ApiError(
+			StatusCode: System.Net.HttpStatusCode.Conflict,
+			Title: "The organiser cannot leave",
+			Messages: Array.Empty<string>()));
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		await current.SetAsync(rideId);
+
+		string before = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri;
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
+
+		await ClickAsync(component, "Leave ride…");
+		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
+		await component.InvokeAsync(() => confirm.Respond(true));
+
+		component.WaitForAssertion(
+			() => component.Find(".error").TextContent.ShouldContain("cannot leave"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri.ShouldBe(before,
+			"a leave the server refused must leave the rider exactly where they were.");
+		current.RideId.ShouldBe(rideId, "and still on the ride they are still on.");
 	}
 
 	private static async Task OpenEndDialogAsync(IRenderedComponent<GroupRideInfo> component)

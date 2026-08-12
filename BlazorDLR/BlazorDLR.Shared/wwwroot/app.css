@@ -58,6 +58,37 @@
     --dlr-map-control-size:  48px;
     --dlr-map-control-inset: 0.75rem;
     --dlr-map-control-top:   calc(env(safe-area-inset-top) + var(--dlr-map-control-inset));
+
+    /* The air above the first thing on a page.
+
+       This is what a page with NO title bar gets above its heading — Home, Welcome. A page
+       WITH one keeps the margin and overrides the air: PageNav cancels this whole value
+       with a negative margin and re-pads with its own, tighter 0.75rem, because a title bar
+       should read as a compact strip rather than a heading floating in 2rem of space.
+
+       ALL of it, and it lives on `.page` alone — `.content` deliberately has no top
+       padding (MainLayout.razor.css). That is not tidiness: PageNav's bar is
+       `position: sticky` and has to pull itself up through this gap to sit flush against
+       the top of the scroll area, and it can only do that exactly if there is one value
+       to cancel rather than two rules that happen to add up. Splitting this back across
+       two rules puts a sliver of gap above the stuck bar for scrolled text to show
+       through — and on a phone that sliver is where the clock is.
+
+       THE SAFE AREA IS PART OF THAT ONE VALUE, and it is a sum rather than a `max()` for
+       the same reason as --dlr-map-control-top: the inset is the height of the thing
+       covering the top of the screen, so a heading needs the inset *plus* its ordinary
+       air to clear the notch by the margin it clears everything else by. PageNav's
+       replacement padding therefore has to carry an inset term of its own — the negative
+       margin cancelled the one in here — which is a sum, not a double-count.
+
+       It has to be here and not on PageNav alone, because Home and Welcome need the notch
+       clearance too. That used to arrive by accident: the MAUI host's status-bar strip
+       (BlazorDLR/wwwroot/app.css) was `position: sticky`, so it took an inset of *flow*
+       space above #app and shoved every page down. PageNav then added the inset a second
+       time, which is why the iOS title bar sat an inset too low and slid up by exactly
+       that much before latching. The strip is `position: fixed` now — it paints, it
+       reserves nothing — and this is the single place the inset is reserved in flow. */
+    --dlr-page-top: calc(2rem + env(safe-area-inset-top));
 }
 
 /*
@@ -138,9 +169,12 @@ a, .btn-link {
     box-shadow: 0 0 0 0.1rem var(--dlr-bg), 0 0 0 0.25rem var(--dlr-accent);
 }
 
-.content {
-    padding-top: 1.1rem;
-}
+/* `.content { padding-top: 1.1rem }` used to sit here, from the Blazor template. It has
+   never had any effect — MainLayout.razor.css sets the padding shorthand on the same
+   element and its scope attribute outranks a bare class — and now that the top of the
+   scroll area is load-bearing for PageNav's sticky bar, a second rule claiming that
+   property is a trap rather than dead weight. The top spacing is `--dlr-page-top` on
+   `.page`, and nowhere else. */
 
 h1:focus {
     outline: none;
@@ -238,7 +272,7 @@ input:focus, textarea:focus, select:focus {
 
 .page {
     max-width: var(--dlr-page-width, 60rem);
-    margin: 1rem auto;
+    margin: var(--dlr-page-top) auto 1rem;
     padding: 0 1rem;
 }
 
@@ -248,8 +282,15 @@ input:focus, textarea:focus, select:focus {
 .page-wide   { --dlr-page-width: 80rem; }
 
 /* Sign-in, register, reset — reached without the app's chrome, so they sit lower
-   down the viewport than a page you navigated to from the rail. */
-.page-standalone { margin-top: 3rem; }
+   down the viewport than a page you navigated to from the rail. Measured from the top of
+   the scroll area, which is why this is 4rem and not the 3rem it was when `.content`
+   still contributed a rem of its own.
+
+   Written as a sum on `--dlr-page-top` rather than a flat `4rem`, because this replaces
+   the margin `.page` set and a flat value would drop the safe-area inset that token
+   carries — putting a sign-in heading under the notch on the one screen a new rider sees
+   first. It is 2rem *more* air than an ordinary page, on whatever an ordinary page has. */
+.page-standalone { margin-top: calc(2rem + var(--dlr-page-top)); }
 
 /*
     FULL-BLEED PAGES — opt in with `class="page-full"` INSTEAD of `class="page"`.

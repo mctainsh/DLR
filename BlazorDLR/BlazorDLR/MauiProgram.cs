@@ -89,12 +89,33 @@ public static class MauiProgram
 		// SecureStorage → Keychain / Keystore, this-device-only accessibility (§7.4).
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.ITokenStore, SecureStorageTokenStore>();
 
-		// GPS + push are the two seams Phase 1 explicitly defers on this host — both need
-		// hardware to verify and platform-native code that cannot be checked in this
-		// environment. Phase 2 wires the Android foreground service and iOS
-		// CLLocationManager, with the recording pipeline behind them.
-		builder.Services.AddScoped<BlazorDLR.Shared.Services.ILocationProvider, NoopLocationProvider>();
+		// GPS (§4.3). The platform providers live under Platforms/, one per target: an Android
+		// foreground service over the fused location provider, and CLLocationManager on iOS.
+		// Both are singletons — each owns one receiver, and a second instance would be a second
+		// subscription to the same hardware, which on Android is a second foreground service.
+		//
+		// The #if is the one place in the app allowed to have one: this is the MAUI head, where
+		// the two targets genuinely have different classes. Everything above the seam sees
+		// ILocationProvider (§18.2, and UiLayeringRules keeps BlazorDLR.Shared free of it).
+#if ANDROID
+		builder.Services.AddSingleton<BlazorDLR.Shared.Services.ILocationProvider, BlazorDLR.Platforms.Android.Location.AndroidLocationProvider>();
+#elif IOS || MACCATALYST
+		builder.Services.AddSingleton<BlazorDLR.Shared.Services.ILocationProvider, BlazorDLR.Platforms.Apple.Location.AppleLocationProvider>();
+#else
+		builder.Services.AddSingleton<BlazorDLR.Shared.Services.ILocationProvider, NoopLocationProvider>();
+#endif
+
+		// Push is the seam still deferred on this host — it needs FCM/APNs registrations that
+		// happen with store submission.
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.INotificationService, NoopNotificationService>();
+
+		// The accuracy profile this device records at (§4.2), in MAUI Preferences.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.GpsProfileState>();
+
+		// The one place a fix travels from the receiver to the ride (§5.7). Scoped, like every
+		// other state the UI binds to: the ride screens turn it on and off, and it holds the
+		// device's set of reasons to be broadcasting.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.LocationBroadcastState>();
 
 		// MAUI's MediaPicker / FilePicker back the shared IMediaPicker on the phone (§16.4).
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IMediaPicker, MauiMediaPicker>();
@@ -135,6 +156,11 @@ public static class MauiProgram
 		// PrivateAreaState.HidesLocation before it is stored or sent, and the state answers
 		// "hide" until LoadAsync has read the device — see its remarks.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
+
+		// The ride the nav rail's globe leads back to (§18.6), in MAUI Preferences. This is the
+		// host it matters most on: an app the OS reclaims mid-ride relaunches on the home screen
+		// with the ride still running, and the globe is what puts the rider back on it.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
 		// The one confirm modal for every destructive action in the app (§18.6).
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();

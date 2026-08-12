@@ -163,6 +163,18 @@ builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 // host ever writes it — the value is the device's and the server is not told it exists.
 builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
 
+// The ride the nav rail's globe leads back to (§18.6). NavMenu renders in the SSR pass, so
+// this has to resolve here or the prerender throws before WASM can boot. The in-memory store
+// answers "no ride", which is the list — the honest destination for a render that cannot see
+// the device — and the client re-resolves against localStorage the moment it takes over.
+builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
+
+// GPS state (§4.2, §4.3). Registered because the ride screens inject it, inert because this host
+// has no receiver: NoopLocationProvider above reports IsSupported=false, so the broadcaster
+// answers NotSupported and never starts anything. The SSR pass renders that same answer.
+builder.Services.AddScoped<BlazorDLR.Shared.State.GpsProfileState>();
+builder.Services.AddScoped<BlazorDLR.Shared.State.LocationBroadcastState>();
+
 // The one confirm modal is mounted in MainLayout, which renders in the SSR pass too;
 // registering here keeps prerender from throwing on the ConfirmDialog @inject.
 builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();

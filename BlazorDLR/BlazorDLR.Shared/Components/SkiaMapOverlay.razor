@@ -210,9 +210,9 @@
 	}
 
 	/// <summary>
-	/// Rasterise any emoji this overlay is about to draw but does not have yet, then repaint.
+	/// Rasterise any icon this overlay is about to draw but does not have yet, then repaint.
 	/// Runs after render because it needs JS, and painting itself is synchronous — the first
-	/// frame of a newly-seen icon shows the plain pin, the next shows the glyph.
+	/// frame of a newly-seen icon shows the plain pin, the next shows the artwork.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -231,33 +231,35 @@
 		}
 
 		// Runs on every render, which on a live ride is at least once a second. Collect only
-		// what is genuinely new — riders draw as darts and never ask for a glyph at all — so
+		// what is genuinely new — riders draw as darts and never ask for an icon at all — so
 		// the steady state is a handful of hash lookups and no allocation.
 		List<string>? wanted = null;
 		foreach (MapMarker marker in Markers.Values)
 		{
-			if (marker.Kind == MarkerKind.Rider)
+			if (marker.Kind is MarkerKind.Rider or MarkerKind.Self)
 			{
 				continue;
 			}
 
-			string emoji = MarkerIconGlyphs.Emoji(marker.IconKey);
-			if (_requested.Add(emoji))
+			// Keyed on the raw key, not on the resolved asset: an unrecognised key gets its own
+			// cache entry holding the note icon's pixels, which costs a few KB and keeps both
+			// the lookup and the "have I asked for this yet" test a single string compare.
+			if (_requested.Add(marker.IconKey))
 			{
-				(wanted ??= []).Add(emoji);
+				(wanted ??= []).Add(marker.IconKey);
 			}
 		}
 
-		if (wanted is not null && await MarkerGlyphCache.PrimeAsync(wanted, JS))
+		if (wanted is not null && await MarkerIconCache.PrimeAsync(wanted, JS))
 		{
-			// A glyph arriving changes what gets drawn without changing any parameter, so this
+			// An icon arriving changes what gets drawn without changing any parameter, so this
 			// goes straight to a repaint rather than through the tracking decision.
 			await RepaintAsync();
 		}
 	}
 
 	/// <summary>
-	/// Emoji this overlay has already handed to the cache. Keyed per component because the
+	/// Icon keys this overlay has already handed to the cache. Keyed per component because the
 	/// cache itself may answer "unavailable", and asking again every render would be the
 	/// waste this set exists to avoid.
 	/// </summary>
@@ -313,7 +315,6 @@
 		LabelFont.Size = LabelFontCssPx * _scale;
 		PinRing.StrokeWidth = 2f * _scale;
 		LabelHalo.StrokeWidth = 3f * _scale;
-		PlateRing.StrokeWidth = 1.5f * _scale;
 		ArrowHalo.StrokeWidth = 5f * _scale;
 		ArrowEdge.StrokeWidth = 2f * _scale;
 
@@ -916,6 +917,13 @@
 				continue;
 			}
 
+			if (marker.Kind == MarkerKind.Self)
+			{
+				DrawSelf(canvas, screen, marker, riderFill, riderStroke);
+
+				continue;
+			}
+
 			// Null means "no direction", never zero — zero is due north, a real bearing
 			// (§16.2). A marker that carries no bearing gets no arrow rather than one
 			// confidently pointing north.
@@ -929,22 +937,24 @@
 				DrawHeadingArrow(canvas, screen, markerBearing, MarkerArrowScale, MarkerArrowOffset);
 			}
 
-			SKImage? glyph = GlyphImage(MarkerIconGlyphs.Emoji(marker.IconKey));
+			SKImage? glyph = GlyphImage(marker.IconKey);
 
 			if (glyph is null)
 			{
-				// Glyph not rasterised yet (or the host cannot). A plain pin holds the
+				// Icon not rasterised yet (or the host cannot). A plain pin holds the
 				// place — the marker is still on the map and still labelled.
 				canvas.DrawCircle(screen, 6f, PinFill);
 				canvas.DrawCircle(screen, 6f, PinRing);
 			}
 			else
 			{
-				canvas.DrawCircle(screen, PlateRadius, Plate);
-				canvas.DrawCircle(screen, PlateRadius, PlateRing);
+				// Straight onto the map, no disc behind it. Each icon carries its own 1px black
+				// and 1px white outline, which is the job the plate used to do — and it does it
+				// following the artwork's edge rather than boxing it into a circle, so the
+				// silhouette is what a rider recognises at a glance instead of "a white dot".
 				SKRect target = new(
-					screen.X - GlyphSize / 2, screen.Y - GlyphSize / 2,
-					screen.X + GlyphSize / 2, screen.Y + GlyphSize / 2);
+					screen.X - IconSize / 2, screen.Y - IconSize / 2,
+					screen.X + IconSize / 2, screen.Y + IconSize / 2);
 				canvas.DrawImage(glyph, target, sampling);
 			}
 
@@ -954,7 +964,7 @@
 				// printed over its own bearing arrow.
 				float clearance = hasHeading
 					? MarkerArrowOffset + (ArrowTipLength * MarkerArrowScale) + LabelGap
-					: PlateRadius + LabelGap + 2f;
+					: (IconSize / 2) + LabelGap + 2f;
 
 				float ty = screen.Y + clearance;
 				canvas.DrawText(marker.Title, screen.X, ty, SKTextAlign.Center, LabelFont, LabelHalo);
@@ -1060,6 +1070,105 @@
 			canvas.Restore();
 		}
 	}
+
+	/// <summary>
+	/// Draws <em>you</em>: an arrowhead along the way this device is facing when the fix says which
+	/// way, and a green dot when it does not — with no label behind either, and half as big again
+	/// as a rider pin (§4.3).
+	/// <para>
+	/// <strong>No name, and that is the whole distinction.</strong> Every other position on this
+	/// map is a pill with somebody's name on it; a rider does not need to be told their own, and a
+	/// bare shape is instantly legible as "me" in a knot of pins at a regroup. It is also the one
+	/// marker on the map that is not a claim about what anyone else can see — it comes off this
+	/// phone's receiver, not off a published fix (§5.3).
+	/// </para>
+	/// <para>
+	/// Larger than a rider pin on purpose. It sits under the same finger the rider is panning with,
+	/// often through a visor, and it is the thing they look for first when they open the map.
+	/// </para>
+	/// </summary>
+	/// <param name="canvas">The overlay canvas.</param>
+	/// <param name="at">Where this device is, in canvas pixels.</param>
+	/// <param name="marker">The self marker. Only its heading is read — see the note below on why not its speed.</param>
+	/// <param name="fill">The frame's shared fill paint. Recoloured here.</param>
+	/// <param name="stroke">The frame's shared stroke paint. Recoloured and re-widthed here.</param>
+	private void DrawSelf(SKCanvas canvas, SKPoint at, MapMarker marker, SKPaint fill, SKPaint stroke)
+	{
+		// The fix carrying a direction is the whole test, and the speed is not consulted —
+		// deliberately unlike a rider pin, which demands both (RiderMarker.IsMoving).
+		//
+		// The difference is what the two marks are drawn from. A rider pin comes off a fix that has
+		// been round the server and arrives as whole metres per second, so the speed is the only
+		// evidence left that a bearing means anything. This one is *this* phone's own live fix, and
+		// both platforms usually decline to report a bearing they cannot stand behind — iOS returns
+		// Course as -1 when stationary, Android answers false to HasBearing — with both providers
+		// mapping that to null rather than to zero (§8). So the receiver's own "I do not know which
+		// way" is the better signal here, and it is the one a rider asked to see.
+		//
+		// If a fused provider is ever seen handing back a jittery bearing at a standstill, the fix
+		// belongs in the provider that produced it, not in a speed guess bolted on here.
+		bool pointing = marker.DirectionDeg is not null;
+
+		canvas.Save();
+		try
+		{
+			canvas.Translate(at.X, at.Y);
+			canvas.Scale(SelfScale);
+
+			if (pointing)
+			{
+				canvas.RotateDegrees((float)MapGeometry.ScreenBearingDeg(marker.DirectionDeg!.Value, Viewport.HeadingDeg));
+			}
+
+			SKPath shape = pointing ? (_riderArrowPath ??= BuildRiderArrowPath()) : (_riderDotPath ??= BuildRiderDotPath());
+
+			// Three passes, widest first — the same sandwich the heading arrow uses, and for the
+			// same reason: OSM runs from near-white sand to dark forest, and a single-outlined
+			// shape disappears into one end of that or the other. White outermost because this one
+			// sits on tiles rather than on a coloured pill.
+			//
+			// The widths are divided by the scale so the canvas transform above does not thicken
+			// them with the shape — a stroke is a constant on screen, not a proportion of the mark.
+			stroke.Color = SKColors.White;
+			stroke.StrokeWidth = (GpsEdgePx + GpsHairlinePx) / SelfScale;
+			canvas.DrawPath(shape, stroke);
+
+			fill.Color = pointing ? SelfPointingColour : SelfStoppedColour;
+			canvas.DrawPath(shape, fill);
+
+			stroke.Color = SKColors.Black;
+			stroke.StrokeWidth = GpsHairlinePx / SelfScale;
+			canvas.DrawPath(shape, stroke);
+		}
+		finally
+		{
+			canvas.Restore();
+		}
+	}
+
+	/// <summary>
+	/// How much larger the own-position mark is than a rider's. See <see cref="DrawSelf"/> — it is
+	/// the one somebody is looking for through a visor.
+	/// </summary>
+	private const float SelfScale = 1.5f;
+
+	/// <summary>
+	/// The own-position arrowhead: the same blue the moving-rider dart and the authored-marker
+	/// arrow use, so one colour goes on meaning "the app drew this" across the overlay.
+	/// </summary>
+	private static readonly SKColor SelfPointingColour = new(0x25, 0x63, 0xeb);
+
+	/// <summary>
+	/// The own-position dot, when the receiver has not said which way this phone is facing.
+	/// <para>
+	/// Green, and pointedly <em>not</em> the red a stopped rider gets (<see cref="RiderStoppedColour"/>).
+	/// That red is a call for attention — somebody else on the ride has stopped and the group may
+	/// need to know. Your own phone having no bearing yet is neither a problem nor anybody's
+	/// business: it is a working GPS that has not been moved. Red on the mark a rider looks at most
+	/// would be crying wolf every time they sat at a light.
+	/// </para>
+	/// </summary>
+	private static readonly SKColor SelfStoppedColour = new(0x16, 0xa3, 0x4a);
 
 	// Paints and fonts are immutable configuration built from compile-time constants, and
 	// this method runs on every viewport change with live positions arriving about once a
@@ -1172,12 +1281,6 @@
 		return builder.Detach();
 	}
 
-	// A white disc under the glyph. Emoji are drawn in their own colours, and OSM tiles run
-	// from near-white sand to dark green forest — without a plate the same icon is crisp over
-	// one and invisible over the other.
-	private static readonly SKPaint Plate = new() { Style = SKPaintStyle.Fill, IsAntialias = true, Color = new SKColor(0xff, 0xff, 0xff, 0xe6) };
-	private readonly SKPaint PlateRing = new() { Style = SKPaintStyle.Stroke, IsAntialias = true, Color = new SKColor(0x33, 0x3a, 0x45, 0x99) };
-
 	// The heading arrow: blue, edged in black, haloed in white. Three passes over one path —
 	// widest stroke first — so the black reads as the arrow's own outline and the white
 	// separates it from whatever tile is underneath. OSM runs from near-white sand to dark
@@ -1189,8 +1292,8 @@
 	/// <summary>How much smaller the arrow is when it decorates an authored marker's icon.</summary>
 	private const float MarkerArrowScale = 0.55f;
 
-	/// <summary>How far that arrow is pushed along the bearing to clear the icon disc.</summary>
-	private float MarkerArrowOffset => PlateRadius + (6f * _scale);
+	/// <summary>How far that arrow is pushed along the bearing to clear the icon.</summary>
+	private float MarkerArrowOffset => (IconSize / 2) + (6f * _scale);
 
 	/// <summary>Gap between whatever was drawn and the top of the label beneath it.</summary>
 	private float LabelGap => (11f) * _scale;
@@ -1279,22 +1382,23 @@
 	private float ArrowHalfWidth => (9f) * _scale;
 
 	/// <summary>
-	/// The emoji bitmaps, wrapped as Skia images. <see cref="MarkerGlyphCache"/> deliberately
+	/// The icon bitmaps, wrapped as Skia images. <see cref="MarkerIconCache"/> deliberately
 	/// holds only raw RGBA — no image decoder runs outside the photo-ingest path — so the
 	/// conversion to an <see cref="SKImage"/> happens here, in the one component §4.5 puts in
-	/// the drawing business. Built once per glyph and kept: 21 curated icons at 64² is well
-	/// under a megabyte, and rebuilding per frame would be the expensive mistake.
+	/// the drawing business. This is a pixel copy, not a decode. Built once per icon and kept:
+	/// 29 curated icons at 48² is well under a megabyte, and rebuilding per frame would be the
+	/// expensive mistake.
 	/// </summary>
 	private static readonly Dictionary<string, SKImage> GlyphImages = new(StringComparer.Ordinal);
 
-	private static SKImage? GlyphImage(string emoji)
+	private static SKImage? GlyphImage(string iconKey)
 	{
-		if (GlyphImages.TryGetValue(emoji, out SKImage? cached))
+		if (GlyphImages.TryGetValue(iconKey, out SKImage? cached))
 		{
 			return cached;
 		}
 
-		byte[]? rgba = MarkerGlyphCache.TryGetPixels(emoji);
+		byte[]? rgba = MarkerIconCache.TryGetPixels(iconKey);
 		if (rgba is null)
 		{
 			return null;
@@ -1302,25 +1406,28 @@
 
 		// Unpremultiplied because that is what a 2D canvas' getImageData hands back.
 		SKImageInfo info = new(
-			MarkerGlyphCache.RasterSize,
-			MarkerGlyphCache.RasterSize,
+			MarkerIconCache.RasterSize,
+			MarkerIconCache.RasterSize,
 			SKColorType.Rgba8888,
 			SKAlphaType.Unpremul);
 
 		SKImage? image = SKImage.FromPixelCopy(info, rgba);
 		if (image is not null)
 		{
-			GlyphImages[emoji] = image;
+			GlyphImages[iconKey] = image;
 		}
 
 		return image;
 	}
 
-	/// <summary>Drawn glyph edge in canvas units. Readable at arm's length on a bar-mounted phone.</summary>
-	private float GlyphSize => (20f) * _scale;
-
-	/// <summary>Radius of the disc behind the glyph.</summary>
-	private float PlateRadius => (14f) * _scale;
+	/// <summary>
+	/// Drawn icon edge in canvas units. Readable at arm's length on a bar-mounted phone.
+	/// <para>
+	/// Nothing is drawn behind it, so this is the mark's whole footprint on the map rather than
+	/// the size of something sitting on a backing shape.
+	/// </para>
+	/// </summary>
+	private float IconSize => (28f) * _scale;
 
 	/// <summary>
 	/// Web Mercator projection from geographic degrees to overlay pixel coordinates.
@@ -1373,7 +1480,6 @@
 		PinRing.Dispose();
 		LabelFont.Dispose();
 		LabelHalo.Dispose();
-		PlateRing.Dispose();
 		ArrowHalo.Dispose();
 		ArrowEdge.Dispose();
 

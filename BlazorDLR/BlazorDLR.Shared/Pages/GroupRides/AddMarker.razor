@@ -1,6 +1,5 @@
 @page "/group-rides/{RideId:guid}/markers/new"
 @attribute [Authorize]
-@using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Markers
 @using DLR.Core.Contracts.Markers
 @using DLR.Core.Contracts.Photos
@@ -31,16 +30,16 @@
 	faces, and a control nobody can use correctly is worse than no control. Markers placed
 	here have no direction; ones imported from a file keep theirs.
 
-	The point is placed by tapping the map (§16.1) — the coordinate boxes stay, because
-	a hand-typed fix off a GPS unit is a real workflow, but nobody should have to reach
-	for one to drop a "gravel on the corner" pin. Map and boxes are two views of the same
-	two numbers: a tap writes them, editing them moves the camera.
+	WHAT IS ALSO NOT HERE: a place picker. The point is chosen before this screen opens —
+	"Add marker" on the live ride arms the full-screen map, and the tap that answers it
+	hands the point over on the query string (see PointLatitude). This screen used to
+	re-show it in a 22 rem map with a pair of coordinate boxes under it, which asked the
+	rider for an answer they had just given, on a map a fifth the size of the one they gave
+	it on. The point arrives decided; this screen is what goes *with* it.
 
-	Reached from the live ride the point is already chosen: "Add marker" there arms the
-	full-screen map, and the tap that answers it hands the point over on the query string
-	(see PointLatitude). This screen then opens with the pin down and the map as a
-	confirmation — the picker below is a 22 rem box, and asking someone to re-aim in it at
-	a point they had just chosen on a whole screen of map is asking for a worse answer.
+	So the point is an input to this screen, not something it collects: with no lat/lon on
+	the query string there is nothing to compose against, and the page says so rather than
+	quietly filing the marker at some default (see _hasPoint).
 
 	Photo attaches through PATCH /markers/{id}/photo after upload (§16.4). Web callers
 	reach the file through <InputFile>; phones can also use IMediaPicker (Phase 2 keeps
@@ -50,98 +49,89 @@
 <div class="page page-medium form-page">
 	<PageNav Title="Add marker" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the ride" />
 
-	<form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
-		<fieldset class="place">
-			<legend>Where</legend>
+	@if (!_hasPoint)
+	{
+		<p class="empty">
+			This composer opens on a point you have already chosen. Open the ride, pick
+			<em>Add marker</em>, and tap the map where it goes.
+		</p>
 
-			<div class="picker">
-				<RideMap Camera="_camera" Markers="_preview" OnMapClicked="OnMapClicked"
-					 AllowRotation="false" />
-			</div>
+		<p><a class="button" href="@($"/group-rides/{RideId}")">Back to the ride</a></p>
+	}
+	else
+	{
+		<form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
+			@* A grid of radios rather than a <select>: an <option> may contain text and nothing
+			   else, so the moment the icons became pictures the dropdown could only have shown
+			   their names. Picking a hazard marker at the side of a road is a glance-and-tap,
+			   and radios keep that keyboard- and screen-reader-navigable for free. *@
+			<fieldset class="icon-picker">
+				<legend>Icon</legend>
+				<div class="icon-grid">
+					@foreach (MarkerIconOption option in MarkerIconGlyphs.PickerOptions)
+					{
+						<label class="icon-choice @(_icon == option.Key ? "chosen" : null)">
+							<input type="radio" name="icon" value="@option.Key"
+								   checked="@(_icon == option.Key)"
+								   @onchange="() => _icon = option.Key" />
+							<img alt="" src="@MarkerIconGlyphs.AssetPath(option.Key)" />
+							<span>@option.Label</span>
+						</label>
+					}
+				</div>
+			</fieldset>
 
-			<p class="hint">
-				@if (_placed)
+			<label>
+				Title <em>(optional)</em>
+				<input @bind="_title" maxlength="40" placeholder="Gravel on the corner" />
+			</label>
+			<p class="hint">Leave it empty for a pin that is just its icon.</p>
+
+			<label>
+				Note (optional)
+				<textarea @bind="_note" rows="3" maxlength="500"
+						  placeholder="What is here, and what to look out for."></textarea>
+			</label>
+
+			<fieldset>
+				<legend>Photo (optional)</legend>
+				@if (_photo is null)
 				{
-					<span>Tap the map again to move the pin, or type the coordinates below.</span>
+					<InputFile OnChange="OnPhotoSelected" accept="image/jpeg,image/png,image/heic,image/webp" />
 				}
 				else
 				{
-					<span>Tap the map to place the pin. The coordinate boxes below follow it.</span>
+					<p>
+						<em>@_photo.FileName selected — @(_photo.Bytes.Length / 1024) KB.</em>
+						<button type="button" class="primary" @onclick="() => _photo = null">Remove</button>
+					</p>
 				}
-			</p>
-
-			<div class="coords">
-				<label>
-					Latitude (degrees)
-					<input @bind="_latDeg" @bind:after="OnCoordinateTyped" type="number" step="0.00001" required />
-				</label>
-				<label>
-					Longitude (degrees)
-					<input @bind="_lonDeg" @bind:after="OnCoordinateTyped" type="number" step="0.00001" required />
-				</label>
-			</div>
-		</fieldset>
-
-		<label>
-			Icon
-			<select class="icon-picker" @bind="_icon" @bind:after="RebuildPreview" style="padding:10px;">
-				@foreach (MarkerIconOption option in MarkerIconGlyphs.PickerOptions)
-				{
-					<option value="@option.Key">@option.Emoji &nbsp; @option.Label</option>
-				}
-			</select>
-		</label>
-
-		<label>
-			Title <em>(optional)</em>
-			<input @bind="_title" @bind:after="RebuildPreview" maxlength="40" placeholder="Gravel on the corner" />
-		</label>
-		<p class="hint">Leave it empty for a pin that is just its icon.</p>
-
-		<label>
-			Note (optional)
-			<textarea @bind="_note" rows="3" maxlength="500"
-					  placeholder="What is here, and what to look out for."></textarea>
-		</label>
-
-		<fieldset>
-			<legend>Photo (optional)</legend>
-			@if (_photo is null)
-			{
-				<InputFile OnChange="OnPhotoSelected" accept="image/jpeg,image/png,image/heic,image/webp" />
-			}
-			else
-			{
-				<p>
-					<em>@_photo.FileName selected — @(_photo.Bytes.Length / 1024) KB.</em>
-					<button type="button" class="primary" @onclick="() => _photo = null">Remove</button>
+				<p class="hint">
+					The server re-encodes every photo and strips its metadata (§16.4) — an
+					EXIF GPS tag from your driveway will not travel.
 				</p>
-			}
-			<p class="hint">
-				The server re-encodes every photo and strips its metadata (§16.4) — an
-				EXIF GPS tag from your driveway will not travel.
-			</p>
-		</fieldset>
+			</fieldset>
 
-		<button type="submit" class="primary" disabled="@_busy">
-			@(_busy ? "Saving…" : "Save marker")
-		</button>
-	</form>
+			<button type="submit" class="primary" disabled="@_busy">
+				@(_busy ? "Saving…" : "Save marker")
+			</button>
+		</form>
 
-	@if (_error is not null)
-	{
-		<div class="error" role="alert">
-			<strong>@_error.Title</strong>
-			@if (_error.Messages.Count > 0)
-			{
-				<ul>
-					@foreach (string message in _error.Messages)
-					{
-						<li>@message</li>
-					}
-				</ul>
-			}
-		</div>
+		@if (_error is not null)
+		{
+			<div class="error" role="alert">
+				<strong>@_error.Title</strong>
+				@if (_error.Messages.Count > 0)
+				{
+					<ul>
+						@foreach (string message in _error.Messages)
+						{
+							<li>@message</li>
+						}
+					</ul>
+				}
+			</div>
+		}
 	}
 </div>
 
@@ -149,17 +139,16 @@
 	[Parameter] public Guid RideId { get; set; }
 
 	/// <summary>
-	/// The point the author tapped on the live ride map (§16.1). The pin opens <em>placed</em>
-	/// there — this is a decision the rider has already made on a map they were reading, not a
-	/// hint about where to look.
+	/// The point the author tapped on the live ride map (§16.1) — a decision the rider has
+	/// already made, on a full screen of map they were reading.
 	/// <para>
-	/// It used to be the centre of the view they had open, which is why the composer opened
-	/// unplaced: a viewport centre is a guess, and the one point a rider never means to mark is
-	/// the middle of their own screen, because that is where they are.
+	/// It used to be the centre of the view they had open, which is why the composer once
+	/// opened unplaced with a picker: a viewport centre is a guess, and the one point a rider
+	/// never means to mark is the middle of their own screen, because that is where they are.
 	/// </para>
 	/// <para>
-	/// Absent when the composer is reached by URL — then the picker centres on the ride and
-	/// waits to be tapped, which is what <see cref="_placed"/> being false says on screen.
+	/// Required. Absent only when the composer is reached by a hand-typed or bookmarked URL,
+	/// and then there is no marker to compose — see <see cref="_hasPoint"/>.
 	/// </para>
 	/// </summary>
 	[SupplyParameterFromQuery(Name = "lat")] public double? PointLatitude { get; set; }
@@ -167,24 +156,17 @@
 	/// <inheritdoc cref="PointLatitude" />
 	[SupplyParameterFromQuery(Name = "lon")] public double? PointLongitude { get; set; }
 
-	/// <summary>
-	/// The zoom the point was chosen at, so the picker re-shows it at the scale it was picked —
-	/// a street-level choice re-drawn at city level is one nobody can check. Independent of the
-	/// point itself: a URL may carry it, and the default takes over when it does not.
-	/// </summary>
-	[SupplyParameterFromQuery(Name = "zoom")] public double? ViewZoom { get; set; }
+	private double _latDeg;
+	private double _lonDeg;
 
 	/// <summary>
-	/// The pin being composed. A fixed id so the overlay upserts the same marker on every
-	/// repaint rather than accumulating one per keystroke; it never reaches the server,
-	/// which mints the real id on create.
+	/// Whether a point reached this screen. False renders the "nothing to compose" state
+	/// instead of the form — the alternative is a composer that looks ready and files the
+	/// marker at whatever the fields happened to default to, which is a wrong pin on a ride
+	/// somebody is following.
 	/// </summary>
-	private static readonly Guid PreviewId = new("00000000-0000-0000-0000-0000000000ff");
+	private bool _hasPoint;
 
-	private double _latDeg = -33.868;
-	private double _lonDeg = 151.209;
-	private MapCamera _camera = new(-33.868, 151.209, 14);
-	private bool _placed;
 	private string _icon = MarkerIcons.Fallback;
 	private string _title = string.Empty;
 	private string _note = string.Empty;
@@ -193,131 +175,31 @@
 	private bool _busy;
 
 	/// <summary>
-	/// The composer's own state drawn as the overlay's only marker.
-	/// <para>
-	/// Rebuilt when the pin changes, not per render. A fresh reference is what tells
-	/// <c>RideMap</c> to repaint, so it has to be a new dictionary each time — but building
-	/// one on every render meant every unrelated edit (a keystroke in the note, picking a
-	/// photo, the busy flag) repainted the map canvas too.
-	/// </para>
-	/// </summary>
-	private IReadOnlyDictionary<Guid, MapMarker> _preview = EmptyPreview;
-
-	private static readonly IReadOnlyDictionary<Guid, MapMarker> EmptyPreview =
-		new Dictionary<Guid, MapMarker>();
-
-	private void RebuildPreview() => _preview = new Dictionary<Guid, MapMarker>
-	{
-		[PreviewId] = new MapMarker(
-			Id: PreviewId,
-			Latitude: _latDeg,
-			Longitude: _lonDeg,
-			IconKey: _icon,
-			// Exactly what will be saved, empty title and all. It used to show "New marker" for
-			// a blank box, which was a stand-in for a title the composer was going to insist on
-			// — now that it will not, the preview would be showing a label nobody is going to
-			// see on the ride.
-			Title: _title.Trim(),
-			DirectionDeg: null),
-	};
-
-	/// <summary>
-	/// Quantises to the wire's resolution, so the number in the coordinate box is exactly the
-	/// one that will be stored rather than one that shifts on save.
+	/// Quantises to the wire's resolution, so the point that arrived is exactly the one that
+	/// gets stored rather than one that shifts on save.
 	/// </summary>
 	private static double Snap(double degrees) =>
 		PositionScale.ToDegrees(PositionScale.FromDegrees(degrees));
 
 	/// <summary>
-	/// Open the picker over the ride, not over a hard-coded default. A composer that
-	/// starts on the wrong side of the country makes tap-to-place useless.
+	/// Takes the point the rider chose on the live map (§16.1) off the query string.
 	/// <para>
-	/// Best source is the point the rider tapped on the live map, handed over on the query
-	/// string — that one arrives already placed, and the map is only here to confirm it and
-	/// to nudge it. Failing that, centre on whatever of this ride is already mapped — its
-	/// markers first, then the riders' last fixes — and wait to be tapped. A ride with
-	/// neither keeps the default and the author pans.
+	/// This screen no longer reads the ride to work out where to open a picker — there is no
+	/// picker to open, so a ride whose markers or positions cannot be fetched no longer costs
+	/// the composer two requests it does nothing with.
 	/// </para>
 	/// </summary>
-	protected override async Task OnInitializedAsync()
+	protected override void OnParametersSet()
 	{
-		RebuildPreview();
-
-		if (PointLatitude is { } pointLat && PointLongitude is { } pointLon)
+		if (PointLatitude is not { } pointLat || PointLongitude is not { } pointLon)
 		{
-			_latDeg = Snap(pointLat);
-			_lonDeg = Snap(pointLon);
-			_camera = new MapCamera(_latDeg, _lonDeg, ViewZoom ?? DefaultZoom);
-
-			// Placed, not merely looked at: the rider chose this point on the live map, and a
-			// composer that then asked them to tap it again would be asking twice for the same
-			// answer — the second one aimed at a map a fifth the size of the one they chose on.
-			_placed = true;
-			RebuildPreview();
+			_hasPoint = false;
 			return;
 		}
 
-		try
-		{
-			IReadOnlyList<MarkerDto> markers = await Api.ListRideMarkersAsync(RideId);
-			if (TryCentreOn(markers.Select(m => (PositionScale.ToDegrees(m.Lat), PositionScale.ToDegrees(m.Lon)))))
-			{
-				return;
-			}
-
-			IReadOnlyList<RiderPositionDto> positions = await Api.GetPositionsSnapshotAsync(RideId);
-			TryCentreOn(positions.Select(p => (PositionScale.ToDegrees(p.Lat), PositionScale.ToDegrees(p.Lon))));
-		}
-		catch
-		{
-			// Centring is a convenience, never a precondition. A ride we cannot read still
-			// gets a working picker at the default camera.
-		}
-	}
-
-	/// <summary>
-	/// Mean of the supplied points. Naive across the antimeridian, which no group ride
-	/// spans — and the worst case is a camera the author has to pan, not a wrong marker.
-	/// </summary>
-	private bool TryCentreOn(IEnumerable<(double Lat, double Lon)> points)
-	{
-		List<(double Lat, double Lon)> found = points.ToList();
-		if (found.Count == 0)
-			return false;
-
-		_latDeg = Snap(found.Average(p => p.Lat));
-		_lonDeg = Snap(found.Average(p => p.Lon));
-		_camera = new MapCamera(_latDeg, _lonDeg, DefaultZoom);
-		RebuildPreview();
-		return true;
-	}
-
-	/// <summary>Where the picker opens when nothing better is known. Street-level, not continent-level.</summary>
-	private const double DefaultZoom = 14;
-
-	/// <summary>A tap on the base map is the marker's point (§16.1).</summary>
-	private void OnMapClicked(MapClick click)
-	{
-		_latDeg = Snap(click.Latitude);
-		_lonDeg = Snap(click.Longitude);
-		_placed = true;
-		RebuildPreview();
-		// Deliberately no camera move: the tapped point is on screen already, and shifting
-		// the view under someone's finger sends the next tap somewhere they did not choose.
-	}
-
-	/// <summary>
-	/// The coordinate boxes are the other half of the same two numbers — typing one moves
-	/// the camera so the pin does not vanish off the edge of the map. <c>@@bind</c> has
-	/// already parsed the value invariantly by the time this runs.
-	/// </summary>
-	private void OnCoordinateTyped()
-	{
-		_latDeg = Snap(_latDeg);
-		_lonDeg = Snap(_lonDeg);
-		_placed = true;
-		_camera = new MapCamera(_latDeg, _lonDeg, _camera.ZoomLevel);
-		RebuildPreview();
+		_latDeg = Snap(pointLat);
+		_lonDeg = Snap(pointLon);
+		_hasPoint = true;
 	}
 
 	private async Task OnPhotoSelected(InputFileChangeEventArgs args)
@@ -344,7 +226,10 @@
 
 	private async Task SaveAsync()
 	{
-		if (_busy) return;
+		// The form is not rendered without a point, so this is unreachable through the UI —
+		// stated anyway, because "save whatever is in _latDeg" is the one failure on this
+		// screen that produces a plausible-looking marker in the wrong place.
+		if (_busy || !_hasPoint) return;
 		_busy = true;
 		_error = null;
 		try
@@ -391,35 +276,68 @@
 }
 
 <style>
-	/* The picker is the primary control on this fieldset, so it gets real height —
-	   a map you have to squint at is worse than typing the numbers. */
-	.page .picker {
-		position: relative;
-		height: 22rem;
-	}
-
-		.page .picker .dlr-map-container {
-			min-height: 0;
-			height: 100%;
-		}
-
-	.page .coords {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.75rem;
-		margin-top: 0.5rem;
-	}
-
-	@@media (max-width: 480px) {
-		.page .coords {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	/* The emoji has to carry the meaning at a glance, so it is set larger than the
-	   label beside it — the two are one line of text, not an icon plus a caption. */
+	/* The icon has to carry the meaning at a glance, so it is the large half of each cell and
+	   the label is the caption under it. */
 	.page .icon-picker {
-		font-size: 1.05rem;
-		line-height: 1.6;
+		border: 0;
+		margin: 0 0 1rem;
+		padding: 0;
+		min-width: 0; /* fieldset defaults to min-content, which stops the grid from wrapping */
 	}
+
+		.page .icon-picker legend {
+			padding: 0;
+			margin-bottom: 0.35rem;
+		}
+
+	.page .icon-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+		gap: 6px;
+	}
+
+	/* Grid rather than a flex column on purpose. The flex property that stacks children spells
+	   a word this page must not contain anywhere: AddMarkerTests greps the entire rendered
+	   markup, style block and all, to prove the composer offers no way to set a bearing. It is
+	   a blunt guard, but it guards the right thing, so the layout gives way rather than the
+	   test. Mind this when adding CSS here — and note the test name itself is unquotable. */
+	.page .icon-choice {
+		display: grid;
+		justify-items: center;
+		gap: 4px;
+		padding: 8px 4px;
+		border: 2px solid transparent;
+		border-radius: 10px;
+		cursor: pointer;
+		text-align: center;
+		line-height: 1.15;
+		font-size: 0.72rem;
+	}
+
+		/* Visually hidden, not display:none — the radio still has to take focus and reach a
+		   screen reader, which is the whole reason this is a radio group and not a div of
+		   click handlers. */
+		.page .icon-choice input {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		.page .icon-choice img {
+			width: 34px;
+			height: 34px;
+			display: block;
+		}
+
+		.page .icon-choice.chosen {
+			border-color: currentColor;
+			background: rgb(128 128 128 / 18%);
+		}
+
+		.page .icon-choice:focus-within {
+			outline: 2px solid currentColor;
+			outline-offset: 1px;
+		}
 </style>

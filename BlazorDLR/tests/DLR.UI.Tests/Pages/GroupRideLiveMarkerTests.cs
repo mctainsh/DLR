@@ -116,6 +116,16 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		Services.AddSingleton<IDeviceSettings, BlazorDLR.Shared.Services.Platform.InMemoryDeviceSettings>();
 		Services.AddSingleton<PrivateAreaState>();
 
+		// Opening a ride is what the nav rail's globe remembers (§18.6), so the page writes here.
+		Services.AddSingleton<CurrentRideState>();
+
+		// The GPS seam (§4.3). The fake provider stands in for the phone's receiver; a page test
+		// never emits a fix, so this only has to resolve — turning sharing on is what would start
+		// it, and LocationBroadcastStateTests is where that path is exercised.
+		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
+		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationBroadcastState>();
+
 		// The page's own RideMap logic is what turns an interop viewport into a hit-testable
 		// frame; only its rendering is impossible here. See StubRideMap.
 		ComponentFactories.Add<RideMap, StubRideMap>();
@@ -558,9 +568,10 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			customMessage: "§16.1: the composer opens on the point the rider pointed at, to the wire's " +
 			"five decimal places, so the number they chose is the number that gets stored.");
 		uri.ShouldContain("lon=144.96328");
-		uri.ShouldContain("zoom=12",
-			customMessage: "The scale the point was chosen at travels with it — a street-level choice " +
-			"re-shown at city level is one nobody can check.");
+		uri.ShouldNotContain("zoom=",
+			customMessage: "The zoom existed for the composer's own picker to re-open at the scale the " +
+			"point was chosen at. That picker is gone, so nothing reads it — a query parameter with no " +
+			"reader is a claim the next person has to go and disprove.");
 	}
 
 	[Fact]

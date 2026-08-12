@@ -117,9 +117,15 @@
 	flex-direction: column;
 }
 
+/*
+	No top padding, deliberately — the whole of a page's top spacing is `.page`'s
+	`--dlr-page-top` margin (app.css). PageNav's sticky bar cancels that one value to sit
+	flush against the top of the scroll area, and it cannot cancel a gap that two rules
+	contribute to. Sides and bottom are this element's business as before.
+*/
 .content {
 	flex: 1;
-	padding: 1rem 1.25rem;
+	padding: 0 1.25rem 1rem;
 }
 
 /*

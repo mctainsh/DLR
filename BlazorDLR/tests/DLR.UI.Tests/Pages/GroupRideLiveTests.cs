@@ -4,6 +4,7 @@ using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
@@ -81,6 +82,16 @@ public sealed class GroupRideLiveTests : PageTestContext
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
 		Services.AddSingleton<PrivateAreaState>();
 
+		// Opening a ride is what the nav rail's globe remembers (§18.6), so the page writes here.
+		Services.AddSingleton<CurrentRideState>();
+
+		// The GPS seam (§4.3). The fake provider stands in for the phone's receiver; a page test
+		// never emits a fix, so this only has to resolve — turning sharing on is what would start
+		// it, and LocationBroadcastStateTests is where that path is exercised.
+		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
+		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationBroadcastState>();
+
 		return (api, hub, rideId);
 	}
 
@@ -110,6 +121,113 @@ public sealed class GroupRideLiveTests : PageTestContext
 		component.FindAll(".markers-dialog").ShouldBeEmpty(
 			"the marker list is a popup now — a permanent panel is exactly the screen space " +
 			"a full-screen map was meant to win back.");
+	}
+
+	[Fact]
+	public void OpeningARide_IsWhereTheRailsGlobeLeadsBackTo()
+	{
+		// Every way into a ride — a code redeemed, a row in the list, a shared link — ends on this
+		// page, so this is the one place that has to remember (§18.6). The state persists through
+		// the device store, which is what carries it over a restart.
+		(_, _, Guid rideId) = WireServices();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+
+		component.WaitForAssertion(
+			() => current.Href.ShouldBe($"group-rides/{rideId}"),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void ARideThatIsGone_IsForgotten()
+	{
+		// A ride that was deleted, or one this rider has been removed from — §5.2 makes both a 404,
+		// because a non-member's answer must not say whether the ride exists. Either way the globe
+		// must stop leading to a page that can only answer "no such ride".
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+		api.RideException = new ApiException(new ApiError(
+			StatusCode: System.Net.HttpStatusCode.NotFound,
+			Title: "That ride no longer exists.",
+			Messages: Array.Empty<string>()));
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.Find(".error").TextContent.ShouldContain("no longer exists"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(() =>
+		{
+			current.RideId.ShouldBeNull();
+			current.Href.ShouldBe("group-rides", "with nothing to go back to, the globe means \"pick one\".");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task BeingRemovedWhileTheMapIsOpen_ForgetsTheRide_AndSaysSo()
+	{
+		// §5.2: an organiser can remove a member. It can land mid-ride, not only between loads —
+		// the map on screen is then a picture of a ride whose every next request will 404.
+		(_, FakeRideHubClient hub, Guid rideId) = WireServices();
+
+		// The event names a user id, so "it was me" needs a session — without one the page would
+		// read the removal as somebody else's and the test would pass for the wrong reason.
+		Guid me = Guid.NewGuid();
+		await Services.GetRequiredService<AuthState>().ApplySessionAsync(new TokenResponse(
+			AccessToken: "access",
+			ExpiresIn: 900,
+			RefreshToken: "refresh",
+			User: new AuthenticatedUser(me, "Me", HasEmail: true, EmailConfirmed: true)));
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		current.RideId.ShouldBe(rideId, "opening the ride is what remembers it.");
+
+		await component.InvokeAsync(() => hub.RaiseMemberLeft(rideId, me));
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find(".error").TextContent.ShouldContain("no longer on this ride",
+				customMessage: "a map that carried on drawing would be a ride they are not on.");
+			current.RideId.ShouldBeNull();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ARideThatOnlyFailedToLoad_IsStillRemembered()
+	{
+		// A tunnel, a captive portal, a server restart. The rider who most needs the globe is the
+		// one whose phone has just lost signal in the middle of a ride, so a load that failed with
+		// no statement from the server must not cost them the ride they are on.
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+		api.RideException = new ApiException(new ApiError(
+			StatusCode: System.Net.HttpStatusCode.ServiceUnavailable,
+			Title: "The server is not answering.",
+			Messages: Array.Empty<string>()));
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		await current.SetAsync(rideId);
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.Find(".error").TextContent.ShouldContain("not answering"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		current.RideId.ShouldBe(rideId);
 	}
 
 	[Fact]

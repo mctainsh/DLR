@@ -150,9 +150,18 @@ public sealed class FakeApiClient : IApiClient
 	public Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(ListMyRidesAsync), MyRidesResult));
 
-	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default) =>
-		Task.FromResult(Recorded(nameof(GetRideAsync), RideResult
-			?? new RideDetail(rideId, "Test ride", null, SampleInstant, RideStateDto.Open, JoinPolicyDto.Approval, 50, 0, false, null, new RidePermissions(), Array.Empty<RideMemberSummary>())));
+	/// <summary>Set to make <see cref="GetRideAsync"/> throw — a ride that 404s, or one this rider is not on.</summary>
+	public ApiException? RideException { get; set; }
+
+	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(GetRideAsync));
+
+		return RideException is not null
+			? Task.FromException<RideDetail>(RideException)
+			: Task.FromResult(RideResult
+				?? new RideDetail(rideId, "Test ride", null, SampleInstant, RideStateDto.Open, JoinPolicyDto.Approval, 50, 0, false, null, new RidePermissions(), Array.Empty<RideMemberSummary>()));
+	}
 	/// <summary>The last <see cref="CreateRideAsync"/> request the UI sent.</summary>
 	public CreateRideRequest? LastCreateRideRequest { get; private set; }
 
@@ -233,7 +242,20 @@ public sealed class FakeApiClient : IApiClient
 		SetSharingRequests.Add((rideId, request));
 		return Task.CompletedTask;
 	}
-	public Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default) { Record(nameof(LeaveRideAsync)); return Task.CompletedTask; }
+	/// <summary>Set to make <see cref="LeaveRideAsync"/> throw — the organiser's 409, most obviously.</summary>
+	public ApiException? LeaveRideException { get; set; }
+
+	public Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default)
+	{
+		if (LeaveRideException is not null)
+		{
+			return Task.FromException(LeaveRideException);
+		}
+
+		Record(nameof(LeaveRideAsync));
+		return Task.CompletedTask;
+	}
+
 	public Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default) { Record(nameof(RemoveMemberAsync)); return Task.CompletedTask; }
 
 	/// <summary>
@@ -286,7 +308,22 @@ public sealed class FakeApiClient : IApiClient
 	}
 
 	public Task<IReadOnlyList<RiderPositionDto>> GetPositionsSnapshotAsync(Guid rideId, CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(GetPositionsSnapshotAsync), PositionsResult));
-	public Task<PublishResult> PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+	/// <summary>Fixes that came in over REST — the fallback path when the hub could not carry one (§5.7).</summary>
+	public List<PositionUpdate> PublishedPositions { get; } = [];
+
+	/// <summary>Set to make the REST publish fail too, which is the case the UI has to state.</summary>
+	public ApiException? PublishPositionException { get; set; }
+
+	public Task<PublishResult> PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default)
+	{
+		if (PublishPositionException is not null)
+		{
+			return Task.FromException<PublishResult>(PublishPositionException);
+		}
+
+		PublishedPositions.Add(update);
+		return Task.FromResult(new PublishResult(Array.Empty<Guid>()));
+	}
 
 	/// <summary>The last <see cref="CreateMarkerAsync"/> request the UI sent, for §16.2 assertions.</summary>
 	public CreateMarkerRequest? LastCreateMarkerRequest { get; private set; }

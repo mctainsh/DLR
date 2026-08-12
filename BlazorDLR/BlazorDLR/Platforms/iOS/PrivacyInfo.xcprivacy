@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+	The privacy manifest. Required for App Store submission since 1 May 2024 — an upload
+	without one is rejected at processing time with a mail about missing API declarations,
+	before a human ever sees the build.
+
+	Two halves, and they are checked against different things:
+
+	  NSPrivacyCollectedDataTypes must agree with the privacy answers in App Store Connect
+	  (the "nutrition label"). A mismatch is a review finding, so the entries below are
+	  deliberately in the same order and use the same terms as the checklist in
+	  Documentation/store-release.md.
+
+	  NSPrivacyAccessedAPITypes covers the "required reason" APIs: a handful of ordinary
+	  system calls that can be used for fingerprinting, so Apple requires each one to name
+	  the reason it is used. They are declared here for what this app and the MAUI runtime
+	  under it actually call. The reason codes are Apple's, not free text.
+
+	Third-party SDKs ship their own manifests and Xcode merges them; there is nothing to
+	repeat here for them.
+-->
+<dict>
+	<!--
+		This app tracks nobody: no advertising identifier, no data broker, no cross-app
+		linkage. Both of these being false is what keeps App Tracking Transparency out of the
+		app entirely — if either ever becomes true, the ATT prompt becomes mandatory.
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<!--
+			Precise location, and the honest answer to all three questions: it is linked to
+			the account, it is not used for tracking, and its purpose is the app's own
+			functionality — showing a rider to the group ride they chose to share with (§5.7).
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePreciseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- The username a rider signs in with, which is also their label on the map (§7.2). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Optional, and off by default (§7.3): an email address only if the rider adds one. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Photos attached to markers and ride posts (§16.4, §17). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Comments and marker notes riders write to each other (§17). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!--
+			NSUserDefaults. MAUI Preferences is NSUserDefaults underneath, and that is what
+			holds every device-local setting this app has: the theme, the route style, the GPS
+			profile, the private area and the current ride (§18.6). CA92.1 is Apple's reason
+			code for "accessing information from the app itself" — this app never reads another
+			app's defaults, and could not: it is not in an app group.
+		-->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+
+		<!--
+			File timestamps. The .NET runtime and the GPX import path both stat files. C617.1
+			is "files inside the app container", which is where every file this app touches
+			lives — imports are copied in before they are read.
+		-->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+
+		<!--
+			Disk space. The runtime checks it before writing; 85F4.1 is the reason for
+			"displaying to the person" and E174.1 for the runtime's own write checks. Both are
+			declared because both happen.
+		-->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>E174.1</string>
+				<string>85F4.1</string>
+			</array>
+		</dict>
+
+		<!--
+			System boot time. Used by the runtime for monotonic timing — measuring an interval,
+			never identifying a device. 35F9.1 is that reason exactly.
+		-->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
