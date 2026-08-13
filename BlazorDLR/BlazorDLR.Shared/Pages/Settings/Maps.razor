@@ -1,0 +1,641 @@
+@page "/settings/maps"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Components
+@using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
+@inject MapSourceState MapSources
+@inject MapPackState Packs
+@inject IDeviceSettings Settings
+@implements IDisposable
+
+@*
+	Which tiles go under every map in the app (§4.5, §18.6).
+
+	A device preference, like the route style and the private area — two riders on the same
+	ride can hold different answers and neither is wrong. It never reaches the server.
+
+	The base map is only ever tiles, camera, rotation and attribution: every marker, rider pin
+	and route is drawn by the Skia overlay on top (§4.5 v0.21). So nothing on this screen can
+	change what a ride shows — only what it is drawn over.
+
+	The preview is the point of the screen rather than decoration. A tile URL is the one
+	setting in this app whose value is impossible to judge by reading it: the difference
+	between a working template and a blank map is a character somewhere in the middle. The map
+	below restyles the moment a source is applied, because RideMap listens to the same scoped
+	state this page writes.
+*@
+
+<PageTitle>Maps — Dumb Luck Routes</PageTitle>
+
+<div class="page page-medium form-page map-settings">
+	<PageNav Title="Maps" BackHref="/settings" BackLabel="Back to settings" />
+
+	<p class="lead">
+		Where the map's tiles come from. Stored on this device and never sent to the server —
+		your routes, markers and everyone's positions are drawn on top and do not change.
+	</p>
+
+	<fieldset>
+		<legend>Tile source</legend>
+
+		<label class="radio">
+			<input type="radio" name="map-source" checked="@(_kind == MapSourceKind.Osm)"
+				   @onchange="() => ChooseAsync(MapSourceKind.Osm)" />
+			OpenStreetMap
+		</label>
+		<p class="hint indent">
+			Free, no account, and what the app has always used. Needs a connection.
+		</p>
+
+		<label class="radio">
+			<input type="radio" name="map-source" disabled="@(!OfflineReady)"
+				   checked="@(_kind == MapSourceKind.Offline)"
+				   @onchange="() => ChooseAsync(MapSourceKind.Offline)" />
+			Offline map pack
+		</label>
+		<p class="hint indent">@OfflineNote</p>
+
+		@* Which pack, when there is more than one. A radio inside a radio would be a mess, so the
+		   packs are their own list and choosing one also selects the offline source — picking a
+		   map is the whole intent, and making it two actions would be pedantry. *@
+		@if (_kind == MapSourceKind.Offline && Packs.IsSupported && Packs.Packs.Count > 0)
+		{
+			<ul class="packs indent">
+				@foreach (StoredMapPack pack in Packs.Packs)
+				{
+					<li class="@(_packId == pack.PackId ? "chosen" : null)">
+						<label class="radio">
+							<input type="radio" name="map-pack" checked="@(_packId == pack.PackId)"
+								   @onchange="() => ChoosePackAsync(pack.PackId)" />
+							<span class="name">@pack.PackId</span>
+						</label>
+						<span class="size">@MapPackDownloader.Describe(pack.SizeBytes)</span>
+						<button type="button" class="remove" @onclick="() => DeletePackAsync(pack.PackId)"
+								disabled="@Packs.IsDownloading"
+								aria-label="@($"Delete {pack.PackId}")">Delete</button>
+					</li>
+				}
+			</ul>
+		}
+
+		<label class="radio">
+			<input type="radio" name="map-source" checked="@(_kind == MapSourceKind.Custom)"
+				   @onchange="() => ChooseAsync(MapSourceKind.Custom)" />
+			Another tile server
+		</label>
+		<p class="hint indent">
+			Your own tile server, or a service you hold an account with. You are responsible for
+			whatever that server's terms require.
+		</p>
+	</fieldset>
+
+	@if (_kind == MapSourceKind.Custom)
+	{
+		@*
+			Applied on a button rather than as you type. Restyling per keystroke would send a
+			request for every half-finished URL to whatever host the prefix happened to resolve
+			to, which is rude at best.
+		*@
+		<fieldset class="custom">
+			<legend>Tile server</legend>
+
+			<label>
+				Tile URL
+				<input @bind="_template" @bind:event="oninput" spellcheck="false"
+					   autocomplete="off" autocapitalize="off" @onblur="RememberAsync"
+					   placeholder="https://tiles.example.com/{z}/{x}/{y}.png" />
+			</label>
+			<p class="hint">
+				Must be <code>https</code> and carry <code>{x}</code>, <code>{y}</code> and
+				<code>{z}</code>. Plain <code>http</code> will not load — the app is served over a
+				secure connection, so the phone blocks it.
+			</p>
+
+			<label>
+				Attribution
+				<input @bind="_attribution" @bind:event="oninput" spellcheck="false"
+					   @onblur="RememberAsync" placeholder="© Example Maps" />
+			</label>
+			<p class="hint">
+				Shown in the corner of every map. Most tile servers require a specific credit —
+				check theirs.
+			</p>
+
+			<label>
+				Deepest zoom
+				<input type="number" @bind="_maxZoom" @bind:event="oninput" @onblur="RememberAsync"
+					   min="@MapSource.MinAllowedZoom" max="@MapSource.MaxAllowedZoom" />
+			</label>
+			<p class="hint">
+				How far in the server has tiles for. Set it too high and the map dissolves when you
+				zoom in on a marker; too low and it stops sharpening early. 19 suits most.
+			</p>
+
+			<button type="button" class="primary" disabled="@(!CustomIsUsable)" @onclick="ApplyCustomAsync">
+				Use this tile server
+			</button>
+
+			@if (!CustomIsUsable && _touched)
+			{
+				<p class="error-text" role="alert">@CustomProblem</p>
+			}
+		</fieldset>
+	}
+
+	@*
+		Downloading a pack. On the phone only — a browser has nowhere to put one (§18.6), and a
+		field that downloads 26 MB into a tab that forgets it would be worse than absent.
+
+		Any HTTPS link. The catalogue of packs the server will offer is still coming; until then a
+		rider — or a ride organiser — puts an extract on any web host and passes the link round,
+		which is also how this gets tested. The two paths end at the same downloader.
+	*@
+	@if (Packs.IsSupported)
+	{
+		<fieldset class="download">
+			<legend>Add a map pack</legend>
+
+			<p class="hint">
+				A PMTiles archive on any web address. Large — usually tens or hundreds of megabytes
+				— so use Wi-Fi. A download that is interrupted carries on from where it stopped.
+			</p>
+
+			<label>
+				Link
+				<input @bind="_url" @bind:event="oninput" spellcheck="false"
+					   autocomplete="off" autocapitalize="off" inputmode="url"
+					   disabled="@Packs.IsDownloading" @onblur="RememberAsync"
+					   placeholder="https://example.com/sydney.pmtiles" />
+			</label>
+
+			<label>
+				Name it
+				<input @bind="_newPackId" @bind:event="oninput" spellcheck="false"
+					   autocomplete="off" autocapitalize="off"
+					   disabled="@Packs.IsDownloading" @onblur="RememberAsync"
+					   placeholder="sydney" />
+			</label>
+			<p class="hint">Letters, numbers and hyphens. This is what the pack is called on this device.</p>
+
+			@if (Packs.IsDownloading)
+			{
+				<div class="progress" role="status">
+					<progress value="@(Packs.Progress?.Fraction ?? 0)" max="1"></progress>
+					<span>@DownloadDescription</span>
+					<button type="button" @onclick="Packs.Cancel">Stop</button>
+				</div>
+			}
+			else
+			{
+				<button type="button" class="primary" disabled="@(!CanDownload)" @onclick="DownloadAsync">
+					Download
+				</button>
+			}
+
+			@if (Packs.Status is { } packStatus)
+			{
+				<p class="status" role="status">@packStatus</p>
+			}
+		</fieldset>
+	}
+
+	@if (_status is not null)
+	{
+		<p class="status" role="status">@_status</p>
+	}
+
+	<section class="preview">
+		<h2>Preview</h2>
+		<p class="hint">
+			The same base map every ride is drawn over. Pan and zoom it to check the tiles load at
+			the detail you ride at.
+		</p>
+		<div class="preview-map">
+			<RideMap Camera="PreviewCamera" AllowRotation="false" ShowPickingCursor="false" />
+		</div>
+	</section>
+</div>
+
+@code {
+	/// <summary>
+	/// Where the preview opens: Sydney at city scale, the same ground <c>GroupRideLive</c> falls
+	/// back to. A constant rather than the rider's last view — this map is a sample of a tile
+	/// server, not a place anybody is going.
+	/// </summary>
+	private static readonly MapCamera PreviewCamera = new(-33.868, 151.209, 11);
+
+	private MapSourceKind _kind = MapSourceKind.Osm;
+	private string _template = string.Empty;
+	private string _attribution = string.Empty;
+	private int _maxZoom = MapSource.OsmMaxZoom;
+
+	/// <summary>Which downloaded pack is selected, when the offline source is.</summary>
+	private string? _packId;
+
+	/// <summary>The add-a-pack form.</summary>
+	private string _url = string.Empty;
+	private string _newPackId = string.Empty;
+
+	/// <summary>Whether the rider has tried to apply a custom source yet — see the error line.</summary>
+	private bool _touched;
+
+	private string? _status;
+
+	/// <summary>
+	/// Whether the offline option can be chosen at all. Two different reasons it cannot, and they
+	/// are worth telling apart on screen — see <see cref="OfflineNote"/>.
+	/// </summary>
+	private bool OfflineReady => Packs.IsSupported && Packs.Packs.Count > 0;
+
+	private string OfflineNote => !Packs.IsSupported
+		? "Only on the phone app — a browser has nowhere to keep a map pack."
+		: Packs.Packs.Count == 0
+			? "No map packs on this device yet. Add one below."
+			: "Draws from a pack on this phone. Works with no signal at all.";
+
+	/// <summary>Whether the download button is worth offering — both fields have to be right first.</summary>
+	private bool CanDownload =>
+		!Packs.IsDownloading
+		&& MapPackDownloader.IsUsablePackId(_newPackId.Trim())
+		&& Uri.TryCreate(_url.Trim(), UriKind.Absolute, out Uri? parsed)
+		&& parsed.Scheme == Uri.UriSchemeHttps;
+
+	/// <summary>
+	/// How far the download has got, as a rider reads it. Falls back to a bare byte count when the
+	/// host did not send a length — some do not, and a progress bar that cannot fill is better
+	/// than a number that never appears.
+	/// </summary>
+	private string DownloadDescription => Packs.Progress is not { } progress
+		? "Starting…"
+		: progress.TotalBytes is { } total
+			? $"{MapPackDownloader.Describe(progress.BytesReceived)} of {MapPackDownloader.Describe(total)}"
+			: MapPackDownloader.Describe(progress.BytesReceived);
+
+	private bool CustomIsUsable =>
+		MapSource.IsUsableTemplate(_template) && !string.IsNullOrWhiteSpace(_attribution);
+
+	/// <summary>
+	/// Which half of the custom form is not right yet, in the rider's terms. One sentence — the
+	/// hints under each field already say what good looks like, and this only has to point.
+	/// </summary>
+	private string CustomProblem => !MapSource.IsUsableTemplate(_template)
+		? "The tile URL needs to start with https:// and contain {x}, {y} and {z}."
+		: "Add the attribution the tile server asks to be credited with.";
+
+	protected override void OnInitialized()
+	{
+		MapSources.Changed += OnSourceChanged;
+
+		// The download runs in a scoped state rather than in this page, so it survives the rider
+		// navigating away mid-transfer. That is also why the progress has to arrive by event.
+		Packs.Changed += OnPacksChanged;
+	}
+
+	/// <summary>
+	/// Reads the device after first render — on the web the store is behind JS interop, which does
+	/// not exist during the prerender pass. Idempotent, so the preview map below reading it too
+	/// costs nothing.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+		{
+			return;
+		}
+
+		await MapSources.LoadAsync();
+		await Packs.LoadAsync();
+
+		// What was last typed into either half of this screen, so a rider comes back to their own
+		// tile server and their own pack link rather than to two empty boxes and a long URL to
+		// remember. Read before Adopt, which then overwrites the tile fields from the source that
+		// is actually applied — those agree, because applying one writes this too.
+		Remember(RememberedMapSetup.Decode(await Settings.GetAsync(RememberedMapSetup.StorageKey)));
+
+		// Adopted here rather than left to the Changed handler. LoadAsync only raises when it was
+		// the read that resolved the value — a rider arriving from another screen that already
+		// read the device gets no event at all, and this form would open on the default while the
+		// map below it drew something else.
+		Adopt(MapSources.Chosen);
+		StateHasChanged();
+	}
+
+	private void OnSourceChanged() => _ = InvokeAsync(() =>
+	{
+		Adopt(MapSources.Chosen);
+		StateHasChanged();
+	});
+
+	private void OnPacksChanged() => _ = InvokeAsync(StateHasChanged);
+
+	/// <summary>Fills the form from what this device remembers being typed into it.</summary>
+	/// <param name="remembered">The stored draft, or null on a device that has typed nothing.</param>
+	private void Remember(RememberedMapSetup? remembered)
+	{
+		if (remembered is not { } draft)
+		{
+			return;
+		}
+
+		_template = draft.TileTemplate ?? string.Empty;
+		_attribution = draft.TileAttribution ?? string.Empty;
+		_maxZoom = draft.TileMaxZoom;
+		_url = draft.PackUrl ?? string.Empty;
+		_newPackId = draft.PackName ?? string.Empty;
+	}
+
+	/// <summary>
+	/// Stores what is in the boxes right now.
+	/// <para>
+	/// Called when a field loses focus and before either action runs, rather than on every
+	/// keystroke: a device write per character is a JS interop round trip per character on the web,
+	/// for a value nobody reads until the next visit. Both actions save first because a tap on a
+	/// button does not always blur the field it was typed into.
+	/// </para>
+	/// <para>
+	/// Whatever is there is kept, finished or not — see <see cref="RememberedMapSetup"/>. An empty
+	/// form removes the key rather than storing five blanks.
+	/// </para>
+	/// </summary>
+	private async Task RememberAsync()
+	{
+		RememberedMapSetup draft = new(
+			_template.Trim(),
+			_attribution.Trim(),
+			_maxZoom,
+			_url.Trim(),
+			_newPackId.Trim());
+
+		if (draft.IsEmpty)
+		{
+			await Settings.RemoveAsync(RememberedMapSetup.StorageKey);
+			return;
+		}
+
+		await Settings.SetAsync(RememberedMapSetup.StorageKey, draft.Encode());
+	}
+
+	/// <summary>
+	/// Brings the form into line with what is stored. The custom fields are only overwritten from
+	/// a custom source: a rider who has typed a URL, switched to OSM to compare, and switched back
+	/// should find their text still there.
+	/// </summary>
+	private void Adopt(MapSource source)
+	{
+		_kind = source.Kind;
+
+		if (source.Kind == MapSourceKind.Custom)
+		{
+			_template = source.UrlTemplate ?? string.Empty;
+			_attribution = source.Attribution ?? string.Empty;
+			_maxZoom = source.MaxZoom;
+		}
+
+		if (source.Kind == MapSourceKind.Offline)
+		{
+			_packId = source.PackId;
+		}
+	}
+
+	/// <summary>
+	/// Picking a radio. OSM applies at once — there is nothing to fill in — while Custom only
+	/// moves the form, because a source with no URL in it yet cannot draw anything.
+	/// </summary>
+	private async Task ChooseAsync(MapSourceKind kind)
+	{
+		_kind = kind;
+		_status = null;
+
+		if (kind == MapSourceKind.Osm)
+		{
+			await MapSources.SetAsync(MapSource.Default);
+			_status = "Using OpenStreetMap.";
+			return;
+		}
+
+		if (kind == MapSourceKind.Offline)
+		{
+			// One pack on the device is not a choice worth making the rider make. Several, and the
+			// list below is where they pick; until they do, nothing is stored — an offline source
+			// with no pack id cannot draw a map and MapSource refuses it.
+			if (Packs.Packs.Count == 1)
+			{
+				await ChoosePackAsync(Packs.Packs[0].PackId);
+			}
+		}
+	}
+
+	/// <summary>Selects a downloaded pack, which is also what turns the offline source on.</summary>
+	private async Task ChoosePackAsync(string packId)
+	{
+		_kind = MapSourceKind.Offline;
+		_packId = packId;
+
+		await MapSources.SetAsync(MapSource.OfflinePack(packId));
+		_status = $"Using {packId}. This map works with no signal.";
+	}
+
+	private async Task DownloadAsync()
+	{
+		if (!CanDownload)
+		{
+			return;
+		}
+
+		await RememberAsync();
+		await Packs.DownloadAsync(_newPackId.Trim(), new Uri(_url.Trim()));
+
+		// Deliberately not cleared on success. The next pack a rider adds is almost always another
+		// region from the same host — an edit of two words rather than a URL to find again — and a
+		// failed link is the thing they are about to correct, which wiping would make them retype
+		// to fix one character.
+	}
+
+	/// <summary>
+	/// Removes a pack, and stops drawing with it if it was the one selected — the alternative is a
+	/// stored source pointing at a file that is gone, which falls back silently and looks like the
+	/// delete did nothing.
+	/// </summary>
+	private async Task DeletePackAsync(string packId)
+	{
+		await Packs.DeleteAsync(packId);
+
+		if (_packId == packId)
+		{
+			_packId = null;
+			_kind = MapSourceKind.Osm;
+			await MapSources.ResetAsync();
+		}
+	}
+
+	private async Task ApplyCustomAsync()
+	{
+		_touched = true;
+
+		if (!CustomIsUsable)
+		{
+			return;
+		}
+
+		await RememberAsync();
+
+		try
+		{
+			await MapSources.SetAsync(MapSource.Custom(_template.Trim(), _attribution.Trim(), _maxZoom));
+			_status = "Tile server applied. The preview below is using it.";
+		}
+		catch (ArgumentException exception)
+		{
+			// MapSource.Normalised refused it after the form thought it was fine. Say what the
+			// state said rather than inventing a friendlier sentence that discards it.
+			_status = exception.Message;
+		}
+	}
+
+	public void Dispose()
+	{
+		MapSources.Changed -= OnSourceChanged;
+		Packs.Changed -= OnPacksChanged;
+	}
+}
+
+<style>
+	/* The hint belonging to a radio, indented under it so it reads as that option's small
+	   print rather than as the next thing on the form. */
+	.map-settings .hint.indent {
+		margin: 0.1rem 0 0.9rem 1.75rem;
+	}
+
+	.map-settings fieldset.custom,
+	.map-settings fieldset.download {
+		margin-top: 1rem;
+	}
+
+	/* The packs on this device. A row is a choice, a size and a way out of it — nothing else,
+	   because this is the screen a rider comes to when the phone says it is full. */
+	.map-settings .packs {
+		list-style: none;
+		margin: 0 0 0.9rem 1.75rem;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.map-settings .packs li {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.4rem 0.6rem;
+		border: 1px solid var(--dlr-border);
+		border-radius: 6px;
+	}
+
+	.map-settings .packs li.chosen {
+		border-color: var(--dlr-accent);
+		background: var(--dlr-accent-soft);
+	}
+
+	.map-settings .packs label.radio {
+		flex: 1;
+		margin: 0;
+		min-width: 0;
+	}
+
+	.map-settings .packs .name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.map-settings .packs .size {
+		font-size: 0.85rem;
+		color: var(--dlr-fg-muted);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.map-settings .packs .remove {
+		flex-shrink: 0;
+		padding: 0.25rem 0.6rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border-strong);
+		border-radius: 4px;
+		color: var(--dlr-fg);
+		font: inherit;
+		font-size: 0.85rem;
+		cursor: pointer;
+	}
+
+	.map-settings .packs .remove:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	.map-settings .progress {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
+	}
+
+	.map-settings .progress progress {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.map-settings .progress span {
+		font-size: 0.85rem;
+		color: var(--dlr-fg-muted);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.map-settings .progress button {
+		flex-shrink: 0;
+		/* The same 48 px target the rest of the app uses for anything pressed in a hurry. */
+		min-height: 44px;
+		padding: 0 0.9rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border-strong);
+		border-radius: 6px;
+		color: var(--dlr-fg);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.map-settings .hint code {
+		font-size: 0.85em;
+	}
+
+	.map-settings .error-text {
+		margin: 0.5rem 0 0;
+		color: var(--dlr-error);
+	}
+
+	.map-settings .status {
+		margin: 1rem 0 0;
+		color: var(--dlr-fg-muted);
+	}
+
+	.map-settings .preview {
+		margin-top: 2rem;
+	}
+
+	.map-settings .preview h2 {
+		margin: 0 0 0.25rem;
+		font-size: 1.1rem;
+	}
+
+	/* RideMap's container carries a 480 px min-height for a full screen. A sample of a tile
+	   server does not need that much of a phone, and the map still pans and zooms. */
+	.map-settings .preview-map {
+		margin-top: 0.75rem;
+		border: 1px solid var(--dlr-border);
+		border-radius: 6px;
+		overflow: hidden;
+	}
+
+	.map-settings .preview-map .dlr-map-container {
+		min-height: 300px;
+	}
+</style>

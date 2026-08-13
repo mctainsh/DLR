@@ -135,7 +135,23 @@ builder.Services.AddScoped<IRideHubClient, ThrowingRideHubClient>();
 builder.Services.AddScoped<IRideRepository, HttpRideRepository>();
 builder.Services.AddScoped<ITrackRepository, HttpTrackRepository>();
 builder.Services.AddScoped<ITokenStore, CookieBackedTokenStore>();
+// The ride screens resolve a device-local cache of the ride (§4.4). This host has no device to
+// keep one on and the browser it hands off to keeps none either (§18.6), so both bind the store
+// that answers "nothing stored" — which is what lets the shared screens ask unconditionally.
+builder.Services.AddScoped<IOfflineStore, UnavailableOfflineStore>();
+builder.Services.AddScoped<RideSnapshotCache>();
+// Nor any downloaded map archive, nor a server for one (§18.6) — registered so the prerender
+// resolves the map seam rather than throwing before WASM can boot.
+builder.Services.AddScoped<IMapPackStore, UnavailableMapPackStore>();
+builder.Services.AddScoped<IMapPackServer, UnavailableMapPackServer>();
+builder.Services.AddScoped(sp => new MapPackDownloader(
+	sp.GetRequiredService<IMapPackStore>(),
+	MapPackDownloader.CreateCredentialFreeClient()));
+builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
 builder.Services.AddScoped<ILocationProvider, NoopLocationProvider>();
+// The live map asks for the screen to stay on (§4.3). There is no screen on this host, and the
+// browser it hands off to binds the same stub (§18.6).
+builder.Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
 builder.Services.AddScoped<INotificationService, NoopNotificationService>();
 builder.Services.AddScoped<IMediaPicker, NoopMediaPicker>();
 // Transient to match the interactive hosts: one interop per <RideMap>. Stateless here, but a
@@ -144,18 +160,16 @@ builder.Services.AddTransient<IMapInterop, UninitialisedMapInterop>();
 builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Apple));
 builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Google));
 
-// §18.6: MainLayout injects ThemeState so it can set `data-theme` on the outer element.
-// The SSR pass has no browser localStorage and no MAUI Preferences to read from — the
-// in-memory stub answers Dark (the design default) and the client's own DI takes over
-// once WASM boots and rehydrates from localStorage.
-builder.Services.AddScoped<IThemeService, InMemoryThemeService>();
-builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
-
-// Device-local preferences (§18.6). Same story as the theme above: the prerender has no
-// device to read from, so it renders the shipped RouteStyle defaults and the WASM client
-// re-resolves against localStorage once it boots.
+// Device-local preferences (§18.6). The prerender has no device to read from, so it renders
+// the shipped RouteStyle defaults and the WASM client re-resolves against localStorage once
+// it boots.
 builder.Services.AddScoped<IDeviceSettings, InMemoryDeviceSettings>();
 builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
+
+// Which tiles go under the map (§4.5). RideMap injects it, so it has to resolve here or the
+// prerender throws before WASM can boot. The in-memory store answers "nothing chosen", which is
+// OpenStreetMap — the same map the client re-resolves to once it reads localStorage.
+builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
 // The private area (§10.1, §18.6). Registered for the prerender because the profile screen
 // injects it; the SSR pass reads an empty in-memory store, so it renders "no private area"

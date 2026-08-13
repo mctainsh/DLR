@@ -50,6 +50,7 @@ public sealed class RideMapTests : BunitContext
 				"Could not load MapLibre GL JS from https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js."),
 		};
 		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
 
 		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
 			.Add(p => p.Camera, SampleCamera));
@@ -95,6 +96,7 @@ public sealed class RideMapTests : BunitContext
 		module.SetupVoid("present", _ => true).SetVoidResult();
 
 		Services.AddSingleton<IMapInterop>(new FakeMapInterop());
+		Services.AddRideMapServices();
 
 		// The overlay's own dependencies. A missing service throws during component
 		// instantiation, which an ErrorBoundary does not catch — a different failure from the
@@ -171,6 +173,7 @@ public sealed class RideMapTests : BunitContext
 	{
 		FakeMapInterop map = new() { InitException = new InvalidOperationException("no base map in this test host.") };
 		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
 
 		Render<RideMap>(parameters => parameters
 			.Add(p => p.Camera, SampleCamera)
@@ -187,6 +190,7 @@ public sealed class RideMapTests : BunitContext
 	{
 		FakeMapInterop map = new() { InitException = new InvalidOperationException("no base map in this test host.") };
 		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
 
 		Render<RideMap>(parameters => parameters.Add(p => p.Camera, SampleCamera));
 
@@ -219,6 +223,7 @@ public sealed class RideMapTests : BunitContext
 
 		FakeMapInterop map = new() { InitialViewport = ViewportAtRatio(1) };
 		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
 		Services.AddSingleton<RouteStyleState>();
 
@@ -295,6 +300,7 @@ public sealed class RideMapTests : BunitContext
 			InitException = new InvalidOperationException("base map module unreachable in this test host."),
 		};
 		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
 
 		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
 			.Add(p => p.Camera, SampleCamera));

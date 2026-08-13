@@ -10,9 +10,89 @@
 <div class="page page-medium form-page account">
 	<PageNav Title="Account" BackHref="/settings" BackLabel="Back to settings" />
 
+	@*
+		The recovery address (§7.7). First on the page because this is where "add an email" from
+		Profile lands — a link about setting an address that opened on a password form was sending
+		people to the wrong control.
+	*@
+	<section id="email">
+		<h2>Recovery email</h2>
+
+		@if (_profile is null)
+		{
+			<p class="empty">Loading…</p>
+		}
+		else
+		{
+			<p class="note">
+				The only way back into this account if you forget your password or lose your phone.
+				Optional, and never used for anything else.
+			</p>
+
+			@if (_profile.Email is null)
+			{
+				<p><em>No email on file.</em></p>
+			}
+			else
+			{
+				<p>
+					<strong>@_profile.Email</strong>
+					@if (_profile.EmailConfirmed)
+					{
+						<span class="badge good">confirmed</span>
+					}
+					else
+					{
+						<span class="badge bad">unconfirmed</span>
+					}
+				</p>
+			}
+
+			<form id="email-form" @onsubmit="SetEmailAsync" @onsubmit:preventDefault="true">
+				<label>
+					@(_profile.Email is null ? "Email address" : "New email address")
+					<input type="email" @bind="_email" autocomplete="email" placeholder="you@example.com" />
+				</label>
+				<button type="submit" class="primary" disabled="@(_emailBusy || string.IsNullOrWhiteSpace(_email))">
+					@(_emailBusy ? "Working…" : _profile.Email is null ? "Save address" : "Change address")
+				</button>
+			</form>
+
+			@*
+				An address only becomes a recovery address once the link is followed (§7.7), so the
+				one thing this screen owes an unconfirmed address is another chance at the link.
+			*@
+			@if (_profile.Email is not null && !_profile.EmailConfirmed)
+			{
+				<p>
+					<button type="button" disabled="@_emailBusy" @onclick="ResendConfirmationAsync">
+						Resend confirmation link
+					</button>
+				</p>
+			}
+
+			@if (_emailError is not null)
+			{
+				<div class="error" role="alert">
+					<strong>@_emailError.Title</strong>
+					@if (_emailError.Messages.Count > 0)
+					{
+						<ul>@foreach (string message in _emailError.Messages) { <li>@message</li> }</ul>
+					}
+				</div>
+			}
+			@if (_emailStatus is not null)
+			{
+				<p class="status">@_emailStatus</p>
+			}
+		}
+	</section>
+
+	<hr />
+
 	<section>
 		<h2>Change password</h2>
-		<form @onsubmit="ChangePasswordAsync" @onsubmit:preventDefault="true">
+		<form id="password-form" @onsubmit="ChangePasswordAsync" @onsubmit:preventDefault="true">
 			<label>
 				<PasswordField 
 						Id="signin-password"
@@ -72,6 +152,74 @@
 	private ApiError? _passwordError;
 	private bool _busy;
 
+	/// <summary>What the account holds now — the address on file and whether it has been confirmed.</summary>
+	private OwnProfile? _profile;
+
+	private string _email = string.Empty;
+	private string? _emailStatus;
+	private ApiError? _emailError;
+	private bool _emailBusy;
+
+	protected override async Task OnInitializedAsync() => _profile = await Api.GetProfileAsync();
+
+	private async Task SetEmailAsync()
+	{
+		if (_emailBusy || string.IsNullOrWhiteSpace(_email)) return;
+		_emailBusy = true;
+		_emailStatus = null;
+		_emailError = null;
+		try
+		{
+			await Api.SetEmailAsync(new SetEmailRequest(_email.Trim()));
+
+			// Read the account back rather than assuming: the address is stored unconfirmed, and a
+			// screen that showed it as confirmed would be claiming a recovery path that is not
+			// there yet (§7.7).
+			_profile = await Api.GetProfileAsync();
+			_emailStatus =
+				"Saved. Check that inbox for a confirmation link — it works for 24 hours, and until " +
+				"you use it the address cannot recover your account.";
+			_email = string.Empty;
+		}
+		catch (ApiException apiException)
+		{
+			_emailError = apiException.Error;
+		}
+		catch (Exception exception)
+		{
+			_emailError = new ApiError(default, "Could not save that address.", new[] { exception.Message });
+		}
+		finally
+		{
+			_emailBusy = false;
+		}
+	}
+
+	private async Task ResendConfirmationAsync()
+	{
+		if (_emailBusy) return;
+		_emailBusy = true;
+		_emailStatus = null;
+		_emailError = null;
+		try
+		{
+			await Api.ResendConfirmationAsync();
+			_emailStatus = "Sent again. The new link works for 24 hours; older ones still work until they expire.";
+		}
+		catch (ApiException apiException)
+		{
+			_emailError = apiException.Error;
+		}
+		catch (Exception exception)
+		{
+			_emailError = new ApiError(default, "Could not send that again.", new[] { exception.Message });
+		}
+		finally
+		{
+			_emailBusy = false;
+		}
+	}
+
 	private async Task ChangePasswordAsync()
 	{
 		if (_busy) return;
@@ -102,4 +250,7 @@
 
 <style>
 	.account .error { margin-top: 0.5rem; }
+	.account .badge.good { background: #d1fae5; color: #196c2e; }
+	.account .badge.bad { background: #fef3c730; color: #92400e; }
+	.account .status { margin-top: 1rem; }
 </style>

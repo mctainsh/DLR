@@ -18,7 +18,7 @@ namespace BlazorDLR.Shared.State;
 /// </summary>
 public sealed class GpsProfileState
 {
-	/// <summary>The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.theme</c>.</summary>
+	/// <summary>The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.route-style</c>.</summary>
 	public const string StorageKey = "dlr.gps-profile";
 
 	/// <summary>

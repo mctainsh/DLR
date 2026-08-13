@@ -580,4 +580,83 @@ public sealed class GroupRideLiveTests : PageTestContext
 				"removing the area must take the circle off the map, not leave a stale one."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
+
+	// -- The screen lock (§4.3) -------------------------------------------------------------
+
+	/// <summary>
+	/// Registers a countable screen lock over <c>PageTestContext</c>'s stub, and hands it back so
+	/// the test can read it.
+	/// </summary>
+	private FakeScreenWakeLock WireScreenWakeLock()
+	{
+		FakeScreenWakeLock wakeLock = new();
+		Services.AddSingleton<IScreenWakeLock>(wakeLock);
+		return wakeLock;
+	}
+
+	[Fact]
+	public void TheLiveMap_HoldsTheScreenOn_WhileItIsThePage()
+	{
+		// The one thing a rider on a bar mount cannot do is tap the screen to wake it: gloves on,
+		// at speed, both hands where they should be. The platform's idle timer measures input, and
+		// reading a map produces none — so without this the map goes black mid-ride.
+		(_, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+		FakeScreenWakeLock wakeLock = WireScreenWakeLock();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => wakeLock.IsHeld.ShouldBeTrue("the live map holds the screen for as long as it is on screen."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		wakeLock.RequestCount.ShouldBe(1,
+			"taken once on first render — the map re-renders about once a second on positions alone, "
+			+ "and a request per frame would be a platform call per frame.");
+	}
+
+	[Fact]
+	public async Task LeavingTheLiveMap_GivesTheScreenBack()
+	{
+		(_, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+		FakeScreenWakeLock wakeLock = WireScreenWakeLock();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => wakeLock.IsHeld.ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// How this suite spells "the rider navigated away" — the router disposes the page.
+		await component.InvokeAsync(() => component.Instance.DisposeAsync().AsTask());
+
+		wakeLock.IsHeld.ShouldBeFalse(
+			"a page that is no longer on screen must not go on holding the device awake — "
+			+ "that is somebody's battery for a map nobody is reading.");
+		wakeLock.ReleaseCount.ShouldBe(1, "released exactly once, matching the one request.");
+	}
+
+	[Fact]
+	public async Task ARideThatNeverLoaded_StillGivesTheScreenBack()
+	{
+		// The lock is taken on first render, before the snapshot has landed and regardless of
+		// whether it ever does. The pairing has to hold on that path too, or a ride opened in a
+		// dead zone and abandoned leaves the screen pinned on until the app is killed.
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+		api.RideException = new HttpRequestException("No such host is known.");
+
+		FakeScreenWakeLock wakeLock = WireScreenWakeLock();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => wakeLock.IsHeld.ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Instance.DisposeAsync().AsTask());
+
+		wakeLock.IsHeld.ShouldBeFalse();
+	}
 }

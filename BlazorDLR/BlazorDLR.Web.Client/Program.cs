@@ -78,8 +78,27 @@ internal class Program
 		// this store is a no-op on purpose — writing is silent, reading returns null.
 		builder.Services.AddScoped<ITokenStore, CookieBackedTokenStore>();
 
-		// No GPS in the browser (§18.6); no push in the browser in v1 (§18.2).
+		// No device-local copy of a ride in the browser — §18.6 keeps offline-first a property of
+		// the phone. Registered rather than omitted because the shared ride screens resolve the
+		// cache unconditionally; this one answers "nothing stored" and drops every write, which is
+		// the truthful answer here and keeps the screens free of a host check.
+		builder.Services.AddScoped<IOfflineStore, UnavailableOfflineStore>();
+		builder.Services.AddScoped<RideSnapshotCache>();
+
+		// No downloaded map archives here either, and therefore nothing to serve them over (§18.6).
+		// Registered rather than omitted because the map seam resolves them unconditionally.
+		builder.Services.AddScoped<IMapPackStore, UnavailableMapPackStore>();
+		builder.Services.AddScoped<IMapPackServer, UnavailableMapPackServer>();
+		builder.Services.AddScoped(sp => new MapPackDownloader(
+			sp.GetRequiredService<IMapPackStore>(),
+			MapPackDownloader.CreateCredentialFreeClient()));
+		builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
+
+		// No GPS in the browser (§18.6); no push in the browser in v1 (§18.2). The screen lock is
+		// the same answer for a different reason — the API exists here, the case for it does not
+		// (see UnavailableScreenWakeLock).
 		builder.Services.AddScoped<ILocationProvider, NoopLocationProvider>();
+		builder.Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
 		builder.Services.AddScoped<INotificationService, NoopNotificationService>();
 
 		// Web IMediaPicker uses <InputFile> plumbed through a static holder — real
@@ -104,17 +123,15 @@ internal class Program
 		// reported ever reached C#.
 		builder.Services.AddTransient<IMapInterop, MapLibreInterop>();
 
-		// Theme preference (§18.6): dark by default, persisted in browser localStorage.
-		// ThemeState broadcasts changes to the layout so the data-theme attribute updates
-		// without a page reload.
-		builder.Services.AddScoped<IThemeService, LocalStorageThemeService>();
-		builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
-
-		// Device-local preferences that are not the theme (§18.6), also in localStorage.
+		// Device-local preferences (§18.6), in browser localStorage.
 		// RouteStyleState broadcasts to the Skia overlay so a change made on the ride's info
 		// page is on the map before the rider gets back to it.
 		builder.Services.AddScoped<IDeviceSettings, LocalStorageDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
+
+		// Which tiles go under the map (§4.5). The offline option resolves to OpenStreetMap here —
+		// this host has no pack store (§18.6), which MapSourceState reads off IOfflineStore.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
 		// The private area (§10.1, §18.6): a point and a radius this browser never sends
 		// anywhere. It gates recording and publishing, neither of which the web host does

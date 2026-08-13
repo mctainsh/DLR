@@ -4,11 +4,12 @@ namespace BlazorDLR.Shared.Services;
 /// A small key/value store for preferences that belong to <em>this device</em> and never
 /// travel to the server (§18.6).
 /// <para>
-/// <strong>Generic, unlike <see cref="IThemeService"/>.</strong> The theme predates this and
-/// has a seam of its own. Everything after it goes through here instead: a per-setting
-/// interface means a new interface, three host implementations and three DI registrations
-/// every time somebody adds a checkbox, and the three implementations only ever differ in
-/// which platform API holds the string.
+/// <strong>Generic, and deliberately the only one of its kind.</strong> The app used to have a
+/// second, single-purpose store beside this one for the colour theme; when that setting was
+/// removed its whole seam went with it, and nothing has needed one since. A per-setting
+/// interface means a new interface, three host implementations and three DI registrations every
+/// time somebody adds a checkbox, and the three implementations only ever differ in which
+/// platform API holds the string.
 /// </para>
 /// <para>
 /// <strong>Values are opaque strings.</strong> The backing stores — browser

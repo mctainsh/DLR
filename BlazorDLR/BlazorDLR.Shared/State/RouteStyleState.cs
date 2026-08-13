@@ -6,7 +6,7 @@ namespace BlazorDLR.Shared.State;
 /// The <see cref="RouteStyle"/> in force right now, plus a broadcast so the map repaints the
 /// moment somebody moves the width slider on the ride's info page.
 /// <para>
-/// One instance per app (scoped in each host), the same shape as <see cref="ThemeState"/>:
+/// One instance per app (scoped in each host), the same shape as <see cref="PrivateAreaState"/>:
 /// the persisted value is read once through <see cref="IDeviceSettings"/>, kept in memory
 /// afterwards, and every change fires <see cref="Changed"/>. The alternative — each map frame
 /// reading <c>localStorage</c> — is a JS interop call per repaint on a surface that repaints
@@ -16,7 +16,7 @@ namespace BlazorDLR.Shared.State;
 public sealed class RouteStyleState
 {
 	/// <summary>
-	/// The <see cref="IDeviceSettings"/> key. Namespaced like the theme's <c>dlr.theme</c>, and
+	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.private-area</c>, and
 	/// versioned inside the value rather than in the key so an added field does not orphan
 	/// what a device already stored.
 	/// </summary>

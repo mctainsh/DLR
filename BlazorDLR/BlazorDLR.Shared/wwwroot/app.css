@@ -1,16 +1,21 @@
 /*
-    App-wide colours and typography. The palette is the design's dark default (§18.6);
-    a `data-theme="light"` attribute on <html> flips every variable to its light twin.
-    Every component reads through var(--dlr-*) rather than a hard-coded colour, which
-    is what makes the theme toggle a one-line change.
+    App-wide colours and typography. ONE palette — the design's dark one (§18.6) — and it
+    is the only one there has ever effectively been. Every component reads through
+    var(--dlr-*) rather than a hard-coded colour, so a designer can retune the whole app
+    from this block without touching a component.
+
+    There was a light twin here, selected by `data-theme` and offered from Settings →
+    Profile. It never applied: the selectors were `:root[data-theme=…]`, which match
+    <html>, and the attribute was written onto MainLayout's `<div class="app">`, so the
+    values below were always the ones in force. It is deleted rather than repaired —
+    this app is read through a visor in daylight, and dark IS the design.
 
     A NOTE ON SCREENSHOTS. The reference screenshot uses a very dark navy background,
     a slightly lighter tile-panel colour, muted grey borders, and accent blue for the
-    active-state on the icon rail. The variables below match those choices — a designer
-    can retune the palette without touching the components.
+    active-state on the icon rail. The variables below match those choices.
 */
 
-:root, :root[data-theme="dark"] {
+:root {
     color-scheme: dark;
 
     /* Surfaces */
@@ -121,30 +126,6 @@
 :root[data-notch="none"] {
     --dlr-safe-left:  0px;
     --dlr-safe-right: 0px;
-}
-
-:root[data-theme="light"] {
-    color-scheme: light;
-
-    --dlr-bg:            #f8fafc;
-    --dlr-surface:       #ffffff;
-    --dlr-surface-2:     #f1f5f9;
-    --dlr-rail:          #ffffff;
-    --dlr-border:        #e2e8f0;
-    --dlr-border-strong: #cbd5e1;
-
-    --dlr-fg:            #0f172a;
-    --dlr-fg-muted:      #475569;
-    --dlr-fg-quiet:      #94a3b8;
-
-    --dlr-accent:        #2563eb;
-    --dlr-accent-fg:     #ffffff;
-    --dlr-accent-soft:   rgba(37, 99, 235, 0.10);
-
-    --dlr-error:         #b91c1c;
-    --dlr-error-bg:      #fee2e2;
-    --dlr-warn-bg:       #fef3c730;
-    --dlr-good:          #16a34a;
 }
 
 html, body {

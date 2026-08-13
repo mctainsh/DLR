@@ -32,7 +32,7 @@ namespace BlazorDLR.Shared.State;
 public sealed class CurrentRideState
 {
 	/// <summary>
-	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.theme</c> and
+	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.route-style</c> and
 	/// <c>dlr.live-map-view</c>.
 	/// <para>
 	/// The value is a bare ride id, with none of the leading <c>1|</c> version marker the

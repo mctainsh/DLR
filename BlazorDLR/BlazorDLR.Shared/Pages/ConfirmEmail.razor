@@ -1,0 +1,147 @@
+@page "/confirm-email"
+@inject IApiClient Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Confirming your email — Dumb Luck Routes</PageTitle>
+
+@*
+	Where the emailed confirmation link lands (§7.7, §7.14). `{BaseUrl}/confirm-email?userId=…&token=…`,
+	as AccountEmails writes it. Good for 24 hours, and single-use.
+
+	Anonymous, deliberately: the link is followed in whatever browser the mail was opened in,
+	which is very often not the one holding a session. The token is the proof, and the endpoint
+	answers with a fresh session — so confirming from a borrowed laptop signs that laptop in,
+	which is the same thing the emailed link already implied.
+*@
+
+<div class="page page-form form-page recover">
+	<h1>Email confirmation</h1>
+
+	@if (UserId is null || string.IsNullOrWhiteSpace(Token))
+	{
+		<div class="error" role="alert">
+			<strong>That link is not complete.</strong>
+			<p>
+				Some mail apps break long links across lines. Copy the whole address out of the
+				email, or ask for a fresh one from Settings once you are signed in.
+			</p>
+		</div>
+
+		<p><a href="/welcome">Go to sign in</a></p>
+	}
+	else if (_state == State.Working)
+	{
+		<p class="empty">Confirming…</p>
+	}
+	else if (_state == State.Confirmed)
+	{
+		<div class="callout">
+			<strong>Confirmed.</strong>
+			This address can now recover the account if you forget your password or lose your
+			phone. It is not shown to anyone else unless you turn that on in Profile.
+		</div>
+
+		<button type="button" class="primary" @onclick="GoHome">Continue</button>
+	}
+	else
+	{
+		<div class="error" role="alert">
+			<strong>@(_error?.Title ?? "That link did not work.")</strong>
+			@if (_error is { Messages.Count: > 0 })
+			{
+				<ul>@foreach (string message in _error.Messages) { <li>@message</li> }</ul>
+			}
+		</div>
+
+		@*
+			A link that was already used is the common case here, and it is not a failure worth
+			alarming anyone about — the address is confirmed either way. Both routes out are
+			offered rather than guessed between, because this screen cannot tell which happened
+			without asking the server about an account it may not be signed in to.
+		*@
+		<p>
+			Already confirmed on another device? Nothing is wrong — just
+			<a href="/welcome">sign in</a>. Otherwise ask for a new link from
+			<a href="/settings/account#email">Settings → Account</a>.
+		</p>
+	}
+</div>
+
+@* AGPL §13 source offer — every page, public and authed (§14.6.2). *@
+<BlazorDLR.Shared.Components.SourceOfferFooter />
+
+@code {
+	private enum State { Working, Confirmed, Failed }
+
+	/// <summary>Whose address, from the emailed link.</summary>
+	[Parameter]
+	[SupplyParameterFromQuery(Name = "userId")]
+	public Guid? UserId { get; set; }
+
+	/// <summary>The 24-hour token, from the emailed link.</summary>
+	[Parameter]
+	[SupplyParameterFromQuery(Name = "token")]
+	public string? Token { get; set; }
+
+	private State _state = State.Working;
+	private ApiError? _error;
+
+	/// <summary>
+	/// Whether the token has been spent. The link is single-use, so this must happen exactly
+	/// once per arrival however many times the component initialises.
+	/// </summary>
+	private bool _sent;
+
+	/// <summary>
+	/// Confirms on arrival rather than behind a button. The rider already made the decision when
+	/// they tapped the link in the mail, and a second "yes, really" is a step that only exists to
+	/// be got wrong.
+	/// </summary>
+	protected override async Task OnInitializedAsync()
+	{
+		if (_sent || UserId is not { } userId || string.IsNullOrWhiteSpace(Token))
+		{
+			return;
+		}
+
+		_sent = true;
+
+		try
+		{
+			// No device id or name: this host does not hold one yet, and the session that comes
+			// back is a normal one either way — the arguments exist so a client that does can
+			// name the device in Settings → Signed-in devices (§7.10).
+			TokenResponse session = await Api.ConfirmEmailAsync(new ConfirmEmailRequest(userId, Token));
+
+			// The session is the point, not a side effect: confirming changes what the account may
+			// do (§7.8's ladder drops the `rst` claim), and a client left holding the old access
+			// token would stay restricted for another fifteen minutes with nothing to explain it.
+			await Auth.ApplySessionAsync(session);
+
+			_state = State.Confirmed;
+		}
+		catch (ApiException apiException)
+		{
+			_error = apiException.Error;
+			_state = State.Failed;
+		}
+		catch (Exception exception)
+		{
+			_error = new ApiError(default, "Could not reach the server.", new[] { exception.Message });
+			_state = State.Failed;
+		}
+	}
+
+	private void GoHome() => Nav.NavigateTo("/", forceLoad: false);
+}
+
+<style>
+	.recover {
+		margin-top: 2rem;
+	}
+
+		.recover .error {
+			color: #a91c1c;
+		}
+</style>

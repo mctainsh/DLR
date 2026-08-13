@@ -29,6 +29,7 @@ public sealed class RideSession : IAsyncDisposable
 	private readonly IRideHubClient _hub;
 	private readonly AuthState _auth;
 	private readonly LocationBroadcastState? _broadcast;
+	private readonly RideSnapshotCache? _cache;
 
 	private readonly Dictionary<Guid, RiderPositionDto> _positions = new();
 	private readonly Dictionary<Guid, MarkerDto> _markers = new();
@@ -56,12 +57,27 @@ public sealed class RideSession : IAsyncDisposable
 	/// Optional so a test that only cares about markers or members can leave it out.
 	/// </para>
 	/// </param>
-	public RideSession(IApiClient api, IRideHubClient hub, AuthState auth, LocationBroadcastState? broadcast = null)
+	/// <param name="cache">
+	/// This device's copy of the ride (§4.4), or <c>null</c> for a caller that keeps none.
+	/// <para>
+	/// A successful load writes through it, and a load that could not reach the server reads back
+	/// from it — see <see cref="LoadAsync"/>. Optional for the same reason
+	/// <paramref name="broadcast"/> is, and null on the browser hosts in all but name: the store
+	/// behind it answers "nothing" there (§18.6).
+	/// </para>
+	/// </param>
+	public RideSession(
+		IApiClient api,
+		IRideHubClient hub,
+		AuthState auth,
+		LocationBroadcastState? broadcast = null,
+		RideSnapshotCache? cache = null)
 	{
 		_api = api;
 		_hub = hub;
 		_auth = auth;
 		_broadcast = broadcast;
+		_cache = cache;
 
 		WireHub();
 	}
@@ -93,6 +109,31 @@ public sealed class RideSession : IAsyncDisposable
 	/// </para>
 	/// </summary>
 	public bool RideUnavailable { get; private set; }
+
+	/// <summary>
+	/// Whether what is on screen came out of this device's own copy rather than off the wire
+	/// (§4.4) — the server could not be reached, and the last snapshot it gave us was drawn
+	/// instead.
+	/// <para>
+	/// <strong>Screens must say so.</strong> A map of where everybody was twenty minutes ago is
+	/// the most useful thing a rider who has lost signal can be shown and the most dangerous
+	/// thing to mistake for live, and the difference between the two is entirely whether the app
+	/// said which one it was. <see cref="CachedUtc"/> is the other half of that sentence.
+	/// </para>
+	/// <para>
+	/// Cleared by the next load that reaches the server. Note that a hub that comes up while this
+	/// is set will start moving pins around underneath it — that is a good thing, and it is why
+	/// <see cref="CachedUtc"/> is stated as an age rather than the whole screen being labelled
+	/// stale.
+	/// </para>
+	/// </summary>
+	public bool LoadedFromCache { get; private set; }
+
+	/// <summary>
+	/// When the server last confirmed what is on screen, or <c>null</c> when it came off the wire
+	/// just now. Only ever set alongside <see cref="LoadedFromCache"/>.
+	/// </summary>
+	public DateTimeOffset? CachedUtc { get; private set; }
 
 	/// <summary>Whether a mutating call is in flight — the caller's cue to disable its controls.</summary>
 	public bool Busy { get; private set; }
@@ -204,6 +245,12 @@ public sealed class RideSession : IAsyncDisposable
 	/// <summary>
 	/// Fetches the snapshot for <paramref name="rideId"/> and joins its hub group. Safe to call
 	/// again for a different ride — the previous ride's group is left first.
+	/// <para>
+	/// A load that succeeds writes what it got to this device (§4.4); a load that could not reach
+	/// the server reads it back — see <see cref="LoadFromCacheAsync"/>. The two failure modes are
+	/// kept strictly apart: the server <em>saying</em> the ride is not there is never answered
+	/// from a cache, because the copy would be of a ride this rider is no longer on.
+	/// </para>
 	/// </summary>
 	public async Task LoadAsync(Guid rideId)
 	{
@@ -213,6 +260,8 @@ public sealed class RideSession : IAsyncDisposable
 		Ride = null;
 		Error = null;
 		RideUnavailable = false;
+		LoadedFromCache = false;
+		CachedUtc = null;
 		Routes = [];
 		RoutePolyline = null;
 		WindDownEndsUtc = null;
@@ -258,6 +307,20 @@ public sealed class RideSession : IAsyncDisposable
 			// routes: §5.3's rule is that the snapshot is authoritative and the hub is the delta.
 			ApplyRoutes(await _api.ListRideRoutesAsync(rideId));
 
+			// Everything landed, so this is a whole ride and worth keeping. After the four calls
+			// and before the hub, so the copy is exactly what the server said and carries none of
+			// the deltas that arrive on top of it — §5.3's rule, applied to storage: the snapshot
+			// is authoritative, and a snapshot with a few minutes of hub events folded into it is
+			// no longer a snapshot of anything the server would agree with.
+			//
+			// Awaited, unlike the receiver above: a file write costs microseconds, and abandoning
+			// it would leave an unobserved task racing the next load of a different ride for the
+			// same store.
+			if (_cache is not null)
+			{
+				await _cache.WriteAsync(Ride, [.. _markers.Values], Routes, [.. _positions.Values]);
+			}
+
 			Raise();
 
 			try
@@ -285,6 +348,22 @@ public sealed class RideSession : IAsyncDisposable
 			RideUnavailable = apiException.Error.StatusCode
 				is HttpStatusCode.NotFound or HttpStatusCode.Forbidden or HttpStatusCode.Gone;
 
+			if (RideUnavailable)
+			{
+				// The ride is gone, or this rider is not on it. The stored copy describes a ride
+				// they may not look at any more, so it goes with the membership — the alternative
+				// is a removed rider still opening the map from a cache, which is the one thing a
+				// removal has to be able to stop.
+				await ForgetCacheAsync(rideId);
+			}
+			else
+			{
+				// The server answered, but not with a ride: a 500, a 429, a captive portal's
+				// interception. The ride still exists as far as anybody knows, so this is the same
+				// situation as a tunnel and gets the same answer.
+				await LoadFromCacheAsync(rideId);
+			}
+
 			Raise();
 		}
 		catch (Exception exception)
@@ -292,7 +371,86 @@ public sealed class RideSession : IAsyncDisposable
 			// A transport failure — no status, no statement from the server. It stays an error and
 			// nothing more: a ride must never be forgotten because a phone went through a tunnel.
 			Error = exception.Message;
+
+			// This is the case the cache exists for (§4.4): the rider is in a dead zone and the
+			// ride they were on is the screen they need. See LoadFromCacheAsync for what the
+			// error above turns into when there is a copy to draw.
+			await LoadFromCacheAsync(rideId);
+
 			Raise();
+		}
+	}
+
+	/// <summary>
+	/// Draws this ride out of the device's own copy, when the server could not be reached (§4.4).
+	/// <para>
+	/// Called from both failure paths above, and does nothing at all on a host with no store or a
+	/// ride this device has never held — which leaves the stated error exactly as it was, because
+	/// "the request failed" is still the whole truth there.
+	/// </para>
+	/// <para>
+	/// <strong>The hub is deliberately not attempted.</strong> Reaching here means the network is
+	/// not answering, and a SignalR connect against a dead link spends its whole timeout budget
+	/// before failing — with the map, which is already fully drawable, held behind it. A rider who
+	/// gets signal back re-opens the ride and takes the live path.
+	/// </para>
+	/// <para>
+	/// <strong>The receiver still comes up.</strong> A phone with no signal still has a GPS, and
+	/// the rider's own mark is drawn from the device's fix rather than the ride's copy of it — so
+	/// following themselves along a cached route is exactly what still works out here. The
+	/// publishes fail and <c>LocationBroadcastState</c> says so, which is the honest report.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">The ride that could not be fetched.</param>
+	private async Task LoadFromCacheAsync(Guid rideId)
+	{
+		if (_cache is null)
+		{
+			return;
+		}
+
+		RideSnapshot? snapshot = await _cache.ReadAsync(rideId);
+
+		if (snapshot is null)
+		{
+			return;
+		}
+
+		Ride = snapshot.Ride;
+		LoadedFromCache = true;
+		CachedUtc = snapshot.CachedUtc;
+
+		// The error the caller stated is replaced rather than kept beside this. A screen showing a
+		// ride does not also need a transport exception's wording over the top of it — being on a
+		// cached copy is the fact that matters, and LoadedFromCache is how the screen says it.
+		Error = null;
+
+		foreach (RiderPositionDto position in snapshot.Positions)
+		{
+			_positions[position.UserId] = position;
+		}
+
+		foreach (MarkerDto marker in snapshot.Markers)
+		{
+			_markers[marker.Id] = marker;
+		}
+
+		ApplyRoutes(snapshot.Routes);
+
+		Sharing = snapshot.Ride.Members.FirstOrDefault(member => member.UserId == _auth.UserId)?.Sharing ?? false;
+
+		if (Sharing)
+		{
+			StartBroadcast(rideId);
+		}
+	}
+
+	/// <summary>Drops this device's copy of a ride, tolerating a host that keeps none.</summary>
+	private async Task ForgetCacheAsync(Guid rideId)
+	{
+		if (_cache is not null)
+		{
+			await _cache.ForgetAsync(rideId);
 		}
 	}
 
@@ -421,6 +579,10 @@ public sealed class RideSession : IAsyncDisposable
 			// showing one — the same state a load that 404s leaves behind, and what tells the
 			// caller's CurrentRideState to forget it.
 			RideUnavailable = true;
+
+			// And the device's copy goes with the membership. Leaving it would let the ride open
+			// offline from a cache after the rider had walked away from it (§4.4).
+			await ForgetCacheAsync(_rideId);
 
 			// And the receiver stops caring about this ride. It keeps running if another ride is
 			// still being shared with — see LocationBroadcastState.StopSharingAsync.
@@ -578,6 +740,11 @@ public sealed class RideSession : IAsyncDisposable
 			// are not on.
 			Sharing = false;
 			_ = _broadcast?.StopSharingAsync(_rideId);
+
+			// Same reasoning as LeaveRideAsync: the copy goes with the membership. Fire-and-forget
+			// because this is a hub callback with no caller to await it, and a delete that loses a
+			// race with the app closing is retried by the next load's 404 anyway.
+			_ = ForgetCacheAsync(_rideId);
 
 			Raise();
 			return;

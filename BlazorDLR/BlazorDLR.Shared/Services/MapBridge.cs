@@ -23,14 +23,17 @@ public sealed class MapBridge
 {
 	private readonly Action<MapViewport> _forwardViewport;
 	private readonly Action<MapClick> _forwardClick;
+	private readonly Action<string> _forwardError;
 
 	/// <summary>Creates a bridge that forwards to a host interop's events.</summary>
 	/// <param name="forwardViewport">Raises <see cref="IMapInterop.ViewportChanged"/>.</param>
 	/// <param name="forwardClick">Raises <see cref="IMapInterop.Clicked"/>.</param>
-	public MapBridge(Action<MapViewport> forwardViewport, Action<MapClick> forwardClick)
+	/// <param name="forwardError">Raises <see cref="IMapInterop.ErrorOccurred"/>.</param>
+	public MapBridge(Action<MapViewport> forwardViewport, Action<MapClick> forwardClick, Action<string> forwardError)
 	{
 		_forwardViewport = forwardViewport;
 		_forwardClick = forwardClick;
+		_forwardError = forwardError;
 	}
 
 	/// <summary>Called by the base-map module whenever the view moves.</summary>
@@ -42,4 +45,17 @@ public sealed class MapBridge
 	/// <param name="click">Where they tapped.</param>
 	[JSInvokable]
 	public void OnMapClicked(MapClick click) => _forwardClick(click);
+
+	/// <summary>
+	/// Called when the base map itself reports a problem — a tile that would not load, a style that
+	/// would not parse, a source it could not reach.
+	/// <para>
+	/// These do not throw out of <c>createMap</c>: the map object exists and is happily rendering
+	/// nothing, so without this the failure is entirely silent and a rider sees a blank rectangle
+	/// with no explanation anywhere. It is the one class of map failure that used to be invisible.
+	/// </para>
+	/// </summary>
+	/// <param name="message">What MapLibre said.</param>
+	[JSInvokable]
+	public void OnMapError(string message) => _forwardError(message);
 }

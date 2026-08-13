@@ -89,6 +89,35 @@ public static class MauiProgram
 		// SecureStorage → Keychain / Keystore, this-device-only accessibility (§7.4).
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.ITokenStore, SecureStorageTokenStore>();
 
+		// The device's own copy of what the server said (§4.4). Files under the app's data
+		// directory rather than Preferences: one ride's planned routes are tens of kilobytes of
+		// encoded polyline, and the preference store keeps everything it holds in memory.
+		//
+		// This is the host that has one. Both browser hosts bind UnavailableOfflineStore and
+		// answer "nothing stored" to every read (§18.6) — the phone is the thing in the rider's
+		// pocket in a dead zone, which is the whole case for keeping a copy.
+		builder.Services.AddScoped<BlazorDLR.Shared.Services.IOfflineStore, FileOfflineStore>();
+		builder.Services.AddScoped<BlazorDLR.Shared.Services.RideSnapshotCache>();
+
+		// Downloaded map archives (§4.5, §13 Q26). A separate seam from IOfflineStore above, and the
+		// difference is what reads them: that one holds a few kilobytes of JSON read whole by C#,
+		// these are hundreds of megabytes read in ranges by MapLibre inside the WebView.
+		//
+		// Singletons, both. The store is stateless but the server owns a bound loopback port and a
+		// per-run secret, and a second instance would be a second port serving the same files —
+		// which is also why it is disposed with the app rather than with a scope.
+		builder.Services.AddSingleton<BlazorDLR.Shared.Services.IMapPackStore, FileMapPackStore>();
+		builder.Services.AddSingleton<BlazorDLR.Shared.Services.IMapPackServer,
+			BlazorDLR.Shared.Services.Platform.LoopbackMapPackServer>();
+
+		// The downloader owns an HttpClient of its own rather than taking the registered one, which
+		// carries BearerAuthHandler — attaching the rider's access token to a request aimed at a
+		// host they pasted would hand their session to a stranger's web server (§18.5).
+		builder.Services.AddSingleton(sp => new BlazorDLR.Shared.Services.MapPackDownloader(
+			sp.GetRequiredService<BlazorDLR.Shared.Services.IMapPackStore>(),
+			BlazorDLR.Shared.Services.MapPackDownloader.CreateCredentialFreeClient()));
+		builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
+
 		// GPS (§4.3). The platform providers live under Platforms/, one per target: an Android
 		// foreground service over the fused location provider, and CLLocationManager on iOS.
 		// Both are singletons — each owns one receiver, and a second instance would be a second
@@ -104,6 +133,12 @@ public static class MauiProgram
 #else
 		builder.Services.AddSingleton<BlazorDLR.Shared.Services.ILocationProvider, NoopLocationProvider>();
 #endif
+
+		// The screen stays on while the live map is being read (§4.3). Singleton for the same
+		// reason the receiver is: there is one window and one flag on it, so one thing counts who
+		// has asked for it. Both browser hosts bind the stub — the case for it is a phone on a bar
+		// mount, not a laptop with a tab open (§18.6).
+		builder.Services.AddSingleton<BlazorDLR.Shared.Services.IScreenWakeLock, DeviceDisplayScreenWakeLock>();
 
 		// Push is the seam still deferred on this host — it needs FCM/APNs registrations that
 		// happen with store submission.
@@ -141,15 +176,16 @@ public static class MauiProgram
 		// dispose another's bridge — see the note in BlazorDLR.Web.Client/Program.cs.
 		builder.Services.AddTransient<BlazorDLR.Shared.Services.IMapInterop, BlazorDLR.Shared.Services.MapLibreInterop>();
 
-		// Theme preference (§18.6): dark by default, persisted in MAUI Preferences.
-		builder.Services.AddScoped<BlazorDLR.Shared.Services.IThemeService, PreferencesThemeService>();
-		builder.Services.AddScoped<BlazorDLR.Shared.State.ThemeState>();
-
-		// Device-local preferences that are not the theme (§18.6), also in MAUI Preferences.
+		// Device-local preferences (§18.6), in MAUI Preferences.
 		// RouteStyleState broadcasts to the Skia overlay so a change made on the ride's info
 		// page is on the map before the rider gets back to it.
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IDeviceSettings, PreferencesDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
+
+		// Which tiles go under the map (§4.5). Scoped like every other device preference, and
+		// scoped is what lets the settings screen's preview restyle as the rider edits it —
+		// RideMap listens to the same instance the settings page writes.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
 		// The private area (§10.1, §18.6). This is the host that records and publishes fixes,
 		// so this is the host where the gate matters: every fix goes through

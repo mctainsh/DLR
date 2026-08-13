@@ -1,8 +1,7 @@
 @inherits LayoutComponentBase
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.State
-@inject ThemeState Theme
-@implements IDisposable
+@inject AuthState Auth
 
 @*
 	The one layout every page composes with (§18.6).
@@ -22,13 +21,15 @@
 	The wrapper is `.shell`, not `.page`: `.page` is the shared *content column* every
 	page uses (wwwroot/app.css), and the two must not fight over the same name.
 
-	The <div class="app"> wrapper carries `data-theme="dark|light"`. That attribute is
-	what the CSS variables in wwwroot/app.css read from. A change to Theme.Preference
-	fires ThemeState.Changed, this component re-renders, and the attribute updates —
-	no page reload.
+	There is ONE palette, and it is the dark one on `:root` in wwwroot/app.css. This
+	wrapper used to carry a `data-theme` attribute for a light alternative, which never
+	worked: the CSS selectors were `:root[data-theme=…]`, so they matched <html> and this
+	attribute on a div never selected anything. The attribute, the preference, its store
+	and the settings control it was set from are all gone rather than fixed — the app is
+	read through a visor in daylight and the dark palette is the design (§18.6).
 *@
 
-<div class="app" data-theme="@Theme.DataAttributeValue">
+<div class="app">
 	<div class="shell">
 		<nav class="rail">
 			<NavMenu />
@@ -47,27 +48,23 @@
 </div>
 
 @code {
-	protected override void OnInitialized()
-	{
-		// Subscribe synchronously so the initial SSR pass renders `data-theme="dark"`
-		// from ThemeState's in-memory default without touching JS interop — the WASM
-		// binding reads localStorage, and JS is not reachable until after first render.
-		Theme.Changed += OnThemeChanged;
-	}
-
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
-		// Only run the persisted-preference read after WASM has taken over and JS is
-		// reachable. Before then, LocalStorageThemeService would throw an
-		// InvalidOperationException that surfaces as Blazor's yellow error banner —
-		// which is exactly what we saw.
 		if (firstRender)
 		{
-			await Theme.LoadAsync();
+			// The app's one launch hook (§7.9). Nothing else in the client brings a session back:
+			// without this, a phone that was signed in yesterday relaunches anonymous and
+			// RedirectToWelcome asks a rider to sign in to an account they never signed out of.
+			//
+			// Here rather than in each host's Program.cs because it needs a rendered tree to
+			// broadcast into — and here rather than on a page because every page is downstream of
+			// this layout, including the Welcome screen the redirect lands on, which watches for
+			// the arriving session and takes the rider home when it turns up.
+			//
+			// After first render, because the mobile store is the Keychain and the web's is behind
+			// JS interop, neither of which exists during the prerender pass.
+			// AuthState.RestoreAsync is idempotent, so a second render costs nothing.
+			await Auth.RestoreAsync();
 		}
 	}
-
-	private void OnThemeChanged() => _ = InvokeAsync(StateHasChanged);
-
-	public void Dispose() => Theme.Changed -= OnThemeChanged;
 }

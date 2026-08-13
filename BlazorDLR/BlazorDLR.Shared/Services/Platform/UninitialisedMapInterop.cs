@@ -36,12 +36,32 @@ public sealed class UninitialisedMapInterop : IMapInterop
 	}
 
 	/// <inheritdoc />
+	public event Action<string>? ErrorOccurred
+	{
+		add { /* a map that never attaches never reports one. */ }
+		remove { /* symmetric no-op. */ }
+	}
+
+	/// <inheritdoc />
 	public ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(SsrGuard);
 
 	/// <inheritdoc />
 	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(SsrGuard);
+
+	/// <summary>
+	/// Silently ignored, unlike the two above.
+	/// <para>
+	/// This one is not a component asking a prerender to do something impossible — it is
+	/// <c>MapSourceState</c> broadcasting a change that every mounted map listens for, and on this
+	/// host there is no mounted map. The real interop treats the same call on an unattached map as
+	/// a no-op for the same reason: a caller changing a device setting has no business knowing
+	/// whether a map happens to exist.
+	/// </para>
+	/// </summary>
+	public ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default) =>
+		ValueTask.CompletedTask;
 
 	/// <inheritdoc />
 	public ValueTask DisposeAsync(CancellationToken cancellationToken = default) =>

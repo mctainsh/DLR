@@ -1,6 +1,10 @@
+using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace DLR.UI.Tests;
 
@@ -27,8 +31,38 @@ namespace DLR.UI.Tests;
 /// <c>PageNav</c> appears in their tree. <c>PageNavTests</c> is the exception and inherits
 /// this, since the component under test is the one that needs the service.
 /// </para>
+/// <para>
+/// <see cref="RideSnapshotCache"/> is here for the same reason: the ride pages resolve it to keep
+/// a device-local copy of the ride (§4.4), so it is a page-wide dependency rather than any one
+/// screen's. It is registered over <see cref="UnavailableOfflineStore"/> — the binding the browser
+/// hosts get (§18.6) — so a test gets the "this device keeps nothing" behaviour by default and
+/// nothing leaks between tests through a real file. A test about the cache itself registers
+/// <c>FakeOfflineStore</c> over the top.
+/// </para>
 /// </summary>
 public abstract class PageTestContext : BunitContext
 {
-	protected PageTestContext() => Services.AddScoped<NavigationHistory>();
+	/// <summary>
+	/// A fixed instant for the cache's <c>CachedUtc</c> stamps — <c>ClockRules</c> forbids an
+	/// ambient clock read in test source (§10.4). A test that cares about time registers its own
+	/// <see cref="TimeProvider"/>, which wins: the last registration is the one resolved.
+	/// </summary>
+	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+	protected PageTestContext()
+	{
+		Services.AddScoped<NavigationHistory>();
+
+		// The device store, the pack store and the tile source a RideMap resolves (§4.5). First,
+		// so a suite that brings its own IDeviceSettings to assert against still wins.
+		Services.AddRideMapServices();
+
+		Services.AddSingleton<TimeProvider>(new FakeTimeProvider(FixedInstant));
+		Services.AddScoped<RideSnapshotCache>();
+
+		// The live map holds the screen on while it is the page (§4.3). Registered here rather
+		// than per suite for the same reason as the cache — it is a dependency of a page, not of
+		// one test's subject. A test about the lock registers FakeScreenWakeLock over the top.
+		Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
+	}
 }

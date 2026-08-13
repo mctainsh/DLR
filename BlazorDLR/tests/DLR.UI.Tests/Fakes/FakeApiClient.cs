@@ -49,8 +49,18 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>The last <see cref="EditTrackAsync"/> request the UI sent, for §15.5 assertions.</summary>
 	public EditTrackRequest? LastEditTrackRequest { get; private set; }
 
-	/// <summary>Set to make Token / Register throw the given ApiException.</summary>
-	public ApiException? TokenException { get; set; }
+	/// <summary>
+	/// Set to make Token / Register throw.
+	/// <para>
+	/// Typed as the base <see cref="HttpRequestException"/> rather than <see cref="ApiException"/>
+	/// so §7.9's distinction can be tested at the token endpoint: an <see cref="ApiException"/> is
+	/// the server refusing and carries the status it refused with, while a bare
+	/// <see cref="HttpRequestException"/> has no status because there was no response — a rider in
+	/// a tunnel, which must never end a session. <see cref="ApiException"/> derives from it, so a
+	/// test that was already assigning one is unaffected.
+	/// </para>
+	/// </summary>
+	public HttpRequestException? TokenException { get; set; }
 
 	private T Recorded<T>(string method, T result)
 	{
@@ -82,11 +92,65 @@ public sealed class FakeApiClient : IApiClient
 	public Task<bool> IsUserNameAvailableAsync(string userName, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(IsUserNameAvailableAsync), UserNameAvailableResult));
 
-	public Task SetEmailAsync(SetEmailRequest request, CancellationToken cancellationToken = default) { Record(nameof(SetEmailAsync)); return Task.CompletedTask; }
-	public Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ConfirmEmailAsync), TokenResult ?? new TokenResponse("access", 900, "refresh", new AuthenticatedUser(request.UserId, "test", true, true))));
+	/// <summary>The last address the UI asked the server to store (§7.7).</summary>
+	public SetEmailRequest? LastSetEmailRequest { get; private set; }
+
+	/// <summary>Set to make <see cref="SetEmailAsync"/> throw.</summary>
+	public ApiException? SetEmailException { get; set; }
+
+	public Task SetEmailAsync(SetEmailRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(SetEmailAsync));
+		LastSetEmailRequest = request;
+		if (SetEmailException is not null) throw SetEmailException;
+		return Task.CompletedTask;
+	}
+
+	/// <summary>The last link the confirm page followed (§7.14).</summary>
+	public ConfirmEmailRequest? LastConfirmEmailRequest { get; private set; }
+
+	/// <summary>Set to make <see cref="ConfirmEmailAsync"/> throw — a stale or spent link.</summary>
+	public ApiException? ConfirmEmailException { get; set; }
+
+	public Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ConfirmEmailAsync));
+		LastConfirmEmailRequest = request;
+		if (ConfirmEmailException is not null) throw ConfirmEmailException;
+		return Task.FromResult(TokenResult
+			?? new TokenResponse("access", 900, "refresh", new AuthenticatedUser(request.UserId, "test", true, true)));
+	}
+
 	public Task ResendConfirmationAsync(CancellationToken cancellationToken = default) { Record(nameof(ResendConfirmationAsync)); return Task.CompletedTask; }
-	public Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default) { Record(nameof(ForgotPasswordAsync)); return Task.CompletedTask; }
-	public Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default) { Record(nameof(ResetPasswordAsync)); return Task.CompletedTask; }
+
+	/// <summary>The last address a reset link was asked for (§7.7).</summary>
+	public ForgotPasswordRequest? LastForgotPasswordRequest { get; private set; }
+
+	/// <summary>Set to make <see cref="ForgotPasswordAsync"/> throw — a transport failure, never "no such address" (§7.8).</summary>
+	public ApiException? ForgotPasswordException { get; set; }
+
+	public Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ForgotPasswordAsync));
+		LastForgotPasswordRequest = request;
+		if (ForgotPasswordException is not null) throw ForgotPasswordException;
+		return Task.CompletedTask;
+	}
+
+	/// <summary>The last reset the UI submitted, for §7.7 assertions.</summary>
+	public ResetPasswordRequest? LastResetPasswordRequest { get; private set; }
+
+	/// <summary>Set to make <see cref="ResetPasswordAsync"/> throw — a stale link, or a refused password.</summary>
+	public ApiException? ResetPasswordException { get; set; }
+
+	public Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ResetPasswordAsync));
+		LastResetPasswordRequest = request;
+		if (ResetPasswordException is not null) throw ResetPasswordException;
+		return Task.CompletedTask;
+	}
+
 	/// <summary>The last password change request.</summary>
 	public ChangePasswordRequest? LastChangePasswordRequest { get; private set; }
 
@@ -150,8 +214,18 @@ public sealed class FakeApiClient : IApiClient
 	public Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(ListMyRidesAsync), MyRidesResult));
 
-	/// <summary>Set to make <see cref="GetRideAsync"/> throw — a ride that 404s, or one this rider is not on.</summary>
-	public ApiException? RideException { get; set; }
+	/// <summary>
+	/// Set to make <see cref="GetRideAsync"/> throw.
+	/// <para>
+	/// Typed as the base <see cref="HttpRequestException"/> rather than <see cref="ApiException"/>
+	/// so both halves of §7.9's distinction can be tested: an <see cref="ApiException"/> is the
+	/// server answering — a ride that 404s, or one this rider is not on — and a bare
+	/// <see cref="HttpRequestException"/> with no status is a phone in a tunnel, which is the case
+	/// the offline cache exists for (§4.4). <see cref="ApiException"/> derives from it, so a test
+	/// that was already assigning one is unaffected.
+	/// </para>
+	/// </summary>
+	public HttpRequestException? RideException { get; set; }
 
 	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default)
 	{

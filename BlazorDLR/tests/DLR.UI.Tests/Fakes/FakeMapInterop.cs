@@ -45,6 +45,15 @@ public sealed class FakeMapInterop : IMapInterop
 
 	public event Action<MapClick>? Clicked;
 
+	/// <summary>The base map complaining. Raised by <see cref="RaiseError"/>, never on its own.</summary>
+	public event Action<string>? ErrorOccurred;
+
+	/// <summary>
+	/// Stands in for MapLibre reporting a problem it did not throw for — a tile source it cannot
+	/// reach, a style it cannot parse. The real module raises this from a JS event.
+	/// </summary>
+	public void RaiseError(string message) => ErrorOccurred?.Invoke(message);
+
 	/// <summary>
 	/// Stands in for the user tapping the base map. The real modules raise this from a JS
 	/// SDK event; a bUnit test has no SDK, so it calls this directly.
@@ -62,6 +71,13 @@ public sealed class FakeMapInterop : IMapInterop
 	/// <summary>Every camera passed to <see cref="SetCameraAsync"/>, in order.</summary>
 	public List<MapCamera> Cameras { get; } = new();
 
+	/// <summary>
+	/// Every source passed to <see cref="SetSourceAsync"/>, in order — the restyles a map performs
+	/// while it is on screen (§4.5). The one <see cref="InitAsync"/> opened with is not in here;
+	/// that is <c>LastOptions.EffectiveSource</c>.
+	/// </summary>
+	public List<MapSource> Sources { get; } = new();
+
 	public ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		InitCount++;
@@ -77,6 +93,13 @@ public sealed class FakeMapInterop : IMapInterop
 	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default)
 	{
 		Cameras.Add(camera);
+		return ValueTask.CompletedTask;
+	}
+
+	public ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default)
+	{
+		Sources.Add(source);
+		Provider = source.Provider;
 		return ValueTask.CompletedTask;
 	}
 

@@ -47,6 +47,10 @@ public sealed class BearerAuthHandler : DelegatingHandler
 				|| path.Equals("/api/v1/auth/register", StringComparison.OrdinalIgnoreCase)
 				|| path.Equals("/api/v1/auth/forgot-password", StringComparison.OrdinalIgnoreCase)
 				|| path.Equals("/api/v1/auth/reset-password", StringComparison.OrdinalIgnoreCase)
+				// Followed from an emailed link, in whatever browser opened the mail. The token in
+				// the body is the proof and the endpoint is anonymous, so attaching a bearer would
+				// only mean refreshing — or signing out — a session that has nothing to do with it.
+				|| path.Equals("/api/v1/auth/confirm-email", StringComparison.OrdinalIgnoreCase)
 				|| path.Equals("/api/v1/auth/web/token", StringComparison.OrdinalIgnoreCase));
 
 		AuthState auth = _services.GetRequiredService<AuthState>();

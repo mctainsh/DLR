@@ -69,9 +69,22 @@
 		NSExceptionDomains for the local development host only, or drop the key entirely for
 		Release. See Documentation/store-release.md, which tracks this as a release gate.
 	-->
+	<!--
+		NSAllowsLocalNetworking permits cleartext HTTP to loopback and link-local addresses, and
+		nothing else. The app needs it for its own map-pack server on 127.0.0.1, which is how
+		MapLibre range-reads a downloaded PMTiles archive it could not otherwise address (§4.5) —
+		and for the debug API base, which MauiConstants points at http://127.0.0.1:5005/.
+
+		It is stated separately rather than left to NSAllowsArbitraryLoads above, which is far
+		broader than anything this app needs and should be narrowed before store submission
+		(Documentation/store-release.md). When it goes, the loopback allowance has to survive it,
+		and this is the key that does that.
+	-->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
 	
@@ -80,7 +93,7 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 	<key>CFBundleVersion</key>
-	<string>20</string>
+	<string>21</string>
 
 	<!--
 		Purpose strings. App Review reads these, and 5.1.1 rejections for location are almost

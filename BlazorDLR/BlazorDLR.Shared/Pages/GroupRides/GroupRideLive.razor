@@ -12,6 +12,8 @@
 @inject LocationBroadcastState Broadcast
 @inject NavigationManager Nav
 @inject PrivateAreaState PrivateAreas
+@inject RideSnapshotCache Cache
+@inject IScreenWakeLock ScreenWakeLock
 @inject IDeviceSettings Settings
 @inject TimeProvider Clock
 @implements IAsyncDisposable
@@ -76,7 +78,29 @@
 			the same kind of thing: something the app could not do, said out loud rather than left
 			to be inferred from a pin that never moves.
 		*@
-		@if (_session.Sharing && Broadcast.NeedsAttention)
+		@*
+			The ride could not be fetched and this device's own copy was drawn instead (§4.4).
+
+			It has to be said out loud and it has to carry an age. A map of where the group was
+			twenty minutes ago is the most useful thing a rider who has lost signal can be handed
+			and the most dangerous thing to mistake for live — riding towards a pin that stopped
+			moving before the group turned off is exactly the failure — and the only difference
+			between those two readings is whether the app said which one it was.
+
+			First in the chain, ahead of the receiver's own complaint. Both are true at once out
+			here — a phone that cannot fetch a ride cannot publish a fix either — and of the two,
+			"you are looking at an old copy" is the one that changes what the rider does with what
+			is on screen. The receiver's state is not lost by yielding the strip: it is in the menu
+			under the hamburger, on every frame, which is where a rider goes to ask.
+		*@
+		@if (_session.LoadedFromCache)
+		{
+			<div class="map-error cached" role="status">
+				<i class="fa fa-cloud-arrow-down" aria-hidden="true"></i>
+				<span>Offline — this ride as it was @CachedAge.</span>
+			</div>
+		}
+		else if (_session.Sharing && Broadcast.NeedsAttention)
 		{
 			<div class="map-error gps-alert error" role="alert">
 				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
@@ -384,6 +408,12 @@
 	private bool _showConsent;
 
 	/// <summary>
+	/// Whether this page is currently one of the screen lock's holders (§4.3), so it releases
+	/// exactly what it took and no more. See <see cref="HoldScreenAsync"/>.
+	/// </summary>
+	private bool _holdingScreen;
+
+	/// <summary>
 	/// Whether this ride has already been dropped from the device's memory of "the ride you are
 	/// on" (§18.6). One ride's disappearance is one decision, and the session raises for plenty
 	/// of other reasons after it.
@@ -427,6 +457,45 @@
 	private Guid? _deletingMarkerId;
 
 	private string Title => _session?.Ride?.Name ?? "Ride";
+
+	/// <summary>
+	/// How old the copy on screen is, in the words the offline strip uses (§4.4).
+	/// <para>
+	/// Coarse on purpose, and coarser the older it gets: "18 min ago" and "19 min ago" are the
+	/// same fact to somebody deciding whether to trust a pin, and a number that ticks over every
+	/// second is a thing to watch rather than a thing to read. The units are what carry the
+	/// meaning — minutes is a group that has probably not gone far, hours is not.
+	/// </para>
+	/// <para>
+	/// Recomputed on render rather than on a timer of its own. On a phone that is sharing, the
+	/// receiver re-renders this page about once a second and the label keeps up; on one that is
+	/// not, it can sit still while the copy ages — which is a stale reading of a stale copy, and
+	/// the reason the sentence never says "just now" for anything but the first minute.
+	/// </para>
+	/// </summary>
+	private string CachedAge
+	{
+		get
+		{
+			if (_session.CachedUtc is not { } cached)
+			{
+				return "when you last had signal";
+			}
+
+			// Negative when the device's clock has moved backwards under a stored stamp — a manual
+			// change, or a phone that picked up network time after being off for a week. Clamped
+			// rather than rendered, because "in 3 hours" is not a thing a cache can be.
+			TimeSpan age = Clock.GetUtcNow() - cached;
+
+			return age switch
+			{
+				{ TotalMinutes: < 1 } => "a moment ago",
+				{ TotalHours: < 1 } => $"{(int)age.TotalMinutes} min ago",
+				{ TotalDays: < 1 } => $"{(int)age.TotalHours} h ago",
+				_ => $"{(int)age.TotalDays} d ago",
+			};
+		}
+	}
 
 	/// <summary>
 	/// The glyph beside the receiver's state in the menu. Three shapes rather than one that
@@ -553,7 +622,7 @@
 
 	protected override void OnInitialized()
 	{
-		_session = new RideSession(Api, Hub, Auth, Broadcast);
+		_session = new RideSession(Api, Hub, Auth, Broadcast, Cache);
 		_session.Changed += OnSessionChanged;
 
 		// The receiver's state is drawn on this screen — see the dot on the hamburger and the
@@ -572,6 +641,12 @@
 	/// was last left on. On the web the store is behind JS interop, which does not exist during
 	/// the prerender pass. The area read is idempotent, so it costs nothing on a device the
 	/// settings screen has already read.
+	/// <para>
+	/// Also where this page takes the screen (§4.3). Here rather than in <c>OnInitialized</c> for
+	/// the same reason as the two reads above — this is the first point at which there is a device
+	/// to talk to rather than a prerender — and it is paired with the release in
+	/// <see cref="DisposeAsync"/>.
+	/// </para>
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -582,6 +657,46 @@
 
 		await PrivateAreas.LoadAsync();
 		await RestoreViewAsync();
+		await HoldScreenAsync();
+	}
+
+	/// <summary>
+	/// Asks the device to keep its screen on for as long as this map is the page (§4.3).
+	/// <para>
+	/// <strong>Unconditional, for the whole time the page is mounted.</strong> Not gated on the
+	/// ride being <c>Live</c>, not on sharing, and not on the map having moved: a rider parked at
+	/// the meeting point reading who has arrived is looking at the screen exactly as much as one
+	/// doing eighty, and a lock that switches itself off at a state change is one that goes dark
+	/// at the moment the ride starts. On a host without a screen to hold this is a no-op
+	/// (§18.6) — see <see cref="IScreenWakeLock"/>.
+	/// </para>
+	/// <para>
+	/// The flag guards the pairing rather than the lock: <c>OnAfterRenderAsync</c> and
+	/// <c>DisposeAsync</c> are not guaranteed to both run, and releasing something this page never
+	/// took would count down somebody else's hold.
+	/// </para>
+	/// </summary>
+	private async Task HoldScreenAsync()
+	{
+		if (_holdingScreen)
+		{
+			return;
+		}
+
+		_holdingScreen = true;
+		await ScreenWakeLock.RequestAsync();
+	}
+
+	/// <summary>Hands the screen back to the rider's own display timeout, if this page took it.</summary>
+	private async Task ReleaseScreenAsync()
+	{
+		if (!_holdingScreen)
+		{
+			return;
+		}
+
+		_holdingScreen = false;
+		await ScreenWakeLock.ReleaseAsync();
 	}
 
 	/// <summary>
@@ -1186,6 +1301,16 @@
 		_session.Changed -= OnSessionChanged;
 		PrivateAreas.Changed -= OnPrivateAreaChanged;
 
+		// The screen goes back to the rider's own timeout. First, because everything below it can
+		// await the network — and a page that has left the screen should not be holding the device
+		// awake for the length of a hub disconnect on a dead link.
+		//
+		// Note that this is the map's lock and not the ride's: stepping to the info page or the
+		// marker composer gives it up, and the display timeout starts counting again there. Those
+		// screens are read with the phone in a hand, at a stop; this one is read at speed with
+		// gloves on, which is the case the lock is for.
+		await ReleaseScreenAsync();
+
 		// Unsubscribed, not stopped. Leaving this page is not leaving the ride: the receiver keeps
 		// running for as long as a ride is being shared with, which is the whole point of it (§4.3).
 		Broadcast.Changed -= OnBroadcastChanged;
@@ -1347,6 +1472,33 @@
 	.live .gps-alert {
 		top: max(0.75rem, env(safe-area-inset-top));
 		color: red;
+	}
+
+	/*
+		"Offline — this ride as it was 12 min ago."
+
+		Shares the .map-error slot with the two above it, and is deliberately not styled as an
+		error: nothing has failed in a way the rider can act on, and a red strip that cannot be
+		dismissed and cannot be fixed at the side of a road becomes something to ignore. It is a
+		plain surface chip like the placing strip at the other end of the map — legible over
+		whatever the tiles are doing, and stating a fact rather than raising an alarm.
+
+		It carries its own box because .map-error is only geometry; the red one gets its
+		background from .error in app.css, and this one is not that.
+	*/
+	.live .map-error.cached {
+		top: max(0.75rem, env(safe-area-inset-top));
+		padding: 0.4rem 0.8rem;
+		background: var(--dlr-surface);
+		color: var(--dlr-fg);
+		border: 1px solid var(--dlr-border);
+		border-radius: 8px;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+		font-size: 0.85rem;
+	}
+
+	.live .map-error.cached i {
+		color: var(--dlr-fg-muted);
 	}
 
 	.live .menu hr {

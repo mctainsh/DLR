@@ -23,18 +23,30 @@ public sealed class MapLibreInterop : IMapInterop
 	private const string ModulePath = "./_content/BlazorDLR.Shared/map/map.maplibre.js";
 
 	private readonly IJSRuntime _js;
+	private readonly IMapPackServer _packs;
 
 	private IJSObjectReference? _module;
 	private IJSObjectReference? _map;
 	private DotNetObjectReference<MapBridge>? _bridge;
+	private MapSource _source = MapSource.Default;
 
-	public MapLibreInterop(IJSRuntime js)
+	/// <param name="js">The runtime the module is imported into.</param>
+	/// <param name="packs">
+	/// Turns an offline pack id into a URL the WebView can range-read (§13 Q26). On the browser
+	/// hosts it answers nothing, which is what makes an offline source fall back to OSM there.
+	/// </param>
+	public MapLibreInterop(IJSRuntime js, IMapPackServer packs)
 	{
 		_js = js;
+		_packs = packs;
 	}
 
-	/// <inheritdoc />
-	public MapProvider Provider => MapProvider.MapLibreOsm;
+	/// <summary>
+	/// Which source is currently under the map, and therefore whose credit is required. Follows
+	/// <see cref="SetSourceAsync"/> rather than being fixed at construction — the renderer is
+	/// MapLibre either way, and the attribution is the part that moves (§4.5).
+	/// </summary>
+	public MapProvider Provider => _source.Provider;
 
 	/// <inheritdoc />
 	public event Action<MapViewport>? ViewportChanged;
@@ -43,12 +55,18 @@ public sealed class MapLibreInterop : IMapInterop
 	public event Action<MapClick>? Clicked;
 
 	/// <inheritdoc />
+	public event Action<string>? ErrorOccurred;
+
+	/// <inheritdoc />
 	public async ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		_module ??= await _js.InvokeAsync<IJSObjectReference>("import", cancellationToken, ModulePath);
 		_bridge = DotNetObjectReference.Create(new MapBridge(
 			v => ViewportChanged?.Invoke(v),
-			c => Clicked?.Invoke(c)));
+			c => Clicked?.Invoke(c),
+			m => ErrorOccurred?.Invoke(m)));
+
+		_source = options.EffectiveSource;
 
 		_map = await _module.InvokeAsync<IJSObjectReference>("createMap", cancellationToken, host, new
 		{
@@ -58,7 +76,8 @@ public sealed class MapLibreInterop : IMapInterop
 			headingDeg = options.Camera.HeadingDeg,
 			showUserLocation = options.ShowUserLocation,
 			allowRotation = options.AllowRotation,
-		}, new { onViewportChanged = _bridge, onMapClicked = _bridge });
+			source = await DescribeAsync(_source, cancellationToken),
+		}, new { onViewportChanged = _bridge, onMapClicked = _bridge, onMapError = _bridge });
 	}
 
 	/// <inheritdoc />
@@ -70,6 +89,63 @@ public sealed class MapLibreInterop : IMapInterop
 			zoomLevel = camera.ZoomLevel,
 			headingDeg = camera.HeadingDeg,
 		});
+
+	/// <inheritdoc />
+	public async ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default)
+	{
+		_source = source;
+
+		if (_map is null)
+		{
+			// Not attached yet — InitAsync will carry it. A caller changing a device setting has no
+			// business knowing whether a map happens to be on screen.
+			return;
+		}
+
+		await Call("setSource", cancellationToken, await DescribeAsync(source, cancellationToken));
+	}
+
+	/// <summary>
+	/// The source as the JS module needs it: a tile template or an archive URL, a credit, and how
+	/// deep it goes. The module never sees <see cref="MapSource"/> itself, for the same reason the
+	/// viewport is a contract rather than MapLibre's own type — the two halves are versioned
+	/// separately.
+	/// <para>
+	/// <strong>Asynchronous because of one field.</strong> An offline pack has no URL until the
+	/// loopback server has been asked for one: the port is assigned by the OS and the path carries
+	/// a per-run secret, so it cannot be stored in the setting and has to be resolved each time
+	/// (see <see cref="IMapPackServer"/>).
+	/// </para>
+	/// <para>
+	/// A pack this device cannot serve — deleted since it was chosen, or a host that holds none —
+	/// falls back to the default here rather than being sent on as an offline source with nothing
+	/// behind it. The module performs the same fallback; both exist because the failure mode is a
+	/// blank map, and a rider in a dead zone reading a blank map cannot tell it from a broken app.
+	/// </para>
+	/// </summary>
+	private async ValueTask<object> DescribeAsync(MapSource source, CancellationToken cancellationToken)
+	{
+		Uri? archive = null;
+
+		if (source.Kind == MapSourceKind.Offline && source.PackId is { } packId)
+		{
+			archive = await _packs.ResolveAsync(packId, cancellationToken);
+		}
+
+		MapSource usable = source.Kind == MapSourceKind.Offline && archive is null
+			? MapSource.Default
+			: source;
+
+		return new
+		{
+			kind = usable.Kind.ToString().ToLowerInvariant(),
+			tileUrl = usable.TileUrl,
+			packId = usable.PackId,
+			archiveUrl = archive?.ToString(),
+			attribution = usable.AttributionText,
+			maxZoom = usable.MaxZoom,
+		};
+	}
 
 	/// <inheritdoc />
 	public async ValueTask DisposeAsync(CancellationToken cancellationToken = default)

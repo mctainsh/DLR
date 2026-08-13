@@ -10,6 +10,7 @@
 @inject CurrentRideState CurrentRide
 @inject LocationBroadcastState Broadcast
 @inject NavigationManager Nav
+@inject RideSnapshotCache Cache
 @inject RouteStyleState RouteStyles
 @implements IAsyncDisposable
 
@@ -480,7 +481,7 @@
 
 	protected override void OnInitialized()
 	{
-		_session = new RideSession(Api, Hub, Auth, Broadcast);
+		_session = new RideSession(Api, Hub, Auth, Broadcast, Cache);
 		_session.Changed += OnSessionChanged;
 
 		// Same handler as the session's: both mean "something this page renders has moved".

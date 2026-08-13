@@ -13,8 +13,8 @@ namespace DLR.UI.Tests.Layout;
 
 /// <summary>
 /// The one layout every page composes with. What matters here is the <c>@Body</c> slot —
-/// the layout hands the routed page a place to render, and its own chrome (nav rail, theme
-/// attribute, confirm modal) sits around it. The AGPL source-offer footer lives on the
+/// the layout hands the routed page a place to render, and its own chrome (nav rail, confirm
+/// modal) sits around it. The AGPL source-offer footer lives on the
 /// pre-auth pages (Welcome / SignIn / Register / etc.) rather than the layout — see
 /// <c>SourceOfferFooterTests</c>. The <c>#blazor-error-ui</c> element lives in
 /// <c>BlazorDLR.Web/Components/App.razor</c>, the SSR shell that wraps every route.
@@ -42,15 +42,11 @@ public sealed class MainLayoutTests : BunitContext
 		Services.AddRealAuthorizationPipeline();
 		this.CascadeAuthenticationState(auth);
 
-		// §18.6: the layout injects ThemeState so it can set the data-theme attribute
-		// on the outer <div class="app">. Tests wire the in-memory theme service —
-		// no localStorage, no MAUI preferences — so a render never has to hit JS.
-		Services.AddSingleton<IThemeService, InMemoryThemeService>();
-		Services.AddSingleton<ThemeState>();
 		Services.AddSingleton<ConfirmService>();
 
 		// The rail this layout mounts carries the current-ride globe (§18.6), which reads the
-		// device store for the ride it points at. In-memory here, as with the theme above.
+		// device store for the ride it points at. In-memory here — no localStorage, no MAUI
+		// preferences, so a render never has to hit JS.
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
 		Services.AddSingleton<CurrentRideState>();
 	}

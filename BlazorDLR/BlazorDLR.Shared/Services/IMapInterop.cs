@@ -48,11 +48,40 @@ public interface IMapInterop
 	/// </summary>
 	event Action<MapClick>? Clicked;
 
+	/// <summary>
+	/// Fired when the base map reports a problem it did not throw for — a tile source it cannot
+	/// reach, a style it cannot parse, an archive it cannot read.
+	/// <para>
+	/// <strong>Distinct from <see cref="InitAsync"/> throwing.</strong> That means no map at all;
+	/// this means a map that exists and is drawing nothing, which is the failure a rider actually
+	/// meets and the one that used to be silent. Several can arrive for one cause — a broken source
+	/// raises once per tile — so a subscriber should show the first and not stack them.
+	/// </para>
+	/// </summary>
+	event Action<string>? ErrorOccurred;
+
 	/// <summary>Attach the map to the DOM element the shared component owns.</summary>
 	ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default);
 
 	/// <summary>Move the camera.</summary>
 	ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Put different tiles under the map, without tearing it down (§4.5).
+	/// <para>
+	/// The camera, the bearing and the rider's place on screen all survive — this replaces the
+	/// style, which is the layer the tiles live in, and MapLibre keeps the view across one. That
+	/// matters because the setting is changed on a screen showing a live preview, and a map that
+	/// jumped back to a default camera on every keystroke of a URL would be unusable.
+	/// </para>
+	/// <para>
+	/// A no-op on a map that has not attached. Callers change a device setting and let the map
+	/// catch up; whether one is currently on screen is not their business.
+	/// </para>
+	/// </summary>
+	/// <param name="source">The tiles to draw. Already normalised by <c>MapSourceState</c>.</param>
+	/// <param name="cancellationToken">Cancels the call.</param>
+	ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default);
 
 	/// <summary>Tear the map down and release the JS resources.</summary>
 	ValueTask DisposeAsync(CancellationToken cancellationToken = default);
@@ -62,15 +91,22 @@ public interface IMapInterop
 /// Which base map is behind the interop, and therefore which attribution string is required
 /// (§4.5, v0.24).
 /// <para>
-/// One member since v0.24. It is still an enum rather than a deleted concept because the
-/// attribution obligation is per tile source, not per app: the PMTiles move scheduled by §13
-/// Q26 changes who must be credited, and that is the change this type exists to make visible.
+/// It went down to one member at v0.24 and was kept as an enum rather than deleted because
+/// the attribution obligation is per tile source, not per app. That is exactly what happened:
+/// the rider now chooses a source (<see cref="MapSource"/>), and each of the three carries a
+/// different credit. The renderer behind all of them is still MapLibre.
 /// </para>
 /// </summary>
 public enum MapProvider
 {
-	/// <summary>MapLibre GL JS with OpenStreetMap tiles — every host (§4.5 v0.24).</summary>
+	/// <summary>MapLibre GL JS with OpenStreetMap raster tiles. The default (§4.5 v0.24).</summary>
 	MapLibreOsm = 0,
+
+	/// <summary>A PMTiles archive on this device, read through the <c>pmtiles://</c> protocol (§13 Q26).</summary>
+	Pmtiles = 1,
+
+	/// <summary>A rider-supplied XYZ raster source, credited with whatever they supplied with it.</summary>
+	CustomRaster = 2,
 }
 
 /// <summary>Bootstrap options for <see cref="IMapInterop.InitAsync"/>.</summary>
@@ -91,10 +127,20 @@ public enum MapProvider
 /// at. That is a constraint of the design, not a preference.
 /// </para>
 /// </param>
+/// <param name="Source">
+/// Which tiles go underneath (§4.5). <c>null</c> means <see cref="MapSource.Default"/> — OSM,
+/// which is what every map drew before the setting existed, and the right answer for a caller
+/// that has no opinion.
+/// </param>
 public sealed record MapOptions(
 	MapCamera Camera,
 	bool ShowUserLocation = false,
-	bool AllowRotation = true);
+	bool AllowRotation = true,
+	MapSource? Source = null)
+{
+	/// <summary>The tiles to draw, resolving <c>null</c> to the default.</summary>
+	public MapSource EffectiveSource => Source ?? MapSource.Default;
+}
 
 /// <summary>A point the user tapped on the base map, in decimal degrees (§16.1).</summary>
 /// <param name="Latitude">Decimal degrees.</param>

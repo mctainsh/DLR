@@ -1,5 +1,6 @@
 using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +38,7 @@ public sealed class RideMapForwardTests : BunitContext
 		};
 		ObservedMapInterop wrapped = new(map);
 		Services.AddSingleton<IMapInterop>(wrapped);
+		Services.AddRideMapServices();
 
 		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
 			.Add(p => p.Camera, Camera)
@@ -62,6 +64,7 @@ public sealed class RideMapForwardTests : BunitContext
 			InitException = new InvalidOperationException("Stubbed."),
 		});
 		Services.AddSingleton<IMapInterop>(wrapped);
+		Services.AddRideMapServices();
 
 		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
 			.Add(p => p.Camera, Camera));
@@ -86,6 +89,7 @@ public sealed class RideMapForwardTests : BunitContext
 		// so unless init re-checks on the way out the move is dropped for good.
 		SlowInitMapInterop map = new();
 		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
 
 		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
 			.Add(p => p.Camera, Camera));
@@ -123,6 +127,8 @@ public sealed class RideMapForwardTests : BunitContext
 
 		public event Action<MapClick>? Clicked;
 
+		public event Action<string>? ErrorOccurred;
+
 		public void CompleteInit() => _init.TrySetResult();
 
 		public async ValueTask InitAsync(Microsoft.AspNetCore.Components.ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
@@ -138,14 +144,142 @@ public sealed class RideMapForwardTests : BunitContext
 			return ValueTask.CompletedTask;
 		}
 
+		public ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default) =>
+			ValueTask.CompletedTask;
+
 		public ValueTask DisposeAsync(CancellationToken cancellationToken = default)
 		{
-			// Nothing to release, and the two events exist only to satisfy the interface — this
-			// fake deliberately never raises either.
+			// Nothing to release, and the events exist only to satisfy the interface — this fake
+			// deliberately never raises any of them.
 			_ = ViewportChanged;
 			_ = Clicked;
+			_ = ErrorOccurred;
 			return ValueTask.CompletedTask;
 		}
+	}
+
+	// -- The tile source (§4.5) ---------------------------------------------------------------
+
+	[Fact]
+	public async Task TheDevicesChosenTileSource_ReachesTheBaseMapAtInit()
+	{
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		MapSourceState sources = Services.GetRequiredService<MapSourceState>();
+		await sources.SetAsync(MapSource.Custom("https://tiles.example.com/{z}/{x}/{y}.png", "© Example"));
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, new MapCamera(-33.868, 151.209, 12)));
+
+		component.WaitForAssertion(() =>
+		{
+			map.LastOptions.ShouldNotBeNull();
+			map.LastOptions.EffectiveSource.UrlTemplate.ShouldBe("https://tiles.example.com/{z}/{x}/{y}.png",
+				"a map must open on the tiles the rider chose, not on the default and then a restyle.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ChangingTheSourceWhileAMapIsOpen_RestylesItRatherThanRebuildingIt()
+	{
+		// This is what makes the preview on the settings screen a preview: the state is scoped, so
+		// the page writing it and the map reading it are the same instance. Restyling keeps the
+		// camera — rebuilding would throw the rider back to a default view on every edit.
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		MapSourceState sources = Services.GetRequiredService<MapSourceState>();
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, new MapCamera(-33.868, 151.209, 12)));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() =>
+			sources.SetAsync(MapSource.Custom("https://tiles.example.com/{z}/{x}/{y}.png", "© Example")));
+
+		component.WaitForAssertion(() =>
+		{
+			map.Sources.Count.ShouldBe(1);
+			map.Sources[0].Kind.ShouldBe(MapSourceKind.Custom);
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		map.InitCount.ShouldBe(1, "the map was restyled, not torn down and rebuilt.");
+	}
+
+	[Fact]
+	public async Task ASourceChangeAfterTheMapIsGone_IsNotDeliveredToIt()
+	{
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		MapSourceState sources = Services.GetRequiredService<MapSourceState>();
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, new MapCamera(-33.868, 151.209, 12)));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Instance.DisposeAsync().AsTask());
+
+		await sources.SetAsync(MapSource.Custom("https://tiles.example.com/{z}/{x}/{y}.png", "© Example"));
+
+		map.Sources.ShouldBeEmpty(
+			"a disposed map still subscribed to the state would restyle a JS object that is already gone.");
+	}
+
+	// -- The base map complaining (§4.5) --------------------------------------------------------
+
+	[Fact]
+	public void AMapThatAttachedButCannotDrawTiles_SaysSoRatherThanGoingBlank()
+	{
+		// The failure offline packs made urgent. MapLibre does not throw for an unreachable source:
+		// the map object exists and renders nothing, so without this the rider gets a blank
+		// rectangle and cannot tell it from a broken app.
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, new MapCamera(-33.868, 151.209, 12)));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		map.RaiseError("Failed to fetch pmtiles://http://127.0.0.1:5000/x/sydney.pmtiles");
+
+		component.WaitForAssertion(() =>
+		{
+			component.Markup.ShouldContain("Map tiles unavailable");
+			component.Markup.ShouldContain("sydney.pmtiles");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void RepeatedTileErrors_ShowTheFirstRatherThanFlickering()
+	{
+		// One unreachable source raises an error per tile — a screenful is twenty a second.
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, new MapCamera(-33.868, 151.209, 12)));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		map.RaiseError("the first thing that went wrong");
+		map.RaiseError("a later consequence of it");
+
+		component.WaitForAssertion(
+			() => component.Markup.ShouldContain("the first thing that went wrong"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Keeping the latest would bury the cause under its own repetitions.
+		component.Markup.ShouldNotContain("a later consequence of it");
 	}
 
 	/// <summary>An <see cref="IMapInterop"/> that records init arguments before delegating.</summary>
@@ -170,6 +304,12 @@ public sealed class RideMapForwardTests : BunitContext
 			remove => _inner.Clicked -= value;
 		}
 
+		public event Action<string>? ErrorOccurred
+		{
+			add => _inner.ErrorOccurred += value;
+			remove => _inner.ErrorOccurred -= value;
+		}
+
 		public ValueTask InitAsync(Microsoft.AspNetCore.Components.ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 		{
 			LastOptions = options;
@@ -177,6 +317,7 @@ public sealed class RideMapForwardTests : BunitContext
 		}
 
 		public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default) => _inner.SetCameraAsync(camera, cancellationToken);
+		public ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default) => _inner.SetSourceAsync(source, cancellationToken);
 		public ValueTask DisposeAsync(CancellationToken cancellationToken = default) => _inner.DisposeAsync(cancellationToken);
 	}
 }

@@ -85,6 +85,45 @@ public sealed class PlatformBindingTests
 		await Should.NotThrowAsync(() => service.UnregisterAsync());
 	}
 
+	// ---------- UnavailableMapPackStore / UnavailableMapPackServer ----------
+
+	[Fact]
+	public async Task UnavailableMapPack_HoldsNothing_AndServesNothing()
+	{
+		UnavailableMapPackStore store = new();
+		UnavailableMapPackServer server = new();
+
+		store.IsSupported.ShouldBeFalse("§18.6: a browser has nowhere to keep a few hundred megabytes.");
+		server.IsSupported.ShouldBeFalse();
+
+		(await store.ListAsync()).ShouldBeEmpty("empty rather than null — the settings screen enumerates it.");
+		(await store.OpenReadAsync("au-nsw")).ShouldBeNull();
+		await Should.NotThrowAsync(() => store.DeleteAsync("au-nsw").AsTask());
+
+		// Null rather than a throw: it is what sends MapSourceState.Effective back to an online
+		// source, which is a working map under the routes and pins the screen is actually for.
+		(await server.ResolveAsync("au-nsw")).ShouldBeNull();
+	}
+
+	// ---------- UnavailableScreenWakeLock ----------
+
+	[Fact]
+	public async Task UnavailableScreenWakeLock_IsUnsupported_AndBothCallsAreNoOps()
+	{
+		UnavailableScreenWakeLock wakeLock = new();
+
+		wakeLock.IsSupported.ShouldBeFalse(
+			"§18.6: holding the screen on is for a phone on a bar mount, not a laptop with a tab open.");
+
+		// The live map calls these unconditionally — a throw here would crash the one page the
+		// whole app is for, on the host where nothing was going to happen anyway.
+		await Should.NotThrowAsync(() => wakeLock.RequestAsync().AsTask());
+		await Should.NotThrowAsync(() => wakeLock.ReleaseAsync().AsTask());
+
+		// And an unbalanced release, which is what a page torn down before its first render does.
+		await Should.NotThrowAsync(() => wakeLock.ReleaseAsync().AsTask());
+	}
+
 	// ---------- UnavailableExternalSignInProvider ----------
 
 	[Fact]

@@ -1,5 +1,7 @@
 @using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
 @inject IMapInterop Map
+@inject MapSourceState MapSources
 @implements IAsyncDisposable
 
 @*
@@ -71,6 +73,24 @@
 		<p>@_error</p>
 	</div>
 }
+else if (_tileError is not null)
+{
+	@*
+		The map attached but cannot draw. Its own class of failure: a tile source that will not
+		answer, a style whose glyphs are missing, an offline archive the WebView will not fetch —
+		all of which leave a working map object rendering nothing at all.
+
+		Shown rather than swallowed because the alternative is a blank rectangle, and a rider
+		cannot tell that from a broken app. The wording says what is missing rather than what
+		threw, and the detail is there because the first person to hit one is usually the person
+		who can fix it.
+	*@
+	<div class="dlr-map-error" role="alert">
+		<strong>Map tiles unavailable</strong>
+		<p>The map is running but could not load its tiles. Settings → Maps offers another source.</p>
+		<p class="dlr-map-error-detail">@_tileError</p>
+	</div>
+}
 
 @code {
 	/// <summary>Where the map opens.</summary>
@@ -138,13 +158,44 @@
 	private ErrorBoundary? _overlayBoundary;
 	private bool _initialised;
 	private MapCamera? _appliedCamera;
+
+	/// <summary>
+	/// The tile source the base map is currently drawing, or null before it has attached — the
+	/// same "is the map there yet" marker <see cref="_appliedCamera"/> is, and used the same way.
+	/// <para>
+	/// It is what stops a restyle the map does not need. <c>MapSourceState.LoadAsync</c> raises
+	/// <c>Changed</c> when the device read resolves, and that lands while this component is still
+	/// inside its own first render — so without the comparison every map ever opened would follow
+	/// its init with a <c>setStyle</c> to the source it had just opened with, and flash its tiles
+	/// doing it.
+	/// </para>
+	/// </summary>
+	private MapSource? _appliedSource;
 	private string? _error;
+
+	/// <summary>
+	/// The first thing the base map said it could not do, or null while it is drawing fine.
+	/// <para>
+	/// <strong>First only.</strong> One unreachable source raises an error per tile, so keeping the
+	/// latest would flicker a different message several times a second, and keeping all of them
+	/// would bury the one that mattered under its own repetitions.
+	/// </para>
+	/// </summary>
+	private string? _tileError;
+
 	private MapViewport? _viewport;
 
 	protected override void OnInitialized()
 	{
 		Map.ViewportChanged += OnViewportChanged;
 		Map.Clicked += OnMapClick;
+		Map.ErrorOccurred += OnMapError;
+
+		// The tile source is a device setting (§4.5) and it is scoped, so the settings screen and
+		// this map are looking at the same instance. Subscribing means a change made while a map is
+		// on screen restyles it rather than waiting for the next navigation — which is what makes
+		// the preview on that screen a preview.
+		MapSources.Changed += OnMapSourceChanged;
 	}
 
 	/// <summary>
@@ -180,10 +231,18 @@
 			// its first render would otherwise lose the move entirely: OnParametersSetAsync sees no
 			// applied camera yet and returns, and this method would then record the *new* value as
 			// applied without ever having sent it, leaving the map on the old one for good.
+			// Before the camera is captured, because it is a device read and the answer decides
+			// what tiles the map opens with. Idempotent, so a page holding several maps — or one
+			// the settings screen has already read for — pays for it once.
+			await MapSources.LoadAsync();
+
 			MapCamera requested = Camera;
 
-			await Map.InitAsync(_host, new MapOptions(requested, ShowUserLocation, AllowRotation));
+			MapSource source = MapSources.Effective;
+
+			await Map.InitAsync(_host, new MapOptions(requested, ShowUserLocation, AllowRotation, source));
 			_appliedCamera = requested;
+			_appliedSource = source;
 
 			if (Camera != requested)
 			{
@@ -216,6 +275,55 @@
 		});
 	}
 
+	/// <summary>
+	/// The rider changed which tiles go under their maps. Pushed straight at the base map rather
+	/// than re-initialising it: <c>SetSourceAsync</c> swaps the style and keeps the camera, so a
+	/// map being watched while the setting changes stays on the ground it was showing.
+	/// <para>
+	/// Silent on failure. A base map that has gone away has already stated its own error, and a
+	/// second one over the top of it says nothing the rider can act on.
+	/// </para>
+	/// </summary>
+	private void OnMapSourceChanged() => _ = InvokeAsync(async () =>
+	{
+		// Null until InitAsync has succeeded — see the field. A map that has not attached picks the
+		// current source up at init, and one that failed to attach is already showing why.
+		if (_appliedSource is not { } applied || _error is not null)
+		{
+			return;
+		}
+
+		MapSource wanted = MapSources.Effective;
+
+		if (wanted == applied)
+		{
+			return;
+		}
+
+		_appliedSource = wanted;
+
+		// A new source deserves a fresh verdict — the last one's complaint says nothing about it.
+		_tileError = null;
+
+		try { await Map.SetSourceAsync(wanted); }
+		catch { /* see the remarks */ }
+	});
+
+	/// <summary>
+	/// The base map reported something it could not do. Kept only if it is the first — see
+	/// <see cref="_tileError"/>.
+	/// </summary>
+	private void OnMapError(string message)
+	{
+		if (_tileError is not null)
+		{
+			return;
+		}
+
+		_tileError = message;
+		_ = InvokeAsync(StateHasChanged);
+	}
+
 	private void OnMapClick(MapClick click)
 	{
 		if (!OnMapClicked.HasDelegate)
@@ -234,6 +342,8 @@
 	{
 		Map.ViewportChanged -= OnViewportChanged;
 		Map.Clicked -= OnMapClick;
+		Map.ErrorOccurred -= OnMapError;
+		MapSources.Changed -= OnMapSourceChanged;
 		if (_initialised)
 		{
 			await Map.DisposeAsync();
@@ -337,6 +447,7 @@
 	}
 	.dlr-map-error strong { display: block; margin-bottom: 0.25rem; }
 	.dlr-map-error p { margin: 0; }
+	.dlr-map-error-detail { margin-top: 0.35rem; opacity: 0.75; font-size: 0.8rem; overflow-wrap: anywhere; }
 
 	/* Sits over the base map rather than under it: the map still works, and the point is
 	   that what is *missing* from it is not obvious by looking. */

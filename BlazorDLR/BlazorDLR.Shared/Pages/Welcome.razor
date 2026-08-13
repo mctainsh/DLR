@@ -123,6 +123,14 @@
 					<button type="submit" class="primary" disabled="@_busy">
 						@(_busy ? "Signing in…" : "Sign in")
 					</button>
+
+					@*
+						The only entry to recovery there is (§7.7). Sign-in is where somebody
+						discovers they have forgotten the password, so it is the one place the
+						link is worth anything — and without it the emailed reset flow has no
+						way to start.
+					*@
+					<p class="forgot"><a href="/forgot-password">Forgotten your password?</a></p>
 				</form>
 			}
 
@@ -372,6 +380,11 @@
 				border-bottom-color: #2563eb;
 				font-weight: 600;
 			}
+
+		.welcome .forgot {
+			margin-top: 0.75rem;
+			font-size: 0.9rem;
+		}
 
 		.welcome .hint.good {
 			color: #196c2e;

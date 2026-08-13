@@ -34,6 +34,78 @@ Callbacks go back to C# through `interop.js`'s `dispatch`, never by calling the
 `DotNetObjectReference` directly — the reason is written at the top of that file, and it has
 already been got wrong once.
 
+## Vendored assets — `lib/`
+
+| Path | What | Version | Licence |
+| ---- | ---- | ------- | ------- |
+| `lib/maplibre/maplibre-gl.js`  | UMD bundle, defines the `maplibregl` global | 4.7.1 | 3-Clause BSD (`LICENSE.txt` beside it) |
+| `lib/maplibre/maplibre-gl.css` | Control and canvas styling                  | 4.7.1 | as above |
+| `lib/pmtiles/pmtiles.js`       | `pmtiles://` protocol plugin, defines the `pmtiles` global | 3.x | BSD-3-Clause (`LICENSE.txt` beside it) |
+| `style/basemap.json`           | Protomaps `light` theme, English labels — 68 layers over one vector source | protomaps-themes-base 4.5.0 | `LICENSE-basemaps.txt` |
+| `style/glyphs/NotoSans-*/0-255.pbf` | Noto Sans Regular / Medium / Italic, Basic Latin + Latin-1 | basemaps-assets | OFL (`glyphs/OFL.txt`) |
+| `style/sprite/light*`          | Icon sheet the style's symbol layers draw from | basemaps-assets v4 | as above |
+
+**Font stack names carry no spaces, and that is load-bearing.** Upstream the style asks for
+`"Noto Sans Regular"`; the vendored copy is rewritten to `"NotoSans-Regular"` and the glyph folders
+are named to match. MapLibre substitutes `{fontstack}` into the glyphs URL **with no
+URL-encoding**, so a name with spaces produces a request carrying literal spaces, which every
+host's static-file handler then has to percent-decode identically — and one that does not returns
+a 404 body, which MapLibre feeds to its protobuf decoder. The whole map then dies with
+`Unimplemented type: 4`, naming neither the font nor the URL. `MapAssetRules` fails the build if a
+space reappears.
+
+**About the glyph ranges.** Only `0-255` ships, which is ASCII plus the Latin-1 accents — enough
+for Australian and most western-European place names. A style renders *no* label at all without
+the range it needs, so adding one is a drop-in: fetch
+`https://protomaps.github.io/basemaps-assets/fonts/{stack}/{range}.pbf` into the same folder and it
+is picked up with no code change. `256-511` (Latin Extended-A: Polish, Czech, Turkish) is the
+obvious next one at ~128 KB per stack. Roads and coastlines draw regardless — a missing range
+degrades rather than breaks.
+
+**The style's three URLs are rewritten at runtime**, in `offlineStyle()`. Upstream they point at
+`protomaps.github.io` and a placeholder tile server; the module swaps in the local glyphs, the
+local sprite, and `pmtiles://` against this device's own archive. Attribution rides on the source
+in the style document, so MapLibre's control renders it unchanged.
+
+**These ship with the app; they are not fetched.** MapLibre used to come from jsDelivr, and that
+was the single thing standing between this app and a map in a dead zone: the library was loaded on
+first use, so a phone with no signal failed before it requested a tile. Downloaded tiles would not
+have helped. Vendoring is therefore a prerequisite for offline maps rather than housekeeping, and
+it also takes a runtime host dependency off the two online modes.
+
+`map.maplibre.js` resolves them through `import.meta.url`, not a document-relative path — this
+module is served from the shared library's static assets, and `script.src` / `link.href` resolve
+against the *page*.
+
+`MapAssetRules` in `tests/DLR.Architecture.Tests` fails the build if a module in this folder ever
+references a package CDN or a font host again.
+
+To update MapLibre: replace the two files and the licence, bump the version in this table and in
+the comment at the top of `map.maplibre.js`, and check the map still draws — there is no lockfile
+here to do it for you.
+
+## Getting an archive to test with
+
+The renderer is wired but there is nothing to point it at until a pack exists on a device — the
+downloader is the next phase. To try it by hand, build a regional extract with the
+[`pmtiles` CLI](https://github.com/protomaps/go-pmtiles):
+
+```
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles sydney.pmtiles \
+    --bbox=150.5,-34.2,151.4,-33.5 --maxzoom=14
+```
+
+That source is verified: a PMTiles v3 planet archive, z0–15, `Accept-Ranges: bytes`. The extract
+pulls only the ranges it needs, so it costs a fraction of the 137 GB behind it.
+
+Drop the result on a device as
+`{FileSystem.AppDataDirectory}/mappacks/{packId}/v1.pmtiles` — `FileMapPackStore` picks it up
+from there, and `LoopbackMapPackServer` serves it to MapLibre.
+
+`--maxzoom=14` is deliberate: above z14 MapLibre overzooms the vector data, which stays sharp
+because it is vector. It is the single biggest lever on pack size and costs almost nothing
+visually.
+
 ## Credentials
 
 **None.** MapLibre needs no key and OSM needs no account, which is why one registration line

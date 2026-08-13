@@ -24,7 +24,7 @@ namespace BlazorDLR.Shared.State;
 public sealed class PrivateAreaState
 {
 	/// <summary>
-	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.theme</c> and
+	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.current-ride</c> and
 	/// <c>dlr.route-style</c>, and versioned inside the value rather than in the key.
 	/// </summary>
 	public const string StorageKey = "dlr.private-area";

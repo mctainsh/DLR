@@ -7,7 +7,6 @@
 @using DLR.Core.Display
 @inject IApiClient Api
 @inject AuthState Auth
-@inject ThemeState Theme
 @inject PrivateAreaState PrivateAreas
 
 <PageTitle>Profile — Dumb Luck Routes</PageTitle>
@@ -55,7 +54,7 @@
 				@if (_profile.Email is null)
 				{
 					<p><em>No email on file.</em>
-						<a href="/settings/account">Add one to enable password recovery.</a>
+						<a href="/settings/account#email">Add one to enable password recovery.</a>
 					</p>
 				}
 				else
@@ -78,6 +77,7 @@
 					<p class="note">
 						Sharing an email exposes your recovery address. Turning it off does
 						not delete it — it stays your recovery address either way.
+						<a href="/settings/account#email">Change it, or resend the confirmation link.</a>
 					</p>
 				}
 			</fieldset>
@@ -121,23 +121,6 @@
 					Any other colour
 					<input type="color" value="@MarkerBackground" @onchange="OnCustomColourChosen" />
 				</label>
-			</fieldset>
-
-			<fieldset>
-				<legend>Appearance</legend>
-				<p class="note">
-					Dark is the default; light is the same layout on a light surface.
-					The choice is stored on this device and never sent to the server.
-				</p>
-				@foreach (AppTheme option in new[] { AppTheme.Dark, AppTheme.Light, AppTheme.System })
-				{
-					<label class="radio">
-						<input type="radio" name="theme" value="@option"
-							   checked="@(Theme.Preference == option)"
-							   @onchange="() => OnThemeSelectedAsync(option)" />
-						@ThemeLabel(option)
-					</label>
-				}
 			</fieldset>
 
 			<button type="submit" class="primary" disabled="@_saving">
@@ -289,12 +272,7 @@
 		_sharePhoneNumber = _profile.SharePhoneNumber;
 		_shareEmail = _profile.ShareEmail;
 		_markerColour = MarkerColours.Or(_profile.MarkerColour);
-
-		// The theme has already been loaded by MainLayout on the interactive pass —
-		// `Theme.Preference` is set. This page just reads it for the radio's checked-state.
 	}
-
-	private Task OnThemeSelectedAsync(AppTheme theme) => Theme.SetAsync(theme);
 
 	/// <summary>
 	/// The colour well's answer. Browsers hand back <c>#rrggbb</c>, and anything else is dropped
@@ -506,14 +484,6 @@
 			_areaStatus = $"Could not remove it: {exception.Message}";
 		}
 	}
-
-	private static string ThemeLabel(AppTheme theme) => theme switch
-	{
-		AppTheme.Dark => "Dark",
-		AppTheme.Light => "Light",
-		AppTheme.System => "System",
-		_ => theme.ToString(),
-	};
 
 	private async Task SaveAsync()
 	{

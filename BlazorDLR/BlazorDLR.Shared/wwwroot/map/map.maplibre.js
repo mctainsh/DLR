@@ -1,4 +1,4 @@
-// MapLibre GL JS + OpenStreetMap raster tiles — the base map on every surface (§4.5 v0.24).
+// MapLibre GL JS — the base map on every surface (§4.5 v0.24).
 //
 // v0.24 consolidated three base maps into this one. There is no per-host module any more:
 // iOS, Android and the web all import this file, because none of them needs anything the
@@ -9,38 +9,87 @@
 // Base-map role only: tiles, camera, rotation, attribution. Every rider pin, marker and
 // route lives in SkiaMapOverlay on top (§4.5 v0.21).
 //
-// OSM's tile usage policy is a real constraint, not a formality (§4.5, §13 Q26). This module
-// points at `tile.openstreetmap.org` directly, so no third-party style server sits between
-// us and OSM, and `TILES` below is the single line that moves when the tile source does.
+// NOTHING IN HERE REACHES A THIRD PARTY EXCEPT THE TILES. The library is vendored beside this
+// file and the style is built inline, so the only host a map talks to is whichever tile server
+// the rider chose — and on an offline pack, none at all. That is the property the offline work
+// exists to protect, and it is easy to lose by "just" pulling one asset off a CDN.
+//
+// Which tiles is the rider's choice (§4.5): C# resolves a MapSource and hands it down through
+// `options.source`. OSM's tile usage policy remains a real constraint on the default (§13 Q26) —
+// this module requests `tile.openstreetmap.org` directly, with no style server in between.
 
 import { dispatch, createViewportReporter, registerTracker, unregisterTracker } from "./interop.js";
 
-// Version pinned so a build is reproducible. `dist/maplibre-gl.js` is the UMD bundle:
-// one request, one copy of the library, everything hanging off the `maplibregl` global.
+// MapLibre GL JS 4.7.1, VENDORED — `lib/maplibre/` beside this file, not a CDN.
 //
-// The same trap the OpenLayers module documented applies here and is worth keeping written
-// down, because the next person to "modernise" this line will hit it: the per-module ESM
-// sources under the package root import bare specifiers a browser cannot resolve without an
-// import map, and per-entry CDN ESM bundles (`/+esm`) inline separate copies of the library
-// so instanceof checks across entries fail.
-const MAPLIBRE_BASE = "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1";
+// It used to come from jsDelivr, and that was the single thing standing between this app and a
+// map in a dead zone: the library was fetched on first use, so a phone with no signal failed
+// here, before a tile was ever requested. Downloaded tiles would not have helped. Vendoring is
+// therefore a prerequisite for offline maps rather than a tidy-up, and it also takes a runtime
+// host dependency off the two online modes (§4.5 listed it as an outstanding cost).
+//
+// Resolved through `import.meta.url` rather than a document-relative path: `script.src` and
+// `link.href` resolve against the *page*, and this module is served out of the shared library's
+// static assets — so a page at any route would otherwise look for the bundle in the wrong place.
+//
+// `maplibre-gl.js` is the UMD bundle: one request, one copy of the library, everything hanging
+// off the `maplibregl` global. The trap the OpenLayers module documented still applies and is
+// worth keeping written down, because the next person to "modernise" this will hit it: the
+// per-module ESM sources import bare specifiers a browser cannot resolve without an import map,
+// and per-entry ESM bundles inline separate copies of the library so instanceof checks across
+// entries fail.
+const MAPLIBRE_BASE = new URL("./lib/maplibre/", import.meta.url);
+const SCRIPT_URL = new URL("maplibre-gl.js", MAPLIBRE_BASE).href;
+const STYLESHEET_URL = new URL("maplibre-gl.css", MAPLIBRE_BASE).href;
 
-// The tile source. §13 Q26 moves this to self-hosted PMTiles before public announcement —
-// at which point this becomes a `pmtiles://` URL and a vector style, and nothing else in
-// this file changes shape. Until then OSM's donated tiles carry development.
-const TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+// The PMTiles protocol plugin, vendored beside MapLibre for the same reason (§13 Q26). It is what
+// turns a `pmtiles://` source into HTTP range requests against a single archive — no tile server,
+// which is the whole property that makes an offline pack possible.
+const PMTILES_URL = new URL("./lib/pmtiles/pmtiles.js", import.meta.url).href;
 
-// ODbL requires this and §4.5 makes it permanent. Declared on the source, so MapLibre's
-// AttributionControl renders it from the style — removing the attribution means removing
-// the tiles, which is the point.
-const ATTRIBUTION =
-    '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
+// The vector basemap: Protomaps' `light` theme, its glyphs and its sprite, all local.
+//
+// Built as string concatenation rather than `new URL(...)`, because the glyph path carries the
+// literal placeholders `{fontstack}` and `{range}` that MapLibre substitutes — and the URL
+// constructor percent-encodes the braces, which turns the template into a 404 per font.
+//
+// `light` rather than one of Protomaps' dark themes, even though the app's own chrome is dark:
+// the Skia overlay's route styling is tuned against light ground (RouteStyle.Default draws a dark
+// casing under the line and white chevrons over it), and a map is read through a visor in
+// daylight. The base map is the thing the rider is *not* looking at.
+const STYLE_BASE = new URL("./style/", import.meta.url).href;
+const VECTOR_STYLE_URL = STYLE_BASE + "basemap.json";
+const GLYPHS_URL = STYLE_BASE + "glyphs/{fontstack}/{range}.pbf";
+const SPRITE_URL = STYLE_BASE + "sprite/light";
+
+// The tile source is no longer a constant in this file: the rider chooses it (§4.5), and C#
+// hands the choice down through `options.source` as { kind, tileUrl, packId, attribution,
+// maxZoom }. See MapSource.cs, which is the half of that contract with the documentation.
+//
+// What is still true is that a source and its attribution travel together — ODbL's credit is a
+// condition of using OSM's tiles and §4.5 makes it permanent, so it is declared ON the source
+// below and MapLibre's own AttributionControl renders it from the style. Removing the credit
+// means removing the tiles, which is the point.
+//
+// The fallback here is for a caller that supplies no source at all; the C# side resolves the
+// same default, so these agree by construction rather than by coincidence.
+const DEFAULT_SOURCE = {
+    kind: "osm",
+    tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    packId: null,
+    attribution:
+        '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+};
 
 let libraryLoad = null;
 
-// Resolves to the `maplibregl` global, loading the bundle on first use. Rejects — and clears
-// the cached promise so a later map can retry — if the CDN is unreachable, which is what puts
-// a stated error in front of the user instead of a blank grey rectangle (§4.5).
+// Resolves to the `maplibregl` global, loading the bundle on first use. Rejects — and clears the
+// cached promise so a later map can retry — if it cannot be loaded, which is what puts a stated
+// error in front of the user instead of a blank grey rectangle (§4.5).
+//
+// That branch is not dead now the file ships with the app: a bundle can still fail to parse, and
+// on the web it is served over HTTP like everything else and can 404 behind a stale cache.
 function loadMapLibre() {
     if (typeof window !== "undefined" && window.maplibregl) return Promise.resolve(window.maplibregl);
     if (libraryLoad) return libraryLoad;
@@ -56,10 +105,10 @@ function loadMapLibre() {
             }
         });
         script.addEventListener("error", () =>
-            reject(new Error(`Could not load MapLibre GL JS from ${MAPLIBRE_BASE}/dist/maplibre-gl.js.`)));
+            reject(new Error(`Could not load MapLibre GL JS from ${SCRIPT_URL}.`)));
         if (!existing) {
             script.id = "maplibre-js";
-            script.src = `${MAPLIBRE_BASE}/dist/maplibre-gl.js`;
+            script.src = SCRIPT_URL;
             script.async = true;
             document.head.appendChild(script);
         }
@@ -77,29 +126,126 @@ function ensureStylesheet() {
     const link = document.createElement("link");
     link.id = "maplibre-css";
     link.rel = "stylesheet";
-    link.href = `${MAPLIBRE_BASE}/dist/maplibre-gl.css`;
+    link.href = STYLESHEET_URL;
     document.head.appendChild(link);
 }
 
-// A raster style over OSM. Written inline rather than fetched from a style server: one less
-// host to depend on, and the tile URL stays visible in this file where §13 Q26 will change it.
-function osmRasterStyle() {
+let pmtilesLoad = null;
+let pmtilesProtocol = null;
+
+// Loads the PMTiles plugin and registers the `pmtiles://` protocol with MapLibre, once per page.
+//
+// The Protocol instance is kept because it holds the archive's directory cache — a PMTiles read
+// is two range requests (find the tile, fetch it) and the first is answered from that cache after
+// the first tile. Dropping it would double every request for the life of the map.
+async function ensurePmtilesProtocol(maplibregl) {
+    if (pmtilesProtocol) return;
+
+    pmtilesLoad ??= new Promise((resolve, reject) => {
+        const existing = document.getElementById("pmtiles-js");
+        const script = existing ?? document.createElement("script");
+        script.addEventListener("load", () =>
+            window.pmtiles
+                ? resolve(window.pmtiles)
+                : reject(new Error("pmtiles loaded but did not define the `pmtiles` global.")));
+        script.addEventListener("error", () =>
+            reject(new Error(`Could not load the PMTiles plugin from ${PMTILES_URL}.`)));
+        if (!existing) {
+            script.id = "pmtiles-js";
+            script.src = PMTILES_URL;
+            script.async = true;
+            document.head.appendChild(script);
+        }
+    });
+    pmtilesLoad.catch(() => { pmtilesLoad = null; });
+
+    const pmtiles = await pmtilesLoad;
+    const protocol = new pmtiles.Protocol();
+
+    // Wrapped rather than passed directly, so the handler cannot lose its `this` if the plugin
+    // ever stops defining `tile` as a bound property.
+    maplibregl.addProtocol("pmtiles", (params, abortController) => protocol.tile(params, abortController));
+    pmtilesProtocol = protocol;
+}
+
+let vectorStyleLoad = null;
+
+// The vendored Protomaps style document, fetched once and handed out as copies.
+//
+// A copy per caller because the caller patches it — the source URL differs per archive, and a
+// shared object would leave the second map pointing at the first one's pack.
+async function vectorStyleTemplate() {
+    vectorStyleLoad ??= fetch(VECTOR_STYLE_URL).then((response) => {
+        if (!response.ok) {
+            throw new Error(`Could not load the offline map style from ${VECTOR_STYLE_URL}.`);
+        }
+        return response.json();
+    });
+    vectorStyleLoad.catch(() => { vectorStyleLoad = null; });
+
+    return structuredClone(await vectorStyleLoad);
+}
+
+// A raster style over an XYZ source — OpenStreetMap, or whatever tile server the rider named.
+//
+// One layer id, "basemap", whichever source is under it. That is deliberate: `setStyle` swaps the
+// whole style, and keeping the ids stable means anything that ever needs to insert a layer
+// relative to the base map has one name to refer to rather than several.
+function rasterStyle(source) {
     return {
         version: 8,
         sources: {
-            osm: {
+            basemap: {
                 type: "raster",
-                tiles: [TILES],
+                tiles: [source.tileUrl],
                 tileSize: 256,
-                // OSM's raster tiles stop at 19. Without this MapLibre requests z20+ and gets
-                // 404s, which reads on screen as the map dissolving when a rider zooms in on
-                // a marker — exactly the zoom level a marker is placed at (§16.1).
-                maxzoom: 19,
-                attribution: ATTRIBUTION,
+                // Requesting past what a server holds returns 404s, which reads on screen as the
+                // map dissolving when a rider zooms in on a marker — exactly the zoom a marker is
+                // placed at (§16.1). OSM's raster stops at 19; a custom source says its own.
+                maxzoom: source.maxZoom ?? 19,
+                attribution: source.attribution ?? "",
             },
         },
-        layers: [{ id: "osm", type: "raster", source: "osm" }],
+        layers: [{ id: "basemap", type: "raster", source: "basemap" }],
     };
+}
+
+// The vendored style, pointed at one archive on this device. Everything it references — the tiles,
+// the glyphs, the sprite — is local, so this draws with the radio off.
+async function offlineStyle(source) {
+    const style = await vectorStyleTemplate();
+
+    style.glyphs = GLYPHS_URL;
+    style.sprite = SPRITE_URL;
+
+    // The template ships one vector source under a name of its own choosing, pointed at a
+    // placeholder. Read the name back rather than hard-coding it: it belongs to the upstream
+    // style, and every one of the 68 layers refers to it.
+    const sourceName = Object.keys(style.sources)[0];
+
+    style.sources[sourceName] = {
+        ...style.sources[sourceName],
+        url: `pmtiles://${source.archiveUrl}`,
+    };
+
+    return style;
+}
+
+// The style for a chosen source (§4.5). Async because the offline one is a document on disk.
+async function styleFor(source) {
+    const chosen = source ?? DEFAULT_SOURCE;
+
+    if (chosen.kind === "offline") {
+        // No archive URL means the device could not serve the pack — deleted, or a host that
+        // holds none. C# performs the same fallback before it gets here; this is belt and braces
+        // for a source that arrives some other way, because the alternative is a blank map.
+        if (chosen.archiveUrl) {
+            return await offlineStyle(chosen);
+        }
+        return rasterStyle(DEFAULT_SOURCE);
+    }
+
+    return rasterStyle(chosen.tileUrl ? chosen : DEFAULT_SOURCE);
 }
 
 // A north indicator, top left, shown only once the map is actually off north.
@@ -132,6 +278,15 @@ export async function createMap(hostElement, options, callbacks) {
 
     const maplibregl = await loadMapLibre();
 
+    // Both before the map is constructed. An offline source resolves to a `pmtiles://` URL, and
+    // MapLibre refuses a protocol nothing has registered; and the offline style is a document
+    // that has to be fetched and patched before there is a style to open with.
+    if (options.source?.kind === "offline") {
+        await ensurePmtilesProtocol(maplibregl);
+    }
+
+    const initialStyle = await styleFor(options.source);
+
     hostElement.classList.remove("dlr-map-placeholder");
     hostElement.replaceChildren();
 
@@ -140,7 +295,7 @@ export async function createMap(hostElement, options, callbacks) {
 
     const map = new maplibregl.Map({
         container: hostElement,
-        style: osmRasterStyle(),
+        style: initialStyle,
         center: [options.longitude ?? 0, options.latitude ?? 0],
         zoom: options.zoomLevel ?? 2,
         bearing: options.headingDeg ?? 0,
@@ -251,6 +406,34 @@ export async function createMap(hostElement, options, callbacks) {
     map.on("zoomstart", reporter.startTracking);
     map.on("zoomend", reporter.stopTracking);
 
+    // Everything the base map could not do, said out loud (§4.5).
+    //
+    // MapLibre does not throw for these — a tile source it cannot reach leaves a map object that
+    // renders happily and draws nothing, which is a blank rectangle with no explanation anywhere.
+    // Offline packs made this urgent: a pack served over the wrong scheme, an archive the WebView
+    // will not fetch, a style whose glyphs 404, all look identical from the outside.
+    //
+    // Deliberately not filtered here. What is worth showing a rider is a decision for the shared
+    // component, which can see whether the map ever drew anything; this end just reports.
+    map.on("error", (event) => {
+        const error = event?.error;
+
+        // The URL and status matter more than the message. MapLibre parses tiles AND glyphs with
+        // the same protobuf decoder, so a failed glyph fetch and a failed tile fetch produce the
+        // identical "Unimplemented type: N" — and which of the two it was is the entire diagnosis.
+        // AJAXError carries both; a decode failure carries neither, which is itself informative.
+        const parts = [error?.message ?? String(error ?? "The map reported an error.")];
+
+        if (error?.status) parts.push(`HTTP ${error.status}`);
+        if (error?.url) parts.push(error.url);
+        if (event?.sourceId) parts.push(`source: ${event.sourceId}`);
+
+        // Console too: on a phone this is what a remote debugger shows, and it carries the whole
+        // object rather than the one line that fits on screen.
+        console.error("[dlr-map]", error ?? event, event);
+        dispatch(callbacks?.onMapError, "OnMapError", parts.join(" — "));
+    });
+
     // A tap on the map, in lat / lon (§16.1). MapLibre raises `click` only for a real click —
     // a drag that ends over the map does not — so a pan never places a marker by accident.
     map.on("click", (event) => {
@@ -290,6 +473,27 @@ export async function createMap(hostElement, options, callbacks) {
                 bearing: camera.headingDeg ?? 0,
             });
             reporter.report();
+        },
+        async setSource(source) {
+            // Swaps what is under the map without tearing it down (§4.5). `setStyle` keeps the
+            // camera, the bearing and the canvas — which is the whole point on the settings
+            // screen, where this fires as the rider edits a tile URL and a map that jumped back
+            // to a default view on every keystroke would be unusable.
+            //
+            // `diff: false` because the styles being swapped between are not variations of one
+            // another: a one-layer raster style and the 68-layer vector one share nothing but
+            // their intent, and where ids do coincide the contents behind them differ. MapLibre's
+            // differ would try to reconcile those, which is both slower and wrong.
+            if (source?.kind === "offline") {
+                await ensurePmtilesProtocol(maplibregl);
+            }
+
+            map.setStyle(await styleFor(source), { diff: false });
+
+            // The style carries the attribution, so the control re-reads it on load. Report once
+            // the new tiles are in so the overlay is not left registered against a frame from a
+            // style that no longer exists.
+            map.once("styledata", () => reporter.report());
         },
         dispose() {
             // Drop the callbacks first. Tearing the map down emits one last moveend, and by

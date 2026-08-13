@@ -51,11 +51,8 @@ public sealed class SettingsTests : PageTestContext
 			serviceProvider.GetRequiredService<IApiClient>(),
 			serviceProvider.GetRequiredService<ITokenStore>(),
 			serviceProvider.GetRequiredService<TimeProvider>()));
-		// Profile injects ThemeState (§18.6 appearance toggle). The in-memory service
-		// is a scoped-lifetime stand-in — no localStorage / MAUI preferences in tests.
-		Services.AddSingleton<IThemeService, InMemoryThemeService>();
-		Services.AddSingleton<ThemeState>();
-		// …and PrivateAreaState (§10.1), over the same in-memory stand-in for the device store.
+		// Profile injects PrivateAreaState (§10.1), over an in-memory stand-in for the device
+		// store — no localStorage / MAUI preferences in tests.
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
 		Services.AddSingleton<PrivateAreaState>();
 		Services.AddSingleton<IMapInterop>(_map);
@@ -401,7 +398,7 @@ public sealed class SettingsTests : PageTestContext
 		});
 		await component.InvokeAsync(() =>
 		{
-			AngleSharp.Dom.IElement form = component.Find("form");
+			AngleSharp.Dom.IElement form = component.Find("#password-form");
 			form.Submit();
 		});
 
@@ -436,7 +433,7 @@ public sealed class SettingsTests : PageTestContext
 		});
 		await component.InvokeAsync(() =>
 		{
-			AngleSharp.Dom.IElement form = component.Find("form");
+			AngleSharp.Dom.IElement form = component.Find("#password-form");
 			form.Submit();
 		});
 
@@ -447,6 +444,120 @@ public sealed class SettingsTests : PageTestContext
 				"§7.2 v0.22: per-rule messages surface — 'The new password does not meet the requirements' is not enough.");
 			markup.Contains("No digit", StringComparison.Ordinal).ShouldBeTrue();
 		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	// ---------- Account (recovery email, §7.7) ----------
+
+	/// <summary>
+	/// The address is set from Account, not from a password form. Profile's "add one to enable
+	/// password recovery" link lands here, and a page with nowhere to type an address left that
+	/// link pointing at the password change and nothing else.
+	/// </summary>
+	[Fact]
+	public async Task Account_SetEmail_SendsTrimmedAddress_NotAPasswordChange()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, null, false, false, false, false);
+
+		IRenderedComponent<Account> component = Render<Account>();
+
+		component.WaitForAssertion(() => component.FindAll("#email-form").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find("#email-form input[type=email]").Change("  dave@example.com  "));
+		await component.InvokeAsync(() => component.Find("#email-form").Submit());
+
+		component.WaitForAssertion(() => api.LastSetEmailRequest.ShouldNotBeNull(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		api.LastSetEmailRequest!.Email.ShouldBe("dave@example.com", "§7.7: the address is trimmed before the wire.");
+		api.LastChangePasswordRequest.ShouldBeNull(
+			"setting an address must not touch the password — the two forms are separate.");
+	}
+
+	/// <summary>
+	/// An address is stored unconfirmed (§7.7), so the screen has to say the link is what turns it
+	/// into a recovery address — not the typing.
+	/// </summary>
+	[Fact]
+	public async Task Account_SetEmail_SaysTheAddressDoesNothingUntilConfirmed()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, null, false, false, false, false);
+
+		IRenderedComponent<Account> component = Render<Account>();
+
+		component.WaitForAssertion(() => component.FindAll("#email-form").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find("#email-form input[type=email]").Change("dave@example.com"));
+		await component.InvokeAsync(() => component.Find("#email-form").Submit());
+
+		component.WaitForAssertion(() =>
+			component.Markup.Contains("confirmation link", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+				"§7.7: recovery is enabled by confirming, never by typing — the status has to say so."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Account_UnconfirmedEmail_OffersToResendTheLink()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, "dave@example.com", false, false, false, false);
+
+		IRenderedComponent<Account> component = Render<Account>();
+
+		component.WaitForAssertion(() =>
+			component.FindAll("button").Count(b => b.TextContent.Contains("Resend", StringComparison.Ordinal))
+				.ShouldBe(1, "an unconfirmed address is worth nothing without another chance at the link."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.FindAll("button")
+			.First(b => b.TextContent.Contains("Resend", StringComparison.Ordinal))
+			.Click());
+
+		component.WaitForAssertion(() => api.Calls.ShouldContain(nameof(IApiClient.ResendConfirmationAsync)),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void Account_ConfirmedEmail_HasNothingToResend()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, "dave@example.com", true, false, false, false);
+
+		IRenderedComponent<Account> component = Render<Account>();
+
+		component.WaitForAssertion(() =>
+		{
+			component.Markup.Contains("confirmed", StringComparison.Ordinal).ShouldBeTrue();
+			component.FindAll("button").Count(b => b.TextContent.Contains("Resend", StringComparison.Ordinal))
+				.ShouldBe(0, "there is nothing left to confirm.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Account_ServerRejectsAddress_ShowsPerRuleMessages()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile(null, null, null, false, false, false, false);
+		api.SetEmailException = new ApiException(new ApiError(
+			StatusCode: System.Net.HttpStatusCode.BadRequest,
+			Title: "That address was not accepted.",
+			Messages: new[] { "Email 'x' is invalid." }));
+
+		IRenderedComponent<Account> component = Render<Account>();
+
+		component.WaitForAssertion(() => component.FindAll("#email-form").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find("#email-form input[type=email]").Change("x"));
+		await component.InvokeAsync(() => component.Find("#email-form").Submit());
+
+		component.WaitForAssertion(() =>
+			component.Markup.Contains("Email 'x' is invalid.", StringComparison.Ordinal).ShouldBeTrue(
+				"§18.2: the server's per-rule message is what tells the rider what to fix."),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 
 	// ---------- Devices ----------
