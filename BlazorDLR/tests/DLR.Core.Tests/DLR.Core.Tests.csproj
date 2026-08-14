@@ -22,4 +22,8 @@
 		<ProjectReference Include="..\DLR.TestSupport\DLR.TestSupport.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <PackageReference Update="NSubstitute" Version="6.2.0" />
+	</ItemGroup>
+
 </Project>

@@ -16,6 +16,32 @@ public enum MapSourceKind
 }
 
 /// <summary>
+/// Which cartography an offline pack is drawn with (§13 Q26).
+/// <para>
+/// <strong>Offline packs only, and that is not an oversight.</strong> A PMTiles archive holds
+/// vector geometry with no colour in it — the colour is entirely in the style document beside it,
+/// so the same archive draws either way and switching costs no download. The other two sources are
+/// raster: OSM's tiles arrive as finished PNGs and a rider's own tile server serves whatever it
+/// serves, so neither has a theme to choose. <see cref="MapSource.Normalised"/> clears this on
+/// both rather than storing a preference that could never be honoured.
+/// </para>
+/// <para>
+/// <strong>It moves the base map and nothing else.</strong> Every marker, rider pin and route is
+/// drawn by the Skia overlay on top (§4.5 v0.21) and is unaffected — including
+/// <see cref="RouteStyle"/>, whose defaults stay tuned for light ground. A rider who wants a
+/// different line colour over a dark map has that setting already.
+/// </para>
+/// </summary>
+public enum MapTheme
+{
+	/// <summary>Protomaps' <c>light</c> theme. The default, and what every offline pack drew before this existed.</summary>
+	Light = 0,
+
+	/// <summary>Protomaps' <c>dark</c> theme — the same 68 layers over the same archive, painted for night.</summary>
+	Dark = 1,
+}
+
+/// <summary>
 /// Which tiles go under the map on this device (§4.5).
 /// <para>
 /// <strong>A device preference, not ride data.</strong> Same posture as <see cref="RouteStyle"/>:
@@ -55,12 +81,17 @@ public enum MapSourceKind
 /// server holds and the tiles 404, which reads on screen as the map dissolving at exactly the
 /// zoom a marker is placed at (§16.1).
 /// </param>
+/// <param name="Theme">
+/// For <see cref="MapSourceKind.Offline"/>, which cartography the archive is drawn with. Cleared
+/// on the two raster kinds by <see cref="Normalised"/> — see <see cref="MapTheme"/>.
+/// </param>
 public sealed record MapSource(
 	MapSourceKind Kind,
 	string? PackId = null,
 	string? UrlTemplate = null,
 	string? Attribution = null,
-	int MaxZoom = MapSource.OsmMaxZoom)
+	int MaxZoom = MapSource.OsmMaxZoom,
+	MapTheme Theme = MapTheme.Light)
 {
 	/// <summary>
 	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.route-style</c>, and
@@ -103,7 +134,9 @@ public sealed record MapSource(
 
 	/// <summary>A downloaded archive.</summary>
 	/// <param name="packId">Which pack.</param>
-	public static MapSource OfflinePack(string packId) => new(MapSourceKind.Offline, packId);
+	/// <param name="theme">Which cartography to draw it with. The archive is the same either way.</param>
+	public static MapSource OfflinePack(string packId, MapTheme theme = MapTheme.Light) =>
+		new(MapSourceKind.Offline, packId, Theme: theme);
 
 	/// <summary>
 	/// Whether a string is an XYZ template this app can actually load. Public so the settings
@@ -180,9 +213,12 @@ public sealed record MapSource(
 			case MapSourceKind.Offline:
 				// A pack id is the whole of what an offline source is. Without one there is nothing
 				// to open, and answering null here is what sends the caller back to OSM.
+				//
+				// The theme rides along because this is the only kind that has one: the archive is
+				// vector, so light and dark are two style documents over the same tiles.
 				return string.IsNullOrWhiteSpace(PackId)
 					? null
-					: new MapSource(MapSourceKind.Offline, PackId.Trim(), MaxZoom: zoom);
+					: new MapSource(MapSourceKind.Offline, PackId.Trim(), MaxZoom: zoom, Theme: Theme);
 
 			case MapSourceKind.Custom:
 				return IsUsableTemplate(UrlTemplate) && !string.IsNullOrWhiteSpace(Attribution)
@@ -203,6 +239,14 @@ public sealed record MapSource(
 	/// braces as a matter of course and an attribution is free text with markup in it, and neither
 	/// should be able to break the separator.
 	/// </para>
+	/// <para>
+	/// <strong>The theme is a seventh field appended to version 1 rather than a version 2.</strong>
+	/// It only ever <em>adds</em> to what a value means, so both directions survive: this build
+	/// reads a six-field value as light — which is what every device that stored one was drawing —
+	/// and a build that predates the field reads the seventh as trailing noise it already ignores.
+	/// A version bump would have thrown away every stored source for a setting that defaults to the
+	/// behaviour they all had.
+	/// </para>
 	/// </summary>
 	/// <exception cref="InvalidOperationException">This source cannot draw a map — see <see cref="Normalised"/>.</exception>
 	public string Encode()
@@ -217,6 +261,7 @@ public sealed record MapSource(
 			Uri.EscapeDataString(safe.UrlTemplate ?? string.Empty),
 			Uri.EscapeDataString(safe.Attribution ?? string.Empty),
 			safe.MaxZoom.ToString(CultureInfo.InvariantCulture),
+			safe.Theme.ToString().ToLowerInvariant(),
 		]);
 	}
 
@@ -245,12 +290,20 @@ public sealed record MapSource(
 			return null;
 		}
 
+		// Absent on every value written before the theme existed, and unparseable if it came from a
+		// build that spells it differently. Either way light, which is what those devices drew — a
+		// cartography this build cannot name is not worth discarding a working source over.
+		MapTheme theme = parts.Length > 6 && Enum.TryParse(parts[6], ignoreCase: true, out MapTheme stored)
+			? stored
+			: MapTheme.Light;
+
 		return new MapSource(
 			kind,
 			Blank(Uri.UnescapeDataString(parts[2])),
 			Blank(Uri.UnescapeDataString(parts[3])),
 			Blank(Uri.UnescapeDataString(parts[4])),
-			maxZoom).Normalised();
+			maxZoom,
+			theme).Normalised();
 
 		static string? Blank(string value) => string.IsNullOrEmpty(value) ? null : value;
 	}

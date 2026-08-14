@@ -102,7 +102,11 @@ public sealed class MapAssetRules
 		Directory.Exists(style).ShouldBeTrue(
 			"the vector style, its glyphs and its sprite are what an offline pack is drawn with (§13 Q26).");
 
-		File.Exists(Path.Combine(style, "basemap.json")).ShouldBeTrue("the style document itself.");
+		// One document per theme (§13 Q26). Both are the style, not a style and a variant: an
+		// archive holds no colour, so the theme a rider picks selects between these two files and
+		// a missing one is a map that cannot draw at all in the mode they chose.
+		File.Exists(Path.Combine(style, "basemap.json")).ShouldBeTrue("the light style document.");
+		File.Exists(Path.Combine(style, "basemap.dark.json")).ShouldBeTrue("and the dark one.");
 
 		// A style renders no label at all without its glyph ranges, and the failure is silent —
 		// roads and coastlines still draw, so an incomplete bundle looks like a cartography choice
@@ -128,10 +132,18 @@ public sealed class MapAssetRules
 		spaced.ShouldBeEmpty(
 			"a font stack's name becomes a URL path segment verbatim — keep it a slug.");
 
-		File.Exists(Path.Combine(style, "sprite", "light.png")).ShouldBeTrue("the symbol layers' icon sheet.");
-		File.Exists(Path.Combine(style, "sprite", "light.json")).ShouldBeTrue("and its index.");
-		File.Exists(Path.Combine(style, "sprite", "light@2x.png")).ShouldBeTrue(
-			"phones are all retina — without the @2x sheet every icon on the map is soft.");
+		// A sheet per theme, because the icons are painted for the ground under them — the light
+		// sheet over the dark document draws dark glyphs on dark ground, which is not a fallback
+		// anybody would choose, and the failure is per icon rather than per map.
+		foreach (string theme in new[] { "light", "dark" })
+		{
+			File.Exists(Path.Combine(style, "sprite", $"{theme}.png")).ShouldBeTrue(
+				$"the symbol layers' icon sheet for the {theme} style.");
+			File.Exists(Path.Combine(style, "sprite", $"{theme}.json")).ShouldBeTrue("and its index.");
+			File.Exists(Path.Combine(style, "sprite", $"{theme}@2x.png")).ShouldBeTrue(
+				"phones are all retina — without the @2x sheet every icon on the map is soft.");
+			File.Exists(Path.Combine(style, "sprite", $"{theme}@2x.json")).ShouldBeTrue("and its index.");
+		}
 
 		// Fonts and a basemap style are somebody else's work, shipped inside an AGPL app (§14.6).
 		File.Exists(Path.Combine(glyphs, "OFL.txt")).ShouldBeTrue("the fonts' licence.");
@@ -139,17 +151,19 @@ public sealed class MapAssetRules
 	}
 
 	/// <summary>
-	/// The style document ships pointing at Protomaps' own hosts and a placeholder tile server; the
+	/// The style documents ship pointing at Protomaps' own hosts and a placeholder tile server; the
 	/// module rewrites all three at load. This asserts the rewrite still has something to find — a
 	/// future style whose fields were named differently would leave the map fetching glyphs from
 	/// the internet, which works on a desk and fails at a trailhead.
 	/// </summary>
-	[Fact]
-	public void TheStyleCarriesTheThreeFieldsTheModuleRewrites()
+	[Theory]
+	[InlineData("basemap.json")]
+	[InlineData("basemap.dark.json")]
+	public void TheStyleCarriesTheThreeFieldsTheModuleRewrites(string document)
 	{
 		string path = Path.Combine(
 			SourceTree.Root,
-			$"{MapFolder}/style/basemap.json".Replace('/', Path.DirectorySeparatorChar));
+			$"{MapFolder}/style/{document}".Replace('/', Path.DirectorySeparatorChar));
 
 		using System.Text.Json.JsonDocument style = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
 
@@ -160,5 +174,56 @@ public sealed class MapAssetRules
 		sources.EnumerateObject().Count().ShouldBe(1,
 			"offlineStyle() points the first source at the device's archive. More than one and it " +
 			"would be guessing which.");
+	}
+
+	/// <summary>
+	/// Both themes ask for the same fonts.
+	/// <para>
+	/// The glyphs are shipped once and shared, which is what keeps a second theme at ~290 KB rather
+	/// than ~1 MB. If a future dark style asked for a stack the light one does not, that stack would
+	/// have no <c>.pbf</c> under <c>glyphs/</c> — and a missing range renders no label at all while
+	/// roads and coastlines carry on drawing, so it would read as a cartography choice rather than
+	/// as a missing file.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public void BothThemesAskForTheSameFonts()
+	{
+		HashSet<string> light = FontStacks("basemap.json");
+		HashSet<string> dark = FontStacks("basemap.dark.json");
+
+		dark.Except(light).ShouldBeEmpty(
+			"the dark style may only name fonts the light one already ships glyphs for — see glyphs/.");
+
+		static HashSet<string> FontStacks(string document)
+		{
+			string path = Path.Combine(
+				SourceTree.Root,
+				$"{MapFolder}/style/{document}".Replace('/', Path.DirectorySeparatorChar));
+
+			using System.Text.Json.JsonDocument style = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+
+			HashSet<string> stacks = new(StringComparer.Ordinal);
+
+			foreach (System.Text.Json.JsonElement layer in style.RootElement.GetProperty("layers").EnumerateArray())
+			{
+				if (!layer.TryGetProperty("layout", out System.Text.Json.JsonElement layout)
+					|| !layout.TryGetProperty("text-font", out System.Text.Json.JsonElement fonts)
+					|| fonts.ValueKind != System.Text.Json.JsonValueKind.Array)
+				{
+					continue;
+				}
+
+				foreach (System.Text.Json.JsonElement font in fonts.EnumerateArray())
+				{
+					if (font.ValueKind == System.Text.Json.JsonValueKind.String)
+					{
+						stacks.Add(font.GetString()!);
+					}
+				}
+			}
+
+			return stacks;
+		}
 	}
 }

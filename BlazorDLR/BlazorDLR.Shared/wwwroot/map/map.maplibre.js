@@ -47,24 +47,39 @@ const STYLESHEET_URL = new URL("maplibre-gl.css", MAPLIBRE_BASE).href;
 // which is the whole property that makes an offline pack possible.
 const PMTILES_URL = new URL("./lib/pmtiles/pmtiles.js", import.meta.url).href;
 
-// The vector basemap: Protomaps' `light` theme, its glyphs and its sprite, all local.
+// The vector basemap: Protomaps' themes, their glyphs and their sprites, all local.
 //
 // Built as string concatenation rather than `new URL(...)`, because the glyph path carries the
 // literal placeholders `{fontstack}` and `{range}` that MapLibre substitutes — and the URL
 // constructor percent-encodes the braces, which turns the template into a 404 per font.
 //
-// `light` rather than one of Protomaps' dark themes, even though the app's own chrome is dark:
-// the Skia overlay's route styling is tuned against light ground (RouteStyle.Default draws a dark
-// casing under the line and white chevrons over it), and a map is read through a visor in
-// daylight. The base map is the thing the rider is *not* looking at.
+// Two themes, and the archive is not one of them. A PMTiles pack holds vector geometry with no
+// colour in it, so light and dark are two style documents over the same tiles — the rider switches
+// with no download and no second pack (§13 Q26). Which one is the rider's choice, resolved in C#
+// and handed down through `options.source.theme`; see MapTheme in MapSource.cs.
+//
+// `light` remains the default. The Skia overlay's route styling is tuned against light ground
+// (RouteStyle.Default draws a dark casing under the line and white chevrons over it) and a map is
+// read through a visor in daylight, so dark is the deliberate choice rather than the ambient one —
+// and choosing it moves the base map only. Nothing the overlay draws follows it.
+//
+// The glyphs are shared between the two: a font carries no colour, and shipping one copy is the
+// difference between a second theme costing ~290 KB and costing ~1 MB.
 const STYLE_BASE = new URL("./style/", import.meta.url).href;
-const VECTOR_STYLE_URL = STYLE_BASE + "basemap.json";
 const GLYPHS_URL = STYLE_BASE + "glyphs/{fontstack}/{range}.pbf";
-const SPRITE_URL = STYLE_BASE + "sprite/light";
+
+const VECTOR_THEMES = {
+    light: { style: STYLE_BASE + "basemap.json", sprite: STYLE_BASE + "sprite/light" },
+    dark: { style: STYLE_BASE + "basemap.dark.json", sprite: STYLE_BASE + "sprite/dark" },
+};
+
+const DEFAULT_THEME = "light";
 
 // The tile source is no longer a constant in this file: the rider chooses it (§4.5), and C#
-// hands the choice down through `options.source` as { kind, tileUrl, packId, attribution,
-// maxZoom }. See MapSource.cs, which is the half of that contract with the documentation.
+// hands the choice down through `options.source` as { kind, tileUrl, packId, archiveUrl,
+// attribution, maxZoom, theme }. See MapSource.cs, which is the half of that contract with the
+// documentation. `theme` is read by the offline branch alone — the raster kinds arrive as
+// finished images and have no cartography to choose.
 //
 // What is still true is that a source and its attribution travel together — ODbL's credit is a
 // condition of using OSM's tiles and §4.5 makes it permanent, so it is declared ON the source
@@ -168,22 +183,32 @@ async function ensurePmtilesProtocol(maplibregl) {
     pmtilesProtocol = protocol;
 }
 
-let vectorStyleLoad = null;
+// One in-flight fetch per theme, keyed by name — a rider comparing light against dark on the
+// settings screen should pay for each document once, not once per switch.
+const vectorStyleLoads = new Map();
 
-// The vendored Protomaps style document, fetched once and handed out as copies.
+// A vendored Protomaps style document, fetched once and handed out as copies.
 //
 // A copy per caller because the caller patches it — the source URL differs per archive, and a
 // shared object would leave the second map pointing at the first one's pack.
-async function vectorStyleTemplate() {
-    vectorStyleLoad ??= fetch(VECTOR_STYLE_URL).then((response) => {
-        if (!response.ok) {
-            throw new Error(`Could not load the offline map style from ${VECTOR_STYLE_URL}.`);
-        }
-        return response.json();
-    });
-    vectorStyleLoad.catch(() => { vectorStyleLoad = null; });
+async function vectorStyleTemplate(theme) {
+    // Resolved to a name we ship before it is used as a cache key, so a theme from a newer build
+    // cannot fill the map with entries that all hold the same document.
+    const name = Object.hasOwn(VECTOR_THEMES, theme) ? theme : DEFAULT_THEME;
+    const chosen = VECTOR_THEMES[name];
 
-    return structuredClone(await vectorStyleLoad);
+    if (!vectorStyleLoads.has(name)) {
+        const load = fetch(chosen.style).then((response) => {
+            if (!response.ok) {
+                throw new Error(`Could not load the offline map style from ${chosen.style}.`);
+            }
+            return response.json();
+        });
+        load.catch(() => { vectorStyleLoads.delete(name); });
+        vectorStyleLoads.set(name, load);
+    }
+
+    return { style: structuredClone(await vectorStyleLoads.get(name)), sprite: chosen.sprite };
 }
 
 // A raster style over an XYZ source — OpenStreetMap, or whatever tile server the rider named.
@@ -212,11 +237,14 @@ function rasterStyle(source) {
 
 // The vendored style, pointed at one archive on this device. Everything it references — the tiles,
 // the glyphs, the sprite — is local, so this draws with the radio off.
+//
+// The sprite travels with the style rather than being chosen separately: the icons are painted for
+// their theme, and a light sheet over the dark document puts dark glyphs on dark ground.
 async function offlineStyle(source) {
-    const style = await vectorStyleTemplate();
+    const { style, sprite } = await vectorStyleTemplate(source.theme);
 
     style.glyphs = GLYPHS_URL;
-    style.sprite = SPRITE_URL;
+    style.sprite = sprite;
 
     // The template ships one vector source under a name of its own choosing, pointed at a
     // placeholder. Read the name back rather than hard-coding it: it belongs to the upstream
@@ -484,6 +512,10 @@ export async function createMap(hostElement, options, callbacks) {
             // another: a one-layer raster style and the 68-layer vector one share nothing but
             // their intent, and where ids do coincide the contents behind them differ. MapLibre's
             // differ would try to reconcile those, which is both slower and wrong.
+            //
+            // Light → dark *is* a pair the differ could handle, and it is still swapped whole. The
+            // tiles it re-requests are a file on this device, so the saving would be invisible, and
+            // one path through here is worth more than a fast case that only one transition takes.
             if (source?.kind === "offline") {
                 await ensurePmtilesProtocol(maplibregl);
             }

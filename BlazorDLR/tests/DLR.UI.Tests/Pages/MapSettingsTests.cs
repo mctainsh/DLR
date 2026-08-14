@@ -54,8 +54,18 @@ public sealed class MapSettingsTests : PageTestContext
 
 	private IRenderedComponent<Maps> RenderPage() => Render<Maps>();
 
+	/// <summary>
+	/// Picks the offline radio, which on a phone is the second of the three.
+	/// <para>
+	/// Everything to do with packs is behind it — the pack list, the light / dark choice and the
+	/// download form — so most tests here start with this rather than with the page as it opens.
+	/// </para>
+	/// </summary>
+	private static Task ChooseOfflineAsync(IRenderedComponent<Maps> page) =>
+		page.InvokeAsync(() => page.FindAll("input[name=map-source]")[1].Change(true));
+
 	[Fact]
-	public void AllThreeSourcesAreOffered()
+	public void OnAPhone_AllThreeSourcesAreOffered()
 	{
 		Wire();
 
@@ -66,28 +76,32 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	[Fact]
-	public void WithNoPackOnTheDevice_OfflineIsOfferedButNotSelectable()
+	public async Task WithNoPackOnTheDevice_OfflineIsStillSelectable_BecauseItIsTheWayToGetOne()
 	{
 		Wire();
 
 		IRenderedComponent<Maps> page = RenderPage();
 
-		page.FindAll("input[name=map-source]")[1].HasAttribute("disabled").ShouldBeTrue(
-			"a radio that stores a source with no archive behind it would leave the map with nothing to draw.");
-		page.Markup.ShouldContain("No map packs on this device yet");
+		page.FindAll("input[name=map-source]")[1].HasAttribute("disabled").ShouldBeFalse(
+			"the download form is behind this radio — disabling it until a pack exists would seal " +
+			"off the only route to getting one.");
+		page.Markup.ShouldContain("No map packs on this phone yet");
+
+		await ChooseOfflineAsync(page);
+
+		page.FindAll("fieldset.download").ShouldNotBeEmpty();
 	}
 
 	[Fact]
-	public void WithAPackOnTheDevice_OfflineBecomesSelectable()
+	public async Task ChoosingOffline_StoresNothingUntilThereIsAPackBehindIt()
 	{
-		Wire();
-		_packs.Add("sydney", [1, 2, 3, 4]);
+		MapSourceState state = Wire();
 
 		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
 
-		page.WaitForAssertion(
-			() => page.FindAll("input[name=map-source]")[1].HasAttribute("disabled").ShouldBeFalse(),
-			timeout: TimeSpan.FromSeconds(3));
+		state.Chosen.ShouldBe(MapSource.Default,
+			"an offline source with no archive behind it cannot draw a map, and MapSource refuses it.");
 	}
 
 	[Fact]
@@ -98,11 +112,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 		IRenderedComponent<Maps> page = RenderPage();
 
-		page.WaitForAssertion(
-			() => page.FindAll("input[name=map-source]")[1].HasAttribute("disabled").ShouldBeFalse(),
-			timeout: TimeSpan.FromSeconds(3));
-
-		await page.InvokeAsync(() => page.FindAll("input[name=map-source]")[1].Change(true));
+		await ChooseOfflineAsync(page);
 
 		// One pack is not a choice worth making somebody make — picking Offline takes it.
 		state.Chosen.Kind.ShouldBe(MapSourceKind.Offline);
@@ -111,11 +121,30 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	[Fact]
-	public void TheDownloadButtonIsOfferedOnlyForAUsableLinkAndName()
+	public async Task TheDownloadFormIsBehindTheOfflineRadio()
 	{
 		Wire();
 
 		IRenderedComponent<Maps> page = RenderPage();
+
+		page.FindAll("fieldset.download").ShouldBeEmpty(
+			"a rider on OpenStreetMap is not part-way through adding a pack — two text fields and a " +
+			"Download button make the screen look like it has a job outstanding.");
+
+		await ChooseOfflineAsync(page);
+		page.FindAll("fieldset.download").ShouldNotBeEmpty();
+
+		await page.InvokeAsync(() => page.FindAll("input[name=map-source]")[0].Change(true));
+		page.FindAll("fieldset.download").ShouldBeEmpty("and it goes away again.");
+	}
+
+	[Fact]
+	public async Task TheDownloadButtonIsOfferedOnlyForAUsableLinkAndName()
+	{
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
 
 		page.Find("button.primary").HasAttribute("disabled").ShouldBeTrue("nothing typed yet.");
 
@@ -150,11 +179,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 		IRenderedComponent<Maps> page = RenderPage();
 
-		page.WaitForAssertion(
-			() => page.FindAll("input[name=map-source]")[1].HasAttribute("disabled").ShouldBeFalse(),
-			timeout: TimeSpan.FromSeconds(3));
-
-		await page.InvokeAsync(() => page.FindAll("input[name=map-source]")[1].Change(true));
+		await ChooseOfflineAsync(page);
 		state.Chosen.Kind.ShouldBe(MapSourceKind.Offline);
 
 		await page.InvokeAsync(() => page.Find("button.remove").Click());
@@ -164,15 +189,17 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	[Fact]
-	public void InABrowser_OfflineSaysWhyRatherThanDisappearing()
+	public void InABrowser_OfflineIsNotOffered_BecauseItCanNeverApplyHere()
 	{
 		Wire(phone: false);
 
 		IRenderedComponent<Maps> page = RenderPage();
 
-		page.FindAll("input[name=map-source]").Count.ShouldBe(3,
-			"§18.6: hiding it would leave a rider who set it on their phone with no explanation here.");
-		page.Markup.ShouldContain("Only on the phone app");
+		page.FindAll("input[name=map-source]").Count.ShouldBe(2,
+			"§18.6: a browser has nowhere to keep a pack, so the option is not one this device can " +
+			"ever take — OpenStreetMap and a tile server of the rider's own are the two real answers.");
+		page.Markup.ShouldNotContain("Offline map pack");
+		page.FindAll("fieldset.appearance").ShouldBeEmpty("and nothing behind it, either.");
 	}
 
 	[Fact]
@@ -218,6 +245,144 @@ public sealed class MapSettingsTests : PageTestContext
 
 		page.Find("button.primary").HasAttribute("disabled").ShouldBeTrue(
 			"the app is served over a secure scheme, so plain http is mixed content and the WebView blocks it.");
+		page.Find("#tile-server-problem").TextContent.ShouldContain("https://");
+	}
+
+	/// <summary>
+	/// A disabled button says why, from the moment the form opens.
+	/// <para>
+	/// The rider cannot press it, so there is no attempt to wait for — and a control they can see
+	/// but cannot use, with nothing explaining the gap, is the worst of the available states. Each
+	/// message names the defect in what they typed rather than restating the rule under the field.
+	/// </para>
+	/// </summary>
+	[Theory]
+	[InlineData("", "Enter the tile server's URL")]
+	[InlineData("http://tiles.example.com/{z}/{x}/{y}.png", "has to start with https://")]
+	[InlineData("https://tiles.example.com/{z}/{x}.png", "missing {y}")]
+	[InlineData("https://tiles.example.com/{z}.png", "missing {x} and {y}")]
+	public void TheTileServerButtonSaysWhyItIsDisabled(string template, string expected)
+	{
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		page.FindAll("input[name=map-source]")[2].Change(true);
+
+		if (template.Length > 0)
+		{
+			page.Find("input[placeholder^='https://tiles.example.com']").Input(template);
+		}
+
+		page.Find("button.primary").HasAttribute("disabled").ShouldBeTrue();
+		page.Find("#tile-server-problem").TextContent.ShouldContain(expected);
+
+		// Tied to the button rather than announced, so a screen reader reaching the control it
+		// explains reads the two together.
+		page.Find("button.primary").GetAttribute("aria-describedby").ShouldBe("tile-server-problem");
+	}
+
+	[Fact]
+	public void AUsableTileServer_LeavesNoProblemOnScreen()
+	{
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		page.FindAll("input[name=map-source]")[2].Change(true);
+
+		page.Find("input[placeholder^='https://tiles.example.com']")
+			.Input("https://tiles.example.com/{z}/{x}/{y}.png");
+		page.Find("input[placeholder='© Example Maps']").Input("© Example Maps");
+
+		page.Find("button.primary").HasAttribute("disabled").ShouldBeFalse();
+		page.FindAll("#tile-server-problem").ShouldBeEmpty();
+		page.Find("button.primary").HasAttribute("aria-describedby").ShouldBeFalse(
+			"the explanation is gone, so pointing at it would leave a dangling reference.");
+	}
+
+	/// <summary>
+	/// Light or dark, and only for a pack (§13 Q26). The archive holds no colour — the theme picks
+	/// between two style documents that both ship with the app — so the other two sources, which
+	/// hand back finished raster images, have nothing to offer here.
+	/// </summary>
+	[Fact]
+	public async Task TheLightAndDarkChoiceBelongsToTheOfflineSourceAlone()
+	{
+		Wire();
+		_packs.Add("sydney", [1, 2, 3, 4]);
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		page.FindAll("fieldset.appearance").ShouldBeEmpty("OpenStreetMap's tiles arrive already painted.");
+
+		await ChooseOfflineAsync(page);
+		page.FindAll("input[name=map-theme]").Count.ShouldBe(2);
+
+		await page.InvokeAsync(() => page.FindAll("input[name=map-source]")[2].Change(true));
+		page.FindAll("fieldset.appearance").ShouldBeEmpty("nor does a rider's own tile server.");
+	}
+
+	[Fact]
+	public async Task ChoosingDark_RestylesThePackWithoutTouchingWhichPack()
+	{
+		MapSourceState state = Wire();
+		_packs.Add("sydney", [1, 2, 3, 4]);
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+
+		state.Chosen.Theme.ShouldBe(MapTheme.Light, "what every pack drew before the setting existed.");
+
+		await page.InvokeAsync(() => page.FindAll("input[name=map-theme]")[1].Change(true));
+
+		state.Chosen.Kind.ShouldBe(MapSourceKind.Offline);
+		state.Chosen.PackId.ShouldBe("sydney", "the same archive — only the style document changes.");
+		state.Chosen.Theme.ShouldBe(MapTheme.Dark);
+
+		await page.InvokeAsync(() => page.FindAll("input[name=map-theme]")[0].Change(true));
+		state.Chosen.Theme.ShouldBe(MapTheme.Light);
+	}
+
+	/// <summary>
+	/// Picked before a pack has been selected, it waits rather than being lost.
+	/// <para>
+	/// Two packs here, because that is the state in which no source is stored yet: with one, picking
+	/// offline takes it. An offline source needs an archive behind it — <c>MapSource.Normalised</c>
+	/// refuses one without — so a theme chosen first has nothing to be written against, and the
+	/// alternative to carrying it would be silently discarding a choice the rider just made.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task DarkChosenBeforeAPack_IsCarriedIntoTheOneChosenNext()
+	{
+		MapSourceState state = Wire();
+		_packs.Add("sydney", [1, 2, 3, 4]);
+		_packs.Add("melbourne", [5, 6, 7, 8]);
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+
+		await page.InvokeAsync(() => page.FindAll("input[name=map-theme]")[1].Change(true));
+		state.Chosen.ShouldBe(MapSource.Default, "with two packs, none is chosen yet.");
+
+		await page.InvokeAsync(() => page.FindAll("input[name=map-pack]")[0].Change(true));
+
+		state.Chosen.Kind.ShouldBe(MapSourceKind.Offline);
+		state.Chosen.PackId.ShouldNotBeNull();
+		state.Chosen.Theme.ShouldBe(MapTheme.Dark);
+	}
+
+	[Fact]
+	public async Task TheChosenThemeComesBackNextVisit()
+	{
+		MapSourceState state = Wire();
+		_packs.Add("sydney", [1, 2, 3, 4]);
+		await state.SetAsync(MapSource.OfflinePack("sydney", MapTheme.Dark));
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		page.WaitForAssertion(
+			() => page.FindAll("input[name=map-theme]")[1].HasAttribute("checked").ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]
@@ -265,6 +430,10 @@ public sealed class MapSettingsTests : PageTestContext
 		first.Find("input[placeholder^='https://tiles.example.com']").Input("https://tiles.example.com/{z}/{x}");
 		await first.InvokeAsync(() => first.Find("input[placeholder^='https://tiles.example.com']").Blur());
 
+		// The pack link lives behind the offline radio, so the two halves of the draft are typed on
+		// two different faces of this screen — which is exactly why both have to survive the trip.
+		await ChooseOfflineAsync(first);
+
 		first.Find("input[placeholder='https://example.com/sydney.pmtiles']")
 			.Input("https://www.noptic1.com/Stuff/sydney.pmtiles");
 		await first.InvokeAsync(() =>
@@ -273,8 +442,13 @@ public sealed class MapSettingsTests : PageTestContext
 		// A second render over the same device store is how a test spells "came back to the screen".
 		IRenderedComponent<Maps> second = RenderPage();
 
+		// The radio is picked inside the wait, not before it. The page reads the draft after its
+		// first render and then adopts the stored source, which puts the form back on OpenStreetMap
+		// — a selection made before that lands would be undone by it. Choosing offline is
+		// idempotent (with no packs it stores nothing), so retrying costs nothing.
 		second.WaitForAssertion(() =>
 		{
+			second.FindAll("input[name=map-source]")[1].Change(true);
 			second.Find("input[placeholder='https://example.com/sydney.pmtiles']")
 				.GetAttribute("value").ShouldBe("https://www.noptic1.com/Stuff/sydney.pmtiles");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -292,6 +466,7 @@ public sealed class MapSettingsTests : PageTestContext
 		Wire();
 
 		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
 
 		page.Find("input[placeholder='https://example.com/sydney.pmtiles']")
 			.Input("https://example.com/sydney.pmtiles");

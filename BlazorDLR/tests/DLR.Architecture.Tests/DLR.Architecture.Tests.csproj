@@ -37,5 +37,8 @@
 		-->
 		<ProjectReference Include="..\DLR.UI.Tests\DLR.UI.Tests.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Update="NSubstitute" Version="6.2.0" />
+	</ItemGroup>
 
 </Project>

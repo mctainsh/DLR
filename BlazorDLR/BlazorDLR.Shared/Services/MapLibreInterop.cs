@@ -144,6 +144,10 @@ public sealed class MapLibreInterop : IMapInterop
 			archiveUrl = archive?.ToString(),
 			attribution = usable.AttributionText,
 			maxZoom = usable.MaxZoom,
+			// Only the offline style reads this — the raster kinds arrive as finished images. It is
+			// sent unconditionally anyway so the module has one shape to destructure, and because a
+			// pack that fell back to OSM above has already had its theme normalised away with it.
+			theme = usable.Theme.ToString().ToLowerInvariant(),
 		};
 	}
 

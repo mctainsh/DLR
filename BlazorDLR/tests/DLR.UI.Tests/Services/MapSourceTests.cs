@@ -68,6 +68,53 @@ public sealed class MapSourceTests
 		decoded.AttributionText.ShouldContain("OpenStreetMap");
 	}
 
+	[Fact]
+	public void AnOfflinePacksTheme_RoundTrips()
+	{
+		MapSource? decoded = MapSource.Decode(MapSource.OfflinePack("au-nsw", MapTheme.Dark).Encode());
+
+		decoded.ShouldNotBeNull();
+		decoded.PackId.ShouldBe("au-nsw", "the theme picks a style document — the archive is the same one.");
+		decoded.Theme.ShouldBe(MapTheme.Dark);
+	}
+
+	[Fact]
+	public void APackStoredBeforeThemesExisted_ReadsAsLight()
+	{
+		// Six fields, which is every value any device wrote before the setting was added. Light is
+		// what those packs were drawing, so this is the reading that changes nothing under anybody.
+		MapSource? decoded = MapSource.Decode("1|offline|au-nsw|||19");
+
+		decoded.ShouldNotBeNull();
+		decoded.PackId.ShouldBe("au-nsw");
+		decoded.Theme.ShouldBe(MapTheme.Light);
+	}
+
+	[Fact]
+	public void AThemeThisBuildCannotName_ReadsAsLight_RatherThanDiscardingTheSource()
+	{
+		// From a build that ships a third theme. Losing the cartography is a visible but harmless
+		// downgrade; losing the source would put the rider back on OSM in a dead zone.
+		MapSource? decoded = MapSource.Decode("1|offline|au-nsw|||19|sepia");
+
+		decoded.ShouldNotBeNull();
+		decoded.PackId.ShouldBe("au-nsw");
+		decoded.Theme.ShouldBe(MapTheme.Light);
+	}
+
+	[Fact]
+	public void TheRasterSources_HaveNoThemeToStore()
+	{
+		// OSM's tiles and a rider's own arrive as finished images. A stored preference that could
+		// never be honoured would come back the next time somebody chose a pack, which reads as the
+		// app remembering something nobody asked it to.
+		new MapSource(MapSourceKind.Osm, Theme: MapTheme.Dark).Normalised()!
+			.Theme.ShouldBe(MapTheme.Light);
+
+		(MapSource.Custom("https://tiles.example.com/{z}/{x}/{y}.png", "© Example") with { Theme = MapTheme.Dark })
+			.Normalised()!.Theme.ShouldBe(MapTheme.Light);
+	}
+
 	[Theory]
 	// The one you would actually type, and the reason it is refused: every host serves the app
 	// over a secure scheme, so plain HTTP is mixed content and the WebView blocks it outright.

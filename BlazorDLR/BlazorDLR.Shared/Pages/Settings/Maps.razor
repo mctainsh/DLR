@@ -47,13 +47,27 @@
 			Free, no account, and what the app has always used. Needs a connection.
 		</p>
 
-		<label class="radio">
-			<input type="radio" name="map-source" disabled="@(!OfflineReady)"
-				   checked="@(_kind == MapSourceKind.Offline)"
-				   @onchange="() => ChooseAsync(MapSourceKind.Offline)" />
-			Offline map pack
-		</label>
-		<p class="hint indent">@OfflineNote</p>
+		@*
+			Offline is offered only where a pack can actually live — the phone (§18.6). The browser
+			hosts used to show it disabled with a note saying why, on the reasoning that a rider who
+			set it on their phone deserved an explanation here. That reasoning does not survive the
+			screen it produced: this page is per device, the sentence explained an option that was
+			never going to become available on this one, and the two hosts that show it are the two
+			where the whole section below — packs, downloads, cartography — is inert.
+
+			It stays enabled whenever it is shown, including on a phone holding no packs. Picking it
+			stores nothing on its own (see ChooseAsync); what it does is reveal the download form,
+			which is the only way a device with no packs ever gets one.
+		*@
+		@if (Packs.IsSupported)
+		{
+			<label class="radio">
+				<input type="radio" name="map-source" checked="@(_kind == MapSourceKind.Offline)"
+					   @onchange="() => ChooseAsync(MapSourceKind.Offline)" />
+				Offline map pack
+			</label>
+			<p class="hint indent">@OfflineNote</p>
+		}
 
 		@* Which pack, when there is more than one. A radio inside a radio would be a mess, so the
 		   packs are their own list and choosing one also selects the offline source — picking a
@@ -88,6 +102,44 @@
 			whatever that server's terms require.
 		</p>
 	</fieldset>
+
+	@*
+		Light or dark, for an offline pack only (§13 Q26).
+
+		It is offered here rather than beside the other two sources because it is the only source
+		that has the choice: a pack is vector, so the colour lives in a style document beside the
+		archive and both ship with the app — switching costs no download and no second pack. OSM
+		and a rider's own tile server hand back finished images, and there is nothing to restyle.
+
+		Base map only. Routes, markers and rider pins are the Skia overlay on top (§4.5 v0.21) and
+		do not follow this — a rider who wants a different line over a dark map has Route display.
+	*@
+	@if (_kind == MapSourceKind.Offline && Packs.IsSupported)
+	{
+		<fieldset class="appearance">
+			<legend>Map colours</legend>
+
+			<label class="radio">
+				<input type="radio" name="map-theme" checked="@(_theme == MapTheme.Light)"
+					   @onchange="() => ChooseThemeAsync(MapTheme.Light)" />
+				Light
+			</label>
+			<p class="hint indent">
+				Daylight cartography, and what a pack draws unless you change it. Easiest to read
+				through a visor in the sun.
+			</p>
+
+			<label class="radio">
+				<input type="radio" name="map-theme" checked="@(_theme == MapTheme.Dark)"
+					   @onchange="() => ChooseThemeAsync(MapTheme.Dark)" />
+				Dark
+			</label>
+			<p class="hint indent">
+				The same map painted for night. Your routes and everyone's pins are drawn on top and
+				keep their own colours — Route display is where those are set.
+			</p>
+		</fieldset>
+	}
 
 	@if (_kind == MapSourceKind.Custom)
 	{
@@ -131,13 +183,27 @@
 				zoom in on a marker; too low and it stops sharpening early. 19 suits most.
 			</p>
 
-			<button type="button" class="primary" disabled="@(!CustomIsUsable)" @onclick="ApplyCustomAsync">
+			@*
+				The button is disabled until the two fields are right, and while it is, it says why.
+
+				Shown from the moment the form opens rather than after a failed attempt. A disabled
+				button with no explanation is the worst of the three states — the rider can see the
+				control they want and not what is standing between them and it — and waiting for an
+				attempt cannot help here, because there is no attempt to make: they cannot press it.
+
+				`aria-describedby` rather than a live region: the text is present rather than
+				announced, so a screen reader reads it when the button is reached, and it is not
+				re-announced on every keystroke that leaves it unchanged.
+			*@
+			<button type="button" class="primary" disabled="@(!CustomIsUsable)"
+					aria-describedby="@(CustomIsUsable ? null : "tile-server-problem")"
+					@onclick="ApplyCustomAsync">
 				Use this tile server
 			</button>
 
-			@if (!CustomIsUsable && _touched)
+			@if (!CustomIsUsable)
 			{
-				<p class="error-text" role="alert">@CustomProblem</p>
+				<p id="tile-server-problem" class="error-text">@CustomProblem</p>
 			}
 		</fieldset>
 	}
@@ -146,11 +212,19 @@
 		Downloading a pack. On the phone only — a browser has nowhere to put one (§18.6), and a
 		field that downloads 26 MB into a tab that forgets it would be worse than absent.
 
+		And only once offline is the chosen source, because that is the only state it is an answer
+		to. A rider on OSM is not part-way through adding a pack; showing them two text fields and a
+		Download button makes the screen look like it has a job outstanding when it does not.
+
+		This is the whole reason the offline radio stays enabled on a phone with no packs on it: the
+		form is behind that radio now, so a disabled radio would have sealed off the one route to
+		getting a pack — the classic case of a feature you can only reach once you already have it.
+
 		Any HTTPS link. The catalogue of packs the server will offer is still coming; until then a
 		rider — or a ride organiser — puts an extract on any web host and passes the link round,
 		which is also how this gets tested. The two paths end at the same downloader.
 	*@
-	@if (Packs.IsSupported)
+	@if (Packs.IsSupported && _kind == MapSourceKind.Offline)
 	{
 		<fieldset class="download">
 			<legend>Add a map pack</legend>
@@ -232,26 +306,26 @@
 	/// <summary>Which downloaded pack is selected, when the offline source is.</summary>
 	private string? _packId;
 
+	/// <summary>
+	/// Which cartography an offline pack draws with. Held on the page rather than read from the
+	/// source each time, so a rider can pick dark on a phone whose pack is still downloading and
+	/// have it apply to the pack they choose afterwards.
+	/// </summary>
+	private MapTheme _theme = MapTheme.Light;
+
 	/// <summary>The add-a-pack form.</summary>
 	private string _url = string.Empty;
 	private string _newPackId = string.Empty;
 
-	/// <summary>Whether the rider has tried to apply a custom source yet — see the error line.</summary>
-	private bool _touched;
-
 	private string? _status;
 
 	/// <summary>
-	/// Whether the offline option can be chosen at all. Two different reasons it cannot, and they
-	/// are worth telling apart on screen — see <see cref="OfflineNote"/>.
+	/// The small print under the offline radio. Only rendered on a host that can hold a pack, so
+	/// the two cases left are "none yet" and "here is what it does".
 	/// </summary>
-	private bool OfflineReady => Packs.IsSupported && Packs.Packs.Count > 0;
-
-	private string OfflineNote => !Packs.IsSupported
-		? "Only on the phone app — a browser has nowhere to keep a map pack."
-		: Packs.Packs.Count == 0
-			? "No map packs on this device yet. Add one below."
-			: "Draws from a pack on this phone. Works with no signal at all.";
+	private string OfflineNote => Packs.Packs.Count == 0
+		? "No map packs on this phone yet. Pick this to add one."
+		: "Draws from a pack on this phone. Works with no signal at all.";
 
 	/// <summary>Whether the download button is worth offering — both fields have to be right first.</summary>
 	private bool CanDownload =>
@@ -275,12 +349,46 @@
 		MapSource.IsUsableTemplate(_template) && !string.IsNullOrWhiteSpace(_attribution);
 
 	/// <summary>
-	/// Which half of the custom form is not right yet, in the rider's terms. One sentence — the
-	/// hints under each field already say what good looks like, and this only has to point.
+	/// Why the tile server cannot be applied yet, in the rider's terms.
+	/// <para>
+	/// One sentence naming <em>this</em> URL's defect rather than restating the rule. The hint
+	/// under the field already says what a good template looks like, and a rider staring at a
+	/// disabled button has read it — what they cannot see is which part of what they typed is the
+	/// problem, and on a URL long enough to need a tile server it is not obvious by looking.
+	/// </para>
 	/// </summary>
-	private string CustomProblem => !MapSource.IsUsableTemplate(_template)
-		? "The tile URL needs to start with https:// and contain {x}, {y} and {z}."
-		: "Add the attribution the tile server asks to be credited with.";
+	private string CustomProblem
+	{
+		get
+		{
+			string template = _template.Trim();
+
+			if (template.Length == 0)
+			{
+				return "Enter the tile server's URL above.";
+			}
+
+			if (!template.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+			{
+				// The commonest paste by a distance, and the one whose failure is invisible: plain
+				// http is mixed content, so the tiles are blocked by the WebView rather than by us.
+				return "The tile URL has to start with https:// — a plain http server is blocked before it is asked for a tile.";
+			}
+
+			// Named individually because a template is normally missing exactly one, and "contains
+			// {x}, {y} and {z}" sends the rider back to compare three things against a long string.
+			string[] missing = new[] { "{x}", "{y}", "{z}" }
+				.Where(placeholder => !template.Contains(placeholder, StringComparison.Ordinal))
+				.ToArray();
+
+			if (missing.Length > 0)
+			{
+				return $"The tile URL is missing {string.Join(" and ", missing)}.";
+			}
+
+			return "Add the attribution the tile server asks to be credited with.";
+		}
+	}
 
 	protected override void OnInitialized()
 	{
@@ -316,13 +424,13 @@
 		// the read that resolved the value — a rider arriving from another screen that already
 		// read the device gets no event at all, and this form would open on the default while the
 		// map below it drew something else.
-		Adopt(MapSources.Chosen);
+		Adopt(MapSources.Effective);
 		StateHasChanged();
 	}
 
 	private void OnSourceChanged() => _ = InvokeAsync(() =>
 	{
-		Adopt(MapSources.Chosen);
+		Adopt(MapSources.Effective);
 		StateHasChanged();
 	});
 
@@ -379,6 +487,13 @@
 	/// Brings the form into line with what is stored. The custom fields are only overwritten from
 	/// a custom source: a rider who has typed a URL, switched to OSM to compare, and switched back
 	/// should find their text still there.
+	/// <para>
+	/// Callers pass <c>Effective</c> rather than <c>Chosen</c>, which matters on the browser hosts
+	/// alone: they no longer render an offline radio at all, so adopting a stored offline source
+	/// there would leave the group with nothing checked. Effective is what those hosts are actually
+	/// drawing with, and on a phone the two agree — a deleted pack still reads as offline, which is
+	/// what keeps the pack list on screen.
+	/// </para>
 	/// </summary>
 	private void Adopt(MapSource source)
 	{
@@ -394,6 +509,7 @@
 		if (source.Kind == MapSourceKind.Offline)
 		{
 			_packId = source.PackId;
+			_theme = source.Theme;
 		}
 	}
 
@@ -431,8 +547,37 @@
 		_kind = MapSourceKind.Offline;
 		_packId = packId;
 
-		await MapSources.SetAsync(MapSource.OfflinePack(packId));
+		await MapSources.SetAsync(MapSource.OfflinePack(packId, _theme));
 		_status = $"Using {packId}. This map works with no signal.";
+	}
+
+	/// <summary>
+	/// Light or dark for the offline map (§13 Q26).
+	/// <para>
+	/// Applied at once, unlike the tile-server form: there is nothing to fill in and nothing to get
+	/// wrong, and the preview below is the whole reason a rider is looking at this. It restyles the
+	/// moment the source changes, because <c>RideMap</c> listens to the same scoped state.
+	/// </para>
+	/// <para>
+	/// With no pack selected yet the choice is only remembered, not stored. An offline source needs
+	/// an archive behind it — <c>MapSource.Normalised</c> refuses one without — so the theme is
+	/// carried into whichever pack is picked next rather than being lost for having been chosen
+	/// first.
+	/// </para>
+	/// </summary>
+	private async Task ChooseThemeAsync(MapTheme theme)
+	{
+		_theme = theme;
+
+		if (_packId is not { } packId)
+		{
+			return;
+		}
+
+		await MapSources.SetAsync(MapSource.OfflinePack(packId, theme));
+		_status = theme == MapTheme.Dark
+			? "Dark map. Your routes and pins keep their own colours."
+			: "Light map.";
 	}
 
 	private async Task DownloadAsync()
@@ -470,8 +615,8 @@
 
 	private async Task ApplyCustomAsync()
 	{
-		_touched = true;
-
+		// The button is disabled while this is false, so this is a guard against a programmatic
+		// caller rather than a path the rider can take — the reason is already on screen.
 		if (!CustomIsUsable)
 		{
 			return;
@@ -507,6 +652,7 @@
 	}
 
 	.map-settings fieldset.custom,
+	.map-settings fieldset.appearance,
 	.map-settings fieldset.download {
 		margin-top: 1rem;
 	}

@@ -42,8 +42,30 @@ already been got wrong once.
 | `lib/maplibre/maplibre-gl.css` | Control and canvas styling                  | 4.7.1 | as above |
 | `lib/pmtiles/pmtiles.js`       | `pmtiles://` protocol plugin, defines the `pmtiles` global | 3.x | BSD-3-Clause (`LICENSE.txt` beside it) |
 | `style/basemap.json`           | Protomaps `light` theme, English labels — 68 layers over one vector source | protomaps-themes-base 4.5.0 | `LICENSE-basemaps.txt` |
+| `style/basemap.dark.json`      | Protomaps `dark` theme — the same 68 layers, same source, painted for night | as above | as above |
 | `style/glyphs/NotoSans-*/0-255.pbf` | Noto Sans Regular / Medium / Italic, Basic Latin + Latin-1 | basemaps-assets | OFL (`glyphs/OFL.txt`) |
-| `style/sprite/light*`          | Icon sheet the style's symbol layers draw from | basemaps-assets v4 | as above |
+| `style/sprite/light*`          | Icon sheet the light style's symbol layers draw from | basemaps-assets v4 | as above |
+| `style/sprite/dark*`           | The same 53 icons painted for the dark style | as above | as above |
+
+**Two themes, one archive.** A PMTiles pack holds vector geometry with no colour in it, so light
+and dark are two style documents over the same tiles — a rider switches with no download and no
+second pack. `MapTheme` in `MapSource.cs` is the C# half; it reaches the module as
+`options.source.theme` and is read by `offlineStyle()` alone, because the raster sources arrive as
+finished images and have nothing to restyle. The glyphs are shared: a font carries no colour, and
+one copy is the difference between the second theme costing ~290 KB and ~1 MB. `MapAssetRules`
+asserts the dark style names no font stack the light one does not.
+
+**To re-vendor either style**, take the prebuilt document from the npm package and apply the one
+transform below — nothing else is edited:
+
+```
+curl -o basemap.json      https://unpkg.com/protomaps-themes-base@4.5.0/dist/styles/light/en.json
+curl -o basemap.dark.json https://unpkg.com/protomaps-themes-base@4.5.0/dist/styles/dark/en.json
+# then, in each: "Noto Sans Regular" -> "NotoSans-Regular", and the same for Medium and Italic
+```
+
+The sprites are `https://protomaps.github.io/basemaps-assets/sprites/v4/{light,dark}{,@2x}.{json,png}`,
+taken verbatim.
 
 **Font stack names carry no spaces, and that is load-bearing.** Upstream the style asks for
 `"Noto Sans Regular"`; the vendored copy is rewritten to `"NotoSans-Regular"` and the glyph folders

@@ -114,9 +114,7 @@
     upload key is recoverable by asking Google to reset it — which is the whole reason to
     be enrolled, and Documentation/store-release.md says so at the top.
   -->
-  <PropertyGroup Condition="'$(Configuration)'=='Release'
-                            and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'
-                            and '$(DLR_ANDROID_KEYSTORE)' != ''">
+  <PropertyGroup Condition="'$(Configuration)'=='Release'&#xD;&#xA;                            and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'&#xD;&#xA;                            and '$(DLR_ANDROID_KEYSTORE)' != ''">
     <AndroidKeyStore>true</AndroidKeyStore>
     <AndroidSigningKeyStore>$(DLR_ANDROID_KEYSTORE)</AndroidSigningKeyStore>
     <AndroidSigningStorePass>$(DLR_ANDROID_KEYSTORE_PASS)</AndroidSigningStorePass>
@@ -132,9 +130,7 @@
       DLR_IOS_CODESIGN_KEY   e.g. "Apple Distribution: Your Company (TEAMID)"
       DLR_IOS_PROVISION      the App Store provisioning profile name
   -->
-  <PropertyGroup Condition="'$(Configuration)'=='Release'
-                            and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'
-                            and '$(DLR_IOS_CODESIGN_KEY)' != ''">
+  <PropertyGroup Condition="'$(Configuration)'=='Release'&#xD;&#xA;                            and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'&#xD;&#xA;                            and '$(DLR_IOS_CODESIGN_KEY)' != ''">
     <CodesignKey>$(DLR_IOS_CODESIGN_KEY)</CodesignKey>
     <CodesignProvision>$(DLR_IOS_PROVISION)</CodesignProvision>
     <ArchiveOnBuild>true</ArchiveOnBuild>
@@ -188,7 +184,7 @@
   <ItemGroup>
 	<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.90" />
 	<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.90" />
-	<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.10" />
+	<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11" />
   </ItemGroup>
 
   <!--

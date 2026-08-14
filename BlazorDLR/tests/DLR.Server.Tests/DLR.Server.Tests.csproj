@@ -16,12 +16,16 @@
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<!-- Drives the §5.3 hub against TestServer, including its WebSocket handshake. -->
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.11" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\BlazorDLR.Web\BlazorDLR.Web.csproj" />
 		<ProjectReference Include="..\DLR.TestSupport\DLR.TestSupport.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Update="NSubstitute" Version="6.2.0" />
 	</ItemGroup>
 
 </Project>

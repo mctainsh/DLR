@@ -488,6 +488,32 @@ label.radio, .radio {
     border-radius: 4px;
 }
 
+/*
+    A button that cannot be pressed has to look like it. Blue is this app's "do the thing"
+    colour, so a disabled .primary in full blue reads as the affirmative action of the screen
+    and simply fails to respond — which the rider blames on the app rather than on the form
+    above it. Settings -> Maps is where that showed: "Use this tile server" sits under a URL
+    that is not valid yet, and looked ready the whole time.
+
+    Grey rather than dimmed-blue, because opacity alone keeps the hue and still reads as the
+    button you are meant to press. `not-allowed` matches .packs .remove:disabled next door.
+
+    From the tokens rather than a literal grey, unlike the two rules below it. This page is dark
+    (--dlr-bg is near-black navy), so the light grey a disabled button wants on white would be
+    the brightest thing on the screen — an inert control drawing more attention than the live
+    one beside it. --dlr-surface-2 is what an input is filled with, which is the right weight:
+    present, and plainly not the affirmative action.
+
+    Applies to every disabled button, not just .primary: the same is true of a plain one, and
+    the two disabled buttons on that screen — this and Download — should not disagree.
+*/
+button:disabled, .primary:disabled, button.primary:disabled, .danger:disabled {
+    background: var(--dlr-surface-2);
+    color: var(--dlr-fg-muted);
+    border-color: var(--dlr-border);
+    cursor: not-allowed;
+}
+
 /* Destructive, but not the point of the page — revoke a device, remove a range. */
 .danger, button.danger {
     padding: 0.5rem 1.25rem;

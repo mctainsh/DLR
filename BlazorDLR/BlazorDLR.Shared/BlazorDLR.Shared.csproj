@@ -12,19 +12,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.11" />
     <!--
       §7.4, §18.5: AuthorizeView, AuthenticationStateProvider, CascadingAuthenticationState.
       Every screen behind [Authorize] uses the components in this package; AuthState
       inherits from AuthenticationStateProvider so the Router knows who the caller is.
     -->
-    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.11" />
     <!--
       §5.3, §18.2: the SignalR client runs in every host. Version pinned to match the
       server (Microsoft.AspNetCore.SignalR shipped by ASP.NET Core 10) so protocol
       handshake never becomes a version-skew debug session.
     -->
-    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.11" />
     <!--
       §4.5 v0.21: one drawing surface for every rider pin, marker and route, on top of
       whichever base map is under it. SkiaSharp is already in the graph via Mapsui and
@@ -41,7 +41,7 @@
       Android/iOS, SkiaSharp.NativeAssets.WebAssembly in BlazorDLR.Web.Client, and
       SkiaSharp.NativeAssets.Linux in BlazorDLR.Web for the SSR pass and image ingest.
     -->
-    <PackageReference Include="SkiaSharp" Version="4.151.0" />
+    <PackageReference Include="SkiaSharp" Version="4.151.1" />
   </ItemGroup>
 
   <ItemGroup>
