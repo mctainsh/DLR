@@ -608,10 +608,26 @@
 		{
 			if (route.Points.Count < 2) continue;
 
+			// Reversing is a direction to *read* the stored points in, not a second copy of them
+			// (§5.4). The stroke comes out identical either way — a line has no ends as far as
+			// Skia is concerned — so the only thing this changes is which way the chevrons below
+			// point, which is the whole of what the rider asked for. The gap list is reversed at
+			// its own call site, against the same flag; see RouteStyleState.IsReversed.
 			_projected.Clear();
-			foreach ((double latitude, double longitude) in route.Points)
+			if (RouteStyles.IsReversed(route.TrackId))
 			{
-				_projected.Add(Project(latitude, longitude));
+				for (int index = route.Points.Count - 1; index >= 0; index--)
+				{
+					(double latitude, double longitude) = route.Points[index];
+					_projected.Add(Project(latitude, longitude));
+				}
+			}
+			else
+			{
+				foreach ((double latitude, double longitude) in route.Points)
+				{
+					_projected.Add(Project(latitude, longitude));
+				}
 			}
 
 			_pathBuilder.MoveTo(_projected[0]);

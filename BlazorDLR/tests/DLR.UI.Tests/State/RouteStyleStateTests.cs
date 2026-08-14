@@ -67,9 +67,9 @@ public sealed class RouteStyleStateTests
 		await state.LoadAsync();
 		await state.LoadAsync();
 
-		// Two keys — the style and the per-route colours — read once between them, not once
-		// per caller. On the web each of these is a JS interop round trip.
-		settings.Reads.ShouldBe(2);
+		// Three keys — the style, the per-route colours and the reversed routes — read once
+		// between them, not once per caller. On the web each of these is a JS interop round trip.
+		settings.Reads.ShouldBe(3);
 		state.Style.LineWidthPx.ShouldBe(9);
 	}
 
@@ -211,27 +211,122 @@ public sealed class RouteStyleStateTests
 		changes.ShouldBe(1, "two reads, one repaint — the canvas draws from whatever is in memory when it runs.");
 	}
 
+	// -- Reversed routes (§5.4) ---------------------------------------------------------------
+
+	[Fact]
+	public void BeforeLoad_NothingIsReversed()
+	{
+		RouteStyleState state = new(new CountingSettings());
+
+		// The prerender pass renders against this, and so does every route on a device that has
+		// never touched the control: a track is drawn the way its GPX recorded it.
+		state.IsReversed(Guid.NewGuid()).ShouldBeFalse();
+
+		// A line that is not a saved track — the editor's working copy — cannot be reversed and
+		// must not throw for asking.
+		state.IsReversed(null).ShouldBeFalse();
+	}
+
+	[Fact]
+	public async Task SetReversedAsync_SurvivesARestart_AndTurningItBackRemovesTheKey()
+	{
+		CountingSettings settings = new();
+		RouteStyleState state = new(settings);
+		Guid trackId = Guid.NewGuid();
+
+		await state.SetReversedAsync(trackId, true);
+		state.IsReversed(trackId).ShouldBeTrue();
+
+		// The direction belongs to the track, so it is still reversed after a relaunch — and on
+		// the next ride the same GPX is attached to.
+		RouteStyleState reopened = new(settings);
+		await reopened.LoadAsync();
+		reopened.IsReversed(trackId).ShouldBeTrue();
+
+		await reopened.SetReversedAsync(trackId, false);
+		reopened.IsReversed(trackId).ShouldBeFalse();
+
+		// Back where it started, so nothing is left behind for it.
+		settings.Removed.ShouldContain(RouteStyleState.ReversedStorageKey);
+	}
+
+	[Fact]
+	public async Task ToggleReversedAsync_FlipsOneRoute_AndLeavesTheOthersAlone()
+	{
+		RouteStyleState state = new(new CountingSettings());
+		Guid reversed = Guid.NewGuid();
+		Guid untouched = Guid.NewGuid();
+
+		await state.ToggleReversedAsync(reversed);
+
+		state.IsReversed(reversed).ShouldBeTrue();
+		state.IsReversed(untouched).ShouldBeFalse(
+			"a ride carries several routes, and turning one round is not a statement about the rest.");
+
+		await state.ToggleReversedAsync(reversed);
+		state.IsReversed(reversed).ShouldBeFalse("the same button undoes it.");
+	}
+
+	[Fact]
+	public async Task SetReversedAsync_AskingForTheWayItAlreadyIs_CostsNoRepaint()
+	{
+		RouteStyleState state = new(new CountingSettings());
+		Guid trackId = Guid.NewGuid();
+
+		await state.SetReversedAsync(trackId, true);
+
+		int changes = 0;
+		state.Changed += () => changes++;
+
+		await state.SetReversedAsync(trackId, true);
+		await state.SetReversedAsync(Guid.NewGuid(), false);
+
+		// Every Changed is a full Skia repaint of whatever maps are on screen — see
+		// SkiaMapOverlay.OnRouteStyleChanged — and neither call changes a frame.
+		changes.ShouldBe(0);
+	}
+
+	[Fact]
+	public async Task AReversedRoute_CountsAsCustomised_SoResetIsOffered()
+	{
+		RouteStyleState state = new(new CountingSettings());
+
+		state.IsCustomised.ShouldBeFalse();
+
+		await state.SetReversedAsync(Guid.NewGuid(), true);
+
+		// The reset button is disabled on !IsCustomised. A rider who has only reversed a route
+		// would otherwise have no way back to stock but to find the row again.
+		state.IsCustomised.ShouldBeTrue();
+	}
+
 	[Fact]
 	public async Task ResetAsync_ForgetsTheKey_RatherThanStoringTodaysDefaults()
 	{
 		CountingSettings settings = new();
 		RouteStyleState state = new(settings);
+		Guid reversed = Guid.NewGuid();
 
 		await state.SetAsync(RouteStyle.Default with { FillColour = "#ff8800" });
 		await state.SetRouteColourAsync(Guid.NewGuid(), "#00ffcc");
+		await state.SetReversedAsync(reversed, true);
 		state.IsCustomised.ShouldBeTrue();
 
 		await state.ResetAsync();
 
 		state.Style.ShouldBe(RouteStyle.Default);
 		state.RouteColours.ShouldBeEmpty("one button, everything this device chose.");
+		state.ReversedRoutes.ShouldBeEmpty("including which way round the routes are read.");
+		state.IsReversed(reversed).ShouldBeFalse();
 		state.IsCustomised.ShouldBeFalse();
 
 		// Storing the current defaults would pin them: a later build that shipped a different
 		// default would never reach a device that had once pressed reset.
 		settings.Removed.ShouldContain(RouteStyleState.StorageKey);
 		settings.Removed.ShouldContain(RouteStyleState.ColoursStorageKey);
+		settings.Removed.ShouldContain(RouteStyleState.ReversedStorageKey);
 		(await settings.GetAsync(RouteStyleState.StorageKey)).ShouldBeNull();
 		(await settings.GetAsync(RouteStyleState.ColoursStorageKey)).ShouldBeNull();
+		(await settings.GetAsync(RouteStyleState.ReversedStorageKey)).ShouldBeNull();
 	}
 }

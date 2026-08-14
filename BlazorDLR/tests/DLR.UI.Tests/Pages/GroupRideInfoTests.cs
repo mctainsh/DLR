@@ -669,6 +669,149 @@ public sealed class GroupRideInfoTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
+	// -- Reversing a route (§5.4) -------------------------------------------------------------
+
+	[Fact]
+	public async Task Reverse_TurnsOneRouteRound_AndSurvivesARestart()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		Guid firstTrack = Guid.NewGuid();
+		api.RoutesResult.Add(Route("The long way", trackId: firstTrack));
+		api.RoutesResult.Add(Route("The short way"));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .reverse").Count.ShouldBe(2,
+				"a track is a direction as well as a shape, so every route carries the control."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".route-list .reverse")[0].GetAttribute("aria-pressed").ShouldBe("false");
+
+		await component.InvokeAsync(() => component.FindAll(".route-list .reverse")[0].Click());
+
+		component.WaitForAssertion(
+			() => styles.IsReversed(firstTrack).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Only that route. A ride commonly carries the way out and the way home, and turning one
+		// round says nothing about the other.
+		styles.IsReversed(api.RoutesResult[1].TrackId).ShouldBeFalse();
+
+		// The state is on the button for a screen reader and in the row for everybody else — a
+		// chevron direction is not something you notice you have changed.
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .reverse")[0].GetAttribute("aria-pressed").ShouldBe("true"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".route-list li")[0].InnerHtml
+			.Contains("reversed", StringComparison.Ordinal).ShouldBeTrue();
+
+		// Keyed on the track, so the direction follows that GPX onto the next ride it joins.
+		RouteStyleState afterRestart = new(Services.GetRequiredService<IDeviceSettings>());
+		await afterRestart.LoadAsync();
+		afterRestart.IsReversed(firstTrack).ShouldBeTrue();
+	}
+
+	[Fact]
+	public async Task Reverse_IsAToggle_SoTheSameButtonPutsItBack()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+
+		Guid trackId = Guid.NewGuid();
+		api.RoutesResult.Add(Route("The long way", trackId: trackId));
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".route-list .reverse").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find(".route-list .reverse").Click());
+		component.WaitForAssertion(
+			() => styles.IsReversed(trackId).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find(".route-list .reverse").Click());
+		component.WaitForAssertion(
+			() => styles.IsReversed(trackId).ShouldBeFalse(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".route-list li")[0].InnerHtml
+			.Contains("reversed", StringComparison.Ordinal).ShouldBeFalse(
+				"the row must stop claiming a direction the rider has just put back.");
+	}
+
+	/// <summary>
+	/// The half of reversing that is not decoration. §5.4 defines the leader as whoever has
+	/// covered the most of the route, measured from its start — so a route read the other way
+	/// round has the other rider in front. A build that flipped only the map's chevrons would
+	/// draw the group riding towards the arrows while the list called the last rider the leader.
+	/// </summary>
+	[Fact]
+	public async Task Reverse_TurnsTheGapListRoundToo_NotJustTheArrows()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+
+		Guid trackId = Guid.NewGuid();
+
+		// A line running south-east, and a rider parked at each end of it.
+		api.RoutesResult.Add(new RideRoute(
+			TrackId: trackId,
+			Name: "The long way",
+			DistanceM: 42_000,
+			PointCount: 3,
+			EncodedPolyline: PolylineCodec.EncodePoints(
+			[
+				new TrackPoint(-33.860, 151.200),
+				new TrackPoint(-33.865, 151.205),
+				new TrackPoint(-33.870, 151.210),
+			]),
+			Bounds: null,
+			AddedUtc: FixedInstant,
+			AddedByUserId: Guid.NewGuid(),
+			AddedByUserName: "DaveSmith"));
+
+		api.PositionsResult =
+		[
+			new RiderPositionDto(
+				Guid.NewGuid(), "AtTheStart",
+				PositionScale.FromDegrees(-33.860), PositionScale.FromDegrees(151.200),
+				null, null, FixedInstant),
+			new RiderPositionDto(
+				Guid.NewGuid(), "AtTheEnd",
+				PositionScale.FromDegrees(-33.870), PositionScale.FromDegrees(151.210),
+				null, null, FixedInstant),
+		];
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+		RouteStyleState styles = Services.GetRequiredService<RouteStyleState>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".gap-list li").Count.ShouldBe(2),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Furthest along the line as the GPX records it: the rider at the far end.
+		component.FindAll(".gap-list li")[0].TextContent
+			.Contains("AtTheEnd", StringComparison.Ordinal).ShouldBeTrue();
+
+		await component.InvokeAsync(() => component.Find(".route-list .reverse").Click());
+
+		component.WaitForAssertion(
+			() => styles.IsReversed(trackId).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Same two riders, same two fixes, the line read from the other end — so the leader is
+		// the one the old start is now the finish for.
+		component.WaitForAssertion(
+			() => component.FindAll(".gap-list li")[0].TextContent
+				.Contains("AtTheStart", StringComparison.Ordinal).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
 	[Fact]
 	public async Task RouteDisplay_Reset_GoesBackToTheDefaults()
 	{

@@ -3,6 +3,7 @@
 @using BlazorDLR.Shared.Components
 @using DLR.Core.Contracts.Rides
 @using DLR.Core.Contracts.Tracks
+@using DLR.Core.Tracks
 @inject IApiClient Api
 @inject IRideHubClient Hub
 @inject AuthState Auth
@@ -124,8 +125,37 @@
 											@* §5.4 projects riders against one line, and it is this one. *@
 											<span class="primary" title="Gaps and off-route warnings use this route">· gaps use this</span>
 										}
+										@if (RouteStyles.IsReversed(route.TrackId))
+										{
+											@* The button below carries aria-pressed, which is the state for a
+											   screen reader. This is the state for everybody else: a chevron
+											   direction on a map is not something you notice you have changed,
+											   and a reversed route that does not say so reads as a bug in the
+											   arrows rather than as a choice somebody made. *@
+											<span class="reversed-note" title="Drawn and measured from the other end">· reversed</span>
+										}
 									</em>
 								</span>
+
+								@*
+									A track is a direction as well as a shape (§5.4). A GPX recorded the
+									other way round draws its chevrons pointing back at the group and ranks
+									the leader last, and this is the one-tap answer to both — it changes the
+									order the same points are read in, and nothing else.
+
+									A toggle rather than a one-way action, so aria-pressed carries the state
+									and the same button undoes it. Offered to every member, not just the
+									organiser: it is a device preference like the colours beside it, and a
+									rider riding a loop backwards from the group is the person who most needs
+									it.
+								*@
+								<button type="button" class="reverse @(RouteStyles.IsReversed(route.TrackId) ? "on" : null)"
+										@onclick="() => ToggleReversedAsync(route.TrackId)"
+										aria-pressed="@(RouteStyles.IsReversed(route.TrackId) ? "true" : "false")"
+										aria-label="@($"Reverse the direction of {route.Name ?? "unnamed route"}")"
+										title="Draw and measure this route from the other end">
+									⇄
+								</button>
 
 								@*
 									Only once there is something to undo. A permanently-present
@@ -260,7 +290,8 @@
 				   here, next to the switch it qualifies. *@
 				<p class="note">
 					To colour one route on its own, tap its swatch in the list above — that
-					beats whichever of these applies.
+					beats whichever of these applies. The ⇄ beside it turns that route round,
+					which is what the arrows point along and what the gaps are measured from.
 				</p>
 
 				<label class="field">
@@ -300,7 +331,7 @@
 
 			@if (ride.State == RideStateDto.Live)
 			{
-				<GapList Route="_session.RoutePolyline" Positions="_session.Positions" />
+				<GapList Route="GapRoute" Positions="_session.Positions" />
 			}
 
 			@if (ride.State == RideStateDto.Live || ride.State == RideStateDto.Open)
@@ -479,6 +510,38 @@
 	/// leave the swatches disagreeing with the map the controls just changed.</summary>
 	private RouteStyle Style => RouteStyles.Style;
 
+	/// <summary>
+	/// The line §5.4's gap list projects riders against, the way round this device reads it.
+	/// <para>
+	/// <see cref="RideSession.RoutePolyline"/> is the ride's first route in the order the server
+	/// stored it. Reversing that route has to reach here as well as the map, because "distance
+	/// along the route" is measured from one end of it: a route drawn with its chevrons flipped
+	/// but ranked from the old start would show the group riding towards the arrows while the
+	/// list called the last rider the leader.
+	/// </para>
+	/// <para>
+	/// A copy, and only when the route is reversed — the session's own list is shared with the
+	/// live map and is not this page's to turn round. The cost is one reversal of a simplified
+	/// polyline per render of a panel that only exists while a ride is Live; <c>GapCalculator</c>
+	/// already walks the whole line once per rider per render, which is the larger number.
+	/// </para>
+	/// </summary>
+	private IReadOnlyList<TrackPoint>? GapRoute
+	{
+		get
+		{
+			if (_session.RoutePolyline is not { } line)
+			{
+				return null;
+			}
+
+			// Routes[0] is the same route RoutePolyline was derived from — see RideSession.ApplyRoutes.
+			return _session.Routes.Count > 0 && RouteStyles.IsReversed(_session.Routes[0].TrackId)
+				? [.. line.Reverse()]
+				: line;
+		}
+	}
+
 	protected override void OnInitialized()
 	{
 		_session = new RideSession(Api, Hub, Auth, Broadcast, Cache);
@@ -637,6 +700,18 @@
 	}
 
 	private Task ClearRouteColourAsync(Guid trackId) => RouteStyles.ClearRouteColourAsync(trackId);
+
+	/// <summary>
+	/// Turns one route round (§5.4). Keyed on the track for the same reason the colour is: the
+	/// direction belongs to that GPX, so a track imported backwards stays fixed on the next ride
+	/// it is attached to rather than needing the same tap again.
+	/// <para>
+	/// Nothing is sent to the server and the track is not rewritten — this records which end of
+	/// the stored points to start from. Everything that reads the route's order follows from the
+	/// one flag: the map's chevrons, and <see cref="GapRoute"/>.
+	/// </para>
+	/// </summary>
+	private Task ToggleReversedAsync(Guid trackId) => RouteStyles.ToggleReversedAsync(trackId);
 
 	private Task ResetStyleAsync() => RouteStyles.ResetAsync();
 
@@ -925,6 +1000,41 @@
 		font-size: 0.8rem;
 		opacity: 0.8;
 		cursor: pointer;
+	}
+
+	/*
+		Turns this route round. Sized as a tap target for the same reason the swatch is — it is
+		pressed on a phone in a bar mount — and square, because the glyph is the label and a
+		wider box would read as a text button with a missing word.
+	*/
+	.ride-info .route-list .reverse {
+		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		padding: 0;
+		background: transparent;
+		border: 1px solid var(--dlr-border, #ffffff33);
+		border-radius: 4px;
+		color: inherit;
+		font: inherit;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	/* On is a filled button, not a tinted glyph: this is read in daylight through a visor, and
+	   colour alone is the first thing to go (§18.6). */
+	.ride-info .route-list .reverse.on {
+		background: var(--dlr-accent, #2563eb);
+		color: var(--dlr-accent-fg, #fff);
+		border-color: var(--dlr-accent, #2563eb);
+	}
+
+	/* The same fact as the button's pressed state, in the row's own words — see the markup. */
+	.ride-info .route-list .reversed-note {
+		margin-left: 0.35rem;
 	}
 
 	.ride-info .route-list .what {

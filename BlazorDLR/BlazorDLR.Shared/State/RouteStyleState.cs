@@ -28,9 +28,17 @@ public sealed class RouteStyleState
 	/// </summary>
 	public const string ColoursStorageKey = "dlr.route-colours";
 
+	/// <summary>
+	/// The <see cref="IDeviceSettings"/> key for reversed routes. Its own key for the same reason
+	/// <see cref="ColoursStorageKey"/> is — a device that has never reversed anything carries
+	/// nothing for it — see <see cref="RouteDirectionMap"/>.
+	/// </summary>
+	public const string ReversedStorageKey = "dlr.route-reversed";
+
 	private readonly IDeviceSettings _settings;
 	private RouteStyle _style = RouteStyle.Default;
 	private IReadOnlyDictionary<Guid, string> _routeColours = RouteColourMap.Empty;
+	private IReadOnlySet<Guid> _reversedRoutes = RouteDirectionMap.Empty;
 	private bool _loaded;
 
 	/// <summary>Creates the state over a host's device store.</summary>
@@ -46,8 +54,12 @@ public sealed class RouteStyleState
 	/// <summary>Colours pinned to individual tracks, keyed on track id (§5.4). Empty until <see cref="LoadAsync"/> has run.</summary>
 	public IReadOnlyDictionary<Guid, string> RouteColours => _routeColours;
 
+	/// <summary>Tracks this rider has reversed (§5.4). Empty until <see cref="LoadAsync"/> has run.</summary>
+	public IReadOnlySet<Guid> ReversedRoutes => _reversedRoutes;
+
 	/// <summary>Whether this device has changed anything at all, which is what makes "reset" worth offering.</summary>
-	public bool IsCustomised => _style != RouteStyle.Default || _routeColours.Count > 0;
+	public bool IsCustomised =>
+		_style != RouteStyle.Default || _routeColours.Count > 0 || _reversedRoutes.Count > 0;
 
 	/// <summary>
 	/// The colour a route is actually drawn in, resolving the three answers most-specific first:
@@ -79,6 +91,77 @@ public sealed class RouteStyleState
 	public bool HasRouteColour(Guid trackId) => _routeColours.ContainsKey(trackId);
 
 	/// <summary>
+	/// Whether this route is drawn — and measured along — back to front (§5.4).
+	/// <para>
+	/// Everything that reads a route's <em>order</em> has to ask: the chevrons the overlay spaces
+	/// along the line, and the gap list, which defines the leader as whoever is furthest along it.
+	/// A screen that reversed only one of the two would draw arrows disagreeing with the ranking
+	/// beside them, which is worse than not offering the choice.
+	/// </para>
+	/// </summary>
+	/// <param name="trackId">The route's track, or <c>null</c> for a line that is not a saved track (the editor's working copy), which is never reversed.</param>
+	public bool IsReversed(Guid? trackId) => trackId is { } id && _reversedRoutes.Contains(id);
+
+	/// <summary>
+	/// Turns one route back to front, or puts it the way its GPX was recorded.
+	/// <para>
+	/// Nothing is rewritten and nothing is sent anywhere: this records a direction to <em>read</em>
+	/// the stored points in. The track keeps its own order, every other ride it is attached to is
+	/// untouched, and an export is still the file that was imported.
+	/// </para>
+	/// </summary>
+	/// <param name="trackId">The route's track.</param>
+	/// <param name="reversed">True to draw and measure it end to start.</param>
+	/// <param name="cancellationToken">Cancels the write.</param>
+	public Task SetReversedAsync(Guid trackId, bool reversed, CancellationToken cancellationToken = default)
+	{
+		if (_reversedRoutes.Contains(trackId) == reversed)
+		{
+			// Already the way round it is being asked for. Writing anyway would fire Changed and
+			// cost every map on screen a full repaint to draw the identical frame.
+			return Task.CompletedTask;
+		}
+
+		HashSet<Guid> updated = [.. _reversedRoutes];
+
+		if (reversed)
+		{
+			updated.Add(trackId);
+		}
+		else
+		{
+			updated.Remove(trackId);
+		}
+
+		return WriteReversedAsync(updated, cancellationToken);
+	}
+
+	/// <summary>Flips one route's direction — what the button on the ride's info page calls.</summary>
+	/// <param name="trackId">The route's track.</param>
+	/// <param name="cancellationToken">Cancels the write.</param>
+	public Task ToggleReversedAsync(Guid trackId, CancellationToken cancellationToken = default) =>
+		SetReversedAsync(trackId, !_reversedRoutes.Contains(trackId), cancellationToken);
+
+	private async Task WriteReversedAsync(IReadOnlySet<Guid> reversed, CancellationToken cancellationToken)
+	{
+		_reversedRoutes = reversed;
+		_loaded = true;
+
+		// In memory, then the event, then the store — same ordering and same reason as SetAsync.
+		Changed?.Invoke();
+
+		if (reversed.Count == 0)
+		{
+			// Nothing left to remember. Removing beats storing an empty set: it leaves no key
+			// behind on a device that ends up back where it started.
+			await _settings.RemoveAsync(ReversedStorageKey, cancellationToken);
+			return;
+		}
+
+		await _settings.SetAsync(ReversedStorageKey, RouteDirectionMap.Encode(reversed), cancellationToken);
+	}
+
+	/// <summary>
 	/// Reads the persisted style. Idempotent — the map overlay and the settings panel both
 	/// call it without coordinating, and whichever renders first pays for the read.
 	/// <para>
@@ -101,9 +184,10 @@ public sealed class RouteStyleState
 
 		_style = RouteStyle.Decode(await _settings.GetAsync(StorageKey, cancellationToken));
 		_routeColours = RouteColourMap.Decode(await _settings.GetAsync(ColoursStorageKey, cancellationToken));
+		_reversedRoutes = RouteDirectionMap.Decode(await _settings.GetAsync(ReversedStorageKey, cancellationToken));
 
-		// One event for both reads: the canvas repaints from whatever is in memory when it
-		// runs, and firing twice would cost a second full repaint to show the same frame.
+		// One event for all three reads: the canvas repaints from whatever is in memory when it
+		// runs, and firing per key would cost a full repaint each to show the same frame.
 		Changed?.Invoke();
 	}
 
@@ -180,8 +264,8 @@ public sealed class RouteStyleState
 	}
 
 	/// <summary>
-	/// Forgets everything this device has chosen — the style and every pinned route colour —
-	/// and goes back to <see cref="RouteStyle.Default"/>.
+	/// Forgets everything this device has chosen — the style, every pinned route colour and every
+	/// reversed route — and goes back to <see cref="RouteStyle.Default"/>.
 	/// Removes the keys rather than storing today's defaults — see <see cref="IDeviceSettings.RemoveAsync"/>.
 	/// </summary>
 	/// <param name="cancellationToken">Cancels the removal.</param>
@@ -189,10 +273,12 @@ public sealed class RouteStyleState
 	{
 		_style = RouteStyle.Default;
 		_routeColours = RouteColourMap.Empty;
+		_reversedRoutes = RouteDirectionMap.Empty;
 		_loaded = true;
 
 		Changed?.Invoke();
 		await _settings.RemoveAsync(StorageKey, cancellationToken);
 		await _settings.RemoveAsync(ColoursStorageKey, cancellationToken);
+		await _settings.RemoveAsync(ReversedStorageKey, cancellationToken);
 	}
 }
