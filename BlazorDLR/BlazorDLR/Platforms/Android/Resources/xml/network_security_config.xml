@@ -24,4 +24,28 @@
 		<domain includeSubdomains="false">localhost</domain>
 		<domain includeSubdomains="false">10.0.2.2</domain>
 	</domain-config>
+
+	<!--
+		The map-pack catalogue host (§4.2), and the one entry here that is genuinely off-device.
+
+		⚠ TEMPORARY, AND IT SHOULD BE DELETED RATHER THAN INHERITED. The host answers on 443 with a
+		certificate issued for another domain, so HTTPS to it cannot be verified; this exception is
+		what lets the Maps screen read the list at all in the meantime. The moment that host serves
+		a certificate matching its own name, this block goes and MapPackCatalogue.DefaultUrl becomes
+		https — there is nothing else to change.
+
+		What it exposes is both the list and the archives — the packs are served from this same host,
+		so a pack download is cleartext too (MapPackCatalogue.PermitsCleartext). That is the part
+		worth being uncomfortable about: hundreds of megabytes the app renders as the map a rider
+		navigates by, open to being rewritten in flight, and the catalogue's published sha256 is not
+		yet compared against what arrives (offline-maps-plan.md §4.3 step 3). Doing that check is
+		what makes this exception survivable rather than merely convenient.
+
+		Scoped to the single host and NOT includeSubdomains, so nothing else the app talks to — the
+		API above all — loses its transport security to this. The same host is named in
+		MapPackCatalogue.CleartextHost and in Info.plist; the three have to agree.
+	-->
+	<domain-config cleartextTrafficPermitted="true">
+		<domain includeSubdomains="false">pmtiles.securehub.net</domain>
+	</domain-config>
 </network-security-config>

@@ -147,6 +147,12 @@ builder.Services.AddScoped<IMapPackServer, UnavailableMapPackServer>();
 builder.Services.AddScoped(sp => new MapPackDownloader(
 	sp.GetRequiredService<IMapPackStore>(),
 	MapPackDownloader.CreateCredentialFreeClient()));
+// The catalogue of packs on offer (§4.2). Registered for the same reason as the two above and read
+// by nobody here: MapPackState refuses to fetch it on a host that could not store the result, so
+// the prerender resolves the service and never sends the request.
+builder.Services.AddScoped(_ => new MapPackCatalogue(
+	MapPackCatalogue.CreateCredentialFreeClient(),
+	new Uri(MapPackCatalogue.DefaultUrl)));
 builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
 // The live map asks for the screen to stay on (§4.3). There is no screen on this host, and the
 // browser it hands off to binds the same stub (§18.6).

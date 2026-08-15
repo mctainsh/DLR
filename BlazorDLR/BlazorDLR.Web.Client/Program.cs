@@ -92,6 +92,14 @@ internal class Program
 		builder.Services.AddScoped(sp => new MapPackDownloader(
 			sp.GetRequiredService<IMapPackStore>(),
 			MapPackDownloader.CreateCredentialFreeClient()));
+
+		// And the catalogue of packs on offer (§4.2), which this host will never read either:
+		// MapPackState does not fetch it where there is nowhere to put the result, so the browser
+		// spends no request on a list the Maps screen does not render here.
+		builder.Services.AddScoped(_ => new MapPackCatalogue(
+			MapPackCatalogue.CreateCredentialFreeClient(),
+			new Uri(MapPackCatalogue.DefaultUrl)));
+
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
 
 		// No push in the browser in v1 (§18.2). The screen lock is the same answer for a

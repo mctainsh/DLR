@@ -14,19 +14,35 @@ namespace DLR.UI.Tests.Services;
 public sealed class RememberedMapSetupTests
 {
 	[Fact]
-	public void BothHalvesOfTheScreenRoundTrip()
+	public void TheTileServerRoundTrips()
 	{
 		RememberedMapSetup setup = new(
 			TileTemplate: "https://tiles.example.com/{z}/{x}/{y}.png?key=abc&v=2",
 			TileAttribution: "© Example | Maps",
-			TileMaxZoom: 17,
-			PackUrl: "https://www.noptic1.com/Stuff/sydney.pmtiles",
-			PackName: "sydney");
+			TileMaxZoom: 17);
 
 		RememberedMapSetup? decoded = RememberedMapSetup.Decode(setup.Encode());
 
 		decoded.ShouldBe(setup,
 			"query strings, braces and the separator itself all appear in real tile URLs.");
+	}
+
+	/// <summary>
+	/// Version 1 carried a map-pack link and a name after the zoom. Packs come from the catalogue
+	/// now (§4.2), so those two fields went with the form that asked for them — but a rider's tile
+	/// URL must survive a format change they did not ask for, which is why this reads rather than
+	/// rejects.
+	/// </summary>
+	[Fact]
+	public void AVersionOneValue_StillGivesBackTheTileServer()
+	{
+		RememberedMapSetup? decoded = RememberedMapSetup.Decode(
+			"1|https%3A%2F%2Ftiles.example.com%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png|%C2%A9%20Example|17|https%3A%2F%2Fx%2Fsydney.pmtiles|sydney");
+
+		decoded.ShouldNotBeNull();
+		decoded.TileTemplate.ShouldBe("https://tiles.example.com/{z}/{x}/{y}.png");
+		decoded.TileAttribution.ShouldBe("© Example");
+		decoded.TileMaxZoom.ShouldBe(17, "and the two trailing fields are simply dropped.");
 	}
 
 	[Fact]
@@ -43,16 +59,16 @@ public sealed class RememberedMapSetupTests
 	}
 
 	[Fact]
-	public void OnlyOneHalfFilledInIsStillWorthKeeping()
+	public void OnlyOneFieldFilledInIsStillWorthKeeping()
 	{
-		RememberedMapSetup setup = new(PackUrl: "https://example.com/sydney.pmtiles", PackName: "sydney");
+		RememberedMapSetup setup = new(TileAttribution: "© Example Maps");
 
 		setup.IsEmpty.ShouldBeFalse();
 
 		RememberedMapSetup? decoded = RememberedMapSetup.Decode(setup.Encode());
 
 		decoded.ShouldNotBeNull();
-		decoded.PackUrl.ShouldBe("https://example.com/sydney.pmtiles");
+		decoded.TileAttribution.ShouldBe("© Example Maps");
 		decoded.TileTemplate.ShouldBeNull("a field nobody filled in comes back as nothing, not as an empty string.");
 	}
 
@@ -60,10 +76,10 @@ public sealed class RememberedMapSetupTests
 	public void AnUntouchedFormIsEmpty()
 	{
 		RememberedMapSetup.Empty.IsEmpty.ShouldBeTrue(
-			"and the page removes the key rather than storing five blanks.");
+			"and the page removes the key rather than storing three blanks.");
 
 		// Whitespace is not content — a field somebody tabbed through does not make a draft.
-		new RememberedMapSetup(TileTemplate: "   ", PackName: "\t").IsEmpty.ShouldBeTrue();
+		new RememberedMapSetup(TileTemplate: "   ", TileAttribution: "\t").IsEmpty.ShouldBeTrue();
 	}
 
 	[Fact]
@@ -92,8 +108,9 @@ public sealed class RememberedMapSetupTests
 	[InlineData(null)]
 	[InlineData("")]
 	[InlineData("garbage")]
-	[InlineData("2|a|b|19|c|d")]   // a version this build cannot read
-	[InlineData("1|a|b")]          // truncated
+	[InlineData("3|a|b|19")]   // a version this build cannot read
+	[InlineData("2|a|b")]      // truncated
+	[InlineData("1|a|b")]
 	public void AStoredValueThisBuildCannotRead_IsNoDraft(string? stored)
 	{
 		RememberedMapSetup.Decode(stored).ShouldBeNull(
@@ -104,7 +121,7 @@ public sealed class RememberedMapSetupTests
 	public void AnUnreadableZoomFallsBackWithoutLosingTheRest()
 	{
 		// The one field where a bad value should not cost the rider their URL.
-		RememberedMapSetup? decoded = RememberedMapSetup.Decode("1|https%3A%2F%2Fx%2F%7Bz%7D||not-a-number||");
+		RememberedMapSetup? decoded = RememberedMapSetup.Decode("2|https%3A%2F%2Fx%2F%7Bz%7D||not-a-number");
 
 		decoded.ShouldNotBeNull();
 		decoded.TileMaxZoom.ShouldBe(MapSource.OsmMaxZoom);

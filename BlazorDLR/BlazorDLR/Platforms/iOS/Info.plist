@@ -80,12 +80,36 @@
 		(Documentation/store-release.md). When it goes, the loopback allowance has to survive it,
 		and this is the key that does that.
 	-->
+	<!--
+		The map-pack catalogue host (§4.2). Named explicitly even though NSAllowsArbitraryLoads
+		above already permits it, for the same reason NSAllowsLocalNetworking is: the blanket key is
+		a release gate that has to go before submission, and this exception has to survive it.
+
+		⚠ TEMPORARY. The host answers on 443 with a certificate issued for another domain, so HTTPS
+		to it cannot be verified. When it serves one matching its own name, this dict goes and
+		MapPackCatalogue.DefaultUrl becomes https.
+
+		Both the list and the archives travel in the clear — the packs are served from this same host
+		(MapPackCatalogue.PermitsCleartext), which is hundreds of megabytes rendered as the map a
+		rider navigates by, with the published sha256 not yet compared against what arrives
+		(offline-maps-plan.md §4.3 step 3). NSIncludesSubdomains is absent, so this covers exactly
+		the one host, named identically in MapPackCatalogue.CleartextHost and in
+		network_security_config.xml.
+	-->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>pmtiles.securehub.net</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
 	</dict>
 	
 	<key>CFBundleShortVersionString</key>
@@ -93,7 +117,7 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 	<key>CFBundleVersion</key>
-	<string>21</string>
+	<string>22</string>
 
 	<!--
 		Purpose strings. App Review reads these, and 5.1.1 rejections for location are almost

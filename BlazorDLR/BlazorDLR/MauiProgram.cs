@@ -116,6 +116,14 @@ public static class MauiProgram
 		builder.Services.AddSingleton(sp => new BlazorDLR.Shared.Services.MapPackDownloader(
 			sp.GetRequiredService<BlazorDLR.Shared.Services.IMapPackStore>(),
 			BlazorDLR.Shared.Services.MapPackDownloader.CreateCredentialFreeClient()));
+
+		// What is on offer to download (§4.2). Its own credential-free client for the same reason as
+		// the downloader's: the catalogue is a static file on a host that is not the API, and the
+		// registered client would attach the rider's access token to the request.
+		builder.Services.AddSingleton(_ => new BlazorDLR.Shared.Services.MapPackCatalogue(
+			BlazorDLR.Shared.Services.MapPackCatalogue.CreateCredentialFreeClient(),
+			new Uri(BlazorDLR.Shared.Services.MapPackCatalogue.DefaultUrl)));
+
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
 
 		// GPS (§4.3). The platform providers live under Platforms/, one per target: an Android

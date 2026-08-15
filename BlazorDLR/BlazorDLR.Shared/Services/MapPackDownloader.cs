@@ -10,9 +10,13 @@ namespace BlazorDLR.Shared.Services;
 /// <param name="Succeeded">Whether it is now on the device and readable.</param>
 /// <param name="Message">What to put in front of the rider — the reason on a failure, the size on a success.</param>
 /// <param name="Sha256">
-/// The archive's checksum, lowercase hex, when one was computed. Nothing verifies it today: a
-/// rider pasting a URL has no catalogue to check it against. It is reported so they can, and so
-/// the server-catalogue path (§4.2) has the value it will compare.
+/// The archive's checksum, lowercase hex, when one was computed.
+/// <para>
+/// Still nothing compares it, and now there is something to compare it <em>to</em>: the catalogue
+/// publishes a <c>sha256</c> per pack (§4.2). Wiring the two together is the outstanding half —
+/// plan §4.3 step 3 wants a mismatch to discard the part file and fail the download, which is a
+/// change to this type's contract rather than to the value it already computes.
+/// </para>
 /// </param>
 public sealed record MapPackDownloadResult(string PackId, bool Succeeded, string Message, string? Sha256 = null);
 
@@ -29,11 +33,13 @@ public readonly record struct MapPackProgress(string PackId, long BytesReceived,
 /// <summary>
 /// Fetches a PMTiles archive from a URL onto this device (§4.4).
 /// <para>
-/// <strong>Any HTTPS URL, not a catalogue.</strong> The server-side catalogue described in
-/// <c>Documentation/offline-maps-plan.md §4.2</c> is still the plan, but it is not what makes this
-/// useful on day one: a rider — or a ride organiser — can put an extract on any web host and hand
-/// the link round, which is also the only way to test the offline path before that catalogue
-/// exists. The catalogue, when it lands, hands this method a URL exactly like a person does.
+/// <strong>A URL, wherever it came from.</strong> This takes an address and a name and knows
+/// nothing about how they were chosen — which is why <see cref="MapPackCatalogue"/> could replace
+/// the screen's link-and-a-name form without touching anything here: the catalogue hands this
+/// method a URL exactly as a person used to. HTTPS, or cleartext from the one host the platform
+/// configs permit — see <see cref="IsFetchable"/>. That is not pedantry either way: the phones
+/// block every other <c>http://</c> host below this code, so such a link would fail at the platform
+/// rather than anywhere a rider could act on.
 /// </para>
 /// <para>
 /// <strong>It owns its own <see cref="HttpClient"/>, and that is a security decision rather than a
@@ -116,7 +122,7 @@ public sealed class MapPackDownloader : IDisposable
 	/// What to call it on this device. Must be a slug the store accepts — see
 	/// <see cref="IsUsablePackId"/>, which the settings screen checks before offering the button.
 	/// </param>
-	/// <param name="url">Where to fetch it from. HTTPS only.</param>
+	/// <param name="url">Where to fetch it from. Must satisfy <see cref="IsFetchable"/>.</param>
 	/// <param name="progress">Told roughly every half megabyte, and once at the end.</param>
 	/// <param name="cancellationToken">Cancelling leaves the partial file for a later resume.</param>
 	public async Task<MapPackDownloadResult> DownloadAsync(
@@ -126,23 +132,22 @@ public sealed class MapPackDownloader : IDisposable
 		CancellationToken cancellationToken = default)
 	{
 		if (!IsUsablePackId(packId))
-		{
 			return new MapPackDownloadResult(packId, false,
 				"A map pack's name can use letters, numbers and hyphens, and has to start with a letter or number.");
-		}
 
-		if (!url.IsAbsoluteUri || url.Scheme != Uri.UriSchemeHttps)
+		if (!IsFetchable(url))
 		{
-			// Not pedantry: the phones refuse plain HTTP to anything but loopback (see the platform
-			// network config), so an http:// link would fail with a platform error rather than
-			// anything a rider could act on.
-			return new MapPackDownloadResult(packId, false, "The link has to start with https://.");
+			// Not pedantry: the phones refuse plain HTTP to every host but loopback and the one named
+			// in MapPackCatalogue.CleartextHost (see the platform network configs), so any other
+			// http:// link would fail with a platform error rather than anything a rider could act on.
+			// Refused here, before a connection is opened, and reported — this is what the settings
+			// screen shows when somebody taps Download on a pack the catalogue published badly.
+			return new MapPackDownloadResult(packId, false,
+				"That map is not offered over a link this phone can use — it has to be https://.");
 		}
 
 		if (!_store.IsSupported)
-		{
 			return new MapPackDownloadResult(packId, false, "This device cannot store map packs.");
-		}
 
 		int version = await _store.NextVersionAsync(packId, cancellationToken);
 		long resumeFrom = await _store.PartialLengthAsync(packId, version, cancellationToken);
@@ -178,9 +183,7 @@ public sealed class MapPackDownloader : IDisposable
 		using HttpRequestMessage request = new(HttpMethod.Get, url);
 
 		if (resumeFrom > 0)
-		{
 			request.Headers.Range = new RangeHeaderValue(resumeFrom, null);
-		}
 
 		// ResponseHeadersRead: the body is hundreds of megabytes and must be streamed to disk, not
 		// buffered into memory first. The default would materialise the whole archive in RAM.
@@ -196,10 +199,7 @@ public sealed class MapPackDownloader : IDisposable
 		}
 
 		if (!response.IsSuccessStatusCode)
-		{
-			return new MapPackDownloadResult(packId, false,
-				$"That link answered {(int)response.StatusCode} {response.ReasonPhrase}.");
-		}
+			return new MapPackDownloadResult(packId, false, $"That link answered {(int)response.StatusCode} {response.ReasonPhrase}.");
 
 		// A server that ignored the Range header and sent the whole file. Appending it to what is
 		// already on disk would produce a corrupt archive of an entirely plausible length.
@@ -339,6 +339,21 @@ public sealed class MapPackDownloader : IDisposable
 		&& packId.Length <= 64
 		&& char.IsAsciiLetterOrDigit(packId[0])
 		&& packId.All(character => char.IsAsciiLetterOrDigit(character) || character == '-');
+
+	/// <summary>
+	/// Whether an archive at <paramref name="url"/> is one this app may fetch at all.
+	/// <para>
+	/// HTTPS, or cleartext from the single host the platform configs permit
+	/// (<see cref="MapPackCatalogue.PermitsCleartext"/>). The same rule the catalogue applies before
+	/// offering a row, stated once and consulted from both — the screen uses it to decide whether to
+	/// draw a button, and this uses it because a caller reaching here another way must not get a
+	/// weaker answer than the screen did.
+	/// </para>
+	/// </summary>
+	/// <param name="url">Where the archive would come from.</param>
+	public static bool IsFetchable(Uri url) =>
+		url.IsAbsoluteUri
+		&& (url.Scheme == Uri.UriSchemeHttps || MapPackCatalogue.PermitsCleartext(url));
 
 	/// <summary>A byte count as a rider reads it. Binary units, because that is what a phone reports.</summary>
 	/// <param name="bytes">The count.</param>

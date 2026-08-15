@@ -6,6 +6,7 @@
 @inject MapSourceState MapSources
 @inject MapPackState Packs
 @inject IDeviceSettings Settings
+@inject ConfirmService Confirm
 @implements IDisposable
 
 @*
@@ -81,12 +82,12 @@
 						<label class="radio">
 							<input type="radio" name="map-pack" checked="@(_packId == pack.PackId)"
 								   @onchange="() => ChoosePackAsync(pack.PackId)" />
-							<span class="name">@pack.PackId</span>
+							<span class="name">@NameFor(pack.PackId)</span>
 						</label>
 						<span class="size">@MapPackDownloader.Describe(pack.SizeBytes)</span>
 						<button type="button" class="remove" @onclick="() => DeletePackAsync(pack.PackId)"
 								disabled="@Packs.IsDownloading"
-								aria-label="@($"Delete {pack.PackId}")">Delete</button>
+								aria-label="@($"Delete {NameFor(pack.PackId)}")">Delete</button>
 					</li>
 				}
 			</ul>
@@ -209,47 +210,104 @@
 	}
 
 	@*
-		Downloading a pack. On the phone only — a browser has nowhere to put one (§18.6), and a
-		field that downloads 26 MB into a tab that forgets it would be worse than absent.
+		Adding a pack, from the catalogue the server publishes (§4.2). On the phone only — a browser
+		has nowhere to put one (§18.6), and a list that downloads 300 MB into a tab that forgets it
+		would be worse than absent.
 
 		And only once offline is the chosen source, because that is the only state it is an answer
-		to. A rider on OSM is not part-way through adding a pack; showing them two text fields and a
-		Download button makes the screen look like it has a job outstanding when it does not.
+		to. A rider on OSM is not part-way through adding a pack; showing them a list of regions and
+		a Download button makes the screen look like it has a job outstanding when it does not.
 
 		This is the whole reason the offline radio stays enabled on a phone with no packs on it: the
-		form is behind that radio now, so a disabled radio would have sealed off the one route to
-		getting a pack — the classic case of a feature you can only reach once you already have it.
+		list is behind that radio, so a disabled radio would have sealed off the one route to getting
+		a pack — the classic case of a feature you can only reach once you already have it.
 
-		Any HTTPS link. The catalogue of packs the server will offer is still coming; until then a
-		rider — or a ride organiser — puts an extract on any web host and passes the link round,
-		which is also how this gets tested. The two paths end at the same downloader.
+		This replaced a link-and-a-name form. That form was how the offline path got tested before a
+		catalogue existed, and it asked a rider to know a URL and to invent a name the store might
+		then refuse — two ways to get a 300 MB download wrong before it started, both of them
+		invisible until it finished. The catalogue answers both: the name and the id come from the
+		publisher, and the only thing left to choose is which region.
 	*@
 	@if (Packs.IsSupported && _kind == MapSourceKind.Offline)
 	{
-		<fieldset class="download">
+		<fieldset class="catalogue">
 			<legend>Add a map pack</legend>
 
+			@*
+				No refresh control. One was here, and a button offering to re-fetch a file that is
+				rebuilt when somebody publishes an extract — weeks apart — invites the pulling that it
+				can never reward. The catalogue is read the first time this form is opened and that
+				copy is held until the app restarts, which is the whole of the policy.
+			*@
 			<p class="hint">
-				A PMTiles archive on any web address. Large — usually tens or hundreds of megabytes
-				— so use Wi-Fi. A download that is interrupted carries on from where it stopped.
+				Maps you can carry with you. Large — usually tens or hundreds of megabytes — so use
+				Wi-Fi. A download that is interrupted carries on from where it stopped.
 			</p>
 
-			<label>
-				Link
-				<input @bind="_url" @bind:event="oninput" spellcheck="false"
-					   autocomplete="off" autocapitalize="off" inputmode="url"
-					   disabled="@Packs.IsDownloading" @onblur="RememberAsync"
-					   placeholder="https://example.com/sydney.pmtiles" />
-			</label>
+			@*
+				A banner rather than a branch, so the problem never takes a list away with it. The
+				commonest cause by a distance is no signal, which is also exactly the person trying to
+				download a map for later — and coming back to this form is what asks again, because a
+				failed read is not a copy and is not held.
+			*@
+			@if (Packs.CatalogueProblem is { } catalogueProblem)
+			{
+				<p class="error-text">@catalogueProblem</p>
+			}
 
-			<label>
-				Name it
-				<input @bind="_newPackId" @bind:event="oninput" spellcheck="false"
-					   autocomplete="off" autocapitalize="off"
-					   disabled="@Packs.IsDownloading" @onblur="RememberAsync"
-					   placeholder="sydney" />
-			</label>
-			<p class="hint">Letters, numbers and hyphens. This is what the pack is called on this device.</p>
+			@if (Packs.IsReadingCatalogue)
+			{
+				<p class="status" role="status">Loading the maps on offer…</p>
+			}
+			else if (Packs.Offers.Count == 0 && Packs.CatalogueProblem is null)
+			{
+				<p class="hint">There are no maps on offer at the moment.</p>
+			}
+			else if (Packs.Offers.Count > 0)
+			{
+				@*
+					One dropdown, not a row per region.
+
+					The catalogue is eight states today and is meant to grow to whatever gets
+					published — city extracts, a country at a time. A list renders every one of them
+					on a phone screen, which turns a settings page into a scroll and buries the
+					source radios and the preview map under it. A select collapses that to one line
+					whatever the count, and on both phones it opens as the platform's own picker.
+
+					The search box appears only past SearchFrom entries. Below that the dropdown is
+					already the whole list at a glance and a filter above it is a control asking to
+					be used for nothing.
+				*@
+				<div class="picker">
+					@if (Packs.Offers.Count >= SearchFrom)
+					{
+						<input type="search" class="search" @bind="_search" @bind:event="oninput"
+							   spellcheck="false" autocomplete="off" autocapitalize="off"
+							   placeholder="Search maps" aria-label="Search the maps on offer" />
+					}
+
+					<select class="offers" @bind="_offerId" aria-label="Maps on offer">
+						<option value="">Choose a map…</option>
+						@foreach (MapPackOffer offer in Matching)
+						{
+							<option value="@offer.Id">@Describe(offer)</option>
+						}
+					</select>
+				</div>
+
+				@if (Matching.Count == 0)
+				{
+					<p class="hint">Nothing matches “@_search”.</p>
+				}
+
+				<button type="button" class="download primary"
+						disabled="@(Chosen is null || Packs.IsDownloading)"
+						@onclick="DownloadChosenAsync">
+					@(Chosen is { } chosen && Packs.Stored(chosen.Id) is not null
+						? "Download again"
+						: "Download")
+				</button>
+			}
 
 			@if (Packs.IsDownloading)
 			{
@@ -258,12 +316,6 @@
 					<span>@DownloadDescription</span>
 					<button type="button" @onclick="Packs.Cancel">Stop</button>
 				</div>
-			}
-			else
-			{
-				<button type="button" class="primary" disabled="@(!CanDownload)" @onclick="DownloadAsync">
-					Download
-				</button>
 			}
 
 			@if (Packs.Status is { } packStatus)
@@ -313,11 +365,68 @@
 	/// </summary>
 	private MapTheme _theme = MapTheme.Light;
 
-	/// <summary>The add-a-pack form.</summary>
-	private string _url = string.Empty;
-	private string _newPackId = string.Empty;
-
 	private string? _status;
+
+	/// <summary>
+	/// How many packs on offer it takes before the dropdown gets a search box above it.
+	/// <para>
+	/// Below this the select already shows the whole catalogue in one opening, and a filter over
+	/// eight regions is a control that exists to be ignored. Above it, scrolling a native picker
+	/// looking for one state is the thing search is for.
+	/// </para>
+	/// </summary>
+	private const int SearchFrom = 10;
+
+	/// <summary>What the rider has typed to narrow the packs on offer. Empty until they do.</summary>
+	private string _search = string.Empty;
+
+	/// <summary>Which pack is picked in the dropdown, by catalogue id, or empty for none.</summary>
+	private string _offerId = string.Empty;
+
+	/// <summary>
+	/// The packs on offer that match what has been typed, in the catalogue's own order.
+	/// <para>
+	/// Matched on the name and on the id: a rider types "nsw" as readily as "New South", and the
+	/// slug is what they will have seen on a phone that read the catalogue before losing signal.
+	/// </para>
+	/// </summary>
+	private IReadOnlyList<MapPackOffer> Matching
+	{
+		get
+		{
+			string search = _search.Trim();
+
+			return search.Length == 0
+				? Packs.Offers
+				: [.. Packs.Offers.Where(offer =>
+					offer.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+					|| offer.Id.Contains(search, StringComparison.OrdinalIgnoreCase))];
+		}
+	}
+
+	/// <summary>
+	/// The pack the Download button would fetch, or <c>null</c> when none is picked.
+	/// <para>
+	/// Resolved against <see cref="Matching"/> rather than the whole catalogue, because a selection
+	/// the search has since filtered out is not one the rider can see — and a button that downloads
+	/// something invisible is worse than a disabled one.
+	/// </para>
+	/// </summary>
+	private MapPackOffer? Chosen =>
+		_offerId.Length == 0 ? null : Matching.FirstOrDefault(offer => offer.Id == _offerId);
+
+	/// <summary>
+	/// One pack as a line in the dropdown: what it is, what it costs, and whether it is already here.
+	/// <para>
+	/// All three on the option itself because an option is all a native picker shows — there is no
+	/// room beside it for the size column a list had, and the size is the number somebody decides on.
+	/// </para>
+	/// </summary>
+	/// <param name="offer">The pack on offer.</param>
+	private string Describe(MapPackOffer offer) =>
+		Packs.Stored(offer.Id) is not null
+			? $"{offer.Name} — {MapPackDownloader.Describe(offer.SizeBytes)} (on this phone)"
+			: $"{offer.Name} — {MapPackDownloader.Describe(offer.SizeBytes)}";
 
 	/// <summary>
 	/// The small print under the offline radio. Only rendered on a host that can hold a pack, so
@@ -327,12 +436,19 @@
 		? "No map packs on this phone yet. Pick this to add one."
 		: "Draws from a pack on this phone. Works with no signal at all.";
 
-	/// <summary>Whether the download button is worth offering — both fields have to be right first.</summary>
-	private bool CanDownload =>
-		!Packs.IsDownloading
-		&& MapPackDownloader.IsUsablePackId(_newPackId.Trim())
-		&& Uri.TryCreate(_url.Trim(), UriKind.Absolute, out Uri? parsed)
-		&& parsed.Scheme == Uri.UriSchemeHttps;
+	/// <summary>
+	/// What to call a pack that is already on the device: the catalogue's name for it, falling back
+	/// to the id.
+	/// <para>
+	/// The fallback is the ordinary case rather than the odd one — the catalogue is only read once
+	/// the rider picks the offline radio, and a phone with no signal is exactly the phone this
+	/// feature exists for. <c>au-nsw</c> beside a size is still a legible answer to "what is on my
+	/// phone and can I delete it", which is what that list is for.
+	/// </para>
+	/// </summary>
+	/// <param name="packId">The stored pack's id.</param>
+	private string NameFor(string packId) =>
+		Packs.Offers.FirstOrDefault(offer => offer.Id == packId)?.Name ?? packId;
 
 	/// <summary>
 	/// How far the download has got, as a rider reads it. Falls back to a bare byte count when the
@@ -425,14 +541,57 @@
 		// read the device gets no event at all, and this form would open on the default while the
 		// map below it drew something else.
 		Adopt(MapSources.Effective);
+		EnsureCatalogue();
 		StateHasChanged();
 	}
 
 	private void OnSourceChanged() => _ = InvokeAsync(() =>
 	{
 		Adopt(MapSources.Effective);
+		EnsureCatalogue();
 		StateHasChanged();
 	});
+
+	/// <summary>
+	/// Asks for the list of packs on offer, when this screen is in a state that shows it.
+	/// <para>
+	/// Called from every path that can put the form on the offline source, not only from the radio.
+	/// A rider who already drew with a pack last time arrives with offline <em>adopted</em> rather
+	/// than chosen — no tap, no <c>ChooseAsync</c> — and the first version of this hung the fetch off
+	/// the tap alone, so the one person most likely to want a second region was the one who had to
+	/// select OpenStreetMap and come back to see the list at all.
+	/// </para>
+	/// <para>
+	/// Not awaited: the list is about what could be downloaded, and nothing already on screen depends
+	/// on it. It re-renders when it lands, through <c>Packs.Changed</c>. A successful read is held for
+	/// the rest of the launch, so calling this on every render costs one request in total.
+	/// </para>
+	/// <para>
+	/// <strong>A read that failed is not retried from here</strong>, which is what
+	/// <paramref name="deliberate"/> separates. This runs again on every theme change and every pack
+	/// selection — those are re-renders of a form the rider is already looking at, and asking a host
+	/// that just refused at each of them is a retry loop on the connection least able to serve one.
+	/// Choosing the offline radio is a different thing: it is somebody arriving at this form on
+	/// purpose, which with no refresh control is the one gesture that means "try again".
+	/// </para>
+	/// </summary>
+	/// <param name="deliberate">
+	/// True when the rider just picked the offline source themselves, which asks again after a failure.
+	/// </param>
+	private void EnsureCatalogue(bool deliberate = false)
+	{
+		if (_kind != MapSourceKind.Offline || !Packs.IsSupported)
+		{
+			return;
+		}
+
+		if (!deliberate && Packs.CatalogueProblem is not null)
+		{
+			return;
+		}
+
+		_ = Packs.LoadCatalogueAsync();
+	}
 
 	private void OnPacksChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -448,21 +607,19 @@
 		_template = draft.TileTemplate ?? string.Empty;
 		_attribution = draft.TileAttribution ?? string.Empty;
 		_maxZoom = draft.TileMaxZoom;
-		_url = draft.PackUrl ?? string.Empty;
-		_newPackId = draft.PackName ?? string.Empty;
 	}
 
 	/// <summary>
 	/// Stores what is in the boxes right now.
 	/// <para>
-	/// Called when a field loses focus and before either action runs, rather than on every
+	/// Called when a field loses focus and before the tile server is applied, rather than on every
 	/// keystroke: a device write per character is a JS interop round trip per character on the web,
-	/// for a value nobody reads until the next visit. Both actions save first because a tap on a
-	/// button does not always blur the field it was typed into.
+	/// for a value nobody reads until the next visit. Applying saves first because a tap on a button
+	/// does not always blur the field it was typed into.
 	/// </para>
 	/// <para>
 	/// Whatever is there is kept, finished or not — see <see cref="RememberedMapSetup"/>. An empty
-	/// form removes the key rather than storing five blanks.
+	/// form removes the key rather than storing three blanks.
 	/// </para>
 	/// </summary>
 	private async Task RememberAsync()
@@ -470,9 +627,7 @@
 		RememberedMapSetup draft = new(
 			_template.Trim(),
 			_attribution.Trim(),
-			_maxZoom,
-			_url.Trim(),
-			_newPackId.Trim());
+			_maxZoom);
 
 		if (draft.IsEmpty)
 		{
@@ -531,6 +686,12 @@
 
 		if (kind == MapSourceKind.Offline)
 		{
+			// The list of packs on offer is fetched here rather than when the page opens: it is a
+			// request to a host that is not the API, and only somebody adding a pack is going to look
+			// at it. See EnsureCatalogue — this is one of three paths into the offline form, and the
+			// only one that is a tap, which is why it is the one allowed to ask again after a failure.
+			EnsureCatalogue(deliberate: true);
+
 			// One pack on the device is not a choice worth making the rider make. Several, and the
 			// list below is where they pick; until they do, nothing is stored — an offline source
 			// with no pack id cannot draw a map and MapSource refuses it.
@@ -580,29 +741,76 @@
 			: "Light map.";
 	}
 
-	private async Task DownloadAsync()
+	/// <summary>
+	/// Fetches one of the packs on offer, filing it under the catalogue's id.
+	/// <para>
+	/// Nothing is selected as a result. A rider adding Victoria while riding on the New South Wales
+	/// pack should keep drawing the map they are looking at — the new one appears in the list above
+	/// and switching to it is a separate, deliberate tap.
+	/// </para>
+	/// </summary>
+	/// <summary>
+	/// Fetches whatever the dropdown is showing. The button is disabled with nothing picked, so this
+	/// is a guard against a programmatic caller rather than a path a rider can take.
+	/// </summary>
+	private async Task DownloadChosenAsync()
 	{
-		if (!CanDownload)
+		if (Chosen is { } offer)
 		{
-			return;
+			await DownloadAsync(offer);
 		}
+	}
 
-		await RememberAsync();
-		await Packs.DownloadAsync(_newPackId.Trim(), new Uri(_url.Trim()));
+	/// <param name="offer">Which pack.</param>
+	private async Task DownloadAsync(MapPackOffer offer)
+	{
+		// Nothing is checked about the URL here on purpose. This guarded on a "can it be fetched"
+		// flag of its own once, which meant a row the screen was willing to draw a button for could
+		// still be one this method refused — silently, because a return is not a message. The
+		// downloader owns that rule (MapPackDownloader.IsFetchable), refuses before opening a
+		// connection, and says why through Packs.Status, which is already on screen below.
+		//
+		// The button is disabled while another transfer runs, so this is a guard against a
+		// programmatic caller rather than a path a rider can take; MapPackState refuses a second
+		// download anyway.
+		if (Packs.IsDownloading)
+			return;
 
-		// Deliberately not cleared on success. The next pack a rider adds is almost always another
-		// region from the same host — an edit of two words rather than a URL to find again — and a
-		// failed link is the thing they are about to correct, which wiping would make them retype
-		// to fix one character.
+		await Packs.DownloadAsync(offer);
 	}
 
 	/// <summary>
 	/// Removes a pack, and stops drawing with it if it was the one selected — the alternative is a
 	/// stored source pointing at a file that is gone, which falls back silently and looks like the
 	/// delete did nothing.
+	/// <para>
+	/// <strong>Asked first.</strong> Delete sits in a row of small controls next to a radio somebody
+	/// taps to choose a map, on a phone, often in gloves — and what it throws away is the single
+	/// largest thing this app puts on the device and the one thing a rider went to some trouble to
+	/// get. The cost of a mis-tap is not the file, it is the several hundred megabytes and the Wi-Fi
+	/// they have to find again, which on a trip is not always available at all.
+	/// </para>
+	/// <para>
+	/// The size is in the question because it is the number that makes the consequence concrete, and
+	/// because it is what the rider came to this screen to reclaim if the phone said it was full.
+	/// </para>
 	/// </summary>
 	private async Task DeletePackAsync(string packId)
 	{
+		StoredMapPack? pack = Packs.Stored(packId);
+
+		if (!await Confirm.AskAsync(
+			$"Delete {NameFor(packId)}?",
+			pack is null
+				? "The map is removed from this phone. Downloading it again needs a connection."
+				: $"{MapPackDownloader.Describe(pack.SizeBytes)} is freed on this phone. Downloading "
+					+ "it again needs a connection, and on Wi-Fi it is not quick.",
+			confirmText: "Delete",
+			danger: true))
+		{
+			return;
+		}
+
 		await Packs.DeleteAsync(packId);
 
 		if (_packId == packId)
@@ -653,8 +861,40 @@
 
 	.map-settings fieldset.custom,
 	.map-settings fieldset.appearance,
-	.map-settings fieldset.download {
+	.map-settings fieldset.catalogue {
 		margin-top: 1rem;
+	}
+
+	/* The packs on offer: a search box and the dropdown under it, both full width. One line
+	   whatever the catalogue holds — which is the point, since this list is meant to grow past
+	   what a phone screen can show without burying the source radios and the preview below. */
+	.map-settings .picker {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin: 0.75rem 0 0.75rem;
+	}
+
+	.map-settings .picker .search,
+	.map-settings .picker .offers {
+		width: 100%;
+		/* The same 44 px target as everything else pressed in a hurry. A select is a tap that opens
+		   the platform's own picker, and a small one on a phone in gloves is a mis-tap. */
+		min-height: 44px;
+		padding: 0 0.6rem;
+		border: 1px solid var(--dlr-border-strong);
+		border-radius: 6px;
+		background: var(--dlr-bg);
+		color: var(--dlr-fg);
+		font: inherit;
+	}
+
+	/* The one control on this screen that commits a rider to hundreds of megabytes, so it carries
+	   the accent that .primary in app.css gives it rather than the outline the secondary buttons
+	   here have. Only the tap target is set locally — the colours, and the grey it turns when
+	   nothing is picked, come from app.css so this and "Use this tile server" cannot disagree. */
+	.map-settings .download.primary {
+		min-height: 44px;
 	}
 
 	/* The packs on this device. A row is a choice, a size and a way out of it — nothing else,

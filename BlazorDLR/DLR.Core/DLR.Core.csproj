@@ -7,7 +7,7 @@
 	-->
 	<PropertyGroup>
 		<RootNamespace>DLR.Core</RootNamespace>
-		<AssemblyVersion>8.0.0.21</AssemblyVersion>
+		<AssemblyVersion>8.0.0.22</AssemblyVersion>
 	</PropertyGroup>
 
 </Project>

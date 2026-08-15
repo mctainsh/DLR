@@ -131,8 +131,9 @@ public sealed class MapPackDownloaderTests
 	[Fact]
 	public async Task PlainHttpIsRefusedBeforeAConnectionIsOpened()
 	{
-		// The phones block cleartext to anything but loopback, so an http:// link would fail with a
-		// platform error the rider cannot act on. Said plainly instead.
+		// The phones block cleartext to every host but loopback and the one named in
+		// MapPackCatalogue.CleartextHost, so any other http:// link would fail with a platform error
+		// the rider cannot act on. Said plainly instead.
 		FakeMapPackStore store = new();
 		StubHandler handler = new(Archive());
 
@@ -142,6 +143,25 @@ public sealed class MapPackDownloaderTests
 		result.Succeeded.ShouldBeFalse();
 		result.Message.ShouldContain("https");
 		handler.Requests.ShouldBe(0, "nothing should have left the device.");
+	}
+
+	/// <summary>
+	/// The one cleartext host both platform configs name, because it serves a certificate for
+	/// another domain. Without this the packs cannot be fetched at all today — the catalogue
+	/// publishes <c>http://</c> URLs on that host, and refusing them made the screen offer a reason
+	/// where a Download button should be.
+	/// </summary>
+	[Fact]
+	public async Task PlainHttpFromTheOneHostThePlatformPermits_IsFetched()
+	{
+		FakeMapPackStore store = new();
+		StubHandler handler = new(Archive());
+
+		MapPackDownloadResult result = await Build(store, handler)
+			.DownloadAsync("au-nsw", new Uri($"http://{MapPackCatalogue.CleartextHost}/au-nsw.v1.pmtiles"));
+
+		result.Succeeded.ShouldBeTrue(result.Message);
+		(await store.OpenReadAsync("au-nsw")).ShouldNotBeNull();
 	}
 
 	[Theory]

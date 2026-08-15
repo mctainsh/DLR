@@ -3,7 +3,8 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Shared.State;
 
 /// <summary>
-/// What map packs are on this device and what a download in flight is doing (§4.4).
+/// What map packs are on this device, what the catalogue offers, and what a download in flight is
+/// doing (§4.2, §4.4).
 /// <para>
 /// Scoped, and the same shape as the other device states: read once, held in memory, broadcast on
 /// every change. The settings screen renders it; nothing else reads it, but it is a service rather
@@ -15,22 +16,32 @@ namespace BlazorDLR.Shared.State;
 /// both slower and neither is what the rider is waiting for; the screen disables the button while
 /// one is running rather than queueing.
 /// </para>
+/// <para>
+/// <strong>Two lists, and the difference is where they live.</strong> <see cref="Packs"/> is what
+/// the phone holds; <see cref="Offers"/> is what the catalogue publishes. They are keyed the same
+/// way — a pack's id is the catalogue's id — which is what lets the screen show one region once,
+/// with either a size or a Download beside it.
+/// </para>
 /// </summary>
 public sealed class MapPackState
 {
 	private readonly IMapPackStore _store;
 	private readonly MapPackDownloader _downloader;
+	private readonly MapPackCatalogue _catalogue;
 
 	private CancellationTokenSource? _cancelling;
 	private bool _loaded;
+	private bool _catalogueRead;
 
 	/// <summary>Creates the state over this device's pack store.</summary>
 	/// <param name="store">Where packs live.</param>
 	/// <param name="downloader">How they get there.</param>
-	public MapPackState(IMapPackStore store, MapPackDownloader downloader)
+	/// <param name="catalogue">What is on offer to download.</param>
+	public MapPackState(IMapPackStore store, MapPackDownloader downloader, MapPackCatalogue catalogue)
 	{
 		_store = store;
 		_downloader = downloader;
+		_catalogue = catalogue;
 	}
 
 	/// <summary>Fired after the first <see cref="LoadAsync"/>, on every progress report, and on every change.</summary>
@@ -53,6 +64,90 @@ public sealed class MapPackState
 
 	/// <summary>The last thing that happened, in the words to put on screen. Null before anything has.</summary>
 	public string? Status { get; private set; }
+
+	/// <summary>
+	/// What the catalogue offers, alphabetically. Empty until <see cref="LoadCatalogueAsync"/> has
+	/// answered, and empty again if it could not — in which case <see cref="CatalogueProblem"/> says
+	/// why.
+	/// </summary>
+	public IReadOnlyList<MapPackOffer> Offers { get; private set; } = [];
+
+	/// <summary>Why the catalogue could not be read, in the words to put on screen, or <c>null</c>.</summary>
+	public string? CatalogueProblem { get; private set; }
+
+	/// <summary>Whether a read of the catalogue is in flight — the screen's cue to say so rather than to show an empty list.</summary>
+	public bool IsReadingCatalogue { get; private set; }
+
+	/// <summary>Whether a copy of the catalogue has been read and is being held.</summary>
+	public bool IsCatalogueRead => _catalogueRead;
+
+	/// <summary>
+	/// Reads the catalogue the first time something needs it, and holds that copy for the rest of the
+	/// launch.
+	/// <para>
+	/// <strong>Not called on load.</strong> The list matters only to somebody adding a pack, and it is
+	/// a request to a host that is not the API — asking for it when the screen opens would spend a
+	/// rider's connection on a list most visits never look at.
+	/// </para>
+	/// <para>
+	/// <strong>And not read twice.</strong> A catalogue is rebuilt when somebody publishes a new
+	/// extract, which is weeks apart, so a second read inside one run of the app is a request that
+	/// answers the same thing. This state is scoped, which on the phone means it lives as long as the
+	/// app does — restarting is what gets a fresh copy, and that is the whole of the policy. There is
+	/// no refresh control: one existed, and a button offering to re-fetch a file that changes monthly
+	/// invited exactly the pulling-to-refresh it could never reward.
+	/// </para>
+	/// <para>
+	/// <strong>A failed read is not a copy</strong>, so it is not held. Nothing here retries on its
+	/// own — the screen decides that, and only asks again when the rider deliberately comes back to
+	/// the offline source rather than on every render that happens to show the form.
+	/// </para>
+	/// </summary>
+	/// <param name="cancellationToken">Cancels the read.</param>
+	public async Task LoadCatalogueAsync(CancellationToken cancellationToken = default)
+	{
+		if (_catalogueRead)
+			return;
+
+		if (!IsSupported)
+		{
+			// Both browser hosts (§18.6). Nothing here could be downloaded to anywhere, so the request
+			// would be spent to populate a list the screen does not render.
+			return;
+		}
+
+		if (IsReadingCatalogue)
+		{
+			// A second call while the first is in flight — two paths into the offline form landing
+			// together. The later one rides on the answer the first is already waiting for.
+			return;
+		}
+
+		IsReadingCatalogue = true;
+		CatalogueProblem = null;
+		Changed?.Invoke();
+
+		try
+		{
+			MapPackCatalogueResult result = await _catalogue.ReadAsync(cancellationToken);
+
+			// Held only when there is something to hold. A failure leaves _catalogueRead false so the
+			// next deliberate visit to the offline form asks again — a rider who opened this in a
+			// tunnel would otherwise have no route to the list but restarting the app.
+			if (result.Problem is null)
+			{
+				Offers = result.Packs;
+				_catalogueRead = true;
+			}
+
+			CatalogueProblem = result.Problem;
+		}
+		finally
+		{
+			IsReadingCatalogue = false;
+			Changed?.Invoke();
+		}
+	}
 
 	/// <summary>
 	/// Reads what is on the device. Idempotent, so the settings screen calling it on first render
@@ -79,6 +174,19 @@ public sealed class MapPackState
 	}
 
 	/// <summary>
+	/// Downloads a pack the catalogue offers. It is filed under the catalogue's id rather than
+	/// anything the rider chose — which is the point of having a catalogue: the id is what
+	/// <c>MapSource</c> stores, so two devices holding New South Wales agree on what it is called.
+	/// </summary>
+	/// <param name="offer">Which pack from the catalogue.</param>
+	public Task DownloadAsync(MapPackOffer offer) => DownloadAsync(offer.Id, offer.Url);
+
+	/// <summary>Whether this device already holds a pack, and what it knows about it.</summary>
+	/// <param name="packId">Which pack — a catalogue id.</param>
+	public StoredMapPack? Stored(string packId) =>
+		Packs.FirstOrDefault(pack => string.Equals(pack.PackId, packId, StringComparison.Ordinal));
+
+	/// <summary>
 	/// Downloads an archive from <paramref name="url"/> and calls it <paramref name="packId"/> on
 	/// this device, resuming a previous attempt if there is one.
 	/// <para>
@@ -92,9 +200,7 @@ public sealed class MapPackState
 	public async Task DownloadAsync(string packId, Uri url)
 	{
 		if (IsDownloading)
-		{
 			return;
-		}
 
 		using CancellationTokenSource cancelling = new();
 		_cancelling = cancelling;

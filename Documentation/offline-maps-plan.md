@@ -168,6 +168,41 @@ public sealed record MapPackSummary(
 	string Url);            // absolute, Caddy-served
 ```
 
+**As built (v0.22).** `MapPackSummary` exists in `DLR.Core/Contracts/Maps/` with `Bounds` nullable —
+a catalogue omitting the box should cost a rider the framing, not the map. The endpoint above does
+not exist yet: `MapPackCatalogue` reads a **static `catalogue.json`** of the same shape, written by
+`Build-AuMapPacks.ps1` and served as a file, and the Maps screen lists it in place of the
+link-and-a-name form it used to carry. Three deliberate differences from the sketch above, each
+reversible without touching the screen:
+
+- **Unauthenticated, and on its own credential-free `HttpClient`.** Same rule as the downloader
+  (§18.5): the registered client carries `BearerAuthHandler` and points at the API, and this
+  request goes somewhere else. When the endpoint lands, only the address changes.
+- **Plain HTTP, temporarily.** `pmtiles.securehub.net` answers on 443 with a certificate for
+  another domain, so the Android network security config and the iOS ATS exceptions name that one
+  host, and `MapPackCatalogue.CleartextHost` names it a third time. All three carry a note saying
+  to delete them the day it serves its own certificate, and all three have to agree. **The archives
+  are served from that same host, so a pack download is cleartext too** — `IsFetchable` permits
+  HTTPS anywhere and `http://` on that host alone. Any other cleartext URL is refused before a
+  connection is opened, with the reason on screen rather than a button that does nothing.
+- **`Sha256` is published but not compared.** Step 3 below is still outstanding; the downloader
+  computes the value and reports it, and nothing checks it against the catalogue's. This is now the
+  gap that matters most: a 300 MB archive fetched in the clear and rendered as the map a rider
+  navigates by is exactly what a checksum is for.
+
+A relative `Url` is resolved against the catalogue's own address, so a publisher can list
+`au-nsw.v1.pmtiles` beside it and move hosts without rewriting every entry.
+
+**Read once per launch.** The catalogue is fetched the first time the Maps screen shows the offline
+form — never on page load, since it is a request to a host that is not the API — and that copy is
+held for as long as the scoped state lives, which on the phone is the life of the app. There is no
+refresh control: one was built and removed, because a button offering to re-fetch a file rebuilt
+weeks apart invites pulling it can never reward. A read that *failed* is not a copy and is not held,
+so deliberately returning to the offline source asks again; incidental re-renders of that form (a
+theme change, a pack selection) do not, which is what keeps a no-signal rider from firing a request
+at every tap. The screen renders it as one searchable dropdown rather than a row per region, so a
+catalogue of hundreds costs one line of the page.
+
 ### 4.3 How a pack is downloaded
 
 New seam `IMapPackStore` (MAUI: files under `FileSystem.AppDataDirectory/mappacks/`; both browser

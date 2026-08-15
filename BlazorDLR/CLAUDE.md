@@ -117,6 +117,16 @@ Tabs, width 4 (Use tabs in Razor, CS, HTML, YAML and Markdown — mandatory). `E
 `System` first (`.editorconfig`). Nullable + implicit usings enabled everywhere.
 `InvariantGlobalization=true` for the whole solution.
 
+### Single line if and for
+Don't wrap a single line command after an `if` or `for` in curly brackets if it only occupies a single line.
+```
+// Never
+if (blah)
+{
+	return;
+}
+``` 
+
 ## AGPL provenance
 
 The parent `Directory.Build.targets` appends `.dirty` to `SourceRevisionId` when git reports
