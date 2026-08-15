@@ -173,7 +173,12 @@ public sealed class TrackImportController : ControllerBase
 					ownerId,
 					Guid.NewGuid(),
 					track.Geometry,
-					track.Name ?? Path.GetFileNameWithoutExtension(file.FileName),
+					// Clamped rather than refused: neither of these names was typed by the person
+					// importing, and rejecting a file because a planning tool wrote a sentence
+					// into <name> would be damaging the import over a column width. Renaming it
+					// afterwards is what PATCH /tracks/{id} is for (§15.1).
+					TrackNaming.Clamp(track.Name)
+						?? TrackNaming.Clamp(Path.GetFileNameWithoutExtension(file.FileName)),
 					TrackSource.Imported,
 					file.FileName);
 

@@ -20,6 +20,12 @@ public static class TrackEndpoints
 
 	/// <summary>Route name for the detail.</summary>
 	public const string DetailRouteName = "GetTrack";
+
+	/// <summary>Route name for the rename.</summary>
+	public const string RenameRouteName = "RenameTrack";
+
+	/// <summary>Route name for the delete.</summary>
+	public const string DeleteRouteName = "DeleteTrack";
 }
 
 /// <summary>Uploading, listing and reading a track (§6.2, §6.3).</summary>
@@ -54,6 +60,14 @@ public sealed class TrackController : ControllerBase
 				$"this upload has {request.Points.Count}.");
 		}
 
+		// Length rather than presence. An upload with no name at all is legitimate — a track saved
+		// by an older build, or one whose name the importer will supply — but a name too long for
+		// the column is a 500 dressed up as a database error unless it is caught here.
+		if (TrackNaming.Clean(request.Name) is { Length: > TrackNaming.MaxLength } overlong)
+		{
+			return NameTooLong(overlong);
+		}
+
 		if (request.Points.Any(point => !point.HasUsableCoordinates))
 		{
 			// The app parses GPX with the same reader the server does (§15.7), but a
@@ -81,7 +95,7 @@ public sealed class TrackController : ControllerBase
 			ownerId,
 			request.ClientGuid,
 			geometry,
-			request.Name,
+			TrackNaming.Clean(request.Name),
 			request.Source == TrackSourceDto.Imported ? TrackSource.Imported : TrackSource.Recorded,
 			request.ImportedFileName);
 
@@ -173,4 +187,162 @@ public sealed class TrackController : ControllerBase
 			simplified.Points));
 	}
 
+	/// <summary>
+	/// Renaming a track — recorded or imported alike (§15.1).
+	/// <para>
+	/// <strong>Not an edit, and deliberately not versioned.</strong> §15.5's version guards point
+	/// indices: an edit quotes the version it was composed against because the indices it carries
+	/// stop meaning anything once the line moves. A name moves nothing, so bumping the version here
+	/// would refuse an editor open in another tab over a change that cannot have invalidated it,
+	/// and would force every cached copy to be re-fetched to learn a single string.
+	/// </para>
+	/// </summary>
+	[HttpPatch("/api/v1/tracks/{id:guid}", Name = TrackEndpoints.RenameRouteName)]
+	[EndpointSummary("Renames one of the caller's tracks.")]
+	public async Task<IActionResult> RenameAsync(
+		[FromRoute] Guid id,
+		[FromBody] RenameTrackRequest request,
+		[FromServices] DlrDbContext database)
+	{
+		if (User.UserId() is not { } ownerId)
+		{
+			return Unauthorized();
+		}
+
+		if (TrackNaming.Clean(request.Name) is not { } name)
+		{
+			// Refused rather than treated as "clear the name". A rider who wants the name gone can
+			// say what it should be instead; nobody submits an empty box on purpose.
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "A track needs a name",
+				detail: "Type what this ride should be called.");
+		}
+
+		if (name.Length > TrackNaming.MaxLength)
+		{
+			return NameTooLong(name);
+		}
+
+		// Owner-scoped, and 404 to everybody else — the same answer the detail read gives, so a
+		// rename cannot be used to ask whether a track id exists (§15.4).
+		Track? track = await database
+			.Set<Track>()
+			.SingleOrDefaultAsync(row => row.Id == id && row.OwnerId == ownerId);
+
+		if (track is null)
+		{
+			return NotFound();
+		}
+
+		track.Name = name;
+
+		await database.SaveChangesAsync();
+
+		return Ok(TrackStore.Summarise(track));
+	}
+
+	/// <summary>
+	/// Deleting a track, its markers and its points (§15.5, §16.6).
+	/// <para>
+	/// <strong>The rows cascade; the blobs do not.</strong> `ON DELETE CASCADE` takes the retained
+	/// original, the markers hanging off the track and any ride attachment with it, and reaches no
+	/// filesystem at all. The two blob references are therefore read <em>before</em> the row goes —
+	/// afterwards nothing is left to say which files were this track's, and a track a rider deleted
+	/// to be rid of is still on the disk and in tonight's backup. The §7.11 sweep is the backstop
+	/// rather than the mechanism, on <see cref="Account.AccountBlobs"/>'s reasoning.
+	/// </para>
+	/// </summary>
+	[HttpDelete("/api/v1/tracks/{id:guid}", Name = TrackEndpoints.DeleteRouteName)]
+	[EndpointSummary("Deletes one of the caller's tracks and its points. Irreversible.")]
+	public async Task<IActionResult> DeleteAsync(
+		[FromRoute] Guid id,
+		[FromServices] DlrDbContext database,
+		[FromServices] IBlobStore blobs,
+		[FromServices] ILoggerFactory loggers,
+		CancellationToken cancellationToken)
+	{
+		if (User.UserId() is not { } ownerId)
+		{
+			return Unauthorized();
+		}
+
+		Track? track = await database
+			.Set<Track>()
+			.AsNoTracking()
+			.SingleOrDefaultAsync(row => row.Id == id && row.OwnerId == ownerId, cancellationToken);
+
+		if (track is null)
+		{
+			// Including a second press of the same button. The rider asked for it to be gone and it
+			// is, but answering 204 to any id at all would make this a way to probe for tracks.
+			return NotFound();
+		}
+
+		// The §15.4 precondition an edit meets, and this passes it for a stronger reason: an edit
+		// moves the line a ride in progress is being measured against, and a delete takes it away
+		// entirely — the attachment cascades, and every rider's place in §5.4's gap list goes with
+		// it mid-ride.
+		bool isLiveRoute = await database
+			.Set<Data.Rides.GroupRideRoute>()
+			.AnyAsync(
+				route => route.TrackId == id && route.Ride!.State == Data.Rides.GroupRideState.Live,
+				cancellationToken);
+
+		if (isLiveRoute)
+		{
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "This track is a live ride's route",
+				detail: "A ride in progress is using this track as its planned route. Delete it " +
+					"once the ride has ended, or remove it from the ride first.");
+		}
+
+		// Gathered before the delete, for the reason on the method.
+		string? revisionBlob = await database
+			.Set<TrackRevision>()
+			.Where(revision => revision.TrackId == id)
+			.Select(revision => revision.BlobRef)
+			.SingleOrDefaultAsync(cancellationToken);
+
+		await database
+			.Set<Track>()
+			.Where(row => row.Id == id && row.OwnerId == ownerId)
+			.ExecuteDeleteAsync(cancellationToken);
+
+		ILogger logger = loggers.CreateLogger(typeof(TrackController));
+
+		// Rows first, blobs second, and a failure here is logged rather than thrown: the track is
+		// already gone, and answering 500 would tell the rider their deletion failed when it did
+		// not. The nightly orphan sweep collects whatever is left.
+		foreach (string blobRef in new[] { track.BlobRef, revisionBlob }.OfType<string>().Distinct(StringComparer.Ordinal))
+		{
+			if (blobRef.Length == 0)
+			{
+				continue;
+			}
+
+			try
+			{
+				await blobs.DeleteAsync(blobRef, cancellationToken);
+			}
+			catch (Exception exception) when (exception is not OperationCanceledException)
+			{
+				logger.LogError(
+					exception,
+					"Could not delete blob {BlobRef} for deleted track {TrackId}; the nightly sweep will.",
+					blobRef,
+					id);
+			}
+		}
+
+		return NoContent();
+	}
+
+	private ObjectResult NameTooLong(string name) =>
+		Problem(
+			statusCode: StatusCodes.Status400BadRequest,
+			title: "Name too long",
+			detail: $"A track name is limited to {TrackNaming.MaxLength} characters; " +
+				$"this one is {name.Length}.");
 }

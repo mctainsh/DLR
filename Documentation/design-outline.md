@@ -1057,6 +1057,8 @@ Permissions_Changed_IsBroadcastAndRecordedInTheThread
 ```
 POST   /api/v1/tracks                          upload track (idempotent on client guid)
 GET    /api/v1/tracks/{id}                     metadata + polyline
+PATCH  /api/v1/tracks/{id}                     { name } — rename; carries no version (§15.1)
+DELETE /api/v1/tracks/{id}                     delete the track, its markers and its blobs
 GET    /api/v1/tracks/{id}/points              full-resolution points — the editor's source (§15.5)
 GET    /api/v1/tracks/{id}/gpx                 GPX export
 POST   /api/v1/tracks/{id}/share               → share link/visibility
@@ -2538,6 +2540,14 @@ Everything downstream treats them identically: one list, one detail screen, one 
 - `DurationS`, `MaxSpeedMps`, `StartedUtc` and `EndedUtc` are **nullable** and rendered as "—", never as `0` (§8). Zero implies a measurement; null says there was none.
 - Timeless tracks are excluded from any "total distance this month" style aggregate, because mixing a planned route into a total of rides actually ridden makes the number a lie.
 - `AscentM` is null when the file has no `<ele>`, and **no elevation is invented.** A DEM lookup service is a paid third-party dependency and a new failure mode for a number nobody is checking.
+
+**Naming, renaming and deleting are properties of the entity, not of the source.**
+
+- **A recorded track is named before it can be saved.** The Location screen's save button is off until the box has something in it, and `TrackRecordingState.SaveAsync` refuses a blank name as well — a disabled button is a courtesy, and this is the one path that takes a recorded ride off the device. The rider is asked while the ride is fresh, because the alternative is naming it weeks later against a date and a distance, and a list in which three rows read "Untitled" is a list nobody can use.
+- **An imported track is named from the file** — `<name>`, or the filename when the element is absent — and that name is *clamped* to the column rather than refused. Nobody typed it, and rejecting a file because a planning tool wrote a sentence into that element would be damaging the import over a column width.
+- **`PATCH /tracks/{id}`** renames either kind. It carries no `Version`: a rename moves no point, so it cannot conflict with an edit the way one edit conflicts with another (§15.5), and bumping the version would refuse an editor open in another tab over a change that could not have invalidated it.
+- **`DELETE /tracks/{id}`** removes the track, its retained original (§15.6), its markers (§16.1) and any ride attachment, and deletes both blobs in the request rather than leaving them to the nightly sweep — a cascade reaches rows and not a filesystem (§16.6). It meets §15.4's live-ride precondition for a stronger reason than an edit does: an edit moves the line a ride in progress is measured against, and a delete takes it away entirely.
+- Both are owner-scoped and answer **404** to anybody else, the same as the detail read — a distinguishable answer would be a way to ask whether a track id exists.
 
 ### 15.2 Where the import happens — both, with one parser
 

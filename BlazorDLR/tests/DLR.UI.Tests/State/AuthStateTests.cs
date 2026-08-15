@@ -162,6 +162,8 @@ public sealed class AuthStateTests
 		public Task<IReadOnlyList<DLR.Core.Contracts.Tracks.TrackSummary>> ListTracksAsync(CancellationToken ct = default) => inner.ListTracksAsync(ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackDetail> GetTrackAsync(Guid t, CancellationToken ct = default) => inner.GetTrackAsync(t, ct);
 		public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid t, CancellationToken ct = default) => inner.ExportTrackGpxAsync(t, ct);
+		public Task<DLR.Core.Contracts.Tracks.TrackSummary> RenameTrackAsync(Guid t, DLR.Core.Contracts.Tracks.RenameTrackRequest r, CancellationToken ct = default) => inner.RenameTrackAsync(t, r, ct);
+		public Task DeleteTrackAsync(Guid t, CancellationToken ct = default) => inner.DeleteTrackAsync(t, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackPointsResponse> GetTrackPointsAsync(Guid t, CancellationToken ct = default) => inner.GetTrackPointsAsync(t, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackEditResponse> EditTrackAsync(Guid t, DLR.Core.Contracts.Tracks.EditTrackRequest r, CancellationToken ct = default) => inner.EditTrackAsync(t, r, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackEditResponse> UndoTrackEditAsync(Guid t, CancellationToken ct = default) => inner.UndoTrackEditAsync(t, ct);

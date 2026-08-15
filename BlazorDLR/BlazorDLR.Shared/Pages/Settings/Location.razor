@@ -209,9 +209,16 @@
 				</p>
 			}
 
+			@*
+				A name is required, not optional (§15.1). This track is about to join a list the
+				rider will later scan looking for one ride out of a season of them, and three rows
+				reading "Untitled" is a list that cannot be used. Asked for here, while the ride is
+				still fresh — the alternative is a rename weeks later against a date and a distance.
+			*@
 			<label class="name">
 				Name
-				<input @bind="_trackName" placeholder="Saturday coast run" maxlength="200" />
+				<input @bind="_trackName" @bind:event="oninput" placeholder="Saturday coast run"
+					   maxlength="@TrackNaming.MaxLength" required aria-required="true" />
 			</label>
 
 			@if (PrivateAreas.IsSet)
@@ -228,8 +235,17 @@
 				</p>
 			}
 
+			@if (!CanSaveTrack)
+			{
+				<p class="hint name-required">
+					Give this ride a name and the save button turns on. The delete button does not
+					need one — you are not naming something you are throwing away.
+				</p>
+			}
+
 			<div class="track-actions">
-				<button type="button" class="primary" disabled="@_savingTrack" @onclick="SaveTrackAsync">
+				<button type="button" class="primary" disabled="@(_savingTrack || !CanSaveTrack)"
+						@onclick="SaveTrackAsync">
 					@(_savingTrack ? "Saving…" : "Save as one of my tracks")
 				</button>
 				<button type="button" class="danger" disabled="@_savingTrack" @onclick="DeleteTrackAsync">
@@ -492,6 +508,14 @@
 	private bool _savingTrack;
 	private string? _trackStatus;
 
+	/// <summary>
+	/// Whether the save button is live. Bound to the name box rather than checked on the click, so
+	/// the requirement is visible before the rider commits to anything — and
+	/// <see cref="TrackRecordingState.SaveAsync"/> enforces it again, because a disabled button is
+	/// a courtesy and not a rule.
+	/// </summary>
+	private bool CanSaveTrack => TrackNaming.IsUsable(_trackName);
+
 	/// <summary>Roughly how many points a kilometre the chosen interval produces, for the copy.</summary>
 	private string PointsPerKm => (1000 / Recording.IntervalM).ToString("0.#");
 
@@ -502,6 +526,11 @@
 
 	private async Task SaveTrackAsync()
 	{
+		if (!CanSaveTrack)
+		{
+			return;
+		}
+
 		_savingTrack = true;
 		_trackStatus = null;
 

@@ -129,6 +129,26 @@ public sealed class HttpApiClient : IApiClient
 		_http.GetAsync($"/api/v1/tracks/{trackId}/gpx", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
 	/// <inheritdoc />
+	public async Task<TrackSummary> RenameTrackAsync(Guid trackId, RenameTrackRequest request, CancellationToken cancellationToken = default)
+	{
+		using HttpRequestMessage message = new(HttpMethod.Patch, $"/api/v1/tracks/{trackId}")
+		{
+			Content = JsonContent.Create(request, options: Json),
+		};
+		using HttpResponseMessage response = await _http.SendAsync(message, cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+		TrackSummary? body = await response.Content.ReadFromJsonAsync<TrackSummary>(Json, cancellationToken);
+		return body ?? throw new InvalidOperationException("Empty rename response body.");
+	}
+
+	/// <inheritdoc />
+	public async Task DeleteTrackAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.DeleteAsync($"/api/v1/tracks/{trackId}", cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
+	/// <inheritdoc />
 	public Task<TrackPointsResponse> GetTrackPointsAsync(Guid trackId, CancellationToken cancellationToken = default) =>
 		GetAsync<TrackPointsResponse>($"/api/v1/tracks/{trackId}/points", cancellationToken);
 

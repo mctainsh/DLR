@@ -200,7 +200,7 @@ public sealed class LocationSettingsTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() =>
-			component.Find(".recording .name input").Change("Coast run"));
+			component.Find(".recording .name input").Input("Coast run"));
 
 		await component.InvokeAsync(() =>
 			component.Find(".track-actions button.primary").Click());
@@ -210,6 +210,49 @@ public sealed class LocationSettingsTests : PageTestContext
 			_api.UploadedTracks.ShouldHaveSingleItem().Name.ShouldBe("Coast run");
 			recording.HasTrack.ShouldBeFalse();
 		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// §15.1: the save waits for a name. The rider is asked while the ride is fresh, because the
+	/// alternative is naming it weeks later against a date and a distance — and a list of rides
+	/// three of which read "Untitled" is a list nobody can use.
+	/// </summary>
+	[Fact]
+	public async Task Recording_WithoutAName_TheSaveIsOff_AndTheDeleteIsNot()
+	{
+		Wire();
+
+		TrackRecordingState recording = Resolve<TrackRecordingState>();
+		await recording.LoadAsync();
+		await RideAsync(recording, 10);
+
+		IRenderedComponent<Location> component = RenderPage();
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find(".track-actions button.primary").HasAttribute("disabled").ShouldBeTrue(
+				"there is nothing to press until the ride has a name.");
+			component.Find(".track-actions button.danger").HasAttribute("disabled").ShouldBeFalse(
+				"you are not naming something you are throwing away.");
+			component.FindAll(".name-required").ShouldNotBeEmpty("and the screen says why.");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		// Whitespace is not a name.
+		await component.InvokeAsync(() =>
+			component.Find(".recording .name input").Input("   "));
+
+		component.Find(".track-actions button.primary").HasAttribute("disabled").ShouldBeTrue();
+
+		await component.InvokeAsync(() =>
+			component.Find(".recording .name input").Input("Coast run"));
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find(".track-actions button.primary").HasAttribute("disabled").ShouldBeFalse();
+			component.FindAll(".name-required").ShouldBeEmpty();
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		_api.UploadedTracks.ShouldBeEmpty("nothing was saved by typing a name, only enabled.");
 	}
 
 	[Fact]
@@ -231,6 +274,9 @@ public sealed class LocationSettingsTests : PageTestContext
 		component.WaitForAssertion(() =>
 			component.FindAll(".track-actions button.primary").Count.ShouldBe(1),
 			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() =>
+			component.Find(".recording .name input").Input("Coast run"));
 
 		// The switch exists, and it is on before anybody touches it.
 		component.Find(".exclude-private input[type=checkbox]").HasAttribute("checked").ShouldBeTrue(

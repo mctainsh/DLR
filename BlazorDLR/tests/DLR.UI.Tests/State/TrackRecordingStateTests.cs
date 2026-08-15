@@ -199,6 +199,42 @@ public sealed class TrackRecordingStateTests
 		relaunched.HasTrack.ShouldBeFalse();
 	}
 
+	/// <summary>
+	/// §15.1: a track is named before it is saved. The rule lives in the state and not only on the
+	/// Location screen's disabled button, because this is the one path that takes a recorded ride
+	/// off the device — and a list of rides called "Untitled" is a list nobody can use.
+	/// </summary>
+	[Theory]
+	[InlineData(null)]
+	[InlineData("")]
+	[InlineData("   ")]
+	public async Task Saving_WithoutAName_IsRefused_AndKeepsTheTrack(string? name)
+	{
+		Harness harness = new();
+		await harness.Recording.LoadAsync();
+		await harness.RideAsync(10);
+
+		await Should.ThrowAsync<InvalidOperationException>(
+			() => harness.Recording.SaveAsync(name, excludePrivateArea: false));
+
+		harness.Api.UploadedTracks.ShouldBeEmpty("nothing left the device");
+
+		harness.Recording.HasTrack.ShouldBeTrue(
+			"a save refused for want of a name must leave the ride exactly where it was.");
+	}
+
+	[Fact]
+	public async Task Saving_TrimsTheName()
+	{
+		Harness harness = new();
+		await harness.Recording.LoadAsync();
+		await harness.RideAsync(10);
+
+		await harness.Recording.SaveAsync("  Saturday coast run  ", excludePrivateArea: false);
+
+		harness.Api.UploadedTracks.ShouldHaveSingleItem().Name.ShouldBe("Saturday coast run");
+	}
+
 	[Fact]
 	public async Task Saving_LeavesOutThePrivateArea_WhenAskedTo()
 	{
@@ -212,7 +248,7 @@ public sealed class TrackRecordingStateTests
 		// circle and the other eleven are not.
 		await harness.RideAsync(15, stepM: 30);
 
-		await harness.Recording.SaveAsync(null, excludePrivateArea: true);
+		await harness.Recording.SaveAsync("Coast run", excludePrivateArea: true);
 
 		UploadTrackRequest uploaded = harness.Api.UploadedTracks.ShouldHaveSingleItem();
 
@@ -231,7 +267,7 @@ public sealed class TrackRecordingStateTests
 		await harness.Recording.LoadAsync();
 		await harness.RideAsync(15, stepM: 30);
 
-		await harness.Recording.SaveAsync(null, excludePrivateArea: false);
+		await harness.Recording.SaveAsync("Coast run", excludePrivateArea: false);
 
 		harness.Api.UploadedTracks.ShouldHaveSingleItem().Points.Count.ShouldBe(15);
 	}
@@ -245,7 +281,7 @@ public sealed class TrackRecordingStateTests
 		await harness.RideAsync(10);
 
 		await Should.ThrowAsync<InvalidOperationException>(
-			() => harness.Recording.SaveAsync(null, excludePrivateArea: true));
+			() => harness.Recording.SaveAsync("Coast run", excludePrivateArea: true));
 
 		harness.Api.UploadedTracks.ShouldBeEmpty();
 		harness.Recording.HasTrack.ShouldBeTrue(
@@ -264,12 +300,12 @@ public sealed class TrackRecordingStateTests
 		harness.Api.UploadTrackException = new HttpRequestException("no signal");
 
 		await Should.ThrowAsync<HttpRequestException>(
-			() => harness.Recording.SaveAsync(null, excludePrivateArea: false));
+			() => harness.Recording.SaveAsync("Coast run", excludePrivateArea: false));
 
 		harness.Recording.HasTrack.ShouldBeTrue();
 
 		harness.Api.UploadTrackException = null;
-		await harness.Recording.SaveAsync(null, excludePrivateArea: false);
+		await harness.Recording.SaveAsync("Coast run", excludePrivateArea: false);
 
 		harness.Api.UploadedTracks.Count.ShouldBe(2);
 		harness.Api.UploadedTracks[1].ClientGuid.ShouldBe(harness.Api.UploadedTracks[0].ClientGuid);
@@ -283,10 +319,10 @@ public sealed class TrackRecordingStateTests
 		Harness harness = new();
 		await harness.Recording.LoadAsync();
 		await harness.RideAsync(10);
-		await harness.Recording.SaveAsync(null, excludePrivateArea: false);
+		await harness.Recording.SaveAsync("Coast run", excludePrivateArea: false);
 
 		await harness.RideAsync(10);
-		await harness.Recording.SaveAsync(null, excludePrivateArea: false);
+		await harness.Recording.SaveAsync("Coast run", excludePrivateArea: false);
 
 		harness.Api.UploadedTracks[1].ClientGuid.ShouldNotBe(harness.Api.UploadedTracks[0].ClientGuid);
 	}

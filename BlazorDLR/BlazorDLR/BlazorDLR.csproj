@@ -9,12 +9,24 @@
 	<TargetFramework></TargetFramework>
 	<TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
 	<!--
-	  iOS and MacCatalyst build only on macOS: they invoke Xcode, and on any other host MSBuild
-	  fails to spin up the task host with a MSB4216 that names neither the SDK nor the reason.
-	  Restricted to OSX here so a Windows developer can still open the solution and build the
-	  Android and Windows heads that make sense on their machine.
+	  MacCatalyst builds only on macOS: it invokes Xcode, and on any other host MSBuild fails to
+	  spin up the task host with a MSB4216 that names neither the SDK nor the reason. Gated to OSX
+	  here so a Windows developer can still open the solution and build the heads that make sense
+	  on their machine.
+
+	  iOS is NOT gated, and is deliberately absent from this line — it is already in the list
+	  above. The .NET iOS workload ships reference assemblies, so `Platforms/iOS/**` compiles on
+	  Windows even though linking and signing still need a Mac; keeping it in the base list is what
+	  catches a break in AppleLocationProvider.cs on the machine that made it rather than in CI.
+
+	  Appending it here as well is what this line used to do, and the cost was not theoretical: on
+	  macOS the property evaluated to `…;net10.0-ios;net10.0-ios;net10.0-maccatalyst`, which builds
+	  the iOS head twice and leaves the project advertising a framework list with a duplicate in
+	  it. MSBuild tolerates that; the Roslyn workspace behind `dotnet format` and the IDEs is less
+	  forgiving, and a project whose TFM list does not round-trip is a bad thing to hand a tool
+	  that has to reason about one compilation per framework.
 	-->
-	<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+	<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">$(TargetFrameworks);net10.0-maccatalyst</TargetFrameworks>
 
 	<!-- Note for MacCatalyst:
 	  The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.

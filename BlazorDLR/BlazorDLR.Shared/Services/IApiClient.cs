@@ -64,6 +64,21 @@ public interface IApiClient
 	Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default);
 	Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// <c>PATCH /api/v1/tracks/{id}</c> — renames a stored track, recorded or imported (§15.1).
+	/// <para>
+	/// Carries no version: a rename moves no point, so it cannot conflict with an edit the way one
+	/// edit conflicts with another (§15.5).
+	/// </para>
+	/// </summary>
+	Task<TrackSummary> RenameTrackAsync(Guid trackId, RenameTrackRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>DELETE /api/v1/tracks/{id}</c> — deletes the track, its markers and its points.
+	/// Irreversible, and refused while a live ride is using it as a planned route (§15.4).
+	/// </summary>
+	Task DeleteTrackAsync(Guid trackId, CancellationToken cancellationToken = default);
+
 	/// <summary><c>GET /api/v1/tracks/{id}/points</c> — full-resolution points for the editor (§15.5).</summary>
 	Task<TrackPointsResponse> GetTrackPointsAsync(Guid trackId, CancellationToken cancellationToken = default);
 

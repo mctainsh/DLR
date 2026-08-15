@@ -2,10 +2,13 @@
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
 @using DLR.Core.Contracts.Tracks
 @using DLR.Core.Tracks
 @inject ITrackRepository Tracks
 @inject IApiClient Api
+@inject ConfirmService Confirm
+@inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <PageTitle>@Title — Dumb Luck Routes</PageTitle>
@@ -19,10 +22,39 @@
 			@if (_track is not null)
 			{
 				<a class="button" href="/rides/@TrackId/edit">Edit</a>
+				@* Rename and delete apply to a recorded track and an imported one alike — they are
+				   the same entity, and a file somebody sent you is the one most likely to arrive
+				   called "Course 3" (§15.1). *@
+				<button type="button" class="primary" @onclick="StartRenaming">Rename</button>
 				<button type="button" class="primary" @onclick="DownloadGpxAsync">Download GPX</button>
+				<button type="button" class="danger" disabled="@_busy" @onclick="DeleteAsync">Delete</button>
 			}
 		</Actions>
 	</PageNav>
+
+	@if (_renaming)
+	{
+		<div class="rename">
+			<label>
+				Name
+				<input @bind="_newName" @bind:event="oninput" maxlength="@TrackNaming.MaxLength"
+					   placeholder="Saturday coast run" aria-label="Track name" />
+			</label>
+
+			<div class="rename-actions">
+				<button type="button" class="primary" disabled="@(_busy || !TrackNaming.IsUsable(_newName))"
+						@onclick="RenameAsync">
+					@(_busy ? "Saving…" : "Save name")
+				</button>
+				<button type="button" @onclick="() => _renaming = false">Cancel</button>
+			</div>
+		</div>
+	}
+
+	@if (_status is not null)
+	{
+		<p class="status">@_status</p>
+	}
 
 	@if (_track is null && _error is null)
 	{
@@ -57,6 +89,18 @@
 	private MapCamera _mapCamera = new(0, 0, 2);
 	private IReadOnlyList<RouteOverlay>? _routes;
 
+	/// <summary>Whether the rename box is open. Closed until asked for — this is a reading page.</summary>
+	private bool _renaming;
+
+	/// <summary>What is in the rename box, seeded from the current name so a typo is a fix, not a retype.</summary>
+	private string? _newName;
+
+	/// <summary>Guards both writes, so a double tap cannot send two deletes.</summary>
+	private bool _busy;
+
+	/// <summary>The one line under the bar that reports what a write did, or why it did not.</summary>
+	private string? _status;
+
 	// Two different "no name" cases, and they read differently: nothing has loaded yet
 	// (the generic word, so the bar is not blank), versus a track that loaded carrying no
 	// name of its own.
@@ -67,6 +111,8 @@
 		_track = null;
 		_error = null;
 		_routes = null;
+		_renaming = false;
+		_status = null;
 
 		try
 		{
@@ -99,6 +145,92 @@
 		catch (Exception exception)
 		{
 			_error = exception.Message;
+		}
+	}
+
+	/// <summary>
+	/// Opens the rename box over the name the track already has. An untitled track opens empty
+	/// rather than on the word the list prints for it — "Untitled" is what the absence of a name
+	/// looks like, not a name to edit.
+	/// </summary>
+	private void StartRenaming()
+	{
+		_newName = _track?.Track.Name;
+		_status = null;
+		_renaming = true;
+	}
+
+	/// <summary>
+	/// Renames the track. The response is the stored summary rather than what was typed, so what
+	/// this page prints afterwards is what the server actually holds — the name is trimmed on the
+	/// way in, and a screen echoing the untrimmed version would disagree with the list.
+	/// </summary>
+	private async Task RenameAsync()
+	{
+		if (_track is null || !TrackNaming.IsUsable(_newName))
+		{
+			return;
+		}
+
+		_busy = true;
+		_status = null;
+
+		try
+		{
+			TrackSummary renamed = await Api.RenameTrackAsync(TrackId, new RenameTrackRequest(_newName!));
+
+			_track = _track with { Track = renamed };
+			_renaming = false;
+			_status = "Renamed.";
+		}
+		catch (Exception exception)
+		{
+			_status = $"Could not rename it: {exception.Message}";
+		}
+		finally
+		{
+			_busy = false;
+		}
+	}
+
+	/// <summary>
+	/// Deletes the track after asking. What goes with it is stated in the question rather than
+	/// discovered afterwards: the points, any markers placed on this track, and the seven-day undo
+	/// of the last edit (§15.6) — none of which the rider can get back.
+	/// </summary>
+	private async Task DeleteAsync()
+	{
+		if (_track is null)
+		{
+			return;
+		}
+
+		if (!await Confirm.AskAsync(
+			$"Delete {_track.Track.Name ?? "this track"}?",
+			"The line, its points and any markers on it are deleted from the server. This cannot "
+			+ "be undone. Download the GPX first if you want to keep a copy.",
+			confirmText: "Delete",
+			danger: true))
+		{
+			return;
+		}
+
+		_busy = true;
+		_status = null;
+
+		try
+		{
+			await Api.DeleteTrackAsync(TrackId);
+
+			// Back to the list rather than staying on a page whose track no longer exists.
+			Nav.NavigateTo("/rides");
+		}
+		catch (Exception exception)
+		{
+			// The one that lands here in practice is the §15.4 conflict — a ride in progress is
+			// running on this line — and the server says so in words worth showing.
+			_status = $"Could not delete it: {exception.Message}";
+			_busy = false;
 		}
 	}
 
@@ -145,5 +277,28 @@
 	.detail dd {
 		margin: 0;
 		font-weight: 600;
+	}
+
+	.detail .rename {
+		padding: 0.75rem 1rem;
+		margin-top: 1rem;
+		background: #fff2;
+		border-radius: 6px;
+	}
+
+		.detail .rename label {
+			display: block;
+		}
+
+		.detail .rename input {
+			display: block;
+			width: 100%;
+		}
+
+	.detail .rename-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 0.75rem;
 	}
 </style>

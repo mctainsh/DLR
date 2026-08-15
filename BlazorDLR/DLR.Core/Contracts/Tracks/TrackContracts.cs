@@ -38,6 +38,21 @@ public sealed record UploadTrackRequest(
 	string? ImportedFileName = null);
 
 /// <summary>
+/// <c>PATCH /api/v1/tracks/{id}</c> — what a stored track is called (§15.1).
+/// <para>
+/// A rename is not an edit: it moves no point, so it does not touch
+/// <see cref="TrackSummary.Version"/> and carries none. Quoting a version here would mean a rider
+/// correcting a typo could be refused because a different device had trimmed the line, which is a
+/// conflict between two changes that cannot conflict.
+/// </para>
+/// </summary>
+/// <param name="Name">
+/// The new name. Required — the endpoint refuses a blank one rather than quietly clearing the
+/// name, which is what "rename it to nothing" would otherwise mean.
+/// </param>
+public sealed record RenameTrackRequest(string Name);
+
+/// <summary>
 /// One row of the track list (§6.2).
 /// <para>
 /// Every time-derived figure is nullable and rendered as "—" rather than <c>0</c>. A route has a

@@ -229,6 +229,47 @@ public sealed class FakeApiClient : IApiClient
 		Task.FromResult(Recorded(nameof(GetTrackAsync), TrackDetailResult
 			?? new TrackDetail(new TrackSummary(trackId, "Test", SampleInstant, null, null, 0, null, null, null, 0, 1, TrackSourceDto.Recorded, 1), null, Array.Empty<DLR.Core.Tracks.TrackPoint>())));
 	public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+	/// <summary>Every rename the UI sent, in order (§15.1).</summary>
+	public List<(Guid TrackId, string Name)> RenamedTracks { get; } = new();
+
+	/// <summary>Every track the UI asked the server to delete.</summary>
+	public List<Guid> DeletedTracks { get; } = new();
+
+	/// <summary>Set to make <see cref="RenameTrackAsync"/> throw.</summary>
+	public Exception? RenameTrackException { get; set; }
+
+	/// <summary>Set to make <see cref="DeleteTrackAsync"/> throw — the §15.4 live-route conflict.</summary>
+	public Exception? DeleteTrackException { get; set; }
+
+	public Task<TrackSummary> RenameTrackAsync(Guid trackId, RenameTrackRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(RenameTrackAsync));
+		RenamedTracks.Add((trackId, request.Name));
+
+		if (RenameTrackException is not null)
+		{
+			return Task.FromException<TrackSummary>(RenameTrackException);
+		}
+
+		// The stored summary, not what was typed — the real endpoint trims on the way in, and a
+		// screen that echoed the raw string would disagree with the list it goes back to.
+		TrackSummary current = TrackDetailResult?.Track
+			?? TracksResult.FirstOrDefault(track => track.Id == trackId)
+			?? new TrackSummary(trackId, null, SampleInstant, null, null, 0, null, null, null, 0, 1, TrackSourceDto.Recorded, 1);
+
+		return Task.FromResult(current with { Name = request.Name.Trim() });
+	}
+
+	public Task DeleteTrackAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(DeleteTrackAsync));
+		DeletedTracks.Add(trackId);
+
+		return DeleteTrackException is not null
+			? Task.FromException(DeleteTrackException)
+			: Task.CompletedTask;
+	}
 	public Task<TrackPointsResponse> GetTrackPointsAsync(Guid trackId, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetTrackPointsAsync), TrackPointsResult
 			?? new TrackPointsResponse(1, 100, "", null, null, new[] { 0 })));

@@ -322,19 +322,39 @@ public sealed class TrackRecordingState
 	/// track is only cleared once the server has answered.
 	/// </para>
 	/// </summary>
-	/// <param name="name">What to call it, or <c>null</c> to leave the server's default.</param>
+	/// <param name="name">
+	/// What to call it. <strong>Required</strong> (§15.1): the one artefact a ride leaves behind
+	/// goes into a list the rider will later be scanning for it, and "Untitled" three times over is
+	/// a list nobody can use. The rule is here rather than only on the screen so the one path that
+	/// takes a track off this device cannot be driven past it.
+	/// </param>
 	/// <param name="excludePrivateArea">
 	/// Whether to cut out every point inside the §10.1 area first. On by default on the screen: the
 	/// track is the one artefact of a ride that outlives it, and it starts and ends at home.
 	/// </param>
 	/// <param name="cancellationToken">Cancels the upload.</param>
 	/// <returns>The stored track.</returns>
-	/// <exception cref="InvalidOperationException">Nothing is left to save once the filter has run.</exception>
+	/// <exception cref="InvalidOperationException">
+	/// No name was given, or nothing is left to save once the filter has run.
+	/// </exception>
 	public async Task<TrackSummary> SaveAsync(
 		string? name,
 		bool excludePrivateArea,
 		CancellationToken cancellationToken = default)
 	{
+		// Checked before anything else, and before the track is touched: a save refused for want of
+		// a name must leave the ride exactly where it was on the device.
+		if (TrackNaming.Clean(name) is not { } trimmed)
+		{
+			throw new InvalidOperationException("Give this track a name before saving it.");
+		}
+
+		if (trimmed.Length > TrackNaming.MaxLength)
+		{
+			throw new InvalidOperationException(
+				$"A track name is limited to {TrackNaming.MaxLength} characters.");
+		}
+
 		// The area is read rather than assumed: PrivateAreaState.HidesLocation answers "hide"
 		// until it has been read, which is right for a fix about to be broadcast and wrong here —
 		// it would silently delete the whole ride.
@@ -367,7 +387,7 @@ public sealed class TrackRecordingState
 				clientGuid,
 				geometry.Points,
 				geometry.SegmentStarts,
-				string.IsNullOrWhiteSpace(name) ? null : name.Trim(),
+				trimmed,
 				TrackSourceDto.Recorded),
 			cancellationToken);
 
