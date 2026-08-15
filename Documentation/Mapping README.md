@@ -128,6 +128,74 @@ from there, and `LoopbackMapPackServer` serves it to MapLibre.
 because it is vector. It is the single biggest lever on pack size and costs almost nothing
 visually.
 
+## Australian state packs
+
+One pack per state and territory, ids matching `MapPackSummary.Id` in the offline-maps plan
+(§4.2). Run these against the same source; each is independent, so they can be built one at a
+time or all at once by `Build-AuMapPacks.ps1` (next section).
+
+```
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-nsw.pmtiles --bbox=140.99,-37.52,153.65,-28.15 --maxzoom=14
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-vic.pmtiles --bbox=140.95,-39.20,150.00,-33.95 --maxzoom=14
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-qld.pmtiles --bbox=137.99,-29.20,153.60,-9.10  --maxzoom=14
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-sa.pmtiles  --bbox=128.95,-38.10,141.05,-25.95 --maxzoom=14
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-wa.pmtiles  --bbox=112.90,-35.25,129.05,-13.50 --maxzoom=14
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-nt.pmtiles  --bbox=128.95,-26.05,138.05,-10.90 --maxzoom=14
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-tas.pmtiles --bbox=143.75,-43.90,148.55,-39.15 --maxzoom=14
+pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-act.pmtiles --bbox=148.75,-35.95,149.42,-35.10 --maxzoom=14
+```
+
+`--bbox` is `minLon,minLat,maxLon,maxLat` — **longitude first**, and southern latitudes are
+negative, so `minLat` is the *southern* edge. Getting the pair order wrong produces an empty
+archive rather than an error, which is the failure mode to watch for.
+
+| Pack id  | State / territory            | Extent covered                                          |
+| -------- | ---------------------------- | ------------------------------------------------------- |
+| `au-nsw` | New South Wales              | Cape Howe to Point Danger, SA border to Cape Byron       |
+| `au-vic` | Victoria                     | Murray River to Wilsons Promontory, incl. Cape Howe      |
+| `au-qld` | Queensland                   | NSW border to the Torres Strait islands                  |
+| `au-sa`  | South Australia              | 129°E–141°E, 26°S to Cape Northumberland and Kangaroo Is |
+| `au-wa`  | Western Australia            | Dirk Hartog Is to the NT border, Kimberley to Albany     |
+| `au-nt`  | Northern Territory           | 129°E–138°E, SA border to the Tiwi and Wessel islands    |
+| `au-tas` | Tasmania                     | King and Flinders islands to Pedra Branca                |
+| `au-act` | Australian Capital Territory | The ACT proper; Jervis Bay falls inside `au-nsw`         |
+
+**These boxes overlap.** A rectangle around NSW swallows the ACT outright and takes in roughly
+half of Victoria and a slab of southern Queensland; `au-sa`, `au-nt` and `au-wa` share their
+straight-line borders exactly. A rider who downloads two neighbouring packs pays for that overlap
+twice. It is the accepted cost of `--bbox`: the alternative is `pmtiles extract --region
+<state>.geojson`, which clips to the real boundary and would need state-boundary GeoJSON checked
+in and maintained. Revisit that when pack size on a phone actually becomes the complaint.
+
+External territories are deliberately absent — Lord Howe, Norfolk, Christmas, Cocos and Macquarie
+Island are each far outside their state's box and want their own tiny pack if anyone ever rides
+there.
+
+`au-wa` and `au-qld` are by far the largest: each covers over 2.5× the area of NSW. If either
+comes out too big to download over mobile data, split it by region (`au-wa-southwest`,
+`au-wa-pilbara`, `au-wa-kimberley`) rather than dropping the max zoom, since z13 is a visible
+step down on a map read through a visor.
+
+## Building all eight
+
+`Documentation/Build-AuMapPacks.ps1` runs the table above end to end and records what §4.2 step 3
+asks for — size and SHA-256 per pack:
+
+```powershell
+./Build-AuMapPacks.ps1                              # all eight into ./mappacks
+./Build-AuMapPacks.ps1 -Only au-nsw,au-act          # just these two
+./Build-AuMapPacks.ps1 -OutDir D:\packs -Force      # rebuild over existing files
+```
+
+It skips packs that already exist unless `-Force`, and writes `catalogue.json` alongside them in
+the shape of `MapPackSummary` — id, name, bounds, zoom range, size, hash, version and URL — ready
+to serve from the VPS static directory. `-BaseUrl` sets the URL prefix written into that
+catalogue.
+
+The `pmtiles` CLI must be on `PATH`; the script fails immediately if it is not. A full run pulls
+several GB of ranges from the source archive and takes a while — it prints each pack as it lands
+rather than staying silent to the end.
+
 ## Credentials
 
 **None.** MapLibre needs no key and OSM needs no account, which is why one registration line

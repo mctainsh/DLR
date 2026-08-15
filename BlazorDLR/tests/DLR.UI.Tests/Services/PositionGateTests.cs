@@ -33,8 +33,8 @@ public sealed class PositionGateTests
 	public void TheFirstUsableFix_AlwaysGoes()
 	{
 		// A rider who has just turned sharing on wants to be on the map now. Waiting out the
-		// profile's first interval would leave them absent for ten seconds on Eco, which reads as
-		// the feature not working.
+		// profile's first interval would leave them absent for a full minute on Eco, which reads
+		// as the feature not working.
 		PositionGate gate = new(AccuracyProfile.Balanced);
 
 		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
@@ -82,7 +82,7 @@ public sealed class PositionGateTests
 		PositionGate gate = new(AccuracyProfile.Balanced);
 
 		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
-		gate.Evaluate(Fix(secondsIn: 5)).Publish.ShouldBeTrue();
+		gate.Evaluate(Fix(secondsIn: 30)).Publish.ShouldBeTrue();
 	}
 
 	[Fact]
@@ -167,13 +167,13 @@ public sealed class PositionGateTests
 		// §4.2 fixes these three pairs. They are what the settings screen prints, what the
 		// platform receivers are tuned against, and what a rider chooses between — so a change
 		// here is a change to the design rather than a tweak.
-		PositionGate.MinInterval(AccuracyProfile.Eco).ShouldBe(TimeSpan.FromSeconds(10));
-		PositionGate.MinDistanceM(AccuracyProfile.Eco).ShouldBe(25);
+		PositionGate.MinInterval(AccuracyProfile.Eco).ShouldBe(TimeSpan.FromSeconds(60));
+		PositionGate.MinDistanceM(AccuracyProfile.Eco).ShouldBe(50);
 
-		PositionGate.MinInterval(AccuracyProfile.Balanced).ShouldBe(TimeSpan.FromSeconds(5));
+		PositionGate.MinInterval(AccuracyProfile.Balanced).ShouldBe(TimeSpan.FromSeconds(30));
 		PositionGate.MinDistanceM(AccuracyProfile.Balanced).ShouldBe(10);
 
-		PositionGate.MinInterval(AccuracyProfile.Precise).ShouldBe(TimeSpan.FromSeconds(1));
+		PositionGate.MinInterval(AccuracyProfile.Precise).ShouldBe(TimeSpan.FromSeconds(10));
 		PositionGate.MinDistanceM(AccuracyProfile.Precise).ShouldBe(5);
 	}
 
@@ -186,6 +186,11 @@ public sealed class PositionGateTests
 		{
 			PositionGate.MaxAccuracyM(profile).ShouldBeGreaterThanOrEqualTo(30,
 				$"a {profile} gate tighter than a consumer GPS's own error would publish nothing.");
+
+			// The other end of the same clamp. Eco's 50 m step would derive a 200 m gate, which
+			// is a cell-tower fix — published, it puts a rider two suburbs from where they are.
+			PositionGate.MaxAccuracyM(profile).ShouldBeLessThanOrEqualTo(100,
+				$"a {profile} gate this loose would publish fixes nobody could ride to.");
 		}
 	}
 }

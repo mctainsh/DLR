@@ -147,6 +147,10 @@ public static class MauiProgram
 		// The accuracy profile this device records at (§4.2), in MAUI Preferences.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.GpsProfileState>();
 
+		// The rider's own track (§15.1). This is the host that actually records one: the pump
+		// below offers it every fix, and the Location screen is where it is saved or thrown away.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.TrackRecordingState>();
+
 		// The one place a fix travels from the receiver to the ride (§5.7). Scoped, like every
 		// other state the UI binds to: the ride screens turn it on and off, and it holds the
 		// device's set of reasons to be broadcasting.

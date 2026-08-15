@@ -54,7 +54,12 @@ public sealed class RideSession : IAsyncDisposable
 	/// step — rather than each of the two pages remembering to do it.
 	/// </para>
 	/// <para>
-	/// Optional so a test that only cares about markers or members can leave it out.
+	/// <strong>Null on the browser hosts, and that is the shipping arrangement rather than a
+	/// concession.</strong> They register no receiver at all (§18.6), so the ride screens resolve
+	/// one with <c>GetService</c>, hand whatever they get to this, and hide their sharing controls
+	/// when it is null. Everything below this parameter — the snapshot, the hub, the markers, the
+	/// members, the positions of everybody else — is unaffected: receiving was never a GPS
+	/// concern. Also optional so a test that only cares about markers or members can leave it out.
 	/// </para>
 	/// </param>
 	/// <param name="cache">

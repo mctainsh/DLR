@@ -158,6 +158,7 @@ public sealed class AuthStateTests
 		public Task RevokeSessionAsync(Guid d, CancellationToken ct = default) => inner.RevokeSessionAsync(d, ct);
 		public Task<OwnProfile> GetProfileAsync(CancellationToken ct = default) => inner.GetProfileAsync(ct);
 		public Task UpdateProfileAsync(UpdateProfileRequest r, CancellationToken ct = default) => inner.UpdateProfileAsync(r, ct);
+		public Task<DLR.Core.Contracts.Tracks.TrackSummary> UploadTrackAsync(DLR.Core.Contracts.Tracks.UploadTrackRequest r, CancellationToken ct = default) => inner.UploadTrackAsync(r, ct);
 		public Task<IReadOnlyList<DLR.Core.Contracts.Tracks.TrackSummary>> ListTracksAsync(CancellationToken ct = default) => inner.ListTracksAsync(ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackDetail> GetTrackAsync(Guid t, CancellationToken ct = default) => inner.GetTrackAsync(t, ct);
 		public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid t, CancellationToken ct = default) => inner.ExportTrackGpxAsync(t, ct);

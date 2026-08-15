@@ -39,6 +39,8 @@ public sealed class LocationBroadcastStateTests
 
 		public GpsProfileState Profile { get; private set; } = default!;
 
+		public TrackRecordingState Recording { get; private set; } = default!;
+
 		public LocationBroadcastState Broadcast { get; private set; } = default!;
 
 		public ConfirmService Confirm { get; } = new();
@@ -57,8 +59,9 @@ public sealed class LocationBroadcastStateTests
 
 			PrivateAreas = new PrivateAreaState(Settings);
 			Profile = new GpsProfileState(Settings);
+			Recording = new TrackRecordingState(Settings, Api, PrivateAreas);
 			Broadcast = new LocationBroadcastState(
-				Provider, Hub, Api, PrivateAreas, Profile, Settings, Confirm, Clock);
+				Provider, Hub, Api, PrivateAreas, Profile, Recording, Settings, Confirm, Clock);
 			return this;
 		}
 

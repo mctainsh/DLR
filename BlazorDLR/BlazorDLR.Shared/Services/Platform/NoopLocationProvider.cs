@@ -3,12 +3,17 @@ using System.Runtime.CompilerServices;
 namespace BlazorDLR.Shared.Services.Platform;
 
 /// <summary>
-/// The <see cref="ILocationProvider"/> for hosts with no continuous GPS the app can trust
-/// (§18.6) — both browser hosts, and the MAUI host until its platform provider is wired.
+/// The <see cref="ILocationProvider"/> for a MAUI target with no receiver behind it — the Windows
+/// and macOS heads, which are development surfaces rather than riding ones (§18.6).
 /// <para>
-/// This is not a placeholder for a browser implementation that is coming: the browser
-/// geolocation API cannot deliver the background, high-cadence fixes a live ride needs, so
-/// "not supported" is the honest answer rather than an interim one.
+/// <strong>Not the browser's answer any more.</strong> The web hosts used to bind this so the
+/// shared screens could <c>@inject</c> a broadcaster unconditionally, which cost five inert
+/// registrations and a settings screen full of controls that could not move anything on the
+/// machine reading them. They now register no GPS seam at all and the screens resolve the
+/// broadcaster with <c>GetService</c> — absent is the state they render. This survives because
+/// the MAUI head still needs something to bind on a target where <c>#if ANDROID</c> and
+/// <c>#if IOS</c> are both false; there, "no receiver" and "not a MAUI host" are different
+/// facts, and only this one can be expressed as an implementation.
 /// </para>
 /// </summary>
 public sealed class NoopLocationProvider : ILocationProvider

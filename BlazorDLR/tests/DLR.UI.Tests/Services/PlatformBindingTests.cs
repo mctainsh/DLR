@@ -40,9 +40,12 @@ public sealed class PlatformBindingTests
 	[Fact]
 	public async Task NoopLocationProvider_IsUnsupported_AndYieldsNoFixes()
 	{
+		// The MAUI Windows and macOS heads bind this — the browsers no longer bind anything at
+		// all, so "no receiver" is a missing service there rather than a stub (see
+		// HostWithoutGpsTests). It still has to answer cleanly on the target that does bind it.
 		NoopLocationProvider provider = new();
 
-		provider.IsSupported.ShouldBeFalse("§18.6: no continuous GPS in a browser.");
+		provider.IsSupported.ShouldBeFalse("§18.6: no receiver behind this MAUI target.");
 		provider.IsRecording.ShouldBeFalse();
 
 		LocationPermissionState permission = await provider.EnsurePermissionsAsync();

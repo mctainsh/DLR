@@ -94,10 +94,10 @@ internal class Program
 			MapPackDownloader.CreateCredentialFreeClient()));
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
 
-		// No GPS in the browser (§18.6); no push in the browser in v1 (§18.2). The screen lock is
-		// the same answer for a different reason — the API exists here, the case for it does not
-		// (see UnavailableScreenWakeLock).
-		builder.Services.AddScoped<ILocationProvider, NoopLocationProvider>();
+		// No push in the browser in v1 (§18.2). The screen lock is the same answer for a
+		// different reason — the API exists here, the case for it does not (see
+		// UnavailableScreenWakeLock). GPS is not on this list at all any more: see the block
+		// below where the receiver used to be registered.
 		builder.Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
 		builder.Services.AddScoped<INotificationService, NoopNotificationService>();
 
@@ -133,20 +133,23 @@ internal class Program
 		// this host has no pack store (§18.6), which MapSourceState reads off IOfflineStore.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
-		// The private area (§10.1, §18.6): a point and a radius this browser never sends
-		// anywhere. It gates recording and publishing, neither of which the web host does
-		// (§18.6) — it is registered here so the profile screen can set one for the phone
-		// that will, and because a device-local setting is per-browser by construction.
-		builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
-
 		// The ride the nav rail's globe leads back to (§18.6), kept in localStorage so a
 		// reloaded tab still knows which ride this browser is on.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
-		// GPS state (§4.2, §4.3). A browser has no continuous background GPS the app can trust
-		// (§18.6), so this is registered for the ride screens that ask and answers NotSupported.
-		builder.Services.AddScoped<BlazorDLR.Shared.State.GpsProfileState>();
-		builder.Services.AddScoped<BlazorDLR.Shared.State.LocationBroadcastState>();
+		// No GPS on this host, and nothing standing in for one (§18.6).
+		//
+		// ILocationProvider, GpsProfileState, TrackRecordingState, PrivateAreaState and
+		// LocationBroadcastState are all absent, deliberately. A browser cannot deliver the
+		// background, high-cadence fixes a live ride needs, so every one of them was a stub
+		// answering "not supported" to screens that then had to explain themselves — and the
+		// private area in particular was the worst of them: a device-local circle set in a
+		// browser protects nothing and does not follow the rider to the phone that records.
+		//
+		// The shared screens resolve the broadcaster with GetService rather than @inject and
+		// render their no-receiver branch when it is missing, which is what lets the whole set
+		// be gone rather than present and inert. Receiving is unaffected: other riders'
+		// positions arrive over the hub as data (§5.3) and are drawn like any other.
 
 		// The one confirm modal for every destructive action in the app. Mounted in
 		// MainLayout; pages call `await Confirm.AskAsync(...)` in place of `window.confirm`.

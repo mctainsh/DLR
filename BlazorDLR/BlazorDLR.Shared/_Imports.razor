@@ -8,6 +8,10 @@
 @using static Microsoft.AspNetCore.Components.Web.RenderMode
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @using Microsoft.JSInterop
+@* GetService<T>() — how a shared screen asks for a seam the host it is running on may not have.
+   The GPS states are the case it exists for: they are registered on the MAUI host and on no
+   other, so the ride screens and Settings resolve them rather than @@inject them (§18.6). *@
+@using Microsoft.Extensions.DependencyInjection
 @using BlazorDLR
 @using BlazorDLR.Shared
 @using BlazorDLR.Shared.Components

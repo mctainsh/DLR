@@ -9,9 +9,8 @@
 @inject AuthState Auth
 @inject ConfirmService Confirm
 @inject CurrentRideState CurrentRide
-@inject LocationBroadcastState Broadcast
+@inject IServiceProvider Services
 @inject NavigationManager Nav
-@inject PrivateAreaState PrivateAreas
 @inject RideSnapshotCache Cache
 @inject IScreenWakeLock ScreenWakeLock
 @inject IDeviceSettings Settings
@@ -100,11 +99,11 @@
 				<span>Offline — this ride as it was @CachedAge.</span>
 			</div>
 		}
-		else if (_session.Sharing && Broadcast.NeedsAttention)
+		else if (_session.Sharing && _broadcast is { NeedsAttention: true } alerting)
 		{
 			<div class="map-error gps-alert error" role="alert">
 				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
-				<span>@Broadcast.Describe()</span>
+				<span>@alerting.Describe()</span>
 			</div>
 		}
 		else if (_session.SharingPending)
@@ -223,10 +222,19 @@
 						it — but a rider mid-ride needs to be able to answer "am I on their map?"
 						without leaving the map, and the honest answer is not "the switch is on".
 					*@
-					<div class="gps" role="status">
-						<i class="fa fa-fw @BroadcastIcon" aria-hidden="true"></i>
-						<span>@Broadcast.Describe()</span>
-					</div>
+					@*
+						Absent on a host with no receiver (§18.6) rather than reporting that it has
+						none: a rider on a laptop is watching other people's pins, and a line in
+						their own menu saying "this device cannot share its location" answers a
+						question they were never asking.
+					*@
+					@if (_broadcast is { } receiver)
+					{
+						<div class="gps" role="status">
+							<i class="fa fa-fw @BroadcastIcon" aria-hidden="true"></i>
+							<span>@receiver.Describe()</span>
+						</div>
+					}
 				</div>
 			}
 		</div>
@@ -502,7 +510,7 @@
 	/// changes colour: the map is read through a visor in daylight, and colour alone is the first
 	/// thing to go (§18.6).
 	/// </summary>
-	private string BroadcastIcon => Broadcast.Status switch
+	private string BroadcastIcon => _broadcast?.Status switch
 	{
 		LocationBroadcastStatus.Broadcasting => "fa-satellite-dish",
 		LocationBroadcastStatus.Suppressed => "fa-house-lock",
@@ -565,7 +573,7 @@
 	/// the map they are watching on a laptop, for nothing.
 	/// </para>
 	/// </summary>
-	private bool HasOwnReceiver => Broadcast.IsSupported;
+	private bool HasOwnReceiver => _broadcast?.IsSupported == true;
 
 	/// <summary>
 	/// Where this rider is, for this rider's own map: <strong>this device's own reading on a host
@@ -592,7 +600,7 @@
 	/// </summary>
 	private (double Latitude, double Longitude)? MyPoint =>
 		HasOwnReceiver
-			? Broadcast.OwnFix is { } own ? (own.Latitude, own.Longitude) : null
+			? _broadcast?.OwnFix is { } own ? (own.Latitude, own.Longitude) : null
 			: MyPosition is { } mine ? (PositionScale.ToDegrees(mine.Lat), PositionScale.ToDegrees(mine.Lon)) : null;
 
 	/// <summary>
@@ -603,7 +611,7 @@
 	/// copy of this rider is not an acceptable substitute.
 	/// </para>
 	/// </summary>
-	private MapMarker? SelfMarker => Broadcast.OwnFix is { } fix
+	private MapMarker? SelfMarker => _broadcast?.OwnFix is { } fix
 		? new MapMarker(
 			// Keyed on the rider rather than on a sentinel, so this occupies the same slot the
 			// server's copy of them would have — belt and braces behind RebuildMapLayer's skip.
@@ -620,20 +628,49 @@
 	/// <summary>Zoom a marker is brought to when it is chosen. Street level, not suburb level.</summary>
 	private const double FocusZoom = 16;
 
+	/// <summary>
+	/// This device's receiver, or <c>null</c> on a host that has none — both browsers (§18.6).
+	/// <para>
+	/// Resolved rather than <c>@@inject</c>ed because the web hosts do not register it at all: GPS
+	/// is a mobile concern, and a stub answering "not supported" was a registration kept alive so
+	/// one <c>@@inject</c> could succeed. Null is a state this page already knew how to draw — see
+	/// <see cref="HasOwnReceiver"/>, which is what decides between this device's own fix and the
+	/// ride's round-tripped copy of it.
+	/// </para>
+	/// </summary>
+	private LocationBroadcastState? _broadcast;
+
+	/// <summary>
+	/// The device's private area (§10.1), or <c>null</c> on a host with no receiver for it to
+	/// gate. The circle is drawn on this map so a rider can see how far it reaches; a browser has
+	/// nothing to draw, because nothing there was ever going to be suppressed by it.
+	/// </summary>
+	private PrivateAreaState? _privateAreas;
+
 	protected override void OnInitialized()
 	{
-		_session = new RideSession(Api, Hub, Auth, Broadcast, Cache);
+		_broadcast = Services.GetService<LocationBroadcastState>();
+		_privateAreas = Services.GetService<PrivateAreaState>();
+
+		// RideSession has taken a nullable broadcaster from the start — see its constructor.
+		_session = new RideSession(Api, Hub, Auth, _broadcast, Cache);
 		_session.Changed += OnSessionChanged;
 
-		// The receiver's state is drawn on this screen — see the dot on the hamburger and the
-		// strip below it — and it moves on its own timetable, not the session's.
-		Broadcast.Changed += OnBroadcastChanged;
+		if (_broadcast is { } broadcast)
+		{
+			// The receiver's state is drawn on this screen — see the dot on the hamburger and the
+			// strip below it — and it moves on its own timetable, not the session's.
+			broadcast.Changed += OnBroadcastChanged;
+		}
 
-		// The area can be placed, moved or removed on the settings screen while this page is
-		// still mounted — PrivateAreaState is scoped, so it is the same instance — and the map
-		// should agree with the setting without a reload.
-		PrivateAreas.Changed += OnPrivateAreaChanged;
-		RebuildPrivateAreaLayer();
+		if (_privateAreas is { } areas)
+		{
+			// The area can be placed, moved or removed on the settings screen while this page is
+			// still mounted — PrivateAreaState is scoped, so it is the same instance — and the map
+			// should agree with the setting without a reload.
+			areas.Changed += OnPrivateAreaChanged;
+			RebuildPrivateAreaLayer();
+		}
 	}
 
 	/// <summary>
@@ -655,7 +692,11 @@
 			return;
 		}
 
-		await PrivateAreas.LoadAsync();
+		if (_privateAreas is { } areas)
+		{
+			await areas.LoadAsync();
+		}
+
 		await RestoreViewAsync();
 		await HoldScreenAsync();
 	}
@@ -726,7 +767,7 @@
 	/// repaints about once a second on positions alone.
 	/// </summary>
 	private void RebuildPrivateAreaLayer() =>
-		_privateAreaLayer = PrivateAreas.Area is { } area
+		_privateAreaLayer = _privateAreas?.Area is { } area
 			? [new MapCircle(area.Latitude, area.Longitude, area.RadiusM)]
 			: null;
 
@@ -1299,7 +1340,10 @@
 	public async ValueTask DisposeAsync()
 	{
 		_session.Changed -= OnSessionChanged;
-		PrivateAreas.Changed -= OnPrivateAreaChanged;
+		if (_privateAreas is { } areas)
+		{
+			areas.Changed -= OnPrivateAreaChanged;
+		}
 
 		// The screen goes back to the rider's own timeout. First, because everything below it can
 		// await the network — and a page that has left the screen should not be holding the device
@@ -1313,7 +1357,10 @@
 
 		// Unsubscribed, not stopped. Leaving this page is not leaving the ride: the receiver keeps
 		// running for as long as a ride is being shared with, which is the whole point of it (§4.3).
-		Broadcast.Changed -= OnBroadcastChanged;
+		if (_broadcast is { } broadcast)
+		{
+			broadcast.Changed -= OnBroadcastChanged;
+		}
 
 		// The write that matters: leaving for the info page, the composer or the thread is the
 		// common way off this map, and coming straight back is the common way onto it.

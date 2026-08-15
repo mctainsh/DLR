@@ -124,6 +124,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		// it, and LocationBroadcastStateTests is where that path is exercised.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		// The page's own RideMap logic is what turns an interop viewport into a hit-testable

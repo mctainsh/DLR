@@ -1,23 +1,30 @@
 @page "/settings/location"
 @attribute [Authorize]
+@using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
-@inject GpsProfileState Gps
-@inject LocationBroadcastState Broadcast
+@using DLR.Core.Contracts.Tracks
+@using DLR.Core.Tracks
+@inject IServiceProvider Services
+@inject ConfirmService Confirm
 @implements IDisposable
 
 @*
-	The GPS screen (§4.2, §4.3, §18.6) — the accuracy profile, what the receiver is doing
-	right now, and a plain account of what "background" means on this phone.
+	Everything this device does with its own position (§4.2, §4.3, §10.1, §15.1, §18.6): what the
+	receiver is doing right now, how often it publishes, what it keeps for the rider themselves,
+	and the one circle it does none of that inside.
 
-	Separate from the private area, which lives on the Profile screen beside the other
-	things a rider decides about what other people see. The two are related and are linked
-	to each other, but they answer different questions: this one is a battery decision, and
-	that one is a privacy decision.
+	The private area moved here from the Profile screen. That screen is about what other riders
+	are shown; this one is about the receiver, and the area is a setting on the receiver — it is
+	what the broadcaster consults before every fix and what the recorder filters against on the
+	way out. Splitting them meant a rider reading "nothing is sent from inside your private area"
+	had to go to another page to find out whether they had one.
 
-	It renders on the web too, where there is no receiver at all (§18.6). Rather than hide
-	the screen there, it says so — a rider who set a profile on their phone and then opens
-	the site is owed an explanation of why the same setting is showing "cannot share".
+	This is a phone screen. The web hosts register none of the four states it is built on (§18.6),
+	so everything below the guard is unreachable there and Settings does not link to it — but the
+	route is in this assembly and therefore still resolves on every host, so a bookmark or a typed
+	URL lands on the short note instead of a crash. Nothing here is stubbed to make that work: the
+	services are resolved, and their absence is the branch.
 *@
 
 <PageTitle>Location — Dumb Luck Routes</PageTitle>
@@ -25,9 +32,31 @@
 <div class="page page-medium location-settings">
 	<PageNav Title="Location" BackHref="/settings" BackLabel="Back to settings" />
 
+	@if (!HasReceiver)
+	{
+		<p class="lead">
+			This is set up on your phone.
+		</p>
+
+		<p class="note">
+			Location is a phone feature (§18.6). A browser has no GPS the app can trust to keep
+			running with the screen off, so there is nothing here for this device to configure —
+			the accuracy profile, the recording interval and the private area all belong to the
+			phone that produces the fixes, and are set in the app on that phone.
+		</p>
+
+		<p class="note">
+			Your rides still work in full here: you can see everyone who is sharing, their gaps,
+			the routes and the thread. It is only your <em>own</em> position that this device
+			cannot produce.
+		</p>
+
+	}
+	else
+	{
 	<p class="lead">
-		How often this device takes a GPS fix while you are sharing with a group ride, and
-		what it is doing at the moment.
+		How often this device takes a GPS fix, what it keeps, what it sends, and where it does
+		neither.
 	</p>
 
 	<div class="panel state">
@@ -69,6 +98,12 @@
 	<div class="panel">
 		<h2>Accuracy</h2>
 
+		<p class="note">
+			How often your position is <em>sent</em> to the group rides you are sharing with. This
+			is the battery setting — it does not change how much detail your own recorded track
+			keeps, which is the interval below.
+		</p>
+
 		@*
 			Three radios rather than a slider: they are not points on a continuum, they are
 			three answers to "what are you doing today", and the copy under each is what
@@ -94,6 +129,220 @@
 		</p>
 	</div>
 
+	@*
+		Track recording (§15.1). Separate panel from the accuracy profile above and separate
+		wording, because riders conflate the two and they cost different things: one spends
+		uplink and other people's redraws, and one spends a few hundred kilobytes on this phone.
+	*@
+	<div class="panel recording">
+		<h2>Recording your rides</h2>
+
+		<p class="note">
+			While the GPS is running, this device can keep a track of where you went — for you,
+			not for the ride. It stays on this phone until you save it, and saving it puts it in
+			<a href="/rides">your tracks</a> like an imported one.
+		</p>
+
+		<label class="switch">
+			<input type="checkbox" checked="@Recording.IsEnabled"
+				   @onchange="OnRecordingToggled" />
+			Record a track while the GPS is running
+		</label>
+
+		@if (!Recording.IsEnabled)
+		{
+			<p class="hint">
+				Off. Nothing new is being added to a track — anything already recorded is kept
+				until you save or delete it.
+			</p>
+		}
+
+		<h3>How often a point is kept</h3>
+
+		<div class="intervals" role="group" aria-label="Recording interval">
+			@foreach (double interval in TrackRecording.IntervalsM)
+			{
+				<button type="button" class="interval @(Recording.IntervalM == interval ? "chosen" : null)"
+						aria-pressed="@(Recording.IntervalM == interval ? "true" : "false")"
+						@onclick="() => ChooseIntervalAsync(interval)">
+					@($"{interval:0} m")
+				</button>
+			}
+		</div>
+
+		<p class="hint">
+			@Recording.IntervalM.ToString("0") m — about @PointsPerKm points a kilometre. Smaller
+			draws a roundabout as a roundabout; larger keeps a long tour to a sensible size. It
+			cannot be finer than the GPS is reporting, so on <strong>Eco</strong> a 5 m setting
+			will still produce a coarse track.
+		</p>
+
+		<h3>Track in progress</h3>
+
+		@if (!Recording.IsLoaded)
+		{
+			<p class="empty">Reading this device…</p>
+		}
+		else if (Recording.Stats is not { } stats)
+		{
+			<p class="empty">
+				Nothing recorded yet. A track starts at the first fix after you turn sharing on
+				for a group ride.
+			</p>
+		}
+		else
+		{
+			<dl class="track-detail">
+				<div><dt>Started</dt><dd>@FormatWhen(stats.StartedUtc)</dd></div>
+				<div><dt>Last point</dt><dd>@FormatWhen(stats.EndedUtc)</dd></div>
+				<div><dt>Distance</dt><dd>@FormatKm(stats.DistanceM)</dd></div>
+				<div><dt>Moving time</dt><dd>@FormatDuration(stats.DurationS)</dd></div>
+				<div><dt>Points</dt><dd>@stats.PointCount.ToString("N0")</dd></div>
+				<div><dt>Segments</dt><dd>@stats.SegmentCount</dd></div>
+			</dl>
+
+			@if (Recording.IsFull)
+			{
+				<p class="status unsaved">
+					This track has reached @TrackRecording.MaxPoints.ToString("N0") points and has
+					stopped growing. Save it or delete it to start a new one.
+				</p>
+			}
+
+			<label class="name">
+				Name
+				<input @bind="_trackName" placeholder="Saturday coast run" maxlength="200" />
+			</label>
+
+			@if (PrivateAreas.IsSet)
+			{
+				<label class="switch exclude-private">
+					<input type="checkbox" @bind="_excludePrivateArea" />
+					Leave out the points inside my private area
+				</label>
+				<p class="note">
+					On by default. A saved track is the one thing about a ride that outlives it,
+					and a ride that starts and finishes at home starts and finishes on your
+					doorstep. Riding out and back in leaves a gap rather than a line drawn across
+					it.
+				</p>
+			}
+
+			<div class="track-actions">
+				<button type="button" class="primary" disabled="@_savingTrack" @onclick="SaveTrackAsync">
+					@(_savingTrack ? "Saving…" : "Save as one of my tracks")
+				</button>
+				<button type="button" class="danger" disabled="@_savingTrack" @onclick="DeleteTrackAsync">
+					Delete this track
+				</button>
+			</div>
+
+			@if (_trackStatus is not null)
+			{
+				<p class="status">@_trackStatus</p>
+			}
+		}
+	</div>
+
+	@*
+		The private area (§10.1), moved here from Profile. It is device-local and never travels,
+		so there is no form and no save button beyond its own — a privacy control that is
+		unreachable because the network is down is a privacy control that is unreachable when it
+		matters.
+	*@
+	<div class="panel private-area">
+		<h2>Home private area</h2>
+
+		<p class="note">
+			Pick a point and a radius around somewhere you would rather not be watched — your
+			house is the obvious one. Inside that circle this device <strong>sends nothing</strong>:
+			riders on a group ride still see you as present, you simply have no position on their
+			map until you ride out of it.
+		</p>
+
+		<p class="note">
+			<strong>This stays on this device.</strong> The point, the radius and the fact that
+			you set one at all are never sent to the server and never shown to another rider. The
+			circle is drawn on your own ride map so you can see how far it reaches — on this
+			device and nobody else's. The cost of that is real and worth stating: it does not
+			follow you to another phone, and reinstalling the app forgets it.
+		</p>
+
+		@if (!PrivateAreas.IsLoaded)
+		{
+			<p class="empty">Reading this device…</p>
+		}
+		else
+		{
+			<div class="area-picker">
+				<RideMap Camera="_areaCamera" Circles="_areaCircle" OnMapClicked="OnAreaMapClicked"
+						 AllowRotation="false" />
+			</div>
+
+			<p class="hint">
+				@if (_areaLat is null)
+				{
+					<span>Tap the map to place the centre, or type the coordinates below.</span>
+				}
+				else
+				{
+					<span>Tap the map again to move the centre. The circle is drawn to scale.</span>
+				}
+			</p>
+
+			<div class="area-fields">
+				<label>
+					Latitude (degrees)
+					<input @bind="_areaLat" @bind:after="OnAreaCoordinateTyped" type="number" step="0.000001" />
+				</label>
+				<label>
+					Longitude (degrees)
+					<input @bind="_areaLon" @bind:after="OnAreaCoordinateTyped" type="number" step="0.000001" />
+				</label>
+				<label>
+					Radius (metres)
+					<input @bind="_areaRadiusM" @bind:after="OnAreaRadiusTyped" type="number"
+						   min="@PrivateArea.MinRadiusM" max="@PrivateArea.MaxRadiusM" step="50" />
+				</label>
+			</div>
+
+			<p class="note">
+				Between @PrivateArea.MinRadiusM m and @(PrivateArea.MaxRadiusM / 1000) km. Anything
+				smaller is inside a phone GPS's own error, and anything larger is really
+				"don't share on this ride" — which is the switch on the ride itself.
+			</p>
+
+			<div class="area-actions">
+				<button type="button" class="primary" disabled="@(_areaLat is null || !_areaDirty)"
+						@onclick="SaveAreaAsync">
+					@(PrivateAreas.IsSet ? "Update private area" : "Save private area")
+				</button>
+
+				@if (PrivateAreas.IsSet)
+				{
+					<button type="button" class="danger" @onclick="ClearAreaAsync">
+						Remove private area
+					</button>
+				}
+			</div>
+
+			@if (_areaDirty && _areaLat is not null)
+			{
+				@* What is drawn and what is in force differ here, and saying which is which is
+				   the whole job of this line. *@
+				<p class="status unsaved">
+					@(PrivateAreas.IsSet
+						? "Not saved yet — this device is still using the area you saved before."
+						: "Not saved yet — this device is still sharing from here.")
+				</p>
+			}
+			else if (_areaStatus is not null)
+			{
+				<p class="status">@_areaStatus</p>
+			}
+		}
+	</div>
+
 	<div class="panel">
 		<h2>Riding with the screen off</h2>
 
@@ -116,12 +365,8 @@
 				you close the app.
 			</li>
 		</ul>
-
-		<p class="hint">
-			Nothing is sent from inside your
-			<a href="/settings/profile">home private area</a>, whatever else is switched on.
-		</p>
 	</div>
+	}
 </div>
 
 @code {
@@ -129,22 +374,84 @@
 	private static readonly AccuracyProfile[] Profiles =
 		[AccuracyProfile.Eco, AccuracyProfile.Balanced, AccuracyProfile.Precise];
 
+	private LocationBroadcastState? _broadcast;
+	private GpsProfileState? _gps;
+	private TrackRecordingState? _recording;
+	private PrivateAreaState? _privateAreas;
+
+	/// <summary>
+	/// Whether this host has a GPS to configure. The MAUI app registers the four states below;
+	/// neither browser host does (§18.6), so their absence is the answer — see the page comment.
+	/// </summary>
+	private bool HasReceiver => _broadcast is not null;
+
+	// The four states, as the guarded half of the markup reads them. Every one is reached only
+	// from inside the `else` branch of the HasReceiver check, which is what makes the `!` sound:
+	// a host that registers one of these registers all four, and a host that registers none never
+	// builds that half of the markup.
+	private LocationBroadcastState Broadcast => _broadcast!;
+
+	private GpsProfileState Gps => _gps!;
+
+	private TrackRecordingState Recording => _recording!;
+
+	private PrivateAreaState PrivateAreas => _privateAreas!;
+
 	protected override void OnInitialized()
 	{
+		_broadcast = Services.GetService<LocationBroadcastState>();
+		_gps = Services.GetService<GpsProfileState>();
+		_recording = Services.GetService<TrackRecordingState>();
+		_privateAreas = Services.GetService<PrivateAreaState>();
+
+		if (!HasReceiver)
+		{
+			return;
+		}
+
 		Gps.Changed += OnChanged;
 		Broadcast.Changed += OnChanged;
+		Recording.Changed += OnChanged;
+		PrivateAreas.Changed += OnChanged;
+
+		// PrivateAreaState is scoped, so on a second visit it has already read the device and the
+		// picker renders on this first pass — with whatever camera this component was constructed
+		// with. Deriving the camera here rather than in OnAfterRenderAsync is what stops the map
+		// opening on the default: a camera changed *after* that first render has to race the base
+		// map's own attach, and a parameter that changes while InitAsync is in flight is not one
+		// the map has any way to notice.
+		if (PrivateAreas.IsLoaded)
+		{
+			ApplyStoredArea();
+		}
 	}
 
 	/// <summary>
-	/// Reads the stored profile after first render — the device store is behind JS interop on the
-	/// web, which does not exist during the prerender pass.
+	/// Reads the three device-local settings after first render — <em>not</em> in
+	/// <c>OnInitializedAsync</c>. On the MAUI host the store is MAUI Preferences; there is no
+	/// prerender to race, but the ordering is kept because it is the one the states document.
+	/// The private-area picker is not rendered until this lands, so the camera it opens with is
+	/// right the first time.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
-		if (firstRender)
+		if (!firstRender || !HasReceiver)
 		{
-			await Gps.LoadAsync();
+			return;
 		}
+
+		await Gps.LoadAsync();
+		await Recording.LoadAsync();
+
+		if (!_areaApplied)
+		{
+			await PrivateAreas.LoadAsync();
+			ApplyStoredArea();
+		}
+
+		// Each section renders "Reading this device…" until this lands, so the state change has to
+		// be published even when nothing was stored.
+		StateHasChanged();
 	}
 
 	private Task ChooseAsync(AccuracyProfile profile) => Gps.SetAsync(profile);
@@ -172,10 +479,247 @@
 			"The default, and the right answer for almost every ride.",
 	};
 
+	// -- Track recording (§15.1) --------------------------------------------------------------
+
+	private string? _trackName;
+
+	/// <summary>
+	/// Whether the save cuts the private area out. On by default, which is the whole reason the
+	/// choice is worth offering rather than always doing one or the other.
+	/// </summary>
+	private bool _excludePrivateArea = true;
+
+	private bool _savingTrack;
+	private string? _trackStatus;
+
+	/// <summary>Roughly how many points a kilometre the chosen interval produces, for the copy.</summary>
+	private string PointsPerKm => (1000 / Recording.IntervalM).ToString("0.#");
+
+	private Task OnRecordingToggled(ChangeEventArgs args) =>
+		Recording.SetEnabledAsync(args.Value is true);
+
+	private Task ChooseIntervalAsync(double intervalM) => Recording.SetIntervalAsync(intervalM);
+
+	private async Task SaveTrackAsync()
+	{
+		_savingTrack = true;
+		_trackStatus = null;
+
+		try
+		{
+			TrackSummary saved = await Recording.SaveAsync(_trackName, _excludePrivateArea);
+
+			_trackName = null;
+			_trackStatus = $"Saved — {saved.PointCount:N0} points are now in your tracks.";
+		}
+		catch (Exception exception)
+		{
+			// Kept on the device, deliberately: the upload is idempotent on the identifier the
+			// track was started with, so pressing save again is safe whether the failure happened
+			// before the server stored it or after.
+			_trackStatus = $"Could not save it: {exception.Message} The track is still on this device.";
+		}
+		finally
+		{
+			_savingTrack = false;
+		}
+	}
+
+	private async Task DeleteTrackAsync()
+	{
+		if (!await Confirm.AskAsync(
+			"Delete this track?",
+			"The points recorded on this device are thrown away. This cannot be undone, and "
+			+ "nothing has been sent to the server yet.",
+			confirmText: "Delete",
+			danger: true))
+		{
+			return;
+		}
+
+		await Recording.DiscardAsync();
+
+		_trackName = null;
+		_trackStatus = "Deleted. A new track starts at the next fix.";
+	}
+
+	// Zero is a real number for distance; null is not, and it shows as "—" rather than "0" (§8).
+	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
+
+	private static string FormatDuration(double? seconds) =>
+		seconds is null ? "—" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
+
+	private static string FormatWhen(DateTimeOffset? instant) =>
+		instant is null ? "—" : instant.Value.ToLocalTime().ToString("d MMM, HH:mm");
+
+	// -- Private area (§10.1, §18.6) ------------------------------------------------------------
+
+	/// <summary>
+	/// The centre being composed, or null when none has been placed. Nullable rather than
+	/// defaulted to a coordinate, because "no area" is the shipped state and a pre-filled pair
+	/// of numbers would draw a circle around somewhere the rider never chose.
+	/// </summary>
+	private double? _areaLat;
+
+	/// <inheritdoc cref="_areaLat" />
+	private double? _areaLon;
+
+	private double _areaRadiusM = PrivateArea.DefaultRadiusM;
+
+	/// <summary>Where the picker opens. Over the stored area when there is one.</summary>
+	private MapCamera _areaCamera = new(DefaultAreaLatitude, DefaultAreaLongitude, DefaultAreaZoom);
+
+	/// <summary>
+	/// Whether the controls hold something the device has not been told about yet. Drives both
+	/// the save button and the warning under it: a circle drawn on screen protects nothing, and
+	/// the difference between "drawn" and "in force" is the one thing this screen must not blur.
+	/// </summary>
+	private bool _areaDirty;
+
+	private string? _areaStatus;
+
+	/// <summary>
+	/// The circle handed to the map, rebuilt only when it changes. A fresh list is what tells the
+	/// overlay to repaint, so building one per render would repaint the canvas on every keystroke
+	/// elsewhere on the page.
+	/// </summary>
+	private IReadOnlyList<MapCircle>? _areaCircle;
+
+	/// <summary>Where the picker opens when this device has never set an area, matching the marker composer's default.</summary>
+	private const double DefaultAreaLatitude = -33.868;
+
+	/// <inheritdoc cref="DefaultAreaLatitude" />
+	private const double DefaultAreaLongitude = 151.209;
+
+	/// <summary>Street-level, not continent-level: the rider is looking for their own roof.</summary>
+	private const double DefaultAreaZoom = 14;
+
+	/// <summary>Whether the stored area has been copied into the controls, however it got there.</summary>
+	private bool _areaApplied;
+
+	private void ApplyStoredArea()
+	{
+		_areaApplied = true;
+
+		if (PrivateAreas.Area is not { } area)
+		{
+			return;
+		}
+
+		_areaLat = area.Latitude;
+		_areaLon = area.Longitude;
+		_areaRadiusM = area.RadiusM;
+		_areaCamera = new MapCamera(area.Latitude, area.Longitude, DefaultAreaZoom);
+		RebuildAreaCircle();
+	}
+
+	/// <summary>A tap on the base map places the centre. Same gesture as the marker composer (§16.1).</summary>
+	private void OnAreaMapClicked(MapClick click)
+	{
+		const double FACTOR = 1_000;
+		_areaLat = (int)(click.Latitude * FACTOR) / FACTOR;
+		_areaLon = (int)(click.Longitude * FACTOR) / FACTOR;
+		MarkAreaDirty();
+
+		// No camera move, for the reason the marker composer gives: shifting the view under
+		// someone's finger sends their next tap somewhere they did not choose.
+	}
+
+	/// <summary>
+	/// The coordinate boxes are the other half of the same two numbers — typing one moves the
+	/// camera so the circle does not sit off the edge of the map.
+	/// </summary>
+	private void OnAreaCoordinateTyped()
+	{
+		if (_areaLat is { } latitude && _areaLon is { } longitude)
+		{
+			_areaCamera = new MapCamera(latitude, longitude, _areaCamera.ZoomLevel);
+		}
+
+		MarkAreaDirty();
+	}
+
+	private void OnAreaRadiusTyped()
+	{
+		_areaRadiusM = Math.Clamp(
+			double.IsFinite(_areaRadiusM) ? _areaRadiusM : PrivateArea.DefaultRadiusM,
+			PrivateArea.MinRadiusM,
+			PrivateArea.MaxRadiusM);
+
+		MarkAreaDirty();
+	}
+
+	private void MarkAreaDirty()
+	{
+		_areaDirty = true;
+		_areaStatus = null;
+		RebuildAreaCircle();
+	}
+
+	private void RebuildAreaCircle() =>
+		_areaCircle = _areaLat is { } latitude && _areaLon is { } longitude
+			? [new MapCircle(latitude, longitude, _areaRadiusM)]
+			: null;
+
+	private async Task SaveAreaAsync()
+	{
+		if (_areaLat is not { } latitude || _areaLon is not { } longitude)
+		{
+			return;
+		}
+
+		try
+		{
+			await PrivateAreas.SetAsync(new PrivateArea(latitude, longitude, _areaRadiusM));
+
+			// Read back what was actually stored rather than echoing what was typed: the radius
+			// is clamped on the way in, and a screen that reports a number the device is not
+			// using is the kind of lie this feature cannot afford.
+			if (PrivateAreas.Area is { } stored)
+			{
+				_areaRadiusM = stored.RadiusM;
+				RebuildAreaCircle();
+			}
+
+			_areaDirty = false;
+			_areaStatus = "Saved on this device.";
+		}
+		catch (Exception exception)
+		{
+			_areaStatus = $"Could not save on this device: {exception.Message}";
+		}
+	}
+
+	private async Task ClearAreaAsync()
+	{
+		try
+		{
+			await PrivateAreas.ClearAsync();
+
+			_areaLat = null;
+			_areaLon = null;
+			_areaRadiusM = PrivateArea.DefaultRadiusM;
+			_areaDirty = false;
+			_areaCircle = null;
+			_areaStatus = "Removed. This device shares from everywhere again.";
+		}
+		catch (Exception exception)
+		{
+			_areaStatus = $"Could not remove it: {exception.Message}";
+		}
+	}
+
 	public void Dispose()
 	{
+		if (!HasReceiver)
+		{
+			return;
+		}
+
 		Gps.Changed -= OnChanged;
 		Broadcast.Changed -= OnChanged;
+		Recording.Changed -= OnChanged;
+		PrivateAreas.Changed -= OnChanged;
 	}
 }
 
@@ -190,6 +734,12 @@
 	.location-settings .panel h2 {
 		margin: 0 0 0.5rem;
 		font-size: 1rem;
+	}
+
+	.location-settings .panel h3 {
+		margin: 1.25rem 0 0.5rem;
+		font-size: 0.9rem;
+		opacity: 0.85;
 	}
 
 	.location-settings .gps-state {
@@ -239,6 +789,103 @@
 			font-size: 0.85rem;
 			opacity: 0.8;
 		}
+
+	/* Five buttons rather than a drop-down: the whole set is readable at a glance, and each is a
+	   gloved-thumb target on its own. */
+	.location-settings .intervals {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+		.location-settings .intervals .interval {
+			min-width: 64px;
+			min-height: 44px;
+			padding: 0 0.75rem;
+			border: 2px solid var(--dlr-border);
+			border-radius: 8px;
+			background: transparent;
+			color: inherit;
+			font-variant-numeric: tabular-nums;
+			cursor: pointer;
+		}
+
+		.location-settings .intervals .interval.chosen {
+			border-color: var(--dlr-fg);
+			background: var(--dlr-accent-soft);
+			font-weight: 600;
+		}
+
+	.location-settings .track-detail {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+		gap: 0.5rem 1rem;
+		margin: 0.75rem 0;
+	}
+
+		.location-settings .track-detail dt {
+			font-size: 0.8rem;
+			opacity: 0.75;
+		}
+
+		.location-settings .track-detail dd {
+			margin: 0;
+			font-variant-numeric: tabular-nums;
+		}
+
+	.location-settings .recording .name {
+		display: block;
+		margin-top: 0.75rem;
+	}
+
+		.location-settings .recording .name input {
+			display: block;
+			width: 100%;
+		}
+
+	.location-settings .switch {
+		display: block;
+		margin-top: 0.5rem;
+	}
+
+	.location-settings .track-actions,
+	.location-settings .area-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 1rem;
+	}
+
+	/* Smaller than the marker composer's picker: this one is placed once and then left alone.
+	   Big enough to find a roof at street zoom, not big enough to become the page. */
+	.location-settings .area-picker {
+		position: relative;
+		aspect-ratio: 1 / 1; /* height = width */
+		margin-top: 1rem;
+	}
+
+		.location-settings .area-picker .dlr-map-container {
+			min-height: 0;
+			height: 100%;
+		}
+
+	.location-settings .area-fields {
+		display: grid;
+		grid-template-columns: 1fr 1fr 1fr;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
+	}
+
+	@@media (max-width: 560px) {
+		.location-settings .area-fields {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	/* The one state on this screen where what is drawn and what is in force disagree. */
+	.location-settings .status.unsaved {
+		color: red;
+	}
 
 	.location-settings ul.plain {
 		margin: 0.5rem 0;

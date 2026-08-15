@@ -58,6 +58,7 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task RevokeSessionAsync(Guid deviceId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<OwnProfile> GetProfileAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<TrackSummary> UploadTrackAsync(UploadTrackRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);

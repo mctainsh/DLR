@@ -9,7 +9,7 @@
 @inject AuthState Auth
 @inject ConfirmService Confirm
 @inject CurrentRideState CurrentRide
-@inject LocationBroadcastState Broadcast
+@inject IServiceProvider Services
 @inject NavigationManager Nav
 @inject RideSnapshotCache Cache
 @inject RouteStyleState RouteStyles
@@ -334,7 +334,17 @@
 				<GapList Route="GapRoute" Positions="_session.Positions" />
 			}
 
-			@if (ride.State == RideStateDto.Live || ride.State == RideStateDto.Open)
+			@*
+				This rider's own sharing (§5.6) — and only on a host that can actually do it.
+
+				A browser has no receiver (§18.6), so on the web this section is absent rather
+				than present-and-inert. It used to render there with the GPS status underneath
+				reading "this device cannot share its location", which invited a rider to flip a
+				switch that would light a consent flag on the server and produce nothing: the
+				fixes it is consent *for* can only come from the phone. Sharing is turned on and
+				off where the GPS is.
+			*@
+			@if (_broadcast is { } broadcast && (ride.State == RideStateDto.Live || ride.State == RideStateDto.Open))
 			{
 				<div class="sharing">
 					<h3>My sharing</h3>
@@ -372,13 +382,13 @@
 					}
 					else
 					{
-						<p class="gps-state @(Broadcast.NeedsAttention ? "warn" : null)" role="status">
+						<p class="gps-state @(broadcast.NeedsAttention ? "warn" : null)" role="status">
 							<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i>
-							@Broadcast.Describe()
+							@broadcast.Describe()
 						</p>
 					}
 
-					@if (Broadcast.Status == LocationBroadcastStatus.Broadcasting)
+					@if (broadcast.Status == LocationBroadcastStatus.Broadcasting)
 					{
 						<p class="hint">
 							Your phone keeps sending while the app is in the background or the screen
@@ -542,14 +552,33 @@
 		}
 	}
 
+	/// <summary>
+	/// This device's receiver, or <c>null</c> on a host that has none — both browsers (§18.6).
+	/// <para>
+	/// Resolved rather than <c>@@inject</c>ed because the web hosts do not register it at all: GPS
+	/// is a mobile concern, and a stub that answered "not supported" was five registrations kept
+	/// alive so one <c>@@inject</c> could succeed. Null here is the whole answer — the sharing
+	/// section below is simply absent, because a switch labelled "broadcast my location" on a
+	/// laptop is a control that cannot do the thing it names.
+	/// </para>
+	/// </summary>
+	private LocationBroadcastState? _broadcast;
+
 	protected override void OnInitialized()
 	{
-		_session = new RideSession(Api, Hub, Auth, Broadcast, Cache);
+		_broadcast = Services.GetService<LocationBroadcastState>();
+
+		// RideSession has taken a nullable broadcaster from the start — see its constructor.
+		_session = new RideSession(Api, Hub, Auth, _broadcast, Cache);
 		_session.Changed += OnSessionChanged;
 
 		// Same handler as the session's: both mean "something this page renders has moved".
 		RouteStyles.Changed += OnSessionChanged;
-		Broadcast.Changed += OnSessionChanged;
+
+		if (_broadcast is { } broadcast)
+		{
+			broadcast.Changed += OnSessionChanged;
+		}
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -773,7 +802,10 @@
 
 		// Unsubscribed, never stopped: the receiver belongs to the device and outlives this page
 		// for as long as a ride is being shared with (§4.3).
-		Broadcast.Changed -= OnSessionChanged;
+		if (_broadcast is { } broadcast)
+		{
+			broadcast.Changed -= OnSessionChanged;
+		}
 
 		await _session.DisposeAsync();
 	}

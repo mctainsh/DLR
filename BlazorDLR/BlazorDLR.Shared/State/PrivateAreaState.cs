@@ -3,8 +3,8 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Shared.State;
 
 /// <summary>
-/// The <see cref="PrivateArea"/> in force on this device, and the one gate that decides whether
-/// a fix may be recorded or broadcast (§10.1, §18.6).
+/// The <see cref="PrivateArea"/> in force on this device, and the one gate that decides whether a
+/// fix may be broadcast — and, at save time, whether a recorded one may be uploaded (§10.1, §18.6).
 /// <para>
 /// Same shape as <see cref="RouteStyleState"/> — read once through <see cref="IDeviceSettings"/>,
 /// held in memory, <see cref="Changed"/> on every write — because the caller with the tightest
@@ -54,8 +54,13 @@ public sealed class PrivateAreaState
 	public bool IsLoaded => _loaded;
 
 	/// <summary>
-	/// Whether a position must be neither stored nor sent — the question every recorder and every
-	/// publisher asks about every fix, and the only place that decision is made.
+	/// Whether a position must not be sent — the question the publisher asks about every fix, and
+	/// the only place that decision is made.
+	/// <para>
+	/// The recorder does not ask this: it keeps the fix on the device and
+	/// <see cref="Services.TrackRecording.WithoutPrivateArea"/> runs against <see cref="Area"/> on
+	/// the one path that takes a track off the phone. See the remarks on <see cref="PrivateArea"/>.
+	/// </para>
 	/// <para>
 	/// Answers <c>true</c> before the setting has been read. See the type's remarks: "I do not yet
 	/// know" and "there is no area" are different states, and only one of them is safe to publish

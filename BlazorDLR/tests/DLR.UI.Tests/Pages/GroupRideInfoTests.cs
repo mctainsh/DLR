@@ -89,6 +89,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		Services.AddSingleton<PrivateAreaState>();
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		Services.AddRealAuthorizationPipeline();

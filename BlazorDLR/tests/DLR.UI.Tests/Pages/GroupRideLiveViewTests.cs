@@ -103,6 +103,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		// (§4.3, §5.3), which is a behaviour of this page rather than of the broadcaster.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		ComponentFactories.Add<RideMap, StubRideMap>();

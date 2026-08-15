@@ -24,10 +24,14 @@ namespace BlazorDLR.Shared.State;
 /// a race at startup fails closed.
 /// </para>
 /// <para>
-/// <strong>Every host registers this</strong>, and on the web it is inert:
-/// <see cref="ILocationProvider.IsSupported"/> is false there (§18.6), so the status reads
-/// <see cref="LocationBroadcastStatus.NotSupported"/> and nothing is ever started. That is what
-/// lets the ride screens ask about GPS without knowing which host they are on.
+/// <strong>Only the MAUI host registers this.</strong> The web hosts register no GPS seam at all
+/// (§18.6) — they used to bind a stub so the ride screens could <c>@inject</c> one, and the whole
+/// of that arrangement bought a status line reading "this device cannot share its location". The
+/// screens now resolve it with <c>GetService</c> and render their no-receiver branch when it comes
+/// back null, which is how they ask about GPS without knowing which host they are on. On a MAUI
+/// target with no receiver — the Windows and macOS heads — this is still registered over
+/// <see cref="Platform.NoopLocationProvider"/> and reports
+/// <see cref="LocationBroadcastStatus.NotSupported"/>.
 /// </para>
 /// </summary>
 public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
@@ -44,6 +48,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	private readonly IApiClient _api;
 	private readonly PrivateAreaState _privateAreas;
 	private readonly GpsProfileState _profile;
+	private readonly TrackRecordingState _recording;
 	private readonly IDeviceSettings _settings;
 	private readonly ConfirmService _confirm;
 	private readonly TimeProvider _clock;
@@ -65,6 +70,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <param name="api">The REST fallback for a fix the hub could not carry.</param>
 	/// <param name="privateAreas">The §10.1 gate. Consulted before anything else touches a fix.</param>
 	/// <param name="profile">The rider's accuracy profile (§4.2).</param>
+	/// <param name="recording">The rider's own track (§15.1). Fed before either publish gate.</param>
 	/// <param name="settings">Where the disclosure acknowledgement is remembered.</param>
 	/// <param name="confirm">The app's one dialog, used for the disclosure below.</param>
 	/// <param name="clock">Never the ambient clock (§10.4) — this stamps "last published".</param>
@@ -74,6 +80,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		IApiClient api,
 		PrivateAreaState privateAreas,
 		GpsProfileState profile,
+		TrackRecordingState recording,
 		IDeviceSettings settings,
 		ConfirmService confirm,
 		TimeProvider clock)
@@ -83,6 +90,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		_api = api;
 		_privateAreas = privateAreas;
 		_profile = profile;
+		_recording = recording;
 		_settings = settings;
 		_confirm = confirm;
 		_clock = clock;
@@ -262,6 +270,10 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		await _privateAreas.LoadAsync();
 		await _profile.LoadAsync();
 
+		// Here for the same reason as the two above: the recorder's switch and interval are read
+		// off the device, and reading them from inside the pump would race the first fix.
+		await _recording.LoadAsync();
+
 		if (!await DiscloseAsync())
 		{
 			// The rider read what the app is about to do and said no. Nothing starts, and the
@@ -357,6 +369,15 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 
 		running.Dispose();
 
+		// After the pump has been awaited, so nothing is still appending behind this write. The
+		// recorder writes through every few points anyway; this is what makes the last few of a
+		// ride survive a phone the OS reclaims while it sits in a pocket.
+		//
+		// No segment break is forced here: a stop and start inside TrackRecording.SegmentGap is
+		// one ride with a pause in it, and anything longer breaks on the time gap by itself. A
+		// break forced on every stop would split a track each time the rider changed profile.
+		await _recording.FlushAsync();
+
 		LastPublishedUtc = null;
 
 		// Cleared with the receiver, not kept as a last-known. A stopped GPS has no opinion about
@@ -405,6 +426,19 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			await foreach (LocationFix fix in _provider.WatchAsync(profile, cancellationToken))
 			{
 				LastFix = fix;
+
+				// The recorder sees the fix first, and sees all of them (§15.1).
+				//
+				// Not an oversight of the §10.1 ordering below — a different question. Publishing
+				// a fix hands somebody's position to a server and to every other rider on the ride,
+				// and that is the thing the private area exists to stop. Recording keeps it in the
+				// same store on the same phone that the private area itself lives in, and it does
+				// not leave until the rider presses save on the Location screen — where the choice
+				// about their private area is offered again, and defaults to cutting it out.
+				//
+				// Upstream of the §4.2 gate for a plainer reason: that gate is a battery decision
+				// about uplink, and a rider on Eco who asked for a 5 m track should get one.
+				await _recording.OfferAsync(fix, cancellationToken);
 
 				await HandleAsync(gate, fix, cancellationToken);
 

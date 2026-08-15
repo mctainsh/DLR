@@ -1,5 +1,6 @@
 @page "/settings"
 @attribute [Authorize]
+@inject IServiceProvider Services
 
 <PageTitle>Settings — Dumb Luck Routes</PageTitle>
 
@@ -11,10 +12,20 @@
 			<h2>Profile</h2>
 			<p>Display name, phone number, email — and who sees what.</p>
 		</a>
-		<a class="card" href="/settings/location">
-			<h2>Location</h2>
-			<p>GPS accuracy, what the receiver is doing, and riding with the screen off.</p>
-		</a>
+		@*
+			Only on a host with a GPS to configure (§18.6). Every control behind this card —
+			the accuracy profile, the recording interval, the private area — describes what a
+			receiver does with its fixes, and a browser has no receiver and no fixes. Offered
+			there, it was a page of settings that could not change anything about the machine
+			reading them.
+		*@
+		@if (HasReceiver)
+		{
+			<a class="card" href="/settings/location">
+				<h2>Location</h2>
+				<p>GPS accuracy, recording your rides, and the private area around home.</p>
+			</a>
+		}
 		<a class="card" href="/settings/maps">
 			<h2>Maps</h2>
 			<p>Which tiles go under your maps — OpenStreetMap, or a tile server of your own.</p>
@@ -41,3 +52,12 @@
 		<div>Version : @typeof(BlazorDLR.Shared.Components.SourceOfferFooter).Assembly.GetName().Version</div>
 	</div>
 </div>
+
+@code {
+	/// <summary>
+	/// Whether this host has a GPS receiver at all. The MAUI app registers
+	/// <see cref="LocationBroadcastState"/>; neither browser host does (§18.6), so the absence of
+	/// the service <em>is</em> the answer rather than something to ask a seam about.
+	/// </summary>
+	private bool HasReceiver => Services.GetService<LocationBroadcastState>() is not null;
+}

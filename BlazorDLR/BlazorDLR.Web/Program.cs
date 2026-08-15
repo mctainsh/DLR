@@ -148,7 +148,6 @@ builder.Services.AddScoped(sp => new MapPackDownloader(
 	sp.GetRequiredService<IMapPackStore>(),
 	MapPackDownloader.CreateCredentialFreeClient()));
 builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
-builder.Services.AddScoped<ILocationProvider, NoopLocationProvider>();
 // The live map asks for the screen to stay on (§4.3). There is no screen on this host, and the
 // browser it hands off to binds the same stub (§18.6).
 builder.Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
@@ -171,23 +170,24 @@ builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 // OpenStreetMap — the same map the client re-resolves to once it reads localStorage.
 builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
-// The private area (§10.1, §18.6). Registered for the prerender because the profile screen
-// injects it; the SSR pass reads an empty in-memory store, so it renders "no private area"
-// and the WASM client re-resolves against localStorage the moment it boots. Nothing on this
-// host ever writes it — the value is the device's and the server is not told it exists.
-builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
-
 // The ride the nav rail's globe leads back to (§18.6). NavMenu renders in the SSR pass, so
 // this has to resolve here or the prerender throws before WASM can boot. The in-memory store
 // answers "no ride", which is the list — the honest destination for a render that cannot see
 // the device — and the client re-resolves against localStorage the moment it takes over.
 builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
-// GPS state (§4.2, §4.3). Registered because the ride screens inject it, inert because this host
-// has no receiver: NoopLocationProvider above reports IsSupported=false, so the broadcaster
-// answers NotSupported and never starts anything. The SSR pass renders that same answer.
-builder.Services.AddScoped<BlazorDLR.Shared.State.GpsProfileState>();
-builder.Services.AddScoped<BlazorDLR.Shared.State.LocationBroadcastState>();
+// No GPS on this host, and nothing standing in for one (§18.6).
+//
+// ILocationProvider, GpsProfileState, TrackRecordingState, PrivateAreaState and
+// LocationBroadcastState are all absent here and on the WASM client, deliberately. A browser has
+// no continuous background GPS the app can trust, so every one of them was a stub answering "not
+// supported" to screens that then had to say so — five registrations, a no-op provider and a
+// settings screen full of controls that could not do anything on the host reading them.
+//
+// The shared screens resolve the broadcaster with GetService rather than @inject and render
+// their no-receiver branch when it is missing, which is what lets the whole set be gone here
+// rather than present and inert. Receiving is unaffected: other riders' positions arrive over
+// the hub as data (§5.3), and drawing them was never a GPS concern.
 
 // The one confirm modal is mounted in MainLayout, which renders in the SSR pass too;
 // registering here keeps prerender from throwing on the ConfirmDialog @inject.

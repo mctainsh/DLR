@@ -136,20 +136,28 @@ public sealed class PositionGate
 		return PositionGateDecision.Accepted;
 	}
 
-	/// <summary>How often a fix may be published, per profile (§4.2).</summary>
+	/// <summary>
+	/// How often a fix may be published, per profile (§4.2).
+	/// <para>
+	/// These are <em>publish</em> rates, not capture rates. The platform still delivers fixes at
+	/// its own cadence and the recorder (§15.1) still keeps them at whatever interval the rider
+	/// chose on the Location screen — this gate decides only what costs uplink and costs every
+	/// other rider on the ride a redraw.
+	/// </para>
+	/// </summary>
 	/// <param name="profile">The rider's profile.</param>
 	public static TimeSpan MinInterval(AccuracyProfile profile) => profile switch
 	{
-		AccuracyProfile.Eco => TimeSpan.FromSeconds(10),
-		AccuracyProfile.Precise => TimeSpan.FromSeconds(1),
-		_ => TimeSpan.FromSeconds(5),
+		AccuracyProfile.Eco => TimeSpan.FromSeconds(60),
+		AccuracyProfile.Precise => TimeSpan.FromSeconds(10),
+		_ => TimeSpan.FromSeconds(30),
 	};
 
 	/// <summary>How far a rider must have moved to be worth publishing early, per profile (§4.2).</summary>
 	/// <param name="profile">The rider's profile.</param>
 	public static double MinDistanceM(AccuracyProfile profile) => profile switch
 	{
-		AccuracyProfile.Eco => 25,
+		AccuracyProfile.Eco => 50,
 		AccuracyProfile.Precise => 5,
 		_ => 10,
 	};
@@ -158,13 +166,19 @@ public sealed class PositionGate
 	/// The worst reported accuracy a fix may carry and still be published.
 	/// <para>
 	/// §4.2 fixes the cadence and the distance per profile and leaves this to implementation. Four
-	/// times the profile's min distance, floored at 30 m: it has to stay well above a consumer
-	/// GPS's good-day error (5–10 m) or a cold start would never produce a publishable fix, and
-	/// well below the point where the error circle is larger than the gaps §5.4 reports.
+	/// times the profile's min distance, clamped to [30 m, 100 m]: it has to stay well above a
+	/// consumer GPS's good-day error (5–10 m) or a cold start would never produce a publishable
+	/// fix, and well below the point where the error circle is larger than the gaps §5.4 reports.
+	/// </para>
+	/// <para>
+	/// The upper clamp is what stops Eco's 50 m step widening the accuracy gate to 200 m. A fix
+	/// with a 200 m error circle is a cell-tower fix, and drawing one on a group ride's map puts a
+	/// rider two suburbs from where they are — the profile is a battery decision and must not
+	/// quietly become a "publish anything" decision.
 	/// </para>
 	/// </summary>
 	/// <param name="profile">The rider's profile.</param>
-	public static double MaxAccuracyM(AccuracyProfile profile) => Math.Max(30, MinDistanceM(profile) * 4);
+	public static double MaxAccuracyM(AccuracyProfile profile) => Math.Clamp(MinDistanceM(profile) * 4, 30, 100);
 }
 
 /// <summary>Why <see cref="PositionGate"/> refused a fix, or that it did not.</summary>

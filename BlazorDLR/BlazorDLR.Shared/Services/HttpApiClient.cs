@@ -113,6 +113,10 @@ public sealed class HttpApiClient : IApiClient
 	// -- Tracks --
 
 	/// <inheritdoc />
+	public Task<TrackSummary> UploadTrackAsync(UploadTrackRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<UploadTrackRequest, TrackSummary>("/api/v1/tracks", request, cancellationToken);
+
+	/// <inheritdoc />
 	public async Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) =>
 		await GetAsync<List<TrackSummary>>("/api/v1/tracks", cancellationToken);
 

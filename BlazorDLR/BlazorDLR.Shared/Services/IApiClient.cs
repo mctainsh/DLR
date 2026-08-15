@@ -51,6 +51,15 @@ public interface IApiClient
 
 	// -- Tracks (§6.3, §15) ---------------------------------------------------------------
 
+	/// <summary>
+	/// <c>POST /api/v1/tracks</c> — stores a recorded or imported track (§6.3).
+	/// <para>
+	/// Idempotent on <see cref="UploadTrackRequest.ClientGuid"/>, which is what lets the recorder
+	/// press "save" again after a failure it could not tell from a success (§4.4).
+	/// </para>
+	/// </summary>
+	Task<TrackSummary> UploadTrackAsync(UploadTrackRequest request, CancellationToken cancellationToken = default);
+
 	Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default);
 	Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default);
 	Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default);

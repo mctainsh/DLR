@@ -49,6 +49,12 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>The last <see cref="EditTrackAsync"/> request the UI sent, for §15.5 assertions.</summary>
 	public EditTrackRequest? LastEditTrackRequest { get; private set; }
 
+	/// <summary>Every <see cref="UploadTrackAsync"/> request, in order — what the recorder's tests read.</summary>
+	public List<UploadTrackRequest> UploadedTracks { get; } = new();
+
+	/// <summary>Set to make <see cref="UploadTrackAsync"/> throw, for the "save failed" path.</summary>
+	public Exception? UploadTrackException { get; set; }
+
 	/// <summary>
 	/// Set to make Token / Register throw.
 	/// <para>
@@ -190,6 +196,34 @@ public sealed class FakeApiClient : IApiClient
 
 	public Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListTracksAsync), TracksResult));
 	private static readonly DateTimeOffset SampleInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+	public Task<TrackSummary> UploadTrackAsync(UploadTrackRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(UploadTrackAsync));
+		UploadedTracks.Add(request);
+
+		if (UploadTrackException is not null)
+		{
+			return Task.FromException<TrackSummary>(UploadTrackException);
+		}
+
+		// Enough of a summary for the screen that shows it back: the counts the caller sent, so a
+		// test can tell an upload that carried the whole track from one that carried a filtered one.
+		return Task.FromResult(new TrackSummary(
+			Guid.NewGuid(),
+			request.Name,
+			SampleInstant,
+			request.Points.Count > 0 ? request.Points[0].TimeUtc : null,
+			request.Points.Count > 0 ? request.Points[^1].TimeUtc : null,
+			0,
+			null,
+			null,
+			null,
+			request.Points.Count,
+			Math.Max(1, request.SegmentStarts?.Count ?? 1),
+			request.Source,
+			1));
+	}
 
 	public Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetTrackAsync), TrackDetailResult

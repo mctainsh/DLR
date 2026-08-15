@@ -1,15 +1,19 @@
 namespace BlazorDLR.Shared.Services;
 
 /// <summary>
-/// The GPS seam (§4.3, §18.2).
+/// The GPS seam (§4.3, §18.2). <strong>Mobile only.</strong>
 /// <para>
-/// <strong>Mobile:</strong> a foreground service on Android and <c>CLLocationManager</c> on
-/// iOS, with the accuracy profiles from §4.2. Both platforms implement this from
-/// <c>BlazorDLR/Platforms/</c>.
-/// <strong>Web:</strong> a browser has no continuous GPS the app can trust, so the web
-/// implementation is deliberately non-functional — <see cref="IsSupported"/> is <c>false</c>
-/// and every method throws <see cref="NotSupportedException"/>. Recording and publishing are
-/// mobile features (§18.6); a component that reaches for this on the web has picked a side.
+/// A foreground service on Android and <c>CLLocationManager</c> on iOS, with the accuracy
+/// profiles from §4.2. Both are implemented in <c>BlazorDLR/Platforms/</c>;
+/// <see cref="Platform.NoopLocationProvider"/> covers the Windows and macOS MAUI heads.
+/// </para>
+/// <para>
+/// <strong>The web hosts do not register this at all.</strong> A browser cannot deliver the
+/// background, high-cadence fixes a live ride needs, and binding a "not supported" stub there
+/// only made every screen above it explain why it was doing nothing. Recording and publishing
+/// are mobile features (§18.6); receiving is not a GPS concern, so the web still draws every
+/// other rider from the hub as usual. Shared code that wants this — or anything built on it —
+/// resolves it with <c>GetService</c> and treats <c>null</c> as "this host has no receiver".
 /// </para>
 /// </summary>
 public interface ILocationProvider
@@ -30,13 +34,13 @@ public interface ILocationProvider
 /// <summary>The three accuracy profiles from §4.2.</summary>
 public enum AccuracyProfile
 {
-	/// <summary>10 s / 25 m — touring.</summary>
+	/// <summary>60 s / 50 m — touring.</summary>
 	Eco = 0,
 
-	/// <summary>5 s / 10 m — the default.</summary>
+	/// <summary>30 s / 10 m — the default.</summary>
 	Balanced = 1,
 
-	/// <summary>1 s / 5 m — twisty roads, track days.</summary>
+	/// <summary>10 s / 5 m — twisty roads, track days.</summary>
 	Precise = 2,
 }
 

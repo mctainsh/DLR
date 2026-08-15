@@ -5,7 +5,16 @@ namespace BlazorDLR.Shared.Services;
 
 /// <summary>
 /// A circle around somewhere the rider does not want to be observed — home, most obviously —
-/// inside which this device neither records nor publishes a fix (§10.1, §18.6).
+/// inside which nothing this device knows about a rider's position leaves it (§10.1, §18.6).
+/// <para>
+/// <strong>Two places consult it, at two different moments.</strong> The broadcaster asks about
+/// every fix before publishing it, and drops the ones inside where they were read. The recorder
+/// does <em>not</em> ask — it keeps them, in the same device-local store this area itself lives
+/// in — and the Location screen asks again when the rider saves that track, defaulting to cutting
+/// them out. The rule the pair enforces is the one that matters: a coordinate from inside the
+/// circle never reaches the server or another rider without the person holding the phone choosing
+/// it point-blank.
+/// </para>
 /// <para>
 /// <strong>This device's answer, and nowhere else's.</strong> It is stored through
 /// <see cref="IDeviceSettings"/>, never sent to the server, never carried in an export, and
@@ -15,10 +24,12 @@ namespace BlazorDLR.Shared.Services;
 /// plainly in the UI — the setting does not follow you to another device, because it cannot.
 /// </para>
 /// <para>
-/// <strong>Suppression, not obfuscation.</strong> Inside the circle no fix is recorded and
-/// none is broadcast, so co-riders see the rider as present in the ride with no position on
-/// the map. Publishing a jittered or snapped-to-edge point instead would be worse than
-/// useless: several such points bound the true centre, which is the one number this protects.
+/// <strong>Suppression, not obfuscation.</strong> Inside the circle nothing is broadcast, so
+/// co-riders see the rider as present in the ride with no position on the map. Publishing a
+/// jittered or snapped-to-edge point instead would be worse than useless: several such points
+/// bound the true centre, which is the one number this protects. The same reasoning is why the
+/// saved-track filter removes points and leaves a segment break rather than drawing across the
+/// gap — a straight line between the two ends of the hole passes through the middle of it.
 /// </para>
 /// <para>
 /// Compare <see cref="RouteStyle"/>, the other device-local preference: same store, same

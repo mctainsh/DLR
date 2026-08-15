@@ -90,6 +90,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		// it, and LocationBroadcastStateTests is where that path is exercised.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		return (api, hub, rideId);
