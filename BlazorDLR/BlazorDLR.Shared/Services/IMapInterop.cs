@@ -49,6 +49,21 @@ public interface IMapInterop
 	event Action<MapClick>? Clicked;
 
 	/// <summary>
+	/// Fired when the <em>user</em> moves the map, as distinct from the map being moved for them.
+	/// <para>
+	/// The live ride map has two modes that drive the camera on their own — following this rider
+	/// (§5.3) and turning the map to their heading — and each has to yield the moment a hand takes
+	/// hold of the map. <see cref="ViewportChanged"/> cannot answer that: it says where the map now
+	/// is, never who put it there, so a mode that watched it would cancel itself on its own move.
+	/// </para>
+	/// <para>
+	/// Not every gesture is here. Zoom is deliberately absent — closing in on a rider being
+	/// followed is a request to see them better, not to stop following them.
+	/// </para>
+	/// </summary>
+	event Action<MapGesture>? Gestured;
+
+	/// <summary>
 	/// Fired when the base map reports a problem it did not throw for — a tile source it cannot
 	/// reach, a style it cannot parse, an archive it cannot read.
 	/// <para>
@@ -140,6 +155,27 @@ public sealed record MapOptions(
 {
 	/// <summary>The tiles to draw, resolving <c>null</c> to the default.</summary>
 	public MapSource EffectiveSource => Source ?? MapSource.Default;
+}
+
+/// <summary>
+/// A move of the base map the <em>rider</em> performed, reported so an automatic camera mode can
+/// step out of the way (see <see cref="IMapInterop.Gestured"/>).
+/// <para>
+/// Two members rather than one, because the two modes they cancel are independent: a rider who
+/// has panned away to look at a junction has not asked for the map to swing back to north, and a
+/// rider who has turned the map has not asked to stop being followed.
+/// </para>
+/// </summary>
+public enum MapGesture
+{
+	/// <summary>A drag. Cancels "follow me" (§5.3).</summary>
+	Pan = 0,
+
+	/// <summary>
+	/// A turn — a two-finger twist, or the compass button, which are the same statement about
+	/// which way up the map should be. Cancels "heading up".
+	/// </summary>
+	Rotate = 1,
 }
 
 /// <summary>A point the user tapped on the base map, in decimal degrees (§16.1).</summary>

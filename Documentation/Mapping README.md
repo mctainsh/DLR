@@ -132,7 +132,7 @@ visually.
 
 One pack per state and territory, ids matching `MapPackSummary.Id` in the offline-maps plan
 (§4.2). Run these against the same source; each is independent, so they can be built one at a
-time or all at once by `Build-AuMapPacks.ps1` (next section).
+time or all at once by `Build-AuMapPacks.ps1` ("Building the packs" below).
 
 ```
 pmtiles extract https://demo-bucket.protomaps.com/v4.pmtiles au-nsw.pmtiles --bbox=140.99,-37.52,153.65,-28.15 --maxzoom=14
@@ -171,30 +171,84 @@ External territories are deliberately absent — Lord Howe, Norfolk, Christmas, 
 Island are each far outside their state's box and want their own tiny pack if anyone ever rides
 there.
 
-`au-wa` and `au-qld` are by far the largest: each covers over 2.5× the area of NSW. If either
-comes out too big to download over mobile data, split it by region (`au-wa-southwest`,
-`au-wa-pilbara`, `au-wa-kimberley`) rather than dropping the max zoom, since z13 is a visible
-step down on a map read through a visor.
+`au-wa` and `au-qld` are by far the largest: each covers over 2.5× the area of NSW. Both are
+sparse enough to stay inside the size target below, but if either comes out too big to download
+over mobile data, split it by region (`au-wa-southwest`, `au-wa-pilbara`, `au-wa-kimberley`)
+rather than dropping the max zoom, since z13 is a visible step down on a map read through a visor.
 
-## Building all eight
+## World regions
 
-`Documentation/Build-AuMapPacks.ps1` runs the table above end to end and records what §4.2 step 3
-asks for — size and SHA-256 per pack:
+The other 162 packs cover the rest of the planet and live in the same table in
+`Build-AuMapPacks.ps1`, grouped by continent so a build can be taken one continent at a time:
+
+| Group           | Packs | Covers                                                                    |
+| --------------- | ----- | ------------------------------------------------------------------------- |
+| `au`            | 8     | The states and territories above                                          |
+| `oceania`       | 5     | New Zealand (per island), PNG, Melanesia, Fiji                            |
+| `asia`          | 42    | Japan to Arabia, including eight for China and seven for the subcontinent |
+| `russia`        | 12    | European Russia, four across Siberia, three in the far east               |
+| `europe`        | 32    | Ireland to Ukraine, the Nordics per country, Iceland and the Canaries     |
+| `africa`        | 24    | The Maghreb, Sahel, the Horn, the Congo basin, the south, Madagascar      |
+| `north-america` | 29    | Eleven across the US, eight across Canada, Mexico, the Caribbean          |
+| `south-america` | 18    | Six across Brazil, the Andes, the Southern Cone                           |
+
+The script is the source of truth for the boxes, so this file does not repeat all 170 rows —
+`./Build-AuMapPacks.ps1 -ListPacks -Group all` prints every id, name and bbox, and `-ListPacks`
+works without `pmtiles.exe` present.
+
+**Why so many.** A z0–14 extract runs at roughly **0.5 GB per million km² of land** — calibrated
+against China, which came out at 5.0 GB as a single pack and is eight packs now. A z0–14 planet is
+about 75 GB on that number, so keeping every pack under the **1.5 GB target** needs of the order of
+a hundred of them however the lines are drawn. In practice a box stays under target at about
+2.5M km² of ordinary land, or 1M km² where mapping is dense — western Europe, Japan, the US
+seaboards, the Indian coast. Boxes that look enormous on the list (`na-greenland`, `ru-kamchatka`,
+`af-sahel-west`, `na-canada-arctic`) are ice, ocean and desert, and carry very little data for
+their area.
+
+The target is a design input, not a measurement: after a real build the script re-reads the sizes
+it recorded and warns about anything that came out over `-OversizeBytes` (1.5 GB by default), so
+the packs that need splitting announce themselves. Split them in the table and rebuild those ids
+with `-Only … -Force`.
+
+**Coverage is checked by hand.** The boxes are not derived from boundary data, so gaps are easy to
+introduce — Buenos Aires province, Sardinia and the Mauritanian coast all fell through the first
+draft. When editing the table, sanity-check the change against a few towns near its edges. Every
+box has the same failure mode as the Australian ones: get `minLon,minLat,maxLon,maxLat` out of
+order and you get an empty archive rather than an error.
+
+**No box may cross the antimeridian.** `pmtiles extract` takes a plain rectangle, so 180° is a hard
+edge: `ru-kamchatka` and `oc-pacific-east` stop there, and the Aleutians west of 180°, the Chatham
+Islands and Kiribati are consequently absent. So is Antarctica — Web Mercator gives out around
+85° south and there is nothing to ride to.
+
+## Building the packs
+
+`Documentation/Build-AuMapPacks.ps1` runs the table end to end and records what §4.2 step 3 asks
+for — size and SHA-256 per pack:
 
 ```powershell
-./Build-AuMapPacks.ps1                              # all eight into ./mappacks
-./Build-AuMapPacks.ps1 -Only au-nsw,au-act          # just these two
+./Build-AuMapPacks.ps1                              # the eight AU packs into ./mappacks
+./Build-AuMapPacks.ps1 -Group europe                # one continent
+./Build-AuMapPacks.ps1 -Group world                 # everything except AU
+./Build-AuMapPacks.ps1 -Group all -ListPacks        # print the table and exit
+./Build-AuMapPacks.ps1 -Only au-nsw,eu-italy-north  # just these two, whatever their group
 ./Build-AuMapPacks.ps1 -OutDir D:\packs -Force      # rebuild over existing files
 ```
 
-It skips packs that already exist unless `-Force`, and writes `catalogue.json` alongside them in
-the shape of `MapPackSummary` — id, name, bounds, zoom range, size, hash, version and URL — ready
-to serve from the VPS static directory. `-BaseUrl` sets the URL prefix written into that
-catalogue.
+`-Group` defaults to `au`, because a world run pulls the best part of a planet's worth of ranges
+and takes many hours. `-Only` names packs outright and wins over `-Group`. It skips packs that
+already exist unless `-Force`, and `catalogue.json` accumulates across runs — a continent at a time
+lands the same catalogue as one `-Group all` run.
 
-The `pmtiles` CLI must be on `PATH`; the script fails immediately if it is not. A full run pulls
-several GB of ranges from the source archive and takes a while — it prints each pack as it lands
-rather than staying silent to the end.
+The catalogue is written alongside the archives in the shape of `MapPackSummary` — id, name,
+bounds, zoom range, size, hash, version and URL — ready to serve from the VPS static directory.
+`-BaseUrl` sets the URL prefix written into it. `Group` is a build-time concern only and is
+deliberately not in the catalogue: the wire contract stays exactly what `DLR.Core.Contracts.Maps`
+declares.
+
+`pmtiles.exe` must sit in the same folder as the script; it fails immediately if it does not. Each
+pack prints as it lands rather than the run staying silent to the end, and a pack that fails is
+reported at the end with the ids to retry.
 
 ## Credentials
 

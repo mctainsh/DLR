@@ -43,6 +43,13 @@ public sealed class UninitialisedMapInterop : IMapInterop
 	}
 
 	/// <inheritdoc />
+	public event Action<MapGesture>? Gestured
+	{
+		add { /* nothing to pan or turn during a prerender. */ }
+		remove { /* symmetric no-op. */ }
+	}
+
+	/// <inheritdoc />
 	public ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(SsrGuard);
 

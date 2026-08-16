@@ -24,16 +24,23 @@ public sealed class MapBridge
 	private readonly Action<MapViewport> _forwardViewport;
 	private readonly Action<MapClick> _forwardClick;
 	private readonly Action<string> _forwardError;
+	private readonly Action<MapGesture> _forwardGesture;
 
 	/// <summary>Creates a bridge that forwards to a host interop's events.</summary>
 	/// <param name="forwardViewport">Raises <see cref="IMapInterop.ViewportChanged"/>.</param>
 	/// <param name="forwardClick">Raises <see cref="IMapInterop.Clicked"/>.</param>
 	/// <param name="forwardError">Raises <see cref="IMapInterop.ErrorOccurred"/>.</param>
-	public MapBridge(Action<MapViewport> forwardViewport, Action<MapClick> forwardClick, Action<string> forwardError)
+	/// <param name="forwardGesture">Raises <see cref="IMapInterop.Gestured"/>.</param>
+	public MapBridge(
+		Action<MapViewport> forwardViewport,
+		Action<MapClick> forwardClick,
+		Action<string> forwardError,
+		Action<MapGesture> forwardGesture)
 	{
 		_forwardViewport = forwardViewport;
 		_forwardClick = forwardClick;
 		_forwardError = forwardError;
+		_forwardGesture = forwardGesture;
 	}
 
 	/// <summary>Called by the base-map module whenever the view moves.</summary>
@@ -58,4 +65,23 @@ public sealed class MapBridge
 	/// <param name="message">What MapLibre said.</param>
 	[JSInvokable]
 	public void OnMapError(string message) => _forwardError(message);
+
+	/// <summary>
+	/// Called when the rider moved the map with their own hand — see <see cref="IMapInterop.Gestured"/>
+	/// for what turns on the distinction and why the module rather than this side has to draw it.
+	/// </summary>
+	/// <param name="kind">
+	/// The gesture's name as the module spells it: <c>pan</c> or <c>rotate</c>. A name from a newer
+	/// module is dropped rather than guessed at — an automatic mode cancelled by something nobody
+	/// meant is worse than one that outlives a gesture this build has never heard of.
+	/// </param>
+	[JSInvokable]
+	public void OnMapGesture(string kind)
+	{
+		switch (kind)
+		{
+			case "pan": _forwardGesture(MapGesture.Pan); break;
+			case "rotate": _forwardGesture(MapGesture.Rotate); break;
+		}
+	}
 }

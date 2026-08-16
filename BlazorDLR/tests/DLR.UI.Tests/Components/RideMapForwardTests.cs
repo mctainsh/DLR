@@ -129,6 +129,13 @@ public sealed class RideMapForwardTests : BunitContext
 
 		public event Action<string>? ErrorOccurred;
 
+		/// <summary>A map that never finishes attaching is never gestured at either.</summary>
+		public event Action<MapGesture>? Gestured
+		{
+			add { /* nothing to pan or turn — InitAsync has not returned. */ }
+			remove { /* symmetric no-op. */ }
+		}
+
 		public void CompleteInit() => _init.TrySetResult();
 
 		public async ValueTask InitAsync(Microsoft.AspNetCore.Components.ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
@@ -302,6 +309,12 @@ public sealed class RideMapForwardTests : BunitContext
 		{
 			add => _inner.Clicked += value;
 			remove => _inner.Clicked -= value;
+		}
+
+		public event Action<MapGesture>? Gestured
+		{
+			add => _inner.Gestured += value;
+			remove => _inner.Gestured -= value;
 		}
 
 		public event Action<string>? ErrorOccurred

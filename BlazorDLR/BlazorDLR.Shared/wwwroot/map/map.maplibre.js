@@ -462,6 +462,37 @@ export async function createMap(hostElement, options, callbacks) {
         dispatch(callbacks?.onMapError, "OnMapError", parts.join(" — "));
     });
 
+    // The rider taking the map back off an automatic mode (§5.3).
+    //
+    // The live map has two modes that move the camera on their own — "follow me" re-centres on
+    // every fix, and "travel direction up" turns the map as the rider turns — and both have to
+    // yield the moment the rider moves the map themselves. Fighting a hand for control of a
+    // camera is the one thing an automatic mode must never do.
+    //
+    // The whole difficulty is telling the rider's gesture apart from the mode's own move, and
+    // the viewport event cannot: it reports where the map is, not who put it there. MapLibre
+    // can. Every camera method takes an `eventData` bag that rides along on the events it
+    // fires, and its own gesture handlers put the DOM event in there as `originalEvent` —
+    // so a bearing change carrying one came from a finger and one without came from `setCamera`
+    // below, which passes no bag at all.
+    //
+    // `dragstart` is the pan half and needs no such test: it is raised by the drag handler and
+    // by nothing else — `jumpTo` does not fire it — so every one of them is a hand on the map.
+    // Zoom is deliberately not in here. Scrolling in on a rider being followed is a request to
+    // look closer at that rider, not a request to stop following them; the mode keeps the centre
+    // and the rider keeps the zoom, which is what makes the two compose.
+    const gesture = (kind) => dispatch(callbacks?.onMapGesture, "OnMapGesture", kind);
+
+    map.on("dragstart", () => gesture("pan"));
+
+    // Covers the compass as well as a two-finger twist, and deliberately so: MapLibre's
+    // NavigationControl calls `resetNorth({}, {originalEvent})` on a click, so the button that
+    // turns the map back to north arrives here as exactly what it is — the rider stating which
+    // way up they want the map.
+    map.on("rotatestart", (event) => {
+        if (event?.originalEvent) gesture("rotate");
+    });
+
     // A tap on the map, in lat / lon (§16.1). MapLibre raises `click` only for a real click —
     // a drag that ends over the map does not — so a pan never places a marker by accident.
     map.on("click", (event) => {

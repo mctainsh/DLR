@@ -168,7 +168,26 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	private IReadOnlyList<MapCamera> CamerasAskedFor() =>
 		[.. (_map.LastOptions is { } options ? new[] { options.Camera } : []), .. _map.Cameras];
 
-	private static async Task ChooseFollowMeAsync(IRenderedComponent<GroupRideLive> component)
+	/// <summary>
+	/// Turns following on or off the only way there is to: the button over the map. It briefly had
+	/// a twin in the menu; that went once the button existed, because two controls for one mode is
+	/// a mode a rider has to check twice.
+	/// </summary>
+	private static async Task PressFollowButtonAsync(IRenderedComponent<GroupRideLive> component)
+	{
+		component.WaitForAssertion(
+			() => component.FindAll("button.follow").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => component.Find("button.follow").Click());
+	}
+
+	/// <summary>
+	/// Flips the map between north-up and heading-up — the one mode still set from inside
+	/// the menu. Selected by its role rather than by its words, because its words are the state it
+	/// is in.
+	/// </summary>
+	private static async Task ChooseMapOrientationAsync(IRenderedComponent<GroupRideLive> component)
 	{
 		component.WaitForAssertion(
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
@@ -176,10 +195,23 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
 
-		await component.InvokeAsync(() => component.FindAll(".menu button")
-			.First(button => button.TextContent.Contains("Follow me", StringComparison.Ordinal))
-			.Click());
+		await component.InvokeAsync(() => component.Find("[role=menuitemcheckbox]").Click());
 	}
+
+	/// <summary>
+	/// An element's attribute, or the empty string when it carries none — so a missing attribute
+	/// fails the assertion it was written for rather than the overload resolution around it.
+	/// </summary>
+	private static string AttributeOn(IRenderedComponent<GroupRideLive> component, string selector, string name) =>
+		component.Find(selector).GetAttribute(name) ?? string.Empty;
+
+	/// <summary>
+	/// What the map is currently telling the rider it has just started or stopped doing, or the
+	/// empty string when it is saying nothing. Empty rather than null so "it said nothing" and "it
+	/// said the wrong thing" are the same assertion shape.
+	/// </summary>
+	private static string ToastOn(IRenderedComponent<GroupRideLive> component) =>
+		component.FindAll(".mode-toast").SingleOrDefault()?.TextContent ?? string.Empty;
 
 	private static RiderPositionDto At(Guid userId, double latitude, double longitude) =>
 		new(userId, "Me", PositionScale.FromDegrees(latitude), PositionScale.FromDegrees(longitude),
@@ -299,22 +331,26 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	// ---------- Follow me (§5.3) ----------
 
+	/// <summary>
+	/// Following is set from the button on the map and from nowhere else. It had a twin under the
+	/// rule in the menu while the button was new; keeping both would have left a rider checking two
+	/// controls for one mode, and the one they would check is the one already on screen.
+	/// </summary>
 	[Fact]
-	public async Task TheMenu_OffersFollowMe()
+	public async Task Following_IsSetFromTheMapAndNotFromTheMenu()
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
 
 		component.WaitForAssertion(
-			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			() => component.FindAll("button.follow").ShouldNotBeEmpty(
+				"the one thing a rider does to this map while moving has a permanent target."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
 
-		component.Find(".menu").TextContent.ShouldContain("Follow me");
-		component.FindAll("[role=menuitemcheckbox]").ShouldNotBeEmpty(
-			"it is a mode that outlives the menu, not a one-shot action — the role has to say so.");
+		component.Find(".menu").TextContent.ShouldNotContain("Follow me");
 	}
 
 	[Fact]
@@ -324,7 +360,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
 
-		await ChooseFollowMeAsync(component);
+		await PressFollowButtonAsync(component);
 
 		component.WaitForAssertion(() =>
 		{
@@ -343,7 +379,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
 
-		await ChooseFollowMeAsync(component);
+		await PressFollowButtonAsync(component);
 
 		Gps.Emit(DeviceFix(-37.82, 144.97));
 
@@ -376,7 +412,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			-37.80, 144.95, -37.83, 144.98, ZoomLevel: 17, HeadingDeg: 0,
 			CanvasWidthPx: 800, CanvasHeightPx: 600, DevicePixelRatio: 1)));
 
-		await ChooseFollowMeAsync(component);
+		await PressFollowButtonAsync(component);
 
 		component.WaitForAssertion(
 			() => _map.Cameras[^1].ZoomLevel.ShouldBe(17),
@@ -439,7 +475,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		Gps.Emit(DeviceFix(-37.8136, 144.9631));
 
-		await ChooseFollowMeAsync(component);
+		await PressFollowButtonAsync(component);
 
 		component.WaitForAssertion(() =>
 		{
@@ -544,7 +580,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			mine.Latitude.ShouldBe(-37.8136, tolerance: 1e-4);
 		}, timeout: TimeSpan.FromSeconds(3));
 
-		await ChooseFollowMeAsync(component);
+		await PressFollowButtonAsync(component);
 
 		component.WaitForAssertion(
 			() => _map.Cameras[^1].Latitude.ShouldBe(-37.8136, tolerance: 1e-4,
@@ -676,7 +712,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
 
-		await ChooseFollowMeAsync(component);
+		await PressFollowButtonAsync(component);
 
 		component.WaitForAssertion(() => _map.Cameras.ShouldNotBeEmpty(), timeout: TimeSpan.FromSeconds(3));
 		int afterSwitchingOn = _map.Cameras.Count;
@@ -702,7 +738,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
 
-		await ChooseFollowMeAsync(component);
+		await PressFollowButtonAsync(component);
 
 		component.WaitForAssertion(() =>
 		{
@@ -748,14 +784,702 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
 
-		await ChooseFollowMeAsync(component);
+		await PressFollowButtonAsync(component);
 
 		int moves = _map.Cameras.Count;
 
+		component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
+		AttributeOn(component, "button.follow", "aria-label").ShouldContain("waiting for a fix",
+			customMessage: "a lit button over a map that is not moving has to be able to say which " +
+			"of the two it is.");
+		_map.Cameras.Count.ShouldBe(moves, "there is nowhere to centre on yet.");
+	}
+
+	// ---------- The follow button over the map ----------
+
+	/// <summary>
+	/// Following is the one thing a rider does to this map while actually moving, so it has a
+	/// permanent target on the map rather than a tap, a read and a second tap inside the menu.
+	/// </summary>
+	[Fact]
+	public async Task TheFollowButton_CentresOnThisRiderAndSaysItIsFollowing()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			_map.Cameras[^1].Latitude.ShouldBe(-37.8136, tolerance: 1e-4);
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
+			ToastOn(component).ShouldContain("Following you",
+				customMessage: "a mode that keeps moving the map after the tap that set it has to " +
+				"say out loud that it is on.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Pressing it again turns following off, and the map stops moving under the rider — which is
+	/// the whole of what "off" has to mean.
+	/// </summary>
+	[Fact]
+	public async Task PressingTheFollowButtonAgain_TurnsFollowingOff()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(
+			() => component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
+			ToastOn(component).ShouldContain("Following off");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		// And the map has stopped moving under the rider, which is what "off" has to mean.
+		int moves = _map.Cameras.Count;
+		Gps.Emit(DeviceFix(-37.90, 145.05));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.Latitude.ShouldBe(-37.90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Cameras.Count.ShouldBe(moves);
+	}
+
+	// ---------- A hand on the map (§5.3) ----------
+
+	/// <summary>
+	/// The behaviour this whole gesture seam exists for. It used to be impossible: the viewport
+	/// event says where the map is, never who put it there, so following could not tell a rider's
+	/// drag from its own move and had to stay on — which meant a rider who panned away to look at
+	/// a junction watched the map drag itself back a second later.
+	/// </summary>
+	[Fact]
+	public async Task PanningTheMap_StopsFollowing_AndSaysWhy()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(
+			() => component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Pan));
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
+			ToastOn(component).ShouldContain("you moved the map",
+				customMessage: "a mode that cancels itself silently is indistinguishable from an " +
+				"app that has lost the setting.");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		int moves = _map.Cameras.Count;
+		Gps.Emit(DeviceFix(-37.90, 145.05));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.Latitude.ShouldBe(-37.90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Cameras.Count.ShouldBe(moves, "the rider took the map; it stays where they left it.");
+	}
+
+	/// <summary>
+	/// The cancellation is written to the device store at once rather than waiting on the throttled
+	/// view save — a rider who pans and then closes the app inside the window would otherwise open
+	/// the next ride with a mode they had already turned off.
+	/// </summary>
+	[Fact]
+	public async Task APanThatStopsFollowing_IsRememberedImmediately()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(() =>
+			LiveMapView.Decode(_settings.GetAsync(LiveMapView.StorageKey).GetAwaiter().GetResult())
+				?.FollowMe.ShouldBe(true),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Pan));
+
+		component.WaitForAssertion(() =>
+			LiveMapView.Decode(_settings.GetAsync(LiveMapView.StorageKey).GetAwaiter().GetResult())
+				?.FollowMe.ShouldBe(false),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A pan with nothing following is just a rider using the map. There is nothing to announce,
+	/// and a toast on every drag would be the screen shouting at somebody reading it.
+	/// </summary>
+	[Fact]
+	public async Task PanningWithNothingFollowing_SaysNothing()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Pan));
+
+		ToastOn(component).ShouldBeEmpty();
+	}
+
+	/// <summary>
+	/// A mode change is a sentence about what just happened, not a strip that stays. The standing
+	/// statement of the mode is the button's own state.
+	/// </summary>
+	[Fact]
+	public async Task TheToast_TakesItselfOffTheScreen()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(
+			() => ToastOn(component).ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_clock.Advance(TimeSpan.FromSeconds(10));
+
+		component.WaitForAssertion(() =>
+		{
+			ToastOn(component).ShouldBeEmpty();
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true",
+				"the message goes; the mode it described does not.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	// ---------- Which way up the map is drawn ----------
+
+	[Fact]
+	public async Task TheMenu_OffersHeadingUp()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
 
-		component.Find("[role=menuitemcheckbox]").GetAttribute("aria-checked").ShouldBe("true");
-		component.Find("[role=menuitemcheckbox]").TextContent.ShouldContain("waiting for a fix");
-		_map.Cameras.Count.ShouldBe(moves, "there is nowhere to centre on yet.");
+		component.Find(".menu").TextContent.ShouldContain("North up");
+		component.FindAll("[role=menuitemcheckbox]").Count.ShouldBe(1,
+			"it is a mode that outlives the menu rather than a one-shot action — the role has to " +
+			"say so — and it is the only one left in here now that following has a button.");
+	}
+
+	/// <summary>
+	/// The mode is set from inside a menu the rider then closes over it, so the closed menu has to
+	/// carry it. The dot marked following until following got a lit button of its own; two
+	/// indicators for one mode meant one of them was always the stale one.
+	/// </summary>
+	[Fact]
+	public async Task TheHamburgersDot_MarksTheMapTurningRatherThanFollowing()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
+			component.FindAll("button.hamburger.turning").ShouldBeEmpty(
+				"following says so on its own button; the dot is not a second copy of it.");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll("button.hamburger.turning").ShouldNotBeEmpty();
+			AttributeOn(component, "button.hamburger", "aria-label")
+				.ShouldContain("the map is heading up");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger.turning").ShouldBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ChoosingHeadingUp_TurnsTheMapToThisRidersHeading()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		// The helper's fix carries a heading of 90° at 8 m/s — moving, so the heading is a
+		// direction rather than the noise between two readings of a parked bike.
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			_map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6);
+			ToastOn(component).ShouldContain("Heading up");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A map rotating about a point the rider is not standing on swings the ground around nobody,
+	/// which is worse than north-up rather than better — so choosing heading-up brings following
+	/// with it rather than handing over half a mode and a second control to find.
+	/// </summary>
+	[Fact]
+	public async Task ChoosingHeadingUp_SwitchesFollowingOnWithIt()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
+
+			MapCamera latest = _map.Cameras[^1];
+			latest.HeadingDeg.ShouldBe(90, tolerance: 1e-6);
+			latest.Latitude.ShouldBe(-37.8136, tolerance: 1e-4,
+				"turned *and* centred, in the one camera — a rider who chose this from off in a " +
+				"corner is asking to be brought back now, not at the next fix.");
+
+			ToastOn(component).ShouldContain("centred on you",
+				customMessage: "the rider asked for one of the two modes and got both; the toast " +
+				"has to name the one they did not ask for.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The other end of the pairing, and the one that makes it an invariant rather than a nicety:
+	/// heading-up cannot outlive following by any route, so the button that stops one stops both.
+	/// </summary>
+	[Fact]
+	public async Task TurningFollowingOff_TakesHeadingUpWithIt()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		// One tap sets both — see ChoosingHeadingUp_SwitchesFollowingOnWithIt.
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
+			component.FindAll("button.hamburger.turning").ShouldNotBeEmpty();
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
+			component.FindAll("button.hamburger.turning").ShouldBeEmpty(
+				"the map rotates about the centre of the screen, and the rider has just stopped " +
+				"being it.");
+			ToastOn(component).ShouldBe("Following and heading up off.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Stopping following is not a request for north. The rider pressed one button; straightening
+	/// the map on top of it would be a second thing they did not ask for, and the base map's own
+	/// compass is already a permanent control for exactly that.
+	/// </summary>
+	[Fact]
+	public async Task TurningFollowingOff_LeavesTheMapAtTheBearingItWasOn()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		int moves = _map.Cameras.Count;
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(
+			() => ToastOn(component).ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Cameras.Count.ShouldBe(moves,
+			"stopping two modes moves nothing — neither of them is driving the camera any more.");
+	}
+
+	/// <summary>
+	/// Only on the way on, and only as a starting state. Turning heading-up back off is a statement
+	/// about the bearing and nothing else — a rider who wanted to stop being followed has a button
+	/// for it.
+	/// </summary>
+	[Fact]
+	public async Task ChoosingNorthUpAgain_LeavesFollowingWhereItIs()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			_map.Cameras[^1].HeadingDeg.ShouldBe(0, tolerance: 1e-6);
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task WhileHeadingUp_ANewHeadingTurnsTheMapWithIt()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		Gps.Emit(DeviceFix(-37.82, 144.97, headingDeg: 180));
+
+		// Waited on the fix having been taken in before the camera is read, the same way the
+		// follow-me tests above do: the mark is rebuilt and rendered on the way to the camera
+		// being aimed, so this is what says the aim has happened rather than a race with it.
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.DirectionDeg.ShouldBe(180),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(180, tolerance: 1e-6,
+				customMessage: "the whole of the mode is that the ground turns as the rider does."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A GPS heading is derived from successive fixes, so at a standstill it is the noise between
+	/// two readings of a bike leaning against a fence — arriving once a second. Honouring it would
+	/// spin the map under a rider stopped at a light, which is exactly when they are reading it.
+	/// </summary>
+	[Fact]
+	public async Task AtAStandstill_TheMapHoldsItsBearingRatherThanFollowingTheNoise()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		int turns = _map.Cameras.Count;
+
+		// Stopped, and the receiver still reporting a wildly different heading — which is the
+		// steady state of a parked bike, not a rider who has turned around.
+		Gps.Emit(DeviceFix(-37.8136, 144.9631, speedMps: 0, headingDeg: 275));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.DirectionDeg.ShouldBe(275),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Cameras.Count.ShouldBe(turns, "the mark may point wherever the fix says; the map holds.");
+	}
+
+	/// <summary>
+	/// A turn is the rider stating which way up they want the map, and the base map's compass says
+	/// the same thing — MapLibre's NavigationControl resets north through the same gesture path, so
+	/// the two arrive here as one event and cancel the mode together.
+	/// </summary>
+	[Fact]
+	public async Task TurningTheMapYourself_StopsHeadingUp_AndSaysWhy()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Rotate));
+
+		component.WaitForAssertion(
+			() => ToastOn(component).ShouldContain("you turned the map yourself"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Following is still on — choosing heading-up switched it on, and a turn is not a statement
+		// about it — so fixes go on moving the camera. What must stop is the *bearing* being driven.
+		Gps.Emit(DeviceFix(-37.82, 144.97, headingDeg: 180));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.Latitude.ShouldBe(-37.82, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(() =>
+		{
+			MapCamera latest = _map.Cameras[^1];
+			latest.Latitude.ShouldBe(-37.82, tolerance: 1e-4);
+			latest.HeadingDeg.ShouldBe(0, tolerance: 1e-6,
+				"a rider who has just set the bearing by hand must not have it taken back off " +
+				"them — the camera carries the map's own bearing, it does not drive one.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Cancelling by gesture does not straighten the map. The rider has just said where they want
+	/// the bearing — by twisting it there, or by tapping the compass, which has already turned the
+	/// map to north itself — and a camera move on top of that is the app arguing with them.
+	/// </summary>
+	[Fact]
+	public async Task AGestureThatStopsHeadingUp_DoesNotMoveTheCameraItself()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		int moves = _map.Cameras.Count;
+
+		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Rotate));
+
+		component.WaitForAssertion(
+			() => ToastOn(component).ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Cameras.Count.ShouldBe(moves);
+	}
+
+	/// <summary>
+	/// Choosing "North up" from the menu <em>is</em> a camera move, unlike the gesture path above:
+	/// it is the rider asking for the other orientation, not stating a bearing of their own.
+	/// </summary>
+	[Fact]
+	public async Task ChoosingNorthUp_TurnsTheMapBackToNorth()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			_map.Cameras[^1].HeadingDeg.ShouldBe(0, tolerance: 1e-6);
+			ToastOn(component).ShouldContain("North up");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The half of the asymmetry that leaves a mode standing. A twist says which way up the map
+	/// should be and nothing about where its centre is, so the rider goes on being carried along
+	/// with the group — a north-up map that keeps them on screen is an ordinary thing to want.
+	/// </summary>
+	[Fact]
+	public async Task ATurnTakesTheBearingBackAndLeavesFollowingAlone()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await PressFollowButtonAsync(component);
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// A turn takes the bearing back and leaves following alone.
+		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Rotate));
+
+		component.WaitForAssertion(
+			() => component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		Gps.Emit(DeviceFix(-37.82, 144.97, headingDeg: 180));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.Latitude.ShouldBe(-37.82, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(() =>
+		{
+			_map.Cameras[^1].Latitude.ShouldBe(-37.82, tolerance: 1e-4,
+				"following survived a gesture that was not about it.");
+			_map.Cameras[^1].HeadingDeg.ShouldBe(0, tolerance: 1e-6,
+				"and the bearing is the map's own now — carried from the viewport, not driven.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The other half. A drag says where the centre of the screen is, and heading-up cannot survive
+	/// losing that: the map rotates about the centre, so a turning map the rider is no longer at
+	/// the middle of swings the ground around a point that is nobody. Both modes go, in one
+	/// sentence — the same fact that makes choosing heading-up switch following on, backwards.
+	/// </summary>
+	[Fact]
+	public async Task APanTakesBothModesOff_AndNamesThemBoth()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		// Choosing heading-up brings following with it, so this one tap sets both.
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
+			component.FindAll("button.hamburger.turning").ShouldNotBeEmpty();
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Pan));
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
+			component.FindAll("button.hamburger.turning").ShouldBeEmpty(
+				"a turning map the rider is no longer the centre of is worse than a north-up one.");
+			ToastOn(component).ShouldContain("Following and heading up off",
+				customMessage: "two modes stopped on one gesture, so one sentence names both — a " +
+				"rider who reads only half of it goes looking for a fault in the other half.");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		// And the map is left exactly where the rider dragged it to, at the bearing they left it
+		// on: cancelling is not a licence to move the camera.
+		int moves = _map.Cameras.Count;
+
+		Gps.Emit(DeviceFix(-37.90, 145.05, headingDeg: 200));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.Latitude.ShouldBe(-37.90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Cameras.Count.ShouldBe(moves, "neither mode is driving anything any more.");
+	}
+
+	/// <summary>
+	/// A pan with heading-up on but following already off — reachable from a device that stored
+	/// that pair, and from the follow button. The sentence has to name the one mode that stopped
+	/// rather than a rider's own following, which was never on.
+	/// </summary>
+	[Fact]
+	public async Task APanWithOnlyHeadingUpOn_NamesOnlyHeadingUp()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		await _settings.SetAsync(
+			LiveMapView.StorageKey,
+			new LiveMapView(Guid.NewGuid(), -33.868, 151.209, 11, FollowMe: false, HeadingUp: true).Encode());
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger.turning").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
+
+		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Pan));
+
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll("button.hamburger.turning").ShouldBeEmpty();
+			ToastOn(component).ShouldBe("Heading up off — you moved the map.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task HeadingUp_IsRememberedAcrossTheTripToAnotherScreen()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			LiveMapView? stored = LiveMapView.Decode(
+				_settings.GetAsync(LiveMapView.StorageKey).GetAwaiter().GetResult());
+
+			stored.ShouldNotBeNull();
+			stored.HeadingUp.ShouldBeTrue(
+				"which way up somebody reads a map is a standing preference, not one ride's ground.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ADeviceThatLeftTheMapTurning_OpensItTurning()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		await _settings.SetAsync(
+			LiveMapView.StorageKey,
+			new LiveMapView(Guid.NewGuid(), -33.868, 151.209, 11, FollowMe: false, HeadingUp: true).Encode());
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		component.WaitForAssertion(() =>
+		{
+			_map.Cameras.ShouldNotBeEmpty();
+			_map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6);
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		ToastOn(component).ShouldBeEmpty(
+			"restoring a mode the rider set earlier is not a change of mind — a map that announced " +
+			"its own settings on every open would be one more thing to dismiss per ride.");
 	}
 }

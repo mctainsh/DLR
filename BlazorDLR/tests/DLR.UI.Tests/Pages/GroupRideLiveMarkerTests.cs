@@ -727,6 +727,48 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			"on the way out would yank the view from under whoever was looking at it.");
 	}
 
+	/// <summary>
+	/// Choosing a marker puts <em>it</em> at the centre of the screen, so the two modes that assume
+	/// the rider is that centre have to stop — a map still turning to somebody's heading while it
+	/// is centred on a pin rotates the ground about a point nobody is standing on. The third route
+	/// through <c>StopFollowing</c>, alongside the follow button and a pan.
+	/// </summary>
+	[Fact]
+	public async Task ChoosingAMarker_StopsTheModesThatAssumeTheRiderIsTheCentre()
+	{
+		(_, _, _, Guid rideId) = await WireServicesAsync(new[]
+		{
+			Marker(Guid.NewGuid(), AliceId, "Alice"),
+		});
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Heading up, which brings following with it — one tap sets both.
+		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
+		await component.InvokeAsync(() => component.Find("[role=menuitemcheckbox]").Click());
+
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll("button.hamburger.turning").ShouldNotBeEmpty();
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		await OpenFirstMarkerAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
+			component.FindAll("button.hamburger.turning").ShouldBeEmpty();
+			component.Find(".mode-toast").TextContent
+				.ShouldBe("Following and heading up off — showing you that marker.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
 	[Fact]
 	public async Task ZoomingToAMarker_DoesNotPullTheViewBack()
 	{

@@ -154,6 +154,18 @@ else if (_tileError is not null)
 	/// </summary>
 	[Parameter] public EventCallback<MapViewport> OnViewportReported { get; set; }
 
+	/// <summary>
+	/// Fired when the rider moved the map themselves — a drag, a twist, or the compass — as
+	/// opposed to the map having been moved for them by <see cref="SetCameraAsync"/>.
+	/// <para>
+	/// The live ride page is the caller: it drives the camera from two automatic modes, and each
+	/// has to let go the instant a hand takes the map (§5.3). <see cref="OnViewportReported"/>
+	/// cannot serve — it reports where the map is, never who put it there — so this is a separate
+	/// event rather than a flag on that one. See <see cref="MapGesture"/>.
+	/// </para>
+	/// </summary>
+	[Parameter] public EventCallback<MapGesture> OnGesture { get; set; }
+
 	private ElementReference _host;
 	private ErrorBoundary? _overlayBoundary;
 	private bool _initialised;
@@ -190,6 +202,7 @@ else if (_tileError is not null)
 		Map.ViewportChanged += OnViewportChanged;
 		Map.Clicked += OnMapClick;
 		Map.ErrorOccurred += OnMapError;
+		Map.Gestured += OnMapGesture;
 
 		// The tile source is a device setting (§4.5) and it is scoped, so the settings screen and
 		// this map are looking at the same instance. Subscribing means a change made while a map is
@@ -324,6 +337,21 @@ else if (_tileError is not null)
 		_ = InvokeAsync(StateHasChanged);
 	}
 
+	/// <summary>
+	/// The rider moved the map with their own hand. Forwarded unfiltered — which gestures matter
+	/// is the caller's business, and the only page that has an opinion is the live ride map.
+	/// </summary>
+	private void OnMapGesture(MapGesture gesture)
+	{
+		if (!OnGesture.HasDelegate)
+		{
+			return;
+		}
+		// Arrives on whichever thread the JS interop callback landed on; the EventCallback has to
+		// be raised on the renderer's. Same reason as OnMapClick below.
+		_ = InvokeAsync(() => OnGesture.InvokeAsync(gesture));
+	}
+
 	private void OnMapClick(MapClick click)
 	{
 		if (!OnMapClicked.HasDelegate)
@@ -343,6 +371,7 @@ else if (_tileError is not null)
 		Map.ViewportChanged -= OnViewportChanged;
 		Map.Clicked -= OnMapClick;
 		Map.ErrorOccurred -= OnMapError;
+		Map.Gestured -= OnMapGesture;
 		MapSources.Changed -= OnMapSourceChanged;
 		if (_initialised)
 		{

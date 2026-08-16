@@ -36,12 +36,33 @@ namespace BlazorDLR.Shared.Services;
 /// ride, but "keep me on screen" is how a rider likes to be ridden with, and it should survive
 /// into the next ride the way the route style does.
 /// </param>
+/// <param name="HeadingUp">
+/// Whether the map was being turned to the rider's heading rather than held north-up.
+/// <para>
+/// Carried for the same reason as <see cref="FollowMe"/> and read back the same way — which way
+/// up somebody reads a map is a standing preference, not a fact about one ride's ground.
+/// </para>
+/// <para>
+/// A flag of its own rather than a second state of <see cref="FollowMe"/>. The two are not
+/// independent on the live page — a turning map is only legible with the rider at the centre of
+/// it, so heading-up is never on there without following — but that is a rule about the controls,
+/// enforced where the controls are, and this is a record of what the map was doing. Storing it
+/// separately means a value written by a build with different rules still reads back as what it
+/// said, rather than being reinterpreted by whichever pairing is current.
+/// </para>
+/// <para>
+/// Defaulted, so the value a device stored before this existed still decodes. North-up is the
+/// right default for a missing field as well as for a first run: it is what every map in the app
+/// has always drawn.
+/// </para>
+/// </param>
 public sealed record LiveMapView(
 	Guid RideId,
 	double Latitude,
 	double Longitude,
 	double ZoomLevel,
-	bool FollowMe)
+	bool FollowMe,
+	bool HeadingUp = false)
 {
 	/// <summary>
 	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.route-style</c> and
@@ -112,6 +133,7 @@ public sealed record LiveMapView(
 			safe.Longitude.ToString("0.#####", CultureInfo.InvariantCulture),
 			safe.ZoomLevel.ToString("0.##", CultureInfo.InvariantCulture),
 			safe.FollowMe ? "1" : "0",
+			safe.HeadingUp ? "1" : "0",
 		]);
 	}
 
@@ -122,6 +144,13 @@ public sealed record LiveMapView(
 	/// <see cref="RouteStyle.Decode"/>: half of a camera is a camera pointing somewhere nobody
 	/// asked for, and the cost of answering <c>null</c> is that the map opens where it always
 	/// did, which is no worse than the device having stored nothing.
+	/// </para>
+	/// <para>
+	/// <strong>The field count is a floor, not an equality, and that is what let <see cref="HeadingUp"/>
+	/// arrive without a version bump.</strong> A flag appended to the tail reads as its default on a
+	/// build that has never heard of it, and a value written by an older build reads as its default
+	/// here — so a rider moving between the two loses a preference at worst, rather than the whole
+	/// camera. A field whose <em>meaning</em> changed would need the version, which is what it is for.
 	/// </para>
 	/// </summary>
 	/// <param name="encoded">A string from <see cref="Encode"/>, or <c>null</c> on a device that has never stored one.</param>
@@ -147,6 +176,12 @@ public sealed record LiveMapView(
 			return null;
 		}
 
-		return new LiveMapView(rideId, latitude, longitude, zoom, FollowMe: parts[5] == "1").Normalised();
+		return new LiveMapView(
+			rideId,
+			latitude,
+			longitude,
+			zoom,
+			FollowMe: parts[5] == "1",
+			HeadingUp: parts.Length > 6 && parts[6] == "1").Normalised();
 	}
 }

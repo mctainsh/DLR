@@ -19,7 +19,16 @@
 
 @*
 	The live ride (§5.3). The map IS the page: it fills everything the nav rail is not
-	using, and every other affordance is reached from the hamburger in the top-right.
+	using, and all but one affordance is reached from the hamburger in the top-right.
+
+	The exception is "follow me", which has a button of its own under the hamburger and lives
+	nowhere else. It is the only thing on this screen a rider does while actually moving, and
+	everything the menu holds is done at a stop — so it is the only one that has earned a
+	permanent target rather than a tap, a read and a second tap.
+
+	The menu keeps one mode of its own, "heading up", and the dot on the hamburger is what says
+	it is on once the menu has closed over it. Choosing it switches following on too — a map
+	that turns about a point the rider is not standing on is worse than a north-up one.
 
 	Why a hamburger here and nowhere else. NavMenu.razor states the app-wide rule — the
 	rail never collapses behind a toggle, because hiding *navigation* is hiding the app.
@@ -64,6 +73,7 @@
 			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" Routes="_routeLayer"
 					 Circles="_privateAreaLayer" ShowUserLocation="!HasOwnReceiver"
 					 OnViewportReported="OnMapViewportReportedAsync"
+					 OnGesture="OnMapGestureAsync"
 					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="_placingMarker" />
 		</div>
 
@@ -150,6 +160,37 @@
 			</div>
 		}
 
+		@*
+			What the map just started or stopped doing on its own, said for a few seconds and
+			then gone (§5.3).
+
+			The two automatic modes are the only things on this screen that change what the map
+			does *after* the tap that set them, and one of them — following — can also be
+			cancelled by a gesture the rider made for another reason entirely. Both cases are the
+			same problem: a map that has quietly changed its mind is indistinguishable from a map
+			that is broken. So each transition says so once, in the rider's own words, and then
+			stops taking up the screen.
+
+			Transient rather than a strip that stays, because the standing statement of both modes
+			is already on screen permanently — the follow button lights up, and the base map's
+			compass appears the moment the map leaves north. This is for the *change*.
+
+			aria-live="polite" rather than assertive: nothing here interrupts anything, and a rider
+			with a screen reader riding a bike is the last person to interrupt mid-sentence.
+			`raised` lifts it clear of the placing strip on the rare frame that has both.
+
+			**`mode-toast`, and never `toast`.** Bootstrap is linked by all three hosts and defines
+			`.toast:not(.show){display:none}` — its own toast is a JS component that is invisible
+			until its script adds `.show`. A plain `toast` class here is therefore not a styling
+			clash that looks a bit wrong, it is an element that renders into the DOM, passes every
+			bUnit assertion, and is painted nowhere at all. It shipped that way once. Nothing else
+			on this page collides; this one word does.
+		*@
+		@if (_toast is { } toast)
+		{
+			<div class="mode-toast @(_placingMarker ? "raised" : null)" role="status" aria-live="polite">@toast</div>
+		}
+
 		@* Catches the tap that dismisses the menu. It covers the map and nothing else — over
 		   the nav rail too and a tap meant for Home would only close a menu. *@
 		@if (_menuOpen)
@@ -158,15 +199,47 @@
 		}
 
 		<div class="chrome">
-			@* The dot on the button says "this map is not sitting still because you left it there".
-			   Without it, a rider who has forgotten the mode is on reads the map undoing their pan
-			   as a fault rather than as the thing they asked for. *@
-			<button type="button" class="hamburger @(_menuOpen ? "open" : null) @(_followMe ? "following" : null)"
+			@*
+				The dot on the button says "this map is not sitting still because you left it there".
+
+				It used to stand for following, and does not any more: following has a lit button of
+				its own directly below, and two indicators for one mode is one of them going stale.
+				It stands for the mode that is still set from inside the menu — heading up, the map
+				turned to the way the rider is pointing — which is exactly the case the dot was
+				invented for. Without it, a rider who has forgotten that mode is on reads the map
+				turning under them as a fault rather than as the thing they asked for.
+			*@
+			<button type="button" class="hamburger @(_menuOpen ? "open" : null) @(_headingUp ? "turning" : null)"
 					@onclick="ToggleMenu"
 					aria-haspopup="menu"
 					aria-expanded="@(_menuOpen ? "true" : "false")"
-					aria-label="@(_followMe ? "Ride actions — the map is following you" : "Ride actions")">
+					aria-label="@(_headingUp ? "Ride actions — the map is heading up" : "Ride actions")">
 				<i class="fa fa-bars" aria-hidden="true"></i>
+			</button>
+
+			@*
+				"Centre on me and keep me there", on the map rather than in the menu (§5.3).
+
+				It is the one thing a rider does to this map while moving, and everything the menu
+				holds is done at a stop — so it is the one thing that has earned a permanent 48 px
+				target instead of a tap, a read and a second tap. It is also now the *only* way to
+				set following: the duplicate under the rule in the menu was removed once this
+				existed, because a mode with two controls is a mode a rider has to check twice.
+
+				aria-pressed rather than a role, because this is a toggle button and not a menu
+				item — and it is what a screen reader reads out as the state, which matters more
+				here than anywhere else on the page since the visual state is a colour swap.
+
+				The label carries the "waiting for a fix" case the menu item used to state in
+				words. Following with nothing to point at is not a fault — a ride that has not
+				started carries no positions (§5.1) — but a lit button over a map that is not
+				moving needs to be able to say which of the two it is.
+			*@
+			<button type="button" class="follow @(_followMe ? "on" : null)"
+					@onclick="ToggleFollowMeAsync"
+					aria-pressed="@(_followMe ? "true" : "false")"
+					aria-label="@FollowLabel">
+				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
 			</button>
 
 			@if (_menuOpen)
@@ -200,14 +273,28 @@
 						menu can take you. A checkbox rather than a plain item, because it is a
 						mode that stays on after the menu closes — role="menuitemcheckbox" is
 						what tells a screen reader that, and aria-checked is what carries it.
+
+						Which way up the map is drawn — north, or the way this rider is pointing.
+
+						The only mode left in here. It is set once at the top of a ride and then
+						left alone, which is what a menu is for; following, which is set and unset
+						repeatedly while moving, went out to a button of its own on the map and is
+						deliberately not duplicated here. What the two have in common is that they
+						outlive the menu, and this one says so from the dot on the hamburger.
+
+						No button of its own beside that one, and the reason is not symmetry: the
+						base map already carries a permanent compass on the opposite edge the
+						moment it leaves north, and it turns the map back when tapped. A second
+						control for one bearing is a second thing to disagree with it.
 					*@
-					<button type="button" role="menuitemcheckbox" class="@(_followMe ? "checked" : null)"
-							aria-checked="@(_followMe ? "true" : "false")"
-							@onclick="ToggleFollowMeAsync">
-						<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i> Follow me
-						@if (_followMe)
+					<button type="button" role="menuitemcheckbox" class="@(_headingUp ? "checked" : null)"
+							aria-checked="@(_headingUp ? "true" : "false")"
+							@onclick="ToggleHeadingUpAsync">
+						<i class="fa fa-fw @(_headingUp ? "fa-compass" : "fa-location-arrow")" aria-hidden="true"></i>
+						@(_headingUp ? "Heading Up" : "North up")
+						@if (_headingUp)
 						{
-							<span class="quiet">@(MyPoint is null ? "waiting for a fix" : "on")</span>
+							<span class="quiet">@(MyHeadingDeg is null ? "waiting for a heading" : "on")</span>
 						}
 					</button>
 
@@ -362,6 +449,36 @@
 	/// </summary>
 	private static readonly TimeSpan SaveInterval = TimeSpan.FromSeconds(5);
 
+	/// <summary>
+	/// How long a mode change stays on screen. Long enough to be read at a glance by somebody who
+	/// is also riding a bike, short enough that it is gone before it becomes furniture.
+	/// </summary>
+	private static readonly TimeSpan ToastDuration = TimeSpan.FromSeconds(3.5);
+
+	/// <summary>
+	/// How fast this rider has to be going before their heading is allowed to turn the map, in
+	/// metres per second — about 5 km/h, a walk.
+	/// <para>
+	/// A GPS heading is derived from successive fixes, so below walking pace it is not a direction
+	/// at all: it is the noise between two readings of a bike leaning against a fence, and it
+	/// arrives once a second. Honouring it would spin the map under a rider stopped at a light,
+	/// which is both useless and the exact moment they are most likely to be reading it. Under the
+	/// threshold the map holds the bearing it had.
+	/// </para>
+	/// </summary>
+	private const double HeadingSpeedFloorMps = 1.5;
+
+	/// <summary>
+	/// How far the rider's heading has to swing before the map is turned to match, in degrees.
+	/// <para>
+	/// The rotation counterpart of <see cref="_followedTo"/>'s exact comparison, and a threshold
+	/// rather than equality because a heading is never twice the same number. Small enough that a
+	/// corner is followed as it is taken; large enough that a straight road does not cost a JS
+	/// interop call and a full overlay repaint every second.
+	/// </para>
+	/// </summary>
+	private const double HeadingChangeDeg = 3;
+
 	private RideSession _session = default!;
 	private MapCamera _camera = DefaultCamera;
 	private MapViewport? _mapViewport;
@@ -370,14 +487,50 @@
 	/// <summary>
 	/// Whether the map keeps this rider centred as their fixes arrive (§5.3).
 	/// <para>
-	/// Stays on until it is switched off here — a pan does not cancel it. Guessing "the rider
-	/// touched the map, so they meant to stop following" needs telling a rider's drag apart from
-	/// the map's own move, which the viewport event does not say; getting that wrong silently
-	/// drops the mode, and a mode that turns itself off is worse than one that has to be turned
-	/// off. The dot on the hamburger is what keeps it from being a surprise.
+	/// <strong>A pan cancels it</strong>, and says so (see <see cref="OnMapGestureAsync"/>). That
+	/// used to be impossible and the reason was written here: telling a rider's drag apart from the
+	/// mode's own move cannot be done from the viewport event, which reports where the map is and
+	/// never who put it there — so the mode stayed on and the map undid the rider's pan a second
+	/// later. <see cref="MapGesture"/> is that missing half, straight from MapLibre's own
+	/// <c>originalEvent</c>, and with it "the rider took hold of the map" is a fact rather than a
+	/// guess. What made a self-cancelling mode unacceptable was that it was silent; the toast is
+	/// what pays for it.
 	/// </para>
 	/// </summary>
 	private bool _followMe;
+
+	/// <summary>
+	/// Whether the map is turned to this rider's heading rather than held north-up.
+	/// <para>
+	/// A separate switch from <see cref="_followMe"/> — one decides where the screen is centred,
+	/// the other which way the ground is turned — but <strong>the controls never leave this one on
+	/// without that one</strong>. The map rotates about the centre of the screen, so a turning map
+	/// the rider is not at the centre of swings the ground around a point that is nobody, which is
+	/// worse than north-up rather than better.
+	/// </para>
+	/// <para>
+	/// That single fact is enforced from both ends and there are only two:
+	/// <see cref="ToggleHeadingUpAsync"/> switches following on with this, and every route that
+	/// switches following off goes through <see cref="StopFollowing"/>, which takes this with it.
+	/// </para>
+	/// <para>
+	/// A stored view can still name the pair — an older build wrote them independently — and
+	/// <see cref="RestoreViewAsync"/> reads back what it was given rather than correcting it. That
+	/// is deliberate: the alternative is a map that opens somewhere the device never said, and the
+	/// first thing the rider does to such a map puts the pairing back anyway.
+	/// </para>
+	/// <para>
+	/// The reverse is not true and must not be: following on its own is an ordinary north-up map
+	/// that keeps the rider on screen, which is what most riders want. So a twist of the map, or a
+	/// tap on the base map's compass, cancels this and leaves following alone — both are somebody
+	/// stating which way up they want the map, and neither says anything about the centre.
+	/// </para>
+	/// <para>
+	/// It holds its bearing at a standstill rather than following a stationary receiver's heading;
+	/// see <see cref="MyHeadingDeg"/> for why a parked bike must not be allowed to spin the map.
+	/// </para>
+	/// </summary>
+	private bool _headingUp;
 
 	/// <summary>
 	/// Where the camera was last sent to follow this rider. Compared against the newest fix so a
@@ -385,6 +538,30 @@
 	/// has moved, and each one would otherwise be a JS interop call to re-centre on the same point.
 	/// </summary>
 	private (double Latitude, double Longitude)? _followedTo;
+
+	/// <summary>
+	/// The bearing the camera was last turned to for <see cref="_headingUp"/>. The rotation half of
+	/// <see cref="_followedTo"/>, and needed for the same reason — but against a threshold rather
+	/// than for equality, because a heading is a noisy number and an exact comparison would let
+	/// every fix through.
+	/// </summary>
+	private double? _aimedBearing;
+
+	/// <summary>
+	/// What the map is telling the rider it has just started or stopped doing, or null when there
+	/// is nothing to say. Cleared by <see cref="_toastTimer"/>.
+	/// </summary>
+	private string? _toast;
+
+	/// <summary>
+	/// Takes the toast back off the screen. One timer, restarted per message: a second toast
+	/// replaces the first rather than queueing behind it, because the newer one is by definition
+	/// the truer description of what the map is doing now.
+	/// </summary>
+	private ITimer? _toastTimer;
+
+	/// <summary>How many toasts this page has shown. Only ever compared for equality — see <see cref="ShowToast"/>.</summary>
+	private int _toastSequence;
 
 	/// <summary>The view last written to the device store, so an unchanged one is not written twice.</summary>
 	private LiveMapView? _savedView;
@@ -506,6 +683,24 @@
 	}
 
 	/// <summary>
+	/// What the follow button says it is for, and — once it is on — what it is currently managing
+	/// to do.
+	/// <para>
+	/// The third case is the one that has to be there. Following with nothing to point at is not a
+	/// fault: a ride that has not started carries no positions (§5.1), and a receiver that has not
+	/// got a lock yet has nothing of its own either. It used to be stated in words beside the menu
+	/// item, and now that the button is the only control it is the button that has to say it — a
+	/// lit control over a map that is not moving otherwise reads as broken.
+	/// </para>
+	/// </summary>
+	private string FollowLabel => (_followMe, MyPoint) switch
+	{
+		(false, _) => "Centre on me and follow",
+		(true, null) => "Stop following me — waiting for a fix",
+		_ => "Stop following me",
+	};
+
+	/// <summary>
 	/// The glyph beside the receiver's state in the menu. Three shapes rather than one that
 	/// changes colour: the map is read through a visor in daylight, and colour alone is the first
 	/// thing to go (§18.6).
@@ -602,6 +797,37 @@
 		HasOwnReceiver
 			? _broadcast?.OwnFix is { } own ? (own.Latitude, own.Longitude) : null
 			: MyPosition is { } mine ? (PositionScale.ToDegrees(mine.Lat), PositionScale.ToDegrees(mine.Lon)) : null;
+
+	/// <summary>
+	/// Which way this rider is travelling, for a map that is turned to match — or null when
+	/// nothing on screen should be turned by it.
+	/// <para>
+	/// Split between the device's own reading and the ride's copy on exactly the same rule as
+	/// <see cref="MyPoint"/>, and for the same reasons: a phone has the current answer in its hand,
+	/// and a browser has only ever had the server's.
+	/// </para>
+	/// <para>
+	/// <strong>Null is the important case and it has two causes, both of which mean "hold".</strong>
+	/// A fix with no heading at all is the receiver saying it does not know, which is never zero —
+	/// zero is due north (§8). And a heading under <see cref="HeadingSpeedFloorMps"/> is arithmetic
+	/// on a bike that is not moving. Answering null for both leaves <see cref="AimCameraAsync"/>
+	/// with nothing to turn to, so the map keeps the bearing it had, which is what a rider stopped
+	/// at a light wants and is not what "the last direction we are confident about" would have to
+	/// be stored separately to achieve.
+	/// </para>
+	/// </summary>
+	private double? MyHeadingDeg
+	{
+		get
+		{
+			double? speed = HasOwnReceiver ? _broadcast?.OwnFix?.SpeedMps : MyPosition?.SpeedMps;
+			double? heading = HasOwnReceiver ? _broadcast?.OwnFix?.HeadingDeg : MyPosition?.HeadingDeg;
+
+			// Null-propagating: a fix with no speed reads as not moving, exactly as the overlay's
+			// choice of a stopped dot over a heading arrow does (§16.3).
+			return speed >= HeadingSpeedFloorMps ? heading : null;
+		}
+	}
 
 	/// <summary>
 	/// This device drawn as itself (§4.3), or null when there is no fix of its own to draw — the
@@ -743,16 +969,17 @@
 	/// <summary>
 	/// The device's receiver moved. On the phone this — not the ride's position batch — is what
 	/// usually moves the map: this rider's own mark is drawn from the device's fix (see
-	/// <see cref="SelfMarker"/>) and the follow camera aims at it (see <see cref="MyPoint"/>), so a
-	/// fix arriving has to rebuild the layer and re-aim, exactly as a hub batch does.
+	/// <see cref="SelfMarker"/>), the follow camera aims at it (see <see cref="MyPoint"/>) and the
+	/// map's bearing comes off the same fix (see <see cref="MyHeadingDeg"/>), so a fix arriving has
+	/// to rebuild the layer and re-aim, exactly as a hub batch does.
 	/// </summary>
 	private void OnBroadcastChanged() => _ = InvokeAsync(async () =>
 	{
 		RebuildMapLayer();
 		StateHasChanged();
 
-		// Cheap when the rider has not moved — see _followedTo.
-		await FollowMeAsync();
+		// Cheap when the rider has neither moved nor turned — see _followedTo and _aimedBearing.
+		await AimCameraAsync();
 	});
 
 	private void OnPrivateAreaChanged()
@@ -791,6 +1018,12 @@
 			_camera = DefaultCamera;
 			_mapViewport = null;
 			_followedTo = null;
+
+			// Forgotten with the camera, not with the mode: _headingUp and _followMe carry across
+			// rides, and these two are only the record of where the map was last aimed *for* them.
+			// Keeping them would leave a new ride's map refusing to turn until the rider's heading
+			// happened to cross the threshold measured from the last ride's.
+			_aimedBearing = null;
 		}
 
 		_openMarkerId = null;
@@ -801,6 +1034,8 @@
 		_forgotten = false;
 		// Armed on one ride, spent on another is a marker on the wrong ride.
 		_placingMarker = false;
+		// "Following off — you moved the map" is about a map that is no longer on screen.
+		_toast = null;
 
 		await _session.LoadAsync(RideId);
 
@@ -854,7 +1089,7 @@
 
 			// Every position batch is a chance that this rider moved, and this is the only place
 			// that learns about one. Cheap when they did not — see _followedTo.
-			await FollowMeAsync();
+			await AimCameraAsync();
 		});
 	}
 
@@ -886,6 +1121,17 @@
 	/// Turns "keep me centred" on or off, and acts on it at once — a rider who has just panned
 	/// away and switched it on is asking to be brought back now, not at the next fix.
 	/// <para>
+	/// Reached from the button over the map, and from nowhere else. It briefly had a duplicate
+	/// under the rule in the menu; that went as soon as the button existed, because two controls
+	/// for one mode is a mode a rider has to check twice — and the one they would check is the
+	/// one on screen.
+	/// </para>
+	/// <para>
+	/// <strong>Switching it off takes heading-up with it</strong> (see <see cref="StopFollowing"/>).
+	/// Switching it on does not bring heading-up along, and should not: a north-up map that keeps
+	/// the rider on screen is the ordinary case and what most riders are asking for.
+	/// </para>
+	/// <para>
 	/// Persisted with the view, so it survives the trip to the info page and the next launch.
 	/// Written immediately rather than at the throttle's convenience: it is a deliberate choice,
 	/// not a by-product of a drag.
@@ -894,14 +1140,265 @@
 	private async Task ToggleFollowMeAsync()
 	{
 		_menuOpen = false;
-		_followMe = !_followMe;
 
-		// Forgetting where we last followed to is what makes switching it back on recentre even
-		// when the rider has not moved since.
-		_followedTo = null;
+		if (_followMe)
+		{
+			(_, bool wasHeadingUp) = StopFollowing();
 
-		await FollowMeAsync();
+			// The map is left at whatever bearing it is on. The rider pressed "stop following",
+			// not "north up" — straightening the map would be a second thing they did not ask for,
+			// and the base map's own compass is a permanent control for exactly that.
+			ShowToast($"{NameStopped(wasFollowing: true, wasHeadingUp)}.");
+		}
+		else
+		{
+			_followMe = true;
+
+			// Forgetting where we last followed to is what makes switching it back on recentre even
+			// when the rider has not moved since.
+			_followedTo = null;
+
+			ShowToast("Following you — the map stays centred as you ride.");
+		}
+
+		await AimCameraAsync();
 		await RememberViewAsync(now: true);
+	}
+
+	/// <summary>
+	/// Takes following off, and heading-up with it. <strong>The one place either of those is ever
+	/// switched off by something other than the rider choosing the opposite mode</strong> — the
+	/// follow button, a pan, and choosing a marker to look at all come through here, so the pairing
+	/// cannot hold on two of the three routes and quietly not on the third.
+	/// <para>
+	/// <strong>Why heading-up cannot outlive following.</strong> The map rotates about the centre of
+	/// the screen. A turning map the rider is not at the centre of swings the ground around a point
+	/// that is nobody, which is worse than a north-up map rather than better — so the moment the
+	/// rider stops being the centre, there is nothing left for the rotation to mean. The same fact
+	/// makes <see cref="ToggleHeadingUpAsync"/> switch following <em>on</em>; this is it read
+	/// backwards.
+	/// </para>
+	/// <para>
+	/// It only stops the modes. Moving the camera is the caller's business and none of the three
+	/// callers do: two of them are reacting to the rider having just put the map somewhere, and the
+	/// third is putting it on a marker itself.
+	/// </para>
+	/// </summary>
+	/// <returns>
+	/// What was running before, so the caller can name it. Read here rather than by each caller
+	/// beforehand, because a caller that read one of the two and forgot the other would produce a
+	/// sentence that is quietly wrong about what just happened to the map.
+	/// </returns>
+	private (bool WasFollowing, bool WasHeadingUp) StopFollowing()
+	{
+		(bool wasFollowing, bool wasHeadingUp) = (_followMe, _headingUp);
+
+		_followMe = false;
+		_followedTo = null;
+		_headingUp = false;
+		_aimedBearing = null;
+
+		return (wasFollowing, wasHeadingUp);
+	}
+
+	/// <summary>
+	/// Names the modes that have just stopped, as the opening of the sentence saying why. One
+	/// wording for all three routes out — the button, a pan, and choosing a marker — because they
+	/// are the same event to a rider, differing only in what caused it.
+	/// </summary>
+	/// <param name="wasFollowing">Whether the map had been keeping this rider centred.</param>
+	/// <param name="wasHeadingUp">Whether it had been turning to their heading.</param>
+	private static string NameStopped(bool wasFollowing, bool wasHeadingUp) => (wasFollowing, wasHeadingUp) switch
+	{
+		(true, true) => "Following and heading up off",
+		(true, false) => "Following off",
+		// Reachable without following: a device can have stored the pair, and older builds set it.
+		_ => "Heading up off",
+	};
+
+	/// <summary>
+	/// Swaps between a north-up map and one turned to this rider's heading, and acts on it now
+	/// rather than at the next fix.
+	/// <para>
+	/// <strong>Choosing heading-up switches following on with it.</strong> The map rotates about
+	/// the centre of the screen, so heading-up only says what it means when the rider <em>is</em>
+	/// that centre: turned to somebody's heading while they sit off in a corner, the ground swings
+	/// around a point that is nobody, which is worse than north-up rather than better. Asking for a
+	/// map that behaves like a bike computer and being handed half of one — and having to find a
+	/// second control to get the rest — is not a reading of the request anybody holds.
+	/// </para>
+	/// <para>
+	/// One direction only. Turning heading-up back <em>off</em> leaves following exactly as it is:
+	/// a north-up map that keeps the rider on screen is an ordinary thing to want, and it is what
+	/// most riders are already using. The pairing is enforced from the other end instead — every
+	/// route that stops following takes heading-up with it (<see cref="StopFollowing"/>), which is
+	/// the same fact read backwards.
+	/// </para>
+	/// <para>
+	/// <strong>Turning it off puts the map back to north, and that is the whole of the setting.</strong>
+	/// "North up" is not the absence of a mode, it is the other choice — so choosing it moves the
+	/// camera exactly as choosing the other one does. The rider is left looking at the ground they
+	/// were already looking at; only the bearing changes.
+	/// </para>
+	/// <para>
+	/// Note what is <em>not</em> here: the gesture path (<see cref="OnMapGestureAsync"/>) turns the
+	/// mode off without straightening the map. A rider who has just turned the map by hand — or
+	/// tapped the compass, which has already turned it to north itself — has said where they want
+	/// the bearing, and a camera move on top of that would be the app arguing with them.
+	/// </para>
+	/// </summary>
+	private async Task ToggleHeadingUpAsync()
+	{
+		_menuOpen = false;
+		_headingUp = !_headingUp;
+
+		// Same purpose as _followedTo above: forgetting where the map was last aimed is what makes
+		// switching it back on turn the map now, rather than at the next heading past the threshold.
+		_aimedBearing = null;
+
+		if (_headingUp)
+		{
+			// See the remarks: a turning map is only legible with the rider at the centre of it.
+			// Unconditional rather than "if it was off", so the forgotten _followedTo below applies
+			// either way and the recentre happens now — a rider who chooses this from off in a
+			// corner of the map is asking to be brought back, not to wait for the next fix.
+			_followMe = true;
+			_followedTo = null;
+		}
+
+		// One sentence for what is now one action, rather than two toasts racing each other for
+		// the same slot. It names both halves because both are true and the rider only asked for
+		// one of them.
+		ShowToast(_headingUp
+			? "Heading up — the map turns as you ride, centred on you."
+			: "North up.");
+
+		if (_headingUp)
+		{
+			await AimCameraAsync();
+		}
+		else
+		{
+			await StraightenAsync();
+		}
+
+		await RememberViewAsync(now: true);
+	}
+
+	/// <summary>
+	/// Turns the map back to north, keeping the ground and the zoom the rider is looking at. What
+	/// choosing "North up" does; see <see cref="ToggleHeadingUpAsync"/>.
+	/// </summary>
+	private Task StraightenAsync() =>
+		ApplyCameraAsync(new MapCamera(
+			_mapViewport?.CentreLatitude ?? _camera.Latitude,
+			_mapViewport?.CentreLongitude ?? _camera.Longitude,
+			_mapViewport?.ZoomLevel ?? _camera.ZoomLevel,
+			HeadingDeg: 0));
+
+	/// <summary>
+	/// The rider took hold of the map. Whatever the map was doing on its own that the gesture has
+	/// made nonsense of stops, and says so (§5.3).
+	/// <para>
+	/// <strong>The two gestures are not symmetric, and the asymmetry is the whole rule.</strong>
+	/// A drag takes both modes off; a twist takes only the bearing.
+	/// </para>
+	/// <para>
+	/// A twist is a statement about which way up the map is and nothing else — the rider is still
+	/// happy to be carried along with the group, so following survives it. A drag is a statement
+	/// about where the centre of the screen is, and heading-up cannot survive losing that: the map
+	/// rotates about the centre, so a turning map that is no longer centred on the rider swings the
+	/// ground around a point that is nobody. That is the same fact that makes
+	/// <see cref="ToggleHeadingUpAsync"/> switch following <em>on</em>, read in the other direction
+	/// — the mode is only legible with the rider at the middle, so it goes when the middle does.
+	/// </para>
+	/// <para>
+	/// Neither path moves the camera. The rider has just said where they want it, and straightening
+	/// the map on top of a gesture would be the app arguing with the hand that made it.
+	/// </para>
+	/// <para>
+	/// The toast is not decoration here, it is what makes a self-cancelling mode acceptable at all:
+	/// the modes are set and then left, and a rider who has forgotten one is on reads its silent
+	/// disappearance as the app having lost the setting. Saying which gesture did it also teaches
+	/// the gesture — the next rider who wants the map back does not have to go looking.
+	/// </para>
+	/// <para>
+	/// Nothing is written to the device store on this path beyond the ordinary throttled view save,
+	/// which <see cref="OnMapViewportReportedAsync"/> is already doing for the same gesture — the
+	/// mode's new value rides along in it.
+	/// </para>
+	/// </summary>
+	/// <param name="gesture">What the rider did.</param>
+	private async Task OnMapGestureAsync(MapGesture gesture)
+	{
+		bool changed = false;
+
+		if (gesture == MapGesture.Pan && (_followMe || _headingUp))
+		{
+			(bool wasFollowing, bool wasHeadingUp) = StopFollowing();
+
+			ShowToast($"{NameStopped(wasFollowing, wasHeadingUp)} — you moved the map.");
+			changed = true;
+		}
+
+		if (gesture == MapGesture.Rotate && _headingUp)
+		{
+			_headingUp = false;
+			_aimedBearing = null;
+			changed = true;
+			// Names the mode that stopped, not the one that did not start. "North up is off" was
+			// the first wording and it says the opposite of what happened: the map is no longer
+			// being turned for the rider, which if anything is north-up coming back.
+			ShowToast("Heading up off — you turned the map yourself.");
+		}
+
+		if (!changed)
+		{
+			// A pan with nothing following, or a turn on a map that was already north-up. The
+			// gesture is the rider using the map, and the map has nothing to say about it.
+			return;
+		}
+
+		// Deliberate enough to be worth a write of its own, on the same footing as the toggles:
+		// the viewport report that accompanies this gesture is throttled, and a rider who pans and
+		// then closes the app inside the window would otherwise find the mode back on.
+		await RememberViewAsync(now: true);
+	}
+
+	/// <summary>
+	/// Puts a sentence over the map for <see cref="ToastDuration"/>. See the markup for why the
+	/// two automatic modes are the only things on this screen that get one.
+	/// <para>
+	/// The timer is restarted rather than queued: two mode changes in quick succession are one
+	/// rider changing their mind, and the second message is the true one.
+	/// </para>
+	/// </summary>
+	/// <param name="message">What the map has just started or stopped doing.</param>
+	private void ShowToast(string message)
+	{
+		_toast = message;
+
+		// Counted rather than compared against the message text: a rider who turns following off,
+		// on and off again inside the window sees the same words twice, and an equality check would
+		// let the first timer take the second one's toast off the screen early.
+		int shown = ++_toastSequence;
+
+		_toastTimer?.Dispose();
+		_toastTimer = Clock.CreateTimer(
+			_ => _ = InvokeAsync(() =>
+			{
+				// A later toast owns the slot now, and its own timer will clear it.
+				if (_toastSequence != shown)
+				{
+					return;
+				}
+
+				_toast = null;
+				StateHasChanged();
+			}),
+			state: null,
+			dueTime: ToastDuration,
+			period: Timeout.InfiniteTimeSpan);
 	}
 
 	private void CloseMarkers()
@@ -965,64 +1462,110 @@
 	/// render here. What it does do is remember where the rider is looking, throttled, so the map
 	/// re-opens on this ground rather than on the app's default.
 	/// <para>
-	/// Also the moment the base map first reports a frame, which is when a map opened with
-	/// following already on can finally act on it.
+	/// Also the moment the base map first reports a frame, which is when a map opened with one of
+	/// the automatic modes already on can finally act on it.
 	/// </para>
 	/// </summary>
 	private async Task OnMapViewportReportedAsync(MapViewport viewport)
 	{
 		_mapViewport = viewport;
 
-		if (_followMe && _followedTo is null)
+		// Only on the *first* frame each mode has seen — the null is what says "opened with this
+		// on and never acted on it yet". Re-aiming on every report would be a camera move per
+		// frame of the rider's own drag, which is the map fighting the hand that is moving it.
+		if ((_followMe && _followedTo is null) || (_headingUp && _aimedBearing is null))
 		{
-			await FollowMeAsync();
+			await AimCameraAsync();
 		}
 
 		await RememberViewAsync();
 	}
 
 	/// <summary>
-	/// Brings the camera back to this rider, if the mode is on and the ride knows where they are.
+	/// Puts the camera where the two automatic modes say it should be: centred on this rider if
+	/// <see cref="_followMe"/> is on, turned to their heading if <see cref="_headingUp"/> is, and
+	/// left exactly as the rider had it in whichever of the two axes is nobody's business.
 	/// <para>
-	/// Their zoom is kept — following is a promise about the centre of the screen, and taking a
-	/// rider's zoom away from them once a second would make the map unusable. Heading likewise
-	/// stays north-up: rotating the map under somebody reading it is a different feature.
+	/// <strong>One method for both, because they share a camera.</strong> Two would each have to
+	/// send a whole <see cref="MapCamera"/> — there is no "set the bearing only" — so each would
+	/// overwrite the other's axis with a stale copy, and a rider being followed round a corner
+	/// would watch the map snap back and forth between two half-right cameras once a second.
+	/// </para>
+	/// <para>
+	/// What neither mode touches is the zoom. That is the rider's, always: following is a promise
+	/// about the centre of the screen, and taking somebody's zoom away once a second would make
+	/// the map unusable.
+	/// </para>
+	/// <para>
+	/// Every unheld axis is read back from the last reported viewport rather than from
+	/// <see cref="_camera"/>, so a rider who has panned while only the bearing is being driven —
+	/// or turned the map while only the centre is — keeps what they did.
 	/// </para>
 	/// </summary>
-	private async Task FollowMeAsync()
+	private async Task AimCameraAsync()
 	{
-		if (!_followMe || MyPoint is not { } point)
+		(double Latitude, double Longitude)? centre = _followMe ? MyPoint : null;
+		double? bearing = _headingUp ? MyHeadingDeg : null;
+
+		// Neither mode has anything to say — either both are off, or they are on and waiting for a
+		// fix, which the menu states rather than treating as a fault.
+		if (centre is null && bearing is null)
 		{
 			return;
 		}
 
-		(double latitude, double longitude) = point;
+		// A rider stopped at a light still publishes about once a second. Re-sending a camera the
+		// map is already at would be an interop call and a full overlay repaint per fix, for a map
+		// that is exactly where it should be.
+		bool moved = centre is { } point && _followedTo != point;
+		bool turned = bearing is { } heading
+			&& (_aimedBearing is not { } aimed || BearingDelta(aimed, heading) >= HeadingChangeDeg);
 
-		if (_followedTo == (latitude, longitude))
+		if (!moved && !turned)
 		{
-			// A rider stopped at a light still publishes; re-sending the same camera would be an
-			// interop call a second for a map that is already where it should be.
 			return;
 		}
 
-		_followedTo = (latitude, longitude);
+		if (centre is { } held)
+		{
+			_followedTo = held;
+		}
+
+		if (bearing is { } aimedAt)
+		{
+			_aimedBearing = aimedAt;
+		}
 
 		// Through the component only — _camera is deliberately left where it was. It is the
 		// camera the map *opens* on, and a following map re-aims about once a second: writing
 		// each of those into the parameter would have every render re-issue the move the
 		// component had already made, a second interop call a tick for nothing.
 		await ApplyCameraAsync(new MapCamera(
-			latitude,
-			longitude,
-			_mapViewport?.ZoomLevel ?? _camera.ZoomLevel));
+			centre?.Latitude ?? _mapViewport?.CentreLatitude ?? _camera.Latitude,
+			centre?.Longitude ?? _mapViewport?.CentreLongitude ?? _camera.Longitude,
+			_mapViewport?.ZoomLevel ?? _camera.ZoomLevel,
+			bearing ?? _mapViewport?.HeadingDeg ?? _camera.HeadingDeg));
+	}
+
+	/// <summary>
+	/// The angle between two bearings, 0–180°. Compass degrees wrap, so the plain difference calls
+	/// a swing from 359° to 1° a 358° turn — which would be a whole extra rotation of the map every
+	/// time a rider drifted across north.
+	/// </summary>
+	/// <param name="from">Degrees clockwise from north.</param>
+	/// <param name="to">Degrees clockwise from north.</param>
+	private static double BearingDelta(double from, double to)
+	{
+		double difference = Math.Abs(to - from) % 360;
+		return difference > 180 ? 360 - difference : difference;
 	}
 
 	/// <summary>
 	/// Reads back the view this map was last left on and opens there.
 	/// <para>
 	/// The camera only applies to the ride it was stored for; <see cref="LiveMapView.FollowMe"/>
-	/// carries across rides, because it describes how this rider likes to be ridden with rather
-	/// than one ride's ground.
+	/// and <see cref="LiveMapView.HeadingUp"/> carry across rides, because they describe how this
+	/// rider likes to be ridden with rather than one ride's ground.
 	/// </para>
 	/// <para>
 	/// Both halves of the handover are covered: assigning <see cref="_camera"/> is what a base map
@@ -1043,6 +1586,7 @@
 
 		_savedView = stored;
 		_followMe = stored.FollowMe;
+		_headingUp = stored.HeadingUp;
 
 		if (stored.IsFor(RideId))
 		{
@@ -1053,8 +1597,10 @@
 		await InvokeAsync(StateHasChanged);
 
 		// After the camera, so a rider who left it following ends up on themselves rather than on
-		// the ground they were looking at a ride ago.
-		await FollowMeAsync();
+		// the ground they were looking at a ride ago. Silent — no toast: restoring a mode the rider
+		// set on a previous screen is not a change of mind, and a map that announced its own
+		// settings on every open would be one more thing to dismiss at the start of every ride.
+		await AimCameraAsync();
 	}
 
 	/// <summary>
@@ -1075,8 +1621,8 @@
 		}
 
 		LiveMapView? view = (_mapViewport is { CanvasWidthPx: > 0 } vp
-			? new LiveMapView(_session.RideId, vp.CentreLatitude, vp.CentreLongitude, vp.ZoomLevel, _followMe)
-			: new LiveMapView(_session.RideId, _camera.Latitude, _camera.Longitude, _camera.ZoomLevel, _followMe))
+			? new LiveMapView(_session.RideId, vp.CentreLatitude, vp.CentreLongitude, vp.ZoomLevel, _followMe, _headingUp)
+			: new LiveMapView(_session.RideId, _camera.Latitude, _camera.Longitude, _camera.ZoomLevel, _followMe, _headingUp))
 			.Normalised();
 
 		if (view is null || view == _savedView)
@@ -1194,9 +1740,20 @@
 	/// is already closer than <see cref="FocusZoom"/> — pulling the view back would throw away
 	/// detail they had chosen.
 	/// <para>
-	/// Turns following off. Being carried to a marker and then dragged back to yourself a second
-	/// later is not a reading of "show me that pin" anybody holds; the rider asked to look at
-	/// something, and the mode has to yield to that.
+	/// Stops following, and says so. Being carried to a marker and then dragged back to yourself a
+	/// second later is not a reading of "show me that pin" anybody holds; the rider asked to look
+	/// at something, and the mode has to yield to that — but silently dropping a mode is exactly
+	/// the surprise <see cref="OnMapGestureAsync"/> exists to avoid, and this drops one for the
+	/// same reason and deserves the same sentence.
+	/// </para>
+	/// <para>
+	/// Through <see cref="StopFollowing"/> like the other two routes out, so heading-up goes with
+	/// it: this puts a marker at the centre of the screen, and a map still turning to the rider's
+	/// heading would be rotating about a pin nobody is standing on.
+	/// </para>
+	/// <para>
+	/// The bearing itself is left where it is — see the camera below. Choosing a marker says which
+	/// ground to look at, not which way up.
 	/// </para>
 	/// </summary>
 	private async Task FocusAsync(MarkerDto marker)
@@ -1206,15 +1763,24 @@
 			return;
 		}
 
-		_followMe = false;
-		_followedTo = null;
+		(bool wasFollowing, bool wasHeadingUp) = StopFollowing();
+
+		if (wasFollowing || wasHeadingUp)
+		{
+			ShowToast($"{NameStopped(wasFollowing, wasHeadingUp)} — showing you that marker.");
+		}
 
 		double zoom = Math.Max(_mapViewport?.ZoomLevel ?? FocusZoom, FocusZoom);
 
 		_camera = new MapCamera(
 			PositionScale.ToDegrees(marker.Lat),
 			PositionScale.ToDegrees(marker.Lon),
-			zoom);
+			zoom,
+			// Carried rather than defaulted. MapCamera's heading defaults to north, so building one
+			// from three arguments is a silent instruction to straighten the map — which on a map
+			// the rider has turned, or that "heading up" is turning for them, is a second
+			// thing this did that nobody asked for.
+			_mapViewport?.HeadingDeg ?? _camera.HeadingDeg);
 
 		await ApplyCameraAsync(_camera);
 	}
@@ -1340,6 +1906,11 @@
 	public async ValueTask DisposeAsync()
 	{
 		_session.Changed -= OnSessionChanged;
+
+		// Before anything that can await: its callback renders, and a render after this page has
+		// gone is an ObjectDisposedException out of a timer nobody is holding.
+		_toastTimer?.Dispose();
+		_toastTimer = null;
 		if (_privateAreas is { } areas)
 		{
 			areas.Changed -= OnPrivateAreaChanged;
@@ -1396,16 +1967,23 @@
 		top: var(--dlr-map-control-top);
 		right: max(var(--dlr-map-control-inset), var(--dlr-safe-right));
 		z-index: 20;
+		/* A column now that following has a button of its own. The menu is absolutely positioned
+		   and so takes no part in this. */
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.5rem;
 	}
 
-	.live .hamburger {
+	/* One geometry for every button in this stack — and the same 48 px the nav rail and the base
+	   map's compass use (app.css). They are read at speed and pressed with gloves on, so they are
+	   a matched set rather than three sizes that happen to be similar. */
+	.live .chrome > button {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		/* Anchors the "following" dot below. */
+		/* Anchors the "turning" dot below. */
 		position: relative;
-		/* 48 px is the tap target the rail uses; a menu opened with gloves on is the point.
-		   Shared with the compass on the opposite edge (app.css) — they are a matched pair. */
 		width: var(--dlr-map-control-size);
 		height: var(--dlr-map-control-size);
 		padding: 0;
@@ -1419,11 +1997,38 @@
 	}
 
 	/*
-		Following is a mode that outlives the menu it was set from, so the closed menu has to
-		say so. A dot on the corner of the button rather than a second control beside it: the
-		map is the page and the chrome over it is rationed.
+		"Centre on me and follow", off.
+
+		Deliberately quieter than the hamburger: colours reversed, so the surface is the map's
+		chrome rather than the accent. Two accent-filled buttons stacked on top of each other read
+		as one control split in half, and the hamburger is the one that has to be found first by a
+		rider who does not yet know this screen.
 	*/
-	.live .hamburger.following::after {
+	.live .chrome > button.follow {
+		background: var(--dlr-surface);
+		color: var(--dlr-fg);
+		border-color: var(--dlr-border-strong);
+	}
+
+	/*
+		On. The state has to survive a visor in daylight, so it is a filled button and not a tint:
+		colour alone is the first thing to go, and this one is read at a glance while moving.
+	*/
+	.live .chrome > button.follow.on {
+		background: var(--dlr-accent);
+		color: var(--dlr-accent-fg);
+		border-color: var(--dlr-accent-fg);
+	}
+
+	/*
+		Travel-direction-up is a mode that outlives the menu it was set from, so the closed menu
+		has to say so. A dot on the corner of the button rather than a second control beside it:
+		the map is the page and the chrome over it is rationed.
+
+		It marked following until following got a lit button of its own directly below, at which
+		point two indicators for one mode meant one of them was always the stale one.
+	*/
+	.live .hamburger.turning::after {
 		content: "";
 		position: absolute;
 		top: 4px;
@@ -1445,7 +2050,11 @@
 
 	.live .menu {
 		position: absolute;
-		top: calc(48px + 0.5rem);
+		/* Clear of the whole stack, not just the hamburger it hangs from: a menu that opened over
+		   the follow button would cover the state of a mode it also lists. Two controls and the
+		   gap between them, expressed in the same tokens the stack is built from so the two cannot
+		   drift apart. */
+		top: calc(2 * var(--dlr-map-control-size) + 1rem);
 		right: 0;
 		min-width: 15rem;
 		padding: 0.35rem 0;
@@ -1600,6 +2209,50 @@
 
 	.live .placing button:hover {
 		background: var(--dlr-accent-soft);
+	}
+
+	/*
+		"Following you — the map stays centred as you ride."
+
+		Along the bottom for the same reasons the placing strip is: the top edge is spoken for by
+		the compass on one side and the control stack on the other, and what is left between them
+		on a phone is about 270 px. The bottom is empty, and it leaves the middle of the map — the
+		part a rider being followed is looking at — clear.
+
+		Not dismissible, and not a control of any kind. It states what just happened and then goes;
+		a close button would be a 48 px target for something that removes itself in three seconds,
+		and a rider taking a hand off the bars to press it is exactly the wrong trade.
+
+		The class is `mode-toast` because Bootstrap owns `.toast` and hides it with
+		`display: none` until its own JS adds `.show` — see the markup for what that cost.
+		`display` is set here anyway, so the rule states its own layout rather than relying on
+		nothing else having an opinion about it.
+	*/
+	.live .mode-toast {
+		display: block;
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
+		bottom: max(0.75rem, env(safe-area-inset-bottom));
+		z-index: 18;
+		max-width: min(28rem, calc(100% - 1.5rem));
+		padding: 0.55rem 1rem;
+		background: var(--dlr-surface);
+		color: var(--dlr-fg);
+		border: 1px solid var(--dlr-border);
+		border-radius: 8px;
+		box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+		font-size: 0.9rem;
+		text-align: center;
+		/* One line on a phone would truncate half of these sentences. */
+		white-space: normal;
+	}
+
+	/* The one frame that has both: a rider who armed "add marker" and then reached for the follow
+	   button. The placing strip owns the bottom edge — it carries the way out of a mode — so the
+	   toast steps up over it rather than under it. */
+	.live .mode-toast.raised {
+		bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 4rem);
 	}
 
 	/* A stated failure from a menu action, over a map that still works. */

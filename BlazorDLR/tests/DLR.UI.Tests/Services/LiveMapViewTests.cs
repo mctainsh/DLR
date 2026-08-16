@@ -18,7 +18,7 @@ public sealed class LiveMapViewTests
 	[Fact]
 	public void ARoundTrip_KeepsEveryField()
 	{
-		LiveMapView view = new(RideId, -33.86785, 151.20732, 14.5, FollowMe: true);
+		LiveMapView view = new(RideId, -33.86785, 151.20732, 14.5, FollowMe: true, HeadingUp: true);
 
 		LiveMapView? read = LiveMapView.Decode(view.Encode());
 
@@ -28,6 +28,42 @@ public sealed class LiveMapViewTests
 		read.Longitude.ShouldBe(151.20732, tolerance: 1e-5);
 		read.ZoomLevel.ShouldBe(14.5, tolerance: 1e-2);
 		read.FollowMe.ShouldBeTrue();
+		read.HeadingUp.ShouldBeTrue();
+	}
+
+	/// <summary>
+	/// The two modes are independent switches, and the encoding has to keep them that way — a
+	/// rider who wants a turning map they pan around themselves is asking for exactly this pair.
+	/// </summary>
+	[Theory]
+	[InlineData(true, false)]
+	[InlineData(false, true)]
+	[InlineData(false, false)]
+	public void TheTwoModes_SurviveTheRoundTripSeparately(bool followMe, bool headingUp)
+	{
+		LiveMapView? read = LiveMapView.Decode(
+			new LiveMapView(RideId, -33.8, 151.2, 12, followMe, headingUp).Encode());
+
+		read.ShouldNotBeNull();
+		read.FollowMe.ShouldBe(followMe);
+		read.HeadingUp.ShouldBe(headingUp);
+	}
+
+	/// <summary>
+	/// The compatibility this format's field-count floor is for. <c>HeadingUp</c> was appended to
+	/// the tail without a version bump, so the value on a device that last ran the build before it
+	/// still opens the map where the rider left it — losing at most the one preference that build
+	/// never had.
+	/// </summary>
+	[Fact]
+	public void AViewWrittenBeforeHeadingUpExisted_StillReadsWhole()
+	{
+		LiveMapView? read = LiveMapView.Decode($"1|{RideId:N}|-33.8|151.2|12|1");
+
+		read.ShouldNotBeNull("a field appended to the tail must not cost a rider their camera.");
+		read.Latitude.ShouldBe(-33.8, tolerance: 1e-5);
+		read.FollowMe.ShouldBeTrue();
+		read.HeadingUp.ShouldBeFalse("north-up is what that build always drew.");
 	}
 
 	[Fact]

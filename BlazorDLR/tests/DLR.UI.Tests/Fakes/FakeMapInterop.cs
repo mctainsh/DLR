@@ -48,6 +48,17 @@ public sealed class FakeMapInterop : IMapInterop
 	/// <summary>The base map complaining. Raised by <see cref="RaiseError"/>, never on its own.</summary>
 	public event Action<string>? ErrorOccurred;
 
+	/// <summary>The rider moving the map by hand. Raised by <see cref="RaiseGesture"/>.</summary>
+	public event Action<MapGesture>? Gestured;
+
+	/// <summary>
+	/// Stands in for the rider dragging or turning the base map. The real module tells these apart
+	/// from its own camera moves by MapLibre's <c>originalEvent</c>; a bUnit test has no MapLibre,
+	/// so it says which gesture happened directly.
+	/// </summary>
+	/// <param name="gesture">What the rider did.</param>
+	public void RaiseGesture(MapGesture gesture) => Gestured?.Invoke(gesture);
+
 	/// <summary>
 	/// Stands in for MapLibre reporting a problem it did not throw for — a tile source it cannot
 	/// reach, a style it cannot parse. The real module raises this from a JS event.
