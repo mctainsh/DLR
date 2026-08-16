@@ -171,50 +171,61 @@ External territories are deliberately absent — Lord Howe, Norfolk, Christmas, 
 Island are each far outside their state's box and want their own tiny pack if anyone ever rides
 there.
 
-`au-wa` and `au-qld` are by far the largest: each covers over 2.5× the area of NSW. Both are
-sparse enough to stay inside the size target below, but if either comes out too big to download
-over mobile data, split it by region (`au-wa-southwest`, `au-wa-pilbara`, `au-wa-kimberley`)
-rather than dropping the max zoom, since z13 is a visible step down on a map read through a visor.
+`au-wa` and `au-qld` cover over 2.5× the area of NSW, so they looked like the ones to worry about.
+Measured at z14 they are not: **`au-nsw` is 335 MB, `au-qld` 249 MB and `au-wa` 176 MB**, and the
+whole country comes to 1.2 GB. Area is not what costs — mapped detail is. If one ever does outgrow
+a phone, split it by region (`au-wa-southwest`, `au-wa-pilbara`, `au-wa-kimberley`) rather than
+dropping the max zoom, since z13 is a visible step down on a map read through a visor.
 
 ## World regions
 
-The other 162 packs cover the rest of the planet and live in the same table in
+The other 226 packs cover the rest of the planet and live in the same table in
 `Build-AuMapPacks.ps1`, grouped by continent so a build can be taken one continent at a time:
 
 | Group           | Packs | Covers                                                                    |
 | --------------- | ----- | ------------------------------------------------------------------------- |
 | `au`            | 8     | The states and territories above                                          |
 | `oceania`       | 5     | New Zealand (per island), PNG, Melanesia, Fiji                            |
-| `asia`          | 42    | Japan to Arabia, including eight for China and seven for the subcontinent |
-| `russia`        | 12    | European Russia, four across Siberia, three in the far east               |
-| `europe`        | 32    | Ireland to Ukraine, the Nordics per country, Iceland and the Canaries     |
+| `asia`          | 44    | Japan to Arabia, including eight for China and seven for the subcontinent |
+| `russia`        | 19    | Eleven west of the Urals, five across Siberia, Yakutia, Kamchatka         |
+| `europe`        | 62    | Ireland to Ukraine - the densest mapping on earth, so the smallest boxes  |
 | `africa`        | 24    | The Maghreb, Sahel, the Horn, the Congo basin, the south, Madagascar      |
-| `north-america` | 29    | Eleven across the US, eight across Canada, Mexico, the Caribbean          |
-| `south-america` | 18    | Six across Brazil, the Andes, the Southern Cone                           |
+| `north-america` | 53    | Twenty across the US, twenty-three across Canada, Mexico, the Caribbean   |
+| `south-america` | 19    | Seven across Brazil, the Andes, the Southern Cone                         |
 
-The script is the source of truth for the boxes, so this file does not repeat all 170 rows —
+The script is the source of truth for the boxes, so this file does not repeat all 234 rows —
 `./Build-AuMapPacks.ps1 -ListPacks -Group all` prints every id, name and bbox, and `-ListPacks`
 works without `pmtiles.exe` present.
 
-**Why so many.** A z0–14 extract runs at roughly **0.5 GB per million km² of land** — calibrated
-against China, which came out at 5.0 GB as a single pack and is eight packs now. A z0–14 planet is
-about 75 GB on that number, so keeping every pack under the **1.5 GB target** needs of the order of
-a hundred of them however the lines are drawn. In practice a box stays under target at about
-2.5M km² of ordinary land, or 1M km² where mapping is dense — western Europe, Japan, the US
-seaboards, the Indian coast. Boxes that look enormous on the list (`na-greenland`, `ru-kamchatka`,
-`af-sahel-west`, `na-canada-arctic`) are ice, ocean and desert, and carry very little data for
-their area.
+### Every pack is under 1 GB, and that number is measured
 
-The target is a design input, not a measurement: after a real build the script re-reads the sizes
-it recorded and warns about anything that came out over `-OversizeBytes` (1.5 GB by default), so
-the packs that need splitting announce themselves. Split them in the table and rebuild those ids
-with `-Only … -Force`.
+The first full build produced 170 packs totalling ~100 GB, and 38 of them came out over 850 MB —
+worst was `eu-czechia-slovakia-hungary` at 2.6 GB. Those 38 were re-cut into 102 smaller boxes,
+giving the 234 packs here. **Predicted worst case is now 847 MB (`na-us-carolinas`) and the median
+is 452 MB.**
+
+The re-cut was not done by eye. The measured boxes overlap heavily, so their sizes constrain how
+the data is distributed: solving that system (a smoothed multiplicative ART fit on a 0.2° grid)
+reproduces all 170 measured sizes to a mean error of 0.3%, and the resulting density map prices any
+proposed box before it is built. Each new boundary was then drawn on geography — Bohemia and
+Moravia, Alberta and Saskatchewan, Kyushu and Kansai — and priced against that map rather than
+guessed.
+
+**Area is a poor predictor, which is the whole reason the first attempt missed.** Finland is
+1.47 GB and the Canadian Arctic 2.11 GB, while the Sahara sits under 500 MB and Greenland — the
+largest box on the list — is 756 MB. Lakes, glaciers, fjords and coastline carry geometry; empty
+desert does not. Anything drawn from area alone will be wrong in exactly these places.
+
+The cap is still enforced after the fact, not just at design time: the script re-reads the sizes it
+recorded and warns about anything over `-OversizeBytes` (1 GB by default). If a pack does come out
+over, cut it in the table and rebuild that id with `-Only … -Force`.
 
 **Coverage is checked by hand.** The boxes are not derived from boundary data, so gaps are easy to
-introduce — Buenos Aires province, Sardinia and the Mauritanian coast all fell through the first
-draft. When editing the table, sanity-check the change against a few towns near its edges. Every
-box has the same failure mode as the Australian ones: get `minLon,minLat,maxLon,maxLat` out of
-order and you get an empty archive rather than an error.
+introduce — Buenos Aires province, Sardinia, the Mauritanian coast and the Shimane coast all fell
+through a draft, the last three found by pricing 371 cities against the table. When editing, check
+the change against a few towns near its edges. Every box has the same failure mode as the
+Australian ones: get `minLon,minLat,maxLon,maxLat` out of order and you get an empty archive rather
+than an error.
 
 **No box may cross the antimeridian.** `pmtiles extract` takes a plain rectangle, so 180° is a hard
 edge: `ru-kamchatka` and `oc-pacific-east` stop there, and the Aleutians west of 180°, the Chatham
@@ -227,7 +238,8 @@ Islands and Kiribati are consequently absent. So is Antarctica — Web Mercator 
 for — size and SHA-256 per pack:
 
 ```powershell
-./Build-AuMapPacks.ps1                              # the eight AU packs into ./mappacks
+./Build-AuMapPacks.ps1                              # all 234 packs into ./mappacks
+./Build-AuMapPacks.ps1 -Group au                    # just the states and territories
 ./Build-AuMapPacks.ps1 -Group europe                # one continent
 ./Build-AuMapPacks.ps1 -Group world                 # everything except AU
 ./Build-AuMapPacks.ps1 -Group all -ListPacks        # print the table and exit
@@ -235,10 +247,15 @@ for — size and SHA-256 per pack:
 ./Build-AuMapPacks.ps1 -OutDir D:\packs -Force      # rebuild over existing files
 ```
 
-`-Group` defaults to `au`, because a world run pulls the best part of a planet's worth of ranges
-and takes many hours. `-Only` names packs outright and wins over `-Group`. It skips packs that
-already exist unless `-Force`, and `catalogue.json` accumulates across runs — a continent at a time
-lands the same catalogue as one `-Group all` run.
+A full run pulls the best part of a planet's worth of ranges and takes many hours, so it is usually
+taken a continent at a time. `-Only` names packs outright and wins over `-Group`. Packs already on
+disk are skipped unless `-Force`, and `catalogue.json` accumulates across runs — a continent at a
+time lands the same catalogue as one `-Group all` run.
+
+**Retired ids are pruned.** Because the accumulating catalogue is keyed by id, the 38 packs that
+were re-cut would otherwise linger in it forever, advertising downloads nobody rebuilds. Any entry
+whose id the table no longer lists is dropped on the next run and named in the output; its
+`.pmtiles` file stays on disk, to be deleted from the host once the new catalogue is published.
 
 The catalogue is written alongside the archives in the shape of `MapPackSummary` — id, name,
 bounds, zoom range, size, hash, version and URL — ready to serve from the VPS static directory.

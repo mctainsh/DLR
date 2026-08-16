@@ -177,10 +177,42 @@
   </PropertyGroup>
 
   <ItemGroup>
-	<!-- App Icon -->
-	  <MauiIcon Include="Resources\AppIcon\appicon.png" ForegroundFile="Resources\AppIcon\appiconfg.png" BaseSize="1024, 1024" Color="Black" />
-	  <!-- Splash Screen -->
-	  <MauiSplashScreen Include="Resources\Splash\splash.png" BaseSize="476, 476" Color="Black" />
+	<!--
+	  App Icon. The item is declared twice because the two platforms crop it differently and only
+	  Android needs the correction.
+
+	  Android composites an *adaptive* icon: appiconfg.png becomes a 108dp foreground drawable that
+	  the launcher masks down to the central 72dp safe zone, so a full-bleed foreground loses the
+	  outer sixth on all four sides — the reported "you only see the middle". ForegroundScale shrinks
+	  the artwork inside that same 108dp canvas (0.65 x 108dp = 70.2dp) so it lands inside the safe
+	  zone and survives any mask shape; the appicon.png gradient fills the margin it vacates.
+
+	  iOS/MacCatalyst draw the composed icon uncropped, so scaling there would only shrink a picture
+	  that already fits. They keep the implicit scale of 1.
+	-->
+	  <MauiIcon Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'"
+				Include="Resources\AppIcon\appicon.png" ForegroundFile="Resources\AppIcon\appiconfg.png" BaseSize="1024, 1024" ForegroundScale="0.65" Color="Black" />
+	  <MauiIcon Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'"
+				Include="Resources\AppIcon\appicon.png" ForegroundFile="Resources\AppIcon\appiconfg.png" BaseSize="1024, 1024" Color="Black" />
+
+	<!--
+	  Splash Screen. Declared twice for the same reason, this time with iOS as the odd one out.
+
+	  The storyboard MAUI generates for iOS puts the image in a full-screen UIImageView with
+	  contentMode="center" and clipsSubviews="YES" — the image is never scaled to fit, it is drawn at
+	  exactly BaseSize points and cropped by the screen. At 476pt that is wider than every iPhone in
+	  portrait (320-440pt), which is why the transparent border baked into splash.png disappeared:
+	  it was being clipped off along with the artwork's edges. 320pt is the narrowest portrait width
+	  an iOS 15 device can have, so the image never clips, and on current phones it leaves the
+	  15-20% margin asked for (375pt -> 15%, 393pt -> 19%, 430pt -> 26%).
+
+	  Android's splash is a drawable scaled by the platform, not a fixed-size centred image, so it is
+	  unaffected by the clipping and keeps 476.
+	-->
+	  <MauiSplashScreen Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'"
+						Include="Resources\Splash\splash.png" BaseSize="320, 320" Color="Black" />
+	  <MauiSplashScreen Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'ios'"
+						Include="Resources\Splash\splash.png" BaseSize="476, 476" Color="Black" />
 
 	<!-- Images -->
 	<MauiImage Include="Resources\Images\*" />
