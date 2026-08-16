@@ -19,6 +19,22 @@ namespace DLR.Core.Contracts.Maps;
 /// </summary>
 /// <param name="Id">The pack's slug — <c>au-nsw</c> — and what it is called on the device.</param>
 /// <param name="Name">What a rider reads: <c>New South Wales</c>.</param>
+/// <param name="Region">
+/// The country the pack is part of — <c>Australia</c>, <c>France</c> — or the smallest natural
+/// grouping when no one country owns it (<c>The Caribbean</c>, <c>The Sahel</c>). The settings
+/// screen asks for this first and for the area within it second, because two hundred regions in one
+/// dropdown is not a choice anybody makes on a phone.
+/// <para>
+/// Nullable, and every reader has to cope: a catalogue published before this field existed carries
+/// no region at all, and that is the catalogue on the host riders are fetching from today. What the
+/// client does about it is <c>MapPackCatalogue.RegionFor</c> — one fallback, stated once.
+/// </para>
+/// <para>
+/// Published rather than worked out on the device. The alternative was a table on the phone saying
+/// which slug belongs to which country, which is a copy of the publisher's table that ships a
+/// release behind it and disagrees the day a pack is re-cut.
+/// </para>
+/// </param>
 /// <param name="Bounds">
 /// The ground the extract covers. Nullable here though §4.2 writes it plain: it is framing
 /// information, and a catalogue that omitted it should cost a rider the map preview rather than the
@@ -39,6 +55,7 @@ namespace DLR.Core.Contracts.Maps;
 public sealed record MapPackSummary(
 	string Id,
 	string Name,
+	string? Region,
 	TrackBounds? Bounds,
 	int MinZoom,
 	int MaxZoom,

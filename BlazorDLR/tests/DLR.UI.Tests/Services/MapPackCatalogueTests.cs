@@ -20,12 +20,25 @@ public sealed class MapPackCatalogueTests
 	/// <summary>Where the catalogue lives in these tests, and the base a relative pack URL resolves against.</summary>
 	private static readonly Uri Address = new("https://packs.example.com/maps/catalogue.json");
 
-	/// <summary>A catalogue entry, written the way <c>Build-AuMapPacks.ps1</c> writes one.</summary>
-	private static string Entry(string id, string name, string url, long sizeBytes = 1024, int version = 1) =>
+	/// <summary>
+	/// A catalogue entry, written the way <c>Build-AuMapPacks.ps1</c> writes one.
+	/// </summary>
+	/// <param name="region">
+	/// Omitted from the JSON entirely when null, because that is the catalogue on the host today —
+	/// the field is newer than the packs riders have already downloaded from it.
+	/// </param>
+	private static string Entry(
+		string id,
+		string name,
+		string url,
+		long sizeBytes = 1024,
+		int version = 1,
+		string? region = null) =>
 		$$"""
 		{
 			"id": "{{id}}",
 			"name": "{{name}}",
+			{{(region is null ? "" : $"\"region\": \"{region}\",")}}
 			"bounds": {
 				"minLatitude": -37.52,
 				"minLongitude": 140.99,
@@ -197,6 +210,73 @@ public sealed class MapPackCatalogueTests
 		result.Packs.Select(pack => pack.Name).ShouldBe(
 			["Australian Capital Territory", "New South Wales", "Victoria"],
 			"the catalogue's own order is the order the extracts were built in, which means nothing to anybody looking for their state.");
+	}
+
+	/// <summary>
+	/// The country is the settings screen's first dropdown, and it comes from the publisher rather
+	/// than from anything worked out here — a table on the phone saying which slug belongs to which
+	/// country is a copy of the pack table that ships a release behind it.
+	/// </summary>
+	[Fact]
+	public async Task ThePublishedCountryIsWhatAPackIsFiledUnder()
+	{
+		StubHttpHandler handler = new(Catalogue(
+			Entry("eu-france-paris", "Paris and the north", "https://packs.example.com/p.pmtiles", region: "France"),
+			Entry("in-far-east", "Bangladesh, Assam and Bhutan", "https://packs.example.com/b.pmtiles", region: "India")));
+
+		MapPackCatalogueResult result = await Build(handler).ReadAsync();
+
+		result.Packs.Single(pack => pack.Id == "eu-france-paris").Region.ShouldBe("France");
+		result.Packs.Single(pack => pack.Id == "in-far-east").Region.ShouldBe("India",
+			"the catalogue groups several countries under one heading, and only it knows which.");
+	}
+
+	/// <summary>
+	/// The catalogue on the host predates the field, and it is the one riders are fetching from until
+	/// it is rebuilt. Without a fallback every entry in it lands in one group and the first dropdown
+	/// is a control with a single option in it.
+	/// <para>
+	/// Coarser than what a rebuild publishes, deliberately: the prefix is mapped to the largest thing
+	/// it is certainly inside. Guessing France from <c>eu-france-paris</c> would be the client trying
+	/// to be the pack table, which is what publishing the field exists to avoid.
+	/// </para>
+	/// </summary>
+	[Theory]
+	[InlineData("au-nsw", "Australia")]
+	[InlineData("eu-france-paris", "Europe")]
+	[InlineData("na-us-texas", "North America")]
+	[InlineData("cn-north", "China")]
+	[InlineData("zz-atlantis", MapPackCatalogue.UnknownRegion)]
+	[InlineData("nowhere", MapPackCatalogue.UnknownRegion)]
+	public async Task AnEntryWithNoCountry_FallsBackToWhatItsIdIsCertainlyInside(string id, string expected)
+	{
+		StubHttpHandler handler = new(Catalogue(
+			Entry(id, "Somewhere", "https://packs.example.com/s.pmtiles")));
+
+		(await Build(handler).ReadAsync()).Packs.Single().Region.ShouldBe(expected);
+	}
+
+	/// <summary>
+	/// Both dropdowns read from this one list, so the order it comes back in is the order both of them
+	/// show. A screen re-sorting a copy for each is two orderings that can drift apart.
+	/// </summary>
+	[Fact]
+	public async Task TheListIsOrderedByCountryAndThenByWhatTheRiderReads()
+	{
+		StubHttpHandler handler = new(Catalogue(
+			Entry("eu-france-paris", "Paris and the north", "https://packs.example.com/1.pmtiles", region: "France"),
+			Entry("au-vic", "Victoria", "https://packs.example.com/2.pmtiles", region: "Australia"),
+			Entry("eu-france-alsace", "Alsace and Lorraine", "https://packs.example.com/3.pmtiles", region: "France"),
+			Entry("au-act", "Australian Capital Territory", "https://packs.example.com/4.pmtiles", region: "Australia")));
+
+		MapPackCatalogueResult result = await Build(handler).ReadAsync();
+
+		result.Packs.Select(pack => pack.Name).ShouldBe([
+			"Australian Capital Territory",
+			"Victoria",
+			"Alsace and Lorraine",
+			"Paris and the north",
+		]);
 	}
 
 	[Fact]

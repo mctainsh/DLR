@@ -58,8 +58,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 	/// <summary>
 	/// A catalogue of <paramref name="count"/> regions, for the tests about a list too long to put
-	/// on a phone screen a row at a time. Named and slugged so both halves of the search are
-	/// findable: <c>Region 7</c> and <c>au-7</c>.
+	/// on a phone screen a row at a time.
 	/// </summary>
 	private static string ManyOffers(int count) =>
 		"[" + string.Join(",", Enumerable.Range(0, count).Select(index => $$"""
@@ -257,24 +256,17 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Search appears only when the dropdown is long enough to need it: below that the picker is
-	/// already the whole catalogue at a glance, and a filter over two regions is a control that
-	/// exists to be ignored.
+	/// There is no search box over either dropdown, however long the catalogue is — and this is here
+	/// so one does not come back by accident.
+	/// <para>
+	/// Both were tried. The area search only ever narrowed what the country dropdown above it had
+	/// already narrowed, and the country search filtered a list a rider scrolls straight to their own
+	/// country in; two text fields stacked over two pickers cost more height on a phone than they
+	/// saved in scrolling.
+	/// </para>
 	/// </summary>
 	[Fact]
-	public async Task AShortCatalogueGetsNoSearchBox()
-	{
-		Wire();
-
-		IRenderedComponent<Maps> page = RenderPage();
-		await ChooseOfflineAsync(page);
-		WaitForCatalogue(page);
-
-		page.FindAll("input.search").ShouldBeEmpty("two regions do not need finding.");
-	}
-
-	[Fact]
-	public async Task ALongCatalogueGetsOne()
+	public async Task NeitherDropdownCarriesASearchBox()
 	{
 		_catalogue = new StubHttpHandler(ManyOffers(120));
 		Wire();
@@ -283,31 +275,8 @@ public sealed class MapSettingsTests : PageTestContext
 		await ChooseOfflineAsync(page);
 		WaitForCatalogue(page);
 
-		page.FindAll("input.search").ShouldNotBeEmpty();
-	}
-
-	[Fact]
-	public async Task SearchNarrowsTheDropdownByNameAndById()
-	{
-		_catalogue = new StubHttpHandler(ManyOffers(120));
-		Wire();
-
-		IRenderedComponent<Maps> page = RenderPage();
-		await ChooseOfflineAsync(page);
-		WaitForCatalogue(page);
-
-		page.Find("input.search").Input("Region 7");
-		page.Find("select.offers").TextContent.ShouldContain("Region 7 ");
-		page.FindAll("select.offers option").Count.ShouldBeLessThan(121);
-
-		// The slug, because a rider types "nsw" as readily as the name and the id is what they will
-		// have seen on a phone that read the catalogue before losing signal.
-		page.Find("input.search").Input("au-42");
-		page.FindAll("select.offers option").Count.ShouldBe(2, "the placeholder and the one match.");
-
-		page.Find("input.search").Input("nowhere");
-		page.FindAll("select.offers option").Count.ShouldBe(1, "the placeholder alone.");
-		page.Markup.ShouldContain("Nothing matches");
+		page.FindAll("input[type=search]").ShouldBeEmpty("the country dropdown is the filter this list needs.");
+		page.FindAll("select.offers option").Count.ShouldBe(121, "and every map is still reachable.");
 	}
 
 	/// <summary>
@@ -944,6 +913,110 @@ public sealed class MapSettingsTests : PageTestContext
 				.GetAttribute("value").ShouldBe("https://tiles.example.com/{z}/{x}",
 					"kept even though it is half-typed — MapSource would have refused it.");
 		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The preview opens on the whole world, not on a city.
+	/// <para>
+	/// It used to open on Sydney, borrowed from the live map's fallback. That map has a ride to show
+	/// and must show it somewhere; this one is a sample of a tile server with no place in mind, and
+	/// opening on one city tells every rider who does not live there that the check they came to make
+	/// starts with a pan.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public void ThePreviewOpensOnTheWholeWorld()
+	{
+		Wire();
+
+		RenderPage();
+
+		// Recorded even though InitAsync throws — the camera a map opens on is decided before the
+		// base map gets a chance to fail.
+		_map.LastOptions!.Camera.ShouldBe(new MapCamera(0, 0, 0));
+	}
+
+	/// <summary>
+	/// Where the rider left the preview comes back, and survives the app being killed — it is in the
+	/// device store, not in the page.
+	/// </summary>
+	[Fact]
+	public async Task PanningThePreview_IsKeptOnTheDevice()
+	{
+		Wire();
+		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		// The page reads the store after its first render, and nothing the map says before that read
+		// counts as a pan — otherwise the view it opened on would overwrite what was stored. The
+		// stored source landing is what says that read has happened.
+		page.WaitForAssertion(
+			() => page.FindAll("input[name=map-source]")[0].HasAttribute("checked").ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await page.InvokeAsync(() => _map.RaiseViewport(new MapViewport(
+			TopLeftLatitude: -33.85, TopLeftLongitude: 151.18,
+			BottomRightLatitude: -33.89, BottomRightLongitude: 151.24,
+			ZoomLevel: 13,
+			HeadingDeg: 0,
+			CanvasWidthPx: 800, CanvasHeightPx: 600,
+			DevicePixelRatio: 1)));
+
+		RememberedMapSetup? stored =
+			RememberedMapSetup.Decode(await settings.GetAsync(RememberedMapSetup.StorageKey));
+
+		stored.ShouldNotBeNull();
+		stored.PreviewCamera.ShouldNotBeNull();
+		stored.PreviewCamera.Latitude.ShouldBe(-33.87, 0.01);
+		stored.PreviewCamera.Longitude.ShouldBe(151.21, 0.01);
+		stored.PreviewCamera.ZoomLevel.ShouldBe(13);
+	}
+
+	/// <summary>
+	/// And it is applied on the next visit. The map has already opened on the world by the time the
+	/// device read lands — a child renders before its parent — so the restore is a camera pushed at
+	/// an attached base map rather than the one it was initialised with.
+	/// </summary>
+	[Fact]
+	public async Task ThePreviewReopensWhereItWasLeft()
+	{
+		// The one test here that lets the base map attach: a camera pushed at a map that never
+		// attached goes nowhere, so the restore would be invisible. That also mounts the Skia
+		// overlay, which talks to its own JS module.
+		_map.InitException = null;
+		JSInterop.SetupModule("./_content/BlazorDLR.Shared/map/overlay.js")
+			.SetupVoid("present", _ => true)
+			.SetVoidResult();
+
+		Wire();
+		await Services.GetRequiredService<IDeviceSettings>().SetAsync(
+			RememberedMapSetup.StorageKey,
+			new RememberedMapSetup(PreviewCamera: new MapCamera(-33.868, 151.209, 11)).Encode());
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		page.WaitForAssertion(
+			() => _map.Cameras.ShouldContain(new MapCamera(-33.868, 151.209, 11)),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A device that has only ever panned the preview still has its tile server read back, and the
+	/// other way about — one key holds the whole screen's memory, so neither half may evict the other.
+	/// </summary>
+	[Fact]
+	public void APannedPreview_DoesNotThrowAwayTheTileServer()
+	{
+		RememberedMapSetup stored = new(
+			"https://tiles.example.com/{z}/{x}/{y}.png",
+			"© Example Maps",
+			17,
+			new MapCamera(-33.868, 151.209, 11));
+
+		RememberedMapSetup? read = RememberedMapSetup.Decode(stored.Encode());
+
+		read.ShouldBe(stored);
 	}
 
 	[Fact]

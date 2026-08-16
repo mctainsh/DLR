@@ -7,7 +7,8 @@
 @inject MapPackState Packs
 @inject IDeviceSettings Settings
 @inject ConfirmService Confirm
-@implements IDisposable
+@inject TimeProvider Clock
+@implements IAsyncDisposable
 
 @*
 	Which tiles go under every map in the app (§4.5, §18.6).
@@ -266,39 +267,53 @@
 			else if (Packs.Offers.Count > 0)
 			{
 				@*
-					One dropdown, not a row per region.
+					Two dropdowns, not a row per region and not one dropdown of everything.
 
-					The catalogue is eight states today and is meant to grow to whatever gets
-					published — city extracts, a country at a time. A list renders every one of them
+					The catalogue was eight states; it is now two hundred and thirty-odd areas across
+					eighty-odd countries, and meant to keep growing. A list renders every one of them
 					on a phone screen, which turns a settings page into a scroll and buries the
-					source radios and the preview map under it. A select collapses that to one line
-					whatever the count, and on both phones it opens as the platform's own picker.
+					source radios and the preview map under it. One select collapses that to a line,
+					but a single line holding two hundred options is a native picker somebody spins
+					through looking for their country — so the country is asked first and the area
+					within it second, which is how the catalogue is organised anyway (§4.2).
 
-					The search box appears only past SearchFrom entries. Below that the dropdown is
-					already the whole list at a glance and a filter above it is a control asking to
-					be used for nothing.
+					Country is not compulsory. "All countries" leaves the second dropdown holding the
+					whole catalogue, which is what this screen did before and is still the shortest
+					route for anybody who knows the area's name and not which country publishes it.
+
+					Neither dropdown carries a search box, and one over each was here. They came out
+					because what they filtered was already narrow: the area search only ever narrowed
+					what the country above it had narrowed, and the country search filtered a list a
+					rider scrolls straight to their own country in. Two text fields stacked above two
+					pickers is a taller form on the screen least able to spare the height, and the
+					country dropdown is the filter this list actually needed.
 				*@
 				<div class="picker">
-					@if (Packs.Offers.Count >= SearchFrom)
-					{
-						<input type="search" class="search" @bind="_search" @bind:event="oninput"
-							   spellcheck="false" autocomplete="off" autocapitalize="off"
-							   placeholder="Search maps" aria-label="Search the maps on offer" />
-					}
+					<div class="field">
+						<span class="field-label" id="map-region-label">Country or region</span>
 
-					<select class="offers" @bind="_offerId" aria-label="Maps on offer">
-						<option value="">Choose a map…</option>
-						@foreach (MapPackOffer offer in Matching)
-						{
-							<option value="@offer.Id">@Describe(offer)</option>
-						}
-					</select>
+						<select class="regions" value="@_region" @onchange="ChooseRegion"
+								aria-labelledby="map-region-label">
+							<option value="">All countries</option>
+							@foreach (string region in RegionsOnOffer)
+							{
+								<option value="@region">@DescribeRegion(region)</option>
+							}
+						</select>
+					</div>
+
+					<div class="field">
+						<span class="field-label" id="map-area-label">Area</span>
+
+						<select class="offers" @bind="_offerId" aria-labelledby="map-area-label">
+							<option value="">Choose a map…</option>
+							@foreach (MapPackOffer offer in InRegion)
+							{
+								<option value="@offer.Id">@Describe(offer)</option>
+							}
+						</select>
+					</div>
 				</div>
-
-				@if (Matching.Count == 0)
-				{
-					<p class="hint">Nothing matches “@_search”.</p>
-				}
 
 				<button type="button" class="download primary"
 						disabled="@(Chosen is null || Packs.IsDownloading)"
@@ -334,21 +349,83 @@
 		<h2>Preview</h2>
 		<p class="hint">
 			The same base map every ride is drawn over. Pan and zoom it to check the tiles load at
-			the detail you ride at.
+			the detail you ride at — it opens where you left it last.
 		</p>
 		<div class="preview-map">
-			<RideMap Camera="PreviewCamera" AllowRotation="false" ShowPickingCursor="false" />
+			<RideMap Camera="_preview" AllowRotation="false" ShowPickingCursor="false"
+					 OnViewportReported="OnPreviewMovedAsync" />
 		</div>
 	</section>
 </div>
 
 @code {
 	/// <summary>
-	/// Where the preview opens: Sydney at city scale, the same ground <c>GroupRideLive</c> falls
-	/// back to. A constant rather than the rider's last view — this map is a sample of a tile
-	/// server, not a place anybody is going.
+	/// Where the preview opens on a device that has never moved it: the whole world.
+	/// <para>
+	/// It used to open on Sydney at city scale, borrowed from <c>GroupRideLive</c>'s fallback. That
+	/// is the wrong opinion for this screen to hold — the live map falls back to a city because it
+	/// has a ride to show and must show it somewhere, while this map is a sample of a tile server
+	/// and has no place in mind. Opening on one city tells every rider who does not live there that
+	/// the check they came to make starts with a pan.
+	/// </para>
+	/// <para>
+	/// The world is also the one view that answers the question a rider brings here fastest: an
+	/// offline pack covers one region, and at this zoom whether the tiles arrive at all is visible
+	/// before touching anything.
+	/// </para>
 	/// </summary>
-	private static readonly MapCamera PreviewCamera = new(-33.868, 151.209, 11);
+	private static readonly MapCamera WorldView = new(0, 0, 0);
+
+	/// <summary>
+	/// Where the preview is pointed.
+	/// <para>
+	/// Assigned once — from the device, after the first render — and never again. It is a parameter
+	/// to <c>RideMap</c>, which pushes any change at the base map, so writing the rider's own pans
+	/// back into it would fight the hand that made them: every drag would report a viewport, set the
+	/// camera, and be re-applied a frame later. What the rider moves to is held in
+	/// <see cref="_previewNow"/> instead, which nothing renders.
+	/// </para>
+	/// </summary>
+	private MapCamera _preview = WorldView;
+
+	/// <summary>
+	/// The latest view the preview has reported, saved or not. Null until it reports one.
+	/// </summary>
+	private MapCamera? _previewNow;
+
+	/// <summary>What <see cref="_previewNow"/> was when the device was last written.</summary>
+	private MapCamera? _previewSaved;
+
+	/// <summary>
+	/// Whether the stored camera has been read yet. Until it has, the preview's own reports are
+	/// ignored.
+	/// <para>
+	/// <strong>Not a detail.</strong> A child renders before its parent, so <c>RideMap</c> attaches
+	/// and announces the view it opened on — the world — while this page is still one render away
+	/// from reading the device. Without this flag that announcement is a pan as far as the handler
+	/// below can tell, and it writes the world over the ground the rider left, every visit. The
+	/// feature would have failed in exactly the case it exists for and looked like a store that does
+	/// not persist.
+	/// </para>
+	/// </summary>
+	private bool _previewRestored;
+
+	/// <summary>
+	/// The clock reading at the last write, for the throttle below. Never compared against anything
+	/// but itself, so a device whose clock jumps costs at most one extra write.
+	/// </summary>
+	private DateTimeOffset _lastPreviewSaveUtc;
+
+	/// <summary>
+	/// How often panning the preview is allowed to reach the device store.
+	/// <para>
+	/// The map reports a viewport on every frame of a drag, and on the web every write is a JS
+	/// interop round trip. Nothing reads this value until the next visit, so writing it at frame rate
+	/// buys nothing — and what the throttle holds back is not dropped, because
+	/// <see cref="DisposeAsync"/> writes whatever is pending on the way out.
+	/// </para>
+	/// </summary>
+	private static readonly TimeSpan PreviewSaveInterval = TimeSpan.FromSeconds(2);
 
 	private MapSourceKind _kind = MapSourceKind.Osm;
 	private string _template = string.Empty;
@@ -368,52 +445,83 @@
 	private string? _status;
 
 	/// <summary>
-	/// How many packs on offer it takes before the dropdown gets a search box above it.
+	/// Which country the rider has narrowed to, or empty for all of them.
 	/// <para>
-	/// Below this the select already shows the whole catalogue in one opening, and a filter over
-	/// eight regions is a control that exists to be ignored. Above it, scrolling a native picker
-	/// looking for one state is the thing search is for.
+	/// Empty is a real answer rather than a prompt: it leaves the second dropdown holding the whole
+	/// catalogue, which is what this screen offered before there were countries in it and is still the
+	/// shortest route for somebody who knows the area's name — the catalogue files Bangladesh under
+	/// India and Sardinia under Italy, and neither is wrong or guessable.
 	/// </para>
 	/// </summary>
-	private const int SearchFrom = 10;
-
-	/// <summary>What the rider has typed to narrow the packs on offer. Empty until they do.</summary>
-	private string _search = string.Empty;
+	private string _region = string.Empty;
 
 	/// <summary>Which pack is picked in the dropdown, by catalogue id, or empty for none.</summary>
 	private string _offerId = string.Empty;
 
 	/// <summary>
-	/// The packs on offer that match what has been typed, in the catalogue's own order.
+	/// The countries the catalogue offers anything in, in the order the first dropdown lists them.
 	/// <para>
-	/// Matched on the name and on the id: a rider types "nsw" as readily as "New South", and the
-	/// slug is what they will have seen on a phone that read the catalogue before losing signal.
+	/// Distinct rather than counted from a table of countries: this screen knows about the countries
+	/// its offers name and no others, so a catalogue that publishes one region or fifty needs no
+	/// change here. The order comes from <c>MapPackCatalogue</c>, which sorts by country and then by
+	/// name — with the leftovers pushed to the end, because a rider scrolling for their country is
+	/// not scrolling for the bucket of packs that named none.
 	/// </para>
 	/// </summary>
-	private IReadOnlyList<MapPackOffer> Matching
-	{
-		get
-		{
-			string search = _search.Trim();
+	private IReadOnlyList<string> RegionsOnOffer =>
+		[.. Packs.Offers
+			.Select(offer => offer.Region)
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.OrderBy(region => region == MapPackCatalogue.UnknownRegion)];
 
-			return search.Length == 0
-				? Packs.Offers
-				: [.. Packs.Offers.Where(offer =>
-					offer.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-					|| offer.Id.Contains(search, StringComparison.OrdinalIgnoreCase))];
-		}
+	/// <summary>The packs in the chosen country, which is what the second dropdown lists.</summary>
+	private IReadOnlyList<MapPackOffer> InRegion =>
+		_region.Length == 0
+			? Packs.Offers
+			: [.. Packs.Offers.Where(offer =>
+				string.Equals(offer.Region, _region, StringComparison.OrdinalIgnoreCase))];
+
+	/// <summary>
+	/// One country as a line in the first dropdown: its name and how many areas are under it.
+	/// <para>
+	/// The count is there because it is the thing that decides whether opening the second dropdown is
+	/// worth doing — Australia is eight states and France is eight regions, but Greenland is one map,
+	/// and knowing that before the tap saves the tap.
+	/// </para>
+	/// </summary>
+	/// <param name="region">The country.</param>
+	private string DescribeRegion(string region)
+	{
+		int count = Packs.Offers.Count(offer =>
+			string.Equals(offer.Region, region, StringComparison.OrdinalIgnoreCase));
+
+		return count == 1 ? $"{region} — 1 map" : $"{region} — {count} maps";
+	}
+
+	/// <summary>
+	/// Narrowing to a country, which also clears what was picked under the last one.
+	/// <para>
+	/// Cleared rather than kept and filtered out. A selection the rider can no longer see is the
+	/// state a disabled Download button cannot explain.
+	/// </para>
+	/// </summary>
+	/// <param name="changed">What the dropdown now holds.</param>
+	private void ChooseRegion(ChangeEventArgs changed)
+	{
+		_region = changed.Value?.ToString() ?? string.Empty;
+		_offerId = string.Empty;
 	}
 
 	/// <summary>
 	/// The pack the Download button would fetch, or <c>null</c> when none is picked.
 	/// <para>
-	/// Resolved against <see cref="Matching"/> rather than the whole catalogue, because a selection
-	/// the search has since filtered out is not one the rider can see — and a button that downloads
+	/// Resolved against <see cref="InRegion"/> rather than the whole catalogue, because a selection
+	/// outside the chosen country is not one the rider can see — and a button that downloads
 	/// something invisible is worse than a disabled one.
 	/// </para>
 	/// </summary>
 	private MapPackOffer? Chosen =>
-		_offerId.Length == 0 ? null : Matching.FirstOrDefault(offer => offer.Id == _offerId);
+		_offerId.Length == 0 ? null : InRegion.FirstOrDefault(offer => offer.Id == _offerId);
 
 	/// <summary>
 	/// One pack as a line in the dropdown: what it is, what it costs, and whether it is already here.
@@ -536,6 +644,10 @@
 		// is actually applied — those agree, because applying one writes this too.
 		Remember(RememberedMapSetup.Decode(await Settings.GetAsync(RememberedMapSetup.StorageKey)));
 
+		// Only now may the preview's reports count as the rider moving it. Set whether or not there
+		// was a camera to restore: a device that stored none still wants the first pan kept.
+		_previewRestored = true;
+
 		// Adopted here rather than left to the Changed handler. LoadAsync only raises when it was
 		// the read that resolved the value — a rider arriving from another screen that already
 		// read the device gets no event at all, and this form would open on the default while the
@@ -607,6 +719,53 @@
 		_template = draft.TileTemplate ?? string.Empty;
 		_attribution = draft.TileAttribution ?? string.Empty;
 		_maxZoom = draft.TileMaxZoom;
+
+		if (draft.PreviewCamera is not { } camera)
+		{
+			return;
+		}
+
+		// The only assignment to _preview there is — see the field. RideMap has already opened on the
+		// world by now, and it handles a camera that arrives after its first render: the parameter
+		// change is pushed at the base map, which is the one move this restore needs.
+		_preview = camera;
+		_previewNow = camera;
+		_previewSaved = camera;
+	}
+
+	/// <summary>
+	/// The preview reported a new view — a pan, a pinch, or the base map settling after it opened.
+	/// Held, and let through to the device at most every <see cref="PreviewSaveInterval"/>.
+	/// </summary>
+	/// <param name="viewport">Where the base map is now looking.</param>
+	private Task OnPreviewMovedAsync(MapViewport viewport)
+	{
+		// A viewport with no canvas is a map that has not laid out yet, and its centre is not a place.
+		// And nothing is written before the stored camera has been read — see _previewRestored.
+		if (!_previewRestored || viewport is not { CanvasWidthPx: > 0 })
+		{
+			return Task.CompletedTask;
+		}
+
+		MapCamera? moved = RememberedMapSetup.NormalisedCamera(
+			new MapCamera(viewport.CentreLatitude, viewport.CentreLongitude, viewport.ZoomLevel));
+
+		if (moved is null || moved == _previewSaved)
+		{
+			return Task.CompletedTask;
+		}
+
+		_previewNow = moved;
+
+		DateTimeOffset stamp = Clock.GetUtcNow();
+
+		if (stamp - _lastPreviewSaveUtc < PreviewSaveInterval)
+		{
+			return Task.CompletedTask;
+		}
+
+		_lastPreviewSaveUtc = stamp;
+		return RememberAsync();
 	}
 
 	/// <summary>
@@ -621,13 +780,21 @@
 	/// Whatever is there is kept, finished or not — see <see cref="RememberedMapSetup"/>. An empty
 	/// form removes the key rather than storing three blanks.
 	/// </para>
+	/// <para>
+	/// The preview camera rides along with it. One key holds the whole screen's memory, so a rider
+	/// who pans the map and then types a URL writes both at once rather than racing two keys — and a
+	/// blur that saves a tile server also banks whatever panning the throttle was still holding.
+	/// </para>
 	/// </summary>
 	private async Task RememberAsync()
 	{
 		RememberedMapSetup draft = new(
 			_template.Trim(),
 			_attribution.Trim(),
-			_maxZoom);
+			_maxZoom,
+			_previewNow);
+
+		_previewSaved = draft.PreviewCamera;
 
 		if (draft.IsEmpty)
 		{
@@ -845,10 +1012,23 @@
 		}
 	}
 
-	public void Dispose()
+	/// <summary>
+	/// Unhooks, and writes whatever the throttle was still holding.
+	/// <para>
+	/// This is what makes <see cref="PreviewSaveInterval"/> a throttle rather than a way of losing
+	/// the last pan: leaving the screen is the commonest thing a rider does immediately after moving
+	/// the preview, and it is exactly the moment the held value would otherwise go.
+	/// </para>
+	/// </summary>
+	public async ValueTask DisposeAsync()
 	{
 		MapSources.Changed -= OnSourceChanged;
 		Packs.Changed -= OnPacksChanged;
+
+		if (_previewNow != _previewSaved)
+		{
+			await RememberAsync();
+		}
 	}
 }
 
@@ -865,17 +1045,35 @@
 		margin-top: 1rem;
 	}
 
-	/* The packs on offer: a search box and the dropdown under it, both full width. One line
-	   whatever the catalogue holds — which is the point, since this list is meant to grow past
-	   what a phone screen can show without burying the source radios and the preview below. */
+	/* The packs on offer: country, then the area within it, each a search box and a dropdown and
+	   each full width. Two lines whatever the catalogue holds — which is the point, since this
+	   list is meant to grow past what a phone screen can show without burying the source radios
+	   and the preview below. */
 	.map-settings .picker {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.9rem;
 		margin: 0.75rem 0 0.75rem;
 	}
 
-	.map-settings .picker .search,
+	/* One question and the controls that answer it, held together so the gap between country and
+	   area is wider than the gap between a search box and the dropdown it filters. */
+	.map-settings .picker .field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.map-settings .picker .field-label {
+		font-size: 0.85rem;
+		color: var(--dlr-fg-muted);
+	}
+
+	.map-settings .picker .field .hint {
+		margin: 0;
+	}
+
+	.map-settings .picker .regions,
 	.map-settings .picker .offers {
 		width: 100%;
 		/* The same 44 px target as everything else pressed in a hurry. A select is a tap that opens

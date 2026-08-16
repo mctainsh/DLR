@@ -66,7 +66,8 @@ public sealed class MapPackState
 	public string? Status { get; private set; }
 
 	/// <summary>
-	/// What the catalogue offers, alphabetically. Empty until <see cref="LoadCatalogueAsync"/> has
+	/// What the catalogue offers, by country and then alphabetically within it — the order the
+	/// settings screen's two dropdowns read in. Empty until <see cref="LoadCatalogueAsync"/> has
 	/// answered, and empty again if it could not — in which case <see cref="CatalogueProblem"/> says
 	/// why.
 	/// </summary>

@@ -14,6 +14,11 @@ namespace BlazorDLR.Shared.Services;
 /// </summary>
 /// <param name="Id">The pack's slug, and what it is called on the device.</param>
 /// <param name="Name">What a rider reads.</param>
+/// <param name="Region">
+/// The country this pack belongs to, resolved. Never blank, unlike
+/// <see cref="MapPackSummary.Region"/> — the screen groups every offer under one of these, so an
+/// entry with nowhere to go would be an entry nobody can reach. See <see cref="RegionFor"/>.
+/// </param>
 /// <param name="Version">The catalogue's build number for this extract.</param>
 /// <param name="SizeBytes">How much of the phone it will take.</param>
 /// <param name="Sha256">The published checksum, lowercase hex, or <c>null</c> when the entry carried none.</param>
@@ -21,6 +26,7 @@ namespace BlazorDLR.Shared.Services;
 public sealed record MapPackOffer(
 	string Id,
 	string Name,
+	string Region,
 	int Version,
 	long SizeBytes,
 	string? Sha256,
@@ -107,6 +113,43 @@ public sealed class MapPackCatalogue : IDisposable
 	/// </summary>
 	private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+	/// <summary>
+	/// What to call a pack whose entry carries no region, keyed on the first segment of its id.
+	/// <para>
+	/// <strong>A fallback for old data, and not a second source of truth.</strong> The publisher
+	/// states the region — see <see cref="MapPackSummary.Region"/> for why it is published rather than
+	/// derived — but the catalogue on the host today predates the field, and that is the one riders
+	/// are fetching from until it is rebuilt. Without this every one of its two hundred entries lands
+	/// in a single group and the first dropdown is a control with one option in it.
+	/// </para>
+	/// <para>
+	/// Coarser than what is published, deliberately: this maps a slug prefix to the largest thing that
+	/// prefix is certainly inside, so <c>as-turkey</c> becoming Asia is a true statement that ages
+	/// well. Guessing Turkiye from it would be this file trying to be the pack table, which is the
+	/// thing the published field exists to avoid.
+	/// </para>
+	/// </summary>
+	private static readonly Dictionary<string, string> RegionByIdPrefix = new(StringComparer.Ordinal)
+	{
+		["au"] = "Australia",
+		["oc"] = "Oceania",
+		["as"] = "Asia",
+		["cn"] = "China",
+		["mn"] = "Mongolia",
+		["in"] = "India",
+		["ru"] = "Russia",
+		["eu"] = "Europe",
+		["af"] = "Africa",
+		["na"] = "North America",
+		["sa"] = "South America",
+	};
+
+	/// <summary>
+	/// Where a pack with no region of its own is filed. Last, because the screen sorts regions
+	/// alphabetically and a bucket of leftovers is not what anybody is scrolling for.
+	/// </summary>
+	public const string UnknownRegion = "Other maps";
+
 	private readonly HttpClient _http;
 
 	/// <summary>
@@ -125,6 +168,27 @@ public sealed class MapPackCatalogue : IDisposable
 
 	/// <summary>Where this reads from. Also the base a relative pack URL is resolved against.</summary>
 	public Uri Address { get; }
+
+	/// <summary>
+	/// The country to file <paramref name="entry"/> under: what it says, or the best that can be said
+	/// about its id when it says nothing.
+	/// <para>
+	/// Never blank. The settings screen shows every offer under a region, so an entry with no region
+	/// is not a row without a heading — it is a row nobody can reach, which is worse than filing it
+	/// under <see cref="UnknownRegion"/> and letting the search find it.
+	/// </para>
+	/// </summary>
+	/// <param name="entry">The catalogue entry as published.</param>
+	public static string RegionFor(MapPackSummary entry)
+	{
+		if (!string.IsNullOrWhiteSpace(entry.Region))
+			return entry.Region.Trim();
+
+		int separator = entry.Id.IndexOf('-');
+		string prefix = separator > 0 ? entry.Id[..separator] : entry.Id;
+
+		return RegionByIdPrefix.TryGetValue(prefix, out string? region) ? region : UnknownRegion;
+	}
 
 	/// <summary>
 	/// Whether <paramref name="url"/> is cleartext this app is allowed to fetch — <c>http://</c> on
@@ -256,15 +320,26 @@ public sealed class MapPackCatalogue : IDisposable
 			offers.Add(new MapPackOffer(
 				entry.Id,
 				string.IsNullOrWhiteSpace(entry.Name) ? entry.Id : entry.Name.Trim(),
+				RegionFor(entry),
 				Math.Max(entry.Version, 1),
 				Math.Max(entry.SizeBytes, 0),
 				string.IsNullOrWhiteSpace(entry.Sha256) ? null : entry.Sha256.Trim(),
 				url));
 		}
 
-		// Alphabetical by what the rider reads. The catalogue's own order is the order the extracts
-		// were built in, which means nothing to anybody looking for their state in a list.
-		offers.Sort((left, right) => string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase));
+		// Alphabetical by what the rider reads, country first. The catalogue's own order is the order
+		// the extracts were built in, which means nothing to anybody looking for their state in a list.
+		//
+		// Sorted here rather than on the screen because both dropdowns read from this one list, and a
+		// screen that re-sorts a copy for each of them is two orderings that can drift apart. What the
+		// screen does decide is where the leftovers go — see MapSettings' RegionsOnOffer.
+		offers.Sort((left, right) =>
+		{
+			int byRegion = string.Compare(left.Region, right.Region, StringComparison.OrdinalIgnoreCase);
+			return byRegion != 0
+				? byRegion
+				: string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase);
+		});
 
 		return offers;
 	}
