@@ -56,13 +56,29 @@ namespace BlazorDLR.Shared.Services;
 /// has always drawn.
 /// </para>
 /// </param>
+/// <param name="Neighbours">
+/// Whether the panel naming the riders immediately ahead and behind on the route was on (§5.4).
+/// <para>
+/// Carried across rides like the two above it, and for the same reason: whether a rider wants the
+/// group's shape on screen is how they like to be ridden with, not a fact about one ride's ground.
+/// </para>
+/// <para>
+/// <strong>Defaulted to on, which is the one field here whose missing value is not "off".</strong>
+/// The other two are modes that move the map under the rider, so a build that never wrote them
+/// should not surprise a device by starting one. This is a read-out that covers a corner of the
+/// map and takes no tap, and a panel nobody knows exists is a panel nobody turns on — so a device
+/// that has never expressed a preference gets it, and the menu is how it goes away. See
+/// <see cref="Decode"/>, which reads an absent field as <c>true</c> rather than as <c>false</c>.
+/// </para>
+/// </param>
 public sealed record LiveMapView(
 	Guid RideId,
 	double Latitude,
 	double Longitude,
 	double ZoomLevel,
 	bool FollowMe,
-	bool HeadingUp = false)
+	bool HeadingUp = false,
+	bool Neighbours = true)
 {
 	/// <summary>
 	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.route-style</c> and
@@ -134,6 +150,7 @@ public sealed record LiveMapView(
 			safe.ZoomLevel.ToString("0.##", CultureInfo.InvariantCulture),
 			safe.FollowMe ? "1" : "0",
 			safe.HeadingUp ? "1" : "0",
+			safe.Neighbours ? "1" : "0",
 		]);
 	}
 
@@ -151,6 +168,13 @@ public sealed record LiveMapView(
 	/// build that has never heard of it, and a value written by an older build reads as its default
 	/// here — so a rider moving between the two loses a preference at worst, rather than the whole
 	/// camera. A field whose <em>meaning</em> changed would need the version, which is what it is for.
+	/// </para>
+	/// <para>
+	/// <strong>"Absent" is read as each field's own default, and they are not all the same default.</strong>
+	/// <see cref="HeadingUp"/> reads back as <c>false</c> because north-up is what the build that
+	/// wrote the short value always drew. <see cref="Neighbours"/> reads back as <c>true</c> because
+	/// a device that has never been asked has not said no — see that field for why a read-out is not
+	/// treated like a mode.
 	/// </para>
 	/// </summary>
 	/// <param name="encoded">A string from <see cref="Encode"/>, or <c>null</c> on a device that has never stored one.</param>
@@ -182,6 +206,7 @@ public sealed record LiveMapView(
 			longitude,
 			zoom,
 			FollowMe: parts[5] == "1",
-			HeadingUp: parts.Length > 6 && parts[6] == "1").Normalised();
+			HeadingUp: parts.Length > 6 && parts[6] == "1",
+			Neighbours: parts.Length <= 7 || parts[7] == "1").Normalised();
 	}
 }

@@ -4,6 +4,7 @@
 @using BlazorDLR.Shared.Markers
 @using DLR.Core.Contracts.Markers
 @using DLR.Core.Contracts.Rides
+@using DLR.Core.Tracks
 @inject IApiClient Api
 @inject IRideHubClient Hub
 @inject AuthState Auth
@@ -12,6 +13,7 @@
 @inject IServiceProvider Services
 @inject NavigationManager Nav
 @inject RideSnapshotCache Cache
+@inject RouteStyleState RouteStyles
 @inject IScreenWakeLock ScreenWakeLock
 @inject IDeviceSettings Settings
 @inject TimeProvider Clock
@@ -191,6 +193,27 @@
 			<div class="mode-toast @(_placingMarker ? "raised" : null)" role="status" aria-live="polite">@toast</div>
 		}
 
+		@*
+			Who is just up the road and just behind (§5.4), down the free edge of the map.
+
+			The one thing on this screen that is read rather than acted on and still earns space
+			over the map, and the reason is what "the map is the page" is for: a rider looking at
+			their own pin among four others cannot tell a group that is together from one that is
+			strung out over two kilometres, because the map has no scale they are reading at speed.
+			This is that answer in numbers, and it is the question the whole ride turns on.
+
+			Everything else that reads rather than acts is one tap away under "Info" and the members
+			screen, which is where a rider goes at a stop. This is for the ones taken while moving.
+
+			Off by a menu item rather than permanent: it covers a strip of map, and a rider on a
+			ride with no route or on their own has nothing to read in it. Empty renders nothing at
+			all — see NeighbourPanel.
+		*@
+		@if (_showNeighbours)
+		{
+			<NeighbourPanel Rows="_neighbours" />
+		}
+
 		@* Catches the tap that dismisses the menu. It covers the map and nothing else — over
 		   the nav rail too and a tap meant for Home would only close a menu. *@
 		@if (_menuOpen)
@@ -287,7 +310,7 @@
 						moment it leaves north, and it turns the map back when tapped. A second
 						control for one bearing is a second thing to disagree with it.
 					*@
-					<button type="button" role="menuitemcheckbox" class="@(_headingUp ? "checked" : null)"
+					<button type="button" role="menuitemcheckbox" class="heading-up @(_headingUp ? "checked" : null)"
 							aria-checked="@(_headingUp ? "true" : "false")"
 							@onclick="ToggleHeadingUpAsync">
 						<i class="fa fa-fw @(_headingUp ? "fa-compass" : "fa-location-arrow")" aria-hidden="true"></i>
@@ -295,6 +318,29 @@
 						@if (_headingUp)
 						{
 							<span class="quiet">@(MyHeadingDeg is null ? "waiting for a heading" : "on")</span>
+						}
+					</button>
+
+					@*
+						The panel down the left edge naming who is just ahead and just behind (§5.4).
+
+						A menuitemcheckbox for the same reason heading-up is one: it is a thing that
+						stays on after the menu has closed over it. It gets no dot on the hamburger
+						though — the panel is its own indicator, on screen and unmistakable, and a
+						second one would be the one that goes stale.
+
+						It says out loud when it can have nothing to show. "Along the route" needs a
+						route, and a rider who turns this on for a ride that has none would otherwise
+						be looking at an empty edge of map wondering which of the two failed.
+					*@
+					<button type="button" role="menuitemcheckbox" class="neighbours @(_showNeighbours ? "checked" : null)"
+							aria-checked="@(_showNeighbours ? "true" : "false")"
+							@onclick="ToggleNeighboursAsync">
+						<i class="fa fa-fw fa-people-group" aria-hidden="true"></i>
+						Nearby riders
+						@if (_showNeighbours && _session.RoutePolyline is null)
+						{
+							<span class="quiet">needs a route</span>
 						}
 					</button>
 
@@ -593,6 +639,33 @@
 	private bool _showConsent;
 
 	/// <summary>
+	/// Whether the panel naming the riders immediately ahead and behind is on screen (§5.4).
+	/// <para>
+	/// <strong>On unless the rider has turned it off</strong>, which is the opposite default from the
+	/// two camera modes and deliberately so: those move the map under somebody who did not ask, and
+	/// this covers a corner of it and takes no tap. A read-out nobody knows exists is one nobody
+	/// turns on. See <see cref="LiveMapView.Neighbours"/>, which is where the default lives for a
+	/// device that has never expressed a preference.
+	/// </para>
+	/// <para>
+	/// Persisted with the view and carried across rides, like following and heading-up: whether a
+	/// rider wants the group's shape on screen is a standing preference, not a fact about one ride.
+	/// </para>
+	/// </summary>
+	private bool _showNeighbours = true;
+
+	/// <summary>
+	/// The rows that panel draws, rebuilt when something moves rather than per render.
+	/// <para>
+	/// Deriving them costs one projection onto the route per member (§5.4), and this page renders
+	/// several times a second on a phone that is sharing — most of those for reasons that cannot have
+	/// changed anybody's place on the road. So it is rebuilt exactly where the map layer is, from the
+	/// two events that can move a rider: a position batch, and this device's own fix.
+	/// </para>
+	/// </summary>
+	private IReadOnlyList<NeighbourRow> _neighbours = [];
+
+	/// <summary>
 	/// Whether this page is currently one of the screen lock's holders (§4.3), so it releases
 	/// exactly what it took and no more. See <see cref="HoldScreenAsync"/>.
 	/// </summary>
@@ -830,6 +903,47 @@
 	}
 
 	/// <summary>
+	/// The line §5.4 projects riders against, the way round this device reads it.
+	/// <para>
+	/// The same derivation the members screen and the info page's gap list use, and it has to be:
+	/// reversing a route changes which end "distance along" is measured from, so a panel ranked off
+	/// the stored order while the overlay draws its chevrons the other way would put the rider off
+	/// the front at the bottom of the list.
+	/// </para>
+	/// </summary>
+	private IReadOnlyList<TrackPoint>? GapRoute
+	{
+		get
+		{
+			if (_session.RoutePolyline is not { } line)
+			{
+				return null;
+			}
+
+			// Routes[0] is the route RoutePolyline was derived from — see RideSession.ApplyRoutes.
+			return _session.Routes.Count > 0 && RouteStyles.IsReversed(_session.Routes[0].TrackId)
+				? [.. line.Reverse()]
+				: line;
+		}
+	}
+
+	/// <summary>
+	/// Where this rider is along the planned route, or null when that cannot be answered — no route,
+	/// or no fix of this device's own yet.
+	/// <para>
+	/// Projected from <see cref="MyPoint"/> rather than read off the ride's copy of this rider, and
+	/// the distinction is the whole value of the panel: on a phone the ride's copy is this fix after
+	/// a round trip (§4.2, §5.3), so measuring everybody else from it would show the group drifting
+	/// forward past a rider holding a steady wheel. Every gap in the panel is a difference against
+	/// this number, so it is the one that has to be current.
+	/// </para>
+	/// </summary>
+	private double? MyAlongMetres =>
+		GapRoute is { } line && MyPoint is { } me
+			? GapCalculator.Project(line, new TrackPoint(me.Latitude, me.Longitude))?.AlongMetres
+			: null;
+
+	/// <summary>
 	/// This device drawn as itself (§4.3), or null when there is no fix of its own to draw — the
 	/// web, a receiver that is off or still warming up, or a fix inside the private area.
 	/// <para>
@@ -897,6 +1011,12 @@
 			areas.Changed += OnPrivateAreaChanged;
 			RebuildPrivateAreaLayer();
 		}
+
+		// A route reversed on the info page while this page is still mounted turns the neighbours
+		// panel end for end (see GapRoute), and RouteStyleState is scoped, so it is the same
+		// instance that page wrote to. This is also the event LoadAsync fires once the device's
+		// stored style has been read, which is what fills the panel on a first render.
+		RouteStyles.Changed += OnRouteStyleChanged;
 	}
 
 	/// <summary>
@@ -922,6 +1042,11 @@
 		{
 			await areas.LoadAsync();
 		}
+
+		// Which way round this device reads the ride's route, which is what decides who the
+		// neighbours panel calls "ahead". Idempotent, and the map overlay inside RideMap asks for
+		// the same read — whichever of the two arrives first pays for it.
+		await RouteStyles.LoadAsync();
 
 		await RestoreViewAsync();
 		await HoldScreenAsync();
@@ -989,6 +1114,17 @@
 	}
 
 	/// <summary>
+	/// The device's route style moved — which, for this page, means a route may have been turned
+	/// end for end. The overlay redraws itself off the same event; this is the half of it the
+	/// neighbours panel depends on, since reversing a line swaps who is ahead of whom.
+	/// </summary>
+	private void OnRouteStyleChanged()
+	{
+		RebuildNeighbours();
+		_ = InvokeAsync(StateHasChanged);
+	}
+
+	/// <summary>
 	/// Projects the device's area into the overlay's circle list. A fresh list is what tells the
 	/// canvas to repaint, so this runs on change rather than per render — the live map already
 	/// repaints about once a second on positions alone.
@@ -1036,6 +1172,10 @@
 		_placingMarker = false;
 		// "Following off — you moved the map" is about a map that is no longer on screen.
 		_toast = null;
+		// One ride's riders and one ride's gaps. The load below refills it; leaving the old ride's
+		// names on the edge of the new ride's map for the length of a round trip would be worse than
+		// an empty edge, because every one of them is a claim about where somebody is right now.
+		_neighbours = [];
 
 		await _session.LoadAsync(RideId);
 
@@ -1115,6 +1255,33 @@
 	{
 		_menuOpen = false;
 		_showMarkers = true;
+	}
+
+	/// <summary>
+	/// Puts the "who is around me" panel on the map, or takes it off (§5.4).
+	/// <para>
+	/// <strong>No toast, unlike the two modes below the same rule.</strong> Those change what the map
+	/// does <em>after</em> the tap that set them, which is why a rider who has forgotten one is on
+	/// reads the map moving by itself as a fault — the sentence is what pays for that. This one is
+	/// visible the instant the menu closes over it: it is either there or it is not, and announcing
+	/// a panel that is already on screen is one more thing to read while riding.
+	/// </para>
+	/// <para>
+	/// Persisted immediately rather than at the throttle's convenience, on the same footing as the
+	/// other two toggles: it is a deliberate choice, not a by-product of a drag.
+	/// </para>
+	/// </summary>
+	private async Task ToggleNeighboursAsync()
+	{
+		_menuOpen = false;
+		_showNeighbours = !_showNeighbours;
+
+		// Switching it on has to fill it now. The rebuild otherwise waits on the next position batch,
+		// which on a ride nobody is moving in — a group at the meeting point — is a panel that stays
+		// empty for as long as the rider is prepared to look at it.
+		RebuildNeighbours();
+
+		await RememberViewAsync(now: true);
 	}
 
 	/// <summary>
@@ -1588,6 +1755,11 @@
 		_followMe = stored.FollowMe;
 		_headingUp = stored.HeadingUp;
 
+		// Carried across rides like the two above it. A device that has never chosen reads back as
+		// on — see LiveMapView.Neighbours — so this is only ever a rider's own "no" arriving.
+		_showNeighbours = stored.Neighbours;
+		RebuildNeighbours();
+
 		if (stored.IsFor(RideId))
 		{
 			_camera = stored.ToCamera();
@@ -1621,8 +1793,8 @@
 		}
 
 		LiveMapView? view = (_mapViewport is { CanvasWidthPx: > 0 } vp
-			? new LiveMapView(_session.RideId, vp.CentreLatitude, vp.CentreLongitude, vp.ZoomLevel, _followMe, _headingUp)
-			: new LiveMapView(_session.RideId, _camera.Latitude, _camera.Longitude, _camera.ZoomLevel, _followMe, _headingUp))
+			? new LiveMapView(_session.RideId, vp.CentreLatitude, vp.CentreLongitude, vp.ZoomLevel, _followMe, _headingUp, _showNeighbours)
+			: new LiveMapView(_session.RideId, _camera.Latitude, _camera.Longitude, _camera.ZoomLevel, _followMe, _headingUp, _showNeighbours))
 			.Normalised();
 
 		if (view is null || view == _savedView)
@@ -1858,6 +2030,48 @@
 			// the map to find.
 			_markerLayer[self.Id] = self;
 		}
+
+		// Same inputs, a different projection of them: the pins say where everybody is and the panel
+		// says how far up the road that is. Here rather than on its own event, because the two things
+		// that move a pin are the only two that can move a gap.
+		RebuildNeighbours();
+	}
+
+	/// <summary>
+	/// Works out who is immediately ahead and immediately behind this rider on the route (§5.4).
+	/// <para>
+	/// The whole list is derived first and then narrowed, rather than the ride's positions being
+	/// projected here: <see cref="MemberRoster"/> already settles the projection, the three presence
+	/// states and the colour every rider is drawn in, and settling any of those a second time is how
+	/// this panel and the members screen would start naming different leaders.
+	/// </para>
+	/// <para>
+	/// The reader's own place on the route is handed in separately — see <see cref="MyAlongMetres"/>
+	/// for why the ride's round-tripped copy of this phone's own fix is not good enough to measure
+	/// everybody else against.
+	/// </para>
+	/// </summary>
+	private void RebuildNeighbours()
+	{
+		if (!_showNeighbours || _session.Ride is not { } ride)
+		{
+			// Nothing on screen to fill, so nothing is spent filling it. Toggling the panel back on
+			// rebuilds — see ToggleNeighboursAsync.
+			_neighbours = [];
+			return;
+		}
+
+		_neighbours = NeighbourList.Nearest(
+			MemberRoster.Build(
+				ride.Members,
+				_session.Positions,
+				GapRoute,
+				MyPoint,
+				Auth.UserId,
+				Clock.GetUtcNow(),
+				MemberSort.AlongRoute),
+			Auth.UserId,
+			MyAlongMetres);
 	}
 
 	// -- Markers ------------------------------------------------------------------------------
@@ -1915,6 +2129,8 @@
 		{
 			areas.Changed -= OnPrivateAreaChanged;
 		}
+
+		RouteStyles.Changed -= OnRouteStyleChanged;
 
 		// The screen goes back to the rider's own timeout. First, because everything below it can
 		// await the network — and a page that has left the screen should not be holding the device

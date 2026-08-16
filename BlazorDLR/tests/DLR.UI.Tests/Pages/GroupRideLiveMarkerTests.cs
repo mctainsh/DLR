@@ -750,7 +750,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		// Heading up, which brings following with it — one tap sets both.
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
-		await component.InvokeAsync(() => component.Find("[role=menuitemcheckbox]").Click());
+		await component.InvokeAsync(() => component.Find("[role=menuitemcheckbox].heading-up").Click());
 
 		component.WaitForAssertion(() =>
 		{

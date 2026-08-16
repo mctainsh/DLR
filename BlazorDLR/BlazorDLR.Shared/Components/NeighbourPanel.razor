@@ -1,0 +1,182 @@
+@*
+	Who is just up the road and just behind, over the live map (§5.4).
+
+	The one question a rider asks a group-ride app while actually moving. Everything else on
+	this screen is read at a stop; this is read at 40 km/h out of the corner of an eye, which
+	is what every decision below follows from.
+
+	**Translucent panel, solid text.** The map is the page — a rider covering a strip of it
+	with an opaque card has hidden the thing they came for, and the ground under this panel is
+	behind them or ahead of them and worth seeing. The text is not translucent with it: a name
+	at 55% over a satellite tile is unreadable, and a panel nobody can read is an opaque one
+	that also failed. So the surface is see-through and the type on it is not.
+
+	**It never takes a tap.** `pointer-events: none` on the whole thing, so a pan that starts
+	on it reaches the base map like a pan starting anywhere else. It is a read-out, not a
+	control; the way to be rid of it is the hamburger, which is what put it there.
+
+	**Road order, leader at the top.** The rows are in the order the riders are actually in on
+	the route, so a rider off the front finds themselves at the top of the panel and one off
+	the back finds themselves at the bottom — the shape of it answers "am I ahead or behind"
+	before a single number has been read. NeighbourList is what settles that; this is layout.
+
+	**The swatch is never the whole of an answer.** It matches the rider's pin on the map
+	(§16.3), which is what makes the panel and the map name the same person the same way — but
+	colour through a visor in daylight is the first thing to go, so the name is beside it in
+	words and the gap is in words too.
+*@
+
+@if (Rows.Count > 0)
+{
+	<aside class="live-neighbours" aria-label="Riders nearest you along the route">
+		<ul>
+			@foreach (NeighbourRow row in Rows)
+			{
+				<li class="@(row.IsSelf ? "self" : null)">
+					<span class="swatch" style="background: @row.Colour" aria-hidden="true"></span>
+					<span class="name">@row.UserName</span>
+					<span class="gap">
+						@if (row.IsSelf)
+						{
+							@* The point everything else is measured from says so rather than
+							   reporting "level" with itself, which is arithmetic rather than news. *@
+							<span class="you">you</span>
+						}
+						else if (row.Presence == MemberPresence.NoSignal)
+						{
+							@*
+								Their pin is still on the map and it stopped moving (§5.6). The number
+								is still the best answer there is — it is where they were — but a gap
+								that has quietly frozen is exactly the thing that must not be read as
+								a gap that is holding steady, so it says which it is.
+							*@
+							<span class="stale" title="No signal — this is where they were">
+								@NeighbourList.FormatRelative(row.RelativeMetres)
+							</span>
+						}
+						else
+						{
+							@NeighbourList.FormatRelative(row.RelativeMetres)
+						}
+					</span>
+				</li>
+			}
+		</ul>
+	</aside>
+}
+
+@code {
+	/// <summary>
+	/// The riders to draw, road order, from <see cref="NeighbourList.Nearest"/>. An empty list
+	/// renders nothing at all — a panel saying it has nothing to say is a panel covering the map
+	/// for no reason.
+	/// </summary>
+	[Parameter, EditorRequired] public IReadOnlyList<NeighbourRow> Rows { get; set; } = [];
+}
+
+<style>
+	/*
+		Down the left edge, vertically centred.
+
+		Absolute inside the live page's .page-full rather than fixed, so it lands inside the
+		content area on both rail placements without restating the rail's geometry — the same
+		arrangement .chrome uses on the opposite edge.
+
+		The left edge is the one that is free. The top-right carries the hamburger and the follow
+		button, the top-left the base map's compass, the bottom the placing strip and the mode
+		toast. Centring vertically keeps a five-row panel clear of the compass above it and of
+		the strips below, at every phone height, without any of them having to know it is here.
+
+		--dlr-safe-left and not env(safe-area-inset-left): iOS reports a side inset on BOTH edges
+		in landscape whichever edge the cutout is on, and the raw value would float this a
+		cutout's width in from an edge that has no cutout (app.css).
+	*/
+	.live-neighbours {
+		position: absolute;
+		top: 50%;
+		left: max(var(--dlr-map-control-inset), var(--dlr-safe-left));
+		transform: translateY(-50%);
+		/* Under the menu backdrop (19) and the strips (18), over the map. Nothing here is
+		   interactive, so being covered costs the rider nothing. */
+		z-index: 16;
+		/* A read-out, not a control: a pan that starts here reaches the map. */
+		pointer-events: none;
+		width: max-content;
+		max-width: min(13rem, 45vw);
+		padding: 0.35rem 0.5rem;
+		/* See-through to the ground, because the map is the page. The border is what keeps the
+		   panel's shape legible over a light tile — over dark ones the fill does it. */
+		background: rgba(15, 23, 42, 0.55);
+		border: 1px solid rgba(226, 232, 240, 0.2);
+		border-radius: 8px;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+		/* Where it is supported, this is what lets the fill stay this light: the tiles under the
+		   panel stop competing with the type. Where it is not, the fill alone still carries it. */
+		backdrop-filter: blur(2px);
+	}
+
+	.live-neighbours ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.live-neighbours li {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.12rem 0;
+		font-size: 0.8rem;
+		/* Solid, over a surface that is not. The shadow is what carries a name across the seam
+		   between a dark tile and a bright one without the fill having to be opaque. */
+		color: var(--dlr-fg);
+		text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+	}
+
+	/*
+		The reader's own row. A left edge and a weight rather than a background — the same
+		treatment the members list gives it — because a filled row on a panel this small reads as
+		a selection, and nobody selected anything.
+	*/
+	.live-neighbours li.self {
+		font-weight: 700;
+		border-left: 3px solid var(--dlr-accent);
+		margin-left: -0.5rem;
+		padding-left: calc(0.5rem - 3px);
+	}
+
+	/* The colour their pin is drawn in (§16.3). Bordered, so a rider whose colour is close to
+	   the tiles underneath still has a square rather than a smudge. */
+	.live-neighbours .swatch {
+		flex: 0 0 auto;
+		width: 0.85rem;
+		height: 0.85rem;
+		border: 1px solid #000000a0;
+		border-radius: 3px;
+	}
+
+	.live-neighbours .name {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* Tabular figures: the numbers change every few seconds, and a column that reflowed as
+	   "990 m" became "1.0 km" would be unreadable at the speed this is read at. */
+	.live-neighbours .gap {
+		flex: 0 0 auto;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.live-neighbours .you {
+		color: var(--dlr-accent-fg);
+		opacity: 0.75;
+	}
+
+	/* A frozen gap, marked as frozen (§5.6). */
+	.live-neighbours .stale {
+		color: var(--dlr-error);
+	}
+</style>

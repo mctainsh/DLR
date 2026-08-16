@@ -184,8 +184,9 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// Flips the map between north-up and heading-up — the one mode still set from inside
-	/// the menu. Selected by its role rather than by its words, because its words are the state it
-	/// is in.
+	/// the menu. Selected by its role and its class rather than by its words, because its words are
+	/// the state it is in; the class is what tells it from the neighbours panel's switch, which is
+	/// the menu's other checkbox and not a mode of the map at all.
 	/// </summary>
 	private static async Task ChooseMapOrientationAsync(IRenderedComponent<GroupRideLive> component)
 	{
@@ -195,7 +196,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
 
-		await component.InvokeAsync(() => component.Find("[role=menuitemcheckbox]").Click());
+		await component.InvokeAsync(() => component.Find("[role=menuitemcheckbox].heading-up").Click());
 	}
 
 	/// <summary>
@@ -985,9 +986,9 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
 
 		component.Find(".menu").TextContent.ShouldContain("North up");
-		component.FindAll("[role=menuitemcheckbox]").Count.ShouldBe(1,
+		component.FindAll("[role=menuitemcheckbox].heading-up").Count.ShouldBe(1,
 			"it is a mode that outlives the menu rather than a one-shot action — the role has to " +
-			"say so — and it is the only one left in here now that following has a button.");
+			"say so — and it is the only *mode* left in here now that following has a button.");
 	}
 
 	/// <summary>
