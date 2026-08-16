@@ -275,15 +275,22 @@ public sealed class GroupRideInfoTests : PageTestContext
 	}
 
 	[Fact]
-	public async Task MemberJoined_AppearsInTheMemberList()
+	public async Task TheMemberCount_FollowsTheHub_AndTheNamesAreOneTapAway()
 	{
+		// The list of who is on the ride is its own screen now — "Ride members live", which says
+		// everything this panel used to and four things it did not (see RideMembersLiveTests).
+		// What stays here is the count and the way through: "how many are in" is part of
+		// describing a ride, and it still has to follow §5.3's deltas.
 		(_, FakeRideHubClient hub, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
 		component.WaitForAssertion(() =>
-			component.Markup.Contains("Members", StringComparison.Ordinal).ShouldBeTrue(),
+			component.Find(".members h3").TextContent.ShouldBe("Members (1)"),
 			timeout: TimeSpan.FromSeconds(3));
+
+		component.Find(".members .to-members").GetAttribute("href")
+			.ShouldBe($"/group-rides/{rideId}/members");
 
 		RideMemberSummary alice = new(
 			UserId: Guid.NewGuid(), UserName: "AliceNewJoiner", Role: "Rider",
@@ -291,35 +298,9 @@ public sealed class GroupRideInfoTests : PageTestContext
 		await component.InvokeAsync(() => hub.RaiseMemberJoined(rideId, alice));
 
 		component.WaitForAssertion(() =>
-		{
-			component.Markup.Contains("AliceNewJoiner", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.3: MemberJoined delta adds the member to the visible list without a re-fetch.");
-		}, timeout: TimeSpan.FromSeconds(3));
-	}
-
-	[Fact]
-	public async Task MemberLeft_HubEvent_RemovesTheMemberFromTheList()
-	{
-		Guid other = Guid.NewGuid();
-		(_, FakeRideHubClient hub, Guid rideId) = WireServices(members: new[]
-		{
-			new RideMemberSummary(Guid.NewGuid(), "Me", "Organiser", FixedInstant, false, false),
-			new RideMemberSummary(other, "Bob", "Rider", FixedInstant, true, true),
-		});
-
-		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
-
-		component.WaitForAssertion(() =>
-			component.Markup.Contains("Bob", StringComparison.Ordinal).ShouldBeTrue(),
+			component.Find(".members h3").TextContent.ShouldBe("Members (2)",
+				customMessage: "§5.3: a MemberJoined delta lands without a re-fetch."),
 			timeout: TimeSpan.FromSeconds(3));
-
-		await component.InvokeAsync(() => hub.RaiseMemberLeft(rideId, other));
-
-		component.WaitForAssertion(() =>
-		{
-			component.Markup.Contains("Bob", StringComparison.Ordinal).ShouldBeFalse(
-				"§5.3: MemberLeft removes the member from the list — leaving a stale name is what §5.6 calls 'ghost members'.");
-		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]

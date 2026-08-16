@@ -25,12 +25,18 @@
 	Every anchor keeps its `title` and `aria-label`. The visible label is small and
 	the icon does most of the work, so the accessible name must not depend on it.
 
-	One item is not a fixed destination: the globe is "the ride you are on", and where
-	it points comes from CurrentRideState (§18.6) — the ride last opened on this device,
-	remembered across a restart, or the group rides list when there is not one yet. It
-	took the slot "My rides" used to hold, which is still on the Home screen's cards: a
-	rail is five destinations wide, and mid-ride the one a rider reaches for repeatedly
-	is the ride, not the list of tracks they have recorded.
+	Two items are not fixed destinations, and both come from CurrentRideState (§18.6) —
+	the ride last opened on this device, remembered across a restart, or the group rides
+	list when there is not one yet:
+
+	  - the globe is "the ride you are on", and
+	  - the people are "who is on it", the live rider list.
+
+	The globe took the slot "My rides" used to hold; the people took the one the group
+	rides list used to. Both of those are still on the Home screen's cards, and neither is
+	a thing anybody opens twice in a ride. What a rider does open repeatedly, with a phone
+	in a bar mount and gloves on, is the map and the question of where everybody else has
+	got to — and a rail is five destinations wide.
 *@
 
 <AuthorizeView>
@@ -41,7 +47,7 @@
 		<NavLink class="rail-item" href="@CurrentRide.Href" title="@CurrentRideName" aria-label="@CurrentRideName">
 			<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
 		</NavLink>
-		<NavLink class="rail-item" href="group-rides" title="Group rides" aria-label="Group rides">
+		<NavLink class="rail-item" href="@CurrentRide.MembersHref" title="@MembersName" aria-label="@MembersName">
 			<i class="fa fa-fw fa-users" aria-hidden="true"></i>
 		</NavLink>
 		<NavLink class="rail-item" href="import" title="Import GPX" aria-label="Import GPX">
@@ -65,6 +71,13 @@
 	/// "Current ride" on a device with no ride would be a promise the tap does not keep.
 	/// </summary>
 	private string CurrentRideName => CurrentRide.RideId is null ? "Pick a group ride" : "Current ride";
+
+	/// <summary>
+	/// The same sentence for the rider list, which shares the globe's two destinations. With no
+	/// ride on this device there are no members to list, so it falls back to the same place the
+	/// globe does — and must say so, rather than promising a list and opening a chooser.
+	/// </summary>
+	private string MembersName => CurrentRide.RideId is null ? "Pick a group ride" : "Ride members live";
 
 	protected override void OnInitialized()
 	{

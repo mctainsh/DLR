@@ -73,7 +73,8 @@ public sealed class NavMenuTests : BunitContext
 				"§7.9: the signed-in surface must not appear on an anonymous nav — its links are dead until sign-in.");
 			component.FindAll("a[href='settings']").Count.ShouldBe(0);
 			component.FindAll("a[href='group-rides']").Count.ShouldBe(0,
-				"the globe falls back to the group rides list, so an anonymous rail must not carry that either.");
+				"the globe and the rider list both fall back to the group rides list, so an "
+				+ "anonymous rail must not carry that either.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -135,9 +136,51 @@ public sealed class NavMenuTests : BunitContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
-	/// <summary>The globe, found by its glyph — it is the one rail item whose href moves.</summary>
+	/// <summary>The globe, found by its glyph — one of the two rail items whose href moves.</summary>
 	private static AngleSharp.Dom.IElement Globe(IRenderedComponent<NavMenu> component) =>
 		component.FindAll("a.rail-item").Single(link => link.QuerySelector("i.fa-globe") is not null);
+
+	/// <summary>The rider list, found the same way. It shares the globe's two destinations.</summary>
+	private static AngleSharp.Dom.IElement Members(IRenderedComponent<NavMenu> component) =>
+		component.FindAll("a.rail-item").Single(link => link.QuerySelector("i.fa-users") is not null);
+
+	[Fact]
+	public async Task Members_OnADeviceWithNoRide_LeadsToTheGroupRidesList()
+	{
+		// There are no members to list until a ride has been opened, so the item falls back to
+		// where the globe does — and has to say so rather than promising a list and opening a
+		// chooser.
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement members = Members(component);
+			members.GetAttribute("href").ShouldBe("group-rides");
+			members.GetAttribute("aria-label").ShouldBe("Pick a group ride");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Members_AfterARideWasOpened_LeadsToThatRidesRiderList()
+	{
+		// The slot the group rides list used to hold. That list is still on the Home screen and
+		// is not something anybody opens twice in a ride; "where is everyone" is (§18.6).
+		Guid rideId = Guid.NewGuid();
+		await _settings.SetAsync(CurrentRideState.StorageKey, rideId.ToString("N"));
+
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement members = Members(component);
+			members.GetAttribute("href").ShouldBe($"group-rides/{rideId}/members");
+			members.GetAttribute("aria-label").ShouldBe("Ride members live");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
 
 	[Fact]
 	public async Task Globe_OnADeviceWithNoRide_LeadsToTheGroupRidesList()

@@ -1,0 +1,338 @@
+@using DLR.Core.Contracts.Rides
+@using DLR.Core.Tracks
+@inject TimeProvider Clock
+
+@*
+	Who is on the ride and what their position is doing (§5.3, §5.4, §5.6) — the list behind
+	the "Ride members live" screen.
+
+	It replaces the plain member list that used to sit on the ride's info page. That one
+	carried a name and one of three words; this carries the same three words plus the four
+	numbers a rider actually asks the app for at the side of a road — how old that fix is,
+	how far away they are, how far along the route they have got, and how far back from the
+	leader. Two lists of the same people, one of them a strict subset of the other, is a
+	screen a rider has to visit twice.
+
+	Every row is derived by MemberRoster, which is where the rules and all four orders live —
+	see that file for why they are not in here. This component is layout: a swatch, a name, a
+	state chip and four figures.
+
+	**Three states per member, never two** (§5.6):
+
+	  - Sharing — broadcasting, with a fix fresh enough to believe.
+	  - No signal — broadcasting, but nothing recent is arriving. Their last point is still
+	    on the map, and it is not moving.
+	  - Not sharing — they chose not to. Their pin is not on the map at all.
+
+	Collapsing the last two is exactly the ambiguity that gets somebody left behind at a
+	junction, so the chip says which, and the colour is never the only thing that does.
+*@
+
+<div class="live-members row-list">
+	<div class="head">
+		<h3>Members (@Members.Count)</h3>
+
+		@*
+			The order is a control, not a preference buried somewhere: which question this list
+			answers changes several times over a ride — who has gone quiet, who is nearest, who
+			is off the front — and each of those is one of these.
+
+			A select rather than four buttons. On a phone it is one tap and the platform's own
+			picker, which is a bigger target than anything four buttons could be given in a row
+			this width; and the option that cannot work on a ride with no route can say so by
+			being disabled rather than by silently doing nothing.
+		*@
+		<label class="sort">
+			<span>Sort by</span>
+			<select value="@Sort" @onchange="OnSortChangedAsync" aria-label="Sort riders by">
+				@foreach (MemberSort option in AllSorts)
+				{
+					<option value="@option" disabled="@(option == MemberSort.AlongRoute && !HasRoute)">
+						@MemberRoster.Label(option)
+					</option>
+				}
+			</select>
+		</label>
+	</div>
+
+	@if (Rows.Count == 0)
+	{
+		<p class="empty">Nobody on this ride yet.</p>
+	}
+	else
+	{
+		<ul>
+			@foreach (MemberRow row in Rows)
+			{
+				<li class="@(row.IsSelf ? "self" : null)">
+					@*
+						The colour that rider's marker is drawn in on the map (§16.3), so the list and
+						the map name the same person the same way. It is the only thing on the row
+						that carries no words, which is why it is never the whole of an answer — the
+						state chip beside it is text.
+					*@
+					<span class="swatch" style="background: @row.Colour" aria-hidden="true"></span>
+
+					<div class="who">
+						<strong>@row.UserName</strong>
+						@if (row.IsSelf)
+						{
+							<span class="you">you</span>
+						}
+						@if (row.Role != "Rider" && !string.IsNullOrEmpty(row.Role))
+						{
+							<span class="role">@row.Role</span>
+						}
+						<span class="state @StateClass(row.Presence)">@StateLabel(row.Presence)</span>
+					</div>
+
+					@*
+						The four figures, each labelled. A bare row of numbers is unreadable on a
+						screen this narrow — "340 m" and "4.2 km" are different measurements of
+						different things, and which is which cannot be inferred from the order they
+						happen to be laid out in.
+					*@
+					<dl class="stats">
+						<div class="age">
+							<dt>Last fix</dt>
+							<dd>@MemberRoster.FormatAge(row.FixAge)</dd>
+						</div>
+						<div class="range">
+							<dt>Range</dt>
+							<dd>@MemberRoster.FormatDistance(row.RangeMetres)</dd>
+						</div>
+						<div class="along">
+							<dt>Along</dt>
+							<dd>@MemberRoster.FormatDistance(row.AlongMetres)</dd>
+						</div>
+						<div class="gap">
+							<dt>Gap</dt>
+							<dd>
+								@if (row.IsLeader)
+								{
+									<span class="leader">leader</span>
+								}
+								else
+								{
+									@MemberRoster.FormatDistance(row.GapMetres)
+								}
+							</dd>
+						</div>
+					</dl>
+
+					@if (row.OffRoute)
+					{
+						@* Its own line rather than a fifth figure: it is not a measurement the rider
+						   is comparing against the others, it is a thing that has gone wrong. *@
+						<p class="off">Off route by @MemberRoster.FormatDistance(row.OffMetres)</p>
+					}
+				</li>
+			}
+		</ul>
+	}
+</div>
+
+@code {
+	/// <summary>The ride's members (§5.2). The rows are one per member, sharing or not.</summary>
+	[Parameter, EditorRequired] public IReadOnlyList<RideMemberSummary> Members { get; set; } = [];
+
+	/// <summary>
+	/// Everyone's latest fix, keyed by rider (§5.3), or null for a caller that has none — a list
+	/// rendered before the snapshot's positions land, or off a ride that carries none.
+	/// </summary>
+	[Parameter] public IReadOnlyDictionary<Guid, RiderPositionDto>? Positions { get; set; }
+
+	/// <summary>
+	/// The planned route riders are projected against (§5.4), the way round this device reads it,
+	/// or null when the ride has none. Null empties the two route columns and disables their order.
+	/// </summary>
+	[Parameter] public IReadOnlyList<TrackPoint>? Route { get; set; }
+
+	/// <summary>
+	/// Where the reader is, for the range column, or null when this device does not know — a
+	/// browser with nothing shared, or a phone still waiting on its first fix.
+	/// </summary>
+	[Parameter] public (double Latitude, double Longitude)? From { get; set; }
+
+	/// <summary>Who is reading, so their own row can say so and the range can start from them.</summary>
+	[Parameter] public Guid? SelfUserId { get; set; }
+
+	/// <summary>Which of the four orders the list is in.</summary>
+	[Parameter] public MemberSort Sort { get; set; } = MemberSort.LastActive;
+
+	/// <summary>Raised when the rider picks a different order, so the page can hold the choice.</summary>
+	[Parameter] public EventCallback<MemberSort> SortChanged { get; set; }
+
+	private static readonly MemberSort[] AllSorts =
+		[MemberSort.LastActive, MemberSort.Name, MemberSort.AlongRoute, MemberSort.Range];
+
+	private bool HasRoute => Route is { Count: >= 2 };
+
+	/// <summary>
+	/// The rows, rebuilt on every render rather than cached against the parameters.
+	/// <para>
+	/// The ages have to move on their own — the screen holding this ticks a timer at them, and
+	/// nothing in the parameter set changes when it does — so a cache keyed on parameters would
+	/// freeze the one column that exists to keep counting. The cost is one projection per member
+	/// per repaint, which is what the gap list this replaces already spent (§5.4).
+	/// </para>
+	/// </summary>
+	private IReadOnlyList<MemberRow> Rows => MemberRoster.Build(
+		Members,
+		Positions,
+		Route,
+		From,
+		SelfUserId,
+		Clock.GetUtcNow(),
+		Sort);
+
+	private async Task OnSortChangedAsync(ChangeEventArgs args)
+	{
+		if (!Enum.TryParse(args.Value?.ToString(), out MemberSort picked))
+		{
+			return;
+		}
+
+		Sort = picked;
+		await SortChanged.InvokeAsync(picked);
+	}
+
+	private static string StateLabel(MemberPresence presence) => presence switch
+	{
+		MemberPresence.NotSharing => "not sharing",
+		MemberPresence.NoSignal => "no signal",
+		_ => "sharing",
+	};
+
+	private static string StateClass(MemberPresence presence) => presence switch
+	{
+		MemberPresence.NotSharing => "not-sharing",
+		MemberPresence.NoSignal => "no-signal",
+		_ => "sharing",
+	};
+}
+
+<style>
+	.live-members .head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.live-members .sort {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.85rem;
+		color: var(--dlr-fg-muted);
+	}
+
+		/* 44 px of height, because it is set at the side of a road with gloves on. */
+		.live-members .sort select {
+			min-height: 44px;
+			padding: 0.2rem 0.4rem;
+			background: var(--dlr-surface-2);
+			color: var(--dlr-fg);
+			border: 1px solid var(--dlr-border);
+			border-radius: 4px;
+			font: inherit;
+		}
+
+	/* The striped rows come from .row-list; these are the parts that differ. A row here is a
+	   block rather than one line, so it wraps its own way rather than being spread end to end. */
+	.live-members li {
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		padding: 0.5rem 0.6rem;
+	}
+
+	/* The reader's own row. A left edge rather than a background, so it does not fight the
+	   stripes underneath it or the state chip at the other end. */
+	.live-members li.self {
+		border-left: 3px solid var(--dlr-accent);
+		padding-left: calc(0.6rem - 3px);
+	}
+
+	.live-members .swatch {
+		flex: 0 0 auto;
+		width: 1rem;
+		height: 1rem;
+		margin-top: 0.2rem;
+		border: 1px solid #0006;
+		border-radius: 3px;
+	}
+
+	.live-members .who {
+		flex: 1 1 10rem;
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		min-width: 0;
+	}
+
+		.live-members .who strong {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+	.live-members .you, .live-members .role {
+		font-size: 0.7rem;
+		padding: 0.1rem 0.4rem;
+		border-radius: 3px;
+		background: #dbeafe;
+		color: #1e40af;
+	}
+
+	.live-members .state { font-size: 0.8rem; padding: 0.15rem 0.5rem; border-radius: 4px; }
+	.live-members .state.sharing { background: #d1fae5; color: #14532d; }
+	.live-members .state.not-sharing { background: #eef1f520; color: #94a3b8; }
+	.live-members .state.no-signal { background: #fef3c730; color: #f87171; }
+
+	/* Four labelled figures. Fixed columns rather than a flex row: the numbers change every few
+	   seconds, and a layout that reflowed as "9 s" became "10 s" would be unreadable at a glance. */
+	.live-members .stats {
+		flex: 0 0 auto;
+		display: grid;
+		grid-template-columns: repeat(4, minmax(3.5rem, auto));
+		gap: 0 0.75rem;
+		margin: 0;
+		text-align: right;
+	}
+
+		.live-members .stats dt {
+			font-size: 0.65rem;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			color: var(--dlr-fg-quiet);
+		}
+
+		.live-members .stats dd {
+			margin: 0;
+			font-size: 0.9rem;
+			font-variant-numeric: tabular-nums;
+		}
+
+	.live-members .stats .leader { color: var(--dlr-good); font-weight: 600; }
+
+	.live-members .off {
+		flex: 1 0 100%;
+		margin: 0.15rem 0 0;
+		font-size: 0.75rem;
+		color: var(--dlr-error);
+	}
+
+	/* Below the rail's breakpoint the figures go under the name rather than beside it — four
+	   columns and a name on a 320 px screen is four columns of one character each. */
+	@@media (max-width: 560px) {
+		.live-members .stats {
+			flex: 1 0 100%;
+			text-align: left;
+		}
+	}
+</style>

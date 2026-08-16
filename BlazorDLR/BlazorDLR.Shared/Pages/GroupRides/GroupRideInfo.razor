@@ -82,7 +82,27 @@
 		}
 
 		<div class="panels">
-			<MemberList Members="ride.Members" />
+			@*
+				Who is on the ride is a screen of its own now — "Ride members live", on the rail
+				(§5.6). It says everything the panel that used to sit here said and four things it
+				did not: the age of each rider's last fix, their range, how far along the route they
+				are and their gap back from the leader. Two lists of the same people, one a strict
+				subset of the other, is a screen a rider has to visit twice to learn less.
+
+				What is left here is the count and the way through, because "how many are in" is
+				part of describing a ride and belongs on the page that describes it.
+			*@
+			<div class="members">
+				<h3>Members (@ride.Members.Count)</h3>
+				<a class="to-members" href="/group-rides/@RideId/members">
+					<i class="fa fa-fw fa-users" aria-hidden="true"></i>
+					Ride members live
+				</a>
+				<p class="hint">
+					Who is sharing, how old each fix is, how far away they are and how far along
+					the route they have got.
+				</p>
+			</div>
 
 			@*
 				The ride's planned routes (§5.4). A set rather than one line, because a day out is
@@ -883,10 +903,19 @@
 		}
 
 	.ride-info .sharing, .ride-info .organiser, .ride-info .routes, .ride-info .route-style,
-	.ride-info .membership {
+	.ride-info .membership, .ride-info .members {
 		padding: 0.75rem;
 		background: #fff2;
 		border-radius: 6px;
+	}
+
+	/* The way through to the rider list. Sized as a tap target rather than as a line of body
+	   text: it is pressed with gloves on, like everything else on this page that acts. */
+	.ride-info .members .to-members {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		min-height: 44px;
 	}
 
 	/* The receiver's own state, under the switch that asked for it. */

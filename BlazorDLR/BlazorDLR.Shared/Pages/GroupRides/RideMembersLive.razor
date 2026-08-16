@@ -1,0 +1,342 @@
+@page "/group-rides/{RideId:guid}/members"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Components
+@using DLR.Core.Contracts.Rides
+@using DLR.Core.Tracks
+@inject IApiClient Api
+@inject IRideHubClient Hub
+@inject AuthState Auth
+@inject IServiceProvider Services
+@inject RideSnapshotCache Cache
+@inject RouteStyleState RouteStyles
+@inject TimeProvider Clock
+@implements IAsyncDisposable
+
+@*
+	Ride members live (§5.3, §5.4, §5.6) — who is out there, and what each of their positions
+	is doing right now.
+
+	It is the rail's third destination, in the slot the group rides list used to hold. That
+	list is still on the Home screen and still where a rider picks a ride; what it is not is
+	something anybody opens twice in a ride. This is: mid-ride the repeated question is not
+	"which rides am I in" but "where is everyone", and the rail is for the destinations a
+	rider reaches for over and over with a phone in a bar mount.
+
+	The list itself is LiveMemberList, which is also the whole of what used to be the ride
+	info page's "Members" panel. That panel gave a name and one of three words; this gives
+	the same three words plus the age of the last fix, the range, the distance along the
+	route and the gap back from the leader — a strict superset, so keeping both would have
+	been one screen a rider has to visit twice to learn less.
+
+	Same RideSession as the live map and the info page (§5.3): one snapshot, the same hub
+	deltas on top, so a member joining or a sharing switch flipping lands here without a
+	refetch.
+*@
+
+<PageTitle>Members — @Title — Dumb Luck Routes</PageTitle>
+
+<div class="page page-medium ride-members">
+	@* Outside the load branches: the way back to the map has to be there while the ride is
+	   loading and if it fails. The state badge waits — there is no state to report yet. *@
+	<PageNav Title="Ride members" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the map">
+		<Actions>
+			@if (_session.Ride is { } loaded)
+			{
+				<span class="state @loaded.State.ToString().ToLowerInvariant()">@loaded.State</span>
+			}
+		</Actions>
+	</PageNav>
+
+	@if (_session.Ride is null && _session.Error is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (_session.Ride is not { } ride)
+	{
+		<p class="error">@_session.Error</p>
+	}
+	else
+	{
+		<p class="lead">@ride.Name</p>
+
+		@*
+			The ride could not be fetched and this device's own copy was drawn instead (§4.4). It
+			has to be said out loud, and on this screen more than most: every figure below is a
+			measurement of where somebody was, and a list of ages that stopped counting is the one
+			thing that must not be mistaken for a live one.
+		*@
+		@if (_session.LoadedFromCache)
+		{
+			<p class="cached" role="status">
+				<i class="fa fa-cloud-arrow-down" aria-hidden="true"></i>
+				Offline — this ride as it was @CachedAge. Nothing below is moving.
+			</p>
+		}
+		else if (_session.Error is { } problem)
+		{
+			<p class="error">@problem</p>
+		}
+
+		<LiveMemberList Members="ride.Members"
+						Positions="_session.Positions"
+						Route="GapRoute"
+						From="MyPoint"
+						SelfUserId="Auth.UserId"
+						@bind-Sort="_sort" />
+
+		@if (MyPoint is null)
+		{
+			@*
+				Range is measured from the reader, and this device does not know where that is —
+				a browser, which has no receiver at all (§18.6), or a phone whose first fix has
+				not landed. Said once, under the list, rather than leaving a column of em dashes
+				to be read as a fault in everybody else's positions.
+			*@
+			<p class="hint">
+				Range is measured from where you are, and this device does not know that yet —
+				turn sharing on from the ride's info page, or wait for the first fix.
+			</p>
+		}
+
+		@if (_session.Routes.Count == 0)
+		{
+			<p class="hint">
+				This ride has no planned route, so there is nothing to measure "along" or a gap
+				against. Attach one from the ride's info page.
+			</p>
+		}
+	}
+</div>
+
+@code {
+	[Parameter] public Guid RideId { get; set; }
+
+	/// <summary>
+	/// How often the ages are redrawn. The fixes themselves arrive on the hub about once every
+	/// five seconds (§5.3) and re-render this page when they do; this is for the seconds in
+	/// between, on the rows where nothing is arriving — which are the rows a rider is reading
+	/// this screen to find.
+	/// </summary>
+	private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(1);
+
+	private RideSession _session = default!;
+
+	/// <summary>
+	/// Which order the list is in. Held here rather than in the component so it survives the
+	/// component's own re-renders, and nowhere else: it is a question about the ride on screen,
+	/// not a preference worth outliving the app.
+	/// </summary>
+	private MemberSort _sort = MemberSort.LastActive;
+
+	/// <summary>
+	/// Redraws the ages between fixes. Started after first render — there is no clock worth
+	/// ticking during the prerender pass — and disposed with the page.
+	/// </summary>
+	private ITimer? _tick;
+
+	/// <summary>
+	/// This device's receiver, or <c>null</c> on a host that has none — both browsers (§18.6).
+	/// Resolved rather than <c>@@inject</c>ed for the reason the other two ride screens give: the
+	/// web hosts register no receiver at all, and null is an answer this page already draws (see
+	/// <see cref="MyPoint"/>).
+	/// </summary>
+	private LocationBroadcastState? _broadcast;
+
+	private string Title => _session?.Ride?.Name ?? "Ride";
+
+	/// <summary>Whether this host reads its own GPS, which is what decides where range starts from.</summary>
+	private bool HasOwnReceiver => _broadcast?.IsSupported == true;
+
+	/// <summary>
+	/// This rider's own latest fix as the ride holds it, or null when it holds none.
+	/// </summary>
+	private RiderPositionDto? MyPosition =>
+		Auth.UserId is { } me && _session.Positions.TryGetValue(me, out RiderPositionDto? mine) ? mine : null;
+
+	/// <summary>
+	/// Where the reader is, which is the point every range in the list is measured from.
+	/// <para>
+	/// This device's own reading on a host that has one, and the ride's round-tripped copy only on
+	/// a host that does not — the same split, for the same reasons, as the live map's own
+	/// <c>MyPoint</c>: a phone has the current answer in its hand, and a browser has only ever had
+	/// the server's. The privacy rule survives on the host it applies to, because
+	/// <c>LocationBroadcastState.OwnFix</c> answers null while a fix is suppressed by the private
+	/// area (§10.1).
+	/// </para>
+	/// <para>
+	/// Null is an ordinary state and the page says so under the list rather than leaving a column
+	/// of dashes to be misread as everybody else having no position.
+	/// </para>
+	/// </summary>
+	private (double Latitude, double Longitude)? MyPoint =>
+		HasOwnReceiver
+			? _broadcast?.OwnFix is { } own ? (own.Latitude, own.Longitude) : null
+			: MyPosition is { } mine ? (PositionScale.ToDegrees(mine.Lat), PositionScale.ToDegrees(mine.Lon)) : null;
+
+	/// <summary>
+	/// The line §5.4 projects riders against, the way round this device reads it.
+	/// <para>
+	/// The same derivation the info page's gap list uses, and it has to be: reversing a route
+	/// changes which end "distance along" is measured from, so a list ranked off the stored order
+	/// while the map draws its chevrons the other way would call the last rider the leader.
+	/// </para>
+	/// </summary>
+	private IReadOnlyList<TrackPoint>? GapRoute
+	{
+		get
+		{
+			if (_session.RoutePolyline is not { } line)
+			{
+				return null;
+			}
+
+			// Routes[0] is the route RoutePolyline was derived from — see RideSession.ApplyRoutes.
+			return _session.Routes.Count > 0 && RouteStyles.IsReversed(_session.Routes[0].TrackId)
+				? [.. line.Reverse()]
+				: line;
+		}
+	}
+
+	/// <summary>
+	/// How old this device's copy of the ride is (§4.4). Coarse on purpose — the same wording the
+	/// live map's offline strip uses, because it is the same fact.
+	/// </summary>
+	private string CachedAge
+	{
+		get
+		{
+			if (_session.CachedUtc is not { } cached)
+			{
+				return "when you last had signal";
+			}
+
+			// Clamped by the switch below rather than rendered negative: a device whose clock has
+			// moved backwards under a stored stamp would otherwise be told the cache is from the
+			// future.
+			TimeSpan age = Clock.GetUtcNow() - cached;
+
+			return age switch
+			{
+				{ TotalMinutes: < 1 } => "a moment ago",
+				{ TotalHours: < 1 } => $"{(int)age.TotalMinutes} min ago",
+				{ TotalDays: < 1 } => $"{(int)age.TotalHours} h ago",
+				_ => $"{(int)age.TotalDays} d ago",
+			};
+		}
+	}
+
+	protected override void OnInitialized()
+	{
+		_broadcast = Services.GetService<LocationBroadcastState>();
+
+		// RideSession has taken a nullable broadcaster from the start — see its constructor.
+		_session = new RideSession(Api, Hub, Auth, _broadcast, Cache);
+		_session.Changed += OnSessionChanged;
+
+		// The route's reversal is a device preference and can be changed on the info page while
+		// this page is still mounted; the ranking below has to follow it.
+		RouteStyles.Changed += OnSessionChanged;
+
+		if (_broadcast is { } broadcast)
+		{
+			// Range starts at this device's own fix, so a fix landing moves every number in the
+			// list — and it moves on the receiver's timetable, not the session's.
+			broadcast.Changed += OnSessionChanged;
+		}
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+		{
+			return;
+		}
+
+		// Not in OnInitialized — the web binding reads localStorage over JS interop, which is
+		// unreachable on the prerender pass. Idempotent, so this costs nothing on a device where
+		// a map has already loaded it.
+		await RouteStyles.LoadAsync();
+
+		_tick ??= Clock.CreateTimer(
+			_ => _ = InvokeAsync(StateHasChanged),
+			state: null,
+			dueTime: TickInterval,
+			period: TickInterval);
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (_session.RideId == RideId)
+		{
+			return;
+		}
+
+		await _session.LoadAsync(RideId);
+	}
+
+	private void OnSessionChanged() => _ = InvokeAsync(StateHasChanged);
+
+	public async ValueTask DisposeAsync()
+	{
+		_session.Changed -= OnSessionChanged;
+		RouteStyles.Changed -= OnSessionChanged;
+
+		// Unsubscribed, never stopped: the receiver belongs to the device and outlives this page
+		// for as long as a ride is being shared with (§4.3).
+		if (_broadcast is { } broadcast)
+		{
+			broadcast.Changed -= OnSessionChanged;
+		}
+
+		_tick?.Dispose();
+
+		await _session.DisposeAsync();
+	}
+}
+
+<style>
+	.ride-members .lead {
+		margin: 0.5rem 0;
+		color: var(--dlr-fg-muted);
+	}
+
+	.ride-members .state {
+		font-size: 0.85rem;
+		padding: 0.2rem 0.6rem;
+		border-radius: 4px;
+		background: #eef1f520;
+	}
+
+		.ride-members .state.open {
+			background: #dbeafe;
+			color: #1e40af;
+		}
+
+		.ride-members .state.live {
+			background: #d1fae5;
+			color: #14532d;
+		}
+
+		.ride-members .state.completed, .ride-members .state.archived {
+			background: #fef3c730;
+			color: #92400e;
+		}
+
+	/* Same weight as the live map's own offline strip: a statement about what the rider is
+	   looking at, not an error. */
+	.ride-members .cached {
+		display: flex;
+		align-items: baseline;
+		gap: 0.4rem;
+		margin: 0.5rem 0;
+		padding: 0.5rem 0.75rem;
+		background: #fef3c730;
+		border: 1px solid #fde68a;
+		border-radius: 4px;
+		font-size: 0.9rem;
+	}
+
+	.ride-members .hint {
+		margin: 0.75rem 0 0;
+	}
+</style>

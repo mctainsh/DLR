@@ -168,9 +168,11 @@ public sealed class HostWithoutGpsTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			// Members and routes are ride data, not device data — untouched by any of this.
-			component.Markup.ShouldContain("dave");
-			component.Markup.ShouldContain("sam");
+			// Members and routes are ride data, not device data — untouched by any of this. The
+			// names themselves moved to "Ride members live"; what is left here is the count and
+			// the way through to them.
+			component.Find(".members h3").TextContent.ShouldBe("Members (2)");
+			component.FindAll(".members .to-members").Count.ShouldBe(1);
 			component.FindAll(".routes").Count.ShouldBe(1);
 		}, timeout: TimeSpan.FromSeconds(3));
 	}

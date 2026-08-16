@@ -81,6 +81,17 @@ public sealed class CurrentRideState
 	public string Href => _rideId is { } id ? $"{PickRideHref}/{id}" : PickRideHref;
 
 	/// <summary>
+	/// Where the rail's rider list goes: the members of the ride you are on, or the list when there
+	/// is no ride to have members (§18.6).
+	/// <para>
+	/// Its own property rather than the rail appending <c>/members</c> to <see cref="Href"/>, which
+	/// would produce <c>group-rides/members</c> on a device that has not opened one — a route that
+	/// matches nothing.
+	/// </para>
+	/// </summary>
+	public string MembersHref => _rideId is { } id ? $"{PickRideHref}/{id}/members" : PickRideHref;
+
+	/// <summary>
 	/// Reads the persisted ride. Idempotent — the rail calls it on first render and nobody else has
 	/// to coordinate with that.
 	/// <para>
