@@ -141,7 +141,7 @@ public sealed class PrivateAreaStateTests
 		await state.SetAsync(Home);
 
 		hiddenWhenAnnounced.ShouldBeTrue(
-			"the fix arriving during the storage round trip is the one the rider just asked to hide.");
+			"the fix arriving during the storage round trip is the one the traveller just asked to hide.");
 
 		PrivateAreaState reopened = new(settings);
 		await reopened.LoadAsync();

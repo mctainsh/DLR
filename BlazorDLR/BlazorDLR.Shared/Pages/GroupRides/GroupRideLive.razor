@@ -109,7 +109,7 @@
 		{
 			<div class="map-error cached" role="status">
 				<i class="fa fa-cloud-arrow-down" aria-hidden="true"></i>
-				<span>Offline — this ride as it was @CachedAge.</span>
+				<span>Offline — this adventure as it was @CachedAge.</span>
 			</div>
 		}
 		else if (_session.Sharing && _broadcast is { NeedsAttention: true } alerting)
@@ -132,7 +132,7 @@
 			*@
 			<div class="map-error gps-alert" role="status">
 				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
-				<span>Sharing is on. Your position starts going to the group when the organiser starts the ride.</span>
+				<span>Sharing is on. Your position starts going to the group when the organiser starts the adventure.</span>
 			</div>
 		}
 
@@ -235,7 +235,7 @@
 					@onclick="ToggleMenu"
 					aria-haspopup="menu"
 					aria-expanded="@(_menuOpen ? "true" : "false")"
-					aria-label="Ride actions">
+					aria-label="Adventure actions">
 				<i class="fa fa-bars" aria-hidden="true"></i>
 			</button>
 
@@ -317,7 +317,7 @@
 					}
 
 					<button type="button" role="menuitem" @onclick="GoToThread">
-						<i class="fa fa-fw fa-comments" aria-hidden="true"></i> Ride thread
+						<i class="fa fa-fw fa-comments" aria-hidden="true"></i> Adventure thread
 						@if (ride.State == RideStateDto.Live)
 						{
 							<span class="quiet">quiet while live</span>
@@ -349,7 +349,7 @@
 							aria-checked="@(_showNeighbours ? "true" : "false")"
 							@onclick="ToggleNeighboursAsync">
 						<i class="fa fa-fw fa-people-group" aria-hidden="true"></i>
-						Nearby riders
+						Nearby travellers
 						@if (_showNeighbours && _session.RoutePolyline is null)
 						{
 							<span class="quiet">needs a route</span>
@@ -403,7 +403,7 @@
 
 					@if (_session.Markers.Count == 0)
 					{
-						<p class="hint">Nothing marked on this ride yet.</p>
+						<p class="hint">Nothing marked on this adventure yet.</p>
 					}
 					else
 					{
@@ -726,7 +726,7 @@
 	/// </summary>
 	private Guid? _deletingMarkerId;
 
-	private string Title => _session?.Ride?.Name ?? "Ride";
+	private string Title => _session?.Ride?.Name ?? "Adventure";
 
 	/// <summary>
 	/// How old the copy on screen is, in the words the offline strip uses (§4.4).
@@ -1356,7 +1356,7 @@
 			// when the rider has not moved since.
 			_followedTo = null;
 
-			ShowToast("Following you — the map stays centred as you ride.");
+			ShowToast("Following you — the map stays centred as you travel.");
 		}
 
 		await AimCameraAsync();
@@ -1474,7 +1474,7 @@
 		// the same slot. It names both halves because both are true and the rider only asked for
 		// one of them.
 		ShowToast(_headingUp
-			? "Heading up — the map turns as you ride, centred on you."
+			? "Heading up — the map turns as you travel, centred on you."
 			: "North up.");
 
 		if (_headingUp)

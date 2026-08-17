@@ -98,9 +98,9 @@ public sealed class TrackEditController : ControllerBase
 		if (await IsRouteOfLiveRideAsync(database, id))
 		{
 			return ConflictProblem(
-				"This track is a live ride's route",
-				"A ride in progress is using this track as its planned route, and editing the line " +
-				"would move every rider's place in the gap list. Edit it once the ride has ended.");
+				"This track is a live adventure's route",
+				"An adventure in progress is using this track as its planned route, and editing the line " +
+				"would move every traveller's place in the gap list. Edit it once the adventure has ended.");
 		}
 
 		TrackGeometry geometry = await ReadAsync(blobs, track.BlobRef);
@@ -185,9 +185,9 @@ public sealed class TrackEditController : ControllerBase
 		if (await IsRouteOfLiveRideAsync(database, id))
 		{
 			return ConflictProblem(
-				"This track is a live ride's route",
-				"A ride in progress is using this track as its planned route. Undo the edit once " +
-				"the ride has ended.");
+				"This track is a live adventure's route",
+				"An adventure in progress is using this track as its planned route. Undo the edit once " +
+				"the adventure has ended.");
 		}
 
 		TrackRevision? revision = await database

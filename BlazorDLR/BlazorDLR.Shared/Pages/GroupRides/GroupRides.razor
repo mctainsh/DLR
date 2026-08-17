@@ -4,7 +4,7 @@
 @using DLR.Core.Contracts.Rides
 @inject IApiClient Api
 
-<PageTitle>Group rides — Dumb Luck Routes</PageTitle>
+<PageTitle>Group adventures — Dumb Luck Routes</PageTitle>
 
 @*
 	The signed-in entry point to group rides (§5.2).
@@ -15,15 +15,15 @@
 *@
 
 <div class="page page-medium">
-	<PageNav Title="Group rides" BackHref="/" BackLabel="Back to home" />
+	<PageNav Title="Group adventures" BackHref="/" BackLabel="Back to home" />
 
 	<div class="cards">
 		<a class="card" href="/group-rides/create">
-			<h2>Create a ride</h2>
-			<p>Start a ride of your own. You will be the organiser.</p>
+			<h2>Create an adventure</h2>
+			<p>Start an adventure of your own. You will be the organiser.</p>
 		</a>
 		<a class="card" href="/group-rides/join">
-			<h2>Join a ride</h2>
+			<h2>Join an adventure</h2>
 			<p>Enter a code the organiser gave you.</p>
 		</a>
 	</div>
@@ -42,7 +42,7 @@
 			<h2>Organised by you</h2>
 			@if (_rides.Organised.Count == 0)
 			{
-				<p class="empty">You have not created any rides yet.</p>
+				<p class="empty">You have not created any adventures yet.</p>
 			}
 			else
 			{
@@ -74,7 +74,7 @@
 			<h2>Joined</h2>
 			@if (_rides.Joined.Count == 0)
 			{
-				<p class="empty">You have not joined any rides yet.</p>
+				<p class="empty">You have not joined any adventures yet.</p>
 			}
 			else
 			{

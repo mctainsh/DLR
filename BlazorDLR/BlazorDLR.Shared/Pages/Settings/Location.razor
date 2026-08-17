@@ -46,7 +46,7 @@
 		</p>
 
 		<p class="note">
-			Your rides still work in full here: you can see everyone who is sharing, their gaps,
+			Your adventures still work in full here: you can see everyone who is sharing, their gaps,
 			the routes and the thread. It is only your <em>own</em> position that this device
 			cannot produce.
 		</p>
@@ -71,9 +71,9 @@
 		{
 			<p class="hint">
 				@(Broadcast.Rides.Count == 1
-					? "One group ride is asking for your location."
-					: $"{Broadcast.Rides.Count} group rides are asking for your location.")
-				Turn sharing off on a ride's info page to stop it — the receiver switches off
+					? "One group adventure is asking for your location."
+					: $"{Broadcast.Rides.Count} group adventures are asking for your location.")
+				Turn sharing off on an adventure's info page to stop it — the receiver switches off
 				when the last one does.
 			</p>
 		}
@@ -81,7 +81,7 @@
 		{
 			<p class="hint">
 				The GPS is off. It runs only while you have sharing turned on for at least one
-				group ride, and it stops the moment the last one is turned off.
+				group adventure, and it stops the moment the last one is turned off.
 			</p>
 		}
 
@@ -99,7 +99,7 @@
 		<h2>Accuracy</h2>
 
 		<p class="note">
-			How often your position is <em>sent</em> to the group rides you are sharing with. This
+			How often your position is <em>sent</em> to the group adventures you are sharing with. This
 			is the battery setting — it does not change how much detail your own recorded track
 			keeps, which is the interval below.
 		</p>
@@ -135,11 +135,11 @@
 		uplink and other people's redraws, and one spends a few hundred kilobytes on this phone.
 	*@
 	<div class="panel recording">
-		<h2>Recording your rides</h2>
+		<h2>Recording your adventures</h2>
 
 		<p class="note">
 			While the GPS is running, this device can keep a track of where you went — for you,
-			not for the ride. It stays on this phone until you save it, and saving it puts it in
+			not for the adventure. It stays on this phone until you save it, and saving it puts it in
 			<a href="/rides">your tracks</a> like an imported one.
 		</p>
 
@@ -187,7 +187,7 @@
 		{
 			<p class="empty">
 				Nothing recorded yet. A track starts at the first fix after you turn sharing on
-				for a group ride.
+				for a group adventure.
 			</p>
 		}
 		else
@@ -228,9 +228,9 @@
 					Leave out the points inside my private area
 				</label>
 				<p class="note">
-					On by default. A saved track is the one thing about a ride that outlives it,
-					and a ride that starts and finishes at home starts and finishes on your
-					doorstep. Riding out and back in leaves a gap rather than a line drawn across
+					On by default. A saved track is the one thing about an adventure that outlives it,
+					and an adventure that starts and finishes at home starts and finishes on your
+					doorstep. Travelling out and back in leaves a gap rather than a line drawn across
 					it.
 				</p>
 			}
@@ -238,7 +238,7 @@
 			@if (!CanSaveTrack)
 			{
 				<p class="hint name-required">
-					Give this ride a name and the save button turns on. The delete button does not
+					Give this adventure a name and the save button turns on. The delete button does not
 					need one — you are not naming something you are throwing away.
 				</p>
 			}
@@ -272,14 +272,14 @@
 		<p class="note">
 			Pick a point and a radius around somewhere you would rather not be watched — your
 			house is the obvious one. Inside that circle this device <strong>sends nothing</strong>:
-			riders on a group ride still see you as present, you simply have no position on their
-			map until you ride out of it.
+			travellers on a group adventure still see you as present, you simply have no position on their
+			map until you move out of it.
 		</p>
 
 		<p class="note">
 			<strong>This stays on this device.</strong> The point, the radius and the fact that
-			you set one at all are never sent to the server and never shown to another rider. The
-			circle is drawn on your own ride map so you can see how far it reaches — on this
+			you set one at all are never sent to the server and never shown to another traveller. The
+			circle is drawn on your own adventure map so you can see how far it reaches — on this
 			device and nobody else's. The cost of that is real and worth stating: it does not
 			follow you to another phone, and reinstalling the app forgets it.
 		</p>
@@ -325,7 +325,7 @@
 			<p class="note">
 				Between @PrivateArea.MinRadiusM m and @(PrivateArea.MaxRadiusM / 1000) km. Anything
 				smaller is inside a phone GPS's own error, and anything larger is really
-				"don't share on this ride" — which is the switch on the ride itself.
+				"don't share on this adventure" — which is the switch on the adventure itself.
 			</p>
 
 			<div class="area-actions">
@@ -360,11 +360,11 @@
 	</div>
 
 	<div class="panel">
-		<h2>Riding with the screen off</h2>
+		<h2>Travelling with the screen off</h2>
 
 		<p>
 			While you are sharing, this phone keeps sending your position with the app in the
-			background and the screen off. That is the whole point of it: a rider reaches for
+			background and the screen off. That is the whole point of it: a traveller reaches for
 			their phone at a junction, not on the move.
 		</p>
 
@@ -377,7 +377,7 @@
 				iOS shows a blue indicator in the status bar for the same reason.
 			</li>
 			<li>
-				It stops when you turn sharing off, leave the ride, or the ride ends — not when
+				It stops when you turn sharing off, leave the adventure, or the adventure ends — not when
 				you close the app.
 			</li>
 		</ul>
@@ -492,7 +492,7 @@
 		AccuracyProfile.Precise =>
 			"Twisty roads and track days. Every corner, and the shortest battery life.",
 		_ =>
-			"The default, and the right answer for almost every ride.",
+			"The default, and the right answer for almost every adventure.",
 	};
 
 	// -- Track recording (§15.1) --------------------------------------------------------------

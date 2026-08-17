@@ -123,7 +123,7 @@ public sealed class RecoveryTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("Could not reach the server.", StringComparison.Ordinal).ShouldBeTrue(
-				"a failure to ask is not the same as an address that does not exist, and the rider can act on it.");
+				"a failure to ask is not the same as an address that does not exist, and the traveller can act on it.");
 			component.Markup.Contains("a reset link is on its way", StringComparison.Ordinal).ShouldBeFalse(
 				"claiming a link was sent when the request never landed strands somebody waiting for mail.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -198,7 +198,7 @@ public sealed class RecoveryTests : PageTestContext
 		component.FindAll("a[href='/forgot-password']").ShouldNotBeEmpty(
 			"the only useful action on a broken link is asking for another one.");
 		component.FindAll("input[type=password]").ShouldBeEmpty(
-			"there is nothing to submit — a form here would fail on send for a reason the rider cannot see.");
+			"there is nothing to submit — a form here would fail on send for a reason the traveller cannot see.");
 		api.Calls.ShouldNotContain(nameof(IApiClient.ResetPasswordAsync));
 	}
 
@@ -228,7 +228,7 @@ public sealed class RecoveryTests : PageTestContext
 			component.Markup.Contains("Passwords must be at least 6 characters.", StringComparison.Ordinal)
 				.ShouldBeTrue("§18.2: the rule that was broken is the whole answer.");
 			component.FindAll("input[type=password]").ShouldNotBeEmpty(
-				"the link is still good for an hour — the rider tries again here, not from a new email.");
+				"the link is still good for an hour — the traveller tries again here, not from a new email.");
 			component.FindAll("a[href='/forgot-password']").ShouldBeEmpty(
 				"asking for a new link would be wrong advice: nothing is wrong with this one.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -271,7 +271,7 @@ public sealed class RecoveryTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			api.LastConfirmEmailRequest.ShouldNotBeNull(
-				"the rider already decided when they tapped the link — a second confirm button is a step to get wrong.");
+				"the traveller already decided when they tapped the link — a second confirm button is a step to get wrong.");
 			api.LastConfirmEmailRequest!.UserId.ShouldBe(userId);
 			api.LastConfirmEmailRequest.Token.ShouldBe("confirm-token+slash/and+plus");
 

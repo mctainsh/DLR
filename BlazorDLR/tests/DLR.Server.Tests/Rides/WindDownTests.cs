@@ -138,7 +138,7 @@ public sealed class WindDownTests(PostgresFixture postgres)
 		// Still riding home, still publishing, an hour and a half inside the window.
 		PublishResult published = await PublishAsync(rider, -33.90, 151.25);
 
-		published.RideIds.ShouldBe([ride.Id], "a completed ride inside its window still takes fixes");
+		published.RideIds.ShouldBe([ride.Id], "a completed adventure inside its window still takes fixes");
 
 		List<RiderPositionDto> visible =
 			(await organiser.GetFromJsonAsync<List<RiderPositionDto>>(

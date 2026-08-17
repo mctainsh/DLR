@@ -108,7 +108,7 @@ public sealed class RideSnapshotCacheTests
 		await cache.WriteAsync(SampleRide(), [], [], []);
 
 		(await cache.ReadAsync(Guid.Parse("99999999-9999-9999-9999-999999999999"))).ShouldBeNull(
-			"one entry per ride — a stored ride must never answer for another one.");
+			"one entry per adventure — a stored adventure must never answer for another one.");
 	}
 
 	[Fact]
@@ -123,7 +123,7 @@ public sealed class RideSnapshotCacheTests
 
 		store.Count.ShouldBe(0);
 		(await cache.ReadAsync(RideId)).ShouldBeNull(
-			"§5.2: a rider removed from a ride must not still be able to open it from a cache.");
+			"§5.2: a traveller removed from an adventure must not still be able to open it from a cache.");
 	}
 
 	[Fact]

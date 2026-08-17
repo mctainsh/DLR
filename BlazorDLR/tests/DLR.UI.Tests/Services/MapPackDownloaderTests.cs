@@ -68,7 +68,7 @@ public sealed class MapPackDownloaderTests
 		MapPackDownloadResult second = await Build(store, resuming).DownloadAsync("sydney", Source);
 
 		resuming.LastRangeFrom.ShouldBe(20,
-			"the point of keeping the partial is that a rider on a phone plan does not pay twice.");
+			"the point of keeping the partial is that a traveller on a phone plan does not pay twice.");
 		second.Succeeded.ShouldBeTrue(second.Message);
 
 		await using Stream? stored = await store.OpenReadAsync("sydney");

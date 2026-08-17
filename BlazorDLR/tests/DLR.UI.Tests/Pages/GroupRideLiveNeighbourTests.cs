@@ -47,7 +47,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		{
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: RideStateDto.Live,
@@ -153,7 +153,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.WaitForAssertion(
-			() => Gps.WatchCount.ShouldBe(1, "sharing is on and the ride is Live, so the GPS runs."),
+			() => Gps.WatchCount.ShouldBe(1, "sharing is on and the adventure is Live, so the GPS runs."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		Gps.Emit(new LocationFix(
@@ -347,6 +347,6 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		reopened.FindAll(".live-neighbours").ShouldBeEmpty(
-			"a rider who turned it off must not find it back the next time they open the map.");
+			"a traveller who turned it off must not find it back the next time they open the map.");
 	}
 }

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Components;
 
 /// <summary>
-/// The rider list behind "Ride members live" (§5.3, §5.4, §5.6).
+/// The rider list behind "Live members" (§5.3, §5.4, §5.6).
 /// <para>
 /// The arithmetic and all four orders belong to <c>MemberRoster</c> and are tested there. What
 /// is left for a renderer is what only a renderer can answer: that every rider gets a row, that
@@ -134,7 +134,7 @@ public sealed class LiveMemberListTests : BunitContext
 		component.Find(".live-members .range dd").TextContent.Trim().ShouldBe("1.1 km");
 		component.Find(".live-members .along dd").TextContent.Trim().ShouldBe("1.8 km");
 		component.Find(".live-members .gap dd").TextContent.Trim().ShouldBe("leader",
-			"the only rider on the ride is the one at the front of it (§5.4).");
+			"the only traveller on the adventure is the one at the front of it (§5.4).");
 	}
 
 	[Fact]
@@ -145,7 +145,7 @@ public sealed class LiveMemberListTests : BunitContext
 			.Add(p => p.Positions, new Dictionary<Guid, RiderPositionDto>()));
 
 		component.Find(".live-members .age dd").TextContent.Trim().ShouldBe("—",
-			"'0 s' would claim a fix arrived this instant from a rider who is not sharing at all.");
+			"'0 s' would claim a fix arrived this instant from a traveller who is not sharing at all.");
 		component.Find(".live-members .range dd").TextContent.Trim().ShouldBe("—");
 	}
 

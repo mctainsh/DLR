@@ -52,7 +52,7 @@ public sealed class GpxMarkerTests(PostgresFixture postgres)
 		// <sym>Drinking Water</sym> maps onto the curated key rather than being stored raw.
 		markers[0].Icon.ShouldBe("water");
 
-		markers.ShouldAllBe(marker => marker.GroupRideId == null, "a track marker has no ride parent");
+		markers.ShouldAllBe(marker => marker.GroupRideId == null, "a track marker has no adventure parent");
 	}
 
 	/// <summary>

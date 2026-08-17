@@ -57,7 +57,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 
 		using (HttpResponseMessage filed = await reporter.PostAsJsonAsync(
 			$"{CommentsUrl}/{offending.Id}/report",
-			new ReportContentRequest("Abusive towards another rider")))
+			new ReportContentRequest("Abusive towards another traveller")))
 		{
 			filed.StatusCode.ShouldBe(HttpStatusCode.OK, await filed.Content.ReadAsStringAsync());
 		}
@@ -78,7 +78,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 		report.ResolvedUtc.ShouldBeNull("it is still on the operator's queue");
 		report.ContentSnapshot.ShouldContain("Something worth reporting");
 		report.ContentSnapshot.ShouldContain("SamJones", Case.Insensitive);
-		report.Reason.ShouldBe("Abusive towards another rider");
+		report.Reason.ShouldBe("Abusive towards another traveller");
 
 		// And the comment really is gone, so the snapshot is the only copy.
 		int comments = await app.WithDatabaseAsync(database =>
@@ -220,7 +220,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 
 		RideDetail ride = await CreateRideAsync(organiser);
 
-		CommentDto post = await PostAsync(organiser, ride.Id, "A post in a ride they are not in");
+		CommentDto post = await PostAsync(organiser, ride.Id, "A post in an adventure they are not in");
 		MarkerDto marker = await CreateMarkerAsync(organiser, ride.Id);
 
 		using (HttpResponseMessage refused = await stranger.PostAsJsonAsync(

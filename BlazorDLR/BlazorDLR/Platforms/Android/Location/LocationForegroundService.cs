@@ -229,7 +229,7 @@ public sealed class LocationForegroundService : Service
 		NotificationCompat.Builder builder = new(this, ChannelId);
 
 		builder.SetContentTitle("Sharing your location");
-		builder.SetContentText("Your position is going to the group rides you are sharing with.");
+		builder.SetContentText("Your position is going to the group adventures you are sharing with.");
 
 		// Ours, not a stock android.R drawable — see the comment in the resource itself. A
 		// notification with a small icon the platform cannot resolve is never posted, and a
@@ -273,7 +273,7 @@ public sealed class LocationForegroundService : Service
 			"Location sharing",
 			NotificationImportance.Low)
 		{
-			Description = "Shown while this phone is sharing its position with a group ride.",
+			Description = "Shown while this phone is sharing its position with a group adventure.",
 		};
 
 		channel.SetShowBadge(false);

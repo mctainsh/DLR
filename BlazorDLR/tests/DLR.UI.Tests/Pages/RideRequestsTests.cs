@@ -67,7 +67,7 @@ public sealed class RideRequestsTests : PageTestContext
 		component.WaitForAssertion(() => api.DecideJoinRequests.Count.ShouldBe(1),
 			timeout: TimeSpan.FromSeconds(3));
 		(Guid ride, Guid requestId, DecideJoinRequest decision) = api.DecideJoinRequests[0];
-		ride.ShouldBe(rideId, "the ride id must round-trip — a decision on the wrong ride is a bug that would silently admit the wrong people.");
+		ride.ShouldBe(rideId, "the adventure id must round-trip — a decision on the wrong adventure is a bug that would silently admit the wrong people.");
 		requestId.ShouldBe(alice.Id);
 		decision.Admit.ShouldBeTrue();
 		decision.Block.ShouldBeFalse();

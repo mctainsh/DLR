@@ -134,7 +134,7 @@ public sealed class RideRouteController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
 				title: "Too many routes",
-				detail: $"This ride already has {positions.Count} routes, which is the limit. Remove one " +
+				detail: $"This adventure already has {positions.Count} routes, which is the limit. Remove one " +
 					"before adding another.");
 		}
 
@@ -224,7 +224,7 @@ public sealed class RideRouteController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status403Forbidden,
 				title: "Not yours to set",
-				detail: "The organiser decides which routes a ride has.");
+				detail: "The organiser decides which routes an adventure has.");
 		}
 
 		// Draft, Open and Live all accept a change. A ride that has finished does not: its routes
@@ -235,8 +235,8 @@ public sealed class RideRouteController : ControllerBase
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "This ride has ended",
-				detail: "The routes of a finished ride are part of the record of it.");
+				title: "This adventure has ended",
+				detail: "The routes of a finished adventure are part of the record of it.");
 		}
 
 		return null;

@@ -107,7 +107,7 @@ public sealed class PositionPersistenceTests(PostgresFixture postgres)
 		cache.ForRide(live).ShouldHaveSingleItem();
 
 		cache.ForRide(completed).ShouldBeEmpty(
-			"a ride that has ended is not sharing, and its rows are on their way out anyway");
+			"an adventure that has ended is not sharing, and its rows are on their way out anyway");
 	}
 
 	/// <summary>

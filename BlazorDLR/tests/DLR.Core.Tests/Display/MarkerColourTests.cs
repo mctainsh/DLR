@@ -79,7 +79,7 @@ public sealed class MarkerColourTests
 	public void MarkerColour_BlankIsValidAndMeansNoChoice(string? colour)
 	{
 		MarkerColours.TryNormalise(colour, out string? normalised).ShouldBeTrue(
-			"blank is how a rider goes back to the default — refusing it would make the setting one-way.");
+			"blank is how a traveller goes back to the default — refusing it would make the setting one-way.");
 
 		normalised.ShouldBeNull();
 	}
@@ -96,7 +96,7 @@ public sealed class MarkerColourTests
 	public void MarkerColour_Rubbish_IsRefusedRatherThanDefaulted()
 	{
 		MarkerColours.TryNormalise("chartreuse", out string? normalised).ShouldBeFalse(
-			"a client bug is found by whoever wrote it, not by a rider wondering why their colour did not stick.");
+			"a client bug is found by whoever wrote it, not by a traveller wondering why their colour did not stick.");
 
 		normalised.ShouldBeNull();
 	}

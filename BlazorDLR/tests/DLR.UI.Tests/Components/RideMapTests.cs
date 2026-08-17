@@ -195,7 +195,7 @@ public sealed class RideMapTests : BunitContext
 		Render<RideMap>(parameters => parameters.Add(p => p.Camera, SampleCamera));
 
 		map.LastOptions!.AllowRotation.ShouldBeTrue(
-			"the live ride map turns with the rider; opting out is the exception, not the default.");
+			"the live adventure map turns with the traveller; opting out is the exception, not the default.");
 	}
 
 	/// <summary>

@@ -73,7 +73,7 @@ public sealed class MapPackCatalogueTests
 
 		MapPackOffer nsw = result.Packs.Single(pack => pack.Id == "au-nsw");
 		nsw.Name.ShouldBe("New South Wales");
-		nsw.SizeBytes.ShouldBe(351089645, "the number a rider decides on before spending it.");
+		nsw.SizeBytes.ShouldBe(351089645, "the number a traveller decides on before spending it.");
 		nsw.Url.ShouldBe(new Uri("https://packs.example.com/au-nsw.v1.pmtiles"));
 		MapPackDownloader.IsFetchable(nsw.Url).ShouldBeTrue();
 	}

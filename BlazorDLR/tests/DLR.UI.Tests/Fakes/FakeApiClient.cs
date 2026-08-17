@@ -309,7 +309,7 @@ public sealed class FakeApiClient : IApiClient
 		return RideException is not null
 			? Task.FromException<RideDetail>(RideException)
 			: Task.FromResult(RideResult
-				?? new RideDetail(rideId, "Test ride", null, SampleInstant, RideStateDto.Open, JoinPolicyDto.Approval, 50, 0, false, null, new RidePermissions(), Array.Empty<RideMemberSummary>()));
+				?? new RideDetail(rideId, "Test adventure", null, SampleInstant, RideStateDto.Open, JoinPolicyDto.Approval, 50, 0, false, null, new RidePermissions(), Array.Empty<RideMemberSummary>()));
 	}
 	/// <summary>The last <see cref="CreateRideAsync"/> request the UI sent.</summary>
 	public CreateRideRequest? LastCreateRideRequest { get; private set; }

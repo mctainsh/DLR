@@ -66,7 +66,7 @@ public sealed class MarkerHitTestTests
 		// 0.2° east on this viewport is 200 px — far outside any sane finger.
 		MarkerHitTest.Near(Viewport(), [marker], new MapClick(0, 0.2)).ShouldBeEmpty(
 			"§16.4: a tap on empty map is a tap on empty map — it must not drag in the nearest " +
-			"marker on the ride from half a screen away.");
+			"marker on the adventure from half a screen away.");
 	}
 
 	[Fact]
@@ -108,7 +108,7 @@ public sealed class MarkerHitTestTests
 
 		MarkerHitTest.Near(unmeasured, [At(0, 0, "Gravel")], new MapClick(0, 0)).ShouldBeEmpty(
 			"With no pixels there is no 'near'. Every marker projects to the centre of a " +
-			"degenerate viewport, so answering at all would return the whole ride.");
+			"degenerate viewport, so answering at all would return the whole adventure.");
 	}
 
 	[Fact]

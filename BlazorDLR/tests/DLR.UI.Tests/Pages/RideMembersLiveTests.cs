@@ -13,7 +13,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Pages;
 
 /// <summary>
-/// "Ride members live" — the rail's rider list (§5.3, §5.4, §5.6).
+/// "Live members" — the rail's rider list (§5.3, §5.4, §5.6).
 /// <para>
 /// It reads the same <c>RideSession</c> the live map and the info page do, so what these tests
 /// pin down is §5.3's rule applied to this screen: the snapshot is authoritative and the hub is
@@ -42,7 +42,7 @@ public sealed class RideMembersLiveTests : PageTestContext
 		{
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: state,

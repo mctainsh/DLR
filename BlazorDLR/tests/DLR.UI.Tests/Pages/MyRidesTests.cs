@@ -32,10 +32,10 @@ public sealed class MyRidesTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.Markup.Contains("No rides yet", StringComparison.Ordinal).ShouldBeTrue(
+			component.Markup.Contains("No adventures yet", StringComparison.Ordinal).ShouldBeTrue(
 				"an empty list must call out the import path — a blank table is not an answer.");
 			component.FindAll("a[href='/import']").ShouldNotBeEmpty(
-				"the Import GPX button is always visible, empty state or not — importing is the primary way rides land here in Phase 1.");
+				"the Import GPX button is always visible, empty state or not — importing is the primary way adventures land here in Phase 1.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

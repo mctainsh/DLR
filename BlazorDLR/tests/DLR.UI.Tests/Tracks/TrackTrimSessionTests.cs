@@ -193,7 +193,7 @@ public sealed class TrackTrimSessionTests
 		IReadOnlyList<IndexRange> removals = session.Removals();
 
 		removals.ShouldBe([new IndexRange(6, 8), new IndexRange(14, 16)],
-			"the wire wants them in index order however the rider made them (§15.5).");
+			"the wire wants them in index order however the traveller made them (§15.5).");
 	}
 
 	[Fact]

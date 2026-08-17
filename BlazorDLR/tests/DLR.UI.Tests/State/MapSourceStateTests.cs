@@ -109,7 +109,7 @@ public sealed class MapSourceStateTests
 		await browser.LoadAsync();
 
 		browser.CanUseOffline.ShouldBeFalse();
-		browser.Chosen.Kind.ShouldBe(MapSourceKind.Offline, "what the rider picked is not overwritten…");
+		browser.Chosen.Kind.ShouldBe(MapSourceKind.Offline, "what the traveller picked is not overwritten…");
 		browser.Effective.ShouldBe(MapSource.Default, "…but it is not what gets drawn here.");
 	}
 

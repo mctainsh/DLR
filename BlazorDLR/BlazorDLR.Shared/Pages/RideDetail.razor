@@ -17,7 +17,7 @@
 	@* Outside the load branches, so the bar — and the way back — is on screen while the
 	   track is still loading and if it fails to load at all. The actions inside it are
 	   what wait for the track, because neither can act on nothing. *@
-	<PageNav Title="@Title" BackHref="/rides" BackLabel="Back to my rides">
+	<PageNav Title="@Title" BackHref="/rides" BackLabel="Back to my adventures">
 		<Actions>
 			@if (_track is not null)
 			{
@@ -104,7 +104,7 @@
 	// Two different "no name" cases, and they read differently: nothing has loaded yet
 	// (the generic word, so the bar is not blank), versus a track that loaded carrying no
 	// name of its own.
-	private string Title => _track is null ? "Ride" : (_track.Track.Name ?? "Untitled");
+	private string Title => _track is null ? "Adventure" : (_track.Track.Name ?? "Untitled");
 
 	protected override async Task OnParametersSetAsync()
 	{
@@ -246,7 +246,7 @@
 
 		byte[] bytes = await response.Content.ReadAsByteArrayAsync();
 		string base64 = Convert.ToBase64String(bytes);
-		string fileName = ($"{_track?.Track.Name ?? "ride"}.gpx").Replace('/', '-');
+		string fileName = ($"{_track?.Track.Name ?? "adventure"}.gpx").Replace('/', '-');
 
 		// A tiny JS helper wired inline: build a data-URL <a> and click it. Works in every
 		// browser and inside the MAUI BlazorWebView — the same DOM in both cases.

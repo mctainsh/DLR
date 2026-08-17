@@ -117,7 +117,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			using HttpResponseMessage free = await client.PostRegisterAsync($"Rider{account}");
+			using HttpResponseMessage free = await client.PostRegisterAsync($"Traveller{account}");
 
 			free.StatusCode.ShouldBe(HttpStatusCode.Created,
 				"the first three are username and password only");
@@ -151,7 +151,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			await busy.RegisterAsync($"Rider{account}");
+			await busy.RegisterAsync($"Traveller{account}");
 		}
 
 		using HttpClient fresh = app.CreateClient().From("203.0.113.31");
@@ -176,7 +176,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			await client.RegisterAsync($"Rider{account}");
+			await client.RegisterAsync($"Traveller{account}");
 		}
 
 		app.Clock.Advance(TimeSpan.FromHours(24) + TimeSpan.FromMinutes(1));
@@ -201,7 +201,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 		{
 			for (int account = 1; account <= 3; account++)
 			{
-				await client.RegisterAsync($"Rider{account}");
+				await client.RegisterAsync($"Traveller{account}");
 			}
 		}
 
@@ -224,7 +224,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			await client.RegisterAsync($"Rider{account}");
+			await client.RegisterAsync($"Traveller{account}");
 		}
 
 		TokenResponse restricted =
@@ -257,7 +257,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			await client.RegisterAsync($"Rider{account}");
+			await client.RegisterAsync($"Traveller{account}");
 		}
 
 		TokenResponse restricted = await client.RegisterAsync("Rider4", email: "rider4@example.com");
@@ -275,7 +275,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			await client.RegisterAsync($"Rider{account}");
+			await client.RegisterAsync($"Traveller{account}");
 		}
 
 		TokenResponse restricted = await client.RegisterAsync("Rider4", email: "rider4@example.com");

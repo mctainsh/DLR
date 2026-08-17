@@ -67,7 +67,7 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 		Uri url = await UrlAsync();
 
 		url.Host.ShouldBe("127.0.0.1",
-			"bound to loopback so nothing off the device can reach a rider's downloaded maps at all.");
+			"bound to loopback so nothing off the device can reach a traveller's downloaded maps at all.");
 		url.Scheme.ShouldBe("http", "which is why the platforms need an explicit cleartext allowance for it.");
 		url.AbsolutePath.ShouldEndWith("/au-nsw.pmtiles");
 	}
@@ -163,7 +163,7 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 
 		response.StatusCode.ShouldBe(HttpStatusCode.NotFound,
 			"the secret is what stops another app on the phone walking the port range and reading " +
-			"a rider's downloaded maps. It must answer exactly as an unknown pack does, so the port " +
+			"a traveller's downloaded maps. It must answer exactly as an unknown pack does, so the port " +
 			"cannot be probed to learn which of the two it was.");
 	}
 

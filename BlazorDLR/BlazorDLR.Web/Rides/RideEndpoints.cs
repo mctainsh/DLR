@@ -84,7 +84,7 @@ public sealed class RideController : ControllerBase
 
 		if (string.IsNullOrWhiteSpace(request.Name))
 		{
-			return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Name required", detail: "A ride needs a name.");
+			return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Name required", detail: "An adventure needs a name.");
 		}
 
 		GroupRide ride = new()
@@ -183,7 +183,7 @@ public sealed class RideController : ControllerBase
 					TimeSpan.FromHours(1));
 
 			return withinLimits
-				? Problem(statusCode: StatusCodes.Status404NotFound, title: "No such ride", detail: "That join code does not match a ride.")
+				? Problem(statusCode: StatusCodes.Status404NotFound, title: "No such adventure", detail: "That join code does not match an adventure.")
 				: StatusCode(StatusCodes.Status429TooManyRequests);
 		}
 
@@ -200,15 +200,15 @@ public sealed class RideController : ControllerBase
 		{
 			// The same answer an unknown code gets. Telling somebody they have been blocked
 			// hands them the one fact the organiser was trying not to have a conversation about.
-			return Problem(statusCode: StatusCodes.Status404NotFound, title: "No such ride", detail: "That join code does not match a ride.");
+			return Problem(statusCode: StatusCodes.Status404NotFound, title: "No such adventure", detail: "That join code does not match an adventure.");
 		}
 
 		if (ride.Members.Count >= ride.MemberCap)
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Ride is full",
-				detail: $"This ride has reached its limit of {ride.MemberCap} members.");
+				title: "Adventure is full",
+				detail: $"This adventure has reached its limit of {ride.MemberCap} members.");
 		}
 
 		if (ride.JoinPolicy == JoinPolicy.Open)
@@ -264,7 +264,7 @@ public sealed class RideController : ControllerBase
 				statusCode: StatusCodes.Status429TooManyRequests,
 				title: "Too many pending requests",
 				detail: $"You already have {pending} requests waiting. Wait for an answer before asking " +
-				"to join another ride.");
+				"to join another adventure.");
 		}
 
 		if (!throttle.TryAcquire(
@@ -446,8 +446,8 @@ public sealed class RideController : ControllerBase
 			{
 				return Problem(
 					statusCode: StatusCodes.Status409Conflict,
-					title: "Ride is full",
-					detail: $"This ride has reached its limit of {ride.MemberCap} members.");
+					title: "Adventure is full",
+					detail: $"This adventure has reached its limit of {ride.MemberCap} members.");
 			}
 
 			database.Add(new GroupRideMember

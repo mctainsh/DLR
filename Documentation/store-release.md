@@ -81,6 +81,10 @@ merit. Play requires **all** of the following, and checks them against a video:
    > prompt and the info page's sharing switch both pass through it). It carries Play's required
    > "even when the app is closed or not in use" wording with an explicit *I agree* / *Cancel*.
    > **Record the video against this dialog**, and keep its wording intact if the copy is revised.
+   > **The copy was revised** when the app moved from "ride" to "adventure" — the title now reads
+   > *"Share your location while you travel?"*. Play's required clause survives verbatim in the
+   > body, but any existing declaration video shows a dialog that no longer exists: **re-record it
+   > before the next submission**.
 
 4. **Foreground service type declaration** (App content → Foreground service types → Location).
    Describe the user-visible feature and link the same video. Required since Android 14.
@@ -202,12 +206,9 @@ submitting, because a reviewer following a path that does not exist is worse tha
 
 > **What this app is**
 >
-> Dumb Luck Routes is a group-adventure app for motorcyclists, drivers, cyclists and walkers.
-> Someone creates or joins a group adventure, and its members can see each other on a live map
-> along the route.
->
-> *(The app's screens use the older word "ride" for a group adventure — "Group rides", "Ride
-> members live". Every navigation path below is quoted exactly as it appears in the build.)*
+> Dumb Luck Routes is a group-adventure app for anyone who travels together — motorbikes, 4WDs,
+> road trips, cycling, kayaking, walking. Someone creates or joins a group adventure, and its
+> members can see each other on a live map along the route.
 >
 > **Demo account**
 >
@@ -215,17 +216,17 @@ submitting, because a reviewer following a path that does not exist is worse tha
 > Password: «DEMO_PASSWORD»
 >
 > This account is already a member of an adventure with other people on it, so the live map has
-> something to show. To join a second one: **Group rides → Join**, join code «DEMO_JOIN_CODE».
+> something to show. To join a second one: **Group adventures → Join**, join code «DEMO_JOIN_CODE».
 >
 > **Seeing the main feature, in about two minutes**
 >
 > 1. Sign in with the account above.
-> 2. **Group rides →** tap the one the account is already in. The live map opens; other members
+> 2. **Group adventures →** tap the one the account is already in. The live map opens; other members
 >    appear as coloured markers with their names and their distance along the route.
-> 3. The nav rail's **Ride members live** shows the same people as a sortable list.
+> 3. The nav rail's **Live members** shows the same people as a sortable list.
 > 4. Hamburger menu (top of the map) **→ Info → My sharing**. Turning that switch on shows our own
->    disclosure dialog ("Share your location while you ride?") *before* the iOS permission prompt.
-> 5. Hamburger menu **→ Ride thread** for comments, and **→ Add marker** to attach a photo or note
+>    disclosure dialog ("Share your location while you travel?") *before* the iOS permission prompt.
+> 5. Hamburger menu **→ Adventure thread** for comments, and **→ Add marker** to attach a photo or note
 >    to a point on the route.
 >
 > **Why the app requests background location (guideline 2.5.4)**
@@ -250,10 +251,11 @@ submitting, because a reviewer following a path that does not exist is worse tha
 > Members can post comments in an adventure's thread and attach photos and notes to map markers,
 > visible only to the other members of that adventure.
 >
-> - **Report**: the flag control on any comment in a **Ride thread**. Reports go to the organiser
+> - **Report**: the flag control on any comment in an **Adventure thread**. Reports go to the organiser
 >   and to us.
-> - **Block**: an organiser can decline and block a join request at **Group rides → [ride] →
->   Requests**. Blocked accounts are listed and can be unblocked at **Settings → Blocked riders**.
+> - **Block**: an organiser can decline and block a join request at **Group adventures →
+>   [adventure] → Requests**. Blocked accounts are listed and can be unblocked at
+>   **Settings → Blocked travellers**.
 > - **Delete your account and everything in it**: **Settings → Data & export**. The same screen
 >   exports the account's data.
 > - Moderation contact: «SUPPORT_EMAIL».
@@ -284,7 +286,7 @@ the app has is narrower:
 - `POST /api/v1/blocks` exists, and `IApiClient.BlockUserAsync` is wired to it — but **no screen
   calls it**. The only path that blocks is `RideRequests.razor`'s *Decline & block*, which goes
   through `DecideJoinRequestAsync`, and only an organiser deciding a join request can reach it.
-- `Settings → Blocked riders` lists blocks and unblocks them. It cannot create one.
+- `Settings → Blocked travellers` lists blocks and unblocks them. It cannot create one.
 
 So an ordinary member who is harassed in a thread has *report*, but no way to block the person
 themselves. A "Block this person" action on a thread comment or in the members list, calling the

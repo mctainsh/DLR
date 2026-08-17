@@ -5,10 +5,10 @@
 @inject ITrackRepository Tracks
 @inject NavigationManager Nav
 
-<PageTitle>My rides — Dumb Luck Routes</PageTitle>
+<PageTitle>My adventures — Dumb Luck Routes</PageTitle>
 
 <div class="page rides">
-	<PageNav Title="My rides" BackHref="/" BackLabel="Back to home">
+	<PageNav Title="My adventures" BackHref="/" BackLabel="Back to home">
 		<Actions>
 			<a class="button" href="/import">Import GPX</a>
 		</Actions>
@@ -20,13 +20,13 @@
 	}
 	else if (_state == State.Error)
 	{
-		<p class="error">Could not load rides: @_error</p>
+		<p class="error">Could not load adventures: @_error</p>
 		<button type="button" class="primary" @onclick="LoadAsync">Retry</button>
 	}
 	else if (_tracks is null || _tracks.Count == 0)
 	{
 		<div class="empty">
-			<p>No rides yet.</p>
+			<p>No adventures yet.</p>
 			<p>Import a GPX to add one.</p>
 		</div>
 	}

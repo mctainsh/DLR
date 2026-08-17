@@ -48,9 +48,9 @@ public sealed class GroupRidesLandingTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("Organised by you", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.2: rides the caller runs render in their own section, where the join code sits.");
+				"§5.2: adventures the caller runs render in their own section, where the join code sits.");
 			component.Markup.Contains("Joined", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.2: rides the caller was admitted to render separately from the ones they run.");
+				"§5.2: adventures the caller was admitted to render separately from the ones they run.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 }

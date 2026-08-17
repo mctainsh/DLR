@@ -261,7 +261,7 @@ public sealed class RouteStyleStateTests
 
 		state.IsReversed(reversed).ShouldBeTrue();
 		state.IsReversed(untouched).ShouldBeFalse(
-			"a ride carries several routes, and turning one round is not a statement about the rest.");
+			"an adventure carries several routes, and turning one round is not a statement about the rest.");
 
 		await state.ToggleReversedAsync(reversed);
 		state.IsReversed(reversed).ShouldBeFalse("the same button undoes it.");

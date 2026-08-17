@@ -110,7 +110,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		PublishResult result = await PublishAsync(rider, At(-33.86, 151.20));
 
-		result.RideIds.ShouldBeEmpty("no ride consented, so the fix lands nowhere");
+		result.RideIds.ShouldBeEmpty("no adventure consented, so the fix lands nowhere");
 
 		int stored = await app.WithDatabaseAsync(database =>
 			database.Set<RiderPosition>().CountAsync());
@@ -155,7 +155,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 	/// The organiser controls the <em>ride</em>; the rider controls their <em>location</em> (§5.6).
 	/// <para>
 	/// Asserted against the route surface rather than a permission check, because the asymmetry is
-	/// structural: there is no endpoint that expresses "set another rider's sharing", so there is
+	/// structural: there is no endpoint that expresses "set another traveller's sharing", so there is
 	/// no guard on it that could later be relaxed.
 	/// </para>
 	/// </summary>
@@ -397,7 +397,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		ProfileView after = await ProfileAsync(organiser, riderId);
 
-		after.PhoneNumber.ShouldBeNull("the ride is over, and so is the audience");
+		after.PhoneNumber.ShouldBeNull("the adventure is over, and so is the audience");
 	}
 
 	/// <summary>

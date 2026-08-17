@@ -61,7 +61,7 @@ public sealed class CurrentRideStateTests
 		CurrentRideState state = new(new ControllableSettings());
 
 		// The rail renders on every page, including the prerender pass that cannot read a device
-		// at all. "I do not know yet" and "there is no ride" are the same destination — the list —
+		// at all. "I do not know yet" and "there is no adventure" are the same destination — the list —
 		// so a rail rendered cold is less specific, never broken.
 		state.IsLoaded.ShouldBeFalse();
 		state.RideId.ShouldBeNull();

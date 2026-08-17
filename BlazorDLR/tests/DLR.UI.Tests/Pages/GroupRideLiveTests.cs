@@ -42,7 +42,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		{
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: state,
@@ -147,11 +147,11 @@ public sealed class GroupRideLiveTests : PageTestContext
 	{
 		// A ride that was deleted, or one this rider has been removed from — §5.2 makes both a 404,
 		// because a non-member's answer must not say whether the ride exists. Either way the globe
-		// must stop leading to a page that can only answer "no such ride".
+		// must stop leading to a page that can only answer "no such adventure".
 		(FakeApiClient api, _, Guid rideId) = WireServices();
 		api.RideException = new ApiException(new ApiError(
 			StatusCode: System.Net.HttpStatusCode.NotFound,
-			Title: "That ride no longer exists.",
+			Title: "That adventure no longer exists.",
 			Messages: Array.Empty<string>()));
 
 		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
@@ -194,14 +194,14 @@ public sealed class GroupRideLiveTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
-		current.RideId.ShouldBe(rideId, "opening the ride is what remembers it.");
+		current.RideId.ShouldBe(rideId, "opening the adventure is what remembers it.");
 
 		await component.InvokeAsync(() => hub.RaiseMemberLeft(rideId, me));
 
 		component.WaitForAssertion(() =>
 		{
-			component.Find(".error").TextContent.ShouldContain("no longer on this ride",
-				customMessage: "a map that carried on drawing would be a ride they are not on.");
+			component.Find(".error").TextContent.ShouldContain("no longer on this adventure",
+				customMessage: "a map that carried on drawing would be an adventure they are not on.");
 			current.RideId.ShouldBeNull();
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -244,7 +244,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		string menu = component.Find(".menu").TextContent;
 		menu.ShouldContain("Info");
 		menu.ShouldContain("Add marker");
-		menu.ShouldContain("Ride thread");
+		menu.ShouldContain("Adventure thread");
 		menu.ShouldContain("Markers");
 	}
 
@@ -264,7 +264,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
 			.ShouldEndWith($"/group-rides/{rideId}/info",
-				customMessage: "Info is a page about the ride, not a panel over the map.");
+				customMessage: "Info is a page about the adventure, not a panel over the map.");
 	}
 
 	[Fact]
@@ -286,7 +286,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find(".placing").TextContent.ShouldContain("Tap the map",
-				customMessage: "§16.1: the point is the rider's to choose, so the item arms the map and " +
+				customMessage: "§16.1: the point is the traveller's to choose, so the item arms the map and " +
 				"says so — an armed map that looks exactly like an unarmed one is a screen that has " +
 				"quietly stopped answering taps the way it did a second ago.");
 			component.FindAll(".menu").ShouldBeEmpty("choosing an item closes the menu behind it.");
@@ -294,7 +294,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri.ShouldBe(before,
 			"Nothing navigates until the point exists — the composer used to open on the centre of " +
-			"the view, which is a guess, and the middle of the screen is exactly where the rider is.");
+			"the view, which is a guess, and the middle of the screen is exactly where the traveller is.");
 	}
 
 	[Fact]
@@ -338,7 +338,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.Find(".markers-dialog").TextContent.ShouldContain("Nothing marked on this ride yet");
+			component.Find(".markers-dialog").TextContent.ShouldContain("Nothing marked on this adventure yet");
 			component.FindAll(".menu").ShouldBeEmpty("choosing an item closes the menu behind it.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -378,9 +378,9 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.Markup.Contains("Share your location with Test ride", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.6: opening the ride when not already sharing prompts for consent — the prompt " +
-				"stays on the map page because that is where the rider lands.");
+			component.Markup.Contains("Share your location with Test adventure", StringComparison.Ordinal).ShouldBeTrue(
+				"§5.6: opening the adventure when not already sharing prompts for consent — the prompt " +
+				"stays on the map page because that is where the traveller lands.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -475,7 +475,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 				.Single(marker => marker.Kind == MarkerKind.Rider);
 
 			drawn.Colour.ShouldBe("#16a34a",
-				"the colour is on the member row, not the fix — the map has to look it up per rider.");
+				"the colour is on the member row, not the fix — the map has to look it up per traveller.");
 			drawn.SpeedMps.ShouldBe(8);
 			drawn.DirectionDeg.ShouldBe(90);
 			drawn.Title.ShouldBe("DaveSmith", "§7.2: the pin carries the username.");
@@ -515,7 +515,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 				.Single(marker => marker.Kind == MarkerKind.Rider);
 
 			drawn.Title.ShouldBe("DaveSmith");
-			drawn.SpeedMps.ShouldBe(0, "a stopped rider is drawn as a dot, which needs the speed to have arrived.");
+			drawn.SpeedMps.ShouldBe(0, "a stopped traveller is drawn as a dot, which needs the speed to have arrived.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -553,7 +553,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 			circles.Count.ShouldBe(1);
 			circles[0].Latitude.ShouldBe(-33.868, tolerance: 1e-6);
 			circles[0].RadiusM.ShouldBe(1_500,
-				"the circle on the ride map is the area that is actually in force, radius and all.");
+				"the circle on the adventure map is the area that is actually in force, radius and all.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -629,7 +629,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 			() => wakeLock.IsHeld.ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// How this suite spells "the rider navigated away" — the router disposes the page.
+		// How this suite spells "the traveller navigated away" — the router disposes the page.
 		await component.InvokeAsync(() => component.Instance.DisposeAsync().AsTask());
 
 		wakeLock.IsHeld.ShouldBeFalse(

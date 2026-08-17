@@ -64,9 +64,9 @@ public sealed class RiderMarkerTests
 		string label = RiderMarker.Label(new string('x', 50));
 
 		label.Length.ShouldBe(RiderMarker.LabelMaxChars,
-			"the label is drawn to the right of the rider; an unbounded one is a banner across the map.");
+			"the label is drawn to the right of the traveller; an unbounded one is a banner across the map.");
 
 		label.ShouldEndWith("…", customMessage:
-			"a crop that is not visibly a crop reads as a different rider with a shorter name.");
+			"a crop that is not visibly a crop reads as a different traveller with a shorter name.");
 	}
 }

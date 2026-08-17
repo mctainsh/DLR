@@ -113,7 +113,7 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 
 			seen.ShouldContain(
 				position => position.UserName == "SamJones",
-				$"ride {rideId} should have the fix");
+				$"adventure {rideId} should have the fix");
 		}
 	}
 
@@ -139,7 +139,7 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 
 			using HttpResponseMessage started = await StartAsync(organiser, allowed.Id);
 
-			started.StatusCode.ShouldBe(HttpStatusCode.NoContent, $"ride {index + 1} is inside the cap");
+			started.StatusCode.ShouldBe(HttpStatusCode.NoContent, $"adventure {index + 1} is inside the cap");
 		}
 
 		RideDetail third = await CreateRideAsync(organiser);

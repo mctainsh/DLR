@@ -125,7 +125,7 @@ public sealed class PhotoTests(PostgresFixture postgres)
 		byte[] stored = await ContentAsync(rider, photo.PhotoId);
 
 		Contains(stored, Encoding.ASCII.GetBytes(ImageFixtures.CameraMake))
-			.ShouldBeFalse("the camera and its serial number are not the rider's to publish");
+			.ShouldBeFalse("the camera and its serial number are not the traveller's to publish");
 
 		Contains(stored, Encoding.ASCII.GetBytes(ImageFixtures.CapturedAt))
 			.ShouldBeFalse("when the photograph was taken is not in the file either");

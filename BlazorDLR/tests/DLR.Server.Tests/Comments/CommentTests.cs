@@ -70,7 +70,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 			"Pulling over, back in five",
 			authoredAt: valley);
 
-		drained.CreatedUtc.ShouldBe(valley, "the rider's intent is preserved");
+		drained.CreatedUtc.ShouldBe(valley, "the traveller's intent is preserved");
 		drained.PostedUtc.ShouldBeGreaterThan(live.PostedUtc, "but receipt is what happened");
 
 		CommentPage page = await ThreadAsync(member, ride.Id);
@@ -525,7 +525,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 		RideDetail ride = await CreateRideAsync(organiser);
 
-		CommentDto posted = await PostAsync(organiser, ride.Id, "Great ride, photos to follow");
+		CommentDto posted = await PostAsync(organiser, ride.Id, "Great adventure, photos to follow");
 
 		using (HttpResponseMessage started = await organiser.PostAsync($"{RidesUrl}/{ride.Id}/start", null))
 		{
@@ -560,7 +560,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 			ended.StatusCode.ShouldBe(HttpStatusCode.NoContent, await ended.Content.ReadAsStringAsync());
 		}
 
-		(await PositionRowsAsync(app, ride.Id)).ShouldBe(0, "measured data goes with the ride (§5.5)");
+		(await PositionRowsAsync(app, ride.Id)).ShouldBe(0, "measured data goes with the adventure (§5.5)");
 
 		// The thread is kept and stays open — the best photos land after everybody gets home.
 		CommentPage page = await ThreadAsync(organiser, ride.Id);

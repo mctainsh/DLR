@@ -216,7 +216,7 @@ public sealed class TrackController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status400BadRequest,
 				title: "A track needs a name",
-				detail: "Type what this ride should be called.");
+				detail: "Type what this adventure should be called.");
 		}
 
 		if (name.Length > TrackNaming.MaxLength)
@@ -293,9 +293,9 @@ public sealed class TrackController : ControllerBase
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "This track is a live ride's route",
-				detail: "A ride in progress is using this track as its planned route. Delete it " +
-					"once the ride has ended, or remove it from the ride first.");
+				title: "This track is a live adventure's route",
+				detail: "An adventure in progress is using this track as its planned route. Delete it " +
+					"once the adventure has ended, or remove it from the adventure first.");
 		}
 
 		// Gathered before the delete, for the reason on the method.

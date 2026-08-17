@@ -45,7 +45,7 @@ public sealed class MarkerIconAssetRules
 
 		missing.ShouldBeEmpty(
 			$"a key in MarkerIcons.Known with no {IconFolder}/{{key}}.png is offered in the composer " +
-			"and then drawn as the plain-pin fallback for the rest of the ride. Add the artwork in " +
+			"and then drawn as the plain-pin fallback for the rest of the adventure. Add the artwork in " +
 			"the same change as the key, or leave the key out until the artwork exists.");
 	}
 

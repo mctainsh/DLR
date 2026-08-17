@@ -48,7 +48,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			PositionsResult = positions ?? Array.Empty<RiderPositionDto>(),
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: state,
@@ -117,7 +117,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>Waits for the page to have brought the receiver up, which sharing on a Live ride does.</summary>
 	private void WaitForReceiver(IRenderedComponent<GroupRideLive> component) =>
 		component.WaitForAssertion(
-			() => Gps.WatchCount.ShouldBe(1, "sharing is on and the ride is Live, so the GPS runs."),
+			() => Gps.WatchCount.ShouldBe(1, "sharing is on and the adventure is Live, so the GPS runs."),
 			timeout: TimeSpan.FromSeconds(3));
 
 	private static LocationFix DeviceFix(
@@ -234,7 +234,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 				camera => Math.Abs(camera.Latitude - -37.8136) < 1e-4
 					&& Math.Abs(camera.Longitude - 144.9631) < 1e-4
 					&& Math.Abs(camera.ZoomLevel - 15) < 1e-6,
-				"the rider left this map looking at Melbourne; re-opening it anywhere else means " +
+				"the traveller left this map looking at Melbourne; re-opening it anywhere else means " +
 				"panning back at the side of a road."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
@@ -256,7 +256,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		CamerasAskedFor().ShouldAllBe(
 			camera => Math.Abs(camera.Latitude - DefaultCamera.Latitude) < 1e-6,
-			"a stored view names one ride — applying another's would open this ride over the " +
+			"a stored view names one adventure — applying another's would open this adventure over the " +
 			"wrong city entirely.");
 	}
 
@@ -344,7 +344,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.FindAll("button.follow").ShouldNotBeEmpty(
-				"the one thing a rider does to this map while moving has a permanent target."),
+				"the one thing a traveller does to this map while moving has a permanent target."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
@@ -365,7 +365,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		{
 			MapCamera latest = _map.Cameras[^1];
 			latest.Latitude.ShouldBe(-37.8136, tolerance: 1e-4,
-				customMessage: "switching it on has to act now — a rider who has just panned away " +
+				customMessage: "switching it on has to act now — a traveller who has just panned away " +
 				"is asking to be brought back, not to wait for the next fix.");
 			latest.Longitude.ShouldBe(144.9631, tolerance: 1e-4);
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -390,7 +390,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		{
 			MapCamera latest = _map.Cameras[^1];
 			latest.Latitude.ShouldBe(-37.82, tolerance: 1e-4,
-				customMessage: "§4.3: the whole of the mode is that the rider stays on screen as " +
+				customMessage: "§4.3: the whole of the mode is that the traveller stays on screen as " +
 				"their receiver produces fixes.");
 			latest.Longitude.ShouldBe(144.97, tolerance: 1e-4);
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -452,10 +452,10 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			MapMarker self = drawn!.Values.ShouldHaveSingleItem();
 
 			self.Kind.ShouldBe(MarkerKind.Self,
-				"§4.3: the device's own read is drawn as itself, not as one of the ride's rider pins.");
+				"§4.3: the device's own read is drawn as itself, not as one of the adventure's traveller pins.");
 			self.Latitude.ShouldBe(-37.8136, tolerance: 1e-6);
 			self.Longitude.ShouldBe(144.9631, tolerance: 1e-6);
-			self.Title.ShouldBeEmpty("no label — a rider does not need to be told their own name.");
+			self.Title.ShouldBeEmpty("no label — a traveller does not need to be told their own name.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -480,7 +480,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		{
 			MapCamera latest = _map.Cameras[^1];
 			latest.Latitude.ShouldBe(-37.8136, tolerance: 1e-4,
-				customMessage: "following waited on the server's copy of this rider, which on a ride " +
+				customMessage: "following waited on the server's copy of this traveller, which on an adventure " +
 				"that has not started yet never arrives.");
 			latest.Longitude.ShouldBe(144.9631, tolerance: 1e-4);
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -546,7 +546,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		mine.Kind.ShouldBe(MarkerKind.Self);
 		mine.Latitude.ShouldBe(-37.8136, tolerance: 1e-6,
-			"the device's fix is the current one — the ride's copy is up to a fan-out tick behind.");
+			"the device's fix is the current one — the adventure's copy is up to a fan-out tick behind.");
 	}
 
 	/// <summary>
@@ -575,7 +575,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 			mine.Kind.ShouldBe(MarkerKind.Rider,
 				"with no receiver there is nothing to draw a Self mark from — this is the server's " +
-				"view of this rider, and it is drawn as one.");
+				"view of this traveller, and it is drawn as one.");
 			mine.Latitude.ShouldBe(-37.8136, tolerance: 1e-4);
 		}, timeout: TimeSpan.FromSeconds(3));
 
@@ -649,8 +649,8 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
 
 		component.WaitForAssertion(
-			() => component.Markup.ShouldContain("when the organiser starts the ride",
-				customMessage: "a rider who consented, read the disclosure and granted the phone's " +
+			() => component.Markup.ShouldContain("when the organiser starts the adventure",
+				customMessage: "a traveller who consented, read the disclosure and granted the phone's " +
 				"permission is owed the reason they are still not on the map."),
 			timeout: TimeSpan.FromSeconds(3));
 
@@ -675,7 +675,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => Gps.WatchCount.ShouldBe(1,
-				"§5.1: consent was already given — the rider must not have to find the switch and " +
+				"§5.1: consent was already given — the traveller must not have to find the switch and " +
 				"toggle it twice to get onto a map they already said yes to."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
@@ -746,7 +746,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 			stored.ShouldNotBeNull();
 			stored.FollowMe.ShouldBeTrue(
-				"the mode is set from a menu the rider then closes; it has to survive them going " +
+				"the mode is set from a menu the traveller then closes; it has to survive them going " +
 				"to the info page and back.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -895,7 +895,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			() => SelfMarkOn(component)!.Latitude.ShouldBe(-37.90, tolerance: 1e-6),
 			timeout: TimeSpan.FromSeconds(3));
 
-		_map.Cameras.Count.ShouldBe(moves, "the rider took the map; it stays where they left it.");
+		_map.Cameras.Count.ShouldBe(moves, "the traveller took the map; it stays where they left it.");
 	}
 
 	/// <summary>
@@ -985,7 +985,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.FindAll("button.heading-up").Count.ShouldBe(1,
-				"one control for one mode — a mode with two is a mode a rider has to check twice.");
+				"one control for one mode — a mode with two is a mode a traveller has to check twice.");
 			AttributeOn(component, "button.heading-up", "aria-pressed").ShouldBe("false",
 				"a toggle button and not a menu item, so the state a screen reader reads out is " +
 				"aria-pressed rather than aria-checked.");
@@ -1026,7 +1026,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 				"the button's own lit state is what says the map is turning.");
 			component.FindAll("button.hamburger.turning").ShouldBeEmpty(
 				"the dot is gone; the hamburger says nothing about either mode now.");
-			AttributeOn(component, "button.hamburger", "aria-label").ShouldBe("Ride actions",
+			AttributeOn(component, "button.hamburger", "aria-label").ShouldBe("Adventure actions",
 				"one label, because it no longer has a second state to describe.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -1101,11 +1101,11 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			MapCamera latest = _map.Cameras[^1];
 			latest.HeadingDeg.ShouldBe(90, tolerance: 1e-6);
 			latest.Latitude.ShouldBe(-37.8136, tolerance: 1e-4,
-				"turned *and* centred, in the one camera — a rider who chose this from off in a " +
+				"turned *and* centred, in the one camera — a traveller who chose this from off in a " +
 				"corner is asking to be brought back now, not at the next fix.");
 
 			ToastOn(component).ShouldContain("centred on you",
-				customMessage: "the rider asked for one of the two modes and got both; the toast " +
+				customMessage: "the traveller asked for one of the two modes and got both; the toast " +
 				"has to name the one they did not ask for.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -1136,7 +1136,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		{
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
 			component.FindAll("button.heading-up.on").ShouldBeEmpty(
-				"the map rotates about the centre of the screen, and the rider has just stopped " +
+				"the map rotates about the centre of the screen, and the traveller has just stopped " +
 				"being it.");
 			ToastOn(component).ShouldBe("Following and heading up off.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -1223,7 +1223,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => _map.Cameras[^1].HeadingDeg.ShouldBe(180, tolerance: 1e-6,
-				customMessage: "the whole of the mode is that the ground turns as the rider does."),
+				customMessage: "the whole of the mode is that the ground turns as the traveller does."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -1295,7 +1295,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			MapCamera latest = _map.Cameras[^1];
 			latest.Latitude.ShouldBe(-37.82, tolerance: 1e-4);
 			latest.HeadingDeg.ShouldBe(0, tolerance: 1e-6,
-				"a rider who has just set the bearing by hand must not have it taken back off " +
+				"a traveller who has just set the bearing by hand must not have it taken back off " +
 				"them — the camera carries the map's own bearing, it does not drive one.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -1424,10 +1424,10 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		{
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
 			component.FindAll("button.heading-up.on").ShouldBeEmpty(
-				"a turning map the rider is no longer the centre of is worse than a north-up one.");
+				"a turning map the traveller is no longer the centre of is worse than a north-up one.");
 			ToastOn(component).ShouldContain("Following and heading up off",
 				customMessage: "two modes stopped on one gesture, so one sentence names both — a " +
-				"rider who reads only half of it goes looking for a fault in the other half.");
+				"traveller who reads only half of it goes looking for a fault in the other half.");
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		// And the map is left exactly where the rider dragged it to, at the bearing they left it
@@ -1490,7 +1490,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 			stored.ShouldNotBeNull();
 			stored.HeadingUp.ShouldBeTrue(
-				"which way up somebody reads a map is a standing preference, not one ride's ground.");
+				"which way up somebody reads a map is a standing preference, not one adventure's ground.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -1512,7 +1512,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		ToastOn(component).ShouldBeEmpty(
-			"restoring a mode the rider set earlier is not a change of mind — a map that announced " +
-			"its own settings on every open would be one more thing to dismiss per ride.");
+			"restoring a mode the traveller set earlier is not a change of mind — a map that announced " +
+			"its own settings on every open would be one more thing to dismiss per adventure.");
 	}
 }

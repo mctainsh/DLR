@@ -73,7 +73,7 @@ public sealed class NavMenuTests : BunitContext
 				"§7.9: the signed-in surface must not appear on an anonymous nav — its links are dead until sign-in.");
 			component.FindAll("a[href='settings']").Count.ShouldBe(0);
 			component.FindAll("a[href='group-rides']").Count.ShouldBe(0,
-				"the globe and the rider list both fall back to the group rides list, so an "
+				"the globe and the traveller list both fall back to the group adventures list, so an "
 				+ "anonymous rail must not carry that either.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -158,7 +158,7 @@ public sealed class NavMenuTests : BunitContext
 		{
 			AngleSharp.Dom.IElement members = Members(component);
 			members.GetAttribute("href").ShouldBe("group-rides");
-			members.GetAttribute("aria-label").ShouldBe("Pick a group ride");
+			members.GetAttribute("aria-label").ShouldBe("Pick a group adventure");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -178,7 +178,7 @@ public sealed class NavMenuTests : BunitContext
 		{
 			AngleSharp.Dom.IElement members = Members(component);
 			members.GetAttribute("href").ShouldBe($"group-rides/{rideId}/members");
-			members.GetAttribute("aria-label").ShouldBe("Ride members live");
+			members.GetAttribute("aria-label").ShouldBe("Live members");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -196,7 +196,7 @@ public sealed class NavMenuTests : BunitContext
 		{
 			AngleSharp.Dom.IElement globe = Globe(component);
 			globe.GetAttribute("href").ShouldBe("group-rides");
-			globe.GetAttribute("aria-label").ShouldBe("Pick a group ride",
+			globe.GetAttribute("aria-label").ShouldBe("Pick a group adventure",
 				"the rail is glyph-only, so the name has to say which of the globe's two destinations is in force.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -217,8 +217,8 @@ public sealed class NavMenuTests : BunitContext
 		{
 			AngleSharp.Dom.IElement globe = Globe(component);
 			globe.GetAttribute("href").ShouldBe($"group-rides/{rideId}",
-				"§18.6: the globe is the one-tap way back to the ride, including after a restart.");
-			globe.GetAttribute("aria-label").ShouldBe("Current ride");
+				"§18.6: the globe is the one-tap way back to the adventure, including after a restart.");
+			globe.GetAttribute("aria-label").ShouldBe("Current adventure");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

@@ -26,7 +26,7 @@ public sealed class SharedProfileTests
 		SharedProfile shared = SharedProfile.For(fresh, viewerSharesActiveRide: true);
 
 		shared.ShouldBe(SharedProfile.Empty,
-			"a co-member of a ride still sees nothing until the owner says otherwise");
+			"a co-member of an adventure still sees nothing until the owner says otherwise");
 	}
 
 	/// <summary>
@@ -83,7 +83,7 @@ public sealed class SharedProfileTests
 			SharedProfile.For(unrecorded, viewerSharesActiveRide: true));
 
 		withheldJson.ShouldBe(unrecordedJson,
-			"one rider has a phone number and is not sharing it, the other has none at all — " +
+			"one traveller has a phone number and is not sharing it, the other has none at all — " +
 			"and the wire must not be able to tell you which");
 
 		withheldJson.ShouldNotContain("PhoneNumber");

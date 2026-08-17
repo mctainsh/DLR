@@ -179,7 +179,7 @@ public sealed class LocationBroadcastStateTests
 			"both publish paths to refuse the fix");
 
 		harness.Broadcast.OwnFix.ShouldNotBeNull(
-			"nothing reached the ride — which is a different fact from where the phone is.");
+			"nothing reached the adventure — which is a different fact from where the phone is.");
 		harness.Broadcast.OwnFix!.Latitude.ShouldBe(Latitude);
 		harness.Broadcast.OwnFix.Longitude.ShouldBe(Longitude);
 	}
@@ -275,7 +275,7 @@ public sealed class LocationBroadcastStateTests
 
 		harness.Hub.Published.Count.ShouldBe(1);
 		harness.Broadcast.Status.ShouldBe(LocationBroadcastStatus.Broadcasting,
-			"a rider stopped at a junction is still on the map — the refusal is about bytes, not presence.");
+			"a traveller stopped at a junction is still on the map — the refusal is about bytes, not presence.");
 	}
 
 	[Fact]
@@ -301,7 +301,7 @@ public sealed class LocationBroadcastStateTests
 		harness.Api.PublishedPositions.Count.ShouldBe(1);
 		harness.Hub.Published.ShouldBeEmpty();
 		harness.Broadcast.Detail.ShouldBeNull(
-			"one failed hub send with a successful fallback is not something to put in front of a rider.");
+			"one failed hub send with a successful fallback is not something to put in front of a traveller.");
 	}
 
 	[Fact]
@@ -321,8 +321,8 @@ public sealed class LocationBroadcastStateTests
 			() => harness.Broadcast.Status == LocationBroadcastStatus.Failed,
 			"the broadcaster to state that fixes are not landing");
 
-		harness.Broadcast.Describe().ShouldContain("not reaching the ride",
-			customMessage: "a rider who believes they are on the map when they are not is the failure this exists to prevent.");
+		harness.Broadcast.Describe().ShouldContain("not reaching the adventure",
+			customMessage: "a traveller who believes they are on the map when they are not is the failure this exists to prevent.");
 	}
 
 	[Fact]
@@ -337,11 +337,11 @@ public sealed class LocationBroadcastStateTests
 		await harness.Broadcast.ShareWithAsync(first);
 		await harness.Broadcast.ShareWithAsync(second);
 
-		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "one receiver for both rides");
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "one receiver for both adventures");
 
 		await harness.Broadcast.StopSharingAsync(first);
 
-		harness.Provider.Stopped.ShouldBeFalse("the second ride is still asking.");
+		harness.Provider.Stopped.ShouldBeFalse("the second adventure is still asking.");
 		harness.Broadcast.IsRequested.ShouldBeTrue();
 
 		await harness.Broadcast.StopSharingAsync(second);
@@ -442,7 +442,7 @@ public sealed class LocationBroadcastStateTests
 		harness.Confirm.Current!.Message.ShouldContain("even when the app is closed or not in use",
 			customMessage: "Play checks this wording against a video at review.");
 
-		harness.Provider.WatchCount.ShouldBe(0, "nothing may start before the rider has read it.");
+		harness.Provider.WatchCount.ShouldBe(0, "nothing may start before the traveller has read it.");
 
 		harness.Confirm.Respond(true);
 		await sharing;

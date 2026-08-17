@@ -151,7 +151,7 @@ public sealed class RideHub(DlrDbContext database, PositionStore positions) : Hu
 			// The same answer a ride that does not exist gets, for the same reason the join-code
 			// path gives one (§5.2): a ride id is shareable, and a distinguishable refusal turns
 			// this method into an oracle for who is in which ride.
-			throw new HubException("No such ride.");
+			throw new HubException("No such adventure.");
 		}
 
 		await Groups.AddToGroupAsync(Context.ConnectionId, Group(rideId));

@@ -735,7 +735,7 @@ public sealed class RideSession : IAsyncDisposable
 			// load, which sets the same two fields from the 404. This is here so the moment the
 			// hub does say it, the client is already right.
 			Ride = null;
-			Error = "You are no longer on this ride.";
+			Error = "You are no longer on this adventure.";
 			RideUnavailable = true;
 			_positions.Clear();
 			_markers.Clear();

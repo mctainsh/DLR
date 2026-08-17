@@ -81,7 +81,7 @@ public sealed class ProfileTests(PostgresFixture postgres)
 			await StoredAsync(app, session.User.Id),
 			viewerSharesActiveRide: true);
 
-		shared.ShouldBe(SharedProfile.Empty, "hidden from riders, still on the account");
+		shared.ShouldBe(SharedProfile.Empty, "hidden from travellers, still on the account");
 	}
 
 	/// <summary>

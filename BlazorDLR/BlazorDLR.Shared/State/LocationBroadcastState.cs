@@ -187,8 +187,8 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			"Location permission is off for this app. Turn it on in the phone's settings.",
 		LocationBroadcastStatus.NotSupported => "This device cannot share its location.",
 		LocationBroadcastStatus.Failed => Detail is { Length: > 0 } problem
-			? $"Your location is not reaching the ride: {problem}"
-			: "Your location is not reaching the ride.",
+			? $"Your location is not reaching the adventure: {problem}"
+			: "Your location is not reaching the adventure.",
 		_ => "",
 	};
 
@@ -323,14 +323,14 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		}
 
 		bool accepted = await _confirm.AskAsync(
-			"Share your location while you ride?",
+			"Share your location while you travel?",
 			// The first sentence is Play's required form, near enough verbatim: what is collected,
 			// what it enables, and "even when the app is closed or not in use". Revise the rest
 			// freely; leave that clause alone.
-			"Dumb Luck Routes collects location data to show you to the other riders on the group "
-			+ "rides you turn sharing on for, even when the app is closed or not in use — so the "
-			+ "group can still see you with your phone in a mount and the screen off.\n\n"
-			+ "Sharing is off until you turn it on, it is per ride, and you can turn it off at any "
+			"Dumb Luck Routes collects location data to show you to the other people on the group "
+			+ "adventures you turn sharing on for, even when the app is closed or not in use — so the "
+			+ "group can still see you with your phone in a mount or a pocket and the screen off.\n\n"
+			+ "Sharing is off until you turn it on, it is per adventure, and you can turn it off at any "
 			+ "time. Nothing is ever sent from inside the private area you can set around home.",
 			confirmText: "I agree");
 

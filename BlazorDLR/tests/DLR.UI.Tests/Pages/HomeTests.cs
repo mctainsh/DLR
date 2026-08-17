@@ -32,8 +32,8 @@ public sealed class HomeTests : PageTestContext
 
 		IRenderedComponent<Home> component = Render<Home>();
 
-		component.FindAll("a[href='/rides']").ShouldNotBeEmpty("§4.1: My rides is one of the four Home cards.");
-		component.FindAll("a[href='/group-rides']").ShouldNotBeEmpty("Group rides is a Home card.");
+		component.FindAll("a[href='/rides']").ShouldNotBeEmpty("§4.1: My adventures is one of the four Home cards.");
+		component.FindAll("a[href='/group-rides']").ShouldNotBeEmpty("Group adventures is a Home card.");
 		component.FindAll("a[href='/import']").ShouldNotBeEmpty("Import GPX is a Home card.");
 		component.FindAll("a[href='/settings']").ShouldNotBeEmpty("Settings is a Home card.");
 	}

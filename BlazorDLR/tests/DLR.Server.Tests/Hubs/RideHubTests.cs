@@ -50,9 +50,9 @@ public sealed class RideHubTests(PostgresFixture postgres)
 				() => connection.InvokeAsync(nameof(RideHub.JoinRide), ride.Id));
 
 			refused.Message.ShouldContain(
-				"No such ride",
+				"No such adventure",
 				Case.Insensitive,
-				"a distinguishable refusal turns this into an oracle for who is in which ride");
+				"a distinguishable refusal turns this into an oracle for who is in which adventure");
 
 			_ = organiser;
 		}
@@ -260,7 +260,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 			// Give a leak time to arrive before concluding it did not.
 			Task finished = await Task.WhenAny(leaked, Task.Delay(TimeSpan.FromSeconds(2)));
 
-			finished.ShouldNotBe(leaked, "a connection receives only the rides it joined");
+			finished.ShouldNotBe(leaked, "a connection receives only the adventures it joined");
 		}
 	}
 

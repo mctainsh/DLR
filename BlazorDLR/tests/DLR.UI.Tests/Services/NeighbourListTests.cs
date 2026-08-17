@@ -51,7 +51,7 @@ public sealed class NeighbourListTests
 	/// <summary>
 	/// Builds the roster the panel narrows, so each test states a ride rather than a list of rows.
 	/// </summary>
-	/// <param name="riders">Each rider's name and how many metres along the route they are.</param>
+	/// <param name="travellers">Each rider's name and how many metres along the route they are.</param>
 	private static IReadOnlyList<MemberRow> Roster(params (Guid Id, string Name, double? AlongMetres)[] riders)
 	{
 		List<RideMemberSummary> members = [];
@@ -93,11 +93,11 @@ public sealed class NeighbourListTests
 
 		IReadOnlyList<NeighbourRow> panel = NeighbourList.Nearest(rows, Me, selfAlongMetres: 1_000);
 
-		panel.Count.ShouldBe(5, "four neighbours plus the rider reading them.");
+		panel.Count.ShouldBe(5, "four neighbours plus the traveller reading them.");
 		panel.Select(row => row.UserName).ShouldBe(
 			["Ahead2", "Me", "Behind1", "Behind2", "Ahead1"],
 			ignoreOrder: true,
-			"nearest is measured along the road in both directions — the rider 600 m ahead beats the "
+			"nearest is measured along the road in both directions — the traveller 600 m ahead beats the "
 			+ "one 4 km ahead, and being behind is no reason to be dropped.");
 	}
 
@@ -227,7 +227,7 @@ public sealed class NeighbourListTests
 		IReadOnlyList<MemberRow> rows = Roster((Me, "Me", 1_000), (Rider(1), "Other", 1_200));
 
 		NeighbourList.Nearest(rows, Me, selfAlongMetres: null).ShouldBeEmpty(
-			"a ride with no route, or a device with no fix yet — either way there is no 'ahead'.");
+			"an adventure with no route, or a device with no fix yet — either way there is no 'ahead'.");
 	}
 
 	[Fact]
@@ -239,7 +239,7 @@ public sealed class NeighbourListTests
 			(Rider(1), "Alone", null));
 
 		NeighbourList.Nearest(rows, Me, selfAlongMetres: 1_000).ShouldBeEmpty(
-			"a panel listing one rider, and it is you, says nothing the map was not already saying.");
+			"a panel listing one traveller, and it is you, says nothing the map was not already saying.");
 	}
 
 	[Fact]
@@ -253,7 +253,7 @@ public sealed class NeighbourListTests
 		IReadOnlyList<NeighbourRow> panel = NeighbourList.Nearest(rows, Me, selfAlongMetres: 1_000);
 
 		panel.Select(row => row.UserName).ShouldNotContain("Quiet",
-			"one number per rider is the whole content of this panel; a rider with no number costs "
+			"one number per traveller is the whole content of this panel; a traveller with no number costs "
 			+ "a line and answers nothing.");
 	}
 
@@ -318,6 +318,6 @@ public sealed class NeighbourListTests
 
 		panel.Single(row => row.UserName == "Other").Colour.ShouldBe("#ff8800");
 		panel.Single(row => row.IsSelf).Colour.ShouldNotBeNullOrWhiteSpace(
-			"a rider who has never picked a colour still has one the map draws them in.");
+			"a traveller who has never picked a colour still has one the map draws them in.");
 	}
 }

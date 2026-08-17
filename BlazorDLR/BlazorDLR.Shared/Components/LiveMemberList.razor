@@ -44,7 +44,7 @@
 		*@
 		<label class="sort">
 			<span>Sort by</span>
-			<select value="@Sort" @onchange="OnSortChangedAsync" aria-label="Sort riders by">
+			<select value="@Sort" @onchange="OnSortChangedAsync" aria-label="Sort travellers by">
 				@foreach (MemberSort option in AllSorts)
 				{
 					<option value="@option" disabled="@(option == MemberSort.AlongRoute && !HasRoute)">
@@ -57,7 +57,7 @@
 
 	@if (Rows.Count == 0)
 	{
-		<p class="empty">Nobody on this ride yet.</p>
+		<p class="empty">Nobody on this adventure yet.</p>
 	}
 	else
 	{

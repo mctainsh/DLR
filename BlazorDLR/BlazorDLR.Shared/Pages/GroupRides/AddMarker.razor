@@ -47,16 +47,16 @@
 *@
 
 <div class="page page-medium form-page">
-	<PageNav Title="Add marker" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the ride" />
+	<PageNav Title="Add marker" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the adventure" />
 
 	@if (!_hasPoint)
 	{
 		<p class="empty">
-			This composer opens on a point you have already chosen. Open the ride, pick
+			This composer opens on a point you have already chosen. Open the adventure, pick
 			<em>Add marker</em>, and tap the map where it goes.
 		</p>
 
-		<p><a class="button" href="@($"/group-rides/{RideId}")">Back to the ride</a></p>
+		<p><a class="button" href="@($"/group-rides/{RideId}")">Back to the adventure</a></p>
 	}
 	else
 	{

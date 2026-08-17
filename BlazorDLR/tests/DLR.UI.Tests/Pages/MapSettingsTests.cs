@@ -139,7 +139,7 @@ public sealed class MapSettingsTests : PageTestContext
 		IRenderedComponent<Maps> page = RenderPage();
 
 		page.FindAll("input[name=map-source]").Count.ShouldBe(3,
-			"OpenStreetMap, an offline pack, and a tile server of the rider's own.");
+			"OpenStreetMap, an offline pack, and a tile server of the traveller's own.");
 	}
 
 	[Fact]
@@ -195,11 +195,11 @@ public sealed class MapSettingsTests : PageTestContext
 		IRenderedComponent<Maps> page = RenderPage();
 
 		page.FindAll("fieldset.catalogue").ShouldBeEmpty(
-			"a rider on OpenStreetMap is not part-way through adding a pack — a list of regions and a " +
+			"a traveller on OpenStreetMap is not part-way through adding a pack — a list of regions and a " +
 			"Download button make the screen look like it has a job outstanding.");
 		_catalogue.Requests.ShouldBe(0,
 			"and the list is not fetched for a screen that is not showing it — that is a request to a " +
-			"host which is not the API, spent on a rider's connection.");
+			"host which is not the API, spent on a traveller's connection.");
 
 		await ChooseOfflineAsync(page);
 		page.FindAll("fieldset.catalogue").ShouldNotBeEmpty();
@@ -642,7 +642,7 @@ public sealed class MapSettingsTests : PageTestContext
 		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
 		page.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 
-		(await _packs.ListAsync()).ShouldNotBeEmpty("nothing may go before the rider has answered.");
+		(await _packs.ListAsync()).ShouldNotBeEmpty("nothing may go before the traveller has answered.");
 		confirm.Current!.Danger.ShouldBeTrue("an accidental delete should look like an accident.");
 	}
 
@@ -701,7 +701,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 		page.FindAll("input[name=map-source]").Count.ShouldBe(2,
 			"§18.6: a browser has nowhere to keep a pack, so the option is not one this device can " +
-			"ever take — OpenStreetMap and a tile server of the rider's own are the two real answers.");
+			"ever take — OpenStreetMap and a tile server of the traveller's own are the two real answers.");
 		page.Markup.ShouldNotContain("Offline map pack");
 		page.FindAll("fieldset.appearance").ShouldBeEmpty("and nothing behind it, either.");
 	}
@@ -822,7 +822,7 @@ public sealed class MapSettingsTests : PageTestContext
 		page.FindAll("input[name=map-theme]").Count.ShouldBe(2);
 
 		await page.InvokeAsync(() => page.FindAll("input[name=map-source]")[2].Change(true));
-		page.FindAll("fieldset.appearance").ShouldBeEmpty("nor does a rider's own tile server.");
+		page.FindAll("fieldset.appearance").ShouldBeEmpty("nor does a traveller's own tile server.");
 	}
 
 	[Fact]
@@ -1161,7 +1161,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 		page.WaitForAssertion(
 			() => page.FindAll("fieldset.custom").ShouldNotBeEmpty(
-				"a rider returning to the screen should find their own choice selected."),
+				"a traveller returning to the screen should find their own choice selected."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		page.Find("input[placeholder^='https://tiles.example.com']")

@@ -67,7 +67,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			MarkersResult = markers,
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: RideStateDto.Live,
@@ -322,7 +322,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.FindAll(".marker-body button.danger").ShouldNotBeEmpty(
-				"§16.5: the rider who placed a marker may take it down again."),
+				"§16.5: the traveller who placed a marker may take it down again."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -361,7 +361,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.FindAll(".marker-body button.danger").ShouldBeEmpty(
-			"§16.5: a member who did not place a marker and does not run the ride cannot remove it — " +
+			"§16.5: a member who did not place a marker and does not run the adventure cannot remove it — " +
 			"the server would refuse, so the button must not be there to press.");
 	}
 
@@ -398,7 +398,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.WaitForAssertion(() =>
-			component.Markup.ShouldContain("Nothing marked on this ride yet",
+			component.Markup.ShouldContain("Nothing marked on this adventure yet",
 				customMessage: "The row goes on the caller's own delete, not only when the hub echoes it back — " +
 				"§5.3 makes the snapshot authoritative and the hub the delta on top."),
 			timeout: TimeSpan.FromSeconds(3));
@@ -430,7 +430,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		await component.InvokeAsync(() => confirm.Respond(false));
 
 		api.DeletedMarkers.ShouldBeEmpty("Cancelling the confirm must not reach the server.");
-		component.FindAll("button.marker-head").ShouldNotBeEmpty("The marker is still on the ride.");
+		component.FindAll("button.marker-head").ShouldNotBeEmpty("The marker is still on the adventure.");
 	}
 
 	[Fact]
@@ -482,7 +482,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		component.FindAll(".nearby-dialog").ShouldBeEmpty(
 			"A tap on empty map must stay inert — a popup that opens for every tap on a live " +
-			"ride map is a popup permanently in the way.");
+			"adventure map is a popup permanently in the way.");
 	}
 
 	[Fact]
@@ -566,7 +566,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		uri.ShouldContain($"/group-rides/{rideId}/markers/new",
 			customMessage: "The tap is what opens the composer — the menu item only armed the map.");
 		uri.ShouldContain("lat=-37.81402",
-			customMessage: "§16.1: the composer opens on the point the rider pointed at, to the wire's " +
+			customMessage: "§16.1: the composer opens on the point the traveller pointed at, to the wire's " +
 			"five decimal places, so the number they chose is the number that gets stored.");
 		uri.ShouldContain("lon=144.96328");
 		uri.ShouldNotContain("zoom=",
@@ -644,7 +644,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
 			.ShouldContain("lat=-37.81402",
-				customMessage: "A rider who armed the map before it had reported a frame still asked for " +
+				customMessage: "A traveller who armed the map before it had reported a frame still asked for " +
 				"a marker at the point they touched.");
 	}
 
@@ -791,7 +791,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		_map.Cameras[^1].ZoomLevel.ShouldBe(18,
 			"Centring on a marker must not zoom *out* — pulling the view back throws away " +
-			"detail the rider chose.");
+			"detail the traveller chose.");
 	}
 
 	[Fact]
@@ -815,7 +815,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		await component.InvokeAsync(() => hub.RaiseMarkerRemoved(rideId, markerId));
 
 		component.WaitForAssertion(() =>
-			component.Markup.ShouldContain("Nothing marked on this ride yet",
+			component.Markup.ShouldContain("Nothing marked on this adventure yet",
 				customMessage: "Somebody else's delete has to take the expanded detail with it — an open " +
 				"panel describing a marker that no longer exists is worse than no panel."),
 			timeout: TimeSpan.FromSeconds(3));

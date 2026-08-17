@@ -67,7 +67,7 @@
 		{
 			<div class="join-code">
 				<strong>Join code:</strong> <span class="code">@ride.JoinCode</span>
-				<em>Only you see this. Share it with the people you want on the ride.</em>
+				<em>Only you see this. Share it with the people you want on the adventure.</em>
 			</div>
 		}
 
@@ -93,7 +93,7 @@
 
 				@if (_session.Routes.Count == 0)
 				{
-					<p class="hint">No route on this ride yet.</p>
+					<p class="hint">No route on this adventure yet.</p>
 				}
 				else
 				{
@@ -175,7 +175,7 @@
 									<button type="button" class="remove"
 											@onclick="() => RemoveRouteAsync(route)"
 											disabled="@_session.Busy"
-											aria-label="@($"Remove {route.Name ?? "unnamed route"} from this ride")">
+											aria-label="@($"Remove {route.Name ?? "unnamed route"} from this adventure")">
 										Remove
 									</button>
 								}
@@ -215,7 +215,7 @@
 								*@
 								<p class="hint">
 									Nothing left to add. Routes come from your own tracks —
-									<a href="/import">import a GPX</a> or record a ride first.
+									<a href="/import">import a GPX</a> or record an adventure first.
 								</p>
 							}
 							else
@@ -255,7 +255,7 @@
 				<h3>Route display</h3>
 				<p class="hint">
 					Stored on this device only. It is never sent to the server, and nobody
-					else on the ride sees your choices.
+					else on the adventure sees your choices.
 				</p>
 
 				<label class="switch one-colour">
@@ -349,7 +349,7 @@
 					<label class="switch">
 						<input type="checkbox" checked="@_session.Sharing" @onchange="ToggleSharingAsync"
 							   disabled="@_session.Busy" />
-						Broadcast my location to this ride
+						Broadcast my location to this adventure
 					</label>
 					<p class="hint">
 						You can turn this off at any moment. Turning it off deletes the
@@ -375,7 +375,7 @@
 						<p class="gps-state" role="status">
 							<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i>
 							Your position starts going to the group when the organiser starts the
-							ride. Your phone's GPS stays off until then.
+							adventure. Your phone's GPS stays off until then.
 						</p>
 					}
 					else
@@ -390,7 +390,7 @@
 					{
 						<p class="hint">
 							Your phone keeps sending while the app is in the background or the screen
-							is off. It stops when you turn this off, leave the ride, or the ride ends.
+							is off. It stops when you turn this off, leave the adventure, or the adventure ends.
 						</p>
 					}
 				</div>
@@ -408,16 +408,16 @@
 			@if (!ride.IsOrganiser)
 			{
 				<div class="membership">
-					<h3>This ride</h3>
+					<h3>This adventure</h3>
 					@* app.css's `.danger`: destructive, but not the point of the page — the same
 					   treatment revoking a device gets, rather than the filled red of a delete
 					   that happens on the tap. This one opens a confirm. *@
 					<button type="button" class="danger leave" @onclick="LeaveRideAsync" disabled="@_session.Busy">
-						Leave ride…
+						Leave adventure…
 					</button>
 					<p class="hint">
-						Your sharing stops, the position the ride holds for you is deleted, and the
-						ride drops off your rail. You would need the join code — or a new request —
+						Your sharing stops, the position the adventure holds for you is deleted, and the
+						adventure drops off your rail. You would need the join code — or a new request —
 						to get back on.
 					</p>
 				</div>
@@ -433,14 +433,14 @@
 					@if (ride.State == RideStateDto.Open)
 					{
 						<button type="button" class="primary" @onclick="_session.StartAsync" disabled="@_session.Busy">
-							Start ride
+							Start adventure
 						</button>
 					}
 					@if (ride.State == RideStateDto.Live)
 					{
 						<button type="button" class="primary" @onclick="() => _showEndDialog = true"
 								disabled="@_session.Busy">
-							End ride…
+							End adventure…
 						</button>
 					}
 				</div>
@@ -459,14 +459,14 @@
 					</button>
 					<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.WindDown)"
 							disabled="@_session.Busy">
-						Let riders stop themselves (2-hour wind-down)
+						Let travellers stop themselves (2-hour wind-down)
 					</button>
 					<button type="button" class="cancel" @onclick="() => _showEndDialog = false">
 						Cancel
 					</button>
 					<p class="note">
 						The wind-down is capped, cannot be extended, and force-stops on the
-						server. A rider who forgets is not tracked forever.
+						server. A traveller who forgets is not tracked forever.
 					</p>
 				</div>
 			</div>
@@ -492,7 +492,7 @@
 
 	private string? _tracksError;
 
-	private string Title => _session?.Ride?.Name ?? "Ride";
+	private string Title => _session?.Ride?.Name ?? "Adventure";
 
 	/// <summary>
 	/// The tracks that could still be added: the caller's own, minus the ones already on the ride.
@@ -776,7 +776,7 @@
 
 		bool confirmed = await Confirm.AskAsync(
 			$"Leave {ride.Name}?",
-			"Your sharing stops and the position this ride holds for you is deleted. "
+			"Your sharing stops and the position this adventure holds for you is deleted. "
 			+ "Getting back on needs the join code or a new request.",
 			confirmText: "Leave",
 			danger: true);

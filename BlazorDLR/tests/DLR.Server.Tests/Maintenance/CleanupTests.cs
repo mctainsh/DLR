@@ -106,7 +106,7 @@ public sealed class CleanupTests(PostgresFixture postgres)
 		MaintenanceReport report = await app.RunMaintenanceAsync();
 
 		report.AccountsDeleted.ShouldBe(0);
-		report.InactiveCandidates.ShouldBeEmpty("ten years idle does not outweigh one saved ride");
+		report.InactiveCandidates.ShouldBeEmpty("ten years idle does not outweigh one saved adventure");
 
 		(await ExistsAsync(app, "DaveSmith")).ShouldBeTrue();
 	}

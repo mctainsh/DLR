@@ -56,7 +56,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 		// somebody else in the ride ever sees the line.
 		RideRoute[] routes = await ListAsync(member, ride.Id);
 
-		routes.Length.ShouldBe(2, "a ride carries a set of routes, not one");
+		routes.Length.ShouldBe(2, "an adventure carries a set of routes, not one");
 
 		routes[0].TrackId.ShouldBe(first.Id, "oldest attachment first — §5.4's gap list is projected against it");
 		routes[1].TrackId.ShouldBe(second.Id);
@@ -143,14 +143,14 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 		await JoinAsync(app, member, ride.Id);
 
-		TrackSummary theirs = await UploadAsync(member, "My own ride", points: 25);
+		TrackSummary theirs = await UploadAsync(member, "My own adventure", points: 25);
 
 		using (HttpResponseMessage refused = await member.PostAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/routes",
 			new AddRideRouteRequest(theirs.Id)))
 		{
 			refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden,
-				"§5.4: the organiser decides which routes a ride has");
+				"§5.4: the organiser decides which routes an adventure has");
 		}
 
 		// And somebody not in the ride gets a 404, not a 403 — a ride id is shareable, so a
@@ -185,7 +185,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 		await JoinAsync(app, member, ride.Id);
 
-		TrackSummary theirs = await UploadAsync(member, "Sam's ride", points: 25);
+		TrackSummary theirs = await UploadAsync(member, "Sam's adventure", points: 25);
 
 		using HttpResponseMessage refused = await organiser.PostAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/routes",
@@ -232,7 +232,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 			new EditTrackRequest(track.Version + 1, [new IndexRange(0, 5)]));
 
 		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict,
-			"§15.4: a ride in progress is riding this line");
+			"§15.4: an adventure in progress is travelling this line");
 
 		// Undo moves the line just as surely, so it meets the same precondition.
 		using HttpResponseMessage undoRefused = await organiser.PostAsync(
@@ -278,7 +278,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 			new AddRideRouteRequest(another.Id)))
 		{
 			refused.StatusCode.ShouldBe(HttpStatusCode.Conflict,
-				"the routes of a finished ride are part of the record of it");
+				"the routes of a finished adventure are part of the record of it");
 		}
 
 		using HttpResponseMessage cannotRemove = await organiser.DeleteAsync(

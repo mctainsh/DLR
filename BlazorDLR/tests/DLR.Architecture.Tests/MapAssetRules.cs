@@ -67,7 +67,7 @@ public sealed class MapAssetRules
 		offenders.ShouldBeEmpty(
 			"a map module that fetches its library, style, glyphs or sprites from a CDN cannot draw " +
 			"a map without a connection — which is the one thing the offline work exists to give a " +
-			"rider at a trailhead, and it fails before a single tile is requested. Vendor the asset " +
+			"traveller at a trailhead, and it fails before a single tile is requested. Vendor the asset " +
 			"under BlazorDLR.Shared/wwwroot/map/lib/ and resolve it through import.meta.url, the way " +
 			"map.maplibre.js loads MapLibre GL JS.");
 	}

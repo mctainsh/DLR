@@ -96,7 +96,7 @@ public sealed class RideSessionOfflineTests
 		session.LoadedFromCache.ShouldBeFalse("this one came off the wire.");
 		session.CachedUtc.ShouldBeNull();
 		store.Contains("ride-" + RideId.ToString("N")).ShouldBeTrue(
-			"§4.4: a load that fully succeeded is the only chance to record what the ride looked like.");
+			"§4.4: a load that fully succeeded is the only chance to record what the adventure looked like.");
 	}
 
 	[Fact]
@@ -119,9 +119,9 @@ public sealed class RideSessionOfflineTests
 		session.LoadedFromCache.ShouldBeTrue();
 		session.CachedUtc.ShouldBe(FixedInstant, "the map has to be able to say how old the copy is.");
 		session.RideUnavailable.ShouldBeFalse(
-			"§5.2: a ride must never be forgotten because a phone went through a tunnel.");
+			"§5.2: an adventure must never be forgotten because a phone went through a tunnel.");
 		session.Error.ShouldBeNull(
-			"a screen showing a ride does not also need a transport exception's wording over the top of it.");
+			"a screen showing an adventure does not also need a transport exception's wording over the top of it.");
 
 		// Everything GroupRideLive draws, back off the device.
 		session.Ride.ShouldNotBeNull();
@@ -163,7 +163,7 @@ public sealed class RideSessionOfflineTests
 		// The server answered. This rider is not on this ride any more (§5.2).
 		FakeApiClient removed = new()
 		{
-			RideException = new ApiException(new ApiError(HttpStatusCode.NotFound, "No such ride.", [])),
+			RideException = new ApiException(new ApiError(HttpStatusCode.NotFound, "No such adventure.", [])),
 		};
 
 		RideSession session = SessionOver(removed, CacheOver(store));
@@ -171,7 +171,7 @@ public sealed class RideSessionOfflineTests
 
 		session.RideUnavailable.ShouldBeTrue();
 		session.LoadedFromCache.ShouldBeFalse(
-			"a removal has to be able to stop a rider opening the ride, and a cache that outlived it would not let it.");
+			"a removal has to be able to stop a traveller opening the adventure, and a cache that outlived it would not let it.");
 		session.Ride.ShouldBeNull();
 		store.Count.ShouldBe(0, "the copy goes with the membership.");
 	}
@@ -195,7 +195,7 @@ public sealed class RideSessionOfflineTests
 
 		session.LoadedFromCache.ShouldBeTrue();
 		session.RideUnavailable.ShouldBeFalse();
-		store.Count.ShouldBe(1, "a 500 is not a reason to throw away the only copy of the ride.");
+		store.Count.ShouldBe(1, "a 500 is not a reason to throw away the only copy of the adventure.");
 	}
 
 	[Fact]

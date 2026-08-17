@@ -122,7 +122,7 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 
 		profile.PhoneNumber.ShouldBe(
 			"+61400000000",
-			"a value withheld from other riders is still the rider's own data (§7.3)");
+			"a value withheld from other travellers is still the traveller's own data (§7.3)");
 
 		profile.ShareDisplayName.ShouldBeTrue();
 		profile.SharePhoneNumber.ShouldBeFalse();

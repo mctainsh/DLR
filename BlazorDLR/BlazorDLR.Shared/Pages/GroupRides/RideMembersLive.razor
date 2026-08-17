@@ -38,7 +38,7 @@
 <div class="page page-medium ride-members">
 	@* Outside the load branches: the way back to the map has to be there while the ride is
 	   loading and if it fails. The state badge waits — there is no state to report yet. *@
-	<PageNav Title="Ride members" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the map">
+	<PageNav Title="Live members" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the map">
 		<Actions>
 			@if (_session.Ride is { } loaded)
 			{
@@ -69,7 +69,7 @@
 		{
 			<p class="cached" role="status">
 				<i class="fa fa-cloud-arrow-down" aria-hidden="true"></i>
-				Offline — this ride as it was @CachedAge. Nothing below is moving.
+				Offline — this adventure as it was @CachedAge. Nothing below is moving.
 			</p>
 		}
 		else if (_session.Error is { } problem)
@@ -94,15 +94,15 @@
 			*@
 			<p class="hint">
 				Range is measured from where you are, and this device does not know that yet —
-				turn sharing on from the ride's info page, or wait for the first fix.
+				turn sharing on from the adventure's info page, or wait for the first fix.
 			</p>
 		}
 
 		@if (_session.Routes.Count == 0)
 		{
 			<p class="hint">
-				This ride has no planned route, so there is nothing to measure "along" or a gap
-				against. Attach one from the ride's info page.
+				This adventure has no planned route, so there is nothing to measure "along" or a gap
+				against. Attach one from the adventure's info page.
 			</p>
 		}
 	}
@@ -142,7 +142,7 @@
 	/// </summary>
 	private LocationBroadcastState? _broadcast;
 
-	private string Title => _session?.Ride?.Name ?? "Ride";
+	private string Title => _session?.Ride?.Name ?? "Adventure";
 
 	/// <summary>Whether this host reads its own GPS, which is what decides where range starts from.</summary>
 	private bool HasOwnReceiver => _broadcast?.IsSupported == true;

@@ -394,7 +394,7 @@ public sealed class TrackEditingTests(PostgresFixture postgres)
 
 		response.StatusCode.ShouldBe(
 			HttpStatusCode.NoContent,
-			"the nightly sweep and an impatient rider must not race each other into a 404");
+			"the nightly sweep and an impatient traveller must not race each other into a 404");
 	}
 
 	private static async Task<TrackEditResponse> EditAsync(

@@ -26,7 +26,7 @@ public sealed class RideThreadTests : PageTestContext
 		{
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: RideStateDto.Open,
@@ -61,7 +61,7 @@ public sealed class RideThreadTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			// The read side always renders; the compose surface must NOT.
-			component.Markup.Contains("Ride thread", StringComparison.Ordinal).ShouldBeTrue(
+			component.Markup.Contains("Adventure thread", StringComparison.Ordinal).ShouldBeTrue(
 				"§17.7: revoking the permission does not hide the thread — only the composer.");
 			component.FindAll("form.composer").Count.ShouldBe(0,
 				"§5.8: with AllowMemberComments off and no organiser role, the composer must be absent.");

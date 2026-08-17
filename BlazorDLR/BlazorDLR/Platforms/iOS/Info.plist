@@ -126,15 +126,15 @@
 		review. Add one only alongside code that actually opens a CBCentralManager.
 	-->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Dumb Luck Routes shows your position on the map and, when you turn sharing on for a group ride, lets the other riders on that ride see where you are.</string>
+	<string>Dumb Luck Routes shows your position on the map and, when you turn sharing on for a group adventure, lets the other people on that adventure see where you are.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Keeps your position going to the group rides you have turned sharing on for while the app is in the background and the screen is off, so the group can still see you while you ride. You can turn sharing off at any time.</string>
+	<string>Keeps your position going to the group adventures you have turned sharing on for while the app is in the background and the screen is off, so the group can still see you while you travel. You can turn sharing off at any time.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Keeps your position going to the group rides you have turned sharing on for while the app is in the background and the screen is off, so the group can still see you while you ride. You can turn sharing off at any time, and you can set a private area around home that is never shared.</string>
+	<string>Keeps your position going to the group adventures you have turned sharing on for while the app is in the background and the screen is off, so the group can still see you while you travel. You can turn sharing off at any time, and you can set a private area around home that is never shared.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo to attach to a map marker, so the rest of your group can see the hazard, the turn or the view you are marking.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose a photo from your library to attach to a map marker or a ride post.</string>
+	<string>Choose a photo from your library to attach to a map marker or an adventure post.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<!--

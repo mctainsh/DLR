@@ -70,14 +70,14 @@
 	/// a rail is glyph-only, so this and the tooltip are the whole of what the item announces, and
 	/// "Current ride" on a device with no ride would be a promise the tap does not keep.
 	/// </summary>
-	private string CurrentRideName => CurrentRide.RideId is null ? "Pick a group ride" : "Current ride";
+	private string CurrentRideName => CurrentRide.RideId is null ? "Pick a group adventure" : "Current adventure";
 
 	/// <summary>
 	/// The same sentence for the rider list, which shares the globe's two destinations. With no
 	/// ride on this device there are no members to list, so it falls back to the same place the
 	/// globe does — and must say so, rather than promising a list and opening a chooser.
 	/// </summary>
-	private string MembersName => CurrentRide.RideId is null ? "Pick a group ride" : "Ride members live";
+	private string MembersName => CurrentRide.RideId is null ? "Pick a group adventure" : "Live members";
 
 	protected override void OnInitialized()
 	{

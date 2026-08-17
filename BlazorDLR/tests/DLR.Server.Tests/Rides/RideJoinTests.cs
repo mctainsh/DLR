@@ -37,7 +37,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 		JoinResult result = await JoinAsync(rider, ride.JoinCode!);
 
-		result.Joined.ShouldBeFalse("nobody enters an approval ride until the organiser says so");
+		result.Joined.ShouldBeFalse("nobody enters an approval adventure until the organiser says so");
 		result.RequestId.ShouldNotBeNull();
 
 		// Not a member — which is the assertion that matters, because a pending request that
@@ -74,7 +74,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 		asRider.IsOrganiser.ShouldBeFalse();
 
 		asRider.JoinCode.ShouldBeNull(
-			"the code is the ride's whole access control — a member's copy carrying it would " +
+			"the code is the adventure's whole access control — a member's copy carrying it would " +
 			"let anybody re-share the group the organiser curated");
 	}
 
@@ -123,7 +123,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 		string body = await member.GetStringAsync($"{RidesUrl}/{ride.Id}");
 
 		body.Contains(ride.JoinCode!, StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
-			$"a member who {how} can read the ride, and must not be able to re-share it");
+			$"a member who {how} can read the adventure, and must not be able to re-share it");
 	}
 
 	/// <summary>
@@ -229,7 +229,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 		int requests = await app.WithDatabaseAsync(database =>
 			database.Set<GroupRideJoinRequest>().CountAsync(row => row.GroupRideId == ride.Id));
 
-		requests.ShouldBe(1, "the blocked rider did not get to leave a second request behind");
+		requests.ShouldBe(1, "the blocked traveller did not get to leave a second request behind");
 	}
 
 	[Fact]
@@ -395,7 +395,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			await signup.RegisterAsync($"Rider{account}");
+			await signup.RegisterAsync($"Traveller{account}");
 		}
 
 		TokenResponse restricted = await signup.RegisterAsync("Rider4", email: "rider4@example.com");
@@ -410,7 +410,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 		using HttpResponseMessage creating = await client.PostAsJsonAsync(
 			RidesUrl,
-			new CreateRideRequest("My own ride", DlrWebApplicationFactory.DefaultStart));
+			new CreateRideRequest("My own adventure", DlrWebApplicationFactory.DefaultStart));
 
 		creating.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 	}
@@ -429,7 +429,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			await signup.RegisterAsync($"Rider{account}");
+			await signup.RegisterAsync($"Traveller{account}");
 		}
 
 		TokenResponse restricted = await signup.RegisterAsync("Rider4", email: "rider4@example.com");

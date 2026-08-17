@@ -79,7 +79,7 @@ public sealed class CreateRideTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		CreateRideRequest sent = api.LastCreateRideRequest!;
-		sent.Name.ShouldBe("Sunday morning club run", "the name is trimmed and passed through — §5.2's ride identity.");
+		sent.Name.ShouldBe("Sunday morning club run", "the name is trimmed and passed through — §5.2's adventure identity.");
 		sent.JoinPolicy.ShouldBe(JoinPolicyDto.Open,
 			"the composer sends whichever policy the organiser last selected; the default is Approval, and the switch to Open must round-trip.");
 	}

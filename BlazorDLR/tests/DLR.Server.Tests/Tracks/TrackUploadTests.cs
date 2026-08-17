@@ -100,7 +100,7 @@ public sealed class TrackUploadTests(PostgresFixture postgres)
 
 		stored.ContentHash.ShouldBe(
 			TrackBlobCodec.ContentHash(geometry),
-			"the hash identifies the points, so the same ride hashes the same way wherever it " +
+			"the hash identifies the points, so the same adventure hashes the same way wherever it " +
 			"was computed (§15.3)");
 
 		// The blob is a real file on the volume, and it round-trips losslessly — which is what
@@ -151,7 +151,7 @@ public sealed class TrackUploadTests(PostgresFixture postgres)
 
 		tracks.Select(track => track.Name).ShouldBe(
 			["Planned route", "Ridden last year", "Ridden today"],
-			"newest upload first. Sorting on started_utc would put last year's ride below " +
+			"newest upload first. Sorting on started_utc would put last year's adventure below " +
 			"today's, and a route imported a moment ago has no start time to sort by at all");
 
 		tracks[0].StartedUtc.ShouldBeNull();
@@ -166,7 +166,7 @@ public sealed class TrackUploadTests(PostgresFixture postgres)
 		using HttpClient dave = await SignedInAsync(app, "DaveSmith");
 		using HttpClient sam = await SignedInAsync(app, "SamJones");
 
-		await dave.PostAsJsonAsync(TracksUrl, Upload(Guid.NewGuid(), name: "Dave's ride"));
+		await dave.PostAsJsonAsync(TracksUrl, Upload(Guid.NewGuid(), name: "Dave's adventure"));
 
 		(await sam.GetFromJsonAsync<List<TrackSummary>>(TracksUrl))!.ShouldBeEmpty();
 	}
@@ -282,7 +282,7 @@ public sealed class TrackUploadTests(PostgresFixture postgres)
 
 		for (int account = 1; account <= 3; account++)
 		{
-			await signup.RegisterAsync($"Rider{account}");
+			await signup.RegisterAsync($"Traveller{account}");
 		}
 
 		TokenResponse restricted =

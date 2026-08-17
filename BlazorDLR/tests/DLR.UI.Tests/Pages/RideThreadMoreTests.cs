@@ -30,7 +30,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 		{
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: state,
@@ -122,7 +122,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 			.Add(p => p.RideId, rideId));
 
 		component.WaitForAssertion(() =>
-			component.Markup.Contains("Ride thread", StringComparison.Ordinal).ShouldBeTrue(),
+			component.Markup.Contains("Adventure thread", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		CommentDto arriving = Post(rideId, "Live update from the road.");
@@ -144,8 +144,8 @@ public sealed class RideThreadMoreTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.Markup.Contains("ride is live", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-				"§17.1: while the ride is Live the thread renders a note that pushes are silent — a user surprised by the quiet needs the explanation.");
+			component.Markup.Contains("adventure is live", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+				"§17.1: while the adventure is Live the thread renders a note that pushes are silent — a user surprised by the quiet needs the explanation.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -200,7 +200,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement textarea = component.Find("form.composer textarea");
-			textarea.Change("  Hello, ride.  ");
+			textarea.Change("  Hello, adventure.  ");
 		});
 		await component.InvokeAsync(() =>
 		{
@@ -212,7 +212,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		PostCommentRequest sent = api.PostCommentRequests[0];
-		sent.Body.ShouldBe("Hello, ride.", "the body is trimmed before the wire.");
+		sent.Body.ShouldBe("Hello, adventure.", "the body is trimmed before the wire.");
 		sent.ClientGuid.ShouldNotBe(Guid.Empty,
 			"§4.4: every post carries a fresh ClientGuid — the server's idempotency key for retries.");
 		sent.Poll.ShouldBeNull("a plain post must not carry a poll spec.");

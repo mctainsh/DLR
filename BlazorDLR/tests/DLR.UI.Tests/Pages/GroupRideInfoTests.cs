@@ -18,10 +18,10 @@ namespace DLR.UI.Tests.Pages;
 /// the snapshot is authoritative and the hub is the delta on top.
 /// <list type="bullet">
 ///   <item><c>RideStateChanged</c> — an Open ride flipping to Live must show the new state,
-///     unlock the gap list, and stop showing the organiser's "Start ride" button (that
+///     unlock the gap list, and stop showing the organiser's "Start adventure" button (that
 ///     button lives on the Open branch only).</item>
 ///   <item><c>MemberJoined</c> / <c>MemberLeft</c> — nothing here follows them any more: who is
-///     on the ride is "Ride members live" (see <c>RideMembersLiveTests</c>), and this page must
+///     on the ride is "Live members" (see <c>RideMembersLiveTests</c>), and this page must
 ///     not grow a second, thinner copy of that list.</item>
 ///   <item><c>SharingWindDownStarted</c> — the banner appears with the stated cutoff (§5.6).</item>
 ///   <item>The organiser's lifecycle controls: Start (§5.1) and the two-choice End (§5.6).</item>
@@ -42,7 +42,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		{
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: state,
@@ -127,7 +127,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.FindAll(".route-list li").Count.ShouldBe(2,
-				"§5.4: a ride carries a set of planned routes, and the panel lists all of them."),
+				"§5.4: an adventure carries a set of planned routes, and the panel lists all of them."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.Markup.Contains("The long way", StringComparison.Ordinal).ShouldBeTrue();
@@ -152,13 +152,13 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.FindAll(".route-list li").ShouldNotBeEmpty(
-				"a member still sees which routes the ride is on — reading is membership."),
+				"a member still sees which routes the adventure is on — reading is membership."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		// Mirrors the server's owner-or-leader check, so the control is absent rather than there
 		// and 403-ing.
 		component.FindAll(".route-list .remove").ShouldBeEmpty(
-			"§5.4: the organiser decides which routes a ride has.");
+			"§5.4: the organiser decides which routes an adventure has.");
 		component.FindAll("button").Any(button => button.TextContent.Contains("Add a route", StringComparison.Ordinal))
 			.ShouldBeFalse();
 	}
@@ -218,7 +218,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.Markup.Contains("The long way", StringComparison.Ordinal).ShouldBeFalse(
-				"detaching removes it from the ride — the owner's track itself is untouched."),
+				"detaching removes it from the adventure — the owner's track itself is untouched."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -230,7 +230,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
 		component.WaitForAssertion(
-			() => component.Markup.Contains("No route on this ride yet", StringComparison.Ordinal).ShouldBeTrue(),
+			() => component.Markup.Contains("No route on this adventure yet", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		// Somebody else attached one. The event carries the ride, not the routes — the lines are
@@ -279,7 +279,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 	[Fact]
 	public async Task WhoIsOnTheRide_IsNotOnThisPageAtAll()
 	{
-		// Who is on the ride is its own screen now — "Ride members live", which says everything
+		// Who is on the ride is its own screen now — "Live members", which says everything
 		// the panel that used to sit here said and four things it did not (see
 		// RideMembersLiveTests). The rail carries the way through on every screen, so a count and
 		// a link here would be a second entry point to a list this page no longer shows: one more
@@ -289,11 +289,11 @@ public sealed class GroupRideInfoTests : PageTestContext
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
 		component.WaitForAssertion(() =>
-			component.Markup.Contains("Test ride", StringComparison.Ordinal).ShouldBeTrue(),
+			component.Markup.Contains("Test adventure", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.FindAll(".members").ShouldBeEmpty(
-			"the member panel moved to \"Ride members live\" — the rail is the way through.");
+			"the member panel moved to \"Live members\" — the rail is the way through.");
 
 		// And a join arriving over the hub does not put it back. The delta itself is not being
 		// dropped: RideMembersLiveTests.MemberJoined_AppearsInTheList holds §5.3 on the screen
@@ -315,7 +315,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
 		component.WaitForAssertion(() =>
-			component.Markup.Contains("Test ride", StringComparison.Ordinal).ShouldBeTrue(),
+			component.Markup.Contains("Test adventure", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		// The banner has always previously been absent — the state carried no wind-down.
@@ -342,7 +342,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("AB3K9Z", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.2: the organiser sees the join code on the ride page.");
+				"§5.2: the organiser sees the join code on the adventure page.");
 			component.Markup.Contains("Only you see this", StringComparison.Ordinal).ShouldBeTrue(
 				"the copy makes it clear this code is not on the shared view.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -356,7 +356,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
 		component.WaitForAssertion(() =>
-			component.Markup.Contains("Test ride", StringComparison.Ordinal).ShouldBeTrue(),
+			component.Markup.Contains("Test adventure", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		// Raise events for a different ride id — none of them must alter this page.
@@ -367,7 +367,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		// The ride still says Open and the interloper is not in the member list.
 		component.Markup.Contains("Completed", StringComparison.Ordinal).ShouldBeFalse(
-			"§5.3: events for other rides must not alter this ride's state — a shared hub connection is not a shared page.");
+			"§5.3: events for other adventures must not alter this adventure's state — a shared hub connection is not a shared page.");
 		component.Markup.Contains("InterloperFromOtherRide", StringComparison.Ordinal).ShouldBeFalse();
 	}
 
@@ -379,12 +379,12 @@ public sealed class GroupRideInfoTests : PageTestContext
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
 		component.WaitForAssertion(() =>
-			component.FindAll("button").Any(b => b.TextContent.Contains("Start ride", StringComparison.Ordinal))
-				.ShouldBeTrue("§5.1: an organiser looking at an Open ride sees the Start button."),
+			component.FindAll("button").Any(b => b.TextContent.Contains("Start adventure", StringComparison.Ordinal))
+				.ShouldBeTrue("§5.1: an organiser looking at an Open adventure sees the Start button."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => component.FindAll("button")
-			.First(b => b.TextContent.Contains("Start ride", StringComparison.Ordinal))
+			.First(b => b.TextContent.Contains("Start adventure", StringComparison.Ordinal))
 			.Click());
 
 		component.WaitForAssertion(() => api.StartedRides.ShouldContain(rideId),
@@ -400,7 +400,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.FindAll("button").Any(b => b.TextContent.Contains("Start ride", StringComparison.Ordinal))
+			component.FindAll("button").Any(b => b.TextContent.Contains("Start adventure", StringComparison.Ordinal))
 				.ShouldBeFalse("§5.1: only the organiser can start — the button must not appear for anyone else.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -459,7 +459,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		component.WaitForAssertion(() => api.SetSharingRequests.ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 		api.SetSharingRequests.Last().Request.Share.ShouldBeTrue(
-			"§5.6: the switch is the rider's own control over their broadcast, and it reaches the server.");
+			"§5.6: the switch is the traveller's own control over their broadcast, and it reaches the server.");
 	}
 
 	// -- Route display (§18.6) ----------------------------------------------------------------
@@ -728,7 +728,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.FindAll(".route-list li")[0].InnerHtml
 			.Contains("reversed", StringComparison.Ordinal).ShouldBeFalse(
-				"the row must stop claiming a direction the rider has just put back.");
+				"the row must stop claiming a direction the traveller has just put back.");
 	}
 
 	/// <summary>
@@ -843,7 +843,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
 
-		await ClickAsync(component, "Leave ride…");
+		await ClickAsync(component, "Leave adventure…");
 
 		// ConfirmDialog lives in MainLayout, which a page-only render does not mount — answering
 		// the service directly is what the dialog's confirm button does.
@@ -862,13 +862,13 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			current.RideId.ShouldBeNull("§18.6: the globe must not lead back to a ride nobody is on.");
+			current.RideId.ShouldBeNull("§18.6: the globe must not lead back to an adventure nobody is on.");
 			current.Href.ShouldBe("group-rides");
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
 			.ShouldEndWith("/group-rides",
-				customMessage: "the page describes a ride this rider is no longer on — staying on it "
+				customMessage: "the page describes an adventure this traveller is no longer on — staying on it "
 				+ "would be a screen whose next request 404s.");
 	}
 
@@ -883,7 +883,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
 
-		await ClickAsync(component, "Leave ride…");
+		await ClickAsync(component, "Leave adventure…");
 
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 		await component.InvokeAsync(() => confirm.Respond(false));
@@ -895,7 +895,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 	[Fact]
 	public void LeaveRide_IsNotOfferedToTheOrganiser()
 	{
-		// The server answers 409 — "a ride nobody organises has nobody to decide who is in it" —
+		// The server answers 409 — "an adventure nobody organises has nobody to decide who is in it" —
 		// so the control is simply absent rather than there and failing, the same arrangement the
 		// marker delete and the route controls use.
 		(_, _, Guid rideId) = WireServices(isOrganiser: true);
@@ -904,9 +904,9 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.FindAll(".organiser").ShouldNotBeEmpty("the ride has loaded as the organiser's.");
+			component.FindAll(".organiser").ShouldNotBeEmpty("the adventure has loaded as the organiser's.");
 			component.FindAll(".membership").ShouldBeEmpty();
-			component.FindAll("button").Any(button => button.TextContent.Contains("Leave ride", StringComparison.Ordinal))
+			component.FindAll("button").Any(button => button.TextContent.Contains("Leave adventure", StringComparison.Ordinal))
 				.ShouldBeFalse();
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -928,7 +928,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
 
-		await ClickAsync(component, "Leave ride…");
+		await ClickAsync(component, "Leave adventure…");
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 		await component.InvokeAsync(() => confirm.Respond(true));
 
@@ -937,19 +937,19 @@ public sealed class GroupRideInfoTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri.ShouldBe(before,
-			"a leave the server refused must leave the rider exactly where they were.");
-		current.RideId.ShouldBe(rideId, "and still on the ride they are still on.");
+			"a leave the server refused must leave the traveller exactly where they were.");
+		current.RideId.ShouldBe(rideId, "and still on the adventure they are still on.");
 	}
 
 	private static async Task OpenEndDialogAsync(IRenderedComponent<GroupRideInfo> component)
 	{
 		component.WaitForAssertion(() =>
-			component.FindAll("button").Any(b => b.TextContent.Contains("End ride…", StringComparison.Ordinal))
+			component.FindAll("button").Any(b => b.TextContent.Contains("End adventure…", StringComparison.Ordinal))
 				.ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => component.FindAll("button")
-			.First(b => b.TextContent.Contains("End ride…", StringComparison.Ordinal))
+			.First(b => b.TextContent.Contains("End adventure…", StringComparison.Ordinal))
 			.Click());
 
 		component.WaitForAssertion(() =>

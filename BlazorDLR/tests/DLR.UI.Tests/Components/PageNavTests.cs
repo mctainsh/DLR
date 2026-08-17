@@ -22,7 +22,7 @@ public sealed class PageNavTests : PageTestContext
 	private const string Child = "/group-rides/11111111-1111-1111-1111-111111111111/thread";
 	private const string Parent = "/group-rides/11111111-1111-1111-1111-111111111111";
 
-	private IRenderedComponent<PageNav> RenderNav(string title = "Ride thread", string? backHref = Parent) =>
+	private IRenderedComponent<PageNav> RenderNav(string title = "Adventure thread", string? backHref = Parent) =>
 		Render<PageNav>(parameters => parameters
 			.Add(p => p.Title, title)
 			.Add(p => p.BackHref, backHref));
@@ -32,9 +32,9 @@ public sealed class PageNavTests : PageTestContext
 	{
 		IRenderedComponent<PageNav> nav = RenderNav();
 
-		nav.Find("h1").TextContent.Trim().ShouldBe("Ride thread",
+		nav.Find("h1").TextContent.Trim().ShouldBe("Adventure thread",
 			"pages no longer carry their own heading — the bar's title is the document's h1, so what a " +
-			"screen reader announces and what a rider reads are the same string.");
+			"screen reader announces and what a traveller reads are the same string.");
 	}
 
 	[Fact]
@@ -53,9 +53,9 @@ public sealed class PageNavTests : PageTestContext
 		IRenderedComponent<PageNav> nav = Render<PageNav>(parameters => parameters
 			.Add(p => p.Title, "Join requests")
 			.Add(p => p.BackHref, Parent)
-			.Add(p => p.BackLabel, "Back to the ride"));
+			.Add(p => p.BackLabel, "Back to the adventure"));
 
-		nav.Find("a.page-nav-back").GetAttribute("aria-label").ShouldBe("Back to the ride",
+		nav.Find("a.page-nav-back").GetAttribute("aria-label").ShouldBe("Back to the adventure",
 			"the arrow is a glyph with no text, so its accessible name is the only thing naming where it goes.");
 	}
 
@@ -73,7 +73,7 @@ public sealed class PageNavTests : PageTestContext
 	public void Actions_RenderBesideTheTitle()
 	{
 		IRenderedComponent<PageNav> nav = Render<PageNav>(parameters => parameters
-			.Add(p => p.Title, "My rides")
+			.Add(p => p.Title, "My adventures")
 			.Add(p => p.BackHref, "/")
 			.Add(p => p.Actions, (RenderFragment)(builder =>
 			{
@@ -104,7 +104,7 @@ public sealed class PageNavTests : PageTestContext
 		nav.Find("a.page-nav-back").Click();
 
 		navigation.Uri.EndsWith(Parent, StringComparison.Ordinal).ShouldBeTrue(
-			"a rider who opened a shared link has no history to step into — the parent route is the answer.");
+			"a traveller who opened a shared link has no history to step into — the parent route is the answer.");
 		JSInterop.Invocations.ShouldBeEmpty("and history.back() must not be called when there is no history.");
 	}
 
@@ -130,7 +130,7 @@ public sealed class PageNavTests : PageTestContext
 
 		JSInterop.VerifyInvoke("history.back");
 		navigation.Uri.EndsWith(Child, StringComparison.Ordinal).ShouldBeTrue(
-			"the browser unwinds the stack — PageNav must not also navigate, or the rider skips a page.");
+			"the browser unwinds the stack — PageNav must not also navigate, or the traveller skips a page.");
 
 		// The stubbed history.back() moves nothing, so stand in for the popstate a real one
 		// would raise. The counter must read that as unwinding: without it, using the arrow

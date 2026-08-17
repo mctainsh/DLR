@@ -71,12 +71,12 @@ public sealed class TestHarnessTests(PostgresFixture postgres)
 		TimeProvider clock = app.Services.GetRequiredService<TimeProvider>();
 
 		await sender.SendAsync(new EmailMessage(
-			To: "rider@example.com",
+			To: "traveller@example.com",
 			Subject: "Your Dumb Luck Routes account",
 			PlainTextBody: $"Nothing has happened here since {clock.GetUtcNow():yyyy-MM-dd}."));
 
 		app.Emails.Sent.ShouldHaveSingleItem();
-		app.Emails.To("rider@example.com").ShouldHaveSingleItem()
+		app.Emails.To("traveller@example.com").ShouldHaveSingleItem()
 			.PlainTextBody.ShouldContain("2026-06-30");
 	}
 
@@ -90,7 +90,7 @@ public sealed class TestHarnessTests(PostgresFixture postgres)
 		IEmailSender sender = app.Services.GetRequiredService<IEmailSender>();
 
 		await Should.ThrowAsync<InvalidOperationException>(
-			sender.SendAsync(new EmailMessage("rider@example.com", "subject", "body")));
+			sender.SendAsync(new EmailMessage("traveller@example.com", "subject", "body")));
 
 		app.Emails.Sent.ShouldBeEmpty();
 	}

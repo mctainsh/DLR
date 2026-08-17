@@ -29,7 +29,7 @@ public sealed class RidePermissionsPageTests : PageTestContext
 		{
 			RideResult = new RideDetail(
 				Id: rideId,
-				Name: "Test ride",
+				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
 				State: RideStateDto.Open,
@@ -58,7 +58,7 @@ public sealed class RidePermissionsPageTests : PageTestContext
 			component.Markup.Contains("Only the organiser can change these", StringComparison.Ordinal).ShouldBeTrue(
 				"§5.8: a member looking at this page sees a plain refusal — not the switches.");
 			component.FindAll("input[type=checkbox]").Count.ShouldBe(0,
-				"showing the switches to a member is a lie about who owns the ride.");
+				"showing the switches to a member is a lie about who owns the adventure.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

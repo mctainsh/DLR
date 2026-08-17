@@ -77,11 +77,11 @@ public static class RideContentPermissions
 			Title = "The organiser has turned this off",
 			Detail = content switch
 			{
-				RideContent.Marker => "Only the organiser and leaders are adding markers to this ride.",
-				RideContent.Comment => "Only the organiser and leaders are posting to this ride. " +
+				RideContent.Marker => "Only the organiser and leaders are adding markers to this adventure.",
+				RideContent.Comment => "Only the organiser and leaders are posting to this adventure. " +
 					"You can still read the thread, react and vote.",
-				RideContent.Photo => "Photos are turned off for this ride. Text still works.",
-				_ => "That is turned off for this ride.",
+				RideContent.Photo => "Photos are turned off for this adventure. Text still works.",
+				_ => "That is turned off for this adventure.",
 			},
 
 			// Distinguishable, so a client can tell "you may not" from "that failed" (§5.8).

@@ -82,7 +82,7 @@ public sealed class AuthStateOfflineTests
 		AuthState auth = Build(offline, device);
 		await auth.RestoreAsync();
 
-		auth.UserId.ShouldBe(UserId, "the rider is who this device says they are until the server says otherwise.");
+		auth.UserId.ShouldBe(UserId, "the traveller is who this device says they are until the server says otherwise.");
 		auth.UserName.ShouldBe("DaveSmith");
 		auth.IsOffline.ShouldBeTrue();
 		auth.AccessToken.ShouldBeNull("nothing minted a token — being signed in locally is not being authorised.");
@@ -92,7 +92,7 @@ public sealed class AuthStateOfflineTests
 			await auth.GetAuthenticationStateAsync();
 
 		state.User.Identity!.IsAuthenticated.ShouldBeTrue(
-			"[Authorize] has to pass, or GroupRideLive redirects to Welcome and the cached ride is unreachable (§4.4).");
+			"[Authorize] has to pass, or GroupRideLive redirects to Welcome and the cached adventure is unreachable (§4.4).");
 		state.User.Identity.Name.ShouldBe("DaveSmith");
 	}
 
@@ -130,7 +130,7 @@ public sealed class AuthStateOfflineTests
 		auth.IsOffline.ShouldBeFalse();
 		device.Tokens.StoredToken.ShouldBeNull();
 		(await device.Settings.GetAsync(RememberedAccount.StorageKey)).ShouldBeNull(
-			"an account left behind would be adopted by the next launch and show a signed-out rider their own name.");
+			"an account left behind would be adopted by the next launch and show a signed-out traveller their own name.");
 	}
 
 	[Fact]
@@ -165,7 +165,7 @@ public sealed class AuthStateOfflineTests
 		(await auth.RefreshNowAsync()).ShouldBeNull();
 
 		device.Tokens.StoredToken.ShouldBe("refresh",
-			"backing off is the answer to a 429 — signing the rider out is not.");
+			"backing off is the answer to a 429 — signing the traveller out is not.");
 	}
 
 	[Fact]

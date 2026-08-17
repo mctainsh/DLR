@@ -63,8 +63,8 @@ public sealed class ReactionController : ControllerBase
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Ride is archived",
-				detail: "An archived ride's thread is read-only.");
+				title: "Adventure is archived",
+				detail: "An archived adventure's thread is read-only.");
 		}
 
 		CommentReaction? existing = await database

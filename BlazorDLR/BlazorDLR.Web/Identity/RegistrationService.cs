@@ -66,7 +66,7 @@ public sealed class RegistrationService(
 					[nameof(RegisterRequest.Email)] =
 					[
 						"An email address is required to register from this connection, and " +
-						"must be confirmed before you can create or join a group ride.",
+						"must be confirmed before you can create or join a group adventure.",
 					],
 				},
 				title: "Email address required"));

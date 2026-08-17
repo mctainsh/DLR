@@ -67,7 +67,7 @@ public sealed class MarkerController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status400BadRequest,
 				title: "Exactly one parent",
-				detail: "A marker hangs off a track or a group ride — one of them, and not both.");
+				detail: "A marker hangs off a track or a group adventure — one of them, and not both.");
 		}
 
 		if (Validate(request.Lat, request.Lon, request.Icon, request.Title, request.DirectionDeg, limits)
@@ -360,7 +360,7 @@ public sealed class MarkerController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status403Forbidden,
 				title: "Not a member",
-				detail: "Markers on a ride are placed by the people in it.");
+				detail: "Markers on an adventure are placed by the people in it.");
 		}
 
 		// Before and after the ride as well as during it. The only state that forbids it is
@@ -369,8 +369,8 @@ public sealed class MarkerController : ControllerBase
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Ride is archived",
-				detail: "An archived ride is read-only.");
+				title: "Adventure is archived",
+				detail: "An archived adventure is read-only.");
 		}
 
 		// The organiser may have switched member markers off (§5.8). Checked here rather than at
@@ -387,8 +387,8 @@ public sealed class MarkerController : ControllerBase
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Ride is full of markers",
-				detail: $"This ride already has {onRide} markers.");
+				title: "Adventure is full of markers",
+				detail: $"This adventure already has {onRide} markers.");
 		}
 
 		int byMember = await database
@@ -400,7 +400,7 @@ public sealed class MarkerController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
 				title: "Too many of your markers",
-				detail: $"You have already added {byMember} markers to this ride.");
+				detail: $"You have already added {byMember} markers to this adventure.");
 		}
 
 		return null;

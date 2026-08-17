@@ -49,7 +49,7 @@ public sealed class ApiSurfaceRules
 		offenders.ShouldBeEmpty(
 			$"An endpoint returning {EntityName} ships every column it has — the phone number " +
 			"nobody agreed to share, the registration IP, the password hash's neighbours. " +
-			"Project to a contract instead; SharedProfile.For is the one for other riders " +
+			"Project to a contract instead; SharedProfile.For is the one for other travellers " +
 			"(§7.3), and it cannot be called without saying who is asking.");
 	}
 

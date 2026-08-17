@@ -169,7 +169,7 @@ public sealed class AddMarkerTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		api.LastCreateMarkerRequest!.Icon.ShouldBe("water-crossing",
-			"the key the rider picked is the key that travels on the wire (§16.2).");
+			"the key the traveller picked is the key that travels on the wire (§16.2).");
 	}
 
 	[Fact]
@@ -288,9 +288,9 @@ public sealed class AddMarkerTests : PageTestContext
 			"with no point there is no marker to compose — offering the form invites a pin in the wrong place.");
 		component.Markup.Contains("point you have already chosen", StringComparison.Ordinal).ShouldBeTrue(
 			"and the screen says where the point is meant to come from rather than failing silently.");
-		component.FindAll("a.button").ShouldNotBeEmpty("with a way back to the ride to go and choose one.");
+		component.FindAll("a.button").ShouldNotBeEmpty("with a way back to the adventure to go and choose one.");
 
 		api.Calls.ShouldBeEmpty(
-			"and it asks the server nothing: the ride read only ever existed to centre the picker that is gone.");
+			"and it asks the server nothing: the adventure read only ever existed to centre the picker that is gone.");
 	}
 }

@@ -111,7 +111,7 @@ public sealed class TrackRecordingStateTests
 		await harness.RideAsync(11, stepM: 55);
 
 		harness.Recording.PointCount.ShouldBe(6,
-			"a 100 m interval over 550 m of riding keeps the first fix and one every other step.");
+			"a 100 m interval over 550 m of travelling keeps the first fix and one every other step.");
 	}
 
 	[Fact]
@@ -220,7 +220,7 @@ public sealed class TrackRecordingStateTests
 		harness.Api.UploadedTracks.ShouldBeEmpty("nothing left the device");
 
 		harness.Recording.HasTrack.ShouldBeTrue(
-			"a save refused for want of a name must leave the ride exactly where it was.");
+			"a save refused for want of a name must leave the adventure exactly where it was.");
 	}
 
 	[Fact]

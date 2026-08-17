@@ -10,17 +10,16 @@ that are **not** in the shipping app, and must not appear in the listing until t
 (`NoopNotificationService`). Offline map packs, GPX import, the track editor, markers, the thread
 with photos and polls, and the private area are all built and are safe to describe.
 
-## The vocabulary, and where it does not yet reach
+## The vocabulary
 
-This copy says **adventure** and **adventurer**, never *ride* or *rider*, so the app reads as being
-for motorcyclists, drivers, cyclists and walkers alike.
+An **adventure** is what a group does together; the people on it are **travellers** or, inside one,
+**members**. Never *ride* or *rider* — so the app reads as being for motorcyclists, drivers,
+cyclists, kayakers and walkers alike.
 
-**The app's own screens have not been changed to match.** They still say *Group rides*, *Ride
-members live*, *Ride thread*, *Blocked riders*, and the location disclosure asks *"Share your
-location while you ride?"*. Where this file has to name a screen a user will look for — the
-*What's New* entry below — it uses the app's real label rather than the listing's vocabulary,
-because a release note pointing at a screen that does not exist under that name is worse than an
-inconsistent one. The mismatch is listed at the end of this file as the work that would close it.
+**The app's own screens now match**: *Group adventures*, *Live members*, *Adventure thread*,
+*Blocked travellers*, *My adventures*, and a location disclosure that asks *"Share your location
+while you travel?"*. Screen names quoted in this file and in the review notes are the real ones.
+What deliberately still says *ride* is listed at the end.
 
 ---
 
@@ -72,10 +71,10 @@ Sharing is per adventure, off by default, and stops when you say so. Now with of
 anyway, so they are not repeated here.
 
 ```
-motorcycle,motorbike,cycling,walking,hiking,4wd,gpx,track,route,offline,tour,convoy,gps,touring
+motorcycle,motorbike,cycling,walking,hiking,kayak,4wd,gpx,track,route,offline,tour,convoy,gps
 ```
 
-*(95)*
+*(93)*
 
 ---
 
@@ -85,10 +84,10 @@ motorcycle,motorbike,cycling,walking,hiking,4wd,gpx,track,route,offline,tour,con
 this is written to read correctly as plain text. Same copy in both places.
 
 ```
-Dumb Luck Routes is a group-adventure companion for motorcyclists, drivers, cyclists and walkers. Set out together, see where everyone is on one live map, and keep the track afterwards.
+Dumb Luck Routes is a group-adventure companion for anyone who sets out together — motorbikes, 4WDs, a road trip, cycling, kayaking, a long walk. See where everyone is on one live map, and keep the track afterwards.
 
 TRAVEL TOGETHER, NOT IN A LINE
-Join an adventure with a code from the organiser, or ask and be admitted. Inside it, every member appears on a shared map with the planned route, so nobody is guessing at the next turn. A neighbour panel tells you who is ahead of you and who is behind, and by how far — the two questions you actually have while you are moving. The live member list shows each adventurer's name, colour, distance along the route and how fresh their last fix is, sorted by position, by distance or by who moved most recently.
+Join an adventure with a code from the organiser, or ask and be admitted. Inside it, every member appears on a shared map with the planned route, so nobody is guessing at the next turn. A neighbour panel tells you who is ahead of you and who is behind, and by how far — the two questions you actually have while you are moving. The live member list shows each traveller's name, colour, distance along the route and how fresh their last fix is, sorted by position, by distance or by who moved most recently.
 
 SHARING YOU CONTROL, PER ADVENTURE
 You are asked when you join, and the answer starts at no. Turning sharing off deletes your stored position rather than merely stopping the broadcast. You can be on an adventure without sharing at all, and the member list makes that visible rather than hiding it. When an adventure ends, sharing ends with it — the organiser can allow a short, capped wind-down so people can watch each other get home, and the server enforces the cap. There is no always-on friend tracking in this app, and there is no way to switch it on.
@@ -115,24 +114,23 @@ OPEN SOURCE
 Dumb Luck Routes is free software under the AGPL. The app tells you the exact commit it was built from and where to get the source.
 ```
 
-*(3386)*
+*(3415)*
 
 ---
 
 ## What's New — 8.0.0
 
 Play calls it *Release notes* (500 characters); App Store calls it *What's New* (4000). Written to
-fit the shorter one. The screen names here are the app's own, not this file's vocabulary — see the
-note at the top.
+fit the shorter one.
 
 ```
-• New "Ride members live" screen — everyone on the trip with their colour, sharing state, distance along the route and how recent their last fix is, sorted however you like.
+• New "Live members" screen — everyone on the trip with their colour, sharing state, distance along the route and how recent their last fix is, sorted however you like.
 • Ahead / behind panel on the live map: who is in front, who is back, and by how far.
 • Offline map packs — search by country and region, download before you leave, travel with no signal.
 • The map now turns with you, like the follow-me button.
 ```
 
-*(418)*
+*(413)*
 
 ---
 
@@ -155,19 +153,21 @@ Not copy, but the same form asks for them — cross-check against `store-release
 
 ---
 
-## If the vocabulary should reach the app too
+## What still says "ride", deliberately
 
-Not required to ship — the listing is consistent on its own, and a store reviewer is given the
-app's real labels. This is what would have to change for a user to stop meeting the word *rider*
-one tap after reading the description, in rough order of visibility:
+None of it is user-visible, and each would cost something real to change:
 
-| What | Where |
+| What | Why it stays |
 |---|---|
-| `"Share your location while you ride?"` | `BlazorDLR.Shared/State/LocationBroadcastState.cs:326` — Play's required background-location wording is elsewhere in the same dialog and **must not** be touched; re-record the declaration video if this line changes |
-| `Ride members live` (nav label) | `BlazorDLR.Shared/Layout/NavMenu.razor:80` |
-| `Blocked riders` (page title, nav) | `BlazorDLR.Shared/Pages/Settings/Blocks.razor:6,9`, `Settings.razor:38` |
-| `Group rides`, `Ride thread`, `My rides` | nav menu and page titles across `BlazorDLR.Shared/Pages/` |
-| Route and URL segments (`/group-rides/…`) | changing these breaks saved links and every navigation path in the review notes — leave them |
+| URL segments — `/group-rides/…`, `/rides/…` | Changing them breaks saved and shared links, and every navigation path in the review notes |
+| API routes and contracts — `GroupRide`, `RideDetail`, `RideComment`, `RiderPosition` | Wire types. Renaming is a breaking change for no listing benefit |
+| The `Rider` member role | A wire value the client compares against; it is never rendered — the member list shows a role badge only for `Owner` and `Leader` |
+| CSS class names, C# identifiers, code comments | Invisible to users |
+| OpenAPI summaries (`.WithSummary("Ends the ride.")`) | Developer-facing API documentation, not app text. Worth a sweep one day; nothing rides on it |
+| Config keys `Ride:*`, `Rides:*`, the JWT issuer `dumb-luck-rides` | Renaming the issuer invalidates every live token; renaming the keys breaks deployed configuration |
 
-The API contracts (`GroupRide`, `RideDetail`, `RideComment`) are wire types, not user-visible text,
-and renaming them would be a breaking change for no listing benefit.
+One line that changed and carries a store obligation: the location disclosure
+(`BlazorDLR.Shared/State/LocationBroadcastState.cs`) now reads *"Share your location while you
+travel?"*. Play's required *"even when the app is closed or not in use"* clause is intact in the
+body — but **the background-location declaration video must be re-recorded against the new
+dialog** before the next Play submission.

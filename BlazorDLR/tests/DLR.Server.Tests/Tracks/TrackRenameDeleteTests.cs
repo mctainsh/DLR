@@ -118,7 +118,7 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 		response.StatusCode.ShouldBe(
 			HttpStatusCode.BadRequest,
-			"a rider who typed it should be told, not silently given something shorter");
+			"a traveller who typed it should be told, not silently given something shorter");
 	}
 
 	/// <summary>
@@ -158,11 +158,11 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 		using HttpClient dave = await SignedInAsync(app, "DaveSmith");
 		using HttpClient sam = await SignedInAsync(app, "SamJones");
 
-		TrackSummary track = await UploadAsync(dave, name: "Dave's ride");
+		TrackSummary track = await UploadAsync(dave, name: "Dave's adventure");
 
 		using HttpResponseMessage response = await sam.PatchAsJsonAsync(
 			$"{TracksUrl}/{track.Id}",
-			new RenameTrackRequest("Sam's ride"));
+			new RenameTrackRequest("Sam's adventure"));
 
 		response.StatusCode.ShouldBe(
 			HttpStatusCode.NotFound,
@@ -171,7 +171,7 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 		TrackSummary unchanged = (await dave.GetFromJsonAsync<TrackDetail>($"{TracksUrl}/{track.Id}"))!.Track;
 
-		unchanged.Name.ShouldBe("Dave's ride");
+		unchanged.Name.ShouldBe("Dave's adventure");
 	}
 
 	[Theory]
@@ -278,7 +278,7 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 		using HttpClient dave = await SignedInAsync(app, "DaveSmith");
 		using HttpClient sam = await SignedInAsync(app, "SamJones");
 
-		TrackSummary track = await UploadAsync(dave, name: "Dave's ride");
+		TrackSummary track = await UploadAsync(dave, name: "Dave's adventure");
 
 		using HttpResponseMessage response = await sam.DeleteAsync($"{TracksUrl}/{track.Id}");
 
@@ -338,7 +338,7 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 		using HttpResponseMessage refused = await organiser.DeleteAsync($"{TracksUrl}/{track.Id}");
 
-		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, "a ride in progress is riding this line");
+		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, "an adventure in progress is travelling this line");
 
 		(await app.WithDatabaseAsync(database => database.Set<Track>().CountAsync())).ShouldBe(1);
 
@@ -361,7 +361,7 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 		allowed.StatusCode.ShouldBe(HttpStatusCode.NoContent, await allowed.Content.ReadAsStringAsync());
 
 		(await app.WithDatabaseAsync(database => database.Set<GroupRideRoute>().CountAsync()))
-			.ShouldBe(0, "a ride pointing at a track that no longer exists is a route nobody can remove");
+			.ShouldBe(0, "an adventure pointing at a track that no longer exists is a route nobody can remove");
 	}
 
 	[Fact]

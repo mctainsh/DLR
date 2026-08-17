@@ -125,7 +125,7 @@ public sealed class RiderPositionCacheTests
 
 	/// <summary>
 	/// The §5.5 gate. Kestrel can begin serving before custom hosted services have run, so a read
-	/// really can arrive against a half-warm cache — and would answer "nobody is on this ride"
+	/// really can arrive against a half-warm cache — and would answer "nobody is on this adventure"
 	/// with total confidence.
 	/// </summary>
 	[Fact]

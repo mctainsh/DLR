@@ -231,7 +231,7 @@ public sealed class LocationSettingsTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find(".track-actions button.primary").HasAttribute("disabled").ShouldBeTrue(
-				"there is nothing to press until the ride has a name.");
+				"there is nothing to press until the adventure has a name.");
 			component.Find(".track-actions button.danger").HasAttribute("disabled").ShouldBeFalse(
 				"you are not naming something you are throwing away.");
 			component.FindAll(".name-required").ShouldNotBeEmpty("and the screen says why.");
@@ -280,7 +280,7 @@ public sealed class LocationSettingsTests : PageTestContext
 
 		// The switch exists, and it is on before anybody touches it.
 		component.Find(".exclude-private input[type=checkbox]").HasAttribute("checked").ShouldBeTrue(
-			"§10.1: cutting the private area out is what happens unless the rider says otherwise.");
+			"§10.1: cutting the private area out is what happens unless the traveller says otherwise.");
 
 		await component.InvokeAsync(() =>
 			component.Find(".track-actions button.primary").Click());
@@ -314,7 +314,7 @@ public sealed class LocationSettingsTests : PageTestContext
 		// The one dialog in the app, rather than window.confirm — and it is asked before anything
 		// is thrown away.
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
-		recording.HasTrack.ShouldBeTrue("nothing may be deleted before the rider has answered.");
+		recording.HasTrack.ShouldBeTrue("nothing may be deleted before the traveller has answered.");
 
 		await component.InvokeAsync(() => confirm.Respond(true));
 
@@ -369,7 +369,7 @@ public sealed class LocationSettingsTests : PageTestContext
 		state.Area!.Latitude.ShouldBe(Latitude, tolerance: 1e-6);
 		state.Area.Longitude.ShouldBe(Longitude, tolerance: 1e-6);
 		state.Area.RadiusM.ShouldBe(PrivateArea.DefaultRadiusM,
-			"§10.1: a newly placed area is a kilometre until the rider says otherwise.");
+			"§10.1: a newly placed area is a kilometre until the traveller says otherwise.");
 
 		// And the gate it exists to drive is now closed over that point.
 		state.HidesLocation(Latitude, Longitude).ShouldBeTrue();
@@ -462,9 +462,9 @@ public sealed class LocationSettingsTests : PageTestContext
 		// §10.1's discipline: the copy has to describe what the code does. Both halves matter —
 		// what the setting protects, and what it costs (no other device knows about it).
 		markup.Contains("never sent to the server", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"the rider is entitled to know the area is not held anywhere but here.");
+			"the traveller is entitled to know the area is not held anywhere but here.");
 		markup.Contains("present", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"§5.6: inside the area you are still in the ride — you simply have no position on the map.");
+			"§5.6: inside the area you are still in the adventure — you simply have no position on the map.");
 		markup.Contains("another phone", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
 			"the cost of device-local storage is stated, not buried.");
 	}

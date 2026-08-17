@@ -47,7 +47,7 @@ public sealed class NavigationHistoryTests : BunitContext
 		(NavigationHistory history, NavigationManager nav) = Arrange();
 
 		nav.NavigateTo("/group-rides");
-		history.CanGoBack.ShouldBeTrue("the rider has walked one page into the app.");
+		history.CanGoBack.ShouldBeTrue("the traveller has walked one page into the app.");
 
 		nav.NavigateTo("/group-rides/create");
 		history.Depth.ShouldBe(2);
@@ -67,7 +67,7 @@ public sealed class NavigationHistoryTests : BunitContext
 
 		history.Depth.ShouldBe(1,
 			"stepping back must unwind the stack — counting it as a forward move would leave the arrow " +
-			"pointing deeper into the app the more the rider used it.");
+			"pointing deeper into the app the more the traveller used it.");
 	}
 
 	/// <summary>
@@ -87,7 +87,7 @@ public sealed class NavigationHistoryTests : BunitContext
 		nav.NavigateTo("/group-rides");
 
 		history.CanGoBack.ShouldBeFalse(
-			"walking up to a parent must leave the rider no deeper than they started — otherwise the " +
+			"walking up to a parent must leave the traveller no deeper than they started — otherwise the " +
 			"parent's own arrow steps back into the child they just left.");
 	}
 

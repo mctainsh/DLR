@@ -397,7 +397,7 @@ public sealed class SettingsTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.Markup.Contains("Email 'x' is invalid.", StringComparison.Ordinal).ShouldBeTrue(
-				"§18.2: the server's per-rule message is what tells the rider what to fix."),
+				"§18.2: the server's per-rule message is what tells the traveller what to fix."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -484,7 +484,7 @@ public sealed class SettingsTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("not told", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-				"§17.7: the block-vs-mute distinction is that the blocked rider is not told — the copy must say so.");
+				"§17.7: the block-vs-mute distinction is that the blocked traveller is not told — the copy must say so.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

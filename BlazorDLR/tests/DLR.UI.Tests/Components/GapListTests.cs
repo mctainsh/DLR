@@ -55,14 +55,14 @@ public sealed class GapListTests : BunitContext
 
 		string markup = component.Markup;
 		markup.Contains("leader", StringComparison.Ordinal).ShouldBeTrue(
-			"§5.4: the furthest-along rider is the leader on the list.");
+			"§5.4: the furthest-along traveller is the leader on the list.");
 
 		// Alice's row must appear before Bob's — leader-first, everyone else back from them.
 		int alicePos = markup.IndexOf("Alice", StringComparison.Ordinal);
 		int bobPos = markup.IndexOf("Bob", StringComparison.Ordinal);
 		alicePos.ShouldBeGreaterThan(-1);
 		bobPos.ShouldBeGreaterThan(alicePos,
-			"the list is sorted furthest-along first — a rider further down the route appears above one further back.");
+			"the list is sorted furthest-along first — a traveller further down the route appears above one further back.");
 	}
 
 	[Fact]
@@ -83,7 +83,7 @@ public sealed class GapListTests : BunitContext
 			.Add(p => p.Positions, positions));
 
 		component.Markup.Contains("off route", StringComparison.Ordinal).ShouldBeTrue(
-			"§5.4: a rider whose perpendicular distance exceeds the threshold shows an 'off route' badge.");
+			"§5.4: a traveller whose perpendicular distance exceeds the threshold shows an 'off route' badge.");
 	}
 
 	[Fact]
@@ -105,6 +105,6 @@ public sealed class GapListTests : BunitContext
 			.Add(p => p.Positions, new Dictionary<Guid, RiderPositionDto>()));
 
 		component.Markup.Contains("No positions", StringComparison.Ordinal).ShouldBeTrue(
-			"a route with no rider fixes is a legitimate state (nobody is sharing yet), not an error.");
+			"a route with no traveller fixes is a legitimate state (nobody is sharing yet), not an error.");
 	}
 }

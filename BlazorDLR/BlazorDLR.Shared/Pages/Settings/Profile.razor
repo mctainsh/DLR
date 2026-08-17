@@ -25,8 +25,8 @@
 
 	<p class="lead">
 		Three optional fields. Each has a switch, off unless you turn it on — a shared value
-		is visible <em>only</em> to riders in a group ride with you, and access ends the
-		moment that ride ends.
+		is visible <em>only</em> to travellers in a group adventure with you, and access ends the
+		moment that adventure ends.
 	</p>
 
 	@if (_profile is null)
@@ -41,7 +41,7 @@
 				<input @bind="_displayName" placeholder="Your name" />
 				<label class="switch">
 					<input type="checkbox" @bind="_shareDisplayName" />
-					Share with riders in my group rides
+					Share with travellers in my group adventures
 				</label>
 			</fieldset>
 
@@ -50,11 +50,11 @@
 				<input @bind="_phoneNumber" type="tel" placeholder="Any digits, never verified" />
 				<label class="switch">
 					<input type="checkbox" @bind="_sharePhoneNumber" />
-					Share with riders in my group rides
+					Share with travellers in my group adventures
 				</label>
 				<p class="note">
 					Not verified and never used for account recovery. One-tap-to-call
-					for mates on a ride, and nothing else.
+					for mates on an adventure, and nothing else.
 				</p>
 			</fieldset>
 
@@ -81,7 +81,7 @@
 					</p>
 					<label class="switch">
 						<input type="checkbox" @bind="_shareEmail" disabled="@(!_profile.EmailConfirmed)" />
-						Share with riders in my group rides
+						Share with travellers in my group adventures
 					</label>
 					<p class="note">
 						Sharing an email exposes your recovery address. Turning it off does
@@ -100,8 +100,8 @@
 				<legend>Map marker colour</legend>
 
 				<p class="note">
-					How you appear on a group ride's live map. The arrow points the way you are
-					going; it turns into a red dot when you stop. Everyone on the ride sees this
+					How you appear on a group adventure's live map. The arrow points the way you are
+					going; it turns into a red dot when you stop. Everyone on the adventure sees this
 					colour — that is the whole point of it.
 				</p>
 

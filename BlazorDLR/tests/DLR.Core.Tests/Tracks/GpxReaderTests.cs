@@ -63,7 +63,7 @@ public sealed class GpxReaderTests
 		// Four legs of 20 m, and the 5 km jump between segments is not one of them.
 		stats.DistanceM.ShouldBeLessThan(
 			1_000,
-			"the gap between segments is a tunnel, not five kilometres of riding");
+			"the gap between segments is a tunnel, not five kilometres of travelling");
 	}
 
 	[Fact]

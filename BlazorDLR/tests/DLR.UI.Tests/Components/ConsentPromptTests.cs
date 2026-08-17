@@ -23,7 +23,7 @@ public sealed class ConsentPromptTests : BunitContext
 		markup.Contains("two hours", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
 			"§5.6: the copy must name the wind-down window so the consent is not overstated.");
 		markup.Contains("Saturday club run", StringComparison.Ordinal).ShouldBeTrue(
-			"the ride name is what the user is agreeing to share with, so it belongs on the card.");
+			"the adventure name is what the user is agreeing to share with, so it belongs on the card.");
 	}
 
 	[Fact]
@@ -33,7 +33,7 @@ public sealed class ConsentPromptTests : BunitContext
 		bool dismissed = false;
 
 		IRenderedComponent<ConsentPrompt> component = Render<ConsentPrompt>(parameters => parameters
-			.Add(p => p.RideName, "Test ride")
+			.Add(p => p.RideName, "Test adventure")
 			.Add(p => p.OnShare, EventCallback.Factory.Create(this, () => shared = true))
 			.Add(p => p.OnDismiss, EventCallback.Factory.Create(this, () => dismissed = true)));
 
@@ -56,7 +56,7 @@ public sealed class ConsentPromptTests : BunitContext
 		bool dismissed = false;
 
 		IRenderedComponent<ConsentPrompt> component = Render<ConsentPrompt>(parameters => parameters
-			.Add(p => p.RideName, "Test ride")
+			.Add(p => p.RideName, "Test adventure")
 			.Add(p => p.OnShare, EventCallback.Factory.Create(this, () => shared = true))
 			.Add(p => p.OnDismiss, EventCallback.Factory.Create(this, () => dismissed = true)));
 

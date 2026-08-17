@@ -184,7 +184,7 @@ public sealed class RideMapForwardTests : BunitContext
 		{
 			map.LastOptions.ShouldNotBeNull();
 			map.LastOptions.EffectiveSource.UrlTemplate.ShouldBe("https://tiles.example.com/{z}/{x}/{y}.png",
-				"a map must open on the tiles the rider chose, not on the default and then a restyle.");
+				"a map must open on the tiles the traveller chose, not on the default and then a restyle.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

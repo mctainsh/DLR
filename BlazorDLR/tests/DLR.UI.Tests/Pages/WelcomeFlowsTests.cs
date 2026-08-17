@@ -199,7 +199,7 @@ public sealed class WelcomeFlowsTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			nav.History.Count.ShouldBeGreaterThan(0,
-				"the session landing after first render still moves the rider off Welcome.");
+				"the session landing after first render still moves the traveller off Welcome.");
 			nav.History.Last().Uri.EndsWith("/", StringComparison.Ordinal).ShouldBeTrue();
 		}, timeout: TimeSpan.FromSeconds(3));
 	}

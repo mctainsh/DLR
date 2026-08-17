@@ -3,14 +3,14 @@
 @using DLR.Core.Contracts.Moderation
 @inject IApiClient Api
 
-<PageTitle>Blocked riders — Dumb Luck Routes</PageTitle>
+<PageTitle>Blocked travellers — Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium">
-	<PageNav Title="Blocked riders" BackHref="/settings" BackLabel="Back to settings" />
+	<PageNav Title="Blocked travellers" BackHref="/settings" BackLabel="Back to settings" />
 
 	<p class="lead">
-		Blocking hides that rider's posts, reactions, markers and poll votes from you.
-		They are not told, and their own view of the ride does not change.
+		Blocking hides that traveller's posts, reactions, markers and poll votes from you.
+		They are not told, and their own view of the adventure does not change.
 	</p>
 
 	@if (_blocks is null)

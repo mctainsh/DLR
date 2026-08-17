@@ -170,15 +170,15 @@ public sealed class CommentController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status403Forbidden,
 				title: "Not a member",
-				detail: "A ride's thread is visible to the people in it and nobody else.");
+				detail: "An adventure's thread is visible to the people in it and nobody else.");
 		}
 
 		if (membership.Ride.State is GroupRideState.Archived)
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Ride is archived",
-				detail: "An archived ride's thread is read-only.");
+				title: "Adventure is archived",
+				detail: "An archived adventure's thread is read-only.");
 		}
 
 		if (!RideContentPermissions.Allows(membership.Ride, membership.Role, RideContent.Comment))
@@ -261,7 +261,7 @@ public sealed class CommentController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
 				title: "Thread is full",
-				detail: $"This ride's thread already holds {inThread} posts.");
+				detail: $"This adventure's thread already holds {inThread} posts.");
 		}
 
 		if (request.Poll is { } spec)
@@ -280,7 +280,7 @@ public sealed class CommentController : ControllerBase
 				return Problem(
 					statusCode: StatusCodes.Status409Conflict,
 					title: "Too many polls",
-					detail: $"This ride already has {polls} polls.");
+					detail: $"This adventure already has {polls} polls.");
 			}
 		}
 
@@ -376,8 +376,8 @@ public sealed class CommentController : ControllerBase
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Ride is archived",
-				detail: "An archived ride's thread is read-only.");
+				title: "Adventure is archived",
+				detail: "An archived adventure's thread is read-only.");
 		}
 
 		// Measured from when the server received it, not from when the rider claims to have
@@ -463,8 +463,8 @@ public sealed class CommentController : ControllerBase
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Ride is archived",
-				detail: "An archived ride's thread is read-only.");
+				title: "Adventure is archived",
+				detail: "An archived adventure's thread is read-only.");
 		}
 
 		Guid rideId = comment.GroupRideId;
@@ -509,15 +509,15 @@ public sealed class CommentController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status403Forbidden,
 				title: "Not yours to pin",
-				detail: "The organiser and leaders keep the ride's noticeboard.");
+				detail: "The organiser and leaders keep the adventure's noticeboard.");
 		}
 
 		if (membership.Ride.State is GroupRideState.Archived)
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Ride is archived",
-				detail: "An archived ride's thread is read-only.");
+				title: "Adventure is archived",
+				detail: "An archived adventure's thread is read-only.");
 		}
 
 		if (request.Pinned && !comment.IsPinned)
@@ -531,8 +531,8 @@ public sealed class CommentController : ControllerBase
 				return Problem(
 					statusCode: StatusCodes.Status409Conflict,
 					title: "Too many pinned posts",
-					detail: $"A ride keeps at most {limits.MaxPinned} pinned posts. Pinning is the one thing " +
-					"that still reaches a phone mid-ride, so a noticeboard of twenty is not a " +
+					detail: $"An adventure keeps at most {limits.MaxPinned} pinned posts. Pinning is the one thing " +
+					"that still reaches a phone mid-trip, so a noticeboard of twenty is not a " +
 					"noticeboard — unpin something first.");
 			}
 		}

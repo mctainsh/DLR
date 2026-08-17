@@ -5,10 +5,10 @@
 @inject NavigationManager Nav
 @inject TimeProvider Clock
 
-<PageTitle>Create a ride — Dumb Luck Routes</PageTitle>
+<PageTitle>Create an adventure — Dumb Luck Routes</PageTitle>
 
 <div class="page page-form form-page">
-	<PageNav Title="Create a ride" BackHref="/group-rides" BackLabel="Back to group rides" />
+	<PageNav Title="Create an adventure" BackHref="/group-rides" BackLabel="Back to group adventures" />
 
 	<p class="lead">
 		You will be the organiser. You choose whether people can join with the code alone,
@@ -49,7 +49,7 @@
 		</fieldset>
 
 		<button type="submit" class="primary" disabled="@_busy">
-			@(_busy ? "Creating…" : "Create ride")
+			@(_busy ? "Creating…" : "Create adventure")
 		</button>
 	</form>
 
@@ -109,7 +109,7 @@
 		}
 		catch (Exception exception)
 		{
-			_error = new ApiError(default, "Could not create the ride.", new[] { exception.Message });
+			_error = new ApiError(default, "Could not create the adventure.", new[] { exception.Message });
 		}
 		finally
 		{

@@ -49,7 +49,7 @@ public sealed class RideDetailTests : PageTestContext
 	private static TrackSummary Sample(double? ascent = 480, double? duration = 3600) =>
 		new(
 			Id: Guid.NewGuid(),
-			Name: "Sample ride",
+			Name: "Sample adventure",
 			CreatedUtc: FixedInstant,
 			StartedUtc: null,
 			EndedUtc: null,
@@ -97,7 +97,7 @@ public sealed class RideDetailTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("—", StringComparison.Ordinal).ShouldBeTrue(
-				"§8: null ascent must render as '—'. Zero would be a real value (a flat coastal ride) and must not collide with 'unknown'.");
+				"§8: null ascent must render as '—'. Zero would be a real value (a flat coastal adventure) and must not collide with 'unknown'.");
 			// A dead flat ride would show "0 m", which contains "0" — assert with the unit to be specific.
 			component.Markup.Contains("0 m ascent", StringComparison.Ordinal).ShouldBeFalse();
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -194,7 +194,7 @@ public sealed class RideDetailTests : PageTestContext
 
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 
-		_api.DeletedTracks.ShouldBeEmpty("nothing may be deleted before the rider has answered.");
+		_api.DeletedTracks.ShouldBeEmpty("nothing may be deleted before the traveller has answered.");
 
 		await component.InvokeAsync(() => confirm.Respond(true));
 
@@ -247,7 +247,7 @@ public sealed class RideDetailTests : PageTestContext
 			Polyline: Array.Empty<TrackPoint>()));
 
 		_api.DeleteTrackException =
-			new InvalidOperationException("A ride in progress is using this track as its planned route.");
+			new InvalidOperationException("An adventure in progress is using this track as its planned route.");
 
 		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
 			.Add(p => p.TrackId, id));
@@ -263,7 +263,7 @@ public sealed class RideDetailTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.Find(".status").TextContent.ShouldContain("ride in progress");
+			component.Find(".status").TextContent.ShouldContain("adventure in progress");
 
 			Services.GetRequiredService<NavigationManager>().Uri
 				.ShouldNotEndWith("/rides",

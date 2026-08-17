@@ -130,7 +130,7 @@ public sealed class TrackStatsTests
 
 		stats.DurationS.ShouldNotBeNull();
 		stats.DurationS!.Value.ShouldBe(20d,
-			"§15.7: duration is per-segment. Two 10-second legs = 20 s — the pause between segments is not riding time.");
+			"§15.7: duration is per-segment. Two 10-second legs = 20 s — the pause between segments is not travelling time.");
 	}
 
 	[Fact]

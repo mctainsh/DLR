@@ -226,7 +226,7 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 		report.PositionsDeleted.ShouldBe(1);
 
 		(await PositionCountAsync(app, completed)).ShouldBe(0);
-		(await PositionCountAsync(app, live)).ShouldBe(1, "the ride is still running");
+		(await PositionCountAsync(app, live)).ShouldBe(1, "the adventure is still running");
 	}
 
 	/// <summary>

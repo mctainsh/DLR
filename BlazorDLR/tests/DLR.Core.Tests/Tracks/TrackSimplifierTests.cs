@@ -38,7 +38,7 @@ public sealed class TrackSimplifierTests
 
 		simplified.Points.ShouldContain(
 			points[10],
-			"the corner is the whole shape of this track; dropping it would redraw the ride");
+			"the corner is the whole shape of this track; dropping it would redraw the adventure");
 
 		// Not an exact count. Once the corner is kept, the line each half is measured against
 		// runs to it rather than straight on, so points that were on the original line now

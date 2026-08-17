@@ -46,7 +46,7 @@ public sealed class TrackEditorTests : PageTestContext
 		FakeApiClient api = new()
 		{
 			TrackDetailResult = new TrackDetail(
-				new TrackSummary(Guid.NewGuid(), "Test ride", FixedInstant, null, null, 25_000, 3600, 300, null, 11, 1, TrackSourceDto.Recorded, 1),
+				new TrackSummary(Guid.NewGuid(), "Test adventure", FixedInstant, null, null, 25_000, 3600, 300, null, 11, 1, TrackSourceDto.Recorded, 1),
 				new TrackBounds(0, -0.5, 0, 0.5),
 				Line),
 			TrackPointsResult = new TrackPointsResponse(
@@ -211,7 +211,7 @@ public sealed class TrackEditorTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.Markup.Contains("missed the track", StringComparison.Ordinal).ShouldBeTrue(
-				"a tap on bare map must not drag the cursor to whichever end of the ride was nearest."),
+				"a tap on bare map must not drag the cursor to whichever end of the adventure was nearest."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.Markup.Contains("Cursor on point", StringComparison.Ordinal).ShouldBeFalse();

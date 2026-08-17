@@ -129,14 +129,14 @@ public sealed class MapSourceTests
 		MapSource.IsUsableTemplate(template).ShouldBeFalse();
 
 		MapSource.Custom(template!, "© Someone").Normalised().ShouldBeNull(
-			"storing a template that can never load is how a rider ends up with a blank map and no explanation.");
+			"storing a template that can never load is how a traveller ends up with a blank map and no explanation.");
 	}
 
 	[Fact]
 	public void HttpsIsAccepted_IncludingWithAQueryString()
 	{
 		MapSource.IsUsableTemplate("https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}").ShouldBeTrue(
-			"the mechanism takes any well-formed https template — what the rider points it at is their decision.");
+			"the mechanism takes any well-formed https template — what the traveller points it at is their decision.");
 	}
 
 	[Fact]

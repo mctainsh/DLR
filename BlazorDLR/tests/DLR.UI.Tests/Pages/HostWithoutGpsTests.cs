@@ -202,7 +202,7 @@ public sealed class HostWithoutGpsTests : PageTestContext
 
 		component.FindAll(".gps").ShouldBeEmpty(
 			"§18.6: a line reading \"this device cannot share its location\" answers a question a "
-			+ "rider on a laptop was never asking.");
+			+ "traveller on a laptop was never asking.");
 	}
 
 	[Fact]

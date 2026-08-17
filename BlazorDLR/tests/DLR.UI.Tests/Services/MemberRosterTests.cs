@@ -6,7 +6,7 @@ using DLR.Core.Tracks;
 namespace DLR.UI.Tests.Services;
 
 /// <summary>
-/// The rules behind the "Ride members live" screen (§5.3, §5.4, §5.6) — the three presence
+/// The rules behind the "Live members" screen (§5.3, §5.4, §5.6) — the three presence
 /// states, the four figures on each row, and the four orders the list can be read in.
 /// <para>
 /// Pure logic, tested without a renderer: that is why it is a static class in
@@ -91,7 +91,7 @@ public sealed class MemberRosterTests
 			sort: MemberSort.Name);
 
 		rows.ShouldHaveSingleItem().Presence.ShouldBe(MemberPresence.NoSignal,
-			"a fix nothing has replaced in over a minute is a rider in a tunnel, not a live one.");
+			"a fix nothing has replaced in over a minute is a traveller in a tunnel, not a live one.");
 	}
 
 	[Fact]
@@ -227,7 +227,7 @@ public sealed class MemberRosterTests
 
 		alphabetical[0].UserName.ShouldBe("Adam", "alphabetical is alphabetical.");
 		alphabetical.Single(row => row.IsLeader).UserId.ShouldBe(front,
-			"§5.4's leader is a fact about the ride, not about the order the rows happen to be in.");
+			"§5.4's leader is a fact about the adventure, not about the order the rows happen to be in.");
 	}
 
 	[Fact]
@@ -268,9 +268,9 @@ public sealed class MemberRosterTests
 			sort: MemberSort.AlongRoute);
 
 		MemberRow row = rows.ShouldHaveSingleItem();
-		row.AlongMetres.ShouldBeNull("a ride with no route has nothing to be along.");
+		row.AlongMetres.ShouldBeNull("an adventure with no route has nothing to be along.");
 		row.GapMetres.ShouldBeNull();
-		row.IsLeader.ShouldBeFalse("nobody leads a ride that has no route.");
+		row.IsLeader.ShouldBeFalse("nobody leads an adventure that has no route.");
 	}
 
 	[Fact]
@@ -337,7 +337,7 @@ public sealed class MemberRosterTests
 			now: Now,
 			sort: MemberSort.LastActive);
 
-		rows[0].UserId.ShouldBe(recent, "the ride's most recent news belongs at the top, not its alphabet.");
+		rows[0].UserId.ShouldBe(recent, "the adventure's most recent news belongs at the top, not its alphabet.");
 		rows[1].UserId.ShouldBe(older);
 	}
 
@@ -393,7 +393,7 @@ public sealed class MemberRosterTests
 				now: Now,
 				sort: sort);
 
-			rows[0].UserId.ShouldBe(live, $"{sort} must rank the rider it can measure above the one it cannot.");
+			rows[0].UserId.ShouldBe(live, $"{sort} must rank the traveller it can measure above the one it cannot.");
 			rows[1].UserId.ShouldBe(quiet);
 		}
 	}

@@ -13,7 +13,7 @@
 @inject ConfirmService Confirm
 @implements IAsyncDisposable
 
-<PageTitle>Ride thread — Dumb Luck Routes</PageTitle>
+<PageTitle>Adventure thread — Dumb Luck Routes</PageTitle>
 
 @*
 	§17: comments + reactions + polls, one thread per group ride.
@@ -28,12 +28,12 @@
 *@
 
 <div class="page page-medium thread">
-	<PageNav Title="Ride thread" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the ride" />
+	<PageNav Title="Adventure thread" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the adventure" />
 
 	@if (_ride is not null && _ride.State == RideStateDto.Live)
 	{
 		<div class="live-note">
-			The ride is live — ordinary comments arrive silently. Only a pinned post from
+			The adventure is live — ordinary comments arrive silently. Only a pinned post from
 			the organiser will push.
 		</div>
 	}
@@ -71,7 +71,7 @@
 	{
 		<form class="composer" @onsubmit="PostAsync" @onsubmit:preventDefault="true">
 			<textarea @bind="_composeText" rows="3" maxlength="2000"
-					  placeholder="@(_isPoll ? "The poll question." : "Say something to the ride.")"></textarea>
+					  placeholder="@(_isPoll ? "The poll question." : "Say something to the adventure.")"></textarea>
 
 			@if (_isPoll)
 			{
@@ -110,7 +110,7 @@
 	}
 	else if (_ride is not null && !_ride.Permissions.AllowMemberComments)
 	{
-		<p class="closed">The organiser has turned off comments from members for this ride.</p>
+		<p class="closed">The organiser has turned off comments from members for this adventure.</p>
 	}
 </div>
 

@@ -23,7 +23,7 @@ public sealed class LiveMapViewTests
 		LiveMapView? read = LiveMapView.Decode(view.Encode());
 
 		read.ShouldNotBeNull();
-		read.RideId.ShouldBe(RideId, "the camera means nothing without the ride it belongs to.");
+		read.RideId.ShouldBe(RideId, "the camera means nothing without the adventure it belongs to.");
 		read.Latitude.ShouldBe(-33.86785, tolerance: 1e-5);
 		read.Longitude.ShouldBe(151.20732, tolerance: 1e-5);
 		read.ZoomLevel.ShouldBe(14.5, tolerance: 1e-2);
@@ -60,7 +60,7 @@ public sealed class LiveMapViewTests
 	{
 		LiveMapView? read = LiveMapView.Decode($"1|{RideId:N}|-33.8|151.2|12|1");
 
-		read.ShouldNotBeNull("a field appended to the tail must not cost a rider their camera.");
+		read.ShouldNotBeNull("a field appended to the tail must not cost a traveller their camera.");
 		read.Latitude.ShouldBe(-33.8, tolerance: 1e-5);
 		read.FollowMe.ShouldBeTrue();
 		read.HeadingUp.ShouldBeFalse("north-up is what that build always drew.");
@@ -73,7 +73,7 @@ public sealed class LiveMapViewTests
 
 		read.ShouldNotBeNull();
 		read.FollowMe.ShouldBeFalse(
-			"a rider who turned following off must not find it back on at the next launch.");
+			"a traveller who turned following off must not find it back on at the next launch.");
 	}
 
 	[Fact]
@@ -93,7 +93,7 @@ public sealed class LiveMapViewTests
 	[InlineData("1|6f9619ff8b86d011b42d00c04fc964ff|-33.8|181|12|1")]
 	public void AValueThatCannotBeReadWhole_ReadsAsNothing(string encoded) =>
 		LiveMapView.Decode(encoded).ShouldBeNull(
-			"half a camera is a camera pointing somewhere the rider never looked; the map is " +
+			"half a camera is a camera pointing somewhere the traveller never looked; the map is " +
 			"better off opening where it always did.");
 
 	[Fact]
@@ -118,7 +118,7 @@ public sealed class LiveMapViewTests
 
 		view.IsFor(RideId).ShouldBeTrue();
 		view.IsFor(Guid.NewGuid()).ShouldBeFalse(
-			"applying one ride's camera to another opens a Melbourne ride over Sydney.");
+			"applying one adventure's camera to another opens a Melbourne adventure over Sydney.");
 	}
 
 	[Fact]

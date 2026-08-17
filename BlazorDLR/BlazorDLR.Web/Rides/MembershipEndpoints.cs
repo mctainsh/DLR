@@ -86,7 +86,7 @@ public sealed class MembershipController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
 				title: "Already ended",
-				detail: "A ride that has finished cannot be started again.");
+				detail: "An adventure that has finished cannot be started again.");
 		}
 
 		// Counted for the organiser, who is the one performing the transition. Being a *member*
@@ -103,8 +103,8 @@ public sealed class MembershipController : ControllerBase
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "Too many live rides",
-				detail: $"You are already live in {live} rides. End one before starting another.");
+				title: "Too many live adventures",
+				detail: $"You are already live in {live} adventures. End one before starting another.");
 		}
 
 		ride.State = GroupRideState.Live;
@@ -243,7 +243,7 @@ public sealed class MembershipController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
 				title: "The organiser cannot leave",
-				detail: "End or cancel the ride instead — a ride nobody organises has nobody to " +
+				detail: "End or cancel the adventure instead — an adventure nobody organises has nobody to " +
 					"decide who is in it.");
 		}
 
@@ -295,7 +295,7 @@ public sealed class MembershipController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
 				title: "The organiser cannot be removed",
-				detail: "End or cancel the ride instead.");
+				detail: "End or cancel the adventure instead.");
 		}
 
 		await positions.StopSharingAsync(id, userId);
@@ -344,7 +344,7 @@ public sealed class MembershipController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
 				title: "Already ended",
-				detail: "This ride has already ended.");
+				detail: "This adventure has already ended.");
 		}
 
 		if (windingDown && request.Ending == RideEndingDto.WindDown)

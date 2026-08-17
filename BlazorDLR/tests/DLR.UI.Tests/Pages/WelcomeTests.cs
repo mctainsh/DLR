@@ -164,7 +164,7 @@ public sealed class WelcomeTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("is taken", StringComparison.Ordinal).ShouldBeTrue(
-				"§7.2: the on-blur check reports availability so a rider does not learn the name is taken at submit.");
+				"§7.2: the on-blur check reports availability so a traveller does not learn the name is taken at submit.");
 			api.Calls.ShouldContain("IsUserNameAvailableAsync");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -185,7 +185,7 @@ public sealed class WelcomeTests : PageTestContext
 		await component.InvokeAsync(() => component.Find("input[type=password]").Input("Ride4mountains"));
 
 		component.FindAll(".pw-strength").ShouldBeEmpty(
-			"§7.2: sign-in does not grade a password the rider chose long ago.");
+			"§7.2: sign-in does not grade a password the traveller chose long ago.");
 
 		await ClickRegisterTabAsync(component);
 

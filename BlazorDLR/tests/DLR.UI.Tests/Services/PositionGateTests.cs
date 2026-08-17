@@ -190,7 +190,7 @@ public sealed class PositionGateTests
 			// The other end of the same clamp. Eco's 50 m step would derive a 200 m gate, which
 			// is a cell-tower fix — published, it puts a rider two suburbs from where they are.
 			PositionGate.MaxAccuracyM(profile).ShouldBeLessThanOrEqualTo(100,
-				$"a {profile} gate this loose would publish fixes nobody could ride to.");
+				$"a {profile} gate this loose would publish fixes nobody could adventure to.");
 		}
 	}
 }
