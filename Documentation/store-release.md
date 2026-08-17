@@ -4,48 +4,39 @@ Companion to §4.3 (background location) and §14.2 (never commit these). The bu
 in `BlazorDLR/BlazorDLR.csproj` under **Store release configuration**; this file is everything that
 is a form, an account setting or a decision rather than a build.
 
-Read the two **blockers** first. Everything else is procedure; those two will fail a submission.
+Read the **blocker** first. Everything else is procedure; that one will fail a submission.
 
 ---
 
-## Blockers to clear before the first upload
+## Blocker to clear before the first upload
 
-### 1. Scope the iOS ATS exception
-
-`Platforms/iOS/Info.plist` sets `NSAllowsArbitraryLoads = true`, which disables App Transport
-Security for every host. It is there so a debug build can reach `http://` on a developer's laptop.
-App Review asks for a justification for a blanket exception and routinely refuses one from an app
-whose production API is HTTPS.
-
-Replace it with a scoped exception for the development host only, or drop the key from Release:
-
-```xml
-<key>NSAppTransportSecurity</key>
-<dict>
-	<key>NSExceptionDomains</key>
-	<dict>
-		<key>localhost</key>
-		<dict>
-			<key>NSExceptionAllowsInsecureHTTPLoads</key><true/>
-		</dict>
-	</dict>
-</dict>
-```
-
-### 2. Publish a privacy policy at a stable URL
+### Publish a privacy policy at a stable URL
 
 Both stores require one, and Play requires it **before** the background-location review can even be
 submitted. It has to cover, in these terms:
 
-- Precise location, collected only while the rider has turned sharing on for a group ride, shared
-  only with the members of that ride.
+- Precise location, collected only while a member has turned sharing on for a group adventure,
+  shared only with the members of that adventure.
 - That location is collected **in the background**, and what stops it.
 - The private area (§10.1) — a device-local circle inside which nothing is recorded or sent.
 - Account data: username, optional email, optional phone (§7.3).
-- Photos and comments attached to rides.
+- Photos and comments attached to adventures.
 - Deletion: the account-deletion path in Settings → Data & export, and what it removes.
 
 The URL goes in three places: the Play data safety form, App Store Connect, and the app itself.
+
+### Settled, and not to be undone
+
+`NSAllowsArbitraryLoads` was removed from `Platforms/iOS/Info.plist` — it was the second blocker
+here until then. What remains is `NSAllowsLocalNetworking` (loopback, for the on-device map-pack
+server and the simulator's debug API base) and one `NSExceptionDomains` entry for
+`pmtiles.securehub.net`. Both are scoped; the blanket key does not come back. A debug build on a
+*device* pointed at a LAN server needs that host added to `NSExceptionDomains` locally and never
+committed.
+
+`NSBluetoothAlwaysUsageDescription` was removed at the same time. Nothing in the app touches
+CoreBluetooth, and a purpose string for a permission the binary never requests invites a 5.1.1
+question from a reviewer already looking hard at background location.
 
 ---
 
@@ -79,7 +70,7 @@ merit. Play requires **all** of the following, and checks them against a video:
 1. **Declaration form** (Play Console → App content → Sensitive app permissions → Location). It
    asks what the feature is, why background access is required, and for a video showing it.
 2. **The video.** A screen recording, on a public URL, showing: the in-app disclosure appearing,
-   the rider granting permission, the feature working, and the ongoing notification while the app
+   the person granting permission, the feature working, and the ongoing notification while the app
    is backgrounded. Record it from a clean install.
 3. **Prominent in-app disclosure.** Before the system permission dialog, the app must state — in
    its own UI — that it collects location "to enable *feature*, even when the app is closed or not
@@ -102,11 +93,11 @@ Answer it to match `PrivacyInfo.xcprivacy`, which is the same set of claims:
 
 | Data type | Collected | Shared | Purpose | Optional |
 |---|---|---|---|---|
-| Precise location | Yes | Yes — with other members of a ride the rider chose | App functionality | Yes |
-| User IDs (username) | Yes | Yes — shown to ride members | App functionality, account management | No |
+| Precise location | Yes | Yes — with the other members of an adventure the user chose | App functionality | Yes |
+| User IDs (username) | Yes | Yes — shown to the other members | App functionality, account management | No |
 | Email address | Yes | No | Account management | Yes |
-| Photos | Yes | Yes — to ride members | App functionality | Yes |
-| Other user content | Yes | Yes — to ride members | App functionality | Yes |
+| Photos | Yes | Yes — to the other members | App functionality | Yes |
+| Other user content | Yes | Yes — to the other members | App functionality | Yes |
 
 Also declare: data encrypted in transit — **yes**; a way to request deletion — **yes** (Settings →
 Data & export).
@@ -127,6 +118,38 @@ URL.
 
 ## App Store
 
+### App ID and capabilities
+
+Register an **explicit** App ID for `au.com.securehub.dlr` — it has to match `ApplicationId` in
+`BlazorDLR.csproj` exactly — and select **no capabilities at all**. Nothing in the app requires an
+entitlement, and there is no `Platforms/iOS/Entitlements.plist` (the only one in the repo is
+MacCatalyst's). Anything ticked here has to be justified later and regenerates provisioning
+profiles when changed.
+
+| Capability | Needed | Why not |
+|---|---|---|
+| Push Notifications | No | `MauiProgram` registers `NoopNotificationService`; no APNs, no `UNUserNotification` |
+| Sign in with Apple | No | Only sign-in is the app's own JWT; Google is `UnavailableExternalSignInProvider`. Enabling any third-party sign-in makes this **mandatory** under 4.8 |
+| Associated Domains | No | No universal links, no custom URL scheme |
+| App Groups | No | No extensions or widgets |
+| Keychain Sharing | No | `SecureStorageTokenStore` uses the default access group (the bundle ID) |
+| Maps | No | MapLibre in the WebView, not MapKit — this capability is for offering directions *to* Apple Maps |
+| HealthKit / iCloud / Access WiFi Information | No | No references anywhere in the tree |
+
+Two things that are *not* App ID capabilities and are already configured in `Info.plist`:
+
+- **Background Modes → Location updates** (`UIBackgroundModes`), which is what allows
+  `AppleLocationProvider` to set `AllowsBackgroundLocationUpdates`. No entitlement, no portal toggle.
+- **Document types** for `.gpx`, which is what puts the app in the share sheet.
+
+iPad support is `UIDeviceFamily` in `Info.plist`, not an App ID setting — see the listing
+requirements below.
+
+> Local-dev caveat only: MAUI `SecureStorage` on the iOS **simulator** can need a Keychain Sharing
+> entitlement with an access group matching the bundle ID. Device and App Store builds work off the
+> automatic `application-identifier` entitlement from the provisioning profile — do not add the
+> capability to the shipping App ID for it.
+
 ### Signing and upload
 
 ```
@@ -138,6 +161,18 @@ DLR_IOS_PROVISION      the App Store provisioning profile name
 # macOS only — the iOS build invokes Xcode
 dotnet publish BlazorDLR/BlazorDLR.csproj -f net10.0-ios -c Release
 ```
+
+**Upload from Xcode's Organizer on the Mac, not from Visual Studio's Archive Manager.** The
+"Distribute…" button in VS on Windows hands the archive straight to `altool` as it was signed, and
+the signing block at `BlazorDLR.csproj:78-81` applies to *every* configuration — an `Apple
+Development` identity and a Development profile. The distribution override further down only fires
+when `DLR_IOS_CODESIGN_KEY` is set in the environment, which a VS process launched without it does
+not have, so the archive is dev-signed and validation fails (ITMS-90034, "not signed using an Apple
+submission certificate"). Xcode's Organizer re-signs on export and does not have this problem.
+
+If VS's Distribute is ever wanted, either set `DLR_IOS_CODESIGN_KEY` / `DLR_IOS_PROVISION` as
+user-level environment variables and restart VS, or scope the dev pair to `Debug` so a Release
+archive cannot pick it up silently.
 
 `ITSAppUsesNonExemptEncryption=false` is already in `Info.plist`, so uploads will not stop on the
 export-compliance question. It is true as long as the app ships no cryptography of its own.
@@ -157,25 +192,118 @@ Apple's guideline 2.5.4: an app may only declare the `location` background mode 
 genuinely requires it, and the review notes must say what it is. `fetch` has been removed from
 `UIBackgroundModes` for exactly this reason — nothing implements it.
 
-In **App Review Information → Notes**, state plainly:
+The notes below say what it is.
 
-> Riders join a group ride and opt in to sharing their position with that ride. While sharing is on,
-> the app publishes the rider's location so other members can see them on a live map — this
-> continues with the screen off and the phone in a mount, which is the normal riding case. Sharing
-> is off by default, is per ride, and stops when the rider turns it off, leaves the ride, or the
-> ride ends. The blue background-location indicator is left enabled.
+### App Review Information → Notes
+
+Paste this into **App Store Connect → App Review Information → Notes**, with the four `«…»`
+placeholders filled in. Every navigation path in it is real; check them against the build before
+submitting, because a reviewer following a path that does not exist is worse than no notes at all.
+
+> **What this app is**
+>
+> Dumb Luck Routes is a group-adventure app for motorcyclists, drivers, cyclists and walkers.
+> Someone creates or joins a group adventure, and its members can see each other on a live map
+> along the route.
+>
+> *(The app's screens use the older word "ride" for a group adventure — "Group rides", "Ride
+> members live". Every navigation path below is quoted exactly as it appears in the build.)*
+>
+> **Demo account**
+>
+> Username: «DEMO_USERNAME»
+> Password: «DEMO_PASSWORD»
+>
+> This account is already a member of an adventure with other people on it, so the live map has
+> something to show. To join a second one: **Group rides → Join**, join code «DEMO_JOIN_CODE».
+>
+> **Seeing the main feature, in about two minutes**
+>
+> 1. Sign in with the account above.
+> 2. **Group rides →** tap the one the account is already in. The live map opens; other members
+>    appear as coloured markers with their names and their distance along the route.
+> 3. The nav rail's **Ride members live** shows the same people as a sortable list.
+> 4. Hamburger menu (top of the map) **→ Info → My sharing**. Turning that switch on shows our own
+>    disclosure dialog ("Share your location while you ride?") *before* the iOS permission prompt.
+> 5. Hamburger menu **→ Ride thread** for comments, and **→ Add marker** to attach a photo or note
+>    to a point on the route.
+>
+> **Why the app requests background location (guideline 2.5.4)**
+>
+> A member opts in to sharing their position with one group adventure at a time. While sharing is
+> on, the app publishes their location so the other members of that adventure can see them on the
+> live map. This has to continue with the screen off and the phone in a mount or a pocket, because
+> that is the normal case — someone travelling is not holding their phone. Without background
+> location the map goes stale for everyone else the moment they stop looking at it, which is
+> precisely when they are under way.
+>
+> Sharing is off until it is turned on, it is per adventure rather than global, and it stops when
+> the member turns the switch off, leaves, or the adventure ends. The blue background-location
+> indicator is left enabled throughout. Someone who grants only "While Using the App" still has a
+> working app: position updates stop when it is backgrounded and resume on return.
+>
+> A private area can also be set — **Settings → Location → Home private area** — a circle around
+> home, stored only on the device, inside which no position is recorded or sent to anyone.
+>
+> **User-generated content (guideline 1.2)**
+>
+> Members can post comments in an adventure's thread and attach photos and notes to map markers,
+> visible only to the other members of that adventure.
+>
+> - **Report**: the flag control on any comment in a **Ride thread**. Reports go to the organiser
+>   and to us.
+> - **Block**: an organiser can decline and block a join request at **Group rides → [ride] →
+>   Requests**. Blocked accounts are listed and can be unblocked at **Settings → Blocked riders**.
+> - **Delete your account and everything in it**: **Settings → Data & export**. The same screen
+>   exports the account's data.
+> - Moderation contact: «SUPPORT_EMAIL».
+>
+> **Other things you may notice**
+>
+> - **Offline maps** — **Settings → Maps** downloads regional map packs so the map works without a
+>   signal. The app serves those files to its own map view over `127.0.0.1`, which is why
+>   `Info.plist` declares `NSAllowsLocalNetworking`.
+> - **GPX** — the app registers as a handler for `.gpx` files, so it appears in the share sheet when
+>   a GPS track is shared from another app.
+> - The app supports iPhone and iPad.
+> - Encryption: HTTPS and the platform keychain only; no proprietary cryptography.
+
+### ⚠ Two 1.2 gaps the notes are worded around
+
+Both of these are endpoints that exist with no UI on top of them, so both are small to close — and
+both are cheaper to close now than to answer a rejection about.
+
+**Markers cannot be reported.** `ReportMarkerAsync` is on `IApiClient` and
+`POST /api/v1/markers/{id}/report` is live, but `MarkerDetails.razor` offers only a delete. A photo
+attached to a marker is user-generated content a member can see and cannot report — only comments
+carry the flag control. The notes above therefore claim reporting for comments only.
+
+**Blocking is organiser-only.** Guideline 1.2 wants "the ability to block abusive users", and what
+the app has is narrower:
+
+- `POST /api/v1/blocks` exists, and `IApiClient.BlockUserAsync` is wired to it — but **no screen
+  calls it**. The only path that blocks is `RideRequests.razor`'s *Decline & block*, which goes
+  through `DecideJoinRequestAsync`, and only an organiser deciding a join request can reach it.
+- `Settings → Blocked riders` lists blocks and unblocks them. It cannot create one.
+
+So an ordinary member who is harassed in a thread has *report*, but no way to block the person
+themselves. A "Block this person" action on a thread comment or in the members list, calling the
+endpoint that already exists, closes it.
 
 ### A demo account
 
 Review needs one, because everything behind the sign-in wall is invisible otherwise. Supply a
-username and password **and** a ride the account is already a member of — an account with no rides
-shows a reviewer an empty app, which is a rejection for "incomplete functionality".
+username and password **and** an adventure the account is already a member of — an account with
+none shows a reviewer an empty app, which is a rejection for "incomplete functionality".
 
 ### Other listing requirements
 
-Screenshots for 6.7" and 6.5" iPhone (and iPad, since `UIDeviceFamily` includes it — either supply
-them or drop iPad from the family), a support URL, the privacy policy URL, an age rating, and a
-category (Navigation or Sports).
+**iPad is supported** — `UIDeviceFamily` in `Info.plist` is `[1, 2]` and stays that way, so the app
+has to work there and the listing has to show it.
+
+Screenshots: one 6.9" iPhone set and one 13" iPad set. App Store Connect scales those down for the
+smaller sizes, so the older 6.7"/6.5" sets are no longer required. Also needed: a support URL, the
+privacy policy URL, an age rating, and a category (Navigation or Sports).
 
 ---
 
@@ -189,7 +317,7 @@ category (Navigation or Sports).
       `SourceRevisionId` otherwise, and it is visible to end users at `GET /api/v1/about` (§14.6.2).
 - [ ] `dotnet format BlazorDLR.slnx --verify-no-changes`
 - [ ] `dotnet test BlazorDLR.slnx` (Docker running, for the server integration tests)
-- [ ] Verify on hardware, not an emulator: start a ride, lock the phone, ride for a few minutes,
+- [ ] Verify on hardware, not an emulator: start an adventure, lock the phone, travel for a few minutes,
       confirm the position moves on a second device — see the hardware checklist below.
 - [ ] Upload the Android symbol file with the bundle so Play's crash reports are readable.
 
@@ -201,10 +329,10 @@ above the platform seam and nothing below it.
 - [ ] **Android**: permission ladder appears in order — precise location, then background, then
       notifications.
 - [ ] **Android**: the ongoing notification appears when sharing starts and disappears when it
-      stops. It must never outlive the ride.
+      stops. It must never outlive the adventure.
 - [ ] **Android**: fixes continue with the screen off for at least ten minutes.
 - [ ] **Android**: kill the app from the recents list; confirm the service restarts (`START_STICKY`)
-      or that the ride ends cleanly, and that no orphaned notification remains.
+      or that the adventure ends cleanly, and that no orphaned notification remains.
 - [ ] **Android**: a device without Play Services falls back to `LocationManager` and still
       publishes.
 - [ ] **Android**: OEM battery managers (Xiaomi, Huawei, Samsung, OnePlus) — confirm behaviour and
@@ -213,6 +341,9 @@ above the platform seam and nothing below it.
 - [ ] **iOS**: choosing "While using the app" degrades rather than breaks — fixes stop when
       backgrounded and resume on return.
 - [ ] **iOS**: fixes continue with the screen off and the app backgrounded.
-- [ ] **Both**: standing inside a configured private area publishes nothing, and the ride's info
+- [ ] **iPad**: every screen is usable at iPad width and in all four orientations — the listing
+      claims iPad support (`UIDeviceFamily` includes 2), and a broken layout there is a rejection
+      even though the phone build is fine.
+- [ ] **Both**: standing inside a configured private area publishes nothing, and the adventure's info
       page says so (§10.1).
-- [ ] **Both**: battery cost over a two-hour ride on each of the three accuracy profiles.
+- [ ] **Both**: battery cost over a two-hour trip on each of the three accuracy profiles.

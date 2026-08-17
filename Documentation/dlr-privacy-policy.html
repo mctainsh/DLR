@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<!--
+	Privacy policy for Dumb Luck Routes (au.com.securehub.dlr).
+
+	This is a standalone file: no external CSS, JS, fonts or images, so it can be dropped on any
+	static host and will render identically offline. Publish it at a stable URL and put that URL in
+	three places (Documentation/store-release.md):
+
+	  1. Google Play Console -> App content -> Privacy policy, and the Data safety form
+	  2. App Store Connect -> App Privacy -> Privacy Policy URL
+	  3. Inside the app (the Info / About page)
+
+	Every factual claim here was written against the shipping code, not the design document. If the
+	code changes, this file changes in the same commit — a privacy policy describing an earlier
+	version of the app is worse than none, because people rely on it (design-outline.md §10.1).
+-->
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Privacy Policy — Dumb Luck Routes</title>
+	<style>
+		:root {
+			color-scheme: light dark;
+			--bg: #ffffff;
+			--surface: #f6f7f9;
+			--text: #1b1f24;
+			--muted: #5a6470;
+			--rule: #d8dde3;
+			--accent: #1a5fb4;
+			--flag-bg: #fff3cd;
+			--flag-text: #6b4e00;
+			--flag-rule: #e0b400;
+		}
+
+		@media (prefers-color-scheme: dark) {
+			:root {
+				--bg: #14171a;
+				--surface: #1c2024;
+				--text: #e6e8eb;
+				--muted: #a2acb8;
+				--rule: #2f353c;
+				--accent: #78b0ff;
+				--flag-bg: #3a3212;
+				--flag-text: #ffdf7a;
+				--flag-rule: #8a7420;
+			}
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			padding: 2rem 1.25rem 5rem;
+			background: var(--bg);
+			color: var(--text);
+			font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+			-webkit-text-size-adjust: 100%;
+		}
+
+		main {
+			max-width: 46rem;
+			margin: 0 auto;
+		}
+
+		h1 {
+			font-size: 1.9rem;
+			line-height: 1.2;
+			margin: 0 0 .35rem;
+		}
+
+		h2 {
+			font-size: 1.3rem;
+			margin: 2.75rem 0 .75rem;
+			padding-top: 1.25rem;
+			border-top: 1px solid var(--rule);
+		}
+
+		h3 {
+			font-size: 1.05rem;
+			margin: 1.75rem 0 .5rem;
+		}
+
+		p, ul, ol { margin: 0 0 1rem; }
+		li { margin-bottom: .4rem; }
+
+		a { color: var(--accent); }
+
+		.subtitle {
+			color: var(--muted);
+			margin-bottom: 1.5rem;
+		}
+
+		.summary {
+			background: var(--surface);
+			border: 1px solid var(--rule);
+			border-radius: .5rem;
+			padding: 1.25rem 1.25rem .25rem;
+			margin-bottom: 2rem;
+		}
+
+		.summary h2 {
+			border: 0;
+			margin: 0 0 .75rem;
+			padding: 0;
+			font-size: 1.1rem;
+		}
+
+		.toc ol {
+			padding-left: 1.25rem;
+			columns: 2;
+			column-gap: 2rem;
+		}
+
+		@media (max-width: 32rem) {
+			.toc ol { columns: 1; }
+		}
+
+		.table-wrap {
+			overflow-x: auto;
+			margin: 0 0 1.25rem;
+			border: 1px solid var(--rule);
+			border-radius: .5rem;
+		}
+
+		table {
+			border-collapse: collapse;
+			width: 100%;
+			min-width: 34rem;
+			font-size: .93rem;
+		}
+
+		th, td {
+			text-align: left;
+			vertical-align: top;
+			padding: .6rem .75rem;
+			border-bottom: 1px solid var(--rule);
+		}
+
+		th {
+			background: var(--surface);
+			font-weight: 600;
+		}
+
+		tbody tr:last-child td { border-bottom: 0; }
+
+		code {
+			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+			font-size: .9em;
+			background: var(--surface);
+			padding: .1em .35em;
+			border-radius: .25rem;
+		}
+
+		.todo {
+			background: var(--flag-bg);
+			color: var(--flag-text);
+			border: 1px solid var(--flag-rule);
+			border-radius: .25rem;
+			padding: .05em .4em;
+			font-weight: 600;
+			white-space: nowrap;
+		}
+
+		footer {
+			margin-top: 3rem;
+			padding-top: 1.25rem;
+			border-top: 1px solid var(--rule);
+			color: var(--muted);
+			font-size: .9rem;
+		}
+
+		@media print {
+			body { padding: 0; font-size: 11pt; }
+			.summary, th { background: transparent; }
+			a { color: inherit; text-decoration: none; }
+			h2 { page-break-after: avoid; }
+			.table-wrap, table { page-break-inside: avoid; }
+		}
+	</style>
+</head>
+<body>
+<main>
+
+	<h1>Privacy Policy</h1>
+	<p class="subtitle">
+		<strong>Dumb Luck Routes</strong> — mobile app (<code>au.com.securehub.dlr</code>) and website.<br>
+		Effective <time datetime="2026-08-17">17 August 2026</time>. Last updated <time datetime="2026-08-17">17 August 2026</time>.
+	</p>
+
+	<div class="summary">
+		<h2>The short version</h2>
+		<ul>
+			<li>Your live location is shared <strong>only</strong> inside a group adventure you joined, <strong>only</strong> with the members of that adventure, and <strong>only</strong> if you turned sharing on. The answer starts at <em>no</em>.</li>
+			<li>Location sharing does continue in the background, with the screen off. It stops when you turn it off, leave the adventure, or the adventure ends — plus at most a two-hour wind-down if the organiser allowed one.</li>
+			<li>We keep <strong>no location history</strong>. One row per person per adventure, overwritten in place, deleted when sharing stops.</li>
+			<li>You can set a <strong>private area</strong> around home. It never leaves your phone, and nothing inside it is recorded or sent.</li>
+			<li>An account is a username and a password. Email, phone number and display name are optional.</li>
+			<li>Photos are stripped of all metadata, including GPS, when they are uploaded.</li>
+			<li>No advertising, no analytics or tracking SDKs, no data brokers, and we never sell your data.</li>
+			<li>You can export everything and delete your account from inside the app: <strong>Settings → Data &amp; export</strong>.</li>
+		</ul>
+	</div>
+
+	<nav class="toc">
+		<h2>Contents</h2>
+		<ol>
+			<li><a href="#who">Who we are</a></li>
+			<li><a href="#collect">What we collect and why</a></li>
+			<li><a href="#location">Location, in detail</a></li>
+			<li><a href="#ugc">Photos, comments and markers</a></li>
+			<li><a href="#device">What stays on your device</a></li>
+			<li><a href="#share">Who your data is shared with</a></li>
+			<li><a href="#basis">Legal bases</a></li>
+			<li><a href="#retention">How long we keep things</a></li>
+			<li><a href="#rights">Your rights and controls</a></li>
+			<li><a href="#security">Security</a></li>
+			<li><a href="#children">Children</a></li>
+			<li><a href="#transfers">International transfers</a></li>
+			<li><a href="#selfhost">Self-hosted copies</a></li>
+			<li><a href="#changes">Changes to this policy</a></li>
+			<li><a href="#contact">Contact and complaints</a></li>
+		</ol>
+	</nav>
+
+	<h2 id="who">1. Who we are</h2>
+
+	<p>
+		Dumb Luck Routes is a group-adventure companion for motorcyclists, drivers, cyclists and
+		walkers. It is operated by Secure Hub (Australia), referred to below as <em>we</em>, <em>us</em>
+		and <em>our</em>. We are the data controller for the personal information described here.
+	</p>
+	<p>
+		This policy covers the mobile app, the website, and the servers behind them. It is published
+		at https://www.noptic2.com/dlr-privacy-policy.html. Privacy questions and requests go to
+		spam@securehub.com.au.
+	</p>
+	<p>
+		In this policy an <strong>adventure</strong> (called a <em>group ride</em> on some screens in
+		the app) is a time-boxed group that people join with a code from the organiser, or by asking
+		and being admitted.
+	</p>
+
+	<h2 id="collect">2. What we collect and why</h2>
+
+	<p>
+		The guiding rule is that we collect the least that makes the app work. A usable account is a
+		username and a password; everything in the "optional" column below can be left empty, and the
+		app works without it.
+	</p>
+
+	<div class="table-wrap">
+		<table>
+			<thead>
+				<tr>
+					<th>What</th>
+					<th>Why we have it</th>
+					<th>Optional?</th>
+					<th>Who else can see it</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>Username</td>
+					<td>Signing in, and the label on your marker on the map</td>
+					<td>Required</td>
+					<td>Members of adventures you join</td>
+				</tr>
+				<tr>
+					<td>Password</td>
+					<td>Signing in. Stored only as a salted hash — we never hold the password itself</td>
+					<td>Required</td>
+					<td>Nobody</td>
+				</tr>
+				<tr>
+					<td>Email address</td>
+					<td>Password reset, account recovery, service notices, the inactivity warning below</td>
+					<td>Optional</td>
+					<td>Nobody, unless you switch <em>share email</em> on — then co-members only</td>
+				</tr>
+				<tr>
+					<td>Phone number</td>
+					<td>So people you are travelling with can reach you</td>
+					<td>Optional</td>
+					<td>Nobody, unless you switch <em>share phone</em> on — then co-members only</td>
+				</tr>
+				<tr>
+					<td>Display name and marker colour</td>
+					<td>How you appear in a member list and on the map</td>
+					<td>Optional</td>
+					<td>Co-members (display name only if you switch it on)</td>
+				</tr>
+				<tr>
+					<td>Precise location</td>
+					<td>Showing you on the live map of an adventure — see section 3</td>
+					<td>Optional, off by default</td>
+					<td>Members of the adventure you turned sharing on for</td>
+				</tr>
+				<tr>
+					<td>Recorded tracks and imported GPX files</td>
+					<td>Your own ride history, statistics and the track editor</td>
+					<td>Optional</td>
+					<td>Nobody — private by default, unless you create a share link</td>
+				</tr>
+				<tr>
+					<td>Photos</td>
+					<td>Attaching to a map marker or a post in an adventure's thread</td>
+					<td>Optional</td>
+					<td>Members of that adventure</td>
+				</tr>
+				<tr>
+					<td>Comments, marker notes, poll answers, reactions</td>
+					<td>The thread and the markers of an adventure</td>
+					<td>Optional</td>
+					<td>Members of that adventure</td>
+				</tr>
+				<tr>
+					<td>Device record: a name, whether it is a phone or a browser, when it was created and last seen</td>
+					<td>Session management, so you can see and revoke your signed-in devices</td>
+					<td>Required</td>
+					<td>Only you</td>
+				</tr>
+				<tr>
+					<td>The IP address you registered from</td>
+					<td>Abuse and spam-registration throttling. Deleted after 30 days</td>
+					<td>Required</td>
+					<td>Nobody</td>
+				</tr>
+				<tr>
+					<td>Web-server access logs (IP address, time, request path)</td>
+					<td>Security, abuse prevention and diagnosing faults</td>
+					<td>Required</td>
+					<td>Nobody</td>
+				</tr>
+				<tr>
+					<td>Content reports you submit</td>
+					<td>Acting on reports of objectionable content</td>
+					<td>Optional</td>
+					<td>The adventure's organiser and us</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<p>
+		<strong>What we do not collect.</strong> No advertising identifier. No analytics, crash-reporting
+		or attribution SDK — the app contains none. No contacts, no calendar, no microphone, no
+		health data, no Bluetooth. We do not build a profile of you, we do not track you across other
+		apps or websites, and we do not sell or rent personal information to anyone.
+	</p>
+
+	<h2 id="location">3. Location, in detail</h2>
+
+	<p>
+		Location is the reason this app exists, so this section is specific.
+	</p>
+
+	<h3>When it is collected</h3>
+	<ul>
+		<li>Location is only sent to our servers while you have turned <strong>sharing</strong> on for a specific adventure. Sharing is asked for when you join, and the answer starts at <em>no</em>. Dismissing the prompt is a no.</li>
+		<li>Sharing is per adventure, not global. You can be sharing with one and not another, and the member list shows who is sharing and who is not.</li>
+		<li>There is no always-on friend tracking in this app, and no way to switch it on.</li>
+		<li>Recording a track for yourself is separate, and also opt-in. A recorded track lives on your device and in your own account, and is private unless you share it.</li>
+	</ul>
+
+	<h3>Background collection</h3>
+	<p>
+		While sharing is on, the app collects location <strong>in the background — that is, even when
+		the app is closed or not in use</strong>, and with the screen off. That is the normal case:
+		someone travelling is not holding their phone, and without it the map goes stale for everyone
+		else at exactly the moment they need it. Before the operating system asks for permission, the
+		app shows its own explanation and asks you to agree or cancel.
+	</p>
+	<p>
+		Background collection stops when you turn sharing off, leave the adventure, sign out, revoke
+		the device, or the adventure ends. On Android an ongoing notification is shown the whole time
+		sharing is active; on iOS the system's blue location indicator is left on. If you grant only
+		"While Using the App", the app still works — updates stop when it is backgrounded and resume
+		when you return to it.
+	</p>
+
+	<h3>What is stored, exactly</h3>
+	<p>
+		One row per person per adventure, holding your latest position, and overwritten in place.
+		<strong>There is no location history table. No trail is kept, and no journey can be
+		replayed from what we store.</strong>
+	</p>
+	<p>
+		Turning sharing off <strong>deletes</strong> that stored row rather than merely stopping the
+		broadcast — a last-known point sitting in a database is exactly what someone turning sharing
+		off is asking us not to keep. The same happens when you leave an adventure, when an organiser
+		removes you, and when the adventure ends. If you are not sharing with an adventure, there is
+		no row for you in it at all — hidden or otherwise.
+	</p>
+
+	<h3>The wind-down</h3>
+	<p>
+		When an adventure ends, an organiser may allow a short wind-down so people can watch each
+		other get home. It is <strong>capped at two hours, cannot be extended, and is enforced by the
+		server</strong>, not by the app. You can end your own sharing at any point during it. An
+		organiser can stop sharing for everyone; an organiser can never switch your sharing back on.
+	</p>
+
+	<h3>The private area</h3>
+	<p>
+		You can set a circle around home — <strong>Settings → Location</strong>. Inside it, nothing is
+		recorded and nothing is sent: the fix never becomes a stored row and never reaches our
+		servers. Co-members see you as present in the adventure with no position on the map.
+	</p>
+	<p>
+		<strong>The circle itself never leaves your device.</strong> We are not told where it is, how
+		big it is, or whether you have set one at all. The cost of that is stated in the app: it does
+		not follow you to another phone, and reinstalling the app forgets it.
+	</p>
+
+	<h2 id="ugc">4. Photos, comments and markers</h2>
+
+	<p>
+		Adventures carry user-generated content: a thread with text, photos, pinned posts, reactions
+		and polls, and map markers with an icon, a title, a note and a photo. It is visible to the
+		members of that adventure and to nobody else.
+	</p>
+	<ul>
+		<li><strong>Photo metadata is destroyed on upload.</strong> Every image is re-encoded on our server with no metadata written at all — EXIF, GPS coordinates, camera and device identifiers, and colour profiles are gone from the stored file. This happens before the photo is visible to anyone.</li>
+		<li><strong>Measured location is deleted; what you wrote is kept.</strong> Markers and comments survive after an adventure ends, because you deliberately wrote them. You can delete your own content, and deleting your account removes it.</li>
+		<li><strong>Reporting.</strong> Objectionable content can be reported with the flag control on a comment. Reports reach the organiser and us, and we act on them. Report anything urgent directly to spam@securehub.com.au.</li>
+		<li><strong>Blocking.</strong> An organiser can decline and block a join request; blocked accounts are listed and can be unblocked at <strong>Settings → Blocked riders</strong>.</li>
+	</ul>
+
+	<h2 id="device">5. What stays on your device</h2>
+
+	<p>
+		Some things never reach us at all, and are removed if you uninstall the app:
+	</p>
+	<ul>
+		<li>The private area — its centre, its radius, and the fact that one exists.</li>
+		<li>Your app settings: theme, map style, GPS accuracy profile, route display.</li>
+		<li>Downloaded offline map packs.</li>
+		<li>Your sign-in token, held in the platform keychain (iOS) or encrypted storage (Android).</li>
+		<li>Tracks you are recording, until and unless they sync to your account.</li>
+	</ul>
+
+	<h2 id="share">6. Who your data is shared with</h2>
+
+	<h3>Other people</h3>
+	<p>
+		Within an adventure you joined: your username, your marker colour, your live position while
+		you are sharing, your distance along the route, anything you post, and any optional profile
+		field whose sharing switch you turned on. Shared profile fields are scoped to that
+		adventure and access ends when it completes. There is no way to look up a person's details
+		from a username, and no directory of users.
+	</p>
+
+	<h3>Service providers</h3>
+	<p>
+		We use a small number of providers to run the service. They process data on our instructions
+		and for no purpose of their own:
+	</p>
+	<ul>
+		<li><strong>Hosting</strong> — our servers and database, which hold everything described in section 2.</li>
+		<li><strong>Backups</strong> — encrypted on our own machine before they leave it, so the backup provider never holds readable positions or email addresses.</li>
+		<li><strong>Email delivery</strong> — for password resets, confirmations and service notices, if you have given us an address.</li>
+		<li><strong>Map tiles</strong> — unless you are using an offline map pack, your device requests map imagery from a tile server, which necessarily sees your IP address and the map area you are looking at. By default this is the OpenStreetMap Foundation's public tile service; the app also lets you point it at your own tile server, or download packs from our own map-pack host and use no tile server at all.</li>
+	</ul>
+
+	<h3>Everyone else</h3>
+	<p>
+		Nobody. We do not disclose personal information to advertisers, data brokers or analytics
+		companies. We will disclose data if we are legally required to — a court order, a warrant, or
+		a comparable legal obligation — and we will tell you when we are permitted to. If the service
+		is ever transferred to another operator, we will say so here before it happens, and this
+		policy will continue to apply until you are told otherwise.
+	</p>
+
+	<h2 id="basis">7. Legal bases</h2>
+
+	<p>
+		We handle personal information under the Australian <em>Privacy Act 1988</em> and the
+		Australian Privacy Principles. Where the GDPR or UK GDPR applies to you, our legal bases are:
+	</p>
+	<ul>
+		<li><strong>Contract</strong> — your account, your tracks, and the operation of the adventures you join.</li>
+		<li><strong>Consent</strong> — location sharing, and each optional profile field you choose to share. You can withdraw either at any time, in the app, with immediate effect.</li>
+		<li><strong>Legitimate interests</strong> — keeping the service secure and free of abuse (the registration IP, access logs, rate limiting) and acting on content reports.</li>
+		<li><strong>Legal obligation</strong> — where we must retain or disclose something by law.</li>
+	</ul>
+
+	<h2 id="retention">8. How long we keep things</h2>
+
+	<div class="table-wrap">
+		<table>
+			<thead>
+				<tr>
+					<th>What</th>
+					<th>How long</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>Live position</td>
+					<td>Until you stop sharing, leave, are removed, or the adventure ends — plus at most a two-hour wind-down if the organiser allowed one. Then deleted. No history is kept at any point.</td>
+				</tr>
+				<tr>
+					<td>Account, tracks, markers, photos and comments</td>
+					<td>Until you delete them, or until you delete your account.</td>
+				</tr>
+				<tr>
+					<td>Points removed by trimming a track</td>
+					<td>The pre-edit original is kept for a 7-day undo window, or removed immediately if you choose <em>remove the original now</em>. See the backups row below.</td>
+				</tr>
+				<tr>
+					<td>Registration IP address</td>
+					<td>30 days, then erased.</td>
+				</tr>
+				<tr>
+					<td>Expired or revoked session tokens</td>
+					<td>30 days, then erased.</td>
+				</tr>
+				<tr>
+					<td>Web-server access logs</td>
+					<td>365 days.</td>
+				</tr>
+				<tr>
+					<td>Dormant, empty accounts</td>
+					<td>An account that has been inactive for 180 days <em>and holds no content</em> is deleted. If we have an email address for you, a warning is sent at 150 days. An account holding tracks, adventures or posts is never deleted this way.</td>
+				</tr>
+				<tr>
+					<td>Encrypted backups</td>
+					<td>7 days. Deleting something removes it from the live service immediately; a copy remains in backups until they roll off. We state this rather than pretend otherwise.</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<h2 id="rights">9. Your rights and controls</h2>
+
+	<p>In the app, without asking us:</p>
+	<ul>
+		<li><strong>Export everything</strong> — <strong>Settings → Data &amp; export</strong> produces an archive containing your profile, your tracks as GPX, your markers and your photos.</li>
+		<li><strong>Delete your account</strong> — the same screen. It asks for your password, and it is irreversible. It removes your account, your tracks, your markers, your photos, your comments, your positions and your sessions. <em>It also deletes any adventure you organise, and everyone else's membership of it</em> — the app tells you before it happens.</li>
+		<li><strong>Correct your details</strong> — profile fields are editable in Settings. A username is chosen once and cannot be changed, because other people's saved copies of an adventure refer to it.</li>
+		<li><strong>Stop sharing location</strong> — the sharing switch on any adventure, at any moment.</li>
+		<li><strong>Sign devices out</strong> — your device list revokes a session, which ends that device's access.</li>
+	</ul>
+
+	<h2 id="security">10. Security</h2>
+
+	<ul>
+		<li>All traffic between the app and our servers is encrypted with HTTPS/TLS.</li>
+		<li>Passwords are stored as salted hashes and are never recoverable, by us or anyone else.</li>
+		<li>Sessions can be revoked server-side, so a lost phone can be signed out immediately from another device.</li>
+		<li>Backups are encrypted on our own machine before they are uploaded, and are stored with a different provider than the servers.</li>
+		<li>Whether you can see someone's live position is decided by whether the organiser admitted you to that adventure — checked on the server on every request, never by the app.</li>
+		<li>The app uses no cryptography of its own beyond HTTPS and the platform keychain.</li>
+	</ul>
+	<p>
+		No system is perfectly secure. If a breach affecting your personal information occurs, we will
+		notify affected users and the relevant regulator as required by the <em>Notifiable Data
+		Breaches</em> scheme and, where applicable, the GDPR.
+	</p>
+
+	<h2 id="children">11. Children</h2>
+
+	<p>
+		Dumb Luck Routes is not directed to children. You must be at least 16 years old to create an
+		account, or the minimum age of digital consent in your country if that is higher. We do not
+		knowingly collect personal information from children.
+	</p>
+
+	<h2 id="transfers">12. International transfers</h2>
+
+	<p>
+		Our servers and backups are located outside Australia, so using the app involves transferring
+		your information overseas. Where the GDPR applies, transfers rely on the European Commission's
+		standard contractual clauses or an adequacy decision. We take reasonable steps to ensure any
+		overseas recipient handles your information consistently with the Australian Privacy
+		Principles.
+	</p>
+
+	<h2 id="selfhost">13. Self-hosted copies</h2>
+
+	<p>
+		Dumb Luck Routes is free software under the AGPL, and anyone may run their own server from the
+		source. <strong>This policy covers only the service operated by us</strong> and the official
+		builds in the App Store and Google Play. If you sign in to somebody else's instance, their
+		operator handles your data and their policy applies, not this one. Every page of the app
+		carries a footer naming the licence, the source and the exact commit the build came from.
+	</p>
+
+	<h2 id="changes">14. Changes to this policy</h2>
+
+	<p>
+		If we change what we collect or what we do with it, we will update this page and the date at
+		the top, and we will tell you in the app before the change takes effect. Material changes to
+		how location is handled will ask for your agreement again rather than assume it. Older
+		versions are in the project's public source history.
+	</p>
+
+	<h2 id="contact">15. Contact and complaints</h2>
+
+	<p>
+		Privacy questions, requests and complaints: spam@securehub.com.au.<br>
+		Support and content reports: span@securehub.com.au<br>
+	</p>
+	<p>
+		We will acknowledge a complaint within 5 working days and resolve it within 30 days. If you
+		are not satisfied with our response, you can complain to the Office of the Australian
+		Information Commissioner (<a href="https://www.oaic.gov.au/">oaic.gov.au</a>, 1300 363 992),
+		or — if you are in the EU, the EEA or the UK — to your local data protection supervisory
+		authority.
+	</p>
+
+	<footer>
+		<p>
+			Dumb Luck Routes · <code>au.com.securehub.dlr.v2</code> · Effective 17 August 2026.<br>
+			Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+		</p>
+	</footer>
+
+</main>
+</body>
+</html>

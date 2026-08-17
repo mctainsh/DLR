@@ -60,30 +60,23 @@
 	<false/>
 
 	<!--
-		⚠ SUBMISSION BLOCKER IF LEFT AS-IS. NSAllowsArbitraryLoads turns App Transport Security
-		off for every host, which exists here so a debug build can talk to `http://` on a
-		developer's laptop. App Review asks for a justification for a blanket exception and
-		routinely refuses one from an app whose production API is HTTPS.
+		App Transport Security. Cleartext is permitted in exactly two places and nowhere else.
 
-		The fix is to scope it rather than to delete it: replace this with
-		NSExceptionDomains for the local development host only, or drop the key entirely for
-		Release. See Documentation/store-release.md, which tracks this as a release gate.
-	-->
-	<!--
-		NSAllowsLocalNetworking permits cleartext HTTP to loopback and link-local addresses, and
-		nothing else. The app needs it for its own map-pack server on 127.0.0.1, which is how
-		MapLibre range-reads a downloaded PMTiles archive it could not otherwise address (§4.5) —
-		and for the debug API base, which MauiConstants points at http://127.0.0.1:5005/.
+		NSAllowsArbitraryLoads — which turns ATS off for every host — used to sit here so a debug
+		build could talk to `http://` on a developer's laptop, and was removed before the first
+		App Store submission: App Review asks for a justification for a blanket exception and
+		routinely refuses one from an app whose production API is HTTPS
+		(Documentation/store-release.md). Do not put it back. Anything added here stays this narrow.
 
-		It is stated separately rather than left to NSAllowsArbitraryLoads above, which is far
-		broader than anything this app needs and should be narrowed before store submission
-		(Documentation/store-release.md). When it goes, the loopback allowance has to survive it,
-		and this is the key that does that.
-	-->
-	<!--
-		The map-pack catalogue host (§4.2). Named explicitly even though NSAllowsArbitraryLoads
-		above already permits it, for the same reason NSAllowsLocalNetworking is: the blanket key is
-		a release gate that has to go before submission, and this exception has to survive it.
+		NSAllowsLocalNetworking permits cleartext to loopback and link-local addresses, and nothing
+		else. The app needs it for its own map-pack server on 127.0.0.1, which is how MapLibre
+		range-reads a downloaded PMTiles archive it could not otherwise address (§4.5) — and for the
+		debug API base, which MauiConstants points at http://127.0.0.1:5005/. That covers the
+		simulator, which shares a kernel with the host; a debug build on a *device* pointed at a
+		server on the LAN needs that host added to NSExceptionDomains below, temporarily and never
+		committed.
+
+		The NSExceptionDomains entry below is the map-pack catalogue host (§4.2).
 
 		⚠ TEMPORARY. The host answers on 443 with a certificate issued for another domain, so HTTPS
 		to it cannot be verified. When it serves one matching its own name, this dict goes and
@@ -98,8 +91,6 @@
 	-->
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 		<key>NSExceptionDomains</key>
@@ -127,6 +118,12 @@
 		The "always" strings mention the screen being off explicitly, because that is the part
 		a rider is actually consenting to and the part Apple checks against the background mode
 		above.
+
+		There is deliberately no NSBluetoothAlwaysUsageDescription. Nothing in the app touches
+		CoreBluetooth — CLLocationManager's own use of Bluetooth for accuracy is the system's and
+		needs no string from us — and a purpose string for a permission the binary never requests
+		is a 5.1.1 question waiting to be asked of an app already under background-location
+		review. Add one only alongside code that actually opens a CBCentralManager.
 	-->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Dumb Luck Routes shows your position on the map and, when you turn sharing on for a group ride, lets the other riders on that ride see where you are.</string>
@@ -138,8 +135,6 @@
 	<string>Take a photo to attach to a map marker, so the rest of your group can see the hazard, the turn or the view you are marking.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a photo from your library to attach to a map marker or a ride post.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Bluetooth is used to improve location accuracy by detecting nearby devices.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<!--
