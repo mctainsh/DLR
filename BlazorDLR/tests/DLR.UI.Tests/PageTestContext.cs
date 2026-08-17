@@ -64,5 +64,14 @@ public abstract class PageTestContext : BunitContext
 		// than per suite for the same reason as the cache — it is a dependency of a page, not of
 		// one test's subject. A test about the lock registers FakeScreenWakeLock over the top.
 		Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
+
+		// The notification seams (§17.6). Page-wide in the strongest sense — MainLayout injects the
+		// notifier, so every routable page has one above it — and registered over the no-op binding
+		// the browsers get, so a page test raises nothing by default. CommentNotifierTests builds
+		// its own over FakeNotificationService rather than resolving these.
+		Services.AddScoped<INotificationService, NoopNotificationService>();
+		Services.AddSingleton<NotificationRouting>();
+		Services.AddSingleton<AppForegroundState>();
+		Services.AddScoped<CommentNotifier>();
 	}
 }

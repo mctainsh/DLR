@@ -148,9 +148,36 @@ public static class MauiProgram
 		// mount, not a laptop with a tab open (§18.6).
 		builder.Services.AddSingleton<BlazorDLR.Shared.Services.IScreenWakeLock, DeviceDisplayScreenWakeLock>();
 
-		// Push is the seam still deferred on this host — it needs FCM/APNs registrations that
-		// happen with store submission.
+		// Notifications (§17.6) — local, raised by this device on itself, with no push service
+		// behind them. There is no FCM sender key, no APNs .p8 and no aps-environment entitlement:
+		// the post has already arrived over the hub (§5.3), and these two classes are only the last
+		// step of putting it on a lock screen. That is why this seam ships now rather than waiting
+		// for store submission the way the social sign-in bindings below still do.
+		//
+		// The #if is the second and last one in this file, and it is here for the same reason as the
+		// receiver's above: UNUserNotificationCenter and NotificationManagerCompat are genuinely
+		// different classes, and UiLayeringRules keeps both out of BlazorDLR.Shared.
+#if ANDROID
+		builder.Services.AddScoped<BlazorDLR.Shared.Services.INotificationService, BlazorDLR.Platforms.Android.Notifications.AndroidNotificationService>();
+#elif IOS || MACCATALYST
+		builder.Services.AddScoped<BlazorDLR.Shared.Services.INotificationService, BlazorDLR.Platforms.Apple.Notifications.AppleNotificationService>();
+#else
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.INotificationService, NoopNotificationService>();
+#endif
+
+		// Singletons, both, and deliberately not scoped: the platform heads reach them from outside
+		// Blazor — MainActivity.OnNewIntent, the iOS notification delegate, the window's Resumed and
+		// Stopped events — where there is no scope to resolve from. A scoped registration would hand
+		// those callers a different instance from the one the layout is bound to, and the symptom
+		// would be a tapped notification that opens the app and goes nowhere.
+		builder.Services.AddSingleton<BlazorDLR.Shared.State.NotificationRouting>();
+		builder.Services.AddSingleton<BlazorDLR.Shared.State.AppForegroundState>();
+
+		// Watches the hub for posts and decides which of them are worth interrupting a rider for
+		// (§17.6). Scoped, because everything it depends on is — and resolved by MainLayout, which
+		// renders on every page, so it is alive whether the rider is on the live map, in settings or
+		// nowhere near the thread.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.CommentNotifier>();
 
 		// The accuracy profile this device records at (§4.2), in MAUI Preferences.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.GpsProfileState>();

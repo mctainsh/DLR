@@ -2,6 +2,10 @@
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.State
 @inject AuthState Auth
+@inject CommentNotifier Notifier
+@inject NotificationRouting Routing
+@inject NavigationManager Nav
+@implements IDisposable
 
 @*
 	The one layout every page composes with (§18.6).
@@ -48,6 +52,43 @@
 </div>
 
 @code {
+	/// <summary>
+	/// Subscribing here is what gives <see cref="CommentNotifier"/> a lifetime (§17.6).
+	/// <para>
+	/// Injecting it is what constructs it, and constructing it is what subscribes it to the hub —
+	/// so the notifier is alive from the first render of the first page and stays alive for as long
+	/// as the app does. That is the point of putting it on the layout rather than on a page: a
+	/// notifier that only existed while the thread was open would be a notifier for the one
+	/// situation that never needs one.
+	/// </para>
+	/// <para>
+	/// In OnInitialized rather than after render, because a notification tapped from a cold lock
+	/// screen has already parked its route by now and the sooner it is collected the less of the
+	/// home screen the rider sees on the way past.
+	/// </para>
+	/// </summary>
+	protected override void OnInitialized()
+	{
+		Routing.RouteRequested += OnRouteRequested;
+
+		// Subscribe first, then drain. A route that arrived before the subscription above — the
+		// cold-launch case, which is most of them — is parked rather than raised, and this ordering
+		// is what makes sure exactly one of the two paths picks it up.
+		if (Routing.TakePending() is { } pending)
+			OnRouteRequested(pending);
+	}
+
+	/// <summary>
+	/// Travels to where a tapped notification pointed.
+	/// <para>
+	/// Marshalled through <c>InvokeAsync</c> because the caller is a platform callback on whatever
+	/// thread Android or iOS chose — <c>NavigationManager</c> is not thread-safe and Blazor throws
+	/// if it is touched from off the renderer's context.
+	/// </para>
+	/// </summary>
+	private void OnRouteRequested(string route) =>
+		_ = InvokeAsync(() => Nav.NavigateTo(route));
+
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
 		if (firstRender)
@@ -67,4 +108,12 @@
 			await Auth.RestoreAsync();
 		}
 	}
+
+	/// <summary>
+	/// Releases the route subscription. <see cref="CommentNotifier"/> is deliberately <em>not</em>
+	/// disposed here: it is a scoped service and the container owns it, and disposing an injected
+	/// service from the component that happened to ask for it would take the hub subscription down
+	/// while the app is still running.
+	/// </summary>
+	public void Dispose() => Routing.RouteRequested -= OnRouteRequested;
 }

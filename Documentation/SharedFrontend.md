@@ -33,7 +33,7 @@ Section 4.1 of the design outline names 11 screens (§4.1); this table maps them
 | Ride Requests (organiser) | ✅ | — | — |
 | Group Ride Live | ✅ | Publishes position, background service | Read-only spectator or member; no publish (§18.6) |
 | Add Marker | ✅ | Camera via `MediaPicker` | File via `<InputFile>` |
-| Ride Thread | ✅ | Push notifications (§17.6) | Silent — no push in v1 (§18.2) |
+| Ride Thread | ✅ | Local notifications (§17.6) — no FCM, no APNs | Silent — none in v1 (§18.2) |
 | Route Planner | ✅ | GPX pick, past ride pick | Drag-drop GPX, big-screen mouse drawing (§6.1) |
 | Settings | ✅ | Device list, GPS profile | Device list, session limits (§18.5) |
 | Settings → Profile | ✅ | Same | Same |
@@ -98,7 +98,8 @@ BlazorDLR.Shared/                    net10.0, browser platform, no MAUI, no plat
 │   ├── ILocationProvider.cs         GPS; browser has none — see §5 below
 │   ├── IMediaPicker.cs              Camera / file (§18.2)
 │   ├── IMapInterop.cs               JS interop contract for both map modules (§4.5)
-│   ├── INotificationService.cs      Push on mobile; no-op on web (§17.6)
+│   ├── INotificationService.cs      Local notifications on mobile; no-op on web (§17.6)
+│   ├── LocalNotification.cs         Tag / Title / Body / Route — never crosses the wire
 │   └── ...
 ├── Layout/                          MainLayout.razor + NavMenu.razor exist; keep the shape
 ├── State/
@@ -120,7 +121,7 @@ BlazorDLR.Web.Client/                Blazor WASM
 │   ├── NoopLocationProvider.cs      ILocationProvider that says "not supported"
 │   ├── BrowserMediaPicker.cs        InputFile-based
 │   ├── MapLibreInterop.cs           Selects wwwroot/map.maplibre.js
-│   └── WebPushNoop.cs               No push in v1 (§18.2)
+│   └── (notifications)              NoopNotificationService — none in the browser (§18.2)
 └── wwwroot/appsettings.json         Existing; api base URL etc.
 
 BlazorDLR/                           MAUI single project — Android + iOS
@@ -138,11 +139,12 @@ BlazorDLR/                           MAUI single project — Android + iOS
 │   ├── Android/
 │   │   ├── LocationProvider.cs      FusedLocationProvider + foreground service (§4.3)
 │   │   ├── ForegroundLocationService.cs
-│   │   ├── PushNotifications.cs     FCM
+│   │   ├── Notifications/AndroidNotificationService.cs   NotificationManagerCompat — no FCM
 │   │   └── Auto/                    CarAppService — native, not shared (§4.6)
 │   └── iOS/
 │       ├── LocationProvider.cs      CLLocationManager, allowsBackground = true (§4.3)
-│       ├── PushNotifications.cs     APNs
+│       ├── Notifications/AppleNotificationService.cs     UNUserNotificationCenter — no APNs
+│       ├── Notifications/ThreadNotificationDelegate.cs   Foreground presentation + tap routing
 │       └── CarPlay/                 CPTemplateApplicationSceneDelegate — native
 
 tests/
@@ -358,7 +360,7 @@ Everything realtime, everything social, everything that touches other people's d
 - [x] Polls wired into **`RideThread.razor`** — composer poll-toggle, `PollUpdated` hub subscription, `CastVoteAsync` / `ClosePollAsync`. A poll rides along on the same `PostCommentRequest` so it inherits idempotency, caps and permissions (§17.5).
 - [x] **`Settings/DataAndExport.razor`** — `GET /me/export` triggers a ZIP download via a synthetic anchor click (works in every host); `DELETE /me` requires the current password and signs out locally. Reachable from Settings → Data & export and from Settings → Account (§6.3, §10.2).
 - [x] Social sign-in **seam** — `IExternalSignInProvider` interface plus `UnavailableExternalSignInProvider` stub. Welcome renders the buttons dimmed with "coming soon"; a real provider binding is one DI swap (§7.16).
-- [ ] `INotificationService` real implementations — FCM on Android, APNs on iOS (§17.1, §17.6). **Not closeable from this environment** — belongs to the store-submission pass. Needs `google-services.json`, an APNs `.p8`, a real Android emulator with Play Services, and a real iPhone to verify Silent-while-Live actually stays silent. The `NoopNotificationService` seam is in place and Phase 2's `PermissionsChanged` / `RideStateChanged` events give it everything it will need to consume.
+- [x] `INotificationService` real implementations — **done in v0.26, and done *locally*** (§17.1, §17.6). `AndroidNotificationService` over `NotificationManagerCompat` and `AppleNotificationService` over `UNUserNotificationCenter`, with `ThreadNotificationDelegate` handling foreground presentation and taps. **This item used to read "not closeable from this environment" and it was wrong about why**: it assumed push, and therefore `google-services.json`, an APNs `.p8` and a store-submission pass. Local notifications need none of those — the post has already arrived over the hub (§5.3), so the app raises the notification itself. Both platform files compile in CI on Windows; what still needs a device is the *behaviour*, not the credentials: a real Android phone for the `Default`-importance channel and a real iPhone to confirm the foreground-presentation delegate fires (iOS silently swallows a self-raised notification without it, which is the one failure a compiler cannot catch). The decision half — which posts notify at all — is in `CommentNotifier` and covered by `CommentNotifierTests` with no device involved.
 - [ ] Test `Notify_OrdinaryCommentDuringLiveRide_SendsNoPush` (§17.1). **Belongs elsewhere** — server-side test that lives in `DLR.Server.Tests` alongside the notification-broadcast service, not a shared-UI task. The client side (silencing in-app treatments during `Live`) is already covered by the `RideStateChanged` handler.
 - [x] Gap list and off-route warning (§5.4). **`GapCalculator` in `DLR.Core.Tracks`** does the pure geometry — project a point onto a polyline, return `(alongMetres, offMetres)`, subtract for a signed gap — and **`GapList.razor`** consumes it: sorts members by along-route distance, marks the leader, and shows "off route N m" when the perpendicular distance exceeds a threshold. Wired into `GroupRideLive` when the ride is Live and a route is known. The eight `GapCalculatorTests` cover empty routes, single-point routes, perpendicular projection, past-end snap, kinked routes and duplicate points. What still depends on the recording pipeline is the *phone* publishing its own position; the component renders correctly from any positions it receives (organiser, or other riders).
 - [ ] **Real Apple / Google provider bindings.** **Not closeable from this environment** — needs registrations at the provider (Apple Developer, Google Cloud) which require paid accounts and URL scheme provisioning, plus a URL scheme in each mobile manifest and `POST /api/v1/auth/external` on the server. Additive against the seam above; happens with store submission.

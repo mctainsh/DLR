@@ -1,6 +1,6 @@
 # Dumb Luck Rides — Design Outline
 
-> **Status:** Draft **v0.25** — architecture outline; Milestone A of `tasks-server.md` is built.
+> **Status:** Draft **v0.26** — architecture outline; Milestone A of `tasks-server.md` is built.
 > **Assumption:** "Mani" = **.NET MAUI**. Target framework `net10.0-android` / `net10.0-ios`.
 > **UI:** one shared Razor component library, hosted by **MAUI Blazor Hybrid** on mobile and **Blazor WebAssembly** on the web (§18).
 
@@ -179,6 +179,11 @@
 | 0.25 | **The overlay's drawing lengths scale by `DevicePixelRatio`** (§4.5, §16.3) | Every width, radius and glyph size was authored in CSS pixels and drawn onto a canvas `devicePixelRatio` times larger, so a 3× phone rendered the whole design at a third of its weight. This is also the entirety of the "home circle does not appear on mobile" report — a thin ring over a 20 %-alpha wash, at a third of a pixel |
 | 0.25 | **The base map publishes its own projection to `overlay.js`; the overlay no longer follows the map through C#** (§4.5) | Following from C# means the viewport event crosses the bridge, a transform is computed and crosses back — arriving after the frame the finger caused was already painted. The transform is now computed inside MapLibre's own `move` handler, on the same frame as the movement. Nothing about the drawing got faster; the lag was never drawing |
 | 0.25 | **`MapGeometryTests` builds the bounds a base map would report for a bearing, and asserts on an oblong canvas** (§4.5, §10.4) | The rotation tests existed and asserted the right invariants, but modelled a turn as `viewport with { HeadingDeg = 37 }` — bounds held still, which is a view that cannot exist — on a 1000 × 1000 fixture where the two wrong scale factors are equal anyway. A test that cannot fail is worse than no test, because it is counted |
+| **0.26** | **The `Live`-ride notification silence is removed** (§17.1, §17.6). Ordinary comments and polls now push in every ride state; the `Live` row of §17.6's table reads `Push` across, the thread's *"arrives silently"* note is gone, and `RideThreadMoreTests` now asserts its **absence** | Deliberately reverses v0.14's rule, in the same way v0.22 reversed §7.2's password stance. v0.14's argument — that this app notifies people operating vehicles — is not withdrawn and is still written down in §17.1; what changed is who answers it. The silence was the app deciding for the whole group, and the cost was a ride where the message that actually mattered went unseen because nobody had thought to pin it. Muting is now the rider's own call, made in the operating system — Do Not Disturb, riding and driving focus modes, per-app and per-channel switches — which are the controls the phone already applies to every other app on it |
+| 0.26 | **The per-ride mute toggle is cut, not built** (§17.6). Silencing is entirely the operating system's job — Do Not Disturb, riding/driving focus modes, per-app and per-channel switches | Operator decision. An in-app mute would be a second, worse copy of a control every phone already has: it covers one app, hides in a settings screen nobody visits mid-ride, and cannot know the rider is currently moving. The platform's version wins on every axis, so the app ships none and `INotificationService` carries no mute concept at all |
+| 0.26 | **Notifications are delivered locally — the app registers with no push service** (§17.6, §18.2). `UNUserNotificationCenter` on iOS, `NotificationManagerCompat` on Android. No APNs key, no `aps-environment` entitlement, no FCM sender key, no `google-services.json`, and no device-token table on the server | The message has *already arrived*: every ride screen holds a SignalR connection (§5.3), and the receiver's foreground service and iOS's `location` background mode keep it alive through a ride (§4.3). A push service would have been a second, slower, credentialed path for something already in memory — and it was the last thing on the §18.2 checklist that could not be closed without store-side credentials. The trade is that nothing is raised while the OS has the app suspended, which is outside a ride |
+| 0.26 | `INotificationService` is **rewritten from a push-token registry to a local-notification seam** — `EnsurePermissionAsync` / `ShowAsync` / `CancelAsync` over a `LocalNotification` record, with `CommentNotifier` holding the decision and `NotificationRouting` carrying a tapped notification's route back into Blazor (§17.6) | `RegisterAsync(deviceToken)` / `UnregisterAsync` described a relationship with a push service that no longer exists. The decision half is deliberately in `BlazorDLR.Shared` where `DLR.UI.Tests` can reach it — `CommentNotifierTests` covers the two suppression rules, the summary text and the tag collapsing, none of which should need a device to prove |
+| 0.26 | **Android notification importance is `Default`, not `High`** (§17.1, §17.6) | The last of §17.1 that survives as code. `Default` makes a sound and puts a card in the shade; `High` adds a heads-up banner that slides over whatever is on screen — which during a ride is the live map the rider is navigating by. Telling somebody there is a message is the point; covering their map with it is what §17.1 was written about |
 
 ---
 
@@ -688,7 +693,7 @@ Draft ──publish──► Open ──start──► Live ──end──► C
 ```
 
 - **Open:** joinable, route visible, no live positions. The thread is already active — this is where the planning polls happen (§17.1).
-- **Live:** members publish positions; server fans out to the ride group only. **Thread notifications go quiet** except for pinned posts (§17.6).
+- **Live:** members publish positions; server fans out to the ride group only. **Thread notifications behave exactly as in any other state** — the quiet-except-pinned rule was removed in v0.26 (§17.6).
 - **Completed:** the organiser chooses between **stopping sharing for everyone immediately** (the default — channel closes, every position row deleted) and a **capped wind-down** in which riders stop themselves (§5.6). Each member's recorded track is offered for attachment to the ride summary. Markers and the thread are kept — they were authored, not measured (§16.1).
 - **Archived** (30 days later): the thread becomes **read-only** (§17.6). Until v0.14 this state existed without meaning anything.
 
@@ -1831,7 +1836,9 @@ AspNetUsers(Id, UserName!, NormalizedUserName!, Email?, EmailConfirmed,
 RefreshToken(Id, UserId, DeviceId, FamilyId, TokenHash, SuccessorId?,
              IssuedUtc, ExpiresUtc, UsedUtc?, RevokedUtc?, RevokedReason,
              CreatedByIp, UserAgent)                                      -- §7.13
-Device(Id, UserId, Platform, PushToken, AppVersion, LastSeenUtc)
+Device(Id, UserId, Platform, AppVersion, LastSeenUtc)
+             -- PushToken removed in v0.26: notifications are local (§17.6), so the
+             -- server has nothing to address and no token to keep in step.
 
 Track(Id, OwnerId, Name, CreatedUtc, StartedUtc?, EndedUtc?, DistanceM,
       DurationS?, AscentM?, MaxSpeedMps?, BoundsMinLat/MinLon/MaxLat/MaxLon,
@@ -1928,7 +1935,7 @@ Nightly:  pg_dump + blobs  →  restic (encrypted)  →  Backblaze B2
 - **No CDN. Caddy serves everything** — the WASM bundle (§18.4), map tiles, photos and static assets — out of the VPS's included traffic allowance (§9.1). Caddy already does TLS, HTTP/3, compression and caching; a CDN at this scale would be a dependency bought with no problem to solve.
 - Observability on the cheap: Serilog → file + Seq (free single-user), or OpenTelemetry → Grafana Cloud free tier. `/healthz` plus a free uptime pinger.
 - **Alert on the nightly maintenance run** (§7.11) — deletion counts, dry-run candidates, and registration-ladder trips. A destructive job you do not watch is a destructive job you will regret.
-- Push notifications: FCM (free) for Android and, via FCM's APNs bridge, iOS — avoids running a second push service.
+- ~~Push notifications: FCM (free) for Android and, via FCM's APNs bridge, iOS.~~ **Not needed as of v0.26** — notifications are raised locally by the app on a hub message it already has (§17.6). No FCM project, no APNs key, no operational surface at all.
 - **Secrets** (JWT signing key, email credentials, Postgres password) as Docker secrets or environment variables — never in the image or in `appsettings.json`.
 - **`ForwardedHeaders` is now load-bearing, not hygiene** (§7.8). Verify it in staging before the first public signup.
 
@@ -2081,7 +2088,7 @@ MemberStopsSharing_DeletesPersistedRow
 
 **Identity, joining and account lifecycle** have their own list in §7.15 — it is the largest single block of tests in the project, which is appropriate given that the membership check is now the only thing protecting a rider's location.
 
-**Ride comments, reactions and polls** have their own list in §17.10. `Notify_OrdinaryCommentDuringLiveRide_SendsNoPush` is the one to write first: it is the safety decision of §17.1 expressed as an assertion, and it is the kind of rule that erodes silently the first time someone "improves engagement".
+**Ride comments, reactions and polls** have their own list in §17.10. Since v0.26 the notification rules are client-side and unit-tested rather than server-side and integration-tested — `CommentNotifierTests` (`DLR.UI.Tests`) is where they live, because a local notification never involves the server at all. The two worth writing first are `ARidersOwnPost_NeverNotifiesThem` and `AThreadLeftOpenOnABackgroundedPhone_DoesNotSuppressAnything`: the first is the rule whose absence would notify every rider about everything they said, and the second is the one whose absence would quietly reinstate the `Live` silence through a page left mounted in a tank bag. `Car_ThreadIsNotRenderedAtAll` is the one safety rule that is still structural and still server-adjacent, and it has not moved.
 
 **Map markers and photos** have their own list in §16.8. The EXIF assertions are the ones to write first — `Photo_ExifGpsTag_IsAbsentFromStoredImage` is a privacy guarantee that no amount of careful code review substitutes for.
 
@@ -2154,8 +2161,8 @@ Each phase leads with the first failing test.
 |---|---|---|---|
 | **0 — Spikes** (1–2 wk) | `Replay_KnownGpx_ProducesExpectedDistanceAndAscent` | GPX replay harness; background GPS on both platforms; **`DLR.UI` skeleton rendering in both a `BlazorWebView` and WASM (§18)**; **MapLibre GL JS in the WebView on both phones, 20 pins updating every 5 s — measure battery (§4.5)**; SignalR through Caddy; **verify an `androidx.car.app` .NET binding exists** (§4.6) | A 2-hour ride recorded with the screen off on a real iPhone **and** a real Android, no gaps — plus a written answer on the Android Auto binding, and a battery number for the WebView map against §10.3's 8 %/hour |
 | **1 — Solo** | `Register_UsernameAndPasswordOnly_Succeeds` | Username/password registration, permanent refresh tokens, IP ladder, optional email + confirm/reset, `last_active_utc`. Record, store, list, view, GPX export. Track upload. **GPX import on app and web, with the full hostile-input corpus (§15.3)**. **`DLR.UI` shared components in both hosts; one map module — MapLibre + OSM — on every host, with no credential and no token endpoint (§4.5)**. Web track view. **`LICENSE` + `/api/v1/about` + footer source link, and the CI licence gate** (§14.6) | Install on your own phone and stop using anything else — including a reinstall that signs straight back in without typing a password |
-| **2 — Group rides** | `JoinByCode_ApprovalRide_CreatesPendingRequestOnly` | Both join paths + admit/decline, **join-time sharing consent, per-ride toggle and the ride-end wind-down (§5.6)**, **multi-ride membership and publishing (§5.7)**, **organiser content switches (§5.8)**, planned route, live map, member list, batched fan-out, position cache + 10 s flush (§5.5), hub membership authz. **Web track editor + undo window (§15.5–15.6)**. **Markers with photos (§16)**, rendering fully — MapLibre draws icons, rotation and labels from Phase 1, so v0.13's degraded-pin fallback never has to ship (§18.3). **Ride thread: text, photos, pinning, reactions, and the Live-ride notification rules (§17.1, §17.6)** | 4 people, 1 real ride, all pins moving; one joined by code, one admitted from a request; kill and restart the server mid-ride and watch the map come back warm. **One rider joins without sharing and stays invisible on the map while still seeing everyone; end the ride with a wind-down and watch it expire on its own with every phone switched off.** **Trim your own house off a real recorded ride, watch the distance change, undo it, then purge the original.** **Drop a hazard marker with a photo mid-ride and have it appear on three other phones; confirm the stored image carries no EXIF GPS** |
-| **3 — Polish + car** | `Snapshot_GapList_OrdersRidersAlongRoute` | `IRideSessionState` + gap list, **Mapsui renderer** (on the critical path for both the car *and* markers, §16.3), **full marker rendering — icons, rotation, labels**, **Android Auto + CarPlay heads (§4.6)**, inactivity cleanup behind dry-run, push notifications, **polls (§17.5)**, **report/block moderation (§17.7)**, off-route alerts, ride summaries, load test, **social sign-in + guest riders (§7.16)** | Store submission; a real ride navigated from a head unit; a week of dry-run deletion logs read |
+| **2 — Group rides** | `JoinByCode_ApprovalRide_CreatesPendingRequestOnly` | Both join paths + admit/decline, **join-time sharing consent, per-ride toggle and the ride-end wind-down (§5.6)**, **multi-ride membership and publishing (§5.7)**, **organiser content switches (§5.8)**, planned route, live map, member list, batched fan-out, position cache + 10 s flush (§5.5), hub membership authz. **Web track editor + undo window (§15.5–15.6)**. **Markers with photos (§16)**, rendering fully — MapLibre draws icons, rotation and labels from Phase 1, so v0.13's degraded-pin fallback never has to ship (§18.3). **Ride thread: text, photos, pinning, reactions, and the notification rules — uniform across every ride state since v0.26 (§17.1, §17.6)** | 4 people, 1 real ride, all pins moving; one joined by code, one admitted from a request; kill and restart the server mid-ride and watch the map come back warm. **One rider joins without sharing and stays invisible on the map while still seeing everyone; end the ride with a wind-down and watch it expire on its own with every phone switched off.** **Trim your own house off a real recorded ride, watch the distance change, undo it, then purge the original.** **Drop a hazard marker with a photo mid-ride and have it appear on three other phones; confirm the stored image carries no EXIF GPS** |
+| **3 — Polish + car** | `Snapshot_GapList_OrdersRidersAlongRoute` | `IRideSessionState` + gap list, **Mapsui renderer** (on the critical path for both the car *and* markers, §16.3), **full marker rendering — icons, rotation, labels**, **Android Auto + CarPlay heads (§4.6)**, inactivity cleanup behind dry-run, ~~push notifications~~ *(shipped early and locally in v0.26 — §17.6 — since it needed no store-side credential)*, **polls (§17.5)**, **report/block moderation (§17.7)**, off-route alerts, ride summaries, load test, **social sign-in + guest riders (§7.16)** | Store submission; a real ride navigated from a head unit; a week of dry-run deletion logs read |
 | **4 — Beyond** | — | Ride photos on the timeline, leader hand-off, public ride discovery, TOTP 2FA, Wear OS / watchOS glances | — |
 
 Ship Phase 1 to yourself before building anything in Phase 2.
@@ -2216,8 +2223,8 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 | Stats drift between recording, import and editing | Low–Med | Three entry points into one pipeline is how ascent quietly comes out different depending on where a track came from. One implementation in `DLR.Core/Tracks/` (§15.7), an architecture test forbidding a second, and `Edit_NoOpEdit_ProducesIdenticalStats` as the guard that a rewrite changed nothing it should not have |
 | **A photo's EXIF GPS republishes what a track trim removed** | **High** | The two features would otherwise cancel out (§15.6, §16.4). Mitigated structurally, not carefully: every image is re-encoded server-side with no metadata written, there is exactly one ingest path enforced by an architecture test, and `Photo_ExifGpsTag_IsAbsentFromStoredImage` is the assertion that keeps it true after the next refactor |
 | **A malicious or malformed image** — decompression bomb, hostile decoder input | **High** | Byte cap *and* decoded-pixel cap, dimensions checked from the header before any allocation, format by content sniffing rather than extension, and re-encoding rather than passing the original through (§16.4). Same posture as GPX (§15.3), for the same reason |
-| **A ride thread encourages phone use while riding** | **High** | The product risk in this feature, and it is not solvable by a warning dialog. Structural instead: ordinary comments raise no notification while the ride is `Live`, only a pinned organiser post breaks through, the thread never renders on a car head unit, and `Notify_OrdinaryCommentDuringLiveRide_SendsNoPush` is a test rather than a convention (§17.1, §17.6). The pressure to relax this will come from engagement, and the answer is no |
-| Notification storms from an active thread | Medium | Coalesced reactions (§17.4), no push per reaction or vote at all, per-ride mute, and the `Live`-state silence above. Twelve riders on a wet Sunday generate a lot of chat |
+| **A ride thread encourages phone use while riding** | **High** | The product risk in this feature, and **v0.26 removed the strongest mitigation against it**: comments now push while the ride is `Live`. What remains is structural but narrower — the thread never renders on a car head unit (`Car_ThreadIsNotRenderedAtAll`), Android importance is `Default` so no banner covers the live map, and the platform's Do Not Disturb and riding/driving focus modes let a rider silence it for themselves (§17.1, §17.6). This row keeps its **High** rating on purpose: the risk did not fall, the control moved from the app to the rider and then out of the app entirely, and a rider who has never set up a focus mode is now unprotected. If real rides show mid-ride reading, the answer is to reinstate the `Live` row of §17.6's table, not to add a warning dialog or an in-app mute |
+| Notification storms from an active thread | Medium | Coalesced reactions (§17.4), no notification per reaction or vote at all, and — since v0.26 replaced the `Live` silence — **one card per adventure**: every post shares a tag, so the newest replaces the last rather than stacking twenty entries a rider has to dismiss at the lights (`EveryPostInOneAdventure_SharesATagSoTheNewestReplacesTheLast`). Beyond that it is the platform's Do Not Disturb. Twelve riders on a wet Sunday generate a lot of chat |
 | Moderation load once the app is public | Medium | Report-and-block with a content snapshot (§17.7), organiser deletion inside their own ride, and audiences bounded by organiser consent (§5.2) so no comment ever reaches strangers-at-large. Proactive scanning is deliberately out of scope and recorded as §13 Q17 |
 | Thread storage grows without bound | Low–Med | Caps per ride, `Archived` making threads read-only (§17.6), and photos already quota'd (§16.4). Text is cheap; the photos attached to it are not |
 | **UGC rules bite at store review** | Medium | Photos and notes visible to other riders make this a UGC app: Apple and Play require reporting, blocking, and a response commitment (§10.2, §16.5). Cheap to build with the feature, a whole review cycle to add afterwards |
@@ -2249,7 +2256,7 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 16. **Marker visibility on a shared track** *(new in v0.13)* — a track's markers are visible to whoever the track is (§16.1). Should a marker be individually private, so a rider can annotate *"awful surface, don't come back"* on a ride they also share publicly? It is one `IsPrivate` flag, but it needs UI that makes the state obvious at a glance, and a wrong default here is a leak rather than an inconvenience.
 17. **Does UGC need moderation beyond report-and-remove?** *(new in v0.13, widened in v0.14)* — §17.7 builds reporting and blocking because the stores require them. Proactive scanning (hash matching against known illegal material) is a different order of cost and commitment, and small organiser-admitted audiences make it hard to justify today. The honest answer changes if public ride discovery (Q8) ever ships.
 18. **Comments on shared tracks** *(new in v0.14)* — §17.1 confines the thread to group rides, because commenting on a public share link would let people the organiser never admitted post into someone's space. Is a track-scoped thread wanted at all, and if so is it members-only, or open to anyone with the link plus a moderation story that does not exist today?
-19. **@mentions** *(new in v0.14)* — a natural fit that v1 skips. Immutable usernames (§7.2) make it unusually cheap here: a mention can be stored as plain text and still resolve forever, with no rename propagation and no stale reference. The open part is notification behaviour, which collides head-on with §17.6's `Live` silence — a mention is exactly the "but this one is important" case that erodes a safety rule.
+19. **@mentions** *(new in v0.14)* — a natural fit that v1 skips. Immutable usernames (§7.2) make it unusually cheap here: a mention can be stored as plain text and still resolve forever, with no rename propagation and no stale reference. The open part used to be notification behaviour, which collided head-on with §17.6's `Live` silence; v0.26 removed that silence, so a mention now has nothing to erode and simply pushes like any other post.
 20. **Threaded replies** *(new in v0.14)* — v1 is a flat thread. Replies change deletion semantics (an orphaned reply chain), ordering, and the pagination contract, so it is a real feature rather than a field.
 21. **Should the sharing toggle reach the car screen?** *(new in v0.15)* — §4.6 caps the head unit at one-tap actions and v1 leaves sharing off it, so stopping mid-ride means stopping the bike. Defensible for a privacy control that deserves a moment's thought, and arguably wrong if someone wants to drop out of a ride while moving. One template action either way.
 22. **Wind-down default length** *(new in v0.15)* — 120 minutes is a guess that sounds right for a day ride. Too short strands the people it exists for; too long is tracking. Worth revisiting after one real season, and it is configuration (§14.5), so it moves without a release.
@@ -2298,9 +2305,9 @@ Note that the licence choice makes part of this a *product* requirement rather t
 | **PostgreSQL password / full connection string** | Everything: accounts, positions, tokens |
 | **Android upload and release keystore** (`*.jks`, `*.keystore`) plus passwords | Effectively unrotatable. A leaked signing identity is the one mistake here with no clean recovery |
 | **Apple signing material** — `*.p12`, `*.p8`, `*.mobileprovision`, App Store Connect API keys | Ships builds as you |
-| **FCM service-account JSON / APNs key** | Sends push notifications to your entire userbase |
+| ~~**FCM service-account JSON / APNs key**~~ | **Gone in v0.26** — not a relaxation, the secrets no longer exist. Notifications are local (§17.6), so there is no push credential to leak or to restrict at a provider. The strongest form of this list is a shorter one |
 | **Backblaze B2 credentials and the `restic` repository password** (§9.1) | The credentials read every backup; the password decrypts them. Store them apart — an encrypted backup whose key sits beside it is an unencrypted backup |
-| **`google-services.json`, `GoogleService-Info.plist`** | Not strictly confidential, but they carry API keys that get scraped from public repos within hours. Commit templates instead |
+| ~~**`google-services.json`, `GoogleService-Info.plist`**~~ | **Gone in v0.26**, with the FCM row above. These were Firebase's config files; v0.24 had already removed the Google Maps key that was the other reason to hold one. The app now ships with no Google or Apple service configuration of any kind |
 | **Map tile API key**, if a paid tier ever replaces OSM (§4.5) | See the note below. *(This row has outlived three map decisions. Through v0.15 it named the Google Maps Android key; v0.16 removed the native map; v0.19 replaced it with the MapKit `.p8`; v0.21 added the Google browser key beside it. **v0.24 deleted both** — MapLibre over OSM authenticates with nothing — so the row is again a placeholder against §13 Q26 choosing a paid tile tier.)* |
 | `appsettings.Development.json`, `appsettings.Production.json`, `.env` | Wherever the real values actually live |
 | **`pg_dump` output, any `*.sql.gz`, `backups/`** | Real user data, including last-known positions and email addresses |
@@ -3052,11 +3059,11 @@ Before any of the mechanics, the constraint that shapes them:
 
 > **The people this notifies are operating vehicles.** A thread that buzzes a phone in someone's tank bag at 100 km/h is not a chat feature, it is a design that asks riders to look down. §4.6 already accepted this reasoning for the car screen; a notification is worse than a car screen, because the car screen at least sits at eye level and the platform enforces the rules.
 
-That yields three rules that are not negotiable later (detailed in §17.6):
+That yielded three rules, of which **two remain** (detailed in §17.6):
 
-1. **While the ride is `Live`, ordinary comments do not push.** They arrive silently and are there when someone stops.
-2. **A pinned post from the organiser is the one exception** — *"fuel at the servo in 8 km"* is exactly what a group needs mid-ride, and pinning is the deliberate act that says so.
-3. **Comments never appear on a car screen.** Not truncated, not as a count badge, not at all.
+1. ~~**While the ride is `Live`, ordinary comments do not push.**~~ **Reversed.** Comments now notify in every ride state. The reasoning above still describes a real hazard; what changed is who answers it. Silence is now a rider's choice, made **entirely in the operating system** — Do Not Disturb, riding and driving focus modes, and the per-app and per-channel notification settings every phone already has. There is deliberately **no mute control in this app** (see §17.6). The cost is stated plainly so it is not discovered later as a bug: a rider who silences nothing will be notified mid-ride, which is exactly what §17.1 was written to prevent.
+2. **A pinned post from the organiser still carries the most weight** — *"fuel at the servo in 8 km"* is what a group needs mid-ride — but pinning is now an ordering and prominence device, not the sole way through a silence.
+3. **Comments never appear on a car screen.** Not truncated, not as a count badge, not at all. Unchanged, and still structural: the car screen is the one surface where the platform, not the app, sets the rules.
 
 **The thread spans the whole ride, not just the live window**, and that is where most of the value is: *before* (what time, which route, who's actually coming — the poll case), and *after* (photos and argument about who was slowest). During the ride, traffic should be near zero, and the design should make that the path of least resistance rather than something riders have to resist.
 
@@ -3128,11 +3135,28 @@ Poll results freeze into the ride summary when the ride completes, alongside the
 | Ride state | Ordinary comment | Poll created | Pinned post |
 |---|---|---|---|
 | `Draft` / `Open` | Push | Push | Push |
-| **`Live`** | **Silent** — badge only | **Silent** | **Push** |
+| **`Live`** | **Push** | **Push** | **Push** |
 | `Completed` | Push | — | Push |
 | `Archived` | Thread is read-only | — | — |
 
-Plus a per-ride **mute** toggle that overrides all of it, and the standard platform quiet hours. The `Live` row is the one that matters and it is deliberately the most restrictive: a group of twelve riders generates a lot of small talk, and the app should not be the reason somebody reads it at speed.
+The `Live` row **read `Silent` until v0.26** and no longer does: the rule moved from something the app enforced for everyone to something each rider sets for themselves.
+
+**There is no mute setting in this app, and that is the decision rather than an omission.** Earlier drafts of this section specified a per-ride mute toggle. It is not built and will not be. Every phone already has Do Not Disturb, a riding or driving focus mode, per-app notification switches, and — on Android — per-channel control that can silence adventure posts while leaving the ride's ongoing location notification alone. An in-app copy of that would be a second, worse control that covers one app, has to be found in a settings screen the rider does not habitually visit, and cannot know that they are currently driving. The platform's version is better on every axis that matters, so the app ships none.
+
+What that leaves the app responsible for is the two questions in `CommentNotifier.ShouldNotify`: is the post the rider's own, and are they already reading the thread it landed in. Nothing else.
+
+**Delivery is by local notification, not push (v0.26).** The app registers with no push service at all:
+
+| | What is *not* needed | Why it works without it |
+|---|---|---|
+| **iOS** | No APNs key, no `aps-environment` entitlement, no `RegisterForRemoteNotifications`, no device tokens on the server | `UNUserNotificationCenter` schedules on the device. The `location` background mode the receiver already declares (§4.3) keeps the process — and the hub connection — alive through a ride |
+| **Android** | No FCM sender key, no `google-services.json`, no Firebase dependency | `NotificationManagerCompat`, on a process the receiver's foreground service is already keeping alive (§4.3) |
+
+The insight is that **the message has already arrived**. Every ride screen holds a SignalR connection (§5.3), so the post a push service would have carried is in memory before any notification is composed; a push path would have been a second, slower, credentialed route for something the app already has. The whole feature is one `notify` call.
+
+**The cost, stated so it is not found as a bug:** a notification can only be raised by a process that is running. During a ride the app is running, which is the case §17.1 is about and the case this has to get right. Outside a ride the OS suspends it and nothing is raised — the rider sees the thread when they next open it. That is the trade for owning no push infrastructure, and it falls in the right place.
+
+Android importance is **`Default`, not `High`** — sound and a card in the shade, but no heads-up banner sliding over the live map a rider is navigating by. That is the last of §17.1 that survives as code, and it is one line the rider can override in the channel's own settings.
 
 **Lifecycle**, following the authored-versus-measured line already drawn in §16.1:
 
@@ -3257,9 +3281,11 @@ Poll_ClosesUtcElapsed_RejectsVotesWithoutABackgroundJob
 Poll_Results_AreAttributedToVoters
 Poll_IsPinnableAndReactableLikeAnyComment                   — the point of §17.5
 
-Notify_OrdinaryCommentDuringLiveRide_SendsNoPush            — §17.1
-Notify_PinnedCommentDuringLiveRide_SendsPush
-Notify_MutedRide_SendsNothing
+APostFromSomebodyElse_RaisesANotification                   — §17.6, v0.26 reversal
+ARidersOwnPost_NeverNotifiesThem
+APostInTheThreadTheRiderIsReading_IsNotAlsoBuzzedAtThem
+AThreadLeftOpenOnABackgroundedPhone_DoesNotSuppressAnything
+ARiderWhoRefusedThePermission_IsNotNotified                 — a choice, not a fault
 Car_ThreadIsNotRenderedAtAll                                — §4.6
 
 ArchivedRide_ThreadIsReadOnly
@@ -3304,7 +3330,7 @@ This replaces v0.15's split of **XAML + MVVM on mobile** and **Blazor Server + R
 | Token storage (§18.5) | Interface only | ✅ Keychain/Keystore vs HttpOnly cookie |
 | Local data (§18.6) | Interface only | ✅ SQLite on mobile; API calls on web |
 | Camera / file picking | Component surface | ✅ `MediaPicker` vs `<InputFile>` |
-| Push notifications (§17.6) | — | ✅ FCM/APNs; the browser gets none in v1 |
+| Notifications (§17.6) | Decision in `CommentNotifier` | ✅ local, on a hub message the app already has — no FCM, no APNs; the browser gets none in v1 |
 | Background recording | — | ✅ mobile only, and the reason MAUI is here at all |
 | Car heads (§4.6) | — | ✅ fully native |
 

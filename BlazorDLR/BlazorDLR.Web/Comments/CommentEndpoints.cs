@@ -38,11 +38,10 @@ public static class CommentEndpoints
 /// <summary>
 /// The ride thread (§17).
 /// <para>
-/// <strong>The safety decision comes before the feature.</strong> The people this notifies are
-/// operating vehicles, so §17.1's rules about what pushes are not a preference to be tuned later.
-/// Nothing in this file pushes anything — the notification half is a client task — but the pinning
-/// that §17.6 makes the one live-ride exception is here, and its cap is what keeps that exception
-/// narrow.
+/// Nothing in this file pushes anything — the notification half is a client task. Pinning lives
+/// here, and its cap is what keeps the ride's noticeboard short (§17.6); it is no longer the one
+/// exception to a live-ride silence, because that silence has been removed. Comments still never
+/// reach a car screen (§4.6, §17.1), which is the safety rule that remains structural.
 /// </para>
 /// </summary>
 [ApiController]

@@ -119,11 +119,20 @@
 		a rider is actually consenting to and the part Apple checks against the background mode
 		above.
 
-		There is deliberately no NSBluetoothAlwaysUsageDescription. Nothing in the app touches
-		CoreBluetooth — CLLocationManager's own use of Bluetooth for accuracy is the system's and
-		needs no string from us — and a purpose string for a permission the binary never requests
-		is a 5.1.1 question waiting to be asked of an app already under background-location
-		review. Add one only alongside code that actually opens a CBCentralManager.
+		NSBluetoothAlwaysUsageDescription is here under protest, and the string says so. Nothing in
+		this app touches CoreBluetooth — there is no CBCentralManager anywhere in the tree — but
+		App Store Connect returns ITMS-90683 on upload because its static analysis sees the
+		CoreBluetooth symbols the Microsoft.iOS runtime links in, and the check is on what the
+		binary *references*, not what it calls: "While your app might not use these APIs, a purpose
+		string is still required." The choice is a string or a warning on every single upload that
+		will eventually harden into a rejection.
+
+		So the string is written for the only Bluetooth use a rider could truthfully be told about
+		— Location Services' own use of nearby radios to sharpen a fix — and it opens by saying the
+		app itself does not connect to accessories, so that a reviewer comparing the string against
+		the binary finds the two agree. If a release ever does open a CBCentralManager, rewrite this
+		to describe that feature instead; leaving this text in place next to real accessory code
+		would then be the 5.1.1 problem.
 	-->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Dumb Luck Routes shows your position on the map and, when you turn sharing on for a group adventure, lets the other people on that adventure see where you are.</string>
@@ -135,6 +144,8 @@
 	<string>Take a photo to attach to a map marker, so the rest of your group can see the hazard, the turn or the view you are marking.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a photo from your library to attach to a map marker or an adventure post.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Dumb Luck Routes does not connect to any Bluetooth accessories. iOS asks for this because Location Services can use nearby Bluetooth devices to work out your position more accurately, which is what puts you in the right place on the map and tells your group where you are.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<!--
@@ -156,7 +167,22 @@
         Without the imported-type block the OS will not recognise the identifier
         the CFBundleDocumentTypes entry names, and the app will not appear in the
         share sheet for .gpx files coming from another app.
+
+        LSSupportsOpeningDocumentsInPlace answers ITMS-90737, which every upload that
+        declares CFBundleDocumentTypes gets until one of the two document keys is
+        present. NO, not YES, and not UISupportsDocumentBrowser:
+          * there is no UIDocumentBrowserViewController — the app has no file browser;
+          * this app is an importer, not an editor. It parses a .gpx once and keeps the
+            track in its own store; the original file is never written back and never
+            read again. NO makes iOS hand over a copy in the app's Inbox, which is
+            exactly the lifetime that wants, and avoids the security-scoped URL and
+            NSFileCoordinator dance that opening the user's own file in place obliges.
+        Apple "recommends" YES generically; it is the wrong answer for a read-only
+        importer, and declaring it would claim an in-place capability the app does not
+        have. Revisit only if a release ever edits a rider's .gpx where it sits.
     -->
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <false/>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

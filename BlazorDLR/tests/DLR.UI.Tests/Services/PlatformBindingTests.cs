@@ -79,13 +79,22 @@ public sealed class PlatformBindingTests
 	// ---------- NoopNotificationService ----------
 
 	[Fact]
-	public async Task NoopNotificationService_IsUnsupported_AndRegistrationIsNoOp()
+	public async Task NoopNotificationService_IsUnsupported_AndEveryCallIsASilentNoOp()
 	{
 		NoopNotificationService service = new();
 
-		service.IsSupported.ShouldBeFalse("§18.2: no push in the browser in v1.");
-		await Should.NotThrowAsync(() => service.RegisterAsync("token"));
-		await Should.NotThrowAsync(() => service.UnregisterAsync());
+		service.IsSupported.ShouldBeFalse("§18.2: the browser raises no notifications in v1.");
+
+		(await service.EnsurePermissionAsync()).ShouldBeFalse(
+			"a host that cannot notify must answer 'no permission' rather than claim one it could not act on — " +
+			"CommentNotifier reads this as the gate before ShowAsync.");
+
+		// Silent rather than throwing, for the same reason every other unavailable binding is:
+		// the caller is a hub callback that has nowhere to report a failure to, and the post it
+		// describes is already in the thread.
+		await Should.NotThrowAsync(() => service.ShowAsync(
+			new LocalNotification("dlr.thread.x", "Someone", "Said something.")));
+		await Should.NotThrowAsync(() => service.CancelAsync("dlr.thread.x"));
 	}
 
 	// ---------- UnavailableMapPackStore / UnavailableMapPackServer ----------

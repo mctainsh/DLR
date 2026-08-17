@@ -13,8 +13,8 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// The read/write surface of the ride thread (§17). Where <see cref="RideThreadTests"/>
 /// exercises the permission gate on the composer, these tests exercise everything else:
-/// hub-delivered posts, pin flips, coalesced reactions, poll updates, the "quiet
-/// while Live" note, the "Load older" cursor, and the compose→PostCommentAsync path.
+/// hub-delivered posts, pin flips, coalesced reactions, poll updates, the absence of the
+/// old "quiet while Live" note, the "Load older" cursor, and the compose→PostCommentAsync path.
 /// </summary>
 public sealed class RideThreadMoreTests : PageTestContext
 {
@@ -134,8 +134,14 @@ public sealed class RideThreadMoreTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
+	/// <summary>
+	/// The Live-ride push silence has been removed (§17.6), so the note that used to explain it
+	/// must not render. Asserted rather than simply deleted: the note was the only user-visible
+	/// trace of the rule, and a copy change that quietly reinstated it would leave the thread
+	/// promising a quiet that no longer happens.
+	/// </summary>
 	[Fact]
-	public void LiveRideNote_IsVisible_WhenStateIsLive()
+	public void SilentWhileLiveNote_IsGone_WhenStateIsLive()
 	{
 		(_, _, Guid rideId) = WireServices(state: RideStateDto.Live);
 
@@ -144,8 +150,11 @@ public sealed class RideThreadMoreTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.Markup.Contains("adventure is live", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-				"§17.1: while the adventure is Live the thread renders a note that pushes are silent — a user surprised by the quiet needs the explanation.");
+			component.Markup.Contains("Adventure thread", StringComparison.Ordinal).ShouldBeTrue();
+			component.FindAll(".live-note").ShouldBeEmpty(
+				"§17.6: comments push in every ride state now — a Live adventure has no silence to explain.");
+			component.Markup.Contains("silently", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
+				"§17.6: no copy may still tell a rider their posts arrive silently while the adventure is Live.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

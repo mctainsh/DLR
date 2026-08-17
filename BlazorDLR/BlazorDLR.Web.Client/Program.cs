@@ -102,12 +102,21 @@ internal class Program
 
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
 
-		// No push in the browser in v1 (§18.2). The screen lock is the same answer for a
-		// different reason — the API exists here, the case for it does not (see
-		// UnavailableScreenWakeLock). GPS is not on this list at all any more: see the block
+		// No notifications in the browser in v1 (§18.2). Since v0.26 the mobile hosts raise local
+		// ones rather than taking a push — but the surface that feature exists for is a phone on a
+		// bar mount, and a laptop with the tab open is already showing the thread. The screen lock
+		// is the same answer for a different reason — the API exists here, the case for it does not
+		// (see UnavailableScreenWakeLock). GPS is not on this list at all any more: see the block
 		// below where the receiver used to be registered.
 		builder.Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
 		builder.Services.AddScoped<INotificationService, NoopNotificationService>();
+
+		// Registered so the shared layout resolves on this host too (§18.2). Nothing here ever
+		// writes to them: no notification is raised, so none is tapped, and a browser tab is always
+		// "foreground" as far as anything that reads it is concerned.
+		builder.Services.AddSingleton<BlazorDLR.Shared.State.NotificationRouting>();
+		builder.Services.AddSingleton<BlazorDLR.Shared.State.AppForegroundState>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.CommentNotifier>();
 
 		// Web IMediaPicker uses <InputFile> plumbed through a static holder — real
 		// implementation in BlazorDLR.Web.Client/Services/BrowserMediaPicker.cs.

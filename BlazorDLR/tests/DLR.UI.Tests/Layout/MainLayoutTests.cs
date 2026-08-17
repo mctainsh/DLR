@@ -49,6 +49,16 @@ public sealed class MainLayoutTests : BunitContext
 		// preferences, so a render never has to hit JS.
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
 		Services.AddSingleton<CurrentRideState>();
+
+		// The layout is where CommentNotifier gets its lifetime (§17.6): injecting it is what
+		// constructs it, and constructing it is what subscribes it to the hub. So these have to
+		// resolve here even though this suite is about the Body slot — a layout that cannot be
+		// built is a layout no page renders inside.
+		Services.AddSingleton<IRideHubClient>(new FakeRideHubClient());
+		Services.AddSingleton<INotificationService, NoopNotificationService>();
+		Services.AddSingleton<NotificationRouting>();
+		Services.AddSingleton<AppForegroundState>();
+		Services.AddSingleton<CommentNotifier>();
 	}
 
 	[Fact]
