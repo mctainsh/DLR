@@ -20,7 +20,9 @@ namespace DLR.UI.Tests.Pages;
 ///   <item><c>RideStateChanged</c> — an Open ride flipping to Live must show the new state,
 ///     unlock the gap list, and stop showing the organiser's "Start ride" button (that
 ///     button lives on the Open branch only).</item>
-///   <item><c>MemberJoined</c> / <c>MemberLeft</c> — the member list follows.</item>
+///   <item><c>MemberJoined</c> / <c>MemberLeft</c> — nothing here follows them any more: who is
+///     on the ride is "Ride members live" (see <c>RideMembersLiveTests</c>), and this page must
+///     not grow a second, thinner copy of that list.</item>
 ///   <item><c>SharingWindDownStarted</c> — the banner appears with the stated cutoff (§5.6).</item>
 ///   <item>The organiser's lifecycle controls: Start (§5.1) and the two-choice End (§5.6).</item>
 /// </list>
@@ -275,32 +277,34 @@ public sealed class GroupRideInfoTests : PageTestContext
 	}
 
 	[Fact]
-	public async Task TheMemberCount_FollowsTheHub_AndTheNamesAreOneTapAway()
+	public async Task WhoIsOnTheRide_IsNotOnThisPageAtAll()
 	{
-		// The list of who is on the ride is its own screen now — "Ride members live", which says
-		// everything this panel used to and four things it did not (see RideMembersLiveTests).
-		// What stays here is the count and the way through: "how many are in" is part of
-		// describing a ride, and it still has to follow §5.3's deltas.
+		// Who is on the ride is its own screen now — "Ride members live", which says everything
+		// the panel that used to sit here said and four things it did not (see
+		// RideMembersLiveTests). The rail carries the way through on every screen, so a count and
+		// a link here would be a second entry point to a list this page no longer shows: one more
+		// thing to keep in step with the hub for no answer a rider could not already get.
 		(_, FakeRideHubClient hub, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
 		component.WaitForAssertion(() =>
-			component.Find(".members h3").TextContent.ShouldBe("Members (1)"),
+			component.Markup.Contains("Test ride", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		component.Find(".members .to-members").GetAttribute("href")
-			.ShouldBe($"/group-rides/{rideId}/members");
+		component.FindAll(".members").ShouldBeEmpty(
+			"the member panel moved to \"Ride members live\" — the rail is the way through.");
 
+		// And a join arriving over the hub does not put it back. The delta itself is not being
+		// dropped: RideMembersLiveTests.MemberJoined_AppearsInTheList holds §5.3 on the screen
+		// that now owns the list.
 		RideMemberSummary alice = new(
 			UserId: Guid.NewGuid(), UserName: "AliceNewJoiner", Role: "Rider",
 			JoinedUtc: FixedInstant, Sharing: false, HasPosition: false);
 		await component.InvokeAsync(() => hub.RaiseMemberJoined(rideId, alice));
 
-		component.WaitForAssertion(() =>
-			component.Find(".members h3").TextContent.ShouldBe("Members (2)",
-				customMessage: "§5.3: a MemberJoined delta lands without a re-fetch."),
-			timeout: TimeSpan.FromSeconds(3));
+		component.FindAll(".members").ShouldBeEmpty();
+		component.Markup.Contains("AliceNewJoiner", StringComparison.Ordinal).ShouldBeFalse();
 	}
 
 	[Fact]

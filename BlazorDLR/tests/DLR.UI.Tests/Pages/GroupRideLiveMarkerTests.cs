@@ -745,16 +745,15 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			.Add(p => p.RideId, rideId));
 
 		component.WaitForAssertion(
-			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			() => component.FindAll("button.heading-up").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		// Heading up, which brings following with it — one tap sets both.
-		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
-		await component.InvokeAsync(() => component.Find("[role=menuitemcheckbox].heading-up").Click());
+		await component.InvokeAsync(() => component.Find("button.heading-up").Click());
 
 		component.WaitForAssertion(() =>
 		{
-			component.FindAll("button.hamburger.turning").ShouldNotBeEmpty();
+			component.FindAll("button.heading-up.on").ShouldNotBeEmpty();
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
 		}, timeout: TimeSpan.FromSeconds(3));
 
@@ -763,7 +762,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
-			component.FindAll("button.hamburger.turning").ShouldBeEmpty();
+			component.FindAll("button.heading-up.on").ShouldBeEmpty();
 			component.Find(".mode-toast").TextContent
 				.ShouldBe("Following and heading up off — showing you that marker.");
 		}, timeout: TimeSpan.FromSeconds(3));

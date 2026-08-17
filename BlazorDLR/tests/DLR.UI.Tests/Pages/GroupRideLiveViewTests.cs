@@ -183,20 +183,18 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Flips the map between north-up and heading-up — the one mode still set from inside
-	/// the menu. Selected by its role and its class rather than by its words, because its words are
-	/// the state it is in; the class is what tells it from the neighbours panel's switch, which is
-	/// the menu's other checkbox and not a mode of the map at all.
+	/// Flips the map between north-up and heading-up the only way there is to: the button over the
+	/// map, beside the follow one. It lived under the rule in the menu until both camera modes were
+	/// pulled out into the same stack — both keep moving the map after the tap that set them, so
+	/// both are changed while riding and neither is reachable from two places.
 	/// </summary>
 	private static async Task ChooseMapOrientationAsync(IRenderedComponent<GroupRideLive> component)
 	{
 		component.WaitForAssertion(
-			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			() => component.FindAll("button.heading-up").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
-
-		await component.InvokeAsync(() => component.Find("[role=menuitemcheckbox].heading-up").Click());
+		await component.InvokeAsync(() => component.Find("button.heading-up").Click());
 	}
 
 	/// <summary>
@@ -972,32 +970,41 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	// ---------- Which way up the map is drawn ----------
 
+	/// <summary>
+	/// Heading-up is a button over the map beside the follow one, and is not in the menu at all.
+	/// Both camera modes keep moving the map after the tap that set them, so both are reached and
+	/// read while riding; the menu is left holding the things that are done at a stop.
+	/// </summary>
 	[Fact]
-	public async Task TheMenu_OffersHeadingUp()
+	public async Task HeadingUp_IsAButtonOverTheMap_AndNotAMenuItem()
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
 
-		component.WaitForAssertion(
-			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll("button.heading-up").Count.ShouldBe(1,
+				"one control for one mode — a mode with two is a mode a rider has to check twice.");
+			AttributeOn(component, "button.heading-up", "aria-pressed").ShouldBe("false",
+				"a toggle button and not a menu item, so the state a screen reader reads out is " +
+				"aria-pressed rather than aria-checked.");
+		}, timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
 
-		component.Find(".menu").TextContent.ShouldContain("North up");
-		component.FindAll("[role=menuitemcheckbox].heading-up").Count.ShouldBe(1,
-			"it is a mode that outlives the menu rather than a one-shot action — the role has to " +
-			"say so — and it is the only *mode* left in here now that following has a button.");
+		component.Find(".menu").TextContent.ShouldNotContain("North up");
+		component.FindAll(".menu .heading-up").ShouldBeEmpty(
+			"it went out to the stack; leaving a copy behind is the copy that goes stale.");
 	}
 
 	/// <summary>
-	/// The mode is set from inside a menu the rider then closes over it, so the closed menu has to
-	/// carry it. The dot marked following until following got a lit button of its own; two
-	/// indicators for one mode meant one of them was always the stale one.
+	/// The hamburger carried a dot for whichever mode was still set from inside the menu. Nothing is
+	/// any more — both modes are lit buttons beside it — and a second indicator for a state a button
+	/// already shows is the one that goes stale.
 	/// </summary>
 	[Fact]
-	public async Task TheHamburgersDot_MarksTheMapTurningRatherThanFollowing()
+	public async Task TheHamburger_CarriesNoModeDot()
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
@@ -1008,24 +1015,49 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
-			component.FindAll("button.hamburger.turning").ShouldBeEmpty(
-				"following says so on its own button; the dot is not a second copy of it.");
+			component.FindAll("button.hamburger.turning").ShouldBeEmpty();
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		await ChooseMapOrientationAsync(component);
 
 		component.WaitForAssertion(() =>
 		{
-			component.FindAll("button.hamburger.turning").ShouldNotBeEmpty();
-			AttributeOn(component, "button.hamburger", "aria-label")
-				.ShouldContain("the map is heading up");
+			component.Find("button.heading-up").GetAttribute("aria-pressed").ShouldBe("true",
+				"the button's own lit state is what says the map is turning.");
+			component.FindAll("button.hamburger.turning").ShouldBeEmpty(
+				"the dot is gone; the hamburger says nothing about either mode now.");
+			AttributeOn(component, "button.hamburger", "aria-label").ShouldBe("Ride actions",
+				"one label, because it no longer has a second state to describe.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Lit is the whole of the standing statement, so the button has to change with the mode. Colour
+	/// is not the only cue — the glyph swaps too, because colour alone is the first thing to go
+	/// through a visor in daylight (§18.6).
+	/// </summary>
+	[Fact]
+	public async Task TheHeadingUpButton_LightsUpWithTheMode()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll("button.heading-up.on").ShouldNotBeEmpty();
+			component.Find("button.heading-up i").GetAttribute("class").ShouldContain("fa-compass");
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		await ChooseMapOrientationAsync(component);
 
-		component.WaitForAssertion(
-			() => component.FindAll("button.hamburger.turning").ShouldBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll("button.heading-up.on").ShouldBeEmpty();
+			component.Find("button.heading-up").GetAttribute("aria-pressed").ShouldBe("false");
+		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]
@@ -1095,7 +1127,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
-			component.FindAll("button.hamburger.turning").ShouldNotBeEmpty();
+			component.FindAll("button.heading-up.on").ShouldNotBeEmpty();
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		await PressFollowButtonAsync(component);
@@ -1103,7 +1135,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
-			component.FindAll("button.hamburger.turning").ShouldBeEmpty(
+			component.FindAll("button.heading-up.on").ShouldBeEmpty(
 				"the map rotates about the centre of the screen, and the rider has just stopped " +
 				"being it.");
 			ToastOn(component).ShouldBe("Following and heading up off.");
@@ -1298,8 +1330,8 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Choosing "North up" from the menu <em>is</em> a camera move, unlike the gesture path above:
-	/// it is the rider asking for the other orientation, not stating a bearing of their own.
+	/// Pressing the button back to "north up" <em>is</em> a camera move, unlike the gesture path
+	/// above: it is the rider asking for the other orientation, not stating a bearing of their own.
 	/// </summary>
 	[Fact]
 	public async Task ChoosingNorthUp_TurnsTheMapBackToNorth()
@@ -1383,7 +1415,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true");
-			component.FindAll("button.hamburger.turning").ShouldNotBeEmpty();
+			component.FindAll("button.heading-up.on").ShouldNotBeEmpty();
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Pan));
@@ -1391,7 +1423,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
-			component.FindAll("button.hamburger.turning").ShouldBeEmpty(
+			component.FindAll("button.heading-up.on").ShouldBeEmpty(
 				"a turning map the rider is no longer the centre of is worse than a north-up one.");
 			ToastOn(component).ShouldContain("Following and heading up off",
 				customMessage: "two modes stopped on one gesture, so one sentence names both — a " +
@@ -1428,7 +1460,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
 
 		component.WaitForAssertion(
-			() => component.FindAll("button.hamburger.turning").ShouldNotBeEmpty(),
+			() => component.FindAll("button.heading-up.on").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
@@ -1437,7 +1469,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.FindAll("button.hamburger.turning").ShouldBeEmpty();
+			component.FindAll("button.heading-up.on").ShouldBeEmpty();
 			ToastOn(component).ShouldBe("Heading up off — you moved the map.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}

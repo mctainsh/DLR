@@ -315,21 +315,38 @@
 					</div>
 				</div>
 
+				@*
+					One label, and nothing to press when the pack is already here.
+
+					This offered "Download again" for a pack the phone was holding, which is a second
+					several-hundred-megabyte transfer over the top of a file that is already good — and
+					the rider who taps it is almost always the one who thinks the first one failed. The
+					way to get a fresh copy is to delete the old one first, which the list above does,
+					costs nothing, and makes the disc space it is about to spend visible before it is
+					spent rather than after.
+				*@
 				<button type="button" class="download primary"
-						disabled="@(Chosen is null || Packs.IsDownloading)"
+						disabled="@(Chosen is null || AlreadyHere || Packs.IsDownloading)"
+						aria-describedby="@(AlreadyHere ? "pack-already-here" : null)"
 						@onclick="DownloadChosenAsync">
-					@(Chosen is { } chosen && Packs.Stored(chosen.Id) is not null
-						? "Download again"
-						: "Download")
+					Download
 				</button>
+
+				@* Why the button is grey, said where a disabled control cannot say it itself. *@
+				@if (Chosen is { } here && AlreadyHere)
+				{
+					<p id="pack-already-here" class="hint">@here.Name is already on this phone. Delete it from the list above to fetch it again.</p>
+				}
 			}
 
 			@if (Packs.IsDownloading)
 			{
 				<div class="progress" role="status">
-					<progress value="@(Packs.Progress?.Fraction ?? 0)" max="1"></progress>
-					<span>@DownloadDescription</span>
-					<button type="button" @onclick="Packs.Cancel">Stop</button>
+					@* The count sits inside the bar rather than after it — see the styles below. *@
+					<div class="bar">
+						<progress value="@(Packs.Progress?.Fraction ?? 0)" max="1"></progress>
+						<span>@DownloadDescription</span>
+					</div>
 				</div>
 			}
 
@@ -349,7 +366,7 @@
 		<h2>Preview</h2>
 		<p class="hint">
 			The same base map every ride is drawn over. Pan and zoom it to check the tiles load at
-			the detail you ride at — it opens where you left it last.
+			the detail you ride at — it opens where you left it last, or over your last ride.
 		</p>
 		<div class="preview-map">
 			<RideMap Camera="_preview" AllowRotation="false" ShowPickingCursor="false"
@@ -360,18 +377,21 @@
 
 @code {
 	/// <summary>
-	/// Where the preview opens on a device that has never moved it: the whole world.
+	/// Where the preview opens on a device that has neither moved it nor ever opened a live ride:
+	/// the whole world.
 	/// <para>
-	/// It used to open on Sydney at city scale, borrowed from <c>GroupRideLive</c>'s fallback. That
-	/// is the wrong opinion for this screen to hold — the live map falls back to a city because it
-	/// has a ride to show and must show it somewhere, while this map is a sample of a tile server
-	/// and has no place in mind. Opening on one city tells every rider who does not live there that
-	/// the check they came to make starts with a pan.
+	/// The last of three answers, and the only one that is a constant. The preview's own stored
+	/// camera comes first, then the ground the live ride map was last over
+	/// (<see cref="BorrowLiveViewAsync"/>) — both of them places this rider knows, which is what the
+	/// check they came to make needs.
 	/// </para>
 	/// <para>
-	/// The world is also the one view that answers the question a rider brings here fastest: an
-	/// offline pack covers one region, and at this zoom whether the tiles arrive at all is visible
-	/// before touching anything.
+	/// It is the world rather than a city when neither is on the device. A fixed city is an opinion
+	/// this screen has no business holding: <c>GroupRideLive</c> falls back to one because it has a
+	/// ride to show and must show it somewhere, while this map is a sample of a tile server and has
+	/// no place in mind — and Sydney tells every rider who does not live there that the check starts
+	/// with a pan. The world also answers the first question fastest, since at that zoom whether the
+	/// tiles arrive at all is visible before touching anything.
 	/// </para>
 	/// </summary>
 	private static readonly MapCamera WorldView = new(0, 0, 0);
@@ -524,6 +544,17 @@
 		_offerId.Length == 0 ? null : InRegion.FirstOrDefault(offer => offer.Id == _offerId);
 
 	/// <summary>
+	/// Whether the picked pack is one this device already holds, which is what takes the Download
+	/// button out of use.
+	/// <para>
+	/// A second copy over the top of a good one is hundreds of megabytes for no map the rider does
+	/// not already have. Deleting is the way to a fresh one, and it is a tap away in the list above —
+	/// which also means the space is freed before the download rather than doubled during it.
+	/// </para>
+	/// </summary>
+	private bool AlreadyHere => Chosen is { } offer && Packs.Stored(offer.Id) is not null;
+
+	/// <summary>
 	/// One pack as a line in the dropdown: what it is, what it costs, and whether it is already here.
 	/// <para>
 	/// All three on the option itself because an option is all a native picker shows — there is no
@@ -644,6 +675,13 @@
 		// is actually applied — those agree, because applying one writes this too.
 		Remember(RememberedMapSetup.Decode(await Settings.GetAsync(RememberedMapSetup.StorageKey)));
 
+		// Nothing panned here yet: borrow the ground the rider was last riding over instead of
+		// opening on the world. See BorrowLiveViewAsync.
+		if (_previewNow is null)
+		{
+			await BorrowLiveViewAsync();
+		}
+
 		// Only now may the preview's reports count as the rider moving it. Set whether or not there
 		// was a camera to restore: a device that stored none still wants the first pan kept.
 		_previewRestored = true;
@@ -725,9 +763,52 @@
 			return;
 		}
 
-		// The only assignment to _preview there is — see the field. RideMap has already opened on the
-		// world by now, and it handles a camera that arrives after its first render: the parameter
-		// change is pushed at the base map, which is the one move this restore needs.
+		// One of only two assignments to _preview — see the field, and BorrowLiveViewAsync below.
+		// RideMap has already opened on the world by now, and it handles a camera that arrives after
+		// its first render: the parameter change is pushed at the base map, which is the one move
+		// this restore needs.
+		_preview = camera;
+		_previewNow = camera;
+		_previewSaved = camera;
+	}
+
+	/// <summary>
+	/// Points the preview at wherever the live ride map was last looking, for a device that has never
+	/// moved the preview itself.
+	/// <para>
+	/// The world is a poor first view for the job this map has. A rider is here to judge whether a
+	/// tile source draws the ground they ride over — at the detail they ride at — and at zoom 0
+	/// nothing on it is ground they can recognise, so the check starts with a pan and a pinch every
+	/// time. The one place on the device that already knows which ground that is is
+	/// <see cref="LiveMapView"/>, written by the live map they were just on.
+	/// </para>
+	/// <para>
+	/// <strong>The ride the view belongs to is not checked</strong>, which is the opposite of what
+	/// the live page does with the same value. There, applying one ride's camera to another opens
+	/// Melbourne over Sydney and misrepresents the ride on screen. Here there is no ride to
+	/// misrepresent — this map is a tile sample, and any ride the rider has opened is ground they
+	/// know. Refusing a stale <c>RideId</c> would send them back to the world for no gain.
+	/// </para>
+	/// <para>
+	/// Nothing is written as a result. <see cref="_previewSaved"/> is set to the borrowed camera so
+	/// that leaving without touching the map stores nothing — the borrow stays a borrow, and the next
+	/// visit takes whatever the live map says <em>then</em> rather than freezing today's answer into
+	/// the preview's own slot. The first pan is what makes it this screen's, through the ordinary
+	/// path.
+	/// </para>
+	/// </summary>
+	private async Task BorrowLiveViewAsync()
+	{
+		LiveMapView? live = LiveMapView.Decode(await Settings.GetAsync(LiveMapView.StorageKey));
+
+		// Re-normalised rather than trusted: LiveMapView clamps to what a live map offers, and this
+		// is the range the preview's own slot is kept in. They agree today; a camera that fails is
+		// simply not borrowed, and the world is already on screen.
+		if (RememberedMapSetup.NormalisedCamera(live?.ToCamera()) is not { } camera)
+		{
+			return;
+		}
+
 		_preview = camera;
 		_previewNow = camera;
 		_previewSaved = camera;
@@ -1162,29 +1243,62 @@
 		margin-top: 0.5rem;
 	}
 
+	/* The bar and the count it belongs to, stacked rather than sat side by side. This is the one
+	   thing in the app a rider watches for minutes at a stretch — often on a phone propped up
+	   across the room while the Wi-Fi does its work — so the bar is tall enough to read from
+	   there, and the number is on it rather than beside it: a count in the middle of the thing
+	   that is moving is read without moving the eye, and it leaves the bar the full width. */
+	.map-settings .progress .bar {
+		position: relative;
+		flex: 1;
+		min-width: 0;
+		display: flex;
+	}
+
 	.map-settings .progress progress {
 		flex: 1;
 		min-width: 0;
+		/* Twice the ~1rem a native bar draws itself at, which is also what makes room for the
+		   text over it. The appearance reset is what lets the height take effect at all —
+		   WebKit keeps drawing its own inset groove at its own size otherwise — and once it is
+		   reset the fill and the track have to be painted here too. */
+		height: 3rem;
+		appearance: none;
+		-webkit-appearance: none;
+		border: none;
+		border-radius: 6px;
+		overflow: hidden;
+		background: var(--dlr-surface-2);
+		color: var(--dlr-accent); /* IE/legacy fill, harmless elsewhere */
 	}
 
-	.map-settings .progress span {
+	.map-settings .progress progress::-webkit-progress-bar {
+		background: var(--dlr-surface-2);
+		border-radius: 6px;
+	}
+
+	.map-settings .progress progress::-webkit-progress-value {
+		background: var(--dlr-accent);
+	}
+
+	.map-settings .progress progress::-moz-progress-bar {
+		background: var(--dlr-accent);
+	}
+
+	/* Centred over the whole bar, so it does not move as the fill passes under it. Off-white
+	   rather than the muted grey it was: it now has to read against both the accent fill and the
+	   track behind it. Pointer events off so it can never swallow a tap. */
+	.map-settings .progress .bar span {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
 		font-size: 0.85rem;
-		color: var(--dlr-fg-muted);
+		color: var(--dlr-fg);
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
-	}
-
-	.map-settings .progress button {
-		flex-shrink: 0;
-		/* The same 48 px target the rest of the app uses for anything pressed in a hurry. */
-		min-height: 44px;
-		padding: 0 0.9rem;
-		background: transparent;
-		border: 1px solid var(--dlr-border-strong);
-		border-radius: 6px;
-		color: var(--dlr-fg);
-		font: inherit;
-		cursor: pointer;
 	}
 
 	.map-settings .hint code {
@@ -1210,8 +1324,6 @@
 		font-size: 1.1rem;
 	}
 
-	/* RideMap's container carries a 480 px min-height for a full screen. A sample of a tile
-	   server does not need that much of a phone, and the map still pans and zooms. */
 	.map-settings .preview-map {
 		margin-top: 0.75rem;
 		border: 1px solid var(--dlr-border);
@@ -1219,7 +1331,21 @@
 		overflow: hidden;
 	}
 
+	/* Square, rather than the letterbox a fixed height gave it at whatever width the page happened
+	   to be.
+
+	   RideMap's container carries a 480 px min-height for a full screen and this page overrode it
+	   to 300; both are heights picked against no width, so the sample was one shape on a phone and
+	   another on a desktop. A square is the shape that shows as much north-south as east-west,
+	   which is what a rider checking whether tiles load around a place actually pans through — and
+	   it is the shape the tiles themselves come in.
+
+	   The min-height is cleared, not lowered: it is a floor, so leaving it in place would win over
+	   the ratio on any screen narrower than it and quietly restore the letterbox on exactly the
+	   phones this page is read on most. The page's 40rem cap keeps the square off the bottom of a
+	   desktop screen. */
 	.map-settings .preview-map .dlr-map-container {
-		min-height: 300px;
+		min-height: 0;
+		aspect-ratio: 1 / 1;
 	}
 </style>

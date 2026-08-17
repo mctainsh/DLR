@@ -301,6 +301,40 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
+	/// A pack already on the phone is not something to fetch again from here.
+	/// <para>
+	/// This button offered "Download again" for one, which is a second several-hundred-megabyte
+	/// transfer over the top of a file that is already good — and the rider who taps it is nearly
+	/// always the one who thinks the first one failed. The way to a fresh copy is Delete in the list
+	/// above, which frees the space before it is spent rather than doubling it during the transfer.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task APackAlreadyOnThePhone_CannotBeDownloadedAgain_WithoutDeletingItFirst()
+	{
+		Wire();
+		_packs.Add("au-nsw", [1, 2, 3, 4]);
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		WaitForCatalogue(page);
+
+		await ChoosePackToDownloadAsync(page, "au-nsw");
+
+		page.Find("button.download").TextContent.Trim().ShouldBe("Download",
+			"there is no second label — the button is simply not available for this one.");
+		page.Find("button.download").HasAttribute("disabled").ShouldBeTrue();
+		page.Find("#pack-already-here").TextContent.ShouldContain("Delete it from the list above",
+			customMessage: "a disabled button cannot say why it is grey.");
+
+		// And a pack the phone does not hold is unaffected.
+		await ChoosePackToDownloadAsync(page, "au-tas");
+
+		page.Find("button.download").HasAttribute("disabled").ShouldBeFalse();
+		page.FindAll("#pack-already-here").ShouldBeEmpty();
+	}
+
+	/// <summary>
 	/// A rider already drawing with a pack arrives with offline <em>adopted</em> rather than chosen —
 	/// no tap, no <c>ChooseAsync</c> — and they are the person most likely to want a second region.
 	/// Hanging the fetch off the radio alone meant the list stayed empty until they selected
@@ -916,16 +950,17 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// The preview opens on the whole world, not on a city.
+	/// With nothing at all on the device — no preview camera and no live ride ever opened — the
+	/// preview opens on the whole world, not on a city.
 	/// <para>
-	/// It used to open on Sydney, borrowed from the live map's fallback. That map has a ride to show
-	/// and must show it somewhere; this one is a sample of a tile server with no place in mind, and
-	/// opening on one city tells every rider who does not live there that the check they came to make
-	/// starts with a pan.
+	/// A fixed city is an opinion this screen has no business holding. The live map falls back to
+	/// Sydney because it has a ride to show and must show it somewhere; this one is a sample of a
+	/// tile server with no place in mind, and opening on one city tells every rider who does not live
+	/// there that the check they came to make starts with a pan.
 	/// </para>
 	/// </summary>
 	[Fact]
-	public void ThePreviewOpensOnTheWholeWorld()
+	public void WithNothingOnTheDevice_ThePreviewOpensOnTheWholeWorld()
 	{
 		Wire();
 
@@ -999,6 +1034,103 @@ public sealed class MapSettingsTests : PageTestContext
 		page.WaitForAssertion(
 			() => _map.Cameras.ShouldContain(new MapCamera(-33.868, 151.209, 11)),
 			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A device that has never moved the preview opens it over the ground the live ride map was last
+	/// on, rather than over the world.
+	/// <para>
+	/// The world is a poor first view for this map's job: at zoom 0 nothing on it is ground the rider
+	/// can recognise, so judging a tile source starts with a pan and a pinch every visit. The live
+	/// view is already on the device and is by definition somewhere they know.
+	/// </para>
+	/// <para>
+	/// The ride the stored view belongs to is not checked, which the ride id here — belonging to no
+	/// ride this page has ever heard of — is what pins down. The live page refuses another ride's
+	/// camera because applying it would open Melbourne over Sydney and misrepresent the ride on
+	/// screen; there is no ride on this screen to misrepresent.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task WithNoPreviewOfItsOwn_ThePreviewOpensOverTheLastRide()
+	{
+		// As in ThePreviewReopensWhereItWasLeft: the camera is pushed at an attached base map after
+		// the device read, so the map has to be allowed to attach for it to be visible.
+		_map.InitException = null;
+		JSInterop.SetupModule("./_content/BlazorDLR.Shared/map/overlay.js")
+			.SetupVoid("present", _ => true)
+			.SetVoidResult();
+
+		Wire();
+		await Services.GetRequiredService<IDeviceSettings>().SetAsync(
+			LiveMapView.StorageKey,
+			new LiveMapView(Guid.NewGuid(), -37.814, 144.963, 12, FollowMe: false).Encode());
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		page.WaitForAssertion(
+			() => _map.Cameras.ShouldContain(new MapCamera(-37.814, 144.963, 12)),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// And the preview's own camera wins over it. The live view is a stand-in for an answer this
+	/// screen does not have yet — once the rider has pointed the preview somewhere themselves, that
+	/// is where it belongs, however recently they rode elsewhere.
+	/// </summary>
+	[Fact]
+	public async Task ThePreviewsOwnCamera_BeatsTheLastRide()
+	{
+		_map.InitException = null;
+		JSInterop.SetupModule("./_content/BlazorDLR.Shared/map/overlay.js")
+			.SetupVoid("present", _ => true)
+			.SetVoidResult();
+
+		Wire();
+		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
+
+		await settings.SetAsync(
+			LiveMapView.StorageKey,
+			new LiveMapView(Guid.NewGuid(), -37.814, 144.963, 12, FollowMe: false).Encode());
+		await settings.SetAsync(
+			RememberedMapSetup.StorageKey,
+			new RememberedMapSetup(PreviewCamera: new MapCamera(-33.868, 151.209, 11)).Encode());
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		page.WaitForAssertion(
+			() => _map.Cameras.ShouldContain(new MapCamera(-33.868, 151.209, 11)),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Cameras.ShouldNotContain(new MapCamera(-37.814, 144.963, 12));
+	}
+
+	/// <summary>
+	/// Borrowing writes nothing. The preview's slot stays empty until the rider moves the map
+	/// themselves, so the next visit takes whatever the live map says <em>then</em> rather than
+	/// freezing today's ride into this screen's own memory.
+	/// </summary>
+	[Fact]
+	public async Task BorrowingTheLastRide_StoresNothingUnderThePreviewsOwnKey()
+	{
+		Wire();
+		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
+
+		await settings.SetAsync(
+			LiveMapView.StorageKey,
+			new LiveMapView(Guid.NewGuid(), -37.814, 144.963, 12, FollowMe: false).Encode());
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		// The stored source landing is what says the device read has happened.
+		page.WaitForAssertion(
+			() => page.FindAll("input[name=map-source]")[0].HasAttribute("checked").ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await page.InvokeAsync(page.Instance.DisposeAsync);
+
+		(await settings.GetAsync(RememberedMapSetup.StorageKey)).ShouldBeNull(
+			customMessage: "a borrow is not a pan.");
 	}
 
 	/// <summary>

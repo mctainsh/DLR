@@ -168,12 +168,12 @@ public sealed class HostWithoutGpsTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			// Members and routes are ride data, not device data — untouched by any of this. The
-			// names themselves moved to "Ride members live"; what is left here is the count and
-			// the way through to them.
-			component.Find(".members h3").TextContent.ShouldBe("Members (2)");
-			component.FindAll(".members .to-members").Count.ShouldBe(1);
+			// Routes are ride data, not device data — untouched by any of this. Removing the
+			// switch is a removal of one control, and a browser that lost the rest of the page
+			// with it would be the same mistake in the other direction.
 			component.FindAll(".routes").Count.ShouldBe(1);
+			component.FindAll(".route-style").Count.ShouldBe(1);
+			component.FindAll(".membership").Count.ShouldBe(1);
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

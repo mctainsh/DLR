@@ -21,16 +21,17 @@
 
 @*
 	The live ride (§5.3). The map IS the page: it fills everything the nav rail is not
-	using, and all but one affordance is reached from the hamburger in the top-right.
+	using, and every affordance but the two camera modes is reached from the hamburger in
+	the top-right.
 
-	The exception is "follow me", which has a button of its own under the hamburger and lives
-	nowhere else. It is the only thing on this screen a rider does while actually moving, and
-	everything the menu holds is done at a stop — so it is the only one that has earned a
-	permanent target rather than a tap, a read and a second tap.
-
-	The menu keeps one mode of its own, "heading up", and the dot on the hamburger is what says
-	it is on once the menu has closed over it. Choosing it switches following on too — a map
-	that turns about a point the rider is not standing on is worse than a north-up one.
+	Those two — "follow me" and "heading up" — are buttons in a stack under the hamburger and
+	live nowhere else. They are the only things on this screen a rider does while actually
+	moving, and everything the menu holds is done at a stop, so they are the ones that have
+	earned a permanent target rather than a tap, a read and a second tap. They are also the
+	only two that outlive the tap that set them, and a lit button is what says so — which is
+	why the hamburger no longer carries a dot for either of them. Choosing heading up switches
+	following on too: a map that turns about a point the rider is not standing on is worse than
+	a north-up one.
 
 	Why a hamburger here and nowhere else. NavMenu.razor states the app-wide rule — the
 	rail never collapses behind a toggle, because hiding *navigation* is hiding the app.
@@ -174,8 +175,8 @@
 			stops taking up the screen.
 
 			Transient rather than a strip that stays, because the standing statement of both modes
-			is already on screen permanently — the follow button lights up, and the base map's
-			compass appears the moment the map leaves north. This is for the *change*.
+			is already on screen permanently — each has a button in the stack that lights up when
+			it is on. This is for the *change*.
 
 			aria-live="polite" rather than assertive: nothing here interrupts anything, and a rider
 			with a screen reader riding a bike is the last person to interrupt mid-sentence.
@@ -223,31 +224,30 @@
 
 		<div class="chrome">
 			@*
-				The dot on the button says "this map is not sitting still because you left it there".
+				The way in to everything this screen does that is not a camera mode.
 
-				It used to stand for following, and does not any more: following has a lit button of
-				its own directly below, and two indicators for one mode is one of them going stale.
-				It stands for the mode that is still set from inside the menu — heading up, the map
-				turned to the way the rider is pointing — which is exactly the case the dot was
-				invented for. Without it, a rider who has forgotten that mode is on reads the map
-				turning under them as a fault rather than as the thing they asked for.
+				It carried a dot once, for whichever mode was still set from inside the menu. Nothing
+				is any more — both modes are lit buttons directly below it — and a second indicator
+				for a state a button beside it already shows is the one that goes stale. Removing it
+				also takes the last reason for this button to have two labels.
 			*@
-			<button type="button" class="hamburger @(_menuOpen ? "open" : null) @(_headingUp ? "turning" : null)"
+			<button type="button" class="hamburger @(_menuOpen ? "open" : null)"
 					@onclick="ToggleMenu"
 					aria-haspopup="menu"
 					aria-expanded="@(_menuOpen ? "true" : "false")"
-					aria-label="@(_headingUp ? "Ride actions — the map is heading up" : "Ride actions")">
+					aria-label="Ride actions">
 				<i class="fa fa-bars" aria-hidden="true"></i>
 			</button>
 
 			@*
 				"Centre on me and keep me there", on the map rather than in the menu (§5.3).
 
-				It is the one thing a rider does to this map while moving, and everything the menu
-				holds is done at a stop — so it is the one thing that has earned a permanent 48 px
-				target instead of a tap, a read and a second tap. It is also now the *only* way to
-				set following: the duplicate under the rule in the menu was removed once this
-				existed, because a mode with two controls is a mode a rider has to check twice.
+				One of the two things a rider does to this map while moving — heading-up, directly
+				below, is the other — and everything the menu holds is done at a stop, so these are
+				the two that have earned a permanent 48 px target instead of a tap, a read and a
+				second tap. It is also the *only* way to set following: the duplicate under the rule
+				in the menu was removed once this existed, because a mode with two controls is a
+				mode a rider has to check twice.
 
 				aria-pressed rather than a role, because this is a toggle button and not a menu
 				item — and it is what a screen reader reads out as the state, which matters more
@@ -263,6 +263,41 @@
 					aria-pressed="@(_followMe ? "true" : "false")"
 					aria-label="@FollowLabel">
 				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
+			</button>
+
+			@*
+				"Which way up is the map" — north, or the way this rider is pointing — on the map
+				rather than in the menu, for the same reason following is.
+
+				It sat under the rule in the menu until now, on the argument that it is set once at
+				the top of a ride and then left alone. That was the wrong half of the pairing to
+				notice: it is the *other* mode that turns the map under a rider after the tap that
+				set it, so a rider who wants it off — because the map is swinging at a roundabout,
+				or because they are trying to read a street name — is asking at exactly the moment
+				a tap, a read and a second tap costs the most. Both camera modes now sit in the same
+				stack, which is also what lets a rider see the two states at once instead of opening
+				a menu to check one of them.
+
+				aria-pressed and not menuitemcheckbox, because it is a toggle button now and no
+				longer an item in a menu — and the state it reads out is what a screen reader gets
+				in place of the colour swap.
+
+				Two glyphs rather than one that changes colour: colour alone is the first thing to
+				go through a visor in daylight (§18.6), and this button is read at a glance while
+				moving. The label carries the "waiting for a heading" case the menu item used to
+				state in words — a lit button over a map that is not turning needs to say which of
+				the two it is, exactly as the follow button does.
+
+				The base map keeps its own compass on the opposite edge, and the two do not
+				disagree: the compass says which way the map is pointing and turns it back to north,
+				this says whether the map is being turned *for the rider*. Tapping the compass is a
+				gesture like any other, and takes this mode off with it (OnMapGestureAsync).
+			*@
+			<button type="button" class="heading-up @(_headingUp ? "on" : null)"
+					@onclick="ToggleHeadingUpAsync"
+					aria-pressed="@(_headingUp ? "true" : "false")"
+					aria-label="@HeadingUpLabel">
+				<i class="fa @(_headingUp ? "fa-compass" : "fa-location-arrow")" aria-hidden="true"></i>
 			</button>
 
 			@if (_menuOpen)
@@ -297,37 +332,14 @@
 						mode that stays on after the menu closes — role="menuitemcheckbox" is
 						what tells a screen reader that, and aria-checked is what carries it.
 
-						Which way up the map is drawn — north, or the way this rider is pointing.
-
-						The only mode left in here. It is set once at the top of a ride and then
-						left alone, which is what a menu is for; following, which is set and unset
-						repeatedly while moving, went out to a button of its own on the map and is
-						deliberately not duplicated here. What the two have in common is that they
-						outlive the menu, and this one says so from the dot on the hamburger.
-
-						No button of its own beside that one, and the reason is not symmetry: the
-						base map already carries a permanent compass on the opposite edge the
-						moment it leaves north, and it turns the map back when tapped. A second
-						control for one bearing is a second thing to disagree with it.
-					*@
-					<button type="button" role="menuitemcheckbox" class="heading-up @(_headingUp ? "checked" : null)"
-							aria-checked="@(_headingUp ? "true" : "false")"
-							@onclick="ToggleHeadingUpAsync">
-						<i class="fa fa-fw @(_headingUp ? "fa-compass" : "fa-location-arrow")" aria-hidden="true"></i>
-						@(_headingUp ? "Heading Up" : "North up")
-						@if (_headingUp)
-						{
-							<span class="quiet">@(MyHeadingDeg is null ? "waiting for a heading" : "on")</span>
-						}
-					</button>
-
-					@*
 						The panel down the left edge naming who is just ahead and just behind (§5.4).
 
-						A menuitemcheckbox for the same reason heading-up is one: it is a thing that
-						stays on after the menu has closed over it. It gets no dot on the hamburger
-						though — the panel is its own indicator, on screen and unmistakable, and a
-						second one would be the one that goes stale.
+						The only mode left in here, now that both camera modes are buttons in the
+						stack outside. It belongs here and they do not, for a reason that is not
+						about how often it is set: it does not move the map. A rider who has
+						forgotten this one is on is looking at a panel that says so; a rider who has
+						forgotten one of those is looking at a map moving by itself, which is why
+						they are on screen permanently and this is a line in a menu.
 
 						It says out loud when it can have nothing to show. "Along the route" needs a
 						route, and a rider who turns this on for a ride that has none would otherwise
@@ -774,6 +786,25 @@
 	};
 
 	/// <summary>
+	/// What the heading-up button says it is for, and — once it is on — whether it has anything to
+	/// turn the map by.
+	/// <para>
+	/// The third case is the counterpart of <see cref="FollowLabel"/>'s and is there for the same
+	/// reason. A map that is lit for heading-up and sitting square to north is not broken: it is a
+	/// rider stopped at a light, or one whose receiver has not produced a heading yet, and
+	/// <see cref="MyHeadingDeg"/> deliberately answers null for both so the map holds its bearing.
+	/// The menu item used to state that in words beside itself; now that the control is a glyph,
+	/// the label is the only place left that can.
+	/// </para>
+	/// </summary>
+	private string HeadingUpLabel => (_headingUp, MyHeadingDeg) switch
+	{
+		(false, _) => "Turn the map to my heading",
+		(true, null) => "North up — waiting for a heading",
+		_ => "North up",
+	};
+
+	/// <summary>
 	/// The glyph beside the receiver's state in the menu. Three shapes rather than one that
 	/// changes colour: the map is read through a visor in daylight, and colour alone is the first
 	/// thing to go (§18.6).
@@ -823,8 +854,8 @@
 	/// rider somewhere their own suppressed position (§10.1) says nobody should be looking.
 	/// </para>
 	/// <para>
-	/// Null while not sharing, and until the first fix lands. That is what the menu item's
-	/// "waiting for a fix" says, rather than the mode looking broken.
+	/// Null while not sharing, and until the first fix lands. That is what the follow button's
+	/// "waiting for a fix" label says, rather than the mode looking broken.
 	/// </para>
 	/// </summary>
 	private RiderPositionDto? MyPosition =>
@@ -998,8 +1029,8 @@
 
 		if (_broadcast is { } broadcast)
 		{
-			// The receiver's state is drawn on this screen — see the dot on the hamburger and the
-			// strip below it — and it moves on its own timetable, not the session's.
+			// The receiver's state is drawn on this screen — see the line under the menu and the
+			// strip over the map — and it moves on its own timetable, not the session's.
 			broadcast.Changed += OnBroadcastChanged;
 		}
 
@@ -1386,6 +1417,12 @@
 	/// <summary>
 	/// Swaps between a north-up map and one turned to this rider's heading, and acts on it now
 	/// rather than at the next fix.
+	/// <para>
+	/// Reached from the button over the map, and from nowhere else. It lived under the rule in the
+	/// menu until following got a button of its own; it went out to the stack beside that one for
+	/// the reason given in the markup — both modes keep moving the map after the tap that set them,
+	/// so both are read and changed while riding, and neither is reachable from two places.
+	/// </para>
 	/// <para>
 	/// <strong>Choosing heading-up switches following on with it.</strong> The map rotates about
 	/// the centre of the screen, so heading-up only says what it means when the rider <em>is</em>
@@ -2213,14 +2250,17 @@
 	}
 
 	/*
-		"Centre on me and follow", off.
+		The two camera modes — "centre on me and follow", and "turn the map to my heading" — with
+		nothing switched on.
 
 		Deliberately quieter than the hamburger: colours reversed, so the surface is the map's
-		chrome rather than the accent. Two accent-filled buttons stacked on top of each other read
-		as one control split in half, and the hamburger is the one that has to be found first by a
-		rider who does not yet know this screen.
+		chrome rather than the accent. Three accent-filled buttons stacked on top of each other
+		read as one control split in thirds, and the hamburger is the one that has to be found
+		first by a rider who does not yet know this screen. It also leaves the accent meaning one
+		thing in this stack — "this mode is on" — rather than two.
 	*/
-	.live .chrome > button.follow {
+	.live .chrome > button.follow,
+	.live .chrome > button.heading-up {
 		background: var(--dlr-surface);
 		color: var(--dlr-fg);
 		border-color: var(--dlr-border-strong);
@@ -2228,32 +2268,16 @@
 
 	/*
 		On. The state has to survive a visor in daylight, so it is a filled button and not a tint:
-		colour alone is the first thing to go, and this one is read at a glance while moving.
+		colour alone is the first thing to go, and these are read at a glance while moving. It is
+		also now the only statement either mode makes with the menu closed — the dot that used to
+		sit on the hamburger's corner went when the second button arrived, because two indicators
+		for one mode is one of them going stale.
 	*/
-	.live .chrome > button.follow.on {
+	.live .chrome > button.follow.on,
+	.live .chrome > button.heading-up.on {
 		background: var(--dlr-accent);
 		color: var(--dlr-accent-fg);
 		border-color: var(--dlr-accent-fg);
-	}
-
-	/*
-		Travel-direction-up is a mode that outlives the menu it was set from, so the closed menu
-		has to say so. A dot on the corner of the button rather than a second control beside it:
-		the map is the page and the chrome over it is rationed.
-
-		It marked following until following got a lit button of its own directly below, at which
-		point two indicators for one mode meant one of them was always the stale one.
-	*/
-	.live .hamburger.turning::after {
-		content: "";
-		position: absolute;
-		top: 4px;
-		right: 4px;
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		background: var(--dlr-accent-fg);
-		border: 2px solid var(--dlr-accent);
 	}
 
 	/* Sits under the hamburger and over the map: a tap that dismisses must not also pan.
@@ -2266,11 +2290,11 @@
 
 	.live .menu {
 		position: absolute;
-		/* Clear of the whole stack, not just the hamburger it hangs from: a menu that opened over
-		   the follow button would cover the state of a mode it also lists. Two controls and the
-		   gap between them, expressed in the same tokens the stack is built from so the two cannot
-		   drift apart. */
-		top: calc(2 * var(--dlr-map-control-size) + 1rem);
+		/* Clear of the whole stack, not just the hamburger it hangs from: a menu that covered a
+		   camera mode's button would hide the only statement that mode makes. Three controls and
+		   the two gaps between them, expressed in the same tokens the stack is built from so the
+		   two cannot drift apart. */
+		top: calc(3 * var(--dlr-map-control-size) + 1.5rem);
 		right: 0;
 		min-width: 15rem;
 		padding: 0.35rem 0;

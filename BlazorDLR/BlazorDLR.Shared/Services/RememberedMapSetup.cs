@@ -35,9 +35,14 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// Kept for the same reason as <see cref="LiveMapView"/>, on a smaller scale: the preview exists to
 /// be judged against ground the rider knows, and finding that ground is a pan and a pinch they
-/// should do once rather than on every visit. It opens on the whole world until they do — a tile
-/// server is a thing you go looking for a place in, and starting zoomed into one city says the
-/// screen has an opinion about where you ride.
+/// should do once rather than on every visit.
+/// </para>
+/// <para>
+/// Until they do, the page borrows <see cref="LiveMapView"/>'s camera — the ground they were last
+/// riding over is ground they know, which is the whole test a preview has to pass, and it is
+/// already on the device. The world is the fallback behind that, for a device that has never opened
+/// a live ride either: a tile server is a thing you go looking for a place in, and starting zoomed
+/// into one city would say the screen has an opinion about where you ride.
 /// </para>
 /// <para>
 /// No heading: the preview refuses rotation (<c>AllowRotation="false"</c>), so there is never one

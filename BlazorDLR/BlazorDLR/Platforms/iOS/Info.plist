@@ -117,7 +117,7 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 	<key>CFBundleVersion</key>
-	<string>22</string>
+	<string>23</string>
 
 	<!--
 		Purpose strings. App Review reads these, and 5.1.1 rejections for location are almost
