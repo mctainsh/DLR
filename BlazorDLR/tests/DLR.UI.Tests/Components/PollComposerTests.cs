@@ -34,18 +34,20 @@ public sealed class PollComposerTests : BunitContext
 	{
 		IRenderedComponent<PollComposer> component = Render<PollComposer>();
 
-		// Each Change() re-renders and invalidates the event handler IDs, so bUnit v2
-		// insists on a fresh FindAll per interaction wrapped in InvokeAsync.
+		// Input(), not Change(): the option fields bind on oninput so the parent composer's
+		// Post button tracks them as they are typed (RideThreadTests covers the button itself).
+		// Each one re-renders and invalidates the event handler IDs, so bUnit v2 insists on a
+		// fresh FindAll per interaction wrapped in InvokeAsync.
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement[] inputs = component.FindAll("input[placeholder^='Option']").ToArray();
 			inputs.Length.ShouldBeGreaterThanOrEqualTo(2);
-			inputs[0].Change("Coast road");
+			inputs[0].Input("Coast road");
 		});
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement[] inputs = component.FindAll("input[placeholder^='Option']").ToArray();
-			inputs[1].Change("Mountain road");
+			inputs[1].Input("Mountain road");
 		});
 
 		PollSpec? spec = component.Instance.BuildSpec();

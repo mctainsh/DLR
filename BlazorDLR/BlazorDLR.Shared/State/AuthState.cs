@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Identity;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -110,6 +111,11 @@ public sealed class AuthState : AuthenticationStateProvider
 		UserId = session.User.Id;
 		UserName = session.User.UserName;
 
+		// The username, never a token or any part of one. Who is signed in explains most of the
+		// authorisation failures further down a log; the credential explains none of them and
+		// would be sitting in a file a rider is about to paste into a message.
+		DiagnosticLog.Write($"Signed in as {UserName}.");
+
 		// The server has just spoken, so whatever this device had adopted on its own is confirmed
 		// or replaced. Cleared before the awaits below so a screen reading it off the broadcast
 		// cannot see a stale "offline" beside a live session.
@@ -188,6 +194,7 @@ public sealed class AuthState : AuthenticationStateProvider
 			// of doing this before the network rather than after it.
 			UserId = account.UserId;
 			UserName = account.UserName;
+			DiagnosticLog.Write($"Session restored for {UserName}.");
 			IsOffline = true;
 
 			_current = BuildPrincipal(account);
@@ -210,6 +217,7 @@ public sealed class AuthState : AuthenticationStateProvider
 		_accessExpiresUtc = default;
 		UserId = null;
 		UserName = null;
+		DiagnosticLog.Write("Signed out.");
 		DeviceId = null;
 		IsOffline = false;
 

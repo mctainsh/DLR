@@ -209,7 +209,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement textarea = component.Find("form.composer textarea");
-			textarea.Change("  Hello, adventure.  ");
+			textarea.Input("  Hello, adventure.  ");
 		});
 		await component.InvokeAsync(() =>
 		{

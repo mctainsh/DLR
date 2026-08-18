@@ -22,7 +22,11 @@
 		{
 			int index = i;
 			<div class="option">
-				<input @bind="_options[index]" maxlength="80" placeholder="Option @(index + 1)" />
+				@* oninput + bind:after, for the same reason RideThread's textarea binds this way:
+				   the parent's Post button is disabled from BuildSpec(), and onchange would not
+				   report a typed option until the field lost focus. *@
+				<input @bind="_options[index]" @bind:event="oninput" @bind:after="NotifyAsync"
+					   maxlength="80" placeholder="Option @(index + 1)" />
 				@if (_options.Count > 2)
 				{
 					<button type="button" class="remove" @onclick="() => RemoveAt(index)" title="Remove this option">×</button>
@@ -62,6 +66,16 @@
 	[Parameter] public bool AllowMultiple { get; set; }
 	[Parameter] public EventCallback<bool> AllowMultipleChanged { get; set; }
 
+	/// <summary>
+	/// Raised whenever an edit here could change what <see cref="BuildSpec"/> returns.
+	/// <para>
+	/// The parent's Post button is enabled from that spec, and a keystroke in this component
+	/// renders this component only — so without this the button would go on reading a stale
+	/// answer until something else happened to re-render the page.
+	/// </para>
+	/// </summary>
+	[Parameter] public EventCallback OnChanged { get; set; }
+
 	private readonly List<string> _options = new() { string.Empty, string.Empty };
 	private bool _hasCloseTime;
 	private DateTime _closesLocal;
@@ -71,15 +85,21 @@
 		_closesLocal = Clock.GetLocalNow().DateTime.AddHours(24);
 	}
 
-	private void AddOption()
+	private async Task AddOption()
 	{
 		if (_options.Count < MaxOptions) _options.Add(string.Empty);
+		await NotifyAsync();
 	}
 
-	private void RemoveAt(int index)
+	private async Task RemoveAt(int index)
 	{
 		if (_options.Count > 2) _options.RemoveAt(index);
+		await NotifyAsync();
 	}
+
+	/// <summary>Tells the parent the spec may have changed. See <see cref="OnChanged"/>.</summary>
+	private Task NotifyAsync() =>
+		OnChanged.HasDelegate ? OnChanged.InvokeAsync() : Task.CompletedTask;
 
 	/// <summary>
 	/// Returns the current spec, or <c>null</c> if the caller has not filled in enough

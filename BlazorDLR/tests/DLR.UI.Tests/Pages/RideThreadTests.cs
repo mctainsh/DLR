@@ -87,6 +87,74 @@ public sealed class RideThreadTests : PageTestContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
+	/// <summary>
+	/// Typing enables Post — on the keystroke, not on the blur.
+	/// <para>
+	/// bUnit's <c>Input</c> raises <c>oninput</c> and nothing else, which is exactly the event a
+	/// plain <c>@@bind</c> ignores: it listens on <c>onchange</c>, and a browser does not raise that
+	/// until the field loses focus. On a phone there is often nothing to move focus to, so the
+	/// rider typed a whole message and watched a greyed-out button. This test fails against
+	/// <c>@@bind</c> alone and passes against <c>@@bind:event="oninput"</c>.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public void TypingAComment_EnablesPost_BeforeTheFieldLosesFocus()
+	{
+		RidePermissions allowed = new(AllowMemberMarkers: true, AllowMemberComments: true, AllowMemberPhotos: true);
+		FakeApiClient api = WireServices(this, permissions: allowed, isOrganiser: false);
+
+		Guid rideId = api.RideResult!.Id;
+		IRenderedComponent<RideThread> component = Render<RideThread>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("form.composer textarea").Count.ShouldBe(1),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Find("form.composer button.primary").HasAttribute("disabled").ShouldBeTrue(
+			"an empty composer has nothing to post.");
+
+		// oninput only. No blur, no change event — the phone case.
+		component.Find("form.composer textarea").Input("See you at the servo.");
+
+		component.Find("form.composer button.primary").HasAttribute("disabled").ShouldBeFalse(
+			"Post must enable as the rider types, not when the textarea finally loses focus.");
+	}
+
+	/// <summary>
+	/// The same property for the poll half, which fails for one extra reason: the options live in
+	/// <c>PollComposer</c>, and a keystroke in a child renders the child only. Without the child
+	/// telling this page the spec moved, Post would go on reading a stale <c>BuildSpec()</c>.
+	/// </summary>
+	[Fact]
+	public void TypingAPoll_EnablesPost_BeforeTheFieldsLoseFocus()
+	{
+		RidePermissions allowed = new(AllowMemberMarkers: true, AllowMemberComments: true, AllowMemberPhotos: true);
+		FakeApiClient api = WireServices(this, permissions: allowed, isOrganiser: false);
+
+		Guid rideId = api.RideResult!.Id;
+		IRenderedComponent<RideThread> component = Render<RideThread>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("form.composer textarea").Count.ShouldBe(1),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Find("form.composer .poll-toggle input").Change(true);
+		component.Find("form.composer textarea").Input("Servo or the bakery?");
+
+		component.Find("form.composer button.primary").HasAttribute("disabled").ShouldBeTrue(
+			"§17.5: a poll needs two options before there is anything to post.");
+
+		IReadOnlyList<AngleSharp.Dom.IElement> options = component.FindAll(".poll-composer .option input");
+		options.Count.ShouldBe(2, "a fresh poll composer offers the two options §17.5 requires.");
+		options[0].Input("Servo");
+		component.FindAll(".poll-composer .option input")[1].Input("Bakery");
+
+		component.Find("form.composer button.primary").HasAttribute("disabled").ShouldBeFalse(
+			"Post must enable as the options are typed, not when each field loses focus.");
+	}
+
 	[Fact]
 	public void PermissionAllowed_ComposerIsPresent_ForOrdinaryMember()
 	{

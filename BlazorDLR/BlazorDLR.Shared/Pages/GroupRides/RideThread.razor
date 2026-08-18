@@ -67,12 +67,19 @@
 	@if (_canPost)
 	{
 		<form class="composer" @onsubmit="PostAsync" @onsubmit:preventDefault="true">
-			<textarea @bind="_composeText" rows="3" maxlength="2000"
+			@* oninput, not the default onchange: the Post button below is disabled from this
+			   value, and onchange does not fire until the textarea loses focus — which on a phone
+			   means a rider types a whole message and watches a greyed-out button. Same reason
+			   RideDetail and Welcome bind theirs this way. *@
+			<textarea @bind="_composeText" @bind:event="oninput" rows="3" maxlength="2000"
 					  placeholder="@(_isPoll ? "The poll question." : "Say something to the adventure.")"></textarea>
 
 			@if (_isPoll)
 			{
-				<PollComposer @ref="_pollComposer" />
+				@* OnChanged re-renders this component so the Post button re-reads BuildSpec().
+				   Typing in a child only re-renders the child, so without it the button would
+				   stay stale for the poll half exactly as it did for the textarea above. *@
+				<PollComposer @ref="_pollComposer" OnChanged="StateHasChanged" />
 			}
 
 			<div class="composer-actions">

@@ -1,6 +1,7 @@
 using Android.App;
 using Android.Content;
 using AndroidX.Core.App;
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 
 namespace BlazorDLR.Platforms.Android.Notifications;
@@ -109,14 +110,31 @@ public sealed class AndroidNotificationService : INotificationService
 
 			if (status != PermissionStatus.Granted)
 			{
+				DiagnosticLog.Write($"Notification permission is {status}; asking.");
+
 				status = await MainThread.InvokeOnMainThreadAsync(
 					Permissions.RequestAsync<Permissions.PostNotifications>);
+
+				DiagnosticLog.Write($"Notification permission answered: {status}.");
+			}
+
+			// Granted is not the same as visible — the channel carries its own importance, and a
+			// rider who turned it down keeps that setting through every upgrade. Reported for the
+			// same reason iOS reports its alert style: authorised-and-silent is the failure that
+			// looks like a broken app from both sides.
+			if (status == PermissionStatus.Granted && Notifications is { } manager)
+			{
+				DiagnosticLog.Write(
+					$"Notifications enabled: {manager.AreNotificationsEnabled()}, " +
+					$"channel '{ChannelId}' importance: {ChannelImportance()}.");
 			}
 
 			return status == PermissionStatus.Granted;
 		}
-		catch (Exception)
+		catch (Exception exception)
 		{
+			DiagnosticLog.WriteError("asking for the notification permission", exception);
+
 			// A permission request that throws — no activity attached because the app is being
 			// reclaimed, most likely — is not a rider-facing failure. It is one notification that
 			// does not appear, and the post is in the thread either way.
@@ -165,11 +183,13 @@ public sealed class AndroidNotificationService : INotificationService
 				builder.SetContentIntent(content);
 
 			Notifications?.Notify(notification.Tag, NotificationId, builder.Build());
+			DiagnosticLog.Write($"Notification posted: tag {notification.Tag}.");
 		}
-		catch (Exception)
+		catch (Exception exception)
 		{
 			// Swallowed for the same reason the permission failure above is. Nothing downstream of
 			// a notification can be retried usefully, and the thread already holds the post.
+			DiagnosticLog.WriteError($"posting notification {notification.Tag}", exception);
 		}
 
 		return Task.CompletedTask;
@@ -236,6 +256,22 @@ public sealed class AndroidNotificationService : INotificationService
 	/// <em>initial</em> value and a rider's later change to it wins forever. That is the correct
 	/// behaviour and the reason this is not a setting in the app.
 	/// </summary>
+	/// <summary>
+	/// The importance the channel is actually running at, which is not necessarily the one this
+	/// code asked for: Android fixes it at creation and a rider's later change wins forever. That
+	/// is the correct behaviour and exactly why it is worth reading back.
+	/// </summary>
+	private static string ChannelImportance()
+	{
+		if (!OperatingSystem.IsAndroidVersionAtLeast(26))
+			return "n/a below API 26";
+
+		NotificationManager? manager =
+			(NotificationManager?)Platform.AppContext.GetSystemService(Context.NotificationService);
+
+		return manager?.GetNotificationChannel(ChannelId)?.Importance.ToString() ?? "channel not created yet";
+	}
+
 	private static void EnsureChannel()
 	{
 		if (!OperatingSystem.IsAndroidVersionAtLeast(26))

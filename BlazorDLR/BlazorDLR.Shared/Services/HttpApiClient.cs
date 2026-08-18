@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using BlazorDLR.Shared.Diagnostics;
 using DLR.Core.Contracts.Account;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
@@ -477,6 +478,14 @@ public sealed class HttpApiClient : IApiClient
 		}
 
 		ApiError error = await ProblemDetailsReader.ReadAsync(response, cancellationToken);
+
+		// Every failed call in the app funnels through here, so this one line covers the lot. The
+		// method and path matter as much as the reason: a 401 on the token endpoint and a 401 on a
+		// ride are the same message about two completely different problems.
+		DiagnosticLog.Write(
+			$"API {(int)response.StatusCode} {response.RequestMessage?.Method.Method} " +
+			$"{response.RequestMessage?.RequestUri?.PathAndQuery}: {error.Title}");
+
 		throw new ApiException(error);
 	}
 

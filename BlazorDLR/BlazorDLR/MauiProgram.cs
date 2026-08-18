@@ -1,4 +1,5 @@
 using BlazorDLR.Services;
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
@@ -11,6 +12,8 @@ public static class MauiProgram
 {
 	public static MauiApp CreateMauiApp()
 	{
+		StartLogging();
+
 		// URLs come from MauiConstants — a compile-time constant per platform with an
 		// environment-variable override (DLR_API_BASE / DLR_HUB_URL). Never any API key,
 		// and since v0.24 there is no map credential on the client at all: MapLibre over
@@ -254,6 +257,59 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
+		DiagnosticLog.Write($"Host built. API {apiBase}, hub {hubUrl}.");
+
 		return builder.Build();
+	}
+
+	/// <summary>
+	/// Points <see cref="DiagnosticLog"/> at a file and catches what would otherwise be lost.
+	/// <para>
+	/// <strong>First thing in the host, before any service is registered</strong>, because the
+	/// failures worth reading are the ones that happen during startup — a seam that throws while
+	/// being constructed takes the app down before there is a screen to say so on, and on a phone
+	/// that is a splash screen and then nothing.
+	/// </para>
+	/// <para>
+	/// <c>AppDataDirectory</c> rather than the Documents folder: this is diagnostic output, not
+	/// something the rider made, and on iOS everything under Documents is backed up to iCloud and
+	/// offered to Files. The log is still reachable through Settings, Log and through Xcode’s
+	/// container download; it just does not turn up in a rider’s backups.
+	/// </para>
+	/// </summary>
+	private static void StartLogging()
+	{
+		try
+		{
+			DiagnosticLog.UseFile(Path.Combine(FileSystem.Current.AppDataDirectory, "dlr-log.txt"));
+		}
+		catch (Exception exception)
+		{
+			// Memory-only from here. The viewer still works, which is most of the value.
+			DiagnosticLog.WriteError("opening the log file", exception);
+		}
+
+		// Both handlers are last-resort: they run when nothing else caught it, which is exactly
+		// when the app is about to disappear and take the reason with it. Neither can stop that —
+		// IsTerminating is already decided — but a line in the file survives the process, and
+		// "what was the last thing it did" is the whole question after an unexplained restart.
+		AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+		{
+			if (args.ExceptionObject is Exception exception)
+				DiagnosticLog.WriteError($"UNHANDLED (terminating: {args.IsTerminating})", exception);
+			else
+				DiagnosticLog.Write($"UNHANDLED non-exception (terminating: {args.IsTerminating}): {args.ExceptionObject}");
+		};
+
+		// A faulted Task nobody awaited. Observed here so it is recorded rather than swallowed by
+		// the finalizer — several fire-and-forget paths in this app (notifications, cache writes)
+		// would otherwise fail completely silently.
+		TaskScheduler.UnobservedTaskException += (_, args) =>
+		{
+			DiagnosticLog.WriteError("unobserved task", args.Exception);
+			args.SetObserved();
+		};
+
+		DiagnosticLog.Write($"Log started. Device: {DeviceInfo.Current.Manufacturer} {DeviceInfo.Current.Model}, {DeviceInfo.Current.Platform} {DeviceInfo.Current.VersionString}, app {AppInfo.Current.VersionString} ({AppInfo.Current.BuildString}).");
 	}
 }

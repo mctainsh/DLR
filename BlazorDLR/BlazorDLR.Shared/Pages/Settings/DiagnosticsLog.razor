@@ -1,0 +1,209 @@
+@page "/settings/log"
+@attribute [Authorize]
+@using BlazorDLR.Shared.Diagnostics
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Log — Dumb Luck Routes</PageTitle>
+
+@*
+	The app's log, on the device that made it.
+
+	This page exists because every other way of reading a phone's log needs a laptop: a paired
+	IDE for Debug.WriteLine, Console.app and a cable for NSLog, Xcode's container download for
+	the file sink. When the question is "did that code run on this handset", all three are a
+	round trip — so this answers it where the rider is already standing.
+
+	It is a diagnostic, not a feature: no filtering by level, no persistence, no upload. The
+	buffer is DiagnosticLog's ring (1 000 lines) and it dies with the process.
+*@
+
+<div class="page page-medium log-page">
+	<PageNav Title="Log" BackHref="/settings" BackLabel="Back to settings" />
+
+	<div class="log-actions">
+		<label class="filter">
+			Filter
+			<input @bind="_filter" @bind:event="oninput" placeholder="e.g. notification" />
+		</label>
+
+		<label class="follow">
+			<input type="checkbox" @bind="_follow" />
+			Follow new lines
+		</label>
+
+		<button type="button" class="copy" @onclick="CopyAsync">@(_copied ? "Copied" : "Copy log")</button>
+		<button type="button" class="clear" @onclick="Clear">Clear</button>
+	</div>
+
+	<p class="count">
+		@Visible.Count of @_lines.Count line@(_lines.Count == 1 ? "" : "s")@(_filter is { Length: > 0 } ? " matching" : "")
+	</p>
+
+	@*
+		A read-only textarea rather than a <pre>, and the reason is copying: on iOS a long press
+		in a textarea offers Select All and Copy, which is how this log gets off the phone and
+		into a message. A <pre> gives a rider a wall of text they cannot lift.
+	*@
+	<textarea class="log" readonly rows="20" spellcheck="false">@Text</textarea>
+
+	@if (_copyError is not null)
+	{
+		<p class="error">@_copyError</p>
+	}
+
+	@if (DiagnosticLog.FilePath is { } path)
+	{
+		<p class="file">
+			Also written to <code>@path</code>, which survives a restart and holds far more than
+			the @DiagnosticLog.Capacity lines above.
+		</p>
+	}
+
+	@if (_lines.Count == 0)
+	{
+		<p class="empty">
+			Nothing logged yet. The first lines arrive as the app starts — if this stays empty
+			after a restart, nothing is calling <code>DiagnosticLog.Write</code> on this host.
+		</p>
+	}
+</div>
+
+@code {
+	private IReadOnlyList<DiagnosticLog.LogLine> _lines = [];
+	private string _filter = string.Empty;
+	private bool _follow = true;
+	private bool _copied;
+	private string? _copyError;
+
+	/// <summary>The lines actually on screen, newest last so the transcript reads in order.</summary>
+	private IReadOnlyList<DiagnosticLog.LogLine> Visible =>
+		_filter is { Length: > 0 } needle
+			? _lines.Where(line => line.Text.Contains(needle, StringComparison.OrdinalIgnoreCase)).ToArray()
+			: _lines;
+
+	/// <summary>What the textarea shows, and what a rider copies out of it.</summary>
+	private string Text => string.Join(Environment.NewLine, Visible);
+
+	protected override void OnInitialized()
+	{
+		_lines = DiagnosticLog.Snapshot();
+		DiagnosticLog.Changed += OnChanged;
+	}
+
+	/// <summary>
+	/// Refreshes from the ring. Raised on whatever thread wrote the line — a hub callback, the
+	/// main thread, a background service — so this marshals before touching state, and honours
+	/// the follow switch so a rider reading something is not fighting a log that keeps moving.
+	/// </summary>
+	private void OnChanged()
+	{
+		if (!_follow)
+			return;
+
+		_ = InvokeAsync(() =>
+		{
+			_lines = DiagnosticLog.Snapshot();
+			StateHasChanged();
+		});
+	}
+
+	/// <summary>
+	/// Puts the visible lines on the clipboard, so a log gets off the phone and into a message.
+	/// <para>
+	/// <c>navigator.clipboard</c> first — it is the API that works — with the old
+	/// <c>execCommand</c> selection dance behind it, because a MAUI WebView is not always a secure
+	/// context and the modern call is refused outright when it is not. The textarea is already on
+	/// the page and already holds exactly the text being copied, so the fallback selects that
+	/// rather than building a hidden element of its own.
+	/// </para>
+	/// <para>
+	/// The <em>filtered</em> text, not the whole ring: somebody who has narrowed a thousand lines
+	/// down to the six about notifications is copying those six on purpose.
+	/// </para>
+	/// </summary>
+	private async Task CopyAsync()
+	{
+		_copyError = null;
+
+		try
+		{
+			bool copied = await JS.InvokeAsync<bool>("eval", CopyScript);
+
+			if (copied)
+			{
+				_copied = true;
+				DiagnosticLog.Write($"Log copied to the clipboard ({Visible.Count} line(s)).");
+			}
+			else
+			{
+				_copyError = "The clipboard refused the copy. Long-press the log above and choose Select All, then Copy.";
+			}
+		}
+		catch (Exception exception)
+		{
+			_copyError = $"Could not copy: {exception.Message}. Long-press the log above and choose Select All, then Copy.";
+			DiagnosticLog.WriteError("copying the log to the clipboard", exception);
+		}
+	}
+
+	/// <summary>
+	/// Reads the textarea and copies it, answering true only when the platform confirms it took.
+	/// <para>
+	/// Deliberately synchronous in its result: <c>navigator.clipboard.writeText</c> returns a
+	/// promise, and awaiting it through <c>eval</c> is not something Blazor's JS interop can do —
+	/// so the modern path is fired and the legacy one is what actually reports. When the promise
+	/// succeeds the copy has happened either way, and when it rejects <c>execCommand</c> has
+	/// already put the same text there.
+	/// </para>
+	/// </summary>
+	private const string CopyScript = """
+		(function () {
+			var box = document.querySelector('textarea.log');
+			if (!box) { return false; }
+			try {
+				if (navigator.clipboard && navigator.clipboard.writeText) {
+					navigator.clipboard.writeText(box.value);
+				}
+			} catch (e) { /* fall through to the selection path below */ }
+			try {
+				box.removeAttribute('readonly');
+				box.focus();
+				box.setSelectionRange(0, box.value.length);
+				var ok = document.execCommand('copy');
+				box.setAttribute('readonly', 'readonly');
+				return ok;
+			} catch (e) {
+				return false;
+			}
+		})();
+		""";
+
+	private void Clear()
+	{
+		DiagnosticLog.Clear();
+		_lines = DiagnosticLog.Snapshot();
+		_copied = false;
+	}
+
+	public void Dispose() => DiagnosticLog.Changed -= OnChanged;
+}
+
+<style>
+	.log-page .log-actions {
+		display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem;
+	}
+	.log-page .filter { display: flex; align-items: center; gap: 0.35rem; flex: 1 1 12rem; }
+	.log-page .filter input { flex: 1; padding: 0.4rem; }
+	.log-page .follow { display: flex; align-items: center; gap: 0.35rem; }
+	.log-page .log-actions button { padding: 0.4rem 0.9rem; }
+	.log-page .count { margin: 0 0 0.35rem; font-size: 0.85rem; opacity: 0.7; }
+	.log-page .log {
+		width: 100%; padding: 0.5rem; background: #111; color: #d6e2ff;
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem;
+		line-height: 1.35; white-space: pre; overflow-x: auto; border-radius: 6px;
+	}
+	.log-page .empty { font-style: italic; opacity: 0.7; }
+	.log-page .file { margin: 0.5rem 0 0; font-size: 0.8rem; opacity: 0.7; word-break: break-all; }
+	.log-page .file code { font-size: 0.78rem; }
+</style>

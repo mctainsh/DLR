@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @using BlazorDLR.Shared.Components
+@using BlazorDLR.Shared.Diagnostics
 @using BlazorDLR.Shared.State
 @inject AuthState Auth
 @inject CommentNotifier Notifier
@@ -71,6 +72,13 @@
 	{
 		Routing.RouteRequested += OnRouteRequested;
 
+		// Every screen the rider opens, from the one layout they all share. This is the spine of a
+		// readable log: on its own it is only a breadcrumb trail, but it is what turns the lines
+		// either side of a failure into "this happened while they were doing that" rather than a
+		// timestamp nobody can place.
+		Nav.LocationChanged += OnLocationChanged;
+		DiagnosticLog.Write($"Page: {Path(Nav.Uri)} (first).");
+
 		// Subscribe first, then drain. A route that arrived before the subscription above — the
 		// cold-launch case, which is most of them — is parked rather than raised, and this ordering
 		// is what makes sure exactly one of the two paths picks it up.
@@ -115,5 +123,19 @@
 	/// service from the component that happened to ask for it would take the hub subscription down
 	/// while the app is still running.
 	/// </summary>
-	public void Dispose() => Routing.RouteRequested -= OnRouteRequested;
+	public void Dispose()
+	{
+		Routing.RouteRequested -= OnRouteRequested;
+		Nav.LocationChanged -= OnLocationChanged;
+	}
+
+	private void OnLocationChanged(object? sender, LocationChangedEventArgs args) =>
+		DiagnosticLog.Write($"Page: {Path(args.Location)}{(args.IsNavigationIntercepted ? " (link)" : "")}.");
+
+	/// <summary>
+	/// The route without the scheme and host — which on the phone is a WebView's own invented
+	/// origin and tells a reader nothing, while making every line long enough to wrap.
+	/// </summary>
+	private string Path(string uri) =>
+		"/" + Nav.ToBaseRelativePath(uri).TrimStart('/');
 }

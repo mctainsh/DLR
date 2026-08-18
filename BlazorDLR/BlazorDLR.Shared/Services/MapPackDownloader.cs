@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using BlazorDLR.Shared.Diagnostics;
 
 namespace BlazorDLR.Shared.Services;
 
@@ -152,22 +153,38 @@ public sealed class MapPackDownloader : IDisposable
 		int version = await _store.NextVersionAsync(packId, cancellationToken);
 		long resumeFrom = await _store.PartialLengthAsync(packId, version, cancellationToken);
 
+		// A pack is hundreds of megabytes over a link a rider may be standing at the edge of, so
+		// the interesting part is almost never the exception — it is how far it got and whether it
+		// resumed. Both ends of the transfer are logged for that reason.
+		DiagnosticLog.Write(
+			$"Map pack '{packId}' v{version}: downloading from {url}" +
+			$"{(resumeFrom > 0 ? $", resuming at {Describe(resumeFrom)}" : "")}.");
+
 		try
 		{
-			return await TransferAsync(packId, version, url, resumeFrom, progress, cancellationToken);
+			MapPackDownloadResult result = await TransferAsync(packId, version, url, resumeFrom, progress, cancellationToken);
+			DiagnosticLog.Write(
+				$"Map pack '{packId}' v{version}: {(result.Succeeded ? "downloaded" : "FAILED")} — {result.Message}");
+			return result;
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
+			DiagnosticLog.Write($"Map pack '{packId}' v{version}: stopped (cancelled by the rider).");
+
 			// The partial file stays. Asking again resumes it, which is the whole point of keeping
 			// one — a rider who cancelled on mobile data and reconnected to Wi-Fi loses nothing.
 			return new MapPackDownloadResult(packId, false, "Download stopped. Starting it again will carry on from here.");
 		}
 		catch (HttpRequestException exception)
 		{
+			DiagnosticLog.WriteError($"downloading map pack '{packId}' v{version}", exception);
+
 			return new MapPackDownloadResult(packId, false, $"Could not download the map pack: {exception.Message}");
 		}
 		catch (IOException exception)
 		{
+			DiagnosticLog.WriteError($"writing map pack '{packId}' v{version} to this device", exception);
+
 			return new MapPackDownloadResult(packId, false, $"Could not write the map pack to this device: {exception.Message}");
 		}
 	}

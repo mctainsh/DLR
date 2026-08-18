@@ -168,6 +168,41 @@ public sealed class CommentNotifierTests
 			"and a stale card is how riders learn to swipe notifications away without reading them.");
 	}
 
+	/// <summary>
+	/// Opening a thread is where the permission gets asked for, and the point is the timing.
+	/// <para>
+	/// The other caller is <c>RaiseAsync</c>, which asks at the instant a post lands — on a hub
+	/// callback, which during a ride is a phone in a tank bag. iOS will not put an authorisation
+	/// alert on a screen nobody is looking at, so a first-ever prompt raised from there is one the
+	/// rider never answers and every notification after it is gated off. Android hid the whole
+	/// problem: below API 33 there is no prompt to miss.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task OpeningAThread_SettlesThePermission_WhileTheAppIsInFrontOfTheRider()
+	{
+		Harness harness = await BuildAsync();
+
+		harness.Notifier.ThreadOpened(TheRide);
+
+		harness.Notifications.PermissionRequests.ShouldBeGreaterThan(0,
+			"a rider who has just opened a conversation is a rider looking at the phone — which is " +
+			"the one moment the platform will actually show the prompt.");
+	}
+
+	[Fact]
+	public async Task AHostThatCannotNotify_IsNotAskedOnThreadOpenEither()
+	{
+		Harness harness = await BuildAsync();
+		harness.Notifications.IsSupported = false;
+
+		harness.Notifier.ThreadOpened(TheRide);
+
+		harness.Notifications.PermissionRequests.ShouldBe(0,
+			"§18.2: the browsers raise nothing, so prompting there would be a dialog for a capability " +
+			"that does not exist — opening a thread is no different from a post arriving.");
+	}
+
 	// ---------- What does not ----------
 
 	[Fact]

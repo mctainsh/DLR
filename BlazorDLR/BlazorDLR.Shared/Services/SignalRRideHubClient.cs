@@ -1,3 +1,4 @@
+using BlazorDLR.Shared.Diagnostics;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
@@ -143,8 +144,38 @@ public sealed class SignalRRideHubClient : IRideHubClient
 			}
 		};
 
+		connection.Closed += error =>
+		{
+			DiagnosticLog.Write($"Hub closed: {error?.Message ?? "no error — closed cleanly"}.");
+			return Task.CompletedTask;
+		};
+
+		connection.Reconnecting += error =>
+		{
+			DiagnosticLog.Write($"Hub reconnecting: {error?.Message ?? "no error given"}.");
+			return Task.CompletedTask;
+		};
+
 		_connection = connection;
-		await connection.StartAsync(cancellationToken);
+
+		// The hub is the first link in every realtime feature, and when it does not come up the
+		// symptom is always somebody else's: no live pins, no arriving posts, no notifications.
+		// Saying so here means one line in Settings, Log separates "the hub never connected" from
+		// "the hub is fine and the thing downstream of it is broken".
+		try
+		{
+			await connection.StartAsync(cancellationToken);
+			DiagnosticLog.Write($"Hub connected to {_hubUri}.");
+		}
+		catch (Exception exception)
+		{
+			DiagnosticLog.Write($"Hub connection FAILED to {_hubUri}: {exception.GetType().Name}: {exception.Message}");
+
+			// Cleared so a later ConnectAsync builds a fresh connection rather than returning early
+			// on the dead one this left behind.
+			_connection = null;
+			throw;
+		}
 	}
 
 	/// <inheritdoc />

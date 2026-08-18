@@ -1,4 +1,5 @@
 using BlazorDLR.Platforms.Apple.Notifications;
+using BlazorDLR.Shared.Diagnostics;
 using Foundation;
 using UIKit;
 using UserNotifications;
@@ -45,6 +46,16 @@ public class AppDelegate : MauiUIApplicationDelegate
 		_notificationDelegate = new ThreadNotificationDelegate();
 		UNUserNotificationCenter.Current.Delegate = _notificationDelegate;
 
-		return base.FinishedLaunching(application, launchOptions);
+		bool launched = base.FinishedLaunching(application, launchOptions);
+
+		// Read back *after* MAUI has built the app, not just after the assignment: the delegate is
+		// a weak reference on the Objective-C side and this is the one place a later claimant — or
+		// a collected delegate — becomes visible before a rider notices a notification that never
+		// appeared. Names the type, so "somebody else owns it now" reads differently from "nobody
+		// does".
+		DiagnosticLog.Write(
+			$"Launched. Notification centre delegate: {UNUserNotificationCenter.Current.Delegate?.GetType().Name ?? "NONE"}.");
+
+		return launched;
 	}
 }

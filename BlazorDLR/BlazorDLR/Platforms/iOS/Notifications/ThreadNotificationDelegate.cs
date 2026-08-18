@@ -1,3 +1,4 @@
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.State;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +36,12 @@ public sealed class ThreadNotificationDelegate : UNUserNotificationCenterDelegat
 		UNNotification notification,
 		Action<UNNotificationPresentationOptions> completionHandler)
 	{
+		// The other half of the pair in AppleNotificationService.ShowAsync. If that line appears
+		// and this one does not, the delegate is not on the notification centre by the time the
+		// notification is raised — which is the one failure that looks exactly like "iOS ignores
+		// our notifications" and is invisible without saying so.
+		DiagnosticLog.Write($"Foreground presentation asked for: {notification.Request.Identifier}.");
+
 		// Banner + List rather than the Alert option, which is deprecated from iOS 14 and is a
 		// no-op on the 15.0 minimum this app targets. List is what puts it in Notification Centre
 		// so a rider who missed the banner at speed can still find it when they stop.

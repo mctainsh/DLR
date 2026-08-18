@@ -1,4 +1,5 @@
 using System.Globalization;
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Comments;
 
@@ -79,7 +80,8 @@ public sealed class CommentNotifier : IDisposable
 
 	/// <summary>
 	/// Withdraws whatever card is already showing for this adventure, because the rider has just
-	/// opened its thread.
+	/// opened its thread — and takes the chance to settle the notification permission while the
+	/// app is demonstrably in front of the rider.
 	/// <para>
 	/// <strong>Housekeeping, not suppression.</strong> Called by <c>RideThread</c> on open, and it
 	/// quietens nothing that comes afterwards — a post landing while the thread is on screen still
@@ -90,10 +92,27 @@ public sealed class CommentNotifier : IDisposable
 	/// </para>
 	/// </summary>
 	/// <param name="rideId">The thread now on screen.</param>
-	public void ThreadOpened(Guid rideId) =>
+	public void ThreadOpened(Guid rideId)
+	{
 		// Fire-and-forget: there is no caller waiting, and a failure leaves a stale card that the
 		// next post replaces anyway.
 		Forget(_notifications.CancelAsync(TagFor(rideId)));
+
+		if (!_notifications.IsSupported)
+			return;
+
+		// Ask for the permission here as well as on the way past RaiseAsync, and the difference is
+		// *when*: this is a rider who has just opened a conversation, with the app in front of them.
+		// RaiseAsync asks at the moment a post lands, which on a hub callback during a ride is a
+		// phone in a tank bag with the screen off — and iOS will not put an authorisation alert on a
+		// screen nobody is looking at, so a first-ever prompt raised from there is a prompt the rider
+		// never answers and a notification that never appears. Android hid this: below API 33 there
+		// is no prompt to miss at all.
+		//
+		// Idempotent by contract (INotificationService.EnsurePermissionAsync) — neither platform
+		// shows a second prompt, so a rider who already answered sees nothing here.
+		Forget(_notifications.EnsurePermissionAsync());
+	}
 
 	/// <summary>
 	/// Whether <paramref name="comment"/> is worth interrupting the rider for.
@@ -183,6 +202,15 @@ public sealed class CommentNotifier : IDisposable
 
 	private void OnCommentPosted(CommentDto comment)
 	{
+		// The first link in the chain, and the one with no other symptom: a hub that never
+		// connected raises no event at all, which is indistinguishable from a platform that
+		// refused the notification unless somebody says which happened. Goes to DiagnosticLog
+		// rather than Debug.WriteLine so it survives a Release build and can be read on the phone.
+		DiagnosticLog.Write(
+			$"Post on the hub: ride {comment.GroupRideId}, author {comment.AuthorId} " +
+			$"(disposed: {_disposed}, notifier: {_notifications.GetType().Name}, " +
+			$"supported: {_notifications.IsSupported}, mine: {!ShouldNotify(comment)}).");
+
 		if (_disposed || !_notifications.IsSupported || !ShouldNotify(comment))
 			return;
 

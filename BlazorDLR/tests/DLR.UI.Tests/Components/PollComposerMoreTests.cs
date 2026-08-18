@@ -92,12 +92,12 @@ public sealed class PollComposerMoreTests : BunitContext
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement[] inputs = component.FindAll("input[placeholder^='Option']").ToArray();
-			inputs[0].Change("A");
+			inputs[0].Input("A");
 		});
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement[] inputs = component.FindAll("input[placeholder^='Option']").ToArray();
-			inputs[1].Change("B");
+			inputs[1].Input("B");
 		});
 
 		// Turn on the close-time switch.
@@ -124,12 +124,12 @@ public sealed class PollComposerMoreTests : BunitContext
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement[] inputs = component.FindAll("input[placeholder^='Option']").ToArray();
-			inputs[0].Change("A");
+			inputs[0].Input("A");
 		});
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement[] inputs = component.FindAll("input[placeholder^='Option']").ToArray();
-			inputs[1].Change("B");
+			inputs[1].Input("B");
 		});
 
 		component.Instance.BuildSpec()!.AllowMultiple.ShouldBeFalse("multi-select defaults off.");

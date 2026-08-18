@@ -5,6 +5,7 @@ using Android.Content.PM;
 using Android.OS;
 using Android.Views;
 using BlazorDLR.Platforms.Android.Notifications;
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.State;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -47,6 +48,12 @@ public class MainActivity : MauiAppCompatActivity
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
 		base.OnCreate(savedInstanceState);
+
+		// The counterpart of the iOS Program.Main banner. Later than that one — MauiProgram has
+		// already run by here, so the file sink is open — but it is still the first thing in the
+		// Android head, and a relaunch the OS did on its own is worth being able to see.
+		DiagnosticLog.Write(
+			$"===== DLR starting (Android) ===== rebuilt by the OS: {savedInstanceState is not null}.");
 
 		// A notification tapped from a cold lock screen launches the process and arrives here, on
 		// the intent that started it. OnNewIntent below is the same tap on an app that was already

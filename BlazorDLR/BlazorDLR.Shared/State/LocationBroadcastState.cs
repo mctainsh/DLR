@@ -1,3 +1,4 @@
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Rides;
 
@@ -619,6 +620,14 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		{
 			return;
 		}
+
+		// Every GPS transition in the app passes through here — starting, stopping, a permission
+		// refused, a receiver the platform took away. Logged at the choke point rather than at the
+		// callers so a path added later cannot forget, and with the reason count because "stopped"
+		// means something different when it is the last ride letting go than when it is a failure.
+		DiagnosticLog.Write(
+			$"GPS: {Status} -> {status}{(detail is null ? "" : $" ({detail})")}, " +
+			$"{_reasons.Count} ride(s) sharing.");
 
 		Status = status;
 		Detail = detail;
