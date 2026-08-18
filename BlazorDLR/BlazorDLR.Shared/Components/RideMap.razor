@@ -47,7 +47,7 @@
 		*@
 		<ErrorBoundary @ref="_overlayBoundary">
 			<ChildContent>
-				<SkiaMapOverlay Viewport="vp" Markers="Markers" Routes="Routes" Circles="Circles" />
+				<SkiaMapOverlay Viewport="vp" Markers="Markers" Routes="Routes" Circles="Circles" Boxes="Boxes" />
 			</ChildContent>
 			<ErrorContent Context="overlayError">
 				@*
@@ -125,6 +125,41 @@ else if (_tileError is not null)
 	/// profile screen (§10.1, §18.6), which is a radius on the ground and has to look like one.
 	/// </summary>
 	[Parameter] public IReadOnlyList<MapCircle>? Circles { get; set; }
+
+	/// <summary>
+	/// Lat / lon rectangles drawn under everything else. Set by the map-pack picker on the settings
+	/// screen (§4.2), where each box is the ground one downloadable region covers.
+	/// </summary>
+	[Parameter] public IReadOnlyList<MapBox>? Boxes { get; set; }
+
+	/// <summary>
+	/// Which tiles to draw, overriding the rider's own setting for this map alone.
+	/// <para>
+	/// Null — and so the device's choice, followed as it changes — everywhere but the map-pack
+	/// picker (§4.2). That map is a picture of the whole world, and the two sources it may find
+	/// stored cannot be one: an offline pack holds a single region and would leave the rest of the
+	/// world blank, and a tile server the rider is part-way through configuring may not answer at
+	/// all. So it opens on what it can use and falls back to OpenStreetMap, which is a decision
+	/// about that screen rather than about the rider's map, and must not be written to the device.
+	/// </para>
+	/// <para>
+	/// A map given one stops following <c>MapSourceState</c>: the caller is holding the answer, and
+	/// a device change arriving underneath would take it back.
+	/// </para>
+	/// </summary>
+	[Parameter] public MapSource? Source { get; set; }
+
+	/// <summary>
+	/// Fired with the base map's first complaint — a tile source it cannot reach, a style it cannot
+	/// parse (see <see cref="IMapInterop.ErrorOccurred"/>). Once per map, like the message the
+	/// component shows itself, because one unreachable source raises an error per tile.
+	/// <para>
+	/// Set by the map-pack picker, which answers it by re-pointing <see cref="Source"/> at OSM: on
+	/// that screen a map that draws nothing is not a message to read, it is the whole interface
+	/// missing.
+	/// </para>
+	/// </summary>
+	[Parameter] public EventCallback<string> OnTileError { get; set; }
 
 	/// <summary>Fired once the base map has attached and reported a viewport.</summary>
 	[Parameter] public EventCallback OnReady { get; set; }
@@ -226,6 +261,11 @@ else if (_tileError is not null)
 			_appliedCamera = Camera;
 			await Map.SetCameraAsync(Camera);
 		}
+
+		// A caller-supplied source changing is the same event as the device's changing, and is
+		// handled the same way — see OnMapSourceChanged, which this shares so the two cannot
+		// disagree about what a restyle involves.
+		await ApplySourceAsync();
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -251,7 +291,7 @@ else if (_tileError is not null)
 
 			MapCamera requested = Camera;
 
-			MapSource source = MapSources.Effective;
+			MapSource source = Wanted;
 
 			await Map.InitAsync(_host, new MapOptions(requested, ShowUserLocation, AllowRotation, source));
 			_appliedCamera = requested;
@@ -289,15 +329,28 @@ else if (_tileError is not null)
 	}
 
 	/// <summary>
-	/// The rider changed which tiles go under their maps. Pushed straight at the base map rather
-	/// than re-initialising it: <c>SetSourceAsync</c> swaps the style and keeps the camera, so a
-	/// map being watched while the setting changes stays on the ground it was showing.
+	/// Which tiles this map should be drawing: what the caller asked for, or the rider's own
+	/// setting when it asked for nothing. See <see cref="Source"/>.
+	/// </summary>
+	private MapSource Wanted => Source ?? MapSources.Effective;
+
+	/// <summary>
+	/// The rider changed which tiles go under their maps. A no-op on a map whose source its caller
+	/// is holding — <see cref="Wanted"/> does not move, so <see cref="ApplySourceAsync"/> finds
+	/// nothing to do.
+	/// </summary>
+	private void OnMapSourceChanged() => _ = InvokeAsync(ApplySourceAsync);
+
+	/// <summary>
+	/// Brings the base map into line with <see cref="Wanted"/>. Pushed straight at it rather than
+	/// re-initialising: <c>SetSourceAsync</c> swaps the style and keeps the camera, so a map being
+	/// watched while the setting changes stays on the ground it was showing.
 	/// <para>
 	/// Silent on failure. A base map that has gone away has already stated its own error, and a
 	/// second one over the top of it says nothing the rider can act on.
 	/// </para>
 	/// </summary>
-	private void OnMapSourceChanged() => _ = InvokeAsync(async () =>
+	private async Task ApplySourceAsync()
 	{
 		// Null until InitAsync has succeeded — see the field. A map that has not attached picks the
 		// current source up at init, and one that failed to attach is already showing why.
@@ -306,7 +359,7 @@ else if (_tileError is not null)
 			return;
 		}
 
-		MapSource wanted = MapSources.Effective;
+		MapSource wanted = Wanted;
 
 		if (wanted == applied)
 		{
@@ -316,15 +369,17 @@ else if (_tileError is not null)
 		_appliedSource = wanted;
 
 		// A new source deserves a fresh verdict — the last one's complaint says nothing about it.
+		// This is also what lets a caller answering OnTileError with a different source hear about
+		// the replacement failing too.
 		_tileError = null;
 
 		try { await Map.SetSourceAsync(wanted); }
 		catch { /* see the remarks */ }
-	});
+	}
 
 	/// <summary>
 	/// The base map reported something it could not do. Kept only if it is the first — see
-	/// <see cref="_tileError"/>.
+	/// <see cref="_tileError"/> — and told to the caller on the same terms.
 	/// </summary>
 	private void OnMapError(string message)
 	{
@@ -334,7 +389,15 @@ else if (_tileError is not null)
 		}
 
 		_tileError = message;
-		_ = InvokeAsync(StateHasChanged);
+		_ = InvokeAsync(async () =>
+		{
+			StateHasChanged();
+
+			if (OnTileError.HasDelegate)
+			{
+				await OnTileError.InvokeAsync(message);
+			}
+		});
 	}
 
 	/// <summary>

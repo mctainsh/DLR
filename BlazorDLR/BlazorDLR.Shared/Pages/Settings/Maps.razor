@@ -316,6 +316,28 @@
 				</div>
 
 				@*
+					The same question asked the other way round (§4.2).
+
+					The two dropdowns above are for somebody who knows the answer: their country, and
+					the state or region within it. A rider planning a trip through country they have
+					not ridden knows where they are going on a map and does not know that the extract
+					covering it is published under a name they have never heard — and no amount of
+					scrolling a list of two hundred names fixes that.
+
+					It fills these dropdowns in rather than replacing them, and it does not download:
+					what comes back from the map is a selection, and Download is still the separate
+					press below. Only offered when there is something to draw — an offer carries the
+					ground it covers only if the catalogue published it (§4.2), and a picker with no
+					boxes on it is a world map that answers no taps.
+				*@
+				@if (CanPickOnMap)
+				{
+					<button type="button" class="pick-on-map" @onclick="() => _picking = true">
+						Select area from map
+					</button>
+				}
+
+				@*
 					One label, and nothing to press when the pack is already here.
 
 					This offered "Download again" for a pack the phone was holding, which is a second
@@ -373,6 +395,17 @@
 					 OnViewportReported="OnPreviewMovedAsync" />
 		</div>
 	</section>
+
+	@*
+		Rendered here rather than beside the button it belongs to: it is a fixed-position layer over
+		the whole screen, and hanging it inside a fieldset would put a full-screen dialog inside a
+		form group for no reason. It carries its own map, which is a second base map on this page —
+		which is fine, because IMapInterop is transient and each RideMap holds its own.
+	*@
+	@if (_picking)
+	{
+		<MapAreaPicker Offers="Packs.Offers" OnChosen="ChooseFromMap" OnCancelled="() => _picking = false" />
+	}
 </div>
 
 @code {
@@ -477,6 +510,49 @@
 
 	/// <summary>Which pack is picked in the dropdown, by catalogue id, or empty for none.</summary>
 	private string _offerId = string.Empty;
+
+	/// <summary>Whether the pick-an-area-on-a-map window is up (§4.2). See <c>MapAreaPicker</c>.</summary>
+	private bool _picking;
+
+	/// <summary>
+	/// Whether there is anything for the map picker to draw.
+	/// <para>
+	/// The ground an extract covers is a published field and a newer one than the catalogue riders
+	/// are fetching from today (<see cref="MapPackOffer.Bounds"/>), so "no offer has bounds" is a
+	/// state that exists in the wild. The button is absent rather than disabled: a disabled control
+	/// says the rider is one step away from something, and here they are not — nothing they can do
+	/// on this device will put boxes on that map.
+	/// </para>
+	/// </summary>
+	private bool CanPickOnMap => Packs.Offers.Any(offer => offer.Bounds is not null);
+
+	/// <summary>
+	/// An area chosen by pointing at it on the map, which fills in the two dropdowns and closes the
+	/// window.
+	/// <para>
+	/// <strong>It does not download.</strong> The map is another way of answering "which area",
+	/// and the several hundred megabytes are still committed to by pressing Download — a window
+	/// that started a transfer as it closed would spend a rider's connection on a tap they made to
+	/// look at a map.
+	/// </para>
+	/// <para>
+	/// The country is set as well as the area, and has to be: the second dropdown lists the chosen
+	/// country's packs, and <see cref="Chosen"/> resolves against that list — so an area set on its
+	/// own, under some other country, would be a selection the rider cannot see and a Download
+	/// button that stayed grey.
+	/// </para>
+	/// </summary>
+	/// <param name="offer">The area they pointed at.</param>
+	private void ChooseFromMap(MapPackOffer offer)
+	{
+		_region = offer.Region;
+		_offerId = offer.Id;
+		_picking = false;
+
+		_status = AlreadyHere
+			? $"{offer.Name} is already on this phone."
+			: $"{offer.Name} is selected. Press Download to fetch it.";
+	}
 
 	/// <summary>
 	/// The countries the catalogue offers anything in, in the order the first dropdown lists them.
@@ -1174,6 +1250,24 @@
 	   nothing is picked, come from app.css so this and "Use this tile server" cannot disagree. */
 	.map-settings .download.primary {
 		min-height: 44px;
+	}
+
+	/* The other way of answering the same question as the two dropdowns above it, so it is drawn
+	   as an alternative to them rather than as a second commitment: full width to sit under the
+	   pair it belongs to, and outlined rather than accented, because the accent on this screen is
+	   reserved for the one control that spends somebody's connection. */
+	.map-settings .pick-on-map {
+		display: block;
+		width: 100%;
+		min-height: 44px;
+		margin-bottom: 0.9rem;
+		padding: 0 0.9rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border-strong);
+		border-radius: 6px;
+		color: var(--dlr-fg);
+		font: inherit;
+		cursor: pointer;
 	}
 
 	/* The packs on this device. A row is a choice, a size and a way out of it — nothing else,

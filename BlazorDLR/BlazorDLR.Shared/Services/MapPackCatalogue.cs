@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DLR.Core.Contracts.Maps;
+using DLR.Core.Tracks;
 
 namespace BlazorDLR.Shared.Services;
 
@@ -23,6 +24,16 @@ namespace BlazorDLR.Shared.Services;
 /// <param name="SizeBytes">How much of the phone it will take.</param>
 /// <param name="Sha256">The published checksum, lowercase hex, or <c>null</c> when the entry carried none.</param>
 /// <param name="Url">Where to fetch it from, absolute.</param>
+/// <param name="Bounds">
+/// The ground the extract covers, when the entry published a box that makes sense — see
+/// <see cref="TrackBounds.IsWellFormed"/>, which is what a claim has to survive to get here.
+/// <para>
+/// Null is ordinary rather than exceptional: the field is newer than the catalogue riders are
+/// fetching from today. What it costs is the map picker — an offer with no box cannot be drawn on
+/// a world map or found by pointing at one — and not the map, which is why the download form still
+/// lists every offer whether it has bounds or not.
+/// </para>
+/// </param>
 public sealed record MapPackOffer(
 	string Id,
 	string Name,
@@ -30,7 +41,8 @@ public sealed record MapPackOffer(
 	int Version,
 	long SizeBytes,
 	string? Sha256,
-	Uri Url)
+	Uri Url,
+	TrackBounds? Bounds = null)
 {
 	// Deliberately no IsDownloadable here. It existed, the screen branched on it to draw a reason
 	// instead of a button, and the page guarded the click with it as well — which made the rule true
@@ -324,7 +336,12 @@ public sealed class MapPackCatalogue : IDisposable
 				Math.Max(entry.Version, 1),
 				Math.Max(entry.SizeBytes, 0),
 				string.IsNullOrWhiteSpace(entry.Sha256) ? null : entry.Sha256.Trim(),
-				url));
+				url,
+				// Dropped rather than repaired when it does not make sense. A box with its corners
+				// swapped, or a longitude of 1000, would be drawn across the whole world on the map
+				// picker and answer to a tap anywhere on it — which is worse than the offer simply
+				// not appearing there, since the dropdown still lists it either way.
+				entry.Bounds is { } bounds && bounds.IsWellFormed ? bounds : null));
 		}
 
 		// Alphabetical by what the rider reads, country first. The catalogue's own order is the order

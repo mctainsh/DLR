@@ -20,6 +20,11 @@ public sealed class MapPackCatalogueTests
 	/// <summary>Where the catalogue lives in these tests, and the base a relative pack URL resolves against.</summary>
 	private static readonly Uri Address = new("https://packs.example.com/maps/catalogue.json");
 
+	/// <summary>Roughly New South Wales — the ground one extract covers, as the catalogue states it.</summary>
+	private const string DefaultBounds = """
+		"bounds": { "minLatitude": -37.52, "minLongitude": 140.99, "maxLatitude": -28.15, "maxLongitude": 153.65 }
+		""";
+
 	/// <summary>
 	/// A catalogue entry, written the way <c>Build-AuMapPacks.ps1</c> writes one.
 	/// </summary>
@@ -27,24 +32,24 @@ public sealed class MapPackCatalogueTests
 	/// Omitted from the JSON entirely when null, because that is the catalogue on the host today —
 	/// the field is newer than the packs riders have already downloaded from it.
 	/// </param>
+	/// <param name="bounds">
+	/// The <c>bounds</c> member as JSON, or null to leave it out altogether — which is the catalogue
+	/// on the host today, since the field is newer than the packs riders have downloaded from it.
+	/// </param>
 	private static string Entry(
 		string id,
 		string name,
 		string url,
 		long sizeBytes = 1024,
 		int version = 1,
-		string? region = null) =>
+		string? region = null,
+		string? bounds = DefaultBounds) =>
 		$$"""
 		{
 			"id": "{{id}}",
 			"name": "{{name}}",
 			{{(region is null ? "" : $"\"region\": \"{region}\",")}}
-			"bounds": {
-				"minLatitude": -37.52,
-				"minLongitude": 140.99,
-				"maxLatitude": -28.15,
-				"maxLongitude": 153.65
-			},
+			{{(bounds is null ? "" : bounds + ",")}}
 			"minZoom": 0,
 			"maxZoom": 14,
 			"sizeBytes": {{sizeBytes}},
@@ -76,6 +81,47 @@ public sealed class MapPackCatalogueTests
 		nsw.SizeBytes.ShouldBe(351089645, "the number a traveller decides on before spending it.");
 		nsw.Url.ShouldBe(new Uri("https://packs.example.com/au-nsw.v1.pmtiles"));
 		MapPackDownloader.IsFetchable(nsw.Url).ShouldBeTrue();
+
+		// The ground it covers, which is what the settings screen draws on the map picker (§4.2).
+		nsw.Bounds.ShouldNotBeNull();
+		nsw.Bounds!.Value.MinLatitude.ShouldBe(-37.52);
+		nsw.Bounds.Value.MaxLongitude.ShouldBe(153.65);
+	}
+
+	/// <summary>
+	/// The catalogue riders are fetching from today predates the field, so this is the ordinary case
+	/// rather than the odd one. It costs the offer its place on the map picker and nothing else —
+	/// the dropdowns still list it, and it still downloads.
+	/// </summary>
+	[Fact]
+	public async Task AnEntryWithNoBounds_IsStillOffered()
+	{
+		StubHttpHandler handler = new(Catalogue(
+			Entry("au-nsw", "New South Wales", "https://packs.example.com/au-nsw.v1.pmtiles", bounds: null)));
+
+		MapPackCatalogueResult result = await Build(handler).ReadAsync();
+
+		MapPackOffer nsw = result.Packs.Single();
+		nsw.Bounds.ShouldBeNull();
+		MapPackDownloader.IsFetchable(nsw.Url).ShouldBeTrue("a missing box costs the picker, not the map.");
+	}
+
+	/// <summary>
+	/// Bounds are a publisher's claim like every other field here. One that does not describe a
+	/// place is dropped rather than repaired: drawn as published it would be a box across the whole
+	/// world on the map picker, answering a tap anywhere on it with the wrong region.
+	/// </summary>
+	[Theory]
+	[InlineData(""" "bounds": { "minLatitude": -28.15, "minLongitude": 140.99, "maxLatitude": -37.52, "maxLongitude": 153.65 } """)]
+	[InlineData(""" "bounds": { "minLatitude": -37.52, "minLongitude": 140.99, "maxLatitude": -28.15, "maxLongitude": 999.0 } """)]
+	public async Task BoundsThatDescribeNoPlace_AreDropped(string bounds)
+	{
+		StubHttpHandler handler = new(Catalogue(
+			Entry("au-nsw", "New South Wales", "https://packs.example.com/au-nsw.v1.pmtiles", bounds: bounds)));
+
+		MapPackCatalogueResult result = await Build(handler).ReadAsync();
+
+		result.Packs.Single().Bounds.ShouldBeNull("and the entry itself survives — see the remarks.");
 	}
 
 	/// <summary>

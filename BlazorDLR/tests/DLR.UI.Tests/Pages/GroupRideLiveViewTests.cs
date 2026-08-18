@@ -1048,7 +1048,13 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.FindAll("button.heading-up.on").ShouldNotBeEmpty();
-			component.Find("button.heading-up i").GetAttribute("class").ShouldContain("fa-compass");
+
+			// Read out before it is asserted on: an element with no class attribute at all is a
+			// different failure from one carrying the wrong icon, and only the first assertion can
+			// tell them apart.
+			string? icon = component.Find("button.heading-up i").GetAttribute("class");
+			icon.ShouldNotBeNull();
+			icon.ShouldContain("fa-compass");
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		await ChooseMapOrientationAsync(component);

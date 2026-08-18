@@ -1,0 +1,434 @@
+@using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
+@using DLR.Core.Tracks
+@inject MapSourceState MapSources
+
+@*
+	Choosing which offline map pack to download by pointing at the ground it covers (§4.2).
+
+	The catalogue is two hundred and thirty-odd areas across eighty-odd countries, and the form
+	behind this asks for them as a country and then an area within it. That works for somebody who
+	knows the answer already. It does not work for the case this screen exists for — a rider
+	planning a trip through country they have not been to, who knows where they are going on a map
+	and does not know that the extract covering it is filed under a name they have never heard.
+
+	So this is the same question asked the other way round: here is the world, here is every area
+	on offer drawn on it, point at where you are going.
+
+	Three things it deliberately does not do:
+
+	  * It does not download. Picking here fills in the form behind it and closes; the Download
+	    button is still a separate, deliberate press, because what it commits to is several hundred
+	    megabytes of somebody's connection.
+	  * It does not store a camera. The preview map on the settings page remembers where it was
+	    left because judging a tile source means going back to ground you know; this one opens on
+	    the world every time, because seeing all of the boxes at once is the whole of its job.
+	  * It does not draw with an offline pack. See PickerSource.
+*@
+
+<div class="area-picker-backdrop" @onkeydown="OnKey" tabindex="-1" @ref="_root">
+	<div class="area-picker" role="dialog" aria-modal="true" aria-labelledby="area-picker-title">
+		<header>
+			<h2 id="area-picker-title">Choose an area</h2>
+			<button type="button" class="close" @onclick="CancelAsync" aria-label="Close">Close</button>
+		</header>
+
+		<p class="hint">
+			Every map on offer is drawn as a box. Tap the one you want — where areas overlap you
+			will be asked which. Nothing downloads until you press Download.
+		</p>
+
+		@*
+			The picking cursor is on, and rotation is off: a tap here means "this ground", which is
+			the same reason the marker composer and the private-area picker refuse rotation (§16.1,
+			§10.1). A rider who has turned the map is aiming at a north-up mental image that is no
+			longer on screen.
+		*@
+		<div class="area-picker-map">
+			<RideMap Camera="WorldView" AllowRotation="false" Boxes="_boxes" Source="_source"
+					 OnMapClicked="OnMapTappedAsync" OnTileError="OnTileFailed" />
+		</div>
+
+		@if (_candidates.Count > 1)
+		{
+			@*
+				More than one area covers the point, which on a catalogue of nested extracts is
+				ordinary rather than rare — a country and the states inside it are both on offer.
+
+				Smallest first, because a tap is a statement about a place and the smallest box
+				containing it is the most specific answer to it. The boxes tapped are redrawn
+				emphasised at the same time: a list of names cannot say *which* of the shapes on
+				screen each one is, and the rider is choosing between overlapping regions they may
+				know by neither name.
+			*@
+			<div class="choices" role="group" aria-labelledby="area-picker-choices-title">
+				<p id="area-picker-choices-title" class="choices-title">
+					@_candidates.Count maps cover that point:
+				</p>
+
+				<ul>
+					@foreach (MapPackOffer offer in _candidates)
+					{
+						<li>
+							<button type="button" @onclick="() => ChooseAsync(offer)">
+								<span class="name">@offer.Name</span>
+								<span class="detail">@offer.Region · @MapPackDownloader.Describe(offer.SizeBytes)</span>
+							</button>
+						</li>
+					}
+				</ul>
+
+				<button type="button" class="dismiss" @onclick="Dismiss">Pick somewhere else</button>
+			</div>
+		}
+		else if (_status is not null)
+		{
+			<p class="status" role="status">@_status</p>
+		}
+	</div>
+</div>
+
+@code {
+	/// <summary>
+	/// The packs on offer. Only those carrying bounds can be drawn or pointed at — see
+	/// <see cref="MapPackOffer.Bounds"/> — and the rest are left to the dropdowns behind this.
+	/// </summary>
+	[Parameter, EditorRequired] public IReadOnlyList<MapPackOffer> Offers { get; set; } = [];
+
+	/// <summary>Fired with the area the rider settled on. The caller closes this.</summary>
+	[Parameter] public EventCallback<MapPackOffer> OnChosen { get; set; }
+
+	/// <summary>Fired when they left without choosing.</summary>
+	[Parameter] public EventCallback OnCancelled { get; set; }
+
+	/// <summary>The whole world, which is where this opens and stays until the rider zooms it.</summary>
+	private static readonly MapCamera WorldView = new(0, 0, 0);
+
+	/// <summary>The colour every area is drawn in — the app's accent, the same one the Download button carries.</summary>
+	private const string BoxColour = "#2563eb";
+
+	private ElementReference _root;
+
+	/// <summary>The areas a tap landed inside, smallest first. More than one means the rider is being asked which.</summary>
+	private IReadOnlyList<MapPackOffer> _candidates = [];
+
+	/// <summary>What to say about a tap that chose nothing. Null while there is nothing to say.</summary>
+	private string? _status;
+
+	/// <summary>
+	/// The boxes as the overlay draws them. Rebuilt only when what they should look like changes —
+	/// a fresh list on every render would repaint the Skia canvas for every keystroke and status
+	/// line, and there are two hundred of them.
+	/// </summary>
+	private IReadOnlyList<MapBox> _boxes = [];
+
+	/// <summary>
+	/// Which tiles this map draws. Assigned once, from the device, and again only if they fail.
+	/// </summary>
+	private MapSource _source = MapSource.Default;
+
+	protected override void OnInitialized()
+	{
+		_source = PickerSource(MapSources.Effective);
+		BuildBoxes();
+	}
+
+	protected override void OnParametersSet() => BuildBoxes();
+
+	/// <summary>
+	/// Focuses the dialog so Escape reaches it without the rider having to click into it first.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			try { await _root.FocusAsync(); } catch { /* not attached yet */ }
+		}
+	}
+
+	/// <summary>
+	/// Which tiles a world map of the whole catalogue can actually be drawn with.
+	/// <para>
+	/// The rider's own choice, with one exception: an offline pack is a single region, so a world
+	/// map drawn from one is that region and then nothing — and this screen is the one place in the
+	/// app where the rest of the world is the point. A rider who has downloaded New South Wales and
+	/// come here to add Victoria would be looking at New South Wales and a void.
+	/// </para>
+	/// <para>
+	/// A tile server of the rider's own is left alone, because it is a world map and probably works.
+	/// If it does not, <see cref="OnTileFailed"/> is the answer to that — and it has to be,
+	/// since the commonest way to arrive on this screen with a broken one is to have just typed it.
+	/// </para>
+	/// </summary>
+	/// <param name="stored">What the device is set to.</param>
+	private static MapSource PickerSource(MapSource stored) =>
+		stored.Kind == MapSourceKind.Offline ? MapSource.Default : stored;
+
+	/// <summary>
+	/// The base map cannot draw. Falls back to OpenStreetMap, which is the source that needs no
+	/// account, no pack and no configuration — and without a map underneath them the boxes are two
+	/// hundred rectangles on a grey field, which is not a thing anybody can point at.
+	/// <para>
+	/// Once. A second failure is OSM itself failing, and there is nowhere further to fall back to;
+	/// <c>RideMap</c> is already showing what went wrong.
+	/// </para>
+	/// </summary>
+	/// <param name="problem">What the base map said. Not shown here — RideMap says it itself.</param>
+	private void OnTileFailed(string problem)
+	{
+		if (_source == MapSource.Default)
+		{
+			return;
+		}
+
+		_source = MapSource.Default;
+		_status = "Those map tiles would not load, so this is showing OpenStreetMap.";
+	}
+
+	/// <summary>
+	/// Every offer that published a box, plus the emphasis on whichever are being chosen between.
+	/// </summary>
+	private void BuildBoxes()
+	{
+		List<MapBox> boxes = [];
+
+		foreach (MapPackOffer offer in Offers)
+		{
+			if (offer.Bounds is not { } bounds)
+			{
+				continue;
+			}
+
+			boxes.Add(new MapBox(
+				bounds,
+				BoxColour,
+				_candidates.Count > 1 && _candidates.Any(candidate => candidate.Id == offer.Id)));
+		}
+
+		_boxes = boxes;
+	}
+
+	/// <summary>
+	/// The rider pointed at some ground. Everything the point falls inside is a candidate; one of
+	/// them is the answer, several are a question, and none is a miss.
+	/// </summary>
+	/// <param name="click">Where they pointed.</param>
+	private async Task OnMapTappedAsync(MapClick click)
+	{
+		// Smallest first: the most specific area containing a point is the one somebody pointing at
+		// it means, and it is also the smaller download of the two.
+		List<MapPackOffer> hits = [.. Offers
+			.Where(offer => offer.Bounds is { } bounds && bounds.Contains(click.Latitude, click.Longitude))
+			.OrderBy(offer => offer.Bounds!.Value.SpanDeg2)];
+
+		if (hits.Count == 0)
+		{
+			_candidates = [];
+			_status = "No map on offer covers that point. Try somewhere else, or use the list instead.";
+			BuildBoxes();
+			return;
+		}
+
+		if (hits.Count == 1)
+		{
+			await ChooseAsync(hits[0]);
+			return;
+		}
+
+		_candidates = hits;
+		_status = null;
+		BuildBoxes();
+	}
+
+	/// <summary>Settles on an area, which is also what closes this — the caller does the closing.</summary>
+	/// <param name="offer">The area chosen.</param>
+	private Task ChooseAsync(MapPackOffer offer) => OnChosen.InvokeAsync(offer);
+
+	/// <summary>Puts the list of overlapping areas away without choosing one, leaving the map up.</summary>
+	private void Dismiss()
+	{
+		_candidates = [];
+		_status = null;
+		BuildBoxes();
+	}
+
+	private Task CancelAsync() => OnCancelled.InvokeAsync();
+
+	/// <summary>
+	/// Escape leaves. It closes the list of overlapping areas first when one is up, because that is
+	/// the innermost thing on screen and losing the whole picker to a keystroke aimed at a list is
+	/// the sort of thing that makes somebody stop using the keyboard.
+	/// </summary>
+	/// <param name="args">The key pressed.</param>
+	private async Task OnKey(KeyboardEventArgs args)
+	{
+		if (args.Key != "Escape")
+		{
+			return;
+		}
+
+		if (_candidates.Count > 1)
+		{
+			Dismiss();
+			return;
+		}
+
+		await CancelAsync();
+	}
+}
+
+<style>
+	/* Over everything, including the nav rail — this is a map you point at, and every pixel of it
+	   that is page furniture is a pixel of the world you cannot see. Above the confirm dialog's
+	   z-index is deliberately *not* claimed: a confirm raised while this is open is a question
+	   about it and has to be readable. */
+	.area-picker-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 900;
+		background: rgba(0, 0, 0, 0.6);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, var(--dlr-safe-right, 0px))
+				 max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, var(--dlr-safe-left, 0px));
+	}
+
+	.area-picker {
+		/* The containing block for the disambiguation list below, which sits over the map's bottom
+		   edge. Without it that list resolves against the fixed backdrop — the viewport — and hangs
+		   outside the dialog's own border on any screen wider than it. */
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		width: min(60rem, 100%);
+		height: 100%;
+		max-height: 100%;
+		background: var(--dlr-surface, #1e293b);
+		color: var(--dlr-fg, #e2e8f0);
+		border: 1px solid var(--dlr-border, #334155);
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+	.area-picker header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.6rem 0.75rem;
+		border-bottom: 1px solid var(--dlr-border, #334155);
+	}
+
+	.area-picker header h2 {
+		margin: 0;
+		font-size: 1.05rem;
+	}
+
+	/* The same 44 px target as everything else pressed in a hurry, and the only way out on a phone
+	   with no hardware back button in the WebView. */
+	.area-picker .close {
+		min-height: 44px;
+		padding: 0 0.9rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border-strong, #475569);
+		border-radius: 6px;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.area-picker .hint {
+		margin: 0;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.85rem;
+		color: var(--dlr-fg-muted, #94a3b8);
+	}
+
+	/* The map takes whatever height is left. Its own container carries a 480 px minimum for a full
+	   screen, which on a phone in this dialog would push the header off the top — so it is cleared
+	   here and the flex row is what sizes it. */
+	.area-picker-map {
+		flex: 1;
+		min-height: 0;
+		position: relative;
+	}
+
+	.area-picker-map .dlr-map-container {
+		position: absolute;
+		inset: 0;
+		min-height: 0;
+		height: 100%;
+	}
+
+	/* The disambiguation list, over the bottom of the map rather than under it: the boxes it is
+	   asking about are drawn emphasised behind it, and pushing the map up to make room would move
+	   them out from under the finger that just pointed at them. */
+	.area-picker .choices {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 4;
+		max-height: 55%;
+		overflow-y: auto;
+		padding: 0.6rem 0.75rem 0.75rem;
+		background: var(--dlr-surface, #1e293b);
+		border-top: 1px solid var(--dlr-border-strong, #475569);
+	}
+
+	.area-picker .choices-title {
+		margin: 0 0 0.5rem;
+		font-size: 0.85rem;
+		color: var(--dlr-fg-muted, #94a3b8);
+	}
+
+	.area-picker .choices ul {
+		list-style: none;
+		margin: 0 0 0.6rem;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.area-picker .choices li button {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.15rem;
+		width: 100%;
+		min-height: 44px;
+		padding: 0.4rem 0.6rem;
+		background: var(--dlr-surface-2, #334155);
+		border: 1px solid var(--dlr-border-strong, #475569);
+		border-radius: 6px;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.area-picker .choices .detail {
+		font-size: 0.8rem;
+		color: var(--dlr-fg-muted, #94a3b8);
+	}
+
+	.area-picker .choices .dismiss {
+		min-height: 44px;
+		padding: 0 0.9rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border-strong, #475569);
+		border-radius: 6px;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.area-picker .status {
+		margin: 0;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.85rem;
+		color: var(--dlr-fg-muted, #94a3b8);
+	}
+</style>

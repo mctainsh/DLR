@@ -289,6 +289,116 @@ public sealed class RideMapForwardTests : BunitContext
 		component.Markup.ShouldNotContain("a later consequence of it");
 	}
 
+	// -- A caller holding the source (§4.2) -----------------------------------------------------
+
+	/// <summary>
+	/// The map-pack picker opens a world map, and the source stored on the device may be an offline
+	/// pack — one region and then nothing, on the one screen where the rest of the world is the
+	/// point. So a caller can hand this map a source of its own.
+	/// </summary>
+	[Fact]
+	public async Task ACallerSuppliedSource_IsWhatTheMapOpensWith()
+	{
+		FakeMapInterop map = new();
+		ObservedMapInterop wrapped = new(map);
+		Services.AddSingleton<IMapInterop>(wrapped);
+		Services.AddRideMapServices();
+
+		// What the device says, and what this map is told to draw instead.
+		await Services.GetRequiredService<MapSourceState>().SetAsync(
+			MapSource.Custom("https://tiles.example.com/{z}/{x}/{y}.png", "© Example"));
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, Camera)
+			.Add(p => p.Source, MapSource.Default));
+
+		component.WaitForAssertion(
+			() => wrapped.LastOptions!.EffectiveSource.ShouldBe(MapSource.Default),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// And the device changing underneath does not take it back. The caller is holding the answer;
+	/// a restyle arriving from the setting would be the map deciding it knew better.
+	/// </summary>
+	[Fact]
+	public async Task AMapHoldingItsOwnSource_DoesNotFollowTheDevice()
+	{
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		MapSourceState sources = Services.GetRequiredService<MapSourceState>();
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, Camera)
+			.Add(p => p.Source, MapSource.Default));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() =>
+			sources.SetAsync(MapSource.Custom("https://tiles.example.com/{z}/{x}/{y}.png", "© Example")));
+
+		map.Sources.ShouldBeEmpty("the caller's source is the answer, and nothing else may replace it.");
+	}
+
+	/// <summary>
+	/// Changing what the caller asked for restyles, on the same terms a device change does — which
+	/// is how the picker answers a tile source that will not draw by falling back to OpenStreetMap.
+	/// </summary>
+	[Fact]
+	public void ChangingTheCallersSource_RestylesTheMapItIsAlreadyShowing()
+	{
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		MapSource custom = MapSource.Custom("https://tiles.example.com/{z}/{x}/{y}.png", "© Example");
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, Camera)
+			.Add(p => p.Source, custom));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		component.Render(parameters => parameters.Add(p => p.Source, MapSource.Default));
+
+		component.WaitForAssertion(() =>
+		{
+			map.Sources.Count.ShouldBe(1);
+			map.Sources[0].ShouldBe(MapSource.Default);
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		map.InitCount.ShouldBe(1, "restyled, not torn down and rebuilt.");
+	}
+
+	/// <summary>
+	/// The complaint reaches the caller as well as the screen. A screen whose whole interface is
+	/// drawn on the map — the pack picker — has somewhere better to go than a message about it.
+	/// </summary>
+	[Fact]
+	public void TheFirstTileError_IsToldToTheCallerAsWellAsShown()
+	{
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		List<string> reported = [];
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, Camera)
+			.Add(p => p.OnTileError, reported.Add));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		map.RaiseError("the first thing that went wrong");
+		map.RaiseError("a later consequence of it");
+
+		component.WaitForAssertion(
+			() => reported.ShouldBe(["the first thing that went wrong"]),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
 	/// <summary>An <see cref="IMapInterop"/> that records init arguments before delegating.</summary>
 	private sealed class ObservedMapInterop : IMapInterop
 	{

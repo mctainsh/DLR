@@ -50,14 +50,36 @@ public sealed class AndroidNotificationService : INotificationService
 	/// <inheritdoc />
 	public bool IsSupported => true;
 
+	/// <summary>
+	/// The system's notification manager for this app.
+	/// <para>
+	/// AndroidX declares <c>From</c> as returning a nullable, the same way its builder setters return
+	/// a nullable self — see the note in <see cref="ShowAsync"/>. It is not known to answer null on
+	/// any device, and there is no documented case where it would; the null is a gap in the binding's
+	/// annotations rather than a state worth designing around.
+	/// </para>
+	/// <para>
+	/// It is still handled at every call site rather than dismissed with a <c>!</c>, because the two
+	/// are not the same bet: every use of it here is inside a method that already swallows its own
+	/// failures — a notification that does not appear costs a card in the shade, and the post is in
+	/// the thread either way — so treating null as "no notification" costs nothing, while the <c>!</c>
+	/// would trade that for a crash on whichever phone eventually proves the annotation right.
+	/// </para>
+	/// </summary>
+	private static NotificationManagerCompat? Notifications =>
+		NotificationManagerCompat.From(Platform.AppContext);
+
 	/// <inheritdoc />
 	public async Task<bool> EnsurePermissionAsync(CancellationToken cancellationToken = default)
 	{
 		// Below Android 13 there is no runtime permission at all — notifications are granted at
 		// install and the request API answers Granted without a dialog. Checked explicitly anyway
 		// so the intent is readable rather than resting on MAUI's shim behaving.
+		// False rather than true when there is no manager to ask: this answer is what decides whether
+		// a post is attempted at all, and "I could not find out" has to read as "do not", or the one
+		// device that lands here posts into a system that has already said no.
 		if (!OperatingSystem.IsAndroidVersionAtLeast(33))
-			return NotificationManagerCompat.From(Platform.AppContext).AreNotificationsEnabled();
+			return Notifications?.AreNotificationsEnabled() ?? false;
 
 		try
 		{
@@ -115,8 +137,7 @@ public sealed class AndroidNotificationService : INotificationService
 			if (BuildContentIntent(notification.Route) is { } content)
 				builder.SetContentIntent(content);
 
-			NotificationManagerCompat.From(Platform.AppContext)
-				.Notify(notification.Tag, NotificationId, builder.Build());
+			Notifications?.Notify(notification.Tag, NotificationId, builder.Build());
 		}
 		catch (Exception)
 		{
@@ -132,7 +153,7 @@ public sealed class AndroidNotificationService : INotificationService
 	{
 		try
 		{
-			NotificationManagerCompat.From(Platform.AppContext).Cancel(tag, NotificationId);
+			Notifications?.Cancel(tag, NotificationId);
 		}
 		catch (Exception)
 		{

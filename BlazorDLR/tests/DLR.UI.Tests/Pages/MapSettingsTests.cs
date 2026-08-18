@@ -57,6 +57,52 @@ public sealed class MapSettingsTests : PageTestContext
 	private readonly StubHttpHandler _archive = new(new byte[] { 0x50, 0x4D, 0x54, 0x69, 0x6C, 0x65, 0x73, 0x03 });
 
 	/// <summary>
+	/// Two areas that do not overlap, each publishing the ground it covers (§4.2) — which is what
+	/// puts them on the map picker at all. New South Wales and Tasmania, roughly, plus one across
+	/// the Tasman so that choosing on the map has a country to move away from.
+	/// </summary>
+	private const string BoundedCatalogue = """
+		[
+			{ "id": "au-nsw", "name": "New South Wales", "region": "Australia", "minZoom": 0, "maxZoom": 14,
+			  "bounds": { "minLatitude": -37.52, "minLongitude": 140.99, "maxLatitude": -28.15, "maxLongitude": 153.65 },
+			  "sizeBytes": 351089645, "sha256": "745b01e7", "version": 1,
+			  "url": "https://packs.example.com/au-nsw.v1.pmtiles" },
+			{ "id": "au-tas", "name": "Tasmania", "region": "Australia", "minZoom": 0, "maxZoom": 14,
+			  "bounds": { "minLatitude": -43.70, "minLongitude": 143.80, "maxLatitude": -39.50, "maxLongitude": 148.50 },
+			  "sizeBytes": 57935628, "sha256": "dd9d57d3", "version": 1,
+			  "url": "https://packs.example.com/au-tas.v1.pmtiles" },
+			{ "id": "nz-sth", "name": "South Island", "region": "New Zealand", "minZoom": 0, "maxZoom": 14,
+			  "bounds": { "minLatitude": -46.70, "minLongitude": 166.40, "maxLatitude": -40.50, "maxLongitude": 174.40 },
+			  "sizeBytes": 91234567, "sha256": "aa11bb22", "version": 1,
+			  "url": "https://packs.example.com/nz-sth.v1.pmtiles" }
+		]
+		""";
+
+	/// <summary>
+	/// The same, with the whole country over the top of one of its states — which is the ordinary
+	/// shape of a real catalogue rather than a contrived one, and the case a tap cannot answer on
+	/// its own.
+	/// </summary>
+	private const string NestedCatalogue = """
+		[
+			{ "id": "au-nsw", "name": "New South Wales", "region": "Australia", "minZoom": 0, "maxZoom": 14,
+			  "bounds": { "minLatitude": -37.52, "minLongitude": 140.99, "maxLatitude": -28.15, "maxLongitude": 153.65 },
+			  "sizeBytes": 351089645, "sha256": "745b01e7", "version": 1,
+			  "url": "https://packs.example.com/au-nsw.v1.pmtiles" },
+			{ "id": "au-all", "name": "Australia", "region": "Australia", "minZoom": 0, "maxZoom": 14,
+			  "bounds": { "minLatitude": -43.64, "minLongitude": 112.92, "maxLatitude": -10.06, "maxLongitude": 153.64 },
+			  "sizeBytes": 2351089645, "sha256": "cc33dd44", "version": 1,
+			  "url": "https://packs.example.com/au-all.v1.pmtiles" }
+		]
+		""";
+
+	/// <summary>Sydney — inside New South Wales in both catalogues above.</summary>
+	private const double SydneyLatitude = -33.87;
+
+	/// <summary>Sydney.</summary>
+	private const double SydneyLongitude = 151.21;
+
+	/// <summary>
 	/// A catalogue of <paramref name="count"/> regions, for the tests about a list too long to put
 	/// on a phone screen a row at a time.
 	/// </summary>
@@ -120,6 +166,27 @@ public sealed class MapSettingsTests : PageTestContext
 		page.InvokeAsync(() => page.Find("select.offers").Change(packId));
 
 	private IRenderedComponent<Maps> RenderPage() => Render<Maps>();
+
+	/// <summary>
+	/// Opens the pick-an-area-on-a-map window (§4.2). It is only offered once the catalogue has
+	/// landed and something in it published the ground it covers, so every caller waits first.
+	/// </summary>
+	private static Task OpenTheMapAsync(IRenderedComponent<Maps> page)
+	{
+		WaitForCatalogue(page);
+		page.WaitForAssertion(
+			() => page.FindAll("button.pick-on-map").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		return page.InvokeAsync(() => page.Find("button.pick-on-map").Click());
+	}
+
+	/// <summary>
+	/// Stands in for a finger on the base map. The fake interop is registered once and both maps on
+	/// this page listen to it — the preview wires no click handler, so only the picker answers.
+	/// </summary>
+	private Task TapTheMapAsync(IRenderedComponent<Maps> page, double latitude, double longitude) =>
+		page.InvokeAsync(() => _map.RaiseClick(latitude, longitude));
 
 	/// <summary>
 	/// Picks the offline radio, which on a phone is the second of the three.
@@ -513,6 +580,7 @@ public sealed class MapSettingsTests : PageTestContext
 	[Fact]
 	public async Task ThereIsNothingToPressToReadTheCatalogueAgain()
 	{
+		_catalogue = new StubHttpHandler(BoundedCatalogue);
 		Wire();
 
 		IRenderedComponent<Maps> page = RenderPage();
@@ -520,7 +588,186 @@ public sealed class MapSettingsTests : PageTestContext
 		WaitForCatalogue(page);
 
 		page.FindAll("button.refresh").ShouldBeEmpty();
-		page.FindAll("fieldset.catalogue button").Count.ShouldBe(1, "Download, and nothing else.");
+		page.FindAll("fieldset.catalogue button").Select(button => button.TextContent.Trim())
+			.ShouldBe(["Select area from map", "Download"],
+				"two ways to answer which area, and one way to commit to it — nothing else.");
+	}
+
+	/// <summary>
+	/// The screen the map picker is for: somebody planning a trip through country they have not
+	/// ridden knows where they are going on a map, and does not know that the extract covering it is
+	/// published under a name they have never heard.
+	/// </summary>
+	[Fact]
+	public async Task PointingAtGroundOnTheMap_PicksTheAreaCoveringIt()
+	{
+		_catalogue = new StubHttpHandler(BoundedCatalogue);
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		await OpenTheMapAsync(page);
+
+		page.FindAll(".area-picker").ShouldNotBeEmpty();
+
+		await TapTheMapAsync(page, SydneyLatitude, SydneyLongitude);
+
+		page.FindAll(".area-picker").ShouldBeEmpty("choosing closes the window.");
+		page.Find("select.offers").GetAttribute("value").ShouldBe("au-nsw");
+		page.Find("button.download").HasAttribute("disabled").ShouldBeFalse();
+	}
+
+	/// <summary>
+	/// And it stops there. What the map answers is which area; the several hundred megabytes are
+	/// still committed to by pressing Download, because a window that started a transfer as it
+	/// closed would spend a rider's connection on a tap they made to look at a map.
+	/// </summary>
+	[Fact]
+	public async Task ChoosingOnTheMap_DoesNotStartTheDownload()
+	{
+		_catalogue = new StubHttpHandler(BoundedCatalogue);
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		await OpenTheMapAsync(page);
+
+		await TapTheMapAsync(page, SydneyLatitude, SydneyLongitude);
+
+		_archive.Requests.ShouldBe(0);
+		(await _packs.ListAsync()).ShouldBeEmpty();
+
+		await page.InvokeAsync(() => page.Find("button.download").Click());
+
+		page.WaitForAssertion(
+			() => page.Find("select.offers").TextContent.ShouldContain("(on this phone)"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_archive.LastRequest.ShouldBe(new Uri("https://packs.example.com/au-nsw.v1.pmtiles"),
+			"and pressing it fetches what the map chose.");
+	}
+
+	/// <summary>
+	/// The second dropdown lists the chosen country's areas and <c>Chosen</c> resolves against that
+	/// list, so an area set on its own under some other country would be a selection the rider
+	/// cannot see and a Download button that stayed grey for no stated reason.
+	/// </summary>
+	[Fact]
+	public async Task ChoosingOnTheMap_MovesTheCountryToMatch()
+	{
+		_catalogue = new StubHttpHandler(BoundedCatalogue);
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		WaitForCatalogue(page);
+
+		await page.InvokeAsync(() => page.Find("select.regions").Change("New Zealand"));
+		page.Find("select.offers").TextContent.ShouldNotContain(
+			"New South Wales", customMessage: "narrowed to the wrong country.");
+
+		await OpenTheMapAsync(page);
+		await TapTheMapAsync(page, SydneyLatitude, SydneyLongitude);
+
+		page.Find("select.regions").GetAttribute("value").ShouldBe("Australia");
+		page.Find("select.offers").GetAttribute("value").ShouldBe("au-nsw");
+		page.Find("button.download").HasAttribute("disabled").ShouldBeFalse();
+	}
+
+	/// <summary>
+	/// A country and the states inside it are both on offer, so a point is regularly in two boxes at
+	/// once. The tap cannot answer that on its own and neither can the app: it is a real choice
+	/// between a small download and a large one, and it is put to the rider.
+	/// </summary>
+	[Fact]
+	public async Task WhereAreasOverlap_TheRiderIsAskedWhichOne()
+	{
+		_catalogue = new StubHttpHandler(NestedCatalogue);
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		await OpenTheMapAsync(page);
+
+		await TapTheMapAsync(page, SydneyLatitude, SydneyLongitude);
+
+		page.FindAll(".area-picker").ShouldNotBeEmpty("nothing is chosen until they say which.");
+		page.Find("select.offers").GetAttribute("value").ShouldBeNullOrEmpty();
+
+		// Smallest first: the most specific area containing a point is what somebody pointing at it
+		// means, and it is also the smaller of the two downloads.
+		page.FindAll(".area-picker .choices li button .name").Select(choice => choice.TextContent)
+			.ShouldBe(["New South Wales", "Australia"]);
+
+		await page.InvokeAsync(() => page.FindAll(".area-picker .choices li button")[1].Click());
+
+		page.FindAll(".area-picker").ShouldBeEmpty();
+		page.Find("select.offers").GetAttribute("value").ShouldBe("au-all", "they asked for the whole country.");
+	}
+
+	/// <summary>
+	/// A tap in the ocean is not an error and does not close anything — it is somebody still
+	/// looking, and taking the map away from them would be the wrong answer to a near miss.
+	/// </summary>
+	[Fact]
+	public async Task PointingWhereNoAreaIsOffered_SaysSoAndLeavesTheMapUp()
+	{
+		_catalogue = new StubHttpHandler(BoundedCatalogue);
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		await OpenTheMapAsync(page);
+
+		// The middle of the Pacific.
+		await TapTheMapAsync(page, -20.0, -140.0);
+
+		page.FindAll(".area-picker").ShouldNotBeEmpty();
+		page.Find(".area-picker .status").TextContent.ShouldContain("No map on offer covers that point");
+		page.Find("select.offers").GetAttribute("value").ShouldBeNullOrEmpty();
+	}
+
+	/// <summary>
+	/// Leaving without choosing changes nothing. The window is a way of reading the catalogue, and
+	/// opening one should never be a commitment.
+	/// </summary>
+	[Fact]
+	public async Task ClosingTheMapWithoutChoosing_LeavesTheFormAlone()
+	{
+		_catalogue = new StubHttpHandler(BoundedCatalogue);
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		WaitForCatalogue(page);
+
+		await ChoosePackToDownloadAsync(page, "au-tas");
+		await OpenTheMapAsync(page);
+		await page.InvokeAsync(() => page.Find(".area-picker .close").Click());
+
+		page.FindAll(".area-picker").ShouldBeEmpty();
+		page.Find("select.offers").GetAttribute("value").ShouldBe("au-tas", "what was picked before is untouched.");
+	}
+
+	/// <summary>
+	/// The field is newer than the catalogue riders are fetching from today, so a list with no
+	/// bounds in it is a state that exists in the wild. The button is absent rather than disabled:
+	/// a disabled control says somebody is one step away from something, and here they are not —
+	/// nothing they can do on this device will put boxes on that map.
+	/// </summary>
+	[Fact]
+	public async Task WithNoPublishedBounds_ThereIsNoMapToPickFrom()
+	{
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		WaitForCatalogue(page);
+
+		page.FindAll("button.pick-on-map").ShouldBeEmpty(
+			"the catalogue on the host today publishes no bounds, and a world map with nothing " +
+			"drawn on it answers no taps.");
+		page.FindAll("select.offers option").Count.ShouldBe(3, "and every area is still reachable by name.");
 	}
 
 	/// <summary>

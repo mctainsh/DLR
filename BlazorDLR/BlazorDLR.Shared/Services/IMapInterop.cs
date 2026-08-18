@@ -1,3 +1,4 @@
+using DLR.Core.Tracks;
 using Microsoft.AspNetCore.Components;
 
 namespace BlazorDLR.Shared.Services;
@@ -345,3 +346,29 @@ public sealed record RouteOverlay(string EncodedPolyline, string Colour = "#2563
 /// <param name="RadiusM">Radius on the ground, in metres.</param>
 /// <param name="Colour">Hex colour for the ring and the wash inside it.</param>
 public sealed record MapCircle(double Latitude, double Longitude, double RadiusM, string Colour = "#dc2626");
+
+/// <summary>
+/// A lat / lon rectangle drawn by the Skia overlay — an outline with a wash inside it.
+/// <para>
+/// Its one caller is the map picker on the settings screen (§4.2), which draws the ground every
+/// offline pack covers so a rider can point at the one they want instead of hunting for its name
+/// in a list of two hundred. That is why it is a box and not a <see cref="RouteOverlay"/> tracing
+/// four corners: a route carries the device's own line colour, width and direction chevrons
+/// (§18.6), none of which mean anything on an extent, and a rider who had turned arrows on would
+/// find them marching round the edge of every region on offer.
+/// </para>
+/// <para>
+/// Edges are straight in Web Mercator — the projection the overlay draws in — so the four corners
+/// are the whole of the shape however far the box is from the equator. It is drawn as a
+/// quadrilateral rather than a screen-aligned rectangle so that it still sits over the ground it
+/// names on a map that has been turned.
+/// </para>
+/// </summary>
+/// <param name="Bounds">The ground it covers.</param>
+/// <param name="Colour">Hex colour for the outline and the wash inside it.</param>
+/// <param name="Emphasised">
+/// Whether to draw it as the one being talked about — a heavier edge and a stronger wash. Set on
+/// the boxes a tap landed in while the rider is choosing between them, which is the only way to
+/// tell somebody <em>which</em> of two overlapping regions a name in a list refers to.
+/// </param>
+public sealed record MapBox(TrackBounds Bounds, string Colour = "#2563eb", bool Emphasised = false);

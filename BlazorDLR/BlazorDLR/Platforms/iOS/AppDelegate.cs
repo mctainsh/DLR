@@ -32,7 +32,13 @@ public class AppDelegate : MauiUIApplicationDelegate
 	/// token, no entitlement. Claiming the delegate is a local-notification concern only.
 	/// </para>
 	/// </summary>
-	public override bool FinishedLaunching(UIApplication application, NSDictionary launchOptions)
+	/// <param name="application">The application being launched.</param>
+	/// <param name="launchOptions">
+	/// Why the app was started, or <c>null</c> — which is the ordinary case, since a launch from the
+	/// home screen carries no options at all. The <c>?</c> is not decoration: UIKit declares this
+	/// parameter nullable, and an override that narrows it is a promise the framework never made.
+	/// </param>
+	public override bool FinishedLaunching(UIApplication application, NSDictionary? launchOptions)
 	{
 		// Before base: MAUI builds the app and starts the first window in there, and a notification
 		// response arriving in the middle of that still needs somewhere to land.

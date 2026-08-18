@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<!--
+	Support page for Dumb Luck Routes (au.com.securehub.dlr).
+
+	This is the URL that goes in App Store Connect -> App Information -> Support URL, and in
+	Google Play as the support website. Apple requires the field; the page has to actually help
+	somebody, not redirect to a landing page.
+
+	Standalone by design, exactly like dlr-privacy-policy.html beside it: no external CSS, JS,
+	fonts or images, so it can be dropped on any static host and renders identically offline.
+
+	Deliberately carries NO contact details. Everything here is self-service: what each screen
+	does, and how to get out of the states people actually get stuck in.
+
+	Every instruction was written against the shipping screens, using their real labels. If a
+	screen's wording changes, this file changes in the same commit — a support page describing
+	buttons that are not there is worse than no support page.
+-->
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Help &amp; Support — Dumb Luck Routes</title>
+	<style>
+		:root {
+			color-scheme: light dark;
+			--bg: #ffffff;
+			--surface: #f6f7f9;
+			--text: #1b1f24;
+			--muted: #5a6470;
+			--rule: #d8dde3;
+			--accent: #1a5fb4;
+			--flag-bg: #fff3cd;
+			--flag-text: #6b4e00;
+			--flag-rule: #e0b400;
+		}
+
+		@media (prefers-color-scheme: dark) {
+			:root {
+				--bg: #14171a;
+				--surface: #1c2024;
+				--text: #e6e8eb;
+				--muted: #a2acb8;
+				--rule: #2f353c;
+				--accent: #78b0ff;
+				--flag-bg: #3a3212;
+				--flag-text: #ffdf7a;
+				--flag-rule: #8a7420;
+			}
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			padding: 2rem 1.25rem 5rem;
+			background: var(--bg);
+			color: var(--text);
+			font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+			-webkit-text-size-adjust: 100%;
+		}
+
+		main {
+			max-width: 46rem;
+			margin: 0 auto;
+		}
+
+		h1 {
+			font-size: 1.9rem;
+			line-height: 1.2;
+			margin: 0 0 .35rem;
+		}
+
+		h2 {
+			font-size: 1.3rem;
+			margin: 2.75rem 0 .75rem;
+			padding-top: 1.25rem;
+			border-top: 1px solid var(--rule);
+		}
+
+		h3 {
+			font-size: 1.05rem;
+			margin: 1.75rem 0 .5rem;
+		}
+
+		p, ul, ol { margin: 0 0 1rem; }
+		li { margin-bottom: .4rem; }
+
+		a { color: var(--accent); }
+
+		.subtitle {
+			color: var(--muted);
+			margin-bottom: 1.5rem;
+		}
+
+		.summary {
+			background: var(--surface);
+			border: 1px solid var(--rule);
+			border-radius: .5rem;
+			padding: 1.25rem 1.25rem .25rem;
+			margin-bottom: 2rem;
+		}
+
+		.summary h2 {
+			border: 0;
+			margin: 0 0 .75rem;
+			padding: 0;
+			font-size: 1.1rem;
+		}
+
+		.toc ol {
+			padding-left: 1.25rem;
+			columns: 2;
+			column-gap: 2rem;
+		}
+
+		@media (max-width: 32rem) {
+			.toc ol { columns: 1; }
+		}
+
+		.table-wrap {
+			overflow-x: auto;
+			margin: 0 0 1.25rem;
+			border: 1px solid var(--rule);
+			border-radius: .5rem;
+		}
+
+		table {
+			border-collapse: collapse;
+			width: 100%;
+			min-width: 34rem;
+			font-size: .93rem;
+		}
+
+		th, td {
+			text-align: left;
+			vertical-align: top;
+			padding: .6rem .75rem;
+			border-bottom: 1px solid var(--rule);
+		}
+
+		th {
+			background: var(--surface);
+			font-weight: 600;
+		}
+
+		tbody tr:last-child td { border-bottom: 0; }
+
+		code {
+			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+			font-size: .9em;
+			background: var(--surface);
+			padding: .1em .35em;
+			border-radius: .25rem;
+		}
+
+		kbd {
+			font: inherit;
+			font-weight: 600;
+		}
+
+		.callout {
+			background: var(--flag-bg);
+			color: var(--flag-text);
+			border: 1px solid var(--flag-rule);
+			border-radius: .5rem;
+			padding: .9rem 1rem;
+			margin: 0 0 1.25rem;
+		}
+
+		.callout p:last-child { margin-bottom: 0; }
+
+		/* A troubleshooting entry: the symptom, then what to do about it. */
+		.fix {
+			border: 1px solid var(--rule);
+			border-radius: .5rem;
+			padding: 1rem 1.1rem .1rem;
+			margin: 0 0 1rem;
+			background: var(--surface);
+		}
+
+		.fix h3 {
+			margin: 0 0 .5rem;
+			font-size: 1rem;
+		}
+
+		footer {
+			margin-top: 3rem;
+			padding-top: 1.25rem;
+			border-top: 1px solid var(--rule);
+			color: var(--muted);
+			font-size: .9rem;
+		}
+
+		@media print {
+			body { padding: 0; font-size: 11pt; }
+			.summary, .fix, th { background: transparent; }
+			a { color: inherit; text-decoration: none; }
+			h2 { page-break-after: avoid; }
+			.table-wrap, table, .fix { page-break-inside: avoid; }
+		}
+	</style>
+</head>
+<body>
+<main>
+
+	<h1>Help &amp; Support</h1>
+	<p class="subtitle">
+		<strong>Dumb Luck Routes</strong> — a live map for group adventures.<br>
+		How each screen works, and how to get out of the states people get stuck in.
+	</p>
+
+	<div class="summary">
+		<h2>The five-minute version</h2>
+		<ul>
+			<li>An <strong>adventure</strong> is a group of people travelling together. The people on it are <strong>travellers</strong>; whoever created it is the <strong>organiser</strong>.</li>
+			<li>Join one with a <strong>six-character code</strong> from the organiser: <strong>Group adventures → Join an adventure</strong>.</li>
+			<li>Nobody sees your position until you turn on <strong>Broadcast my location to this adventure</strong>, on that adventure's info page. It starts off, every time, on every adventure.</li>
+			<li>Positions only flow once the organiser has pressed <strong>Start adventure</strong>. Before that your GPS stays off.</li>
+			<li>Turning sharing off <em>deletes</em> the position the adventure was holding for you — it does not leave a last-known pin behind.</li>
+			<li>Heading somewhere with no signal? <strong>Settings → Maps</strong> → <em>Offline map pack</em>, and download the area before you leave.</li>
+			<li>Stuck? Jump to <a href="#trouble">Fixing common problems</a>.</li>
+		</ul>
+	</div>
+
+	<nav class="toc">
+		<h2>Contents</h2>
+		<ol>
+			<li><a href="#start">Getting started</a></li>
+			<li><a href="#around">Finding your way around</a></li>
+			<li><a href="#adventures">Group adventures</a></li>
+			<li><a href="#sharing">Sharing your location</a></li>
+			<li><a href="#livemap">The live map</a></li>
+			<li><a href="#members">Live members</a></li>
+			<li><a href="#markers">Markers</a></li>
+			<li><a href="#thread">The adventure thread</a></li>
+			<li><a href="#organising">Organising an adventure</a></li>
+			<li><a href="#tracks">Tracks: recording, importing, trimming</a></li>
+			<li><a href="#maps">Maps and offline map packs</a></li>
+			<li><a href="#privatearea">The private area around home</a></li>
+			<li><a href="#settings">Settings, profile and your data</a></li>
+			<li><a href="#trouble">Fixing common problems</a></li>
+		</ol>
+	</nav>
+
+	<h2 id="start">1. Getting started</h2>
+
+	<h3>Creating an account</h3>
+	<p>
+		The first screen offers <strong>Register</strong> and <strong>Sign in</strong>. An account is
+		a <strong>user name</strong> and a <strong>password</strong> — nothing else is required.
+	</p>
+	<ul>
+		<li><strong>User name</strong> is permanent. It is chosen once and cannot be changed afterwards, because other people's saved copies of an adventure refer to it. The form tells you as you type whether the name is available.</li>
+		<li><strong>Password</strong> must be at least 6 characters and contain at least one uppercase letter, one lowercase letter and one digit. A strength meter is shown while you type.</li>
+		<li><strong>Email</strong> is optional, and the trade-off is stated on the form: with no email address on file, a forgotten password <em>cannot</em> be reset and the account cannot be recovered. You can add one later at <strong>Settings → Account</strong>.</li>
+	</ul>
+
+	<h3>Signing in on more than one device</h3>
+	<p>
+		The same account works on the phone app and in a web browser at the same time. Sessions do
+		not expire on their own — see <a href="#settings">Signed-in devices</a> for signing an old
+		phone or a borrowed laptop out.
+	</p>
+	<p>
+		The browser version can do nearly everything: adventures, the live map, everyone's positions,
+		routes, markers and the thread. What it cannot do is produce <em>your own</em> position, or
+		record a track, or hold an offline map pack — those need a phone with a GPS receiver that
+		keeps running with the screen off, so those screens are only offered in the app.
+	</p>
+
+	<h2 id="around">2. Finding your way around</h2>
+
+	<p>
+		The <strong>Home</strong> screen has four cards — <em>My adventures</em>, <em>Group
+		adventures</em>, <em>Import GPX</em> and <em>Settings</em>.
+	</p>
+	<p>
+		There is also a permanent navigation rail: down the left on a wide screen, along the bottom
+		on a narrow one. It never collapses into a hamburger, so the five destinations are always
+		one tap away.
+	</p>
+
+	<div class="table-wrap">
+		<table>
+			<thead>
+				<tr>
+					<th>Icon</th>
+					<th>Where it goes</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>House</td>
+					<td>Home.</td>
+				</tr>
+				<tr>
+					<td>Globe</td>
+					<td>The live map of the adventure you last opened on this device — remembered across a restart. With no adventure yet, it opens the group adventures list instead, and its label says so.</td>
+				</tr>
+				<tr>
+					<td>People</td>
+					<td>The live member list for that same adventure.</td>
+				</tr>
+				<tr>
+					<td>File</td>
+					<td>Import GPX.</td>
+				</tr>
+				<tr>
+					<td>Gear</td>
+					<td>Settings.</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<h2 id="adventures">3. Group adventures</h2>
+
+	<p>
+		<strong>Group adventures</strong> lists everything you are part of, in two sections:
+		<em>Organised by you</em> and <em>Joined</em>. An adventure you organise shows its
+		<strong>join code</strong> beside it; one you merely joined does not.
+	</p>
+
+	<h3>Joining one</h3>
+	<ol>
+		<li><strong>Group adventures → Join an adventure</strong>.</li>
+		<li>Type the six-character code the organiser gave you. Case does not matter — the field upper-cases as you type.</li>
+		<li>Add a message if you like. It is only read by the organiser, and only matters on approval adventures.</li>
+		<li>Press <strong>Join</strong>.</li>
+	</ol>
+	<p>
+		What happens next depends on how the organiser set it up. An <strong>open</strong> adventure
+		admits you straight away and opens it. An <strong>approval</strong> adventure creates a
+		pending request and returns you to the list — you are not in it, and cannot see anybody, until
+		the organiser admits you.
+	</p>
+
+	<h3>Creating one</h3>
+	<ol>
+		<li><strong>Group adventures → Create an adventure</strong>.</li>
+		<li>Give it a <strong>name</strong>, a <strong>start time</strong>, and optionally a description — where to meet, what to bring.</li>
+		<li>Choose how people join:
+			<ul>
+				<li><strong>Approval</strong> — a valid code creates a pending request, and nobody enters until you admit them.</li>
+				<li><strong>Open</strong> — a valid code joins immediately.</li>
+			</ul>
+		</li>
+		<li>Press <strong>Create adventure</strong>. You are the organiser, and the join code appears beside the adventure in the list. Share that code with the people you are inviting.</li>
+	</ol>
+
+	<h3>The adventure's info page</h3>
+	<p>
+		Tapping an adventure opens its info page. This is where the things you set <em>before</em>
+		moving live: the routes, how those routes are drawn, and your sharing switch. Everything
+		here writes through immediately — there is no Save button, because there is nothing pending.
+	</p>
+
+	<h3>Leaving one</h3>
+	<p>
+		On the info page, <strong>Leave adventure…</strong>. Your sharing stops, the position the
+		adventure holds for you is deleted, and the adventure drops off your navigation rail. Getting
+		back on needs the join code again, or a new request.
+	</p>
+	<p>
+		An organiser cannot leave their own adventure — an adventure nobody organises has nobody to
+		decide who is in it. The way out is <strong>End adventure…</strong>.
+	</p>
+
+	<h2 id="sharing">4. Sharing your location</h2>
+
+	<div class="callout">
+		<p>
+			<strong>Sharing is per adventure, and it starts at off.</strong> There is no global
+			"share my location" switch in this app, and no way to turn one on. You can be on an
+			adventure without sharing at all — the member list shows that plainly rather than hiding
+			it.
+		</p>
+	</div>
+
+	<h3>Turning it on</h3>
+	<p>
+		Open the adventure's info page and switch on <strong>Broadcast my location to this
+		adventure</strong>, under <em>My sharing</em>. The first time, the app explains what it is
+		about to ask for and gives you the choice to agree or cancel, before the phone's own
+		permission dialog appears.
+	</p>
+	<p>
+		Directly under the switch is a line saying what is actually happening — which is a different
+		question from what the switch says. It will tell you if permission was refused, if no fix has
+		arrived yet, if you are standing inside your own private area, or if the adventure has not
+		been started yet.
+	</p>
+
+	<h3>Before the adventure starts</h3>
+	<p>
+		If you switch sharing on before the organiser presses <strong>Start adventure</strong>, the
+		app says: <em>"Your position starts going to the group when the organiser starts the
+		adventure. Your phone's GPS stays off until then."</em> That is normal, and it is why your
+		battery is not being spent while everyone stands in a car park.
+	</p>
+
+	<h3>Turning it off</h3>
+	<p>
+		Flip the same switch. Turning it off <strong>deletes</strong> the position the adventure was
+		holding for you rather than merely stopping the broadcast — otherwise a last-known pin would
+		sit on everyone's map exactly where you asked not to be.
+	</p>
+	<p>
+		Sharing also ends automatically when you leave the adventure, when the organiser removes you,
+		and when the adventure ends. If the organiser chose a wind-down, sharing continues for at
+		most two hours after the end so people can watch each other get home — you can stop yours at
+		any point during it, and the cap cannot be extended.
+	</p>
+
+	<h3>With the screen off</h3>
+	<p>
+		While you are sharing, the phone keeps sending your position with the app in the background
+		and the screen off. That is the point of it: you reach for the phone at a junction, not on
+		the move.
+	</p>
+	<ul>
+		<li>On <strong>iPhone and iPad</strong>, the blue location indicator stays lit in the status bar for as long as it is running. For it to keep working with the app in the background, location access must be set to <strong>Always</strong> — <em>While Using the App</em> stops the moment you put the phone away, and resumes when you come back to it.</li>
+		<li>On <strong>Android</strong>, a permanent notification is shown the whole time. It cannot be swiped away, and that is deliberate — it is how you can always tell.</li>
+		<li>It stops when you turn sharing off, leave the adventure, or the adventure ends — <em>not</em> when you close the app.</li>
+	</ul>
+
+	<h3>Battery and accuracy</h3>
+	<p>
+		<strong>Settings → Location → Accuracy</strong> controls how often your position is
+		<em>sent</em> to the adventures you are sharing with. Three choices, cheapest first:
+		<strong>Eco</strong>, <strong>Balanced</strong> and <strong>Precise</strong>. Each states its
+		cadence and what it is for. A change takes effect immediately — if the GPS is already
+		running, it restarts on the new setting.
+	</p>
+	<p>
+		This is the battery setting. It does not change how much detail your own recorded track
+		keeps; that is the recording interval, further down the same screen.
+	</p>
+
+	<h2 id="livemap">5. The live map</h2>
+
+	<p>
+		The live map is the screen you actually use while moving: everyone who is sharing, the
+		planned route, and the markers people have dropped. It is built to be read at a glance,
+		through a visor, in daylight.
+	</p>
+
+	<h3>The two buttons that stay lit</h3>
+	<ul>
+		<li><strong>Follow me</strong> — keeps the camera on your own position instead of leaving it where you last dragged it. The button lights up while it is on, and its label tells you if it is still waiting for a fix.</li>
+		<li><strong>Heading up</strong> — turns the map so the direction you are travelling is up the screen, rather than north. Same behaviour: lit while on, and it says so if it has no heading yet.</li>
+	</ul>
+	<p>
+		Both survive being backgrounded and reopened. Panning or zooming the map by hand does not
+		silently cancel them — the lit button is the state.
+	</p>
+
+	<h3>The actions menu</h3>
+	<p>
+		The hamburger button on the map opens <em>Adventure actions</em>:
+	</p>
+	<ul>
+		<li><strong>Adventure info</strong> — routes, route styling, your sharing switch, leaving.</li>
+		<li><strong>Add a marker</strong> — only when the organiser allows members to place them.</li>
+		<li><strong>Thread</strong> — the conversation for this adventure.</li>
+		<li><strong>Neighbours</strong> — a toggle for the ahead/behind panel, described below.</li>
+		<li><strong>Markers</strong> — the list of everything marked on this adventure, tap one to expand it.</li>
+	</ul>
+
+	<h3>The neighbour panel</h3>
+	<p>
+		With <em>Neighbours</em> switched on, a small panel shows who is immediately <strong>ahead of
+		you</strong> and who is <strong>behind you</strong> along the route, and by how far. It
+		answers the two questions you actually have while moving, without reading a whole list.
+	</p>
+	<p>
+		It needs a route on the adventure to measure along. With no route added, there is no "along"
+		to be ahead or behind on.
+	</p>
+
+	<h3>Tapping the map</h3>
+	<p>
+		Tapping near a marker opens the markers close to that point. Tapping empty map while placing
+		a marker sets where it goes — there is a <strong>Cancel</strong> button in the banner at the
+		top while you are in that mode.
+	</p>
+
+	<h2 id="members">6. Live members</h2>
+
+	<p>
+		The people icon in the navigation rail opens the live member list for the current adventure.
+		Each traveller shows their name, their colour, whether they are sharing, and:
+	</p>
+	<ul>
+		<li><strong>Last fix</strong> — how fresh their position is. A stale time is the honest answer when somebody has lost signal.</li>
+		<li><strong>Range</strong> — how far they are from you as the crow flies.</li>
+		<li><strong>Along</strong> — how far along the route they are.</li>
+		<li><strong>Gap</strong> — the distance between them and the traveller next to them in the order.</li>
+	</ul>
+	<p>
+		Sort by <strong>Last active</strong>, <strong>Name</strong>, <strong>Along route</strong> or
+		<strong>Range</strong>. <em>Along route</em> is unavailable and shown greyed out when the
+		adventure has no route on it.
+	</p>
+	<p>
+		Somebody who has not turned sharing on appears in the list without a position. That is
+		deliberate — they are on the adventure, they simply are not on the map.
+	</p>
+
+	<h2 id="markers">7. Markers</h2>
+
+	<p>
+		A marker is a pin on the adventure's map: gravel across a corner, the fuel stop, the turning
+		everyone misses, where to regroup.
+	</p>
+	<ol>
+		<li>On the live map, open the actions menu and choose <strong>Add a marker</strong>.</li>
+		<li>Tap the map where it goes.</li>
+		<li>Pick an <strong>icon</strong>, give it a <strong>title</strong> (up to 40 characters), and add a note describing what is there and what to look out for.</li>
+		<li>Optionally attach a <strong>photo</strong>, and set the direction it faces — useful when the hazard only matters coming one way.</li>
+	</ol>
+	<p>
+		Markers are visible to everyone on that adventure and survive after it ends. You can delete
+		your own. If <em>Add a marker</em> is missing from the menu, the organiser has switched
+		member markers off for this adventure.
+	</p>
+	<p>
+		Photos are stripped of all metadata — including GPS coordinates and camera identifiers — when
+		they are uploaded, before anybody can see them.
+	</p>
+
+	<h2 id="thread">8. The adventure thread</h2>
+
+	<p>
+		One conversation per adventure: text, photos, reactions, pinned posts and polls, all in one
+		place. Reach it from the actions menu on the live map.
+	</p>
+	<ul>
+		<li><strong>Posting</strong> — type and send. A post can carry a photo, text, or both.</li>
+		<li><strong>Polls</strong> — tick <em>Poll</em> above the composer, write the question in the text box, and add the options. Results update live for everyone.</li>
+		<li><strong>Reactions</strong> — six of them, on any post. They carry no free text, so they stay available even when the organiser has switched comments off.</li>
+		<li><strong>Pinned posts</strong> — the organiser can pin a post to the top of the thread so every member sees it. Pinning and unpinning both ask for confirmation.</li>
+		<li><strong>Report</strong> — the flag control on a post. Reports reach the organiser and the operator.</li>
+		<li><strong>Delete</strong> — your own posts, and the organiser's on their adventure.</li>
+	</ul>
+
+	<h3>Notifications</h3>
+	<p>
+		The app raises notifications for new posts in an adventure's thread. Two things to know:
+	</p>
+	<ul>
+		<li>They are raised <strong>by your own phone</strong>, not by a push service, so they arrive while the app is running — which during an adventure it is, because sharing keeps it alive. Outside an adventure the system suspends the app and nothing is raised; you read the thread the next time you open it.</li>
+		<li>You are not notified about your own posts, and not about a thread you are already looking at. Opening a thread clears its notification.</li>
+	</ul>
+	<p>
+		There is no per-adventure mute inside the app, on purpose. Your phone already has notification
+		controls and Do Not Disturb, applied consistently to everything on it — turn Dumb Luck Routes
+		down there, where you turn everything else down.
+	</p>
+
+	<h3>Blocking somebody</h3>
+	<p>
+		Blocking hides that traveller's posts, reactions, markers and poll votes from you. They are
+		not told, and their own view of the adventure does not change. Manage the list at
+		<strong>Settings → Blocked travellers</strong>, where <strong>Unblock</strong> reverses it.
+	</p>
+
+	<h2 id="organising">9. Organising an adventure</h2>
+
+	<p>
+		Everything below is on the adventure's info page, under <em>Organiser</em>, and is visible
+		only to you.
+	</p>
+
+	<h3>Adding a route</h3>
+	<p>
+		Under <em>Routes</em>, press the button to add one and pick from your own tracks — anything
+		you have recorded or imported. Once a route is on the adventure, every member sees it on the
+		live map, and the ahead/behind measurements have something to measure along.
+	</p>
+	<p>
+		Each route can be given a colour, <strong>reversed</strong> (for the run home, or a track
+		recorded the other way round), or removed. Reversing is offered to every member, not just the
+		organiser, and the same button undoes it.
+	</p>
+
+	<h3>Route display</h3>
+	<p>
+		How routes are drawn <em>on this device</em> — one colour or per-route colours, line colour,
+		outline colour, line width, and direction arrows. It is a personal preference: two people on
+		the same adventure can hold different answers and neither is wrong. <strong>Reset</strong>
+		puts it back to the defaults.
+	</p>
+
+	<h3>Join requests</h3>
+	<p>
+		<em>Organiser → Join requests</em> lists everybody waiting on your decision, with the message
+		they sent. Three buttons per request:
+	</p>
+	<ul>
+		<li><strong>Admit</strong> — adds them to the adventure.</li>
+		<li><strong>Decline</strong> — refuses this request. They can ask again.</li>
+		<li><strong>Decline &amp; block</strong> — refuses it and stops them asking again.</li>
+	</ul>
+
+	<h3>Content permissions</h3>
+	<p>
+		<em>Organiser → Content permissions</em> has three switches: whether members may place
+		<strong>markers</strong>, post <strong>comments</strong>, and attach <strong>photos</strong>.
+		Photos are a separate switch from comments on purpose — they are often the thing you want to
+		stop while leaving conversation alone.
+	</p>
+	<p>
+		Turning a switch off stops <em>new</em> content. Nothing is deleted; if you want something
+		gone, delete it explicitly.
+	</p>
+
+	<h3>Starting and ending</h3>
+	<p>
+		<strong>Start adventure</strong> is what makes positions flow. Until you press it, the server
+		drops position updates and everyone's GPS stays off, however many people have switched
+		sharing on.
+	</p>
+	<p>
+		<strong>End adventure…</strong> asks what should happen to everyone's sharing:
+	</p>
+	<ul>
+		<li><strong>Stop sharing for everyone now</strong> — sharing ends immediately and every stored position is deleted.</li>
+		<li><strong>Let travellers stop themselves (2-hour wind-down)</strong> — sharing continues so people can watch each other get home. The cap is two hours, cannot be extended, and is enforced by the server. Somebody who forgets is not left sharing forever.</li>
+	</ul>
+	<p>
+		You can end sharing for everybody, but you can never switch another traveller's sharing back
+		on.
+	</p>
+
+	<h2 id="tracks">10. Tracks: recording, importing, trimming</h2>
+
+	<h3>Recording</h3>
+	<p>
+		<strong>Settings → Location → Recording your adventures</strong> keeps a track of where you
+		went — for you, not for the group. Switch on <em>Record a track while the GPS is running</em>.
+	</p>
+	<ul>
+		<li>Recording runs while the GPS runs, which means while you are sharing with at least one adventure. A track starts at the first fix after sharing goes on.</li>
+		<li><strong>How often a point is kept</strong> — an interval in metres. Smaller draws a roundabout as a roundabout; larger keeps a long tour to a sensible size. It cannot be finer than the GPS is reporting, so on <strong>Eco</strong> a 5 m setting still produces a coarse track.</li>
+		<li><strong>Track in progress</strong> shows what has been captured so far: start, last point, distance, moving time, points and segments.</li>
+		<li>Give it a <strong>name</strong> and press <strong>Save as one of my tracks</strong>. The name is required — a list of three tracks called "Untitled" is a list you cannot use. There is also <strong>Delete this track</strong>, which needs no name.</li>
+		<li>By default, saving cuts out any part recorded inside your private area. You can choose otherwise on that screen.</li>
+	</ul>
+	<p>
+		A track stops growing once it reaches the point cap. Save it or delete it to start a new one.
+	</p>
+
+	<h3>Importing a GPX file</h3>
+	<ol>
+		<li><strong>Import GPX</strong>, from the Home screen or the navigation rail.</li>
+		<li>Pick a <code>.gpx</code> file — from a planning tool, another app, or somebody who sent you one.</li>
+		<li>A <strong>preview</strong> appears first: name, distance, points, segments, ascent and duration for each track in the file. Nothing has been saved yet.</li>
+		<li>Press <strong>Import</strong> to keep it, or <strong>Choose a different file</strong> to start again.</li>
+	</ol>
+	<p>
+		If you have imported the same content before, the preview says so — a second copy is allowed,
+		it is a warning rather than a block. If the file holds more tracks than the per-file cap
+		allows, the preview tells you which ones will be imported.
+	</p>
+
+	<h3>My adventures</h3>
+	<p>
+		<strong>My adventures</strong> lists every track you have recorded or imported, with its
+		source, distance, duration, ascent and date. Tap one to open it, where you can
+		<strong>Rename</strong>, <strong>Delete</strong> or <strong>Edit</strong> it. Tracks are
+		private to you.
+	</p>
+
+	<h3>Trimming a track</h3>
+	<p>
+		The editor cuts a track back to the part worth keeping — the drive to the start, the lunch
+		stop, the wrong turn, the streets around your house.
+	</p>
+	<ol>
+		<li>Open a track and press <strong>Edit</strong>.</li>
+		<li><strong>Tap the track</strong> to put the cursor on a point. The line shows what currently survives; the cursor sits on the exact point you aimed at.</li>
+		<li>Trim away from the cursor with <strong>◀ 10</strong>, <strong>◀ 1</strong>, <strong>1 ▶</strong> and <strong>10 ▶</strong>. Each trim takes the cursor point with it and leaves the cursor on the new edge, so pressing again carries on from where the last one stopped.</li>
+		<li><strong>Undo</strong> steps back through every trim, and shows how many steps are left.</li>
+		<li>When the shape is right, press <strong>Apply</strong>.</li>
+	</ol>
+	<div class="callout">
+		<p>
+			<strong>Nothing is sent until you press Apply, and Apply is permanent.</strong> The
+			removed points are gone from the app, from exports and from every share link at once, and
+			the editor cannot undo it afterwards. Trim in one sitting and check the map before you
+			commit.
+		</p>
+	</div>
+	<p>
+		A cut taken out of the middle becomes a break in the track rather than a straight line joining
+		the two sides — which is what actually happened.
+	</p>
+
+	<h2 id="maps">11. Maps and offline map packs</h2>
+
+	<p>
+		<strong>Settings → Maps</strong> chooses what the map is drawn <em>over</em>. It is stored on
+		this device and never sent to the server, and it changes nothing about your routes, markers or
+		anyone's position — those are drawn on top and keep their own colours. The preview map at the
+		bottom of the screen restyles the moment you apply a change, so you can see what you picked.
+	</p>
+
+	<h3>OpenStreetMap</h3>
+	<p>
+		The default. Free, no account, and it needs a connection.
+	</p>
+
+	<h3>Offline map packs</h3>
+	<p>
+		Downloaded regions the phone keeps, so the map keeps drawing when the signal dies. On the
+		phone only — a browser has nowhere to put one.
+	</p>
+	<ol>
+		<li>Choose <strong>Offline map pack</strong>. The download section appears.</li>
+		<li>Pick your <strong>country or region</strong> from the first dropdown — it says how many maps each country publishes.</li>
+		<li>Pick the <strong>area</strong> within it from the second, which shows each pack's size. Or, if you do not know which country publishes the area you are heading into, pick it <strong>on a map</strong> instead.</li>
+		<li>Press <strong>Download</strong>. Progress is shown while it runs.</li>
+	</ol>
+	<p>
+		Downloaded packs are listed with their size, and each has a <strong>Delete</strong> button.
+		Choosing a pack from that list also switches the map source to offline. Download over Wi-Fi
+		and before you leave — packs are large, and the moment you need one is the moment you cannot
+		fetch it.
+	</p>
+	<p>
+		<strong>Map colours</strong> — an offline pack can be drawn <strong>Light</strong> (the
+		default, easiest to read through a visor in the sun) or <strong>Dark</strong>, for night. Both
+		styles ship with the app, so switching costs no download and no second pack.
+	</p>
+
+	<h3>Another tile server</h3>
+	<p>
+		Your own tile server, or a service you hold an account with. Three fields:
+	</p>
+	<ul>
+		<li><strong>Tile URL</strong> — must be <code>https</code> and must carry <code>{x}</code>, <code>{y}</code> and <code>{z}</code>. Plain <code>http</code> will not load; the phone blocks it.</li>
+		<li><strong>Attribution</strong> — shown in the corner of every map. Most tile servers require a specific credit; check theirs, because you are responsible for whatever their terms require.</li>
+		<li><strong>Deepest zoom</strong> — how far in the server has tiles for. Too high and the map dissolves when you zoom in on a marker; too low and it stops sharpening early. 19 suits most.</li>
+	</ul>
+	<p>
+		The <strong>Use this tile server</strong> button stays disabled until the fields are usable,
+		and the text underneath says exactly what is wrong.
+	</p>
+
+	<h2 id="privatearea">12. The private area around home</h2>
+
+	<p>
+		A circle you draw around somewhere you would rather not be watched — your house being the
+		obvious one. Inside that circle this device <strong>sends nothing</strong>. Other travellers
+		still see you as present on the adventure; you simply have no position on their map until you
+		move out of it.
+	</p>
+	<ol>
+		<li><strong>Settings → Location → Home private area</strong>.</li>
+		<li>Tap the map to place the centre.</li>
+		<li>Set the radius.</li>
+		<li>Press <strong>Save private area</strong> (or <strong>Update private area</strong> if you already had one).</li>
+	</ol>
+	<p>
+		Until you press save, the screen says so plainly — a circle drawn on screen protects nothing,
+		and the difference between <em>drawn</em> and <em>in force</em> is the one thing that screen
+		will not blur. <strong>Remove private area</strong> takes it away.
+	</p>
+	<div class="callout">
+		<p>
+			<strong>The circle stays on this device.</strong> Its centre, its radius, and the fact
+			that you set one at all are never sent to the server and never shown to another
+			traveller. The cost of that is real and worth stating: it does not follow you to another
+			phone, and reinstalling the app forgets it. Set it again after a reinstall.
+		</p>
+	</div>
+	<p>
+		Recorded tracks respect it too — travelling out and back in leaves a gap rather than a line
+		drawn across your doorstep.
+	</p>
+
+	<h2 id="settings">13. Settings, profile and your data</h2>
+
+	<h3>Profile</h3>
+	<p>
+		<strong>Display name</strong>, <strong>phone number</strong>, <strong>email</strong> and your
+		<strong>map marker colour</strong>. Each of the first three has its own sharing switch, off
+		until you turn it on, and shared only with the people you are travelling with. There is no
+		directory of users and no way to look somebody up from a username.
+	</p>
+
+	<h3>Account</h3>
+	<p>
+		Add or change your <strong>recovery email</strong> (and resend the confirmation link), and
+		<strong>change your password</strong>.
+	</p>
+
+	<h3>Signed-in devices</h3>
+	<p>
+		Every device this account is signed in on. Sessions never expire, so revoking is the only
+		thing that ends a device's access — this is the phone you sold, the browser at the library,
+		the laptop your mate borrowed. Press <strong>Sign out</strong> beside it. The device you are
+		using is marked and cannot revoke itself.
+	</p>
+
+	<h3>Blocked travellers</h3>
+	<p>
+		Everybody you have blocked, with the date, and an <strong>Unblock</strong> button.
+	</p>
+
+	<h3>Data &amp; export</h3>
+	<p>
+		<strong>Download my data</strong> builds a ZIP containing every adventure, every marker, every
+		photo, every comment, plus your profile fields and switches. Large libraries take a few
+		seconds to build.
+	</p>
+	<p>
+		<strong>Delete this account</strong> is on the same screen, and it does what it says. It asks
+		for your password first.
+	</p>
+	<div class="callout">
+		<p>
+			<strong>Deletion is permanent.</strong> Every track, marker, photo, comment, reaction and
+			vote goes with it. Any group adventure <em>you organise is cancelled</em> and its members'
+			access ends immediately. Every device signed in on the account is signed out on its next
+			refresh. Nightly backups hold a copy for their retention period only — an account cannot
+			be restored after those roll off. Export first if you want to keep anything.
+		</p>
+	</div>
+
+	<h3>Which version am I running?</h3>
+	<p>
+		The version number is at the bottom of the <strong>Settings</strong> screen. Every page also
+		carries a footer naming the licence, the source, and the exact commit the build came from —
+		Dumb Luck Routes is free software under the AGPL.
+	</p>
+
+	<h2 id="trouble">14. Fixing common problems</h2>
+
+	<div class="fix">
+		<h3>Nobody can see me on the map</h3>
+		<p>Work down this list — it is in the order things actually go wrong:</p>
+		<ol>
+			<li><strong>Is your sharing switch on?</strong> Adventure info page → <em>Broadcast my location to this adventure</em>. It starts off on every adventure, every time.</li>
+			<li><strong>Has the organiser started the adventure?</strong> Before that, the server drops positions and your GPS deliberately stays off. The line under the switch says so when this is the reason.</li>
+			<li><strong>Read the status line under the switch.</strong> It states what is actually happening — permission refused, no fix yet, or inside your private area — rather than just repeating the switch.</li>
+			<li><strong>Are you standing inside your private area?</strong> If home is inside the circle, you have no position until you move out of it. That is the feature working.</li>
+			<li><strong>Check location permission</strong> — next entry.</li>
+		</ol>
+	</div>
+
+	<div class="fix">
+		<h3>The app says location permission is blocked</h3>
+		<p>
+			Open your phone's <strong>Settings</strong> app, find <strong>Dumb Luck Routes</strong>,
+			and allow location access. On iPhone and iPad choose <strong>Always</strong> if you want
+			sharing to keep working with the screen off; <em>While Using the App</em> stops the moment
+			you put the phone away.
+		</p>
+		<p>
+			Also check <strong>Precise Location</strong> is on. With it off, iOS hands the app a
+			deliberately vague position and your pin will wander.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>My position stops updating when I put the phone away</h3>
+		<p>
+			Location access is set to <em>While Using the App</em>. Change it to <strong>Always</strong>
+			in the phone's Settings app. The app still works on the lesser permission — updates simply
+			stop when it is backgrounded and resume when you return to it, which is not what you want
+			mid-adventure.
+		</p>
+		<p>
+			On iPhone and iPad, the blue indicator in the status bar is how you can tell it is running.
+			On Android it is the permanent notification.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>Everyone's positions are frozen, or nobody has one</h3>
+		<p>
+			Almost always the adventure has not been started. Positions flow only after the organiser
+			presses <strong>Start adventure</strong>.
+		</p>
+		<p>
+			If it has started, check <strong>Last fix</strong> in the live member list. A stale time is
+			the honest answer for somebody in a valley with no signal — their phone is still recording,
+			it simply cannot send. The list will catch up when they get bars.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>My join code does not work</h3>
+		<ul>
+			<li>Codes are <strong>six characters</strong>. Check for a transposed character — the field upper-cases for you, so case is never the problem.</li>
+			<li>A code stops working once the adventure has ended.</li>
+			<li>If the organiser declined and blocked an earlier request from you, the code will not admit you.</li>
+			<li>On an <strong>approval</strong> adventure, a correct code does not put you in — it creates a request and returns you to the list. That is not an error.</li>
+		</ul>
+	</div>
+
+	<div class="fix">
+		<h3>I joined, but I cannot see the adventure</h3>
+		<p>
+			You are probably waiting on approval. Until the organiser admits you, you are not a member
+			and cannot see the map, the members or the thread. The organiser sees your request, and
+			your message, under <em>Join requests</em>.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>I cannot post a comment, add a marker, or attach a photo</h3>
+		<p>
+			The organiser has switched that off for this adventure, under <em>Content
+			permissions</em>. Each is a separate switch, so photos can be off while conversation stays
+			on. Reading, reacting and voting in polls are never blocked by those switches.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>The map is blank, grey, or dissolves when I zoom in</h3>
+		<ul>
+			<li><strong>On OpenStreetMap</strong> — you have no connection. Tiles come over the network. Download an offline pack before the next trip.</li>
+			<li><strong>On an offline pack</strong> — you are outside the area the pack covers. Packs are regional; check which one is selected in <strong>Settings → Maps</strong>.</li>
+			<li><strong>On your own tile server</strong> — the URL is the usual culprit. It must be <code>https</code>, and must contain <code>{x}</code>, <code>{y}</code> and <code>{z}</code>. If it sharpens and then dissolves as you zoom in, <em>Deepest zoom</em> is set higher than the server actually has tiles for; try 19.</li>
+		</ul>
+		<p>
+			Your routes, markers and everyone's pins are drawn <em>on top</em> of the tiles, so they
+			stay visible even when the base map does not load. If those are missing too, it is not a
+			maps problem — see the sharing entries above.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>An offline pack will not download, or download is greyed out</h3>
+		<ul>
+			<li><strong>Download</strong> is disabled when no pack is picked, when the pack is already on this phone, and while another download is running. Only one at a time.</li>
+			<li>Packs are large. Check you have the storage free, and use Wi-Fi.</li>
+			<li>The download section only appears once <strong>Offline map pack</strong> is the selected source, and only on the phone — a browser has nowhere to put one.</li>
+			<li>If a pack is taking space you need, <strong>Delete</strong> it from the list and download a smaller region.</li>
+		</ul>
+	</div>
+
+	<div class="fix">
+		<h3>The battery is draining fast</h3>
+		<ul>
+			<li>Set <strong>Settings → Location → Accuracy</strong> to <strong>Eco</strong> or <strong>Balanced</strong>. Precise is for when the group needs to see you move in real time.</li>
+			<li>The GPS runs only while sharing is on for at least one adventure, and switches off when the last one is turned off. If it is running and you did not expect it, check whether an old adventure still has sharing on.</li>
+			<li>An offline map pack draws with no network at all, which is cheaper than pulling tiles over a weak signal.</li>
+		</ul>
+	</div>
+
+	<div class="fix">
+		<h3>I am not getting notifications</h3>
+		<p>
+			Notifications are raised by your own phone while the app is running, not by a push service.
+			So:
+		</p>
+		<ul>
+			<li>Outside an adventure the system suspends the app and nothing is raised — you will see the posts when you next open the thread. This is expected.</li>
+			<li>You are never notified of your own posts, or of a thread you are currently looking at.</li>
+			<li>If you declined the notification prompt, re-enable it in the phone's Settings app under Dumb Luck Routes. The prompt itself is only ever shown once.</li>
+			<li>Check Do Not Disturb and any Focus mode.</li>
+		</ul>
+	</div>
+
+	<div class="fix">
+		<h3>The ahead/behind panel is empty, or "Along route" is greyed out</h3>
+		<p>
+			Both measure progress <em>along a route</em>, and the adventure has none. The organiser
+			adds one from their own tracks on the adventure's info page, under <em>Routes</em>. Import
+			a GPX first if there is no suitable track to use.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>My route runs the wrong way</h3>
+		<p>
+			Press <strong>Reverse</strong> beside that route on the adventure's info page. The same
+			button undoes it, and it is offered to every member — not just the organiser.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>I trimmed too much, and Apply is already pressed</h3>
+		<p>
+			The editor cannot undo an applied trim — the warning above the button says so before you
+			press it. <strong>Undo</strong> works freely for as long as you stay in the editor, so
+			check the map before applying.
+		</p>
+		<p>
+			If the original file was a GPX you still have, import it again. A second copy of the same
+			content is allowed.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>A GPX file will not import</h3>
+		<ul>
+			<li>The file must be a <code>.gpx</code>. Files exported as ZIP archives, or as another format with the extension changed, will not parse.</li>
+			<li>If the preview appeared but the numbers look wrong, that is what the file contains — the preview exists precisely so you can decide before keeping it. Press <strong>Choose a different file</strong>.</li>
+			<li>Very large files are capped per import. The preview tells you when only the first tracks will be imported.</li>
+		</ul>
+	</div>
+
+	<div class="fix">
+		<h3>I have forgotten my password</h3>
+		<p>
+			On the sign-in tab, use <strong>Forgotten your password?</strong>. A reset link is sent to
+			the email address on the account.
+		</p>
+		<p>
+			<strong>If there is no email address on the account, the password cannot be reset and the
+			account cannot be recovered.</strong> That trade-off is stated on the registration form.
+			If you are still signed in on any device, add an email now at <strong>Settings →
+			Account</strong> — that is the only window in which it can be fixed.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>I want to change my user name</h3>
+		<p>
+			It cannot be changed. A user name is chosen once, because other people's saved copies of an
+			adventure refer to it. What you <em>can</em> change is your <strong>display name</strong>,
+			at <strong>Settings → Profile</strong> — that is what other travellers see, once you switch
+			sharing it on.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>My private area disappeared</h3>
+		<p>
+			It lives only on the device that set it, and it is never uploaded — so a new phone, or a
+			reinstall, starts with none. Set it again at <strong>Settings → Location → Home private
+			area</strong>. This is the deliberate cost of never telling the server where you live.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>Location settings are missing in my browser</h3>
+		<p>
+			They are only offered in the phone app. A browser has no GPS the app can trust to keep
+			running with the screen off, so the accuracy profile, track recording and the private area
+			all belong to the phone that produces the fixes.
+		</p>
+		<p>
+			Everything else works in full in a browser: adventures, everyone who is sharing, the gaps,
+			the routes and the thread. It is only your <em>own</em> position that a browser cannot
+			produce.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>I have lost a phone that was signed in</h3>
+		<p>
+			From any other signed-in device, go to <strong>Settings → Signed-in devices</strong> and
+			press <strong>Sign out</strong> beside it. Sessions never expire on their own, so this is
+			the thing that ends its access — and it takes effect on the server, not on the missing
+			phone.
+		</p>
+	</div>
+
+	<div class="fix">
+		<h3>I want to stop sharing right now</h3>
+		<p>
+			Turn off the sharing switch on the adventure's info page. It takes effect immediately and
+			deletes the position that adventure was holding for you. If you are on more than one
+			adventure, each has its own switch — the GPS stops when the last one is off.
+		</p>
+		<p>
+			An organiser can end sharing for everyone, but nobody — organiser included — can switch
+			your sharing back on.
+		</p>
+	</div>
+
+	<footer>
+		<p>
+			Dumb Luck Routes · <a href="dlr-privacy-policy.html">Privacy policy</a><br>
+			Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+		</p>
+	</footer>
+
+</main>
+</body>
+</html>

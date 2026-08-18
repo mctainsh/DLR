@@ -192,6 +192,50 @@ public readonly record struct TrackBounds(
 				points.Min(point => point.Longitude),
 				points.Max(point => point.Latitude),
 				points.Max(point => point.Longitude));
+
+	/// <summary>
+	/// Whether a point falls inside this box, edges included.
+	/// <para>
+	/// Inclusive because the boxes this answers for are map-pack extents (§4.2), and a rider
+	/// pointing at a coast is pointing at an edge — refusing the boundary would leave a thin band
+	/// along every extract that selects nothing and looks like a broken tap.
+	/// </para>
+	/// <para>
+	/// Naive across the antimeridian, in the same way <c>Around</c> is: a box built by taking the
+	/// minimum and maximum of a set of longitudes cannot describe one that wraps, so nothing that
+	/// produces a <see cref="TrackBounds"/> can hand this one to test against.
+	/// </para>
+	/// </summary>
+	/// <param name="latitudeDeg">Latitude in decimal degrees.</param>
+	/// <param name="longitudeDeg">Longitude in decimal degrees.</param>
+	public bool Contains(double latitudeDeg, double longitudeDeg) =>
+		latitudeDeg >= MinLatitude && latitudeDeg <= MaxLatitude
+		&& longitudeDeg >= MinLongitude && longitudeDeg <= MaxLongitude;
+
+	/// <summary>
+	/// How much of the world the box covers, in square degrees.
+	/// <para>
+	/// A comparison key and nothing else — degrees of longitude shrink toward the poles, so this
+	/// is not an area on the ground. What it is used for is ordering boxes that all contain the
+	/// same point, where the ranking is what matters and any monotonic measure gives the same one.
+	/// </para>
+	/// </summary>
+	public double SpanDeg2 => (MaxLatitude - MinLatitude) * (MaxLongitude - MinLongitude);
+
+	/// <summary>
+	/// Whether this is a box a map can be framed on: real numbers, in range, and not inside out.
+	/// <para>
+	/// Asked of the catalogue's bounds (§4.2), which are a publisher's claim like everything else
+	/// in it — an entry whose corners are swapped, or which carries a longitude of 1000, would
+	/// otherwise be drawn as a box across the whole world and be selectable by a tap anywhere.
+	/// </para>
+	/// </summary>
+	public bool IsWellFormed =>
+		double.IsFinite(MinLatitude) && double.IsFinite(MinLongitude)
+		&& double.IsFinite(MaxLatitude) && double.IsFinite(MaxLongitude)
+		&& MinLatitude <= MaxLatitude && MinLongitude <= MaxLongitude
+		&& MinLatitude >= -90 && MaxLatitude <= 90
+		&& MinLongitude >= -180 && MaxLongitude <= 180;
 }
 
 /// <summary>Distance over the earth's surface.</summary>

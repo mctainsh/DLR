@@ -71,6 +71,13 @@
 	/// </summary>
 	[Parameter] public IReadOnlyList<MapCircle>? Circles { get; set; }
 
+	/// <summary>
+	/// Lat / lon rectangles, drawn at the very bottom — the extents of the offline packs on offer
+	/// (§4.2) are the only caller. Under the circles for the same reason those are under the
+	/// routes: a box is ground, and everything else on the map is read against it.
+	/// </summary>
+	[Parameter] public IReadOnlyList<MapBox>? Boxes { get; set; }
+
 	/// <summary>The base map's current view. Passed in by <c>RideMap.razor</c>.</summary>
 	[Parameter] public MapViewport Viewport { get; set; }
 
@@ -318,10 +325,111 @@
 		ArrowHalo.StrokeWidth = 5f * _scale;
 		ArrowEdge.StrokeWidth = 2f * _scale;
 
+		DrawBoxes(canvas);
 		DrawCircles(canvas);
 		DrawRoutes(canvas);
 		DrawMarkers(canvas);
 	}
+
+	/// <summary>
+	/// Draws each lat / lon rectangle: a wash inside and an outline on the edge (§4.2).
+	/// <para>
+	/// Four projected corners joined into a path rather than an <c>SKRect</c>. The two are the same
+	/// shape only on a north-up map — <c>Project</c> applies the base map's bearing, so a rectangle
+	/// built from a min and a max corner would stay square to the screen while the ground it names
+	/// turned underneath it.
+	/// </para>
+	/// <para>
+	/// The wash is what makes overlapping extents readable, which is the ordinary case on this map:
+	/// two regions over the same ground stack to a darker tint, and a rider can see there is a
+	/// choice to be made before they tap and are asked to make it.
+	/// </para>
+	/// </summary>
+	private void DrawBoxes(SKCanvas canvas)
+	{
+		if (Boxes is not { Count: > 0 } boxes) return;
+
+		using SKPaint wash = new() { Style = SKPaintStyle.Fill, IsAntialias = true };
+		using SKPaint edge = new()
+		{
+			Style = SKPaintStyle.Stroke,
+			IsAntialias = true,
+			StrokeJoin = SKStrokeJoin.Round,
+		};
+
+		foreach (MapBox box in boxes)
+		{
+			TrackBounds bounds = box.Bounds;
+
+			// North-west, north-east, south-east, south-west. In that order so the path closes on
+			// itself without crossing.
+			SKPoint[] corners =
+			[
+				Project(bounds.MaxLatitude, bounds.MinLongitude),
+				Project(bounds.MaxLatitude, bounds.MaxLongitude),
+				Project(bounds.MinLatitude, bounds.MaxLongitude),
+				Project(bounds.MinLatitude, bounds.MinLongitude),
+			];
+
+			// A whole-continent extent on a zoomed-in map is millions of pixels across with nothing
+			// of it on screen. Tested as a box around the corners rather than corner by corner,
+			// because the commonest visible case is a region the canvas sits *inside* — where every
+			// corner is off screen and the fill covers the lot.
+			if (!MeetsCanvas(corners)) continue;
+
+			_pathBuilder.MoveTo(corners[0]);
+			for (int index = 1; index < corners.Length; index++)
+			{
+				_pathBuilder.LineTo(corners[index]);
+			}
+			_pathBuilder.Close();
+
+			using SKPath path = _pathBuilder.Detach();
+
+			SKColor colour = ParseColour(box.Colour);
+
+			wash.Color = colour.WithAlpha(box.Emphasised ? BoxEmphasisWashAlpha : BoxWashAlpha);
+			edge.Color = colour;
+			edge.StrokeWidth = box.Emphasised ? BoxEmphasisEdgeWidthPx : BoxEdgeWidthPx;
+
+			canvas.DrawPath(path, wash);
+			canvas.DrawPath(path, edge);
+		}
+	}
+
+	/// <summary>Whether any part of a projected shape's own bounding box reaches the canvas.</summary>
+	/// <param name="corners">The shape's corners, in canvas pixels.</param>
+	private bool MeetsCanvas(SKPoint[] corners)
+	{
+		float left = corners[0].X, right = corners[0].X;
+		float top = corners[0].Y, bottom = corners[0].Y;
+
+		foreach (SKPoint corner in corners)
+		{
+			left = MathF.Min(left, corner.X);
+			right = MathF.Max(right, corner.X);
+			top = MathF.Min(top, corner.Y);
+			bottom = MathF.Max(bottom, corner.Y);
+		}
+
+		return right >= -CanvasMarginPx && left <= Viewport.CanvasWidthPx + CanvasMarginPx
+			&& bottom >= -CanvasMarginPx && top <= Viewport.CanvasHeightPx + CanvasMarginPx;
+	}
+
+	/// <summary>
+	/// How opaque the wash inside a box is. Sheerer than a circle's, because these come in
+	/// hundreds and overlap — a tint that reads on its own is opaque mud where three regions meet.
+	/// </summary>
+	private const byte BoxWashAlpha = 0x1f;
+
+	/// <summary>The wash on a box being pointed at, which has to be picked out of the ones under it.</summary>
+	private const byte BoxEmphasisWashAlpha = 0x55;
+
+	/// <summary>A box's outline, in canvas pixels.</summary>
+	private float BoxEdgeWidthPx => 1.5f * _scale;
+
+	/// <summary>The outline of a box being pointed at.</summary>
+	private float BoxEmphasisEdgeWidthPx => 3f * _scale;
 
 	/// <summary>
 	/// Rasterise the current viewport off-screen and hand the frame to the browser.
