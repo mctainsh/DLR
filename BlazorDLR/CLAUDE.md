@@ -116,6 +116,7 @@ Tabs, width 4 (Use tabs in Razor, CS, HTML, YAML and Markdown — mandatory). `E
 `Directory.Build.props`. File-scoped namespaces, `using` directives outside the namespace with
 `System` first (`.editorconfig`). Nullable + implicit usings enabled everywhere.
 `InvariantGlobalization=true` for the whole solution.
+Always use CRLF for line endings
 
 ### Single line if and for
 Don't wrap a single line command after an `if` or `for` in curly brackets if it only occupies a single line.

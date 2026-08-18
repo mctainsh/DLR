@@ -15,7 +15,7 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// The four Settings screens that each carry a rule from §7.
 /// <list type="bullet">
-///   <item><c>Profile</c> — three optional fields, each with a switch off by default (§7.3).
+///   <item><c>Profile</c> — two optional fields, each with a switch off by default (§7.3).
 ///     Sharing the email is disabled when the address is unconfirmed.</item>
 ///   <item><c>Account</c> — password change surfaces per-rule server messages (§18.2).</item>
 ///   <item><c>Devices</c> — non-current devices are revocable; the current device is called
@@ -67,11 +67,12 @@ public sealed class SettingsTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			// The share-email switch is the third checkbox on the page — after DisplayName and PhoneNumber.
+			// The share-email switch is the second checkbox on the page — after PhoneNumber, and
+			// second rather than third because the display name no longer has a control here at all.
 			// It carries the disabled attribute when the email is unconfirmed.
 			AngleSharp.Dom.IElement[] switches = component.FindAll("input[type=checkbox]").ToArray();
-			switches.Length.ShouldBe(3);
-			switches[2].HasAttribute("disabled").ShouldBeTrue(
+			switches.Length.ShouldBe(2);
+			switches[1].HasAttribute("disabled").ShouldBeTrue(
 				"§7.3: an unconfirmed address is not a recovery address and cannot be shared. The switch must be disabled, not merely off.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -85,15 +86,15 @@ public sealed class SettingsTests : PageTestContext
 		IRenderedComponent<Profile> component = Render<Profile>();
 
 		component.WaitForAssertion(() =>
-			component.FindAll("input[type=checkbox]").Count.ShouldBe(3), timeout: TimeSpan.FromSeconds(3));
+			component.FindAll("input[type=checkbox]").Count.ShouldBe(2), timeout: TimeSpan.FromSeconds(3));
 
-		// Type a new display name (blank spaces around it — must be trimmed).
+		// Type a new phone number (blank spaces around it — must be trimmed).
 		await component.InvokeAsync(() =>
 		{
-			AngleSharp.Dom.IElement name = component.Find("input[placeholder='Your name']");
-			name.Change("  Dave Smith  ");
+			AngleSharp.Dom.IElement phone = component.Find("input[type=tel]");
+			phone.Change("  0400 123 456  ");
 		});
-		// Turn on share-display-name.
+		// Turn on share-phone-number: the first switch on the page now.
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement[] switches = component.FindAll("input[type=checkbox]").ToArray();
@@ -109,9 +110,39 @@ public sealed class SettingsTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		UpdateProfileRequest sent = api.LastUpdateProfileRequest!;
-		sent.DisplayName.ShouldBe("Dave Smith", "§7.3: the display name is trimmed before the wire.");
-		sent.ShareDisplayName.ShouldBeTrue("the switch's new value must reach the API.");
+		sent.PhoneNumber.ShouldBe("0400 123 456", "§7.3: the field is trimmed before the wire.");
+		sent.SharePhoneNumber.ShouldBeTrue("the switch's new value must reach the API.");
 		sent.ShareEmail.ShouldBeFalse("the untouched share-email switch stays off — the caller does not flip it accidentally.");
+	}
+
+	/// <summary>
+	/// The display name has no control on this screen any more — every name a traveller reads is
+	/// the login name (§7.2). The account still holds the value though, and the update replaces the
+	/// whole profile, so a save has to hand back what it loaded: a screen that dropped the field
+	/// would clear a stored name that nobody asked to clear.
+	/// </summary>
+	[Fact]
+	public async Task Profile_Save_RoundTripsTheStoredDisplayName()
+	{
+		FakeApiClient api = WireCommon();
+		api.ProfileResult = new OwnProfile("Dave", null, "e@x", true, true, false, false);
+
+		IRenderedComponent<Profile> component = Render<Profile>();
+
+		component.WaitForAssertion(() =>
+			component.FindAll("input[type=checkbox]").Count.ShouldBe(2), timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll("input[placeholder='Your name']").ShouldBeEmpty(
+			"the display name is not editable here any more.");
+
+		await component.InvokeAsync(() => component.Find("form").Submit());
+
+		component.WaitForAssertion(() => api.LastUpdateProfileRequest.ShouldNotBeNull(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		UpdateProfileRequest sent = api.LastUpdateProfileRequest!;
+		sent.DisplayName.ShouldBe("Dave", "the stored name survives a save from a screen that no longer shows it.");
+		sent.ShareDisplayName.ShouldBeTrue("and so does the switch that goes with it.");
 	}
 
 	// ---------- Profile: the map marker colour (§16.3) ----------

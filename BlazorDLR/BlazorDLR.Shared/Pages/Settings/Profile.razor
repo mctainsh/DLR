@@ -9,8 +9,15 @@
 @inject AuthState Auth
 
 @*
-	Three optional fields and a marker colour (§7.3, §16.3) — everything on this screen is an
+	Two optional fields and a marker colour (§7.3, §16.3) — everything on this screen is an
 	account setting that travels to the server.
+
+	The display name was a third. It is gone from the screen, not from the account: every name a
+	traveller reads — map pin, member list, marker author — has always been the login name (§7.2),
+	so the field only offered a second name that nothing rendered. The column, the contract and the
+	sharing switch all stay where they are for a later use, and this page keeps round-tripping the
+	stored values untouched (see _displayName) because PUT /me/profile replaces the whole profile —
+	a save that left them out would quietly erase what the screen no longer shows.
 
 	The home private area used to sit at the bottom of it and now lives on the Location screen
 	(§10.1). It was the one control here that was never sent anywhere, and it belongs beside the
@@ -24,7 +31,7 @@
 	<PageNav Title="Profile" BackHref="/settings" BackLabel="Back to settings" />
 
 	<p class="lead">
-		Three optional fields. Each has a switch, off unless you turn it on — a shared value
+		Two optional fields. Each has a switch, off unless you turn it on — a shared value
 		is visible <em>only</em> to travellers in a group adventure with you, and access ends the
 		moment that adventure ends.
 	</p>
@@ -36,15 +43,6 @@
 	else
 	{
 		<form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
-			<fieldset>
-				<legend>Display name</legend>
-				<input @bind="_displayName" placeholder="Your name" />
-				<label class="switch">
-					<input type="checkbox" @bind="_shareDisplayName" />
-					Share with travellers in my group adventures
-				</label>
-			</fieldset>
-
 			<fieldset>
 				<legend>Phone number</legend>
 				<input @bind="_phoneNumber" type="tel" placeholder="Any digits, never verified" />
@@ -151,9 +149,19 @@
 
 @code {
 	private OwnProfile? _profile;
+
+	/// <summary>
+	/// Read on load and sent straight back, with nothing on the screen that changes them. The
+	/// display name has no editor any more (see the note at the top), but the update is a
+	/// whole-profile replace — a save that omitted these would clear a stored name and the
+	/// switch that goes with it.
+	/// </summary>
 	private string? _displayName;
-	private string? _phoneNumber;
+
+	/// <inheritdoc cref="_displayName" />
 	private bool _shareDisplayName;
+
+	private string? _phoneNumber;
 	private bool _sharePhoneNumber;
 	private bool _shareEmail;
 	private bool _saving;
@@ -209,6 +217,7 @@
 		try
 		{
 			await Api.UpdateProfileAsync(new UpdateProfileRequest(
+				// Unchanged since load, and on the wire for exactly that reason — see _displayName.
 				DisplayName: string.IsNullOrWhiteSpace(_displayName) ? null : _displayName.Trim(),
 				PhoneNumber: string.IsNullOrWhiteSpace(_phoneNumber) ? null : _phoneNumber.Trim(),
 				ShareDisplayName: _shareDisplayName,
