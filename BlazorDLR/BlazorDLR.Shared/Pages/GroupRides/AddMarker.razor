@@ -66,14 +66,28 @@
 			   their names. Picking a hazard marker at the side of a road is a glance-and-tap,
 			   and radios keep that keyboard- and screen-reader-navigable for free. *@
 			<fieldset class="icon-picker">
-				<legend>Icon</legend>
-				<div class="icon-grid">
+				@* Shut, the picker is one row: the icon that is chosen and what it is called. Tapping
+				   that row opens the grid, and picking from the grid shuts it again. Twenty-nine cells
+				   of artwork is the right way to answer this question and the wrong thing to leave
+				   standing above the title box afterwards, on a phone, when the answer is already in.
+
+				   The radios are rendered whether the grid is open or shut — only its display goes.
+				   The checked state, the arrow-key group and the labelling stay exactly where the
+				   browser and a screen reader expect them, instead of being rebuilt on every open. *@
+				<button type="button" class="icon-current" @onclick="TogglePicker"
+						aria-expanded="@PickerExpanded" aria-controls="icon-choices">
+					<img alt="" src="@MarkerIconGlyphs.AssetPath(_icon)" />
+					<span class="icon-current-name">@MarkerIconGlyphs.Label(_icon)</span>
+					<span class="icon-caret" aria-hidden="true">@(_pickerOpen ? "▴" : "▾")</span>
+				</button>
+
+				<div id="icon-choices" class="icon-grid @(_pickerOpen ? "open" : "shut")">
 					@foreach (MarkerIconOption option in MarkerIconGlyphs.PickerOptions)
 					{
 						<label class="icon-choice @(_icon == option.Key ? "chosen" : null)">
 							<input type="radio" name="icon" value="@option.Key"
 								   checked="@(_icon == option.Key)"
-								   @onchange="() => _icon = option.Key" />
+								   @onchange="() => ChooseIcon(option.Key)" />
 							<img alt="" src="@MarkerIconGlyphs.AssetPath(option.Key)" />
 							<span>@option.Label</span>
 						</label>
@@ -168,6 +182,39 @@
 	private bool _hasPoint;
 
 	private string _icon = MarkerIcons.Fallback;
+
+	/// <summary>
+	/// Whether the grid of icons is showing.
+	/// <para>
+	/// Shut on arrival and shut again the moment a choice is made. The grid is the right way to
+	/// answer "which icon" — twenty-nine pictures, all at once, glance and tap — and the wrong
+	/// thing to leave standing once it is answered, because on a phone it pushes the title box
+	/// and the save button off the screen for the rest of the session.
+	/// </para>
+	/// <para>
+	/// This moves the grid's visibility and nothing else: the radios render either way, so
+	/// <see cref="_icon"/> stays the single place the choice lives whether the picker is open or
+	/// shut, and a screen reader keeps the same group rather than one rebuilt on each open.
+	/// </para>
+	/// </summary>
+	private bool _pickerOpen;
+
+	/// <summary>
+	/// <c>aria-expanded</c> for the row that opens the grid, as the literal string the attribute
+	/// takes. A <see langword="bool" /> here would render the attribute away when false, and
+	/// "no aria-expanded" says something different to a screen reader than "expanded=false".
+	/// </summary>
+	private string PickerExpanded => _pickerOpen ? "true" : "false";
+
+	private void TogglePicker() => _pickerOpen = !_pickerOpen;
+
+	/// <summary>Takes the choice and shuts the grid, which is what a picked list does.</summary>
+	/// <param name="icon">The curated key that was tapped.</param>
+	private void ChooseIcon(string icon)
+	{
+		_icon = icon;
+		_pickerOpen = false;
+	}
 	private string _title = string.Empty;
 	private string _note = string.Empty;
 	private PickedPhoto? _photo;
@@ -289,6 +336,48 @@
 			padding: 0;
 			margin-bottom: 0.35rem;
 		}
+
+	/* Shut, the picker is this row alone: the chosen icon, its name, and a caret that says the
+	   row opens. Full width and thumb-sized, because tapping it is how the grid comes back. */
+	.page .icon-current {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		padding: 8px 10px;
+		border: 1px solid rgb(128 128 128 / 45%);
+		border-radius: 10px;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+
+		.page .icon-current img {
+			width: 34px;
+			height: 34px;
+			display: block;
+		}
+
+		.page .icon-current-name {
+			font-size: 0.95rem;
+		}
+
+		.page .icon-caret {
+			opacity: 0.7;
+		}
+
+	/* Hidden rather than unrendered, so the radios keep the checked state and the grouping the
+	   browser gives them. Three classes, so this beats the display:grid above it. */
+	.page .icon-grid.shut {
+		display: none;
+	}
+
+	.page .icon-grid.open {
+		margin-top: 6px;
+	}
 
 	.page .icon-grid {
 		display: grid;

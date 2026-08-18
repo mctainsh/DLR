@@ -63,6 +63,73 @@ public sealed class AddMarkerTests : PageTestContext
 			save.Click();
 		});
 
+	/// <summary>
+	/// The picker opens shut: one row showing the icon that is chosen and its name. The grid of
+	/// twenty-nine pictures is the right way to answer "which icon" and the wrong thing to leave
+	/// standing above the title box once it is answered.
+	/// <para>
+	/// Shut means hidden, not unrendered — the radios stay in the DOM so the checked state and
+	/// the group live in one place. That is why this asserts on the class rather than on the
+	/// cells being gone.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public void ThePicker_OpensCollapsed_ShowingOnlyTheChosenIcon()
+	{
+		WireServices(this);
+
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
+
+		component.FindAll(".icon-grid.shut").ShouldNotBeEmpty(
+			"the grid starts collapsed — the choice is one tap, and the cells that were not it cost the screen below them.");
+		component.Find(".icon-current").GetAttribute("aria-expanded").ShouldBe("false");
+		component.Find(".icon-current-name").TextContent.Trim().ShouldBe(
+			MarkerIconGlyphs.Label(DLR.Core.Markers.MarkerIcons.Fallback),
+			"the collapsed row names the marker that is currently chosen.");
+	}
+
+	/// <summary>
+	/// Tapping the collapsed row brings the whole list back, which is the only way to change the
+	/// choice once it is made.
+	/// </summary>
+	[Fact]
+	public async Task TappingTheChosenIcon_ShowsTheFullListAgain()
+	{
+		WireServices(this);
+
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
+
+		await component.InvokeAsync(() => component.Find(".icon-current").Click());
+
+		component.FindAll(".icon-grid.open").ShouldNotBeEmpty("tapping the row opens the grid.");
+		component.Find(".icon-current").GetAttribute("aria-expanded").ShouldBe("true");
+	}
+
+	/// <summary>
+	/// And picking from the open list closes it again, on the icon that was picked — the row is
+	/// then the answer, not the question.
+	/// </summary>
+	[Fact]
+	public async Task ChoosingAnIcon_CollapsesTheListOntoThatIcon()
+	{
+		WireServices(this);
+
+		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
+
+		await component.InvokeAsync(() => component.Find(".icon-current").Click());
+		await component.InvokeAsync(() =>
+			component.FindAll("input[type=radio][value=water-crossing]").Single().Change("water-crossing"));
+
+		component.FindAll(".icon-grid.shut").ShouldNotBeEmpty("picking an icon answers the question and closes the list.");
+		component.Find(".icon-current-name").TextContent.Trim().ShouldBe("Water crossing",
+			"and the row that is left shows what was picked, by name.");
+	}
+
+	/// <summary>
+	/// The composer's one radio group is still a radio group when it is collapsed: every curated
+	/// key stays in the DOM so the checked state, the arrow keys and this file's other assertions
+	/// all keep working without opening anything first.
+	/// </summary>
 	[Fact]
 	public void EveryCuratedIcon_IsRenderedAsAPickerChoice()
 	{
