@@ -316,12 +316,14 @@
 						</button>
 					}
 
+					@*
+						No "quiet while live" note beside this any more. It survived v0.26's removal
+						of the Live silence and was then simply wrong — the thread notifies in every
+						ride state (§17.6), so the label was telling riders the opposite of what the
+						app does.
+					*@
 					<button type="button" role="menuitem" @onclick="GoToThread">
 						<i class="fa fa-fw fa-comments" aria-hidden="true"></i> Adventure thread
-						@if (ride.State == RideStateDto.Live)
-						{
-							<span class="quiet">quiet while live</span>
-						}
 					</button>
 
 					<hr />

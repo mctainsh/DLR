@@ -1,6 +1,3 @@
-using BlazorDLR.Shared.State;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace BlazorDLR;
 
 public partial class App : Application
@@ -10,38 +7,16 @@ public partial class App : Application
 		InitializeComponent();
 	}
 
-	protected override Window CreateWindow(IActivationState? activationState)
-	{
-		Window window = new(new MainPage()) { Title = "BlazorDLR" };
-
-		TrackForeground(window);
-
-		return window;
-	}
-
 	/// <summary>
-	/// Reports whether the rider can see the app, for <see cref="CommentNotifier"/> (§17.6).
+	/// The app's one window.
 	/// <para>
-	/// <strong><c>Resumed</c> and <c>Stopped</c> rather than <c>Activated</c> and
-	/// <c>Deactivated</c>.</strong> The activation pair tracks <em>focus</em>, which is lost to a
-	/// pulled-down notification shade, a permission dialog and a split-screen tap — none of which
-	/// means the rider has stopped looking at the app, and every one of which would flip the flag
-	/// twice for nothing. The resumed/stopped pair tracks visibility, which is the actual question:
-	/// <c>onResume</c>/<c>onStop</c> on Android, and the scene's foreground transitions on iOS.
-	/// </para>
-	/// <para>
-	/// Resolved from the platform provider rather than injected, because <see cref="App"/> is
-	/// constructed by MAUI outside any scope — which is exactly why
-	/// <see cref="AppForegroundState"/> is a singleton. Null-tolerant so a host that has not
-	/// registered it still starts.
+	/// Nothing is hung off <c>Resumed</c> / <c>Stopped</c> any more. Until v0.27 those events fed an
+	/// <c>AppForegroundState</c> that <c>CommentNotifier</c> consulted before deciding to stay
+	/// quiet; there is no such decision left to make (§17.6) — a post notifies whether the rider is
+	/// looking at the app or not — so the tracking went with it rather than sitting here as a
+	/// singleton nothing reads.
 	/// </para>
 	/// </summary>
-	private static void TrackForeground(Window window)
-	{
-		if (IPlatformApplication.Current?.Services.GetService<AppForegroundState>() is not { } foreground)
-			return;
-
-		window.Resumed += (_, _) => foreground.Set(true);
-		window.Stopped += (_, _) => foreground.Set(false);
-	}
+	protected override Window CreateWindow(IActivationState? activationState) =>
+		new(new MainPage()) { Title = "BlazorDLR" };
 }

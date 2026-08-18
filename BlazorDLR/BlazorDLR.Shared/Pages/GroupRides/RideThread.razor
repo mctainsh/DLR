@@ -24,11 +24,12 @@
 		 with a broken clock can't pin its post to the top.
 	  2. Reactions arrive coalesced (§17.4) — one hub message per comment per burst,
 		 not one per tap.
-	  3. Every post notifies, in every ride state (§17.6). There is no longer a
-		 Live-ride exception, so this page has nothing to explain about the quiet.
-		 What it does instead is tell CommentNotifier that this thread is on screen,
-		 so a post landing while the rider is reading does not also buzz the phone
-		 they are holding.
+	  3. Every post notifies, in every ride state and whatever is on screen (§17.6).
+		 There is no Live-ride exception and, since v0.27, no exception for the
+		 thread the rider is currently reading either — so this page has nothing to
+		 explain about the quiet. All it does is ask CommentNotifier to withdraw the
+		 card already sitting in the shade for this adventure, which is housekeeping
+		 rather than silence.
 *@
 
 <div class="page page-medium thread">
@@ -166,11 +167,9 @@
 		Hub.ReactionsUpdated += OnReactionsUpdated;
 		Hub.PollUpdated += OnPollUpdated;
 
-		// Claim the thread before the fetch, not after: the hub is already connected from whatever
-		// screen the rider came from, so a post can land while the snapshot below is still in
-		// flight — and notifying somebody about a message that is about to render in front of them
-		// is exactly what this call prevents. It also clears whatever card was already showing for
-		// this adventure (§17.6).
+		// Clears whatever card was already showing for this adventure (§17.6) — the rider is now
+		// looking at the conversation it was pointing at. It suppresses nothing: posts that land
+		// while this page is open still raise a notification.
 		Notifier.ThreadOpened(RideId);
 
 		try
@@ -560,12 +559,8 @@
 		Hub.ReactionsUpdated -= OnReactionsUpdated;
 		Hub.PollUpdated -= OnPollUpdated;
 
-		// Posts in this adventure interrupt again. Passing the id matters: Blazor initialises the
-		// incoming page before disposing the outgoing one, so a rider stepping from this thread
-		// straight to another adventure's would otherwise have this teardown clear the new page's
-		// claim — see CommentNotifier.ThreadClosed.
-		Notifier.ThreadClosed(RideId);
-
+		// Nothing to tell the notifier on the way out: leaving a thread does not change what it
+		// does, because opening one did not either (§17.6).
 		return ValueTask.CompletedTask;
 	}
 

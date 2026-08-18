@@ -57,7 +57,6 @@ public sealed class MainLayoutTests : BunitContext
 		Services.AddSingleton<IRideHubClient>(new FakeRideHubClient());
 		Services.AddSingleton<INotificationService, NoopNotificationService>();
 		Services.AddSingleton<NotificationRouting>();
-		Services.AddSingleton<AppForegroundState>();
 		Services.AddSingleton<CommentNotifier>();
 	}
 

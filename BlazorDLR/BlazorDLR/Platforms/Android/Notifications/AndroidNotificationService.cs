@@ -15,13 +15,22 @@ namespace BlazorDLR.Platforms.Android.Notifications;
 /// <c>notify</c>.
 /// </para>
 /// <para>
-/// <strong>Importance is <c>Default</c>, deliberately, and that is the last of §17.1 that survives
-/// in code.</strong> <c>Default</c> makes a sound and puts a card in the shade; <c>High</c> would
-/// add a heads-up banner that slides over whatever is on screen — which during a ride is the live
-/// map the rider is navigating by. Telling somebody there is a message is the point; covering their
-/// map with it is the thing §17.1 was written about. A rider who wants more or less than this
-/// changes the channel in Android's own settings, where the control belongs and where it looks the
-/// same as it does for every other app on the phone.
+/// <strong>Importance is <c>High</c> as of v0.27, and the last of §17.1 that lived in code is
+/// gone.</strong> It read <c>Default</c> — sound and a card in the shade, but no heads-up banner —
+/// on the argument that a banner slides over the live map a rider is navigating by. That argument
+/// has not changed; who answers it has. The app no longer holds anything back on the rider's
+/// behalf: it presents the notification, and a rider who wants less turns it down in the channel's
+/// own settings, in Do Not Disturb, or in a riding focus mode — the controls the phone already
+/// applies to every other app on it (§17.6).
+/// </para>
+/// <para>
+/// <strong>Which is why the channel id carries a version.</strong> Android takes a channel's
+/// importance as the value it is <em>created</em> with and ignores every later create for the same
+/// id, precisely so an app cannot turn its own volume back up behind a rider's back. That is the
+/// right rule and it is also why raising this line alone would have changed nothing on any phone
+/// the app is already installed on — the <c>dlr.thread</c> channel would still be sitting there at
+/// <c>Default</c>. The new id is a new channel, so the new importance actually lands, and the old
+/// one is deleted rather than left in the app's settings as a dead duplicate.
 /// </para>
 /// </summary>
 public sealed class AndroidNotificationService : INotificationService
@@ -31,8 +40,20 @@ public sealed class AndroidNotificationService : INotificationService
 	/// can silence conversation without silencing the ongoing location notification, which must
 	/// stay visible for as long as the receiver runs (§4.3) — one channel for both would make those
 	/// two settings the same setting.
+	/// <para>
+	/// The <c>.v2</c> is what carries v0.27's importance change onto phones that already have the
+	/// app — see the type's remarks. A rider who had turned the old channel down has to turn this
+	/// one down as well, once; that is the cost of the change and it is stated rather than hidden.
+	/// </para>
 	/// </summary>
-	private const string ChannelId = "dlr.thread";
+	private const string ChannelId = "dlr.thread.v2";
+
+	/// <summary>
+	/// The channel this replaced, deleted on the first post after an upgrade. Kept as a constant
+	/// rather than a literal so it is obvious that it is dead, and so a future rename has one
+	/// obvious place to add to.
+	/// </summary>
+	private const string RetiredChannelId = "dlr.thread";
 
 	/// <summary>
 	/// The notification id every thread post shares. The <em>tag</em> is what separates one
@@ -125,14 +146,20 @@ public sealed class AndroidNotificationService : INotificationService
 
 			builder.SetSmallIcon(global::BlazorDLR.Resource.Drawable.dlr_thread_notification);
 			builder.SetCategory(NotificationCompat.CategoryMessage);
-			builder.SetPriority(NotificationCompat.PriorityDefault);
+
+			// PriorityHigh is the pre-Android-8 half of the same decision the channel makes above:
+			// on API 25 and below there are no channels and this field is what produces the
+			// heads-up. Both are set because the app supports both, and a build where the two
+			// disagreed would behave differently on two phones for no reason a rider could see.
+			builder.SetPriority(NotificationCompat.PriorityHigh);
 			builder.SetAutoCancel(true);
 
-			// Private, unlike the location notification's Public. That one is a claim about the app
-			// that has to be visible on a locked phone; this one is somebody's message, and a
-			// message on a lock screen in a café is read by whoever is standing there. The system
-			// shows the app name and hides the text until the phone is unlocked.
-			builder.SetVisibility(NotificationCompat.VisibilityPrivate);
+			// Public, matching the location notification, as of v0.27. Private hid the text on a
+			// locked phone — which is a sensible default for a message and is exactly the sort of
+			// call the app has stopped making for the rider: Android has a system-wide "show
+			// sensitive content on the lock screen" setting, and Public is what defers to it
+			// instead of overriding it in one direction for one app.
+			builder.SetVisibility(NotificationCompat.VisibilityPublic);
 
 			if (BuildContentIntent(notification.Route) is { } content)
 				builder.SetContentIntent(content);
@@ -203,10 +230,11 @@ public sealed class AndroidNotificationService : INotificationService
 	}
 
 	/// <summary>
-	/// Creates the channel if it is not already there. Idempotent, and cheap — the platform ignores
-	/// a create for an id it already knows, and deliberately ignores every property on it, so the
-	/// importance chosen above is the <em>initial</em> value and a rider's later change to it wins
-	/// forever. That is the correct behaviour and the reason this is not a setting in the app.
+	/// Creates the channel if it is not already there, and clears away the one it replaced.
+	/// Idempotent, and cheap — the platform ignores a create for an id it already knows, and
+	/// deliberately ignores every property on it, so the importance chosen here is the
+	/// <em>initial</em> value and a rider's later change to it wins forever. That is the correct
+	/// behaviour and the reason this is not a setting in the app.
 	/// </summary>
 	private static void EnsureChannel()
 	{
@@ -222,12 +250,17 @@ public sealed class AndroidNotificationService : INotificationService
 		NotificationChannel channel = new(
 			ChannelId,
 			"Adventure posts",
-			NotificationImportance.Default)
+			NotificationImportance.High)
 		{
 			Description = "Posts in the thread of a group adventure you are on.",
 		};
 
 		channel.SetShowBadge(true);
 		manager.CreateNotificationChannel(channel);
+
+		// Only reached once per install, on the first post after upgrading: the guard above returns
+		// early on every subsequent call. Leaving the retired channel behind would put two
+		// "Adventure posts" rows in the app's notification settings, one of which controls nothing.
+		manager.DeleteNotificationChannel(RetiredChannelId);
 	}
 }

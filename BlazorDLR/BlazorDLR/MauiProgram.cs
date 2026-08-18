@@ -165,15 +165,14 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.INotificationService, NoopNotificationService>();
 #endif
 
-		// Singletons, both, and deliberately not scoped: the platform heads reach them from outside
-		// Blazor — MainActivity.OnNewIntent, the iOS notification delegate, the window's Resumed and
-		// Stopped events — where there is no scope to resolve from. A scoped registration would hand
-		// those callers a different instance from the one the layout is bound to, and the symptom
-		// would be a tapped notification that opens the app and goes nowhere.
+		// A singleton, and deliberately not scoped: the platform heads reach it from outside Blazor
+		// — MainActivity.OnNewIntent and the iOS notification delegate — where there is no scope to
+		// resolve from. A scoped registration would hand those callers a different instance from
+		// the one the layout is bound to, and the symptom would be a tapped notification that opens
+		// the app and goes nowhere.
 		builder.Services.AddSingleton<BlazorDLR.Shared.State.NotificationRouting>();
-		builder.Services.AddSingleton<BlazorDLR.Shared.State.AppForegroundState>();
 
-		// Watches the hub for posts and decides which of them are worth interrupting a rider for
+		// Watches the hub for posts and raises one for every post that is not the rider's own
 		// (§17.6). Scoped, because everything it depends on is — and resolved by MainLayout, which
 		// renders on every page, so it is alive whether the rider is on the live map, in settings or
 		// nowhere near the thread.

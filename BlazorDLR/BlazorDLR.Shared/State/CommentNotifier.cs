@@ -7,11 +7,13 @@ namespace BlazorDLR.Shared.State;
 /// <summary>
 /// Turns a post arriving on the hub into a notification on this phone (§17.6).
 /// <para>
-/// <strong>This is the whole of "notifications" in the product.</strong> Since v0.26 removed the
-/// <c>Live</c>-ride silence, there is no ride state that changes what happens here and no per-ride
-/// mute to consult — a post either interrupts the rider or it does not, and the two questions that
-/// decide it are below. Everything else is the operating system's, where the rider already knows
-/// how to turn it off.
+/// <strong>This is the whole of "notifications" in the product, and since v0.27 it decides almost
+/// nothing.</strong> There is no ride state that changes what happens here, no per-ride mute, and
+/// no test of whether the rider happens to be looking at the thread the post landed in — a post
+/// arrives, the phone is told about it. The one question left is below, and it is arithmetic rather
+/// than a restriction: a rider is not notified about the post they just wrote. Everything else
+/// belongs to the operating system, where the rider already knows how to turn it off and where the
+/// switch looks the same as it does for every other app on the phone.
 /// </para>
 /// <para>
 /// <strong>Why the app can do this without a push service.</strong> The post has already arrived:
@@ -41,30 +43,21 @@ public sealed class CommentNotifier : IDisposable
 	private readonly IRideHubClient _hub;
 	private readonly INotificationService _notifications;
 	private readonly AuthState _auth;
-	private readonly AppForegroundState _appState;
-	private readonly Lock _gate = new();
 
-	private Guid? _openThread;
 	private bool _disposed;
 
 	/// <summary>Starts watching the hub for posts.</summary>
 	/// <param name="hub">Where posts arrive (§5.3).</param>
 	/// <param name="notifications">The platform's notifier, or the no-op on a host with none.</param>
 	/// <param name="auth">Who is reading — which is how a rider's own post is recognised.</param>
-	/// <param name="appState">
-	/// Whether the rider is actually looking at the app. Read rather than subscribed to: the only
-	/// question asked of it is "right now?", at the moment a post arrives.
-	/// </param>
 	public CommentNotifier(
 		IRideHubClient hub,
 		INotificationService notifications,
-		AuthState auth,
-		AppForegroundState appState)
+		AuthState auth)
 	{
 		_hub = hub;
 		_notifications = notifications;
 		_auth = auth;
-		_appState = appState;
 
 		_hub.CommentPosted += OnCommentPosted;
 	}
@@ -85,77 +78,42 @@ public sealed class CommentNotifier : IDisposable
 		"group-rides/" + rideId.ToString("D", CultureInfo.InvariantCulture) + "/thread";
 
 	/// <summary>
-	/// Tells the notifier that the rider is looking at this adventure's thread, and clears whatever
-	/// was already showing for it.
+	/// Withdraws whatever card is already showing for this adventure, because the rider has just
+	/// opened its thread.
 	/// <para>
-	/// Called by <c>RideThread</c> on open. Notifying somebody about a message that is on the screen
-	/// in front of them is the fastest way to teach them to ignore notifications.
+	/// <strong>Housekeeping, not suppression.</strong> Called by <c>RideThread</c> on open, and it
+	/// quietens nothing that comes afterwards — a post landing while the thread is on screen still
+	/// raises a notification, which is what v0.27 means by presenting always. What it clears is the
+	/// card left standing in the shade about a conversation the rider has now opened: that one has
+	/// done its job, and a stale card is how riders learn to swipe notifications away without
+	/// reading them.
 	/// </para>
 	/// </summary>
 	/// <param name="rideId">The thread now on screen.</param>
-	public void ThreadOpened(Guid rideId)
-	{
-		lock (_gate)
-		{
-			_openThread = rideId;
-		}
-
-		// The card in the shade is about a conversation the rider has just opened, so it has done
-		// its job and withdrawing it is the courtesy. Fire-and-forget: there is no caller waiting
-		// and a failure leaves a stale card, which the next post replaces anyway.
+	public void ThreadOpened(Guid rideId) =>
+		// Fire-and-forget: there is no caller waiting, and a failure leaves a stale card that the
+		// next post replaces anyway.
 		Forget(_notifications.CancelAsync(TagFor(rideId)));
-	}
-
-	/// <summary>
-	/// Tells the notifier the rider has left that thread, so posts in it interrupt again.
-	/// <para>
-	/// Takes the ride id and ignores a mismatch on purpose. Blazor disposes the outgoing page
-	/// <em>after</em> initialising the incoming one, so a rider stepping from one adventure's thread
-	/// straight to another's would otherwise have the first page's teardown clear the second page's
-	/// claim — and then be notified about the thread they are reading.
-	/// </para>
-	/// </summary>
-	/// <param name="rideId">The thread being left.</param>
-	public void ThreadClosed(Guid rideId)
-	{
-		lock (_gate)
-		{
-			if (_openThread == rideId)
-				_openThread = null;
-		}
-	}
 
 	/// <summary>
 	/// Whether <paramref name="comment"/> is worth interrupting the rider for.
 	/// <para>
-	/// Two questions, and deliberately no others:
-	/// <list type="number">
-	///   <item><strong>Is it theirs?</strong> Nobody is told about their own post. This is not
-	///     politeness — every post a rider makes comes straight back down the hub they published it
-	///     on, so without this the app would notify you about everything you said.</item>
-	///   <item><strong>Are they already reading it?</strong> The thread is open, the app is in front
-	///     of them, and the post is about to appear on screen on its own. Both halves are required —
-	///     see <see cref="AppForegroundState"/> for what happens if the app trusts a mounted page on
-	///     a phone that is in a pocket.</item>
-	/// </list>
+	/// One question, and deliberately no others: <strong>is it theirs?</strong> Nobody is told about
+	/// their own post. That is not politeness and it is not a restriction on delivery — every post a
+	/// rider makes comes straight back down the hub they published it on, so without this the app
+	/// would notify you about everything you said, one card per sentence you typed.
 	/// </para>
 	/// <para>
-	/// Nothing about ride state, and nothing about a mute. The first is v0.26's reversal (§17.6);
-	/// the second is a control every phone already has, applied to every app on it.
+	/// Nothing about ride state, nothing about a mute, and — since v0.27 — nothing about whether the
+	/// thread is open in front of the rider or whether the app is the thing on screen. The first was
+	/// v0.26's reversal; the rest are controls every phone already has, applied to every app on it
+	/// (§17.6).
 	/// </para>
 	/// </summary>
 	/// <param name="comment">The post that arrived.</param>
 	/// <returns>True when a notification should be raised.</returns>
-	public bool ShouldNotify(CommentDto comment)
-	{
-		if (_auth.UserId is { } me && comment.AuthorId == me)
-			return false;
-
-		lock (_gate)
-		{
-			return !(_appState.IsForeground && _openThread == comment.GroupRideId);
-		}
-	}
+	public bool ShouldNotify(CommentDto comment) =>
+		_auth.UserId is not { } me || comment.AuthorId != me;
 
 	/// <summary>
 	/// Renders a post as the two lines a lock screen shows.

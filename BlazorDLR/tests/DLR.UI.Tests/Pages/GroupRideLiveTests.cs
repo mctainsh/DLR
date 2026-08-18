@@ -248,6 +248,30 @@ public sealed class GroupRideLiveTests : PageTestContext
 		menu.ShouldContain("Markers");
 	}
 
+	/// <summary>
+	/// The live map's thread item carried a "quiet while live" chip that outlived the rule it
+	/// described by two releases — v0.26 removed the Live silence and this label kept promising it,
+	/// which is worse than the silence itself was: the app was buzzing riders while its own menu
+	/// told them it would not. <c>RideThreadMoreTests</c> guards the same claim on the thread page;
+	/// this is the copy that had no test at all, which is why it survived.
+	/// </summary>
+	[Fact]
+	public async Task TheMenu_PromisesNoQuietDuringALiveAdventure()
+	{
+		(_, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await OpenMenuAsync(component);
+
+		string menu = component.Find(".menu").TextContent;
+		menu.ShouldContain("Adventure thread");
+		menu.ShouldNotContain("quiet", Case.Insensitive,
+			"§17.6: every post notifies in every ride state, so no menu copy may say otherwise.");
+		menu.ShouldNotContain("silent", Case.Insensitive);
+	}
+
 	[Fact]
 	public async Task ChoosingInfo_NavigatesToTheRidesInfoPage()
 	{

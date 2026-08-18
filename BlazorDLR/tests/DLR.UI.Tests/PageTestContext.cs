@@ -71,7 +71,6 @@ public abstract class PageTestContext : BunitContext
 		// its own over FakeNotificationService rather than resolving these.
 		Services.AddScoped<INotificationService, NoopNotificationService>();
 		Services.AddSingleton<NotificationRouting>();
-		Services.AddSingleton<AppForegroundState>();
 		Services.AddScoped<CommentNotifier>();
 	}
 }

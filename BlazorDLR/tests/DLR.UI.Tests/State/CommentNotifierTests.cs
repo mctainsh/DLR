@@ -33,8 +33,7 @@ public sealed class CommentNotifierTests
 	private sealed record Harness(
 		CommentNotifier Notifier,
 		FakeRideHubClient Hub,
-		FakeNotificationService Notifications,
-		AppForegroundState App);
+		FakeNotificationService Notifications);
 
 	/// <summary>
 	/// A notifier over a signed-in rider. Signed in matters: <see cref="CommentNotifier.ShouldNotify"/>
@@ -54,9 +53,8 @@ public sealed class CommentNotifierTests
 
 		FakeRideHubClient hub = new();
 		FakeNotificationService notifications = new();
-		AppForegroundState app = new();
 
-		return new Harness(new CommentNotifier(hub, notifications, auth, app), hub, notifications, app);
+		return new Harness(new CommentNotifier(hub, notifications, auth), hub, notifications);
 	}
 
 	private static CommentDto Post(
@@ -127,24 +125,23 @@ public sealed class CommentNotifierTests
 			"ride state from another.");
 	}
 
-	// ---------- What does not ----------
-
+	/// <summary>
+	/// v0.27's reversal, and the reason the section below it is one test long. Until then a post
+	/// landing in the thread on screen was swallowed — which needed the app to know both that the
+	/// page was mounted and that the phone was not in a tank bag, and got the second half wrong for
+	/// the rest of the ride if the rider locked the screen with the thread open.
+	/// </summary>
 	[Fact]
-	public async Task APostInTheThreadTheRiderIsReading_IsNotAlsoBuzzedAtThem()
+	public async Task APostInTheThreadTheRiderIsReading_StillInterrupts()
 	{
 		Harness harness = await BuildAsync();
 		harness.Notifier.ThreadOpened(TheRide);
 
 		harness.Hub.RaiseCommentPosted(Post(TheRide, SomebodyElse));
 
-		// Delayed rather than asserted immediately: showing is fire-and-forget, so an assertion that
-		// ran straight away would pass even if suppression were broken. The window has to be wide
-		// enough that a notification which *was* going to appear has appeared.
-		await Task.Delay(50);
-
-		harness.Notifications.Shown.ShouldBeEmpty(
-			"the post is about to render in front of them — notifying somebody about a message on the " +
-			"screen they are looking at is the fastest way to teach them to ignore notifications.");
+		await harness.Notifications.Shown.ShouldEventuallyContainOne(
+			"§17.6: opening a thread withdraws the card standing in the shade for it and changes " +
+			"nothing else — the app presents every post and leaves silence to the operating system.");
 	}
 
 	[Fact]
@@ -156,8 +153,7 @@ public sealed class CommentNotifierTests
 		harness.Hub.RaiseCommentPosted(Post(AnotherRide, SomebodyElse));
 
 		await harness.Notifications.Shown.ShouldEventuallyContainOne(
-			"§5.7: a rider can be on several adventures at once, and reading one thread is not a reason " +
-			"to go quiet about another.");
+			"§5.7: a rider can be on several adventures at once.");
 	}
 
 	[Fact]
@@ -168,59 +164,24 @@ public sealed class CommentNotifierTests
 		harness.Notifier.ThreadOpened(TheRide);
 
 		harness.Notifications.Cancelled.ShouldContain(CommentNotifier.TagFor(TheRide),
-			"a rider reading the conversation does not also need a card about it sitting in the shade.");
+			"the card was about a conversation the rider has now opened, so it has done its job — " +
+			"and a stale card is how riders learn to swipe notifications away without reading them.");
 	}
 
+	// ---------- What does not ----------
+
 	[Fact]
-	public async Task LeavingAThread_MakesItsPostsInterruptAgain()
-	{
-		Harness harness = await BuildAsync();
-		harness.Notifier.ThreadOpened(TheRide);
-		harness.Notifier.ThreadClosed(TheRide);
-
-		harness.Hub.RaiseCommentPosted(Post(TheRide, SomebodyElse));
-
-		await harness.Notifications.Shown.ShouldEventuallyContainOne();
-	}
-
-	/// <summary>
-	/// Blazor initialises the incoming page before disposing the outgoing one. A
-	/// <c>ThreadClosed</c> that ignored which thread it was closing would let the first page's
-	/// teardown clear the second page's claim — and the rider would then be notified about the
-	/// thread they are looking at.
-	/// </summary>
-	[Fact]
-	public async Task SteppingFromOneThreadStraightToAnother_LeavesTheNewOneClaimed()
+	public async Task ARidersOwnPost_IsTheOnlyThingTheAppItselfHoldsBack()
 	{
 		Harness harness = await BuildAsync();
 
-		harness.Notifier.ThreadOpened(TheRide);
-		harness.Notifier.ThreadOpened(AnotherRide);   // the incoming page initialises…
-		harness.Notifier.ThreadClosed(TheRide);       // …then the outgoing one tears down
-
-		harness.Notifier.ShouldNotify(Post(AnotherRide, SomebodyElse)).ShouldBeFalse(
-			"the thread on screen is the second one, and the first page's disposal must not have " +
-			"un-claimed it.");
-	}
-
-	/// <summary>
-	/// The one that turns the whole feature back into the silence v0.26 removed if it is missing:
-	/// a rider opens the thread at a set of lights, locks the phone and rides on. The page stays
-	/// mounted for the rest of the ride.
-	/// </summary>
-	[Fact]
-	public async Task AThreadLeftOpenOnABackgroundedPhone_DoesNotSuppressAnything()
-	{
-		Harness harness = await BuildAsync();
+		// Everything a suppression rule used to be able to hang off is set the awkward way round:
+		// the rider's own thread is open, and the post is theirs. Only the second one counts.
 		harness.Notifier.ThreadOpened(TheRide);
 
-		harness.App.Set(false);
-
-		harness.Hub.RaiseCommentPosted(Post(TheRide, SomebodyElse));
-
-		await harness.Notifications.Shown.ShouldEventuallyContainOne(
-			"a mounted page on a phone in a tank bag is not a rider reading a thread — suppressing on " +
-			"the strength of it would be the Live silence coming back through a side door.");
+		harness.Notifier.ShouldNotify(Post(TheRide, Me)).ShouldBeFalse();
+		harness.Notifier.ShouldNotify(Post(TheRide, SomebodyElse)).ShouldBeTrue(
+			"§17.6: one question, and deliberately no others.");
 	}
 
 	// ---------- Permission, and hosts with no notifier ----------

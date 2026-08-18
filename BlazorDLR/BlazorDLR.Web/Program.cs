@@ -159,11 +159,9 @@ builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
 builder.Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
 builder.Services.AddScoped<INotificationService, NoopNotificationService>();
 // The notification seams (§17.6). Registered because the shared pipeline compiles into the
-// prerender and MainLayout injects them; none of them does anything on this host, and the
-// singletons are the same lifetime the mobile head uses so a scope-validation difference between
-// the two cannot hide here.
+// prerender and MainLayout injects them; neither does anything on this host, and the lifetimes are
+// the ones the mobile head uses so a scope-validation difference between the two cannot hide here.
 builder.Services.AddSingleton<BlazorDLR.Shared.State.NotificationRouting>();
-builder.Services.AddSingleton<BlazorDLR.Shared.State.AppForegroundState>();
 builder.Services.AddScoped<BlazorDLR.Shared.State.CommentNotifier>();
 builder.Services.AddScoped<IMediaPicker, NoopMediaPicker>();
 // Transient to match the interactive hosts: one interop per <RideMap>. Stateless here, but a

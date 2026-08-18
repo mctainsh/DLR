@@ -112,10 +112,8 @@ internal class Program
 		builder.Services.AddScoped<INotificationService, NoopNotificationService>();
 
 		// Registered so the shared layout resolves on this host too (§18.2). Nothing here ever
-		// writes to them: no notification is raised, so none is tapped, and a browser tab is always
-		// "foreground" as far as anything that reads it is concerned.
+		// writes to the routing letterbox: no notification is raised, so none is ever tapped.
 		builder.Services.AddSingleton<BlazorDLR.Shared.State.NotificationRouting>();
-		builder.Services.AddSingleton<BlazorDLR.Shared.State.AppForegroundState>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CommentNotifier>();
 
 		// Web IMediaPicker uses <InputFile> plumbed through a static holder — real
