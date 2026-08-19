@@ -129,7 +129,7 @@ public sealed class RideMembersLiveTests : PageTestContext
 		IRenderedComponent<RideMembersLive> component = RenderMembers(rideId);
 
 		component.WaitForAssertion(
-			() => component.Find(".page-nav-back").GetAttribute("href").ShouldBe($"/group-rides/{rideId}"),
+			() => component.Find(".page-nav-back").GetAttribute("href").ShouldBe($"/group-rides/live/{rideId}"),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 

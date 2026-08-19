@@ -101,7 +101,7 @@
 				Description: string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
 				JoinPolicy: _joinPolicy));
 
-			Nav.NavigateTo($"/group-rides/{ride.Id}");
+			Nav.NavigateTo($"/group-rides/live/{ride.Id}");
 		}
 		catch (ApiException apiException)
 		{

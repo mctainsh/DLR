@@ -333,7 +333,7 @@ public sealed class CommentNotifierTests
 	{
 		LocalNotification notification = CommentNotifier.Compose(Post(TheRide, SomebodyElse));
 
-		notification.Route.ShouldBe($"group-rides/{TheRide:D}/thread",
+		notification.Route.ShouldBe($"group-rides/thread/{TheRide:D}",
 			"a notification that only opens the home screen is a dead end: the rider was told there is " +
 			"something to read, and making them find it defeats the point of telling them.");
 	}

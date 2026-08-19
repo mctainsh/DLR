@@ -47,7 +47,7 @@
 *@
 
 <div class="page page-medium form-page">
-	<PageNav Title="Add marker" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the adventure" />
+	<PageNav Title="Add marker" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the adventure" />
 
 	@if (!_hasPoint)
 	{
@@ -56,7 +56,7 @@
 			<em>Add marker</em>, and tap the map where it goes.
 		</p>
 
-		<p><a class="button" href="@($"/group-rides/{RideId}")">Back to the adventure</a></p>
+		<p><a class="button" href="@($"/group-rides/live/{RideId}")">Back to the adventure</a></p>
 	}
 	else
 	{
@@ -303,7 +303,7 @@
 				await Api.AttachMarkerPhotoAsync(marker.Id, new AttachPhotoRequest(uploaded.PhotoId));
 			}
 
-			Nav.NavigateTo($"/group-rides/{RideId}");
+			Nav.NavigateTo($"/group-rides/live/{RideId}");
 		}
 		catch (ApiException apiException)
 		{

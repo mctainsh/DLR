@@ -1,4 +1,4 @@
-@page "/settings"
+﻿@page "/settings"
 @attribute [Authorize]
 @inject IServiceProvider Services
 
@@ -9,7 +9,7 @@
 
 	<div class="cards">
 		<a class="card" href="/settings/profile">
-			<h2>Profile</h2>
+			<h2><i class="fa fa-fw fa-id-card" aria-hidden="true"></i> Profile</h2>
 			<p>Display name, phone number, email — and who sees what.</p>
 		</a>
 		@*
@@ -22,30 +22,30 @@
 		@if (HasReceiver)
 		{
 			<a class="card" href="/settings/location">
-				<h2>Location</h2>
+				<h2><i class="fa fa-fw fa-location-dot" aria-hidden="true"></i> Location</h2>
 				<p>GPS accuracy, recording your adventures, and the private area around home.</p>
 			</a>
 		}
 		<a class="card" href="/settings/maps">
-			<h2>Maps</h2>
+			<h2><i class="fa fa-fw fa-map" aria-hidden="true"></i> Maps</h2>
 			<p>Which tiles go under your maps — OpenStreetMap, or a tile server of your own.</p>
 		</a>
 		<a class="card" href="/settings/devices">
-			<h2>Signed-in devices</h2>
+			<h2><i class="fa fa-fw fa-mobile-screen" aria-hidden="true"></i> Signed-in devices</h2>
 			<p>Every device this account is signed in on — revoke the ones you no longer have.</p>
 		</a>
 		<a class="card" href="/settings/blocks">
-			<h2>Blocked travellers</h2>
+			<h2><i class="fa fa-fw fa-user-slash" aria-hidden="true"></i> Blocked travellers</h2>
 			<p>Anyone whose posts, reactions and markers you have chosen to hide.</p>
 		</a>
 
 		<a class="card" href="/settings/account">
-			<h2>Account</h2>
+			<h2><i class="fa fa-fw fa-key" aria-hidden="true"></i> Account</h2>
 			<p>Recovery email, and changing your password.</p>
 		</a>
 
 		<a class="card" href="/settings/data">
-			<h2>Data &amp; export</h2>
+			<h2><i class="fa fa-fw fa-file-export" aria-hidden="true"></i> Data &amp; export</h2>
 			<p>Download every adventure, marker and photo. Delete your account.</p>
 		</a>
 
@@ -55,7 +55,7 @@
 			mostly runs on.
 		*@
 		<a class="card" href="/settings/log">
-			<h2>Log</h2>
+			<h2><i class="fa fa-fw fa-file-lines" aria-hidden="true"></i> Log</h2>
 			<p>What the app has been doing on this device. For working out why something did not happen.</p>
 		</a>
 

@@ -1,4 +1,4 @@
-@page "/group-rides/{RideId:guid}/members"
+@page "/group-rides/members/{RideId:guid}"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
 @using DLR.Core.Contracts.Rides
@@ -38,7 +38,7 @@
 <div class="page page-medium ride-members">
 	@* Outside the load branches: the way back to the map has to be there while the ride is
 	   loading and if it fails. The state badge waits — there is no state to report yet. *@
-	<PageNav Title="Live members" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the map">
+	<PageNav Title="Live members" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the map">
 		<Actions>
 			@if (_session.Ride is { } loaded)
 			{

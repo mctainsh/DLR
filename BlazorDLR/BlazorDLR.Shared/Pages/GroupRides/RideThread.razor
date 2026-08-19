@@ -1,4 +1,4 @@
-@page "/group-rides/{RideId:guid}/thread"
+@page "/group-rides/thread/{RideId:guid}"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
 @using DLR.Core.Contracts.Comments
@@ -33,7 +33,7 @@
 *@
 
 <div class="page page-medium thread">
-	<PageNav Title="Adventure thread" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the adventure" />
+	<PageNav Title="Adventure thread" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the adventure" />
 
 	@if (_error is not null)
 	{

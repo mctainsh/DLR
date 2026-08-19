@@ -138,7 +138,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
 
 		component.WaitForAssertion(
-			() => current.Href.ShouldBe($"group-rides/{rideId}"),
+			() => current.Href.ShouldBe($"group-rides/live/{rideId}"),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -683,5 +683,73 @@ public sealed class GroupRideLiveTests : PageTestContext
 		await component.InvokeAsync(() => component.Instance.DisposeAsync().AsTask());
 
 		wakeLock.IsHeld.ShouldBeFalse();
+	}
+
+	// ---------- The sharing-off warning (§5.6) ----------
+
+	[Fact]
+	public void APhoneNotSharing_IsToldSoInRed_OverTheMap()
+	{
+		// The one state on this screen the rider cannot see for themselves: their own absence.
+		// Every other rider's pin is on the map, the map looks entirely healthy, and the thing
+		// that is wrong is that nobody can see *them* — which they find out when somebody rings.
+		(_, _, Guid rideId) = WireServices(RideStateDto.Live);
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement strip = component.FindAll(".map-error.sharing-off").ShouldHaveSingleItem();
+			strip.ClassList.ShouldContain("error", "it is a warning, and it is red — see app.css .error.");
+			strip.GetAttribute("role").ShouldBe("alert");
+			strip.TextContent.ShouldContain("sharing is off");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task APhoneThatIsSharing_GetsNoWarning()
+	{
+		// The strip is the state, so it has to go when the state does — a red bar that outlived
+		// the problem would be the fastest way to teach a rider to ignore this one.
+		(FakeApiClient api, _, Guid rideId) = WireServices(RideStateDto.Live);
+
+		Guid me = Guid.NewGuid();
+		await Services.GetRequiredService<AuthState>().ApplySessionAsync(new TokenResponse(
+			AccessToken: "access",
+			ExpiresIn: 900,
+			RefreshToken: "refresh",
+			User: new AuthenticatedUser(me, "Me", HasEmail: true, EmailConfirmed: true)));
+
+		api.RideResult = api.RideResult! with
+		{
+			Members = [new RideMemberSummary(me, "Me", "Rider", FixedInstant, Sharing: true)],
+		};
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".sharing-off").ShouldBeEmpty();
+	}
+
+	[Fact]
+	public void AFinishedAdventure_RaisesNoSharingWarning()
+	{
+		// Nobody is looking for this rider any more, and there is nothing to turn on: a red strip
+		// here is an alarm about a situation that has stopped existing.
+		(_, _, Guid rideId) = WireServices(RideStateDto.Completed);
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".sharing-off").ShouldBeEmpty();
 	}
 }

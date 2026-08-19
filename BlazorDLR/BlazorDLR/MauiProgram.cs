@@ -282,6 +282,7 @@ public static class MauiProgram
 		try
 		{
 			DiagnosticLog.UseFile(Path.Combine(FileSystem.Current.AppDataDirectory, "dlr-log.txt"));
+			DiagnosticLog.Write("Starting : " + typeof(Shared.Components.SourceOfferFooter).Assembly.GetName().Version);
 		}
 		catch (Exception exception)
 		{

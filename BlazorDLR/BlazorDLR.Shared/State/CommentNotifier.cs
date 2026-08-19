@@ -70,13 +70,13 @@ public sealed class CommentNotifier : IDisposable
 		"dlr.thread." + rideId.ToString("N", CultureInfo.InvariantCulture);
 
 	/// <summary>
-	/// Where <c>group-rides/{id}/thread</c> is assembled, so the notification and the router cannot
+	/// Where <c>group-rides/thread/{id}</c> is assembled, so the notification and the router cannot
 	/// drift apart.
 	/// </summary>
 	/// <param name="rideId">Which adventure.</param>
 	/// <returns>A route relative to the app's base href.</returns>
 	public static string RouteFor(Guid rideId) =>
-		"group-rides/" + rideId.ToString("D", CultureInfo.InvariantCulture) + "/thread";
+		"group-rides/thread/" + rideId.ToString("D", CultureInfo.InvariantCulture);
 
 	/// <summary>
 	/// Withdraws whatever card is already showing for this adventure, because the rider has just

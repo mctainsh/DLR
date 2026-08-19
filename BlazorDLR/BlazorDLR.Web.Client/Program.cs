@@ -11,6 +11,8 @@ internal class Program
 {
 	static async Task Main(string[] args)
 	{
+		Shared.Diagnostics.DiagnosticLog.Write("Starting : " + typeof(Shared.Components.SourceOfferFooter).Assembly.GetName().Version);
+
 		var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 		// Device-specific services used by the BlazorDLR.Shared project.

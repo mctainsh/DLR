@@ -50,7 +50,7 @@
 					@foreach (RideSummary ride in _rides.Organised)
 					{
 						<li class="ride">
-							<a class="ride-link" href="/group-rides/@ride.Id">
+							<a class="ride-link" href="/group-rides/live/@ride.Id">
 								<h2>@ride.Name</h2>
 								<span class="meta">
 									@ride.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")
@@ -82,7 +82,7 @@
 					@foreach (RideSummary ride in _rides.Joined)
 					{
 						<li class="ride">
-							<a class="ride-link" href="/group-rides/@ride.Id">
+							<a class="ride-link" href="/group-rides/live/@ride.Id">
 								<h2>@ride.Name</h2>
 								<span class="meta">
 									@ride.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")

@@ -35,7 +35,7 @@ namespace BlazorDLR.Shared.Services;
 /// 2 000 characters (§17.2) and a lock screen shows two lines of them.
 /// </param>
 /// <param name="Route">
-/// Where tapping it should land, relative to the app's base href — <c>group-rides/{id}/thread</c>
+/// Where tapping it should land, relative to the app's base href — <c>group-rides/thread/{id}</c>
 /// for a post. Null for a notification with nowhere to go.
 /// <para>
 /// <strong>A notification that only opens the home screen is a dead end.</strong> The rider was

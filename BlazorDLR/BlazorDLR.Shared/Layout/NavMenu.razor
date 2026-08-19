@@ -1,4 +1,4 @@
-@using BlazorDLR.Shared.State
+﻿@using BlazorDLR.Shared.State
 @inject CurrentRideState CurrentRide
 @implements IDisposable
 
@@ -25,18 +25,26 @@
 	Every anchor keeps its `title` and `aria-label`. The visible label is small and
 	the icon does most of the work, so the accessible name must not depend on it.
 
-	Two items are not fixed destinations, and both come from CurrentRideState (§18.6) —
+	Three items are not fixed destinations, and all three come from CurrentRideState (§18.6) —
 	the ride last opened on this device, remembered across a restart, or the group rides
 	list when there is not one yet:
 
-	  - the globe is "the ride you are on", and
-	  - the people are "who is on it", the live rider list.
+	  - the globe is "the ride you are on",
+	  - the people are "who is on it", the live rider list, and
+	  - the speech bubbles are the adventure thread (§17).
 
-	The globe took the slot "My rides" used to hold; the people took the one the group
-	rides list used to. Both of those are still on the Home screen's cards, and neither is
-	a thing anybody opens twice in a ride. What a rider does open repeatedly, with a phone
-	in a bar mount and gloves on, is the map and the question of where everybody else has
-	got to — and a rail is five destinations wide.
+	All three routes read group-rides/{what}/{id} — the verb before the id — because
+	NavLink lights up on a prefix match: with the id first, the globe's href was a prefix
+	of the other two and stayed lit whichever of the three was on screen. See
+	CurrentRideState for the whole of that argument.
+
+	Each of the three displaced something: "My rides", then the group rides list, then
+	Import GPX. All three of those are still cards on the Home screen, and none of them is
+	a thing anybody opens twice in a ride — importing a GPX least of all, that being a
+	thing a rider does once, at a desk, before the ride exists. What a rider does open
+	repeatedly, with a phone in a bar mount and gloves on, is the map, the question of
+	where everybody else has got to, and what the group is saying — and a rail is five
+	destinations wide.
 *@
 
 <AuthorizeView>
@@ -50,8 +58,8 @@
 		<NavLink class="rail-item" href="@CurrentRide.MembersHref" title="@MembersName" aria-label="@MembersName">
 			<i class="fa fa-fw fa-users" aria-hidden="true"></i>
 		</NavLink>
-		<NavLink class="rail-item" href="import" title="Import GPX" aria-label="Import GPX">
-			<i class="fa fa-fw fa-file-import" aria-hidden="true"></i>
+		<NavLink class="rail-item" href="@CurrentRide.ThreadHref" title="@ThreadName" aria-label="@ThreadName">
+			<i class="fa fa-fw fa-comments" aria-hidden="true"></i>
 		</NavLink>
 		<NavLink class="rail-item" href="settings" title="Settings" aria-label="Settings">
 			<i class="fa fa-fw fa-gear" aria-hidden="true"></i>
@@ -78,6 +86,12 @@
 	/// globe does — and must say so, rather than promising a list and opening a chooser.
 	/// </summary>
 	private string MembersName => CurrentRide.RideId is null ? "Pick a group adventure" : "Live members";
+
+	/// <summary>
+	/// And again for the thread, which shares those same two destinations. Nothing on this device
+	/// means no adventure to talk about, so it leads where the other two do.
+	/// </summary>
+	private string ThreadName => CurrentRide.RideId is null ? "Pick a group adventure" : "Adventure thread";
 
 	protected override void OnInitialized()
 	{

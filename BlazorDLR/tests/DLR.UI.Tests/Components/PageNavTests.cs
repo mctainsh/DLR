@@ -19,8 +19,8 @@ namespace DLR.UI.Tests.Components;
 /// </summary>
 public sealed class PageNavTests : PageTestContext
 {
-	private const string Child = "/group-rides/11111111-1111-1111-1111-111111111111/thread";
-	private const string Parent = "/group-rides/11111111-1111-1111-1111-111111111111";
+	private const string Child = "/group-rides/thread/11111111-1111-1111-1111-111111111111";
+	private const string Parent = "/group-rides/live/11111111-1111-1111-1111-111111111111";
 
 	private IRenderedComponent<PageNav> RenderNav(string title = "Adventure thread", string? backHref = Parent) =>
 		Render<PageNav>(parameters => parameters
@@ -73,7 +73,7 @@ public sealed class PageNavTests : PageTestContext
 	public void Actions_RenderBesideTheTitle()
 	{
 		IRenderedComponent<PageNav> nav = Render<PageNav>(parameters => parameters
-			.Add(p => p.Title, "My adventures")
+			.Add(p => p.Title, "My routes")
 			.Add(p => p.BackHref, "/")
 			.Add(p => p.Actions, (RenderFragment)(builder =>
 			{

@@ -1,7 +1,9 @@
 @page "/group-rides/join"
 @attribute [Authorize]
+@using BlazorDLR.Shared.Diagnostics
 @using DLR.Core.Contracts.Rides
 @inject IApiClient Api
+@inject IServiceProvider Services
 @inject NavigationManager Nav
 
 <PageTitle>Join an adventure — Dumb Luck Routes</PageTitle>
@@ -53,6 +55,51 @@
 	private ApiError? _error;
 	private bool _busy;
 
+	/// <summary>
+	/// Turns sharing on for an adventure this rider has just joined — on a device that can
+	/// actually broadcast, and nowhere else.
+	/// <para>
+	/// <strong>Joining is the decision.</strong> Somebody who has typed an organiser's code into
+	/// their phone has said they are going on the adventure, and the thing the adventure is for is
+	/// the group being able to see each other. Leaving the flag off made the common case a rider
+	/// who believed they were on the map, was not, and found out when somebody rang to ask where
+	/// they had got to. The switch is still theirs — the ride's info page turns it off in one tap,
+	/// and the map says so in red for as long as it is off.
+	/// </para>
+	/// <para>
+	/// <strong>Only where there is a receiver.</strong> A browser has no GPS (§18.6), so setting
+	/// the flag there would light a consent record on the server that no fix will ever follow —
+	/// the same reason the info page's sharing panel is absent on the web.
+	/// </para>
+	/// <para>
+	/// <strong>Nothing is collected by this call.</strong> It sets a server flag; the receiver
+	/// starts later, from the ride screen, and Play's prominent disclosure and the platform's own
+	/// permission dialog both sit in front of that (<see cref="LocationBroadcastState"/>). This
+	/// changes what the default answer is, not whether the rider is asked before their phone
+	/// starts reading a position.
+	/// </para>
+	/// <para>
+	/// Failure is swallowed on purpose: a default that could not be applied must not be a reason a
+	/// rider cannot get into the adventure they have just joined. They arrive not sharing, the map
+	/// says so in red, and the info page's switch is one tap away.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">The adventure just joined.</param>
+	private async Task ShareByDefaultAsync(Guid rideId)
+	{
+		if (Services.GetService<LocationBroadcastState>() is not { IsSupported: true })
+			return;
+
+		try
+		{
+			await Api.SetSharingAsync(rideId, new SetSharingRequest(true));
+		}
+		catch (Exception exception)
+		{
+			DiagnosticLog.WriteError($"turning sharing on for newly joined adventure {rideId}", exception);
+		}
+	}
+
 	private async Task JoinAsync()
 	{
 		if (_busy) return;
@@ -67,10 +114,12 @@
 
 			if (result.Joined)
 			{
-				// Straight into the ride, and its own screen decides whether to ask for
-				// sharing consent (§5.6) — that check lives with the ride, not with the
-				// join because the same prompt runs on the approval path.
-				Nav.NavigateTo($"/group-rides/{result.RideId}");
+				await ShareByDefaultAsync(result.RideId);
+
+				// Straight into the ride. On a host with no receiver its own screen decides
+				// whether to ask for sharing consent (§5.6) — that check lives with the ride,
+				// not with the join, because the same prompt runs on the approval path.
+				Nav.NavigateTo($"/group-rides/live/{result.RideId}");
 			}
 			else
 			{

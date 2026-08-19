@@ -331,8 +331,13 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			"Dumb Luck Routes collects location data to show you to the other people on the group "
 			+ "adventures you turn sharing on for, even when the app is closed or not in use — so the "
 			+ "group can still see you with your phone in a mount or a pocket and the screen off.\n\n"
-			+ "Sharing is off until you turn it on, it is per adventure, and you can turn it off at any "
-			+ "time. Nothing is ever sent from inside the private area you can set around home.",
+			// "Off until you turn it on" was true until joining on a phone started turning it on
+			// (JoinRide.ShareByDefaultAsync). A disclosure that describes a default the app no
+			// longer has is the one sentence on this screen a reviewer can catch it out on, so it
+			// now says what actually happens — and says where the rider sees it and undoes it.
+			+ "Sharing is per adventure. It starts on for an adventure you join on this phone, the map "
+			+ "says so in red whenever it is off, and you can turn it off at any time. Nothing is ever "
+			+ "sent from inside the private area you can set around home.",
 			confirmText: "I agree");
 
 		if (accepted)

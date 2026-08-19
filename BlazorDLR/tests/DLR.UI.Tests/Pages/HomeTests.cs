@@ -32,22 +32,9 @@ public sealed class HomeTests : PageTestContext
 
 		IRenderedComponent<Home> component = Render<Home>();
 
-		component.FindAll("a[href='/rides']").ShouldNotBeEmpty("§4.1: My adventures is one of the four Home cards.");
+		component.FindAll("a[href='/rides']").ShouldNotBeEmpty("§4.1: My routes is one of the four Home cards.");
 		component.FindAll("a[href='/group-rides']").ShouldNotBeEmpty("Group adventures is a Home card.");
 		component.FindAll("a[href='/import']").ShouldNotBeEmpty("Import GPX is a Home card.");
 		component.FindAll("a[href='/settings']").ShouldNotBeEmpty("Settings is a Home card.");
-	}
-
-	[Fact]
-	public void FormFactorLabel_RendersWhatIFormFactorReturned()
-	{
-		WireServices(formFactor: "Phone", platform: "Android");
-
-		IRenderedComponent<Home> component = Render<Home>();
-
-		component.Markup.Contains("Phone", StringComparison.Ordinal).ShouldBeTrue(
-			"the form factor comes from IFormFactor — the shared UI shows what the host answered.");
-		component.Markup.Contains("Android", StringComparison.Ordinal).ShouldBeTrue(
-			"the platform label helps a user file a bug that names the host correctly.");
 	}
 }

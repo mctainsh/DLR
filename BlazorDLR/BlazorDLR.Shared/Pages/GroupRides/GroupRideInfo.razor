@@ -35,7 +35,7 @@
 	@* Outside the load branches: the way back to the map has to be there while the ride
 	   is loading and if it fails. The state badge waits, because there is no state to
 	   report until the ride answers. *@
-	<PageNav Title="@Title" BackHref="@($"/group-rides/{RideId}")" BackLabel="Back to the map">
+	<PageNav Title="@Title" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the map">
 		<Actions>
 			@if (_session.Ride is { } loaded)
 			{

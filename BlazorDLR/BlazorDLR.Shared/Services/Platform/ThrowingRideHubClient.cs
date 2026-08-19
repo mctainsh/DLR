@@ -47,6 +47,7 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
 	public event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
+	public event Action? ConnectionChanged;
 #pragma warning restore CS0067
 
 	/// <inheritdoc />

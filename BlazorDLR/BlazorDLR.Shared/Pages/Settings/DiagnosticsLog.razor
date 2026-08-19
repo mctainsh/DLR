@@ -16,9 +16,16 @@
 
 	It is a diagnostic, not a feature: no filtering by level, no persistence, no upload. The
 	buffer is DiagnosticLog's ring (1 000 lines) and it dies with the process.
+
+	**Full-bleed, like the live map and nothing else in Settings.** `.page-full` rather than a
+	`.page` column, because a log is the one screen where the content genuinely is the viewport:
+	the lines are long, monospaced and unwrappable, and a 40 rem column throws two thirds of a
+	desktop window away and then asks the reader to scroll sideways through what was thrown. The
+	box takes the whole width the rail leaves and whatever height is left under the filter row,
+	so what a rider can see at once is as much log as the device can show.
 *@
 
-<div class="page page-medium log-page">
+<div class="page-full log-page">
 	<PageNav Title="Log" BackHref="/settings" BackLabel="Back to settings" />
 
 	<div class="log-actions">
@@ -27,13 +34,8 @@
 			<input @bind="_filter" @bind:event="oninput" placeholder="e.g. notification" />
 		</label>
 
-		<label class="follow">
-			<input type="checkbox" @bind="_follow" />
-			Follow new lines
-		</label>
-
-		<button type="button" class="copy" @onclick="CopyAsync">@(_copied ? "Copied" : "Copy log")</button>
-		<button type="button" class="clear" @onclick="Clear">Clear</button>
+		<button type="button" class="primary" @onclick="CopyAsync">@(_copied ? "Copied" : "Copy log")</button>
+		<button type="button" class="danger" @onclick="Clear"> <i class="fa fa-fw fa-trash" aria-hidden="true"></i> </button>
 	</div>
 
 	<p class="count">
@@ -45,7 +47,7 @@
 		in a textarea offers Select All and Copy, which is how this log gets off the phone and
 		into a message. A <pre> gives a rider a wall of text they cannot lift.
 	*@
-	<textarea class="log" readonly rows="20" spellcheck="false">@Text</textarea>
+	<textarea class="log" readonly spellcheck="false">@Text</textarea>
 
 	@if (_copyError is not null)
 	{
@@ -72,7 +74,6 @@
 @code {
 	private IReadOnlyList<DiagnosticLog.LogLine> _lines = [];
 	private string _filter = string.Empty;
-	private bool _follow = true;
 	private bool _copied;
 	private string? _copyError;
 
@@ -98,8 +99,8 @@
 	/// </summary>
 	private void OnChanged()
 	{
-		if (!_follow)
-			return;
+		//if (!_follow)
+		return;
 
 		_ = InvokeAsync(() =>
 		{
@@ -190,6 +191,32 @@
 }
 
 <style>
+	/*
+		A full-bleed page is a fixed layer with `overflow: hidden` (app.css `.page-full`), so
+		everything on it either has a size or is not seen. This is the column that hands the
+		leftover height to the log box: the filter row, the count and the notes take what they
+		need, and `flex: 1 1 0` on the textarea takes the rest.
+
+		--dlr-page-top is zeroed rather than left alone. PageNav cancels that token with a
+		negative margin so its bar sits flush against the top of a `.page` column's margin
+		(PageNav.razor.css); there is no such margin here — `.page-full` is pinned to the top
+		of the content area already — and an uncancelled -2rem would drag the title bar up
+		under the status bar and out of the clipped layer. The bar keeps its own padding, so
+		it still clears a notch.
+	*/
+	.log-page {
+		--dlr-page-top: 0px;
+		display: flex;
+		flex-direction: column;
+		/* `.page-full`'s `left` already steps over the rail and a left-edge cutout with it.
+		   The right edge is this page's own to clear, and the bottom is only a home
+		   indicator's business on a wide screen — narrow, the rail is already down there and
+		   the layer stops above it. */
+		padding-top: 0;
+		padding-right: max(1rem, var(--dlr-safe-right));
+		padding-bottom: max(1rem, env(safe-area-inset-bottom));
+		padding-left: 1rem;
+	}
 	.log-page .log-actions {
 		display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem;
 	}
@@ -198,10 +225,19 @@
 	.log-page .follow { display: flex; align-items: center; gap: 0.35rem; }
 	.log-page .log-actions button { padding: 0.4rem 0.9rem; }
 	.log-page .count { margin: 0 0 0.35rem; font-size: 0.85rem; opacity: 0.7; }
+	/*
+		The box fills what is left. `flex: 1 1 0` and not `flex: 1`: a textarea's flex-basis
+		would otherwise come from its rows attribute, which is why the attribute is gone —
+		two things claiming to set the same height is how one of them ends up wrong. The
+		min-height is the floor a short landscape phone lands on rather than collapsing the
+		box to nothing, and `resize: none` because a corner grip on a box that already fills
+		the screen can only make it worse.
+	*/
 	.log-page .log {
-		width: 100%; padding: 0.5rem; background: #111; color: #d6e2ff;
+		flex: 1 1 0; min-height: 6rem; width: 100%; resize: none;
+		padding: 0.5rem; background: #111; color: #d6e2ff;
 		font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem;
-		line-height: 1.35; white-space: pre; overflow-x: auto; border-radius: 6px;
+		line-height: 1.35; white-space: pre; overflow: auto; border-radius: 6px;
 	}
 	.log-page .empty { font-style: italic; opacity: 0.7; }
 	.log-page .file { margin: 0.5rem 0 0; font-size: 0.8rem; opacity: 0.7; word-break: break-all; }

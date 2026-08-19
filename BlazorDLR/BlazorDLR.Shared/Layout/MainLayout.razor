@@ -77,7 +77,7 @@
 		// either side of a failure into "this happened while they were doing that" rather than a
 		// timestamp nobody can place.
 		Nav.LocationChanged += OnLocationChanged;
-		DiagnosticLog.Write($"Page: {Path(Nav.Uri)} (first).");
+		DiagnosticLog.Write($"Page: {Path(Nav.Uri)} (Init).");
 
 		// Subscribe first, then drain. A route that arrived before the subscription above — the
 		// cold-launch case, which is most of them — is parked rather than raised, and this ordering

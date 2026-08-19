@@ -43,7 +43,7 @@ public sealed class NotificationRouting
 	/// called. The handler hops to the UI thread itself — see the layout.
 	/// </para>
 	/// </summary>
-	/// <param name="route">Relative to the app's base href, e.g. <c>group-rides/{id}/thread</c>.</param>
+	/// <param name="route">Relative to the app's base href, e.g. <c>group-rides/thread/{id}</c>.</param>
 	public void Request(string route)
 	{
 		if (string.IsNullOrWhiteSpace(route))

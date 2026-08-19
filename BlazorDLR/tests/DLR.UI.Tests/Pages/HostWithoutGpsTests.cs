@@ -4,6 +4,7 @@ using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -197,12 +198,76 @@ public sealed class HostWithoutGpsTests : PageTestContext
 		component.FindAll(".gps-alert").ShouldBeEmpty();
 		component.Markup.ShouldNotContain("cannot share its location");
 
+		// Nor the sharing-off warning a phone gets (§5.6). A traveller watching from a laptop is
+		// not withholding anything — there is nothing here to turn on and nothing to warn about.
+		component.FindAll(".sharing-off").ShouldBeEmpty();
+
 		// And so is the receiver's line inside the menu, which is where it lives.
 		await component.InvokeAsync(() => component.Find("button.hamburger").Click());
 
 		component.FindAll(".gps").ShouldBeEmpty(
 			"§18.6: a line reading \"this device cannot share its location\" answers a question a "
 			+ "traveller on a laptop was never asking.");
+	}
+
+	[Fact]
+	public async Task LiveMap_SaysNothingAboutPendingSharing_OnAHostThatCannotShare()
+	{
+		// `Sharing` is the server's flag, not this device's capability: a rider who turned it on
+		// from their phone carries it into every host they sign in on. On the phone the strip is
+		// owed to them — consent given, receiver deliberately idle until the organiser starts
+		// (§5.1). On a laptop the same sentence promises a broadcast this machine will never make,
+		// and the rider is left waiting for a pin that was always going to come from their pocket.
+		(FakeApiClient api, _, Guid rideId) = WireBrowser();
+
+		Guid me = Guid.NewGuid();
+		await Services.GetRequiredService<AuthState>().ApplySessionAsync(new TokenResponse(
+			AccessToken: "access",
+			ExpiresIn: 900,
+			RefreshToken: "refresh",
+			User: new AuthenticatedUser(me, "Me", HasEmail: true, EmailConfirmed: true)));
+
+		// Open rather than Live, which is the whole of what "pending" means, and this rider's
+		// consent already recorded against it.
+		api.RideResult = api.RideResult! with
+		{
+			State = RideStateDto.Open,
+			Members = [new RideMemberSummary(me, "Me", "Rider", FixedInstant, Sharing: true)],
+		};
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(
+			parameters => parameters.Add(page => page.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+			component.FindAll("button.hamburger").ShouldNotBeEmpty(), timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".gps-alert").ShouldBeEmpty();
+		component.Markup.Contains("Your position starts going to the group", StringComparison.Ordinal)
+			.ShouldBeFalse(
+				"§18.6: a browser has no receiver to start, so it must not tell a traveller that "
+				+ "starting the adventure will put this machine on the map.");
+	}
+
+	[Fact]
+	public async Task LiveMap_RaisesNoneOfThePhoneWarnings_EvenWithTheHubDown()
+	{
+		// The three permanent warnings are about a device that is meant to be putting itself on
+		// the map: no network, GPS off, no fix. A browser is doing none of that. Its connection
+		// dropping is a page the reader can reload, not somebody riding into a valley on the
+		// strength of what is on screen (§18.6).
+		(_, FakeRideHubClient hub, Guid rideId) = WireBrowser();
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(
+			parameters => parameters.Add(page => page.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+			component.FindAll("button.hamburger").ShouldNotBeEmpty(), timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => hub.SetConnected(false));
+
+		component.FindAll(".no-network").ShouldBeEmpty();
+		component.FindAll(".gps-disabled").ShouldBeEmpty();
+		component.FindAll(".no-gps").ShouldBeEmpty();
 	}
 
 	[Fact]

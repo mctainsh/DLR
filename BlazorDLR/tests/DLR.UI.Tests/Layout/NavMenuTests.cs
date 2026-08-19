@@ -69,12 +69,11 @@ public sealed class NavMenuTests : BunitContext
 		{
 			component.FindAll("a[href='welcome']").ShouldNotBeEmpty(
 				"§7.9: an anonymous nav must lead to Welcome — that is the only signed-out destination.");
-			component.FindAll("a[href='import']").Count.ShouldBe(0,
+			component.FindAll("a[href='settings']").Count.ShouldBe(0,
 				"§7.9: the signed-in surface must not appear on an anonymous nav — its links are dead until sign-in.");
-			component.FindAll("a[href='settings']").Count.ShouldBe(0);
 			component.FindAll("a[href='group-rides']").Count.ShouldBe(0,
-				"the globe and the traveller list both fall back to the group adventures list, so an "
-				+ "anonymous rail must not carry that either.");
+				"the globe, the traveller list and the thread all fall back to the group adventures "
+				+ "list, so an anonymous rail must not carry that either.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -127,7 +126,6 @@ public sealed class NavMenuTests : BunitContext
 			// Every signed-in destination is present.
 			component.FindAll("a[href='']").ShouldNotBeEmpty("Home link (href='') is the root the signed-in nav opens with.");
 			component.FindAll("a[href='group-rides']").ShouldNotBeEmpty();
-			component.FindAll("a[href='import']").ShouldNotBeEmpty();
 			component.FindAll("a[href='settings']").ShouldNotBeEmpty();
 
 			// And the Welcome link is gone — a signed-in user has no reason for it.
@@ -136,13 +134,17 @@ public sealed class NavMenuTests : BunitContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
-	/// <summary>The globe, found by its glyph — one of the two rail items whose href moves.</summary>
+	/// <summary>The globe, found by its glyph — one of the three rail items whose href moves.</summary>
 	private static AngleSharp.Dom.IElement Globe(IRenderedComponent<NavMenu> component) =>
 		component.FindAll("a.rail-item").Single(link => link.QuerySelector("i.fa-globe") is not null);
 
 	/// <summary>The rider list, found the same way. It shares the globe's two destinations.</summary>
 	private static AngleSharp.Dom.IElement Members(IRenderedComponent<NavMenu> component) =>
 		component.FindAll("a.rail-item").Single(link => link.QuerySelector("i.fa-users") is not null);
+
+	/// <summary>The adventure thread, found the same way, and on the same two destinations.</summary>
+	private static AngleSharp.Dom.IElement Thread(IRenderedComponent<NavMenu> component) =>
+		component.FindAll("a.rail-item").Single(link => link.QuerySelector("i.fa-comments") is not null);
 
 	[Fact]
 	public async Task Members_OnADeviceWithNoRide_LeadsToTheGroupRidesList()
@@ -177,7 +179,7 @@ public sealed class NavMenuTests : BunitContext
 		component.WaitForAssertion(() =>
 		{
 			AngleSharp.Dom.IElement members = Members(component);
-			members.GetAttribute("href").ShouldBe($"group-rides/{rideId}/members");
+			members.GetAttribute("href").ShouldBe($"group-rides/members/{rideId}");
 			members.GetAttribute("aria-label").ShouldBe("Live members");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -216,7 +218,7 @@ public sealed class NavMenuTests : BunitContext
 		component.WaitForAssertion(() =>
 		{
 			AngleSharp.Dom.IElement globe = Globe(component);
-			globe.GetAttribute("href").ShouldBe($"group-rides/{rideId}",
+			globe.GetAttribute("href").ShouldBe($"group-rides/live/{rideId}",
 				"§18.6: the globe is the one-tap way back to the adventure, including after a restart.");
 			globe.GetAttribute("aria-label").ShouldBe("Current adventure");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -236,7 +238,44 @@ public sealed class NavMenuTests : BunitContext
 		await Services.GetRequiredService<CurrentRideState>().SetAsync(rideId);
 
 		component.WaitForAssertion(
-			() => Globe(component).GetAttribute("href").ShouldBe($"group-rides/{rideId}"),
+			() => Globe(component).GetAttribute("href").ShouldBe($"group-rides/live/{rideId}"),
 			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Thread_OnADeviceWithNoRide_LeadsToTheGroupRidesList()
+	{
+		// No adventure means no conversation about one, so the item falls back where the globe and
+		// the traveller list do — and says so, rather than promising a thread and opening a chooser.
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement thread = Thread(component);
+			thread.GetAttribute("href").ShouldBe("group-rides");
+			thread.GetAttribute("aria-label").ShouldBe("Pick a group adventure");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Thread_AfterARideWasOpened_LeadsToThatRidesThread()
+	{
+		// The slot Import GPX used to hold. Importing is a once-per-route thing done at a desk and
+		// still a Home card; what a rider checks over and over mid-ride is what the group is saying.
+		Guid rideId = Guid.NewGuid();
+		await _settings.SetAsync(CurrentRideState.StorageKey, rideId.ToString("N"));
+
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement thread = Thread(component);
+			thread.GetAttribute("href").ShouldBe($"group-rides/thread/{rideId}");
+			thread.GetAttribute("aria-label").ShouldBe("Adventure thread");
+		}, timeout: TimeSpan.FromSeconds(3));
 	}
 }

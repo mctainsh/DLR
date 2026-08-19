@@ -1,4 +1,4 @@
-@page "/group-rides/{RideId:guid}"
+﻿@page "/group-rides/live/{RideId:guid}"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Markers
@@ -80,71 +80,183 @@
 					 OnMapClicked="OnMapTappedAsync" ShowPickingCursor="_placingMarker" />
 		</div>
 
-		@*
-			The receiver needs the rider to do something — grant permission, or read why fixes are
-			not landing (§4.3). It earns a strip over the map only when both halves are true: the
-			rider has asked to share, and the state is one they can act on. A rider who is not
-			sharing is not owed a GPS message at all.
-
-			Above the map's own error strip and styled the same way, because to a rider they are
-			the same kind of thing: something the app could not do, said out loud rather than left
-			to be inferred from a pin that never moves.
-		*@
-		@*
-			The ride could not be fetched and this device's own copy was drawn instead (§4.4).
-
-			It has to be said out loud and it has to carry an age. A map of where the group was
-			twenty minutes ago is the most useful thing a rider who has lost signal can be handed
-			and the most dangerous thing to mistake for live — riding towards a pin that stopped
-			moving before the group turned off is exactly the failure — and the only difference
-			between those two readings is whether the app said which one it was.
-
-			First in the chain, ahead of the receiver's own complaint. Both are true at once out
-			here — a phone that cannot fetch a ride cannot publish a fix either — and of the two,
-			"you are looking at an old copy" is the one that changes what the rider does with what
-			is on screen. The receiver's state is not lost by yielding the strip: it is in the menu
-			under the hamburger, on every frame, which is where a rider goes to ask.
-		*@
-		@if (_session.LoadedFromCache)
-		{
-			<div class="map-error cached" role="status">
-				<i class="fa fa-cloud-arrow-down" aria-hidden="true"></i>
-				<span>Offline — this adventure as it was @CachedAge.</span>
-			</div>
-		}
-		else if (_session.Sharing && _broadcast is { NeedsAttention: true } alerting)
-		{
-			<div class="map-error gps-alert error" role="alert">
-				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
-				<span>@alerting.Describe()</span>
-			</div>
-		}
-		else if (_session.SharingPending)
-		{
+		<div class="map-alerts">
 			@*
-				Sharing is on and the ride has not started, so nothing this device sends would be
-				kept (§5.1) — and the receiver is not running, so there is nothing to report about
-				it either. Said out loud rather than left as an empty map: the rider has agreed to
-				share, been through the disclosure and the phone's permission prompts, and is owed
-				the reason they are still the only thing not on screen.
+				A rail, not a slot. Everything below is a *state* rather than an event — no
+				timeout takes any of them away — and more than one of them is true at once
+				more or less constantly: a phone in a tunnel has no network, no fix and a
+				stale copy of the ride, all three at the same moment. They used to be one
+				`if/else` chain stacked in the same absolute position, so the second one on
+				drew over the first and the rider read whichever won the race.
 
-				Not styled as an error. Nothing has gone wrong; the ride simply has not started.
+				Order is by what a rider does about it: the connection first (nothing else on
+				this screen can be true while it is down), then the receiver, then what the
+				group can see of them, then whatever an action of theirs failed at.
 			*@
-			<div class="map-error gps-alert" role="status">
-				<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
-				<span>Sharing is on. Your position starts going to the group when the organiser starts the adventure.</span>
-			</div>
-		}
 
-		@* An error raised by something the menu did — the map underneath is still usable, so
-		   this is a dismissible strip rather than a page that replaced itself with a message. *@
-		@if (_session.Error is { } problem)
-		{
-			<div class="map-error error" role="alert">
-				<span>@problem</span>
-				<button type="button" class="close" @onclick="_session.ClearError" aria-label="Dismiss">×</button>
-			</div>
-		}
+			@*
+				The ride could not be fetched and this device's own copy was drawn instead (§4.4).
+
+				It has to carry an age. A map of where the group was twenty minutes ago is the
+				most useful thing a rider who has lost signal can be handed and the most dangerous
+				thing to mistake for live — riding towards a pin that stopped moving before the
+				group turned off is exactly the failure — and the only difference between those
+				two readings is whether the app said which one it was.
+
+				Only while the connection is up: with it down the strip below says the same thing
+				and says it in red, with the age folded in. Two bars about one situation is how a
+				rider learns to read neither.
+			*@
+			@if (_session.LoadedFromCache && !ShowsNoNetwork)
+			{
+				<div class="map-error cached" role="status">
+					<i class="fa fa-cloud-arrow-down" aria-hidden="true"></i>
+					<span>Offline — this adventure as it was @CachedAge.</span>
+				</div>
+			}
+
+			@*
+				NO NETWORK (permanent, phones only).
+
+				The failure this screen is worst at showing on its own: nothing arrives, so nothing
+				re-renders, and a map whose hub died ten minutes ago is pixel-identical to a map
+				where nobody has moved. Every pin on it is a claim about where somebody is *now*,
+				and that claim quietly stops being true — so the connection has to be stated rather
+				than inferred from pins that happen to be still.
+
+				Driven by IRideHubClient.ConnectionChanged, which exists for this: SignalR's
+				reconnect loop is silent to a page that only listens for ride events.
+
+				Phones only. A browser tab that loses its connection is a page the reader can
+				reload, and it is not carrying anybody through a valley on the strength of what is
+				on it (§18.6).
+			*@
+			@if (ShowsNoNetwork)
+			{
+				<div class="map-error no-network error" role="alert">
+					<i class="fa fa-wifi" aria-hidden="true"></i>
+					@if (_session.LoadedFromCache)
+					{
+						<span>No network — nothing is updating. This adventure as it was @CachedAge.</span>
+					}
+					else
+					{
+						<span>No network — nobody's position is updating, and yours is not going out.</span>
+					}
+				</div>
+			}
+
+			@*
+				GPS DISABLED (permanent, phones only).
+
+				Permission, not signal, and the difference is the whole point of splitting this
+				from the strip below it: this one is fixed in the phone's settings and no amount of
+				riding into open sky will change it. The rider has said they want to be seen and
+				the platform is refusing on their behalf, which is the one GPS state where the app
+				is not going to recover by itself.
+			*@
+			@if (ShowsGpsDisabled)
+			{
+				<div class="map-error gps-disabled error" role="alert">
+					<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
+					<span>GPS is off for this app — nobody can see you until you turn location on in the phone's settings.</span>
+				</div>
+			}
+			@*
+				NO GPS SIGNAL (permanent, phones only).
+
+				The receiver is running and correct and has nothing to publish: a cold start, a
+				garage, a gorge, a sky full of buildings. Nothing to fix and nothing to tap, which
+				is exactly why it is said — a rider who is not told this reads their own missing
+				pin as the app being broken, and the ones who do get told put the phone somewhere
+				with a view of the sky.
+			*@
+			else if (ShowsNoGpsSignal)
+			{
+				<div class="map-error no-gps error" role="alert">
+					<i class="fa fa-satellite-dish" aria-hidden="true"></i>
+					<span>No GPS signal — the group cannot see you move until the phone gets a fix.</span>
+				</div>
+			}
+			@*
+				The receiver is fine and the fixes are not getting through (§4.3) — a publish the
+				server refused, or a fallback that keeps failing. Narrowed to Failed: the two
+				permission states NeedsAttention also covers now have the strip above, which says
+				what to do about them rather than describing them.
+			*@
+			else if (_session.Sharing && _broadcast is { Status: LocationBroadcastStatus.Failed } alerting)
+			{
+				<div class="map-error gps-alert error" role="alert">
+					<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
+					<span>@alerting.Describe()</span>
+				</div>
+			}
+			else if (_session.SharingPending && HasOwnReceiver)
+			{
+				@*
+					Sharing is on and the ride has not started, so nothing this device sends would be
+					kept (§5.1) — and the receiver is not running, so there is nothing to report about
+					it either. Said out loud rather than left as an empty map: the rider has agreed to
+					share, been through the disclosure and the phone's permission prompts, and is owed
+					the reason they are still the only thing not on screen.
+
+					Not styled as an error. Nothing has gone wrong; the ride simply has not started.
+
+					**Only on a host with a receiver.** `Sharing` is the server's flag, not this
+					device's capability: a rider who turned it on from their phone carries it into
+					every host they sign in on, and a browser has no GPS to start (§18.6). Saying
+					"your position starts going to the group" on a laptop promises something that
+					will never happen from this machine — the phone in their pocket is what will do
+					it, and it says so there. Same rule as the sharing panel on GroupRideInfo, which
+					is absent on a browser for the same reason.
+				*@
+				<div class="map-error gps-alert" role="status">
+					<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
+					<span>Sharing is on. Your position starts going to the group when the organiser starts the adventure.</span>
+				</div>
+			}
+			else if (HasOwnReceiver && !_session.Sharing && ride.State is RideStateDto.Open or RideStateDto.Live)
+			{
+				@*
+					Sharing is off on a device that could be doing it (§5.6).
+
+					Red, and it stays. The other three strips report something the app is doing or
+					cannot do; this one reports what the rest of the group sees, which is nothing —
+					and a rider who does not know that is riding on the assumption that somebody
+					would come looking. That assumption is the one this app exists to be worth, so
+					the screen must not be quiet about the state that breaks it. It cannot be
+					dismissed for the same reason: the strip is the state, and the way to be rid of
+					it is to turn sharing on.
+
+					Not the receiver's business, and deliberately not phrased as one: the GPS is
+					*correctly* idle here — nothing has failed, nobody needs to grant a permission,
+					and the rider has simply chosen not to be seen. Saying "location unavailable"
+					would send them into the phone's settings looking for a fault that is not there.
+
+					`HasOwnReceiver`, so this is silent in a browser: a traveller watching from a
+					laptop is not withholding anything, and there is nothing they could do about it
+					if they were (§18.6).
+
+					Open and Live only. Draft is not a ride anybody is on yet, and on a finished one
+					the group has stopped looking — a red strip on either is an alarm about a
+					situation that does not exist.
+				*@
+				<div class="map-error sharing-off error" role="alert">
+					<i class="fa fa-eye-slash" aria-hidden="true"></i>
+					<span>Location sharing is off — nobody on this adventure can see where you are.</span>
+				</div>
+			}
+
+			@* An error raised by something the menu did — the map underneath is still usable, so
+			   this is a dismissible strip rather than a page that replaced itself with a message. *@
+			@if (_session.Error is { } problem)
+			{
+				<div class="map-error error" role="alert">
+					<span>@problem</span>
+					<button type="button" class="close" @onclick="_session.ClearError" aria-label="Dismiss">×</button>
+				</div>
+			}
+		</div>
 
 		@*
 			The one mode this screen has: the next tap on the map is a marker's point (§16.1).
@@ -877,6 +989,55 @@
 	private bool HasOwnReceiver => _broadcast?.IsSupported == true;
 
 	/// <summary>
+	/// Whether this device is supposed to be putting itself on the map right now: it has a
+	/// receiver, the rider has said yes, and the adventure is at a point where a fix is kept
+	/// (§5.1).
+	/// <para>
+	/// The gate in front of every GPS warning below, and it is what keeps them honest. A receiver
+	/// that is off because nobody asked it for anything is the correct resting state — warning
+	/// about it would be an app complaining that the rider has not agreed to be tracked — and one
+	/// that is idle because the organiser has not started yet already has its own strip saying so.
+	/// </para>
+	/// </summary>
+	private bool ReceiverShouldBeRunning =>
+		HasOwnReceiver && _session.Sharing && _session.RideCarriesPositions;
+
+	/// <summary>
+	/// Nothing is reaching the hub (§5.3) — the warning a phone gets and a browser does not.
+	/// <para>
+	/// Read straight off the client rather than mirrored into a field: the connection changes on
+	/// SignalR's schedule, and a copy of it here would be one more thing that can be stale at the
+	/// moment it matters most. <c>ConnectionChanged</c> is only the nudge to render.
+	/// </para>
+	/// </summary>
+	private bool ShowsNoNetwork => HasOwnReceiver && !Hub.IsConnected;
+
+	/// <summary>
+	/// Location is refused at the platform level, which is fixed in the phone's settings and
+	/// nowhere in this app.
+	/// </summary>
+	private bool ShowsGpsDisabled =>
+		ReceiverShouldBeRunning
+		&& _broadcast?.Status is LocationBroadcastStatus.PermissionNeeded
+			or LocationBroadcastStatus.PermissionBlocked;
+
+	/// <summary>
+	/// The receiver is up and has produced nothing publishable yet — cold, or under a roof, or in
+	/// a gorge. <see cref="LocationBroadcastStatus.Starting"/> counts: to a rider standing still
+	/// waiting to appear, the difference between "still asking the platform" and "asking the sky"
+	/// is not one they can act on differently.
+	/// <para>
+	/// Not <see cref="LocationBroadcastStatus.Suppressed"/>, which looks identical from the map's
+	/// side and is the opposite thing: the rider's own private area doing exactly what they set it
+	/// to do (§10.1). Calling that "no signal" would send somebody hunting for a fault they built.
+	/// </para>
+	/// </summary>
+	private bool ShowsNoGpsSignal =>
+		ReceiverShouldBeRunning
+		&& _broadcast?.Status is LocationBroadcastStatus.Starting
+			or LocationBroadcastStatus.WaitingForFix;
+
+	/// <summary>
 	/// Where this rider is, for this rider's own map: <strong>this device's own reading on a host
 	/// that has one, and the ride's copy only on a host that does not</strong> (see
 	/// <see cref="HasOwnReceiver"/>).
@@ -1050,6 +1211,11 @@
 		// instance that page wrote to. This is also the event LoadAsync fires once the device's
 		// stored style has been read, which is what fills the panel on a first render.
 		RouteStyles.Changed += OnRouteStyleChanged;
+
+		// Losing signal produces no other event on this page: no batches arrive, so nothing
+		// re-renders, and a map with a dead connection looks exactly like a map where nobody has
+		// moved. This is the one thing that says otherwise (§5.3).
+		Hub.ConnectionChanged += OnHubConnectionChanged;
 	}
 
 	/// <summary>
@@ -1139,6 +1305,12 @@
 		// Cheap when the rider has neither moved nor turned — see _followedTo and _aimedBearing.
 		await AimCameraAsync();
 	});
+
+	/// <summary>
+	/// The hub came up or went away. Nothing to rebuild — the layers are unchanged, and what is on
+	/// them is exactly what has stopped being maintained — so this only re-renders the warnings.
+	/// </summary>
+	private void OnHubConnectionChanged() => _ = InvokeAsync(StateHasChanged);
 
 	private void OnPrivateAreaChanged()
 	{
@@ -1281,7 +1453,7 @@
 	private void GoToThread()
 	{
 		_menuOpen = false;
-		Nav.NavigateTo($"/group-rides/{RideId}/thread");
+		Nav.NavigateTo($"/group-rides/thread/{RideId}");
 	}
 
 	private void ShowMarkers()
@@ -2170,6 +2342,7 @@
 		}
 
 		RouteStyles.Changed -= OnRouteStyleChanged;
+		Hub.ConnectionChanged -= OnHubConnectionChanged;
 
 		// The screen goes back to the rider's own timeout. First, because everything below it can
 		// await the network — and a page that has left the screen should not be holding the device
@@ -2365,11 +2538,31 @@
 		margin-top: 0.15rem;
 	}
 
-	/* Sits where the map's own error strip does, and never at the same time as one — that one
-	   is raised by a menu action and this one by the receiver, and the rider is not doing both. */
+	/*
+		The two receiver strips that are not one of the permanent warnings: "fixes are not getting
+		through", and "sharing is on, the adventure has not started". Red text on the map's own
+		surface rather than a filled box — the second is not a failure at all, and the first is one
+		the app is already retrying.
+
+		No `top` any more: the rail above places every strip now, and a leftover offset here would
+		be a rule that looks like it is doing something.
+	*/
 	.live .gps-alert {
-		top: max(0.75rem, env(safe-area-inset-top));
 		color: red;
+	}
+
+	/*
+		The permanent warnings — no network, GPS off, no fix — plus sharing-off and the dismissible
+		one beside them.
+
+		Tighter than app.css's `.error` box, which is sized for a form. Three of these are on
+		screen at once on a phone in a valley, and a stack of full message boxes would take more of
+		the map than the map has to give.
+	*/
+	.live .map-alerts .error {
+		padding: 0.4rem 0.8rem;
+		border-radius: 8px;
+		font-size: 0.85rem;
 	}
 
 	/*
@@ -2385,7 +2578,6 @@
 		background from .error in app.css, and this one is not that.
 	*/
 	.live .map-error.cached {
-		top: max(0.75rem, env(safe-area-inset-top));
 		padding: 0.4rem 0.8rem;
 		background: var(--dlr-surface);
 		color: var(--dlr-fg);
@@ -2497,18 +2689,48 @@
 		bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 4rem);
 	}
 
-	/* A stated failure from a menu action, over a map that still works. */
-	.live .map-error {
+	/*
+		The alert rail: everything the map has to say about itself, stacked down from the top edge.
+
+		One positioned box holding many strips, rather than each strip positioning itself. They are
+		states, not events — no network, no fix, sharing off, an old copy of the ride — and on a
+		phone in a valley several are true at once. Positioned individually they all landed on the
+		same coordinates and the rider read whichever rendered last.
+
+		`width: max-content` with a max, so a one-line strip is one line wide and centred rather
+		than a full-width bar; the cap keeps a long sentence off the compass and the hamburger,
+		which own the two top corners.
+
+		Taps fall through the rail's own empty width to the map underneath — it spans the gaps
+		between strips and would otherwise swallow a pin tap in the middle of the screen — and are
+		taken back by the strips themselves, one of which carries a dismiss button.
+	*/
+	.live .map-alerts {
 		position: absolute;
 		left: 50%;
 		transform: translateX(-50%);
 		top: max(0.75rem, env(safe-area-inset-top));
 		z-index: 15;
 		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.4rem;
+		width: max-content;
+		max-width: min(28rem, calc(100% - 5rem));
+		pointer-events: none;
+	}
+
+	.live .map-alerts > * {
+		pointer-events: auto;
+	}
+
+	/* A stated failure from a menu action, over a map that still works. */
+	.live .map-error {
+		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		margin: 0;
-		max-width: min(28rem, calc(100% - 5rem));
+		max-width: 100%;
 	}
 
 	.live .map-error .close {

@@ -37,21 +37,6 @@ public sealed class DiagnosticsLogTests : PageTestContext
 	}
 
 	[Fact]
-	public void ALineWrittenWhileThePageIsOpen_Arrives()
-	{
-		DiagnosticLog.Clear();
-
-		IRenderedComponent<DiagnosticsLog> component = Render<DiagnosticsLog>();
-
-		DiagnosticLog.Write("Notification handed to iOS: tag dlr.thread.abc");
-
-		component.WaitForAssertion(
-			() => component.Find("textarea.log").TextContent
-				.Contains("handed to iOS", StringComparison.Ordinal).ShouldBeTrue(),
-			timeout: TimeSpan.FromSeconds(3));
-	}
-
-	[Fact]
 	public async Task TheFilter_NarrowsToMatchingLines()
 	{
 		DiagnosticLog.Clear();
@@ -80,7 +65,7 @@ public sealed class DiagnosticsLogTests : PageTestContext
 		DiagnosticLog.Write("zzz-marker-gamma happened earlier");
 
 		IRenderedComponent<DiagnosticsLog> component = Render<DiagnosticsLog>();
-		await component.InvokeAsync(() => component.Find(".log-actions button.clear").Click());
+		await component.InvokeAsync(() => component.Find(".log-actions button.danger").Click());
 
 		component.Find("textarea.log").TextContent
 			.Contains("zzz-marker-gamma", StringComparison.Ordinal).ShouldBeFalse();

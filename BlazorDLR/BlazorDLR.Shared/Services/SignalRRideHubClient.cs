@@ -92,6 +92,8 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	public event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
 	/// <inheritdoc />
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
+	/// <inheritdoc />
+	public event Action? ConnectionChanged;
 
 	/// <inheritdoc />
 	public async Task ConnectAsync(CancellationToken cancellationToken = default)
@@ -134,6 +136,11 @@ public sealed class SignalRRideHubClient : IRideHubClient
 
 		connection.Reconnected += async _ =>
 		{
+			// Before the re-joins, not after: the connection is up either way, and a rider whose
+			// signal has just come back should not be looking at "no network" for the length of a
+			// round trip per ride they are in.
+			ConnectionChanged?.Invoke();
+
 			// Re-join every group this client held before the drop. The server's group
 			// tracking lives in the connection that just died; nothing on the new one knows
 			// about it until we ask.
@@ -147,12 +154,14 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.Closed += error =>
 		{
 			DiagnosticLog.Write($"Hub closed: {error?.Message ?? "no error — closed cleanly"}.");
+			ConnectionChanged?.Invoke();
 			return Task.CompletedTask;
 		};
 
 		connection.Reconnecting += error =>
 		{
 			DiagnosticLog.Write($"Hub reconnecting: {error?.Message ?? "no error given"}.");
+			ConnectionChanged?.Invoke();
 			return Task.CompletedTask;
 		};
 
@@ -166,6 +175,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		{
 			await connection.StartAsync(cancellationToken);
 			DiagnosticLog.Write($"Hub connected to {_hubUri}.");
+			ConnectionChanged?.Invoke();
 		}
 		catch (Exception exception)
 		{
@@ -174,6 +184,12 @@ public sealed class SignalRRideHubClient : IRideHubClient
 			// Cleared so a later ConnectAsync builds a fresh connection rather than returning early
 			// on the dead one this left behind.
 			_connection = null;
+
+			// Raised on the way out as well. A start that never succeeded is the state a phone
+			// opening a ride in a tunnel is in, and it is exactly the case the map has to be able
+			// to say out loud — the caller swallows this exception (RideSession), so nothing else
+			// would ever mention it.
+			ConnectionChanged?.Invoke();
 			throw;
 		}
 	}

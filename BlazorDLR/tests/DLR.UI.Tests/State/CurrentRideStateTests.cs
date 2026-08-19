@@ -82,7 +82,7 @@ public sealed class CurrentRideStateTests
 		await relaunched.LoadAsync();
 
 		relaunched.RideId.ShouldBe(rideId);
-		relaunched.Href.ShouldBe($"group-rides/{rideId}");
+		relaunched.Href.ShouldBe($"group-rides/live/{rideId}");
 	}
 
 	[Fact]

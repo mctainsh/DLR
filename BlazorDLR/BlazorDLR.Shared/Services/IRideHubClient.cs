@@ -16,6 +16,24 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <summary>Whether the underlying connection is currently up.</summary>
 	bool IsConnected { get; }
 
+	/// <summary>
+	/// <see cref="IsConnected"/> may have changed — the connection came up, dropped, or started
+	/// trying again.
+	/// <para>
+	/// A property with no event is a property a screen can only read at the moment it happens to
+	/// render, and a phone that loses signal mid-ride renders nothing at all afterwards: no
+	/// batches arrive, so nothing re-renders, so the map goes on looking live while it silently
+	/// stops being (§5.3). The live map's "no network" warning is driven from here.
+	/// </para>
+	/// <para>
+	/// Raised on every transition rather than only on the losing one, so a subscriber that shows a
+	/// warning has something to take it down again. Carries no payload: the answer is
+	/// <see cref="IsConnected"/>, read fresh, which cannot go stale between the raise and the
+	/// handler.
+	/// </para>
+	/// </summary>
+	event Action? ConnectionChanged;
+
 	/// <summary>Open the connection.</summary>
 	Task ConnectAsync(CancellationToken cancellationToken = default);
 

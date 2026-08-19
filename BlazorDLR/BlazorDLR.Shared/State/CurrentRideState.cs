@@ -28,6 +28,14 @@ namespace BlazorDLR.Shared.State;
 /// its own rather than a missing item on the rail: <see cref="Href"/> falls back to the group rides
 /// list, which is where a rider with no ride goes to pick one.
 /// </para>
+/// <para>
+/// <strong>Why the routes read <c>group-rides/{what}/{id}</c> and not <c>group-rides/{id}/{what}</c>.</strong>
+/// <c>NavLink</c> marks itself active on a <em>prefix</em> match, and with the id first the live
+/// map's href is a prefix of the traveller list's and the thread's — so the globe lit up on all
+/// three, and the rail could never say which of them the rider was actually on. Putting the verb
+/// in front makes the three siblings rather than an ancestor and its descendants, and exactly one
+/// of them matches at a time. A screen added to the rail has to keep that shape.
+/// </para>
 /// </summary>
 public sealed class CurrentRideState
 {
@@ -78,18 +86,29 @@ public sealed class CurrentRideState
 	/// because the two states are one destination — "the ride you are on" — and only this type
 	/// knows which of them is in force.
 	/// </summary>
-	public string Href => _rideId is { } id ? $"{PickRideHref}/{id}" : PickRideHref;
+	public string Href => _rideId is { } id ? $"{PickRideHref}/live/{id}" : PickRideHref;
 
 	/// <summary>
 	/// Where the rail's rider list goes: the members of the ride you are on, or the list when there
 	/// is no ride to have members (§18.6).
 	/// <para>
-	/// Its own property rather than the rail appending <c>/members</c> to <see cref="Href"/>, which
-	/// would produce <c>group-rides/members</c> on a device that has not opened one — a route that
+	/// Its own property rather than the rail assembling one out of <see cref="Href"/>, which on a
+	/// device that has not opened a ride would produce a route with no id in it — something that
 	/// matches nothing.
 	/// </para>
 	/// </summary>
-	public string MembersHref => _rideId is { } id ? $"{PickRideHref}/{id}/members" : PickRideHref;
+	public string MembersHref => _rideId is { } id ? $"{PickRideHref}/members/{id}" : PickRideHref;
+
+	/// <summary>
+	/// Where the rail's thread goes: the conversation on the ride you are on, or the list when there
+	/// is no ride to have one (§17).
+	/// <para>
+	/// The same fallback as <see cref="MembersHref"/>, and for the same reason — a device that has
+	/// not opened a ride has no thread to open, so the item leads to the chooser rather than to a
+	/// route that matches nothing.
+	/// </para>
+	/// </summary>
+	public string ThreadHref => _rideId is { } id ? $"{PickRideHref}/thread/{id}" : PickRideHref;
 
 	/// <summary>
 	/// Reads the persisted ride. Idempotent — the rail calls it on first render and nobody else has

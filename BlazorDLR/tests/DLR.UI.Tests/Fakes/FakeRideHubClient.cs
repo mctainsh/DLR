@@ -41,10 +41,26 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
 #pragma warning restore CS0067
 
+	/// <summary>Raised by <see cref="ConnectAsync"/> and by <see cref="SetConnected"/>.</summary>
+	public event Action? ConnectionChanged;
+
+	/// <summary>
+	/// Drops or restores the connection, the way a tunnel does. Raises
+	/// <see cref="ConnectionChanged"/> however the flag moved, so a screen watching it can take
+	/// its warning down as well as put it up.
+	/// </summary>
+	/// <param name="connected">Whether the hub is up.</param>
+	public void SetConnected(bool connected)
+	{
+		IsConnected = connected;
+		ConnectionChanged?.Invoke();
+	}
+
 	public Task ConnectAsync(CancellationToken cancellationToken = default)
 	{
 		ConnectCount++;
 		IsConnected = true;
+		ConnectionChanged?.Invoke();
 		return Task.CompletedTask;
 	}
 
