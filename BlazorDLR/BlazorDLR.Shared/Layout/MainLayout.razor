@@ -101,6 +101,12 @@
 	{
 		if (firstRender)
 		{
+			// The end of the startup ladder the MAUI heads write with a "Startup:" prefix: the
+			// Blazor tree is rendered and interactive. A log that reaches "BlazorWebView
+			// initialised" and stops short of this line is a WebView that came up around a tree
+			// that never did.
+			DiagnosticLog.Write("Startup: first render complete; restoring the session.");
+
 			// The app's one launch hook (§7.9). Nothing else in the client brings a session back:
 			// without this, a phone that was signed in yesterday relaunches anonymous and
 			// RedirectToWelcome asks a rider to sign in to an account they never signed out of.

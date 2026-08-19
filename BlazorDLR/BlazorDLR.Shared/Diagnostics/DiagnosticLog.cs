@@ -54,6 +54,19 @@ public static class DiagnosticLog
 	/// </summary>
 	private static readonly TimeProvider Clock = TimeProvider.System;
 
+	/// <summary>
+	/// What the previous run's file is called: this run's path with a suffix. One generation, kept
+	/// deliberately — see <see cref="UseFile"/>.
+	/// </summary>
+	private const string PreviousSuffix = ".1";
+
+	/// <summary>
+	/// How many lines <see cref="ReadPreviousFile"/> will hand back. A rolled file is two megabytes
+	/// — tens of thousands of lines — and every one of them would go into a <c>textarea</c> in a
+	/// WebView on a phone. The tail is what is kept: a run that ended badly ended at the bottom.
+	/// </summary>
+	private const int MaxReadLines = 5000;
+
 	private static readonly ConcurrentQueue<LogLine> Lines = new();
 	private static readonly Lock FileGate = new();
 
@@ -69,6 +82,15 @@ public static class DiagnosticLog
 	/// <summary>Where the file sink writes, or null when this host has none.</summary>
 	public static string? FilePath => _filePath;
 
+	/// <summary>
+	/// Where the run before this one was written, or null when this host has no file sink. The
+	/// file may not exist — a first install has no previous run. See <see cref="HasPreviousFile"/>.
+	/// </summary>
+	public static string? PreviousFilePath => _filePath is null ? null : _filePath + PreviousSuffix;
+
+	/// <summary>Whether there is a previous run on disk to read.</summary>
+	public static bool HasPreviousFile => PreviousFilePath is { } path && File.Exists(path);
+
 	/// <summary>One line: when, and what.</summary>
 	/// <param name="At">The instant, in UTC. Rendered local, because a person comparing this
 	/// against something that happened in front of them is reading their own watch.</param>
@@ -83,14 +105,25 @@ public static class DiagnosticLog
 	/// <summary>
 	/// Points the file sink at <paramref name="path"/> and starts a run in it. Call once, from a
 	/// host with a filesystem, as early as there is one.
+	/// <para>
+	/// <strong>The previous run is moved aside rather than appended to.</strong> One file per run,
+	/// one generation back, and that pair is chosen for the question this log is usually asked:
+	/// "why did the last launch not come up?" — which cannot be answered from the run that is doing
+	/// the asking. Appending across launches, which is what this used to do, left the evidence in
+	/// one growing file with no boundary in it, and the ring in memory covers only the run reading
+	/// it. <c>Pages/Settings/DiagnosticsLog.razor</c> reads the moved-aside copy back.
+	/// </para>
 	/// </summary>
 	/// <param name="path">Full path to the log file. Its directory must already exist.</param>
 	public static void UseFile(string path)
 	{
 		_filePath = path;
 
-		// A banner per run, because the file is append-only across launches: without it, working
-		// out where the run being investigated starts means counting backwards through timestamps.
+		RotateForNewRun(path);
+
+		// A banner per run. Still worth writing now that each run has its own file: a process the
+		// OS restarted on its own — a sticky service coming back without an app — opens a file
+		// exactly like a launch the rider made, and the timestamp on this line is the only tell.
 		Write($"===== Log file opened: {path} =====");
 	}
 
@@ -136,6 +169,67 @@ public static class DiagnosticLog
 	}
 
 	/// <summary>
+	/// Reads the previous run's file back, newest lines last, so the Log screen can show a launch
+	/// that is already over.
+	/// </summary>
+	/// <returns>
+	/// The lines as they were written, at most <see cref="MaxReadLines"/> of them with a marker in
+	/// place of what was dropped. Empty when this host has no file sink or there is no previous
+	/// run; a single explanatory line when the file is there and could not be read — a diagnostic
+	/// screen that fails silently is worse than one that says what stopped it.
+	/// </returns>
+	public static IReadOnlyList<string> ReadPreviousFile()
+	{
+		if (PreviousFilePath is not { } path)
+			return [];
+
+		try
+		{
+			// Under the same gate as the writes: nothing appends to this file after the rotation
+			// that made it, but the rotation itself can land while a viewer is reading.
+			lock (FileGate)
+			{
+				if (!File.Exists(path))
+					return [];
+
+				string[] lines = File.ReadAllLines(path);
+
+				return lines.Length <= MaxReadLines
+					? lines
+					: [$"===== {lines.Length - MaxReadLines} earlier line(s) not shown =====", .. lines[^MaxReadLines..]];
+			}
+		}
+		catch (Exception exception)
+		{
+			return [$"Could not read {path}: {exception.GetType().Name}: {exception.Message}"];
+		}
+	}
+
+	/// <summary>
+	/// Moves this run's file aside so the run starts on an empty one, keeping exactly one
+	/// generation. Failure is swallowed for the reason given on <see cref="AppendToFile"/> — the
+	/// worst outcome allowed here is a log that is harder to read, never an app that will not
+	/// start.
+	/// </summary>
+	/// <param name="path">The file the sink is about to write to.</param>
+	private static void RotateForNewRun(string path)
+	{
+		try
+		{
+			lock (FileGate)
+			{
+				if (File.Exists(path))
+					File.Move(path, path + PreviousSuffix, overwrite: true);
+			}
+		}
+		catch (Exception)
+		{
+			// Nowhere to report it: this runs before the first line of the run is written, and the
+			// sink it would be reported to is the one that just failed.
+		}
+	}
+
+	/// <summary>
 	/// Appends to the file, rolling it once it passes <see cref="MaxFileBytes"/>.
 	/// <para>
 	/// Every failure is swallowed, and deliberately: a log that can take the app down with it is a
@@ -152,10 +246,16 @@ public static class DiagnosticLog
 		{
 			lock (FileGate)
 			{
-				// One generation back, not many: the previous run is usually the one being asked
-				// about, and a phone is not the place to keep a log archive.
+				// This run's file starts again rather than being moved over the previous run's
+				// copy, which is what this used to do. That copy is the one the Log screen's
+				// "Previous run" view reads, and a single long ride must not be able to overwrite
+				// the launch somebody is trying to diagnose. Losing the early part of a run that
+				// has already written two megabytes is the cheaper half of that trade.
 				if (new FileInfo(path) is { Exists: true, Length: > MaxFileBytes })
-					File.Move(path, path + ".1", overwrite: true);
+					File.WriteAllText(
+						path,
+						$"===== Rolled past {MaxFileBytes} bytes; earlier lines of this run are gone ====={Environment.NewLine}",
+						Encoding.UTF8);
 
 				File.AppendAllText(path, line + Environment.NewLine, Encoding.UTF8);
 			}

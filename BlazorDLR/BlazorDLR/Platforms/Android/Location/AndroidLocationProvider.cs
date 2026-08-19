@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Android.Content;
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 using Application = Android.App.Application;
 
@@ -46,8 +47,17 @@ public sealed class AndroidLocationProvider : ILocationProvider
 		// MAUI's Permissions API is used rather than raw ActivityCompat: it already knows which
 		// manifest entries each request maps to per API level, and it marshals to the activity —
 		// this is called from a background pump, and a permission request off the UI thread throws.
+		// Every rung of the ladder is written down, and this is the file where that pays: the three
+		// asks happen in a fixed order, each can be answered four ways, and the failures riders
+		// actually hit — a background ask that never appeared, a "never ask again" from months ago
+		// — are all invisible from inside the app afterwards. A log that says which rung was on
+		// screen and what came back is the difference between diagnosing that and guessing at it.
+		DiagnosticLog.Write("GPS: checking foreground location permission.");
+
 		PermissionStatus status = await MainThread.InvokeOnMainThreadAsync(
 			Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>);
+
+		DiagnosticLog.Write($"GPS: foreground location permission is {status}.");
 
 		if (status != PermissionStatus.Granted)
 		{
@@ -58,8 +68,12 @@ public sealed class AndroidLocationProvider : ILocationProvider
 				// no new information is how an app trains somebody to hit Deny.
 			}
 
+			DiagnosticLog.Write("GPS: asking for foreground location permission.");
+
 			status = await MainThread.InvokeOnMainThreadAsync(
 				Permissions.RequestAsync<Permissions.LocationWhenInUse>);
+
+			DiagnosticLog.Write($"GPS: rider answered {status} to foreground location.");
 		}
 
 		if (status != PermissionStatus.Granted)
@@ -67,9 +81,13 @@ public sealed class AndroidLocationProvider : ILocationProvider
 			// Android does not report "never ask again" directly. The tell is a denied permission
 			// whose rationale flag is also false: the system will no longer show a dialog, so only
 			// the app's settings page can change the answer.
-			return Permissions.ShouldShowRationale<Permissions.LocationWhenInUse>()
+			LocationPermissionState refused = Permissions.ShouldShowRationale<Permissions.LocationWhenInUse>()
 				? LocationPermissionState.Denied
 				: LocationPermissionState.DeniedPermanently;
+
+			DiagnosticLog.Write($"GPS: foreground location refused — {refused}. Nothing else is asked for.");
+
+			return refused;
 		}
 
 		// Second rung, and only now — see the type's remarks on why this cannot be bundled.
@@ -78,11 +96,18 @@ public sealed class AndroidLocationProvider : ILocationProvider
 			PermissionStatus always = await MainThread.InvokeOnMainThreadAsync(
 				Permissions.CheckStatusAsync<Permissions.LocationAlways>);
 
+			DiagnosticLog.Write($"GPS: background location permission is {always}.");
+
 			if (always != PermissionStatus.Granted)
 			{
 				// Not awaited for its answer beyond this: refusing background location is a
 				// supported outcome, not a failure. See the remarks.
-				await MainThread.InvokeOnMainThreadAsync(Permissions.RequestAsync<Permissions.LocationAlways>);
+				always = await MainThread.InvokeOnMainThreadAsync(Permissions.RequestAsync<Permissions.LocationAlways>);
+
+				// Recorded rather than acted on. A ride that stops producing fixes the moment the
+				// screen goes off is this line, months later, and nothing else in the app can tell
+				// the difference between that and a phone that cannot see the sky.
+				DiagnosticLog.Write($"GPS: rider answered {always} to background location.");
 			}
 		}
 
@@ -93,11 +118,17 @@ public sealed class AndroidLocationProvider : ILocationProvider
 			PermissionStatus notifications = await MainThread.InvokeOnMainThreadAsync(
 				Permissions.CheckStatusAsync<Permissions.PostNotifications>);
 
+			DiagnosticLog.Write($"GPS: notification permission is {notifications}.");
+
 			if (notifications != PermissionStatus.Granted)
 			{
-				await MainThread.InvokeOnMainThreadAsync(Permissions.RequestAsync<Permissions.PostNotifications>);
+				notifications = await MainThread.InvokeOnMainThreadAsync(Permissions.RequestAsync<Permissions.PostNotifications>);
+
+				DiagnosticLog.Write($"GPS: rider answered {notifications} to notifications.");
 			}
 		}
+
+		DiagnosticLog.Write("GPS: permission ladder complete; the receiver may start.");
 
 		return LocationPermissionState.Granted;
 	}
@@ -120,7 +151,14 @@ public sealed class AndroidLocationProvider : ILocationProvider
 	{
 		Context context = Application.Context;
 
+		DiagnosticLog.Write($"GPS: asking the OS to start the foreground service at {profile}.");
+
 		LocationForegroundService.Start(context, profile);
+
+		// The gap between the service starting and the first fix arriving is the one a rider feels
+		// — a map with no dot on it — and it is the gap nothing else measures. One line, on the
+		// first fix only: the rest of a ride's fixes belong to the gate, not to this log.
+		bool first = true;
 
 		try
 		{
@@ -128,11 +166,21 @@ public sealed class AndroidLocationProvider : ILocationProvider
 				.ReadAllAsync(cancellationToken)
 				.ConfigureAwait(false))
 			{
+				if (first)
+				{
+					first = false;
+					DiagnosticLog.Write(
+						$"GPS: first fix — {fix.Latitude:F5},{fix.Longitude:F5}, " +
+						$"accuracy {fix.AccuracyM?.ToString("F0") ?? "unknown"} m.");
+				}
+
 				yield return fix;
 			}
 		}
 		finally
 		{
+			DiagnosticLog.Write("GPS: watch ended; stopping the foreground service.");
+
 			// Runs on cancellation and on the consumer simply walking away from the enumerator.
 			// An orphaned foreground service is a permanent notification and a permanent GPS —
 			// the single worst bug this file could ship.

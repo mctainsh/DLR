@@ -1,3 +1,5 @@
+using BlazorDLR.Shared.Diagnostics;
+
 namespace BlazorDLR;
 
 public partial class App : Application
@@ -5,6 +7,8 @@ public partial class App : Application
 	public App()
 	{
 		InitializeComponent();
+
+		DiagnosticLog.Write("Startup: App constructed.");
 	}
 
 	/// <summary>
@@ -17,6 +21,10 @@ public partial class App : Application
 	/// singleton nothing reads.
 	/// </para>
 	/// </summary>
-	protected override Window CreateWindow(IActivationState? activationState) =>
-		new(new MainPage()) { Title = "BlazorDLR" };
+	protected override Window CreateWindow(IActivationState? activationState)
+	{
+		DiagnosticLog.Write("Startup: creating the window.");
+
+		return new Window(new MainPage()) { Title = "BlazorDLR" };
+	}
 }

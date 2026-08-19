@@ -6,6 +6,7 @@ using Android.Locations;
 using Android.OS;
 using Android.Runtime;
 using AndroidX.Core.App;
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 using AndroidLocation = Android.Locations.Location;
 using AndroidUri = Android.Net.Uri;
@@ -97,8 +98,18 @@ public sealed class LocationForegroundService : Service
 	/// <inheritdoc />
 	public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
 	{
+		// The service's own view of the ladder, and the only one that can see the two cases the app
+		// side cannot: a null intent, which is the OS restarting a sticky service after a kill, and
+		// a redelivery. A ride that came back on its own with nobody looking at the phone is this
+		// line and nothing else.
+		DiagnosticLog.Write(
+			$"GPS service: OnStartCommand action {intent?.Action ?? "(null — restarted by the OS)"}, " +
+			$"flags {flags}, start id {startId}.");
+
 		if (intent?.Action == ActionStop)
 		{
+			DiagnosticLog.Write("GPS service: stop requested; taking the notification down.");
+
 			StopWatching();
 			StopForeground(StopForegroundFlags.Remove);
 			StopSelf();
@@ -115,16 +126,59 @@ public sealed class LocationForegroundService : Service
 		// Before anything else that can throw: Android 14 gives a service five seconds to call
 		// this, and an ANR here is a crash the rider reads as the app dying when they started
 		// their ride.
-		StartForeground(NotificationId, BuildNotification());
+		try
+		{
+			StartForeground(NotificationId, BuildNotification());
+
+			DiagnosticLog.Write($"GPS service: in the foreground at {_profile}; notification posted.");
+		}
+		catch (Exception exception)
+		{
+			// Rethrown — there is no ride without this — but recorded first. The two ways it fails
+			// are a missing FOREGROUND_SERVICE_LOCATION grant and a notification the platform
+			// would not build, and both are invisible from the app side: all the rider sees is a
+			// ride that would not start.
+			DiagnosticLog.WriteError("starting the location foreground service", exception);
+			throw;
+		}
 
 		StartWatching();
 
 		return StartCommandResult.Sticky;
 	}
 
+	/// <summary>
+	/// The rider swiped the app off Recents (§4.3).
+	/// <para>
+	/// Android leaves a started service running when its task is removed, which is right for the
+	/// cases this service exists for — the phone in a mount with the screen off — and wrong for
+	/// this one. A swipe is the rider saying they are done, and a receiver that outlives that is an
+	/// app holding GPS and a permanent notification for something nobody asked it to keep doing.
+	/// </para>
+	/// <para>
+	/// The process goes with it, for the reason set out on <see cref="AppTermination"/>: a
+	/// surviving process is what makes the *next* launch hang. This callback is the only shutdown
+	/// hook that still fires once the OS has already destroyed the activity for its own reasons and
+	/// this service is all that is keeping the process up — <c>MainActivity.OnDestroy</c> covers
+	/// the ordinary case, and neither covers both.
+	/// </para>
+	/// </summary>
+	/// <param name="rootIntent">The intent of the task that was removed.</param>
+	public override void OnTaskRemoved(Intent? rootIntent)
+	{
+		base.OnTaskRemoved(rootIntent);
+
+		StopWatching();
+		StopForeground(StopForegroundFlags.Remove);
+
+		AppTermination.EndProcess(this, "the task was swiped off Recents");
+	}
+
 	/// <inheritdoc />
 	public override void OnDestroy()
 	{
+		DiagnosticLog.Write("GPS service: destroyed.");
+
 		StopWatching();
 		base.OnDestroy();
 	}
@@ -184,10 +238,15 @@ public sealed class LocationForegroundService : Service
 		_engine = LocationEngineFactory.Create(this, Publish);
 		_engine.Start(_profile);
 		IsRunning = true;
+
+		DiagnosticLog.Write($"GPS service: {_engine.GetType().Name} watching at {_profile}.");
 	}
 
 	private void StopWatching()
 	{
+		if (_engine is not null)
+			DiagnosticLog.Write($"GPS service: releasing {_engine.GetType().Name}.");
+
 		_engine?.Stop();
 		_engine = null;
 		IsRunning = false;
@@ -315,10 +374,19 @@ internal static class LocationEngineFactory
 	/// <summary>Builds the best engine this device supports.</summary>
 	/// <param name="context">The service, used as the Android context.</param>
 	/// <param name="publish">Where fixes go.</param>
-	public static ILocationEngine Create(Context context, Action<LocationFix> publish) =>
-		FusedLocationEngine.IsAvailable(context)
+	public static ILocationEngine Create(Context context, Action<LocationFix> publish)
+	{
+		bool fused = FusedLocationEngine.IsAvailable(context);
+
+		// Which of the two this device got, said once per watch. The fallback is silent by design
+		// — the app works either way — and that is exactly why it needs writing down: "fixes are
+		// worse than they used to be" and "Play Services stopped answering" are the same report.
+		DiagnosticLog.Write($"GPS: Play Services fused provider {(fused ? "available" : "NOT available — falling back to LocationManager")}.");
+
+		return fused
 			? new FusedLocationEngine(context, publish)
 			: new PlatformLocationEngine(context, publish);
+	}
 }
 
 /// <summary>
@@ -344,6 +412,7 @@ internal sealed class PlatformLocationEngine : Java.Lang.Object, ILocationEngine
 
 		if (_manager is null)
 		{
+			DiagnosticLog.Write("GPS: this device has no LocationManager. No fixes will arrive.");
 			return;
 		}
 
@@ -354,6 +423,8 @@ internal sealed class PlatformLocationEngine : Java.Lang.Object, ILocationEngine
 			_manager.IsProviderEnabled(LocationManager.GpsProvider) ? LocationManager.GpsProvider
 			: _manager.IsProviderEnabled(LocationManager.NetworkProvider) ? LocationManager.NetworkProvider
 			: null;
+
+		DiagnosticLog.Write($"GPS: LocationManager provider {provider ?? "(none enabled — no fixes will arrive)"}.");
 
 		if (provider is null)
 		{

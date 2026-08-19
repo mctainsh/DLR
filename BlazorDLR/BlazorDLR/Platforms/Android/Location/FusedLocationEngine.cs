@@ -2,6 +2,7 @@ using Android.Content;
 using Android.Gms.Common;
 using Android.Gms.Location;
 using Android.OS;
+using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 using AndroidLocation = Android.Locations.Location;
 
@@ -84,6 +85,14 @@ internal sealed class FusedLocationEngine : ILocationEngine
 			// PositionGate, is the better trade.
 			.SetWaitForAccurateLocation(false)
 			.Build();
+
+		// What was actually asked for, in the platform's own units. The profile names above are
+		// this app's words; these are the numbers Play Services was given, and when a ride reports
+		// fixes at the wrong cadence this line says whether the request or the receiver is at
+		// fault.
+		DiagnosticLog.Write(
+			$"GPS: fused request — every {intervalMs} ms, priority {Priority(profile)}, " +
+			$"min move {AndroidLocationRequestSpec.MinDistanceM(profile)} m.");
 
 		// Looper.MainLooper rather than the calling thread: the service's OnStartCommand thread
 		// has no looper of its own, and RequestLocationUpdates needs one to post callbacks to.

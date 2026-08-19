@@ -14,6 +14,12 @@ public static class MauiProgram
 	{
 		StartLogging();
 
+		// The startup ladder (§14.6.2). Every rung of it is written with the same "Startup:" prefix
+		// so the Log screen's filter box shows the whole sequence and nothing else — and so the
+		// rung it stops at names what did not finish. A MAUI head that hangs before there is a
+		// screen has no other way of saying where it got to.
+		DiagnosticLog.Write("Startup: MauiProgram building the host.");
+
 		// URLs come from MauiConstants — a compile-time constant per platform with an
 		// environment-variable override (DLR_API_BASE / DLR_HUB_URL). Never any API key,
 		// and since v0.24 there is no map credential on the client at all: MapLibre over
@@ -21,6 +27,8 @@ public static class MauiProgram
 		string apiBase = MauiConstants.ResolveApiBase();
 		string hubUrl = MauiConstants.ResolveHubUrl(apiBase);
 
+
+		DiagnosticLog.Write($"Startup: endpoints resolved. API {apiBase}, hub {hubUrl}.");
 
 		var builder = MauiApp.CreateBuilder();
 		builder
@@ -257,9 +265,17 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
-		DiagnosticLog.Write($"Host built. API {apiBase}, hub {hubUrl}.");
+		DiagnosticLog.Write("Startup: services registered; building the container.");
 
-		return builder.Build();
+		// Named rather than returned inline so the line below is written after the build rather
+		// than before it. ValidateOnBuild is on (§7.4), so this is where a DI-graph mistake throws
+		// — and "services registered" with no "host built" after it is that failure, in the log,
+		// on the device.
+		MauiApp host = builder.Build();
+
+		DiagnosticLog.Write("Startup: host built.");
+
+		return host;
 	}
 
 	/// <summary>

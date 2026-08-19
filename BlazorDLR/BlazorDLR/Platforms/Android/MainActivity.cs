@@ -4,6 +4,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Android.Views;
+using BlazorDLR.Platforms.Android;
 using BlazorDLR.Platforms.Android.Notifications;
 using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.State;
@@ -71,6 +72,8 @@ public class MainActivity : MauiAppCompatActivity
 			SystemUiFlags.LayoutHideNavigation |
 			SystemUiFlags.LayoutFullscreen |
 			SystemUiFlags.LayoutStable;
+
+		DiagnosticLog.Write("Startup: activity created.");
 	}
 
 
@@ -96,6 +99,8 @@ public class MainActivity : MauiAppCompatActivity
 	{
 		base.OnResume();
 
+		DiagnosticLog.Write("Activity resumed.");
+
 		Window!.DecorView.SystemUiFlags =
 			SystemUiFlags.ImmersiveSticky |
 			SystemUiFlags.HideNavigation |
@@ -103,6 +108,38 @@ public class MainActivity : MauiAppCompatActivity
 			SystemUiFlags.LayoutHideNavigation |
 			SystemUiFlags.LayoutFullscreen |
 			SystemUiFlags.LayoutStable;
+	}
+
+	/// <summary>
+	/// The end of the app, in the cases that mean the rider closed it: swiping the task off
+	/// Recents, and backing out of the root page.
+	/// <para>
+	/// The process is ended here rather than left to the OS — see <see cref="AppTermination"/> for
+	/// why, and for what the alternative looks like from the rider's side (a splash screen that
+	/// never becomes an app on the launch after a swipe).
+	/// </para>
+	/// <para>
+	/// <c>IsFinishing</c> is the guard, and it is doing real work: it separates "this activity is
+	/// going away for good" from "the OS is destroying it and means to build it again" — reclaiming
+	/// memory, or a configuration change this activity did not declare. The process is supposed to
+	/// survive those.
+	/// </para>
+	/// </summary>
+	protected override void OnDestroy()
+	{
+		// Read before the base call: the activity is torn down by it, and IsFinishing is not worth
+		// trusting afterwards.
+		bool finishing = IsFinishing;
+
+		base.OnDestroy();
+
+		if (!finishing)
+		{
+			DiagnosticLog.Write("Activity destroyed by the OS; the process stays up.");
+			return;
+		}
+
+		AppTermination.EndProcess(this, "the activity finished");
 	}
 
 	/// <summary>

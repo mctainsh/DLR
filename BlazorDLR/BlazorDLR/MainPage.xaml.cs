@@ -1,3 +1,5 @@
+using BlazorDLR.Shared.Diagnostics;
+
 namespace BlazorDLR;
 
 public partial class MainPage : ContentPage
@@ -5,6 +7,8 @@ public partial class MainPage : ContentPage
 	public MainPage()
 	{
 		InitializeComponent();
+
+		DiagnosticLog.Write("Startup: MainPage constructed; the WebView is next.");
 
 #if ANDROID
 		blazorWebView.BlazorWebViewInitialized += OnBlazorWebViewInitialized;
@@ -47,6 +51,11 @@ public partial class MainPage : ContentPage
 	/// </summary>
 	private static void OnBlazorWebViewInitialized(object? sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
 	{
+		// The last rung the C# side can report. Everything after this happens inside the WebView,
+		// and MainLayout's "Page:" line is what says it got there — a log that ends here is an app
+		// whose WebView came up and whose Blazor tree did not.
+		DiagnosticLog.Write("Startup: BlazorWebView initialised.");
+
 		if (e.WebView.Settings is { } settings)
 		{
 			settings.MixedContentMode = Android.Webkit.MixedContentHandling.AlwaysAllow;

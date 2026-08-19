@@ -14,8 +14,11 @@
 	the file sink. When the question is "did that code run on this handset", all three are a
 	round trip — so this answers it where the rider is already standing.
 
-	It is a diagnostic, not a feature: no filtering by level, no persistence, no upload. The
-	buffer is DiagnosticLog's ring (1 000 lines) and it dies with the process.
+	It is a diagnostic, not a feature: no filtering by level, no upload. **This run** is
+	DiagnosticLog's ring (1 000 lines) and dies with the process; **Previous run** is the file the
+	last launch wrote, moved aside when this one opened its own (DiagnosticLog.UseFile). That
+	second view is the whole point of the pair — the run worth reading is usually the one that
+	would not come up, and by definition it is not the one doing the reading.
 
 	**Full-bleed, like the live map and nothing else in Settings.** `.page-full` rather than a
 	`.page` column, because a log is the one screen where the content genuinely is the viewport:
@@ -29,17 +32,41 @@
 	<PageNav Title="Log" BackHref="/settings" BackLabel="Back to settings" />
 
 	<div class="log-actions">
+		@*
+			Shown only where there is a second thing to switch to: the browser hosts have no file
+			sink at all (DiagnosticLog.UseFile is called from the MAUI heads), and a first install
+			has no previous run yet.
+		*@
+		@if (DiagnosticLog.HasPreviousFile)
+		{
+			<div class="source" role="group" aria-label="Which run to show">
+				<button type="button" class="@(_previous ? "" : "on")" @onclick="() => ShowAsync(false)">This run</button>
+				<button type="button" class="@(_previous ? "on" : "")" @onclick="() => ShowAsync(true)">Previous run</button>
+			</div>
+		}
+
 		<label class="filter">
 			Filter
 			<input @bind="_filter" @bind:event="oninput" placeholder="e.g. notification" />
 		</label>
 
 		<button type="button" class="primary" @onclick="CopyAsync">@(_copied ? "Copied" : "Copy log")</button>
-		<button type="button" class="danger" @onclick="Clear"> <i class="fa fa-fw fa-trash" aria-hidden="true"></i> </button>
+
+		@*
+			The bin empties the ring, and the ring is only this run. Hidden rather than disabled on
+			the previous run: there is nothing there it could mean, and a button that clears the
+			one copy of a launch a rider is trying to explain would be a bad thing to offer them by
+			accident.
+		*@
+		@if (!_previous)
+		{
+			<button type="button" class="danger" @onclick="Clear"> <i class="fa fa-fw fa-trash" aria-hidden="true"></i> </button>
+		}
 	</div>
 
 	<p class="count">
 		@Visible.Count of @_lines.Count line@(_lines.Count == 1 ? "" : "s")@(_filter is { Length: > 0 } ? " matching" : "")
+		@(_previous ? " from the previous run" : "")
 	</p>
 
 	@*
@@ -54,33 +81,51 @@
 		<p class="error">@_copyError</p>
 	}
 
-	@if (DiagnosticLog.FilePath is { } path)
+	@if (_previous)
 	{
 		<p class="file">
-			Also written to <code>@path</code>, which survives a restart and holds far more than
-			the @DiagnosticLog.Capacity lines above.
+			The launch before this one, read from <code>@DiagnosticLog.PreviousFilePath</code>. It
+			is replaced each time the app starts, so this is the one run back — not an archive.
+		</p>
+	}
+	else if (DiagnosticLog.FilePath is { } path)
+	{
+		<p class="file">
+			Also written to <code>@path</code>, which holds far more than the
+			@DiagnosticLog.Capacity lines above and becomes <em>Previous run</em> at the next start.
 		</p>
 	}
 
 	@if (_lines.Count == 0)
 	{
 		<p class="empty">
-			Nothing logged yet. The first lines arrive as the app starts — if this stays empty
-			after a restart, nothing is calling <code>DiagnosticLog.Write</code> on this host.
+			@(_previous
+				? "The previous run's file is empty."
+				: "Nothing logged yet. The first lines arrive as the app starts — if this stays empty after a restart, nothing is calling DiagnosticLog.Write on this host.")
 		</p>
 	}
 </div>
 
 @code {
-	private IReadOnlyList<DiagnosticLog.LogLine> _lines = [];
+	/// <summary>
+	/// Rendered lines rather than <c>LogLine</c> records, and that is what lets the two views share
+	/// everything below: the ring is formatted through <c>LogLine.ToString</c>, and the previous
+	/// run comes back off disk already in that shape. Filtering the rendered line also means a
+	/// timestamp is searchable, which is how a rider narrows to the minute something happened.
+	/// </summary>
+	private IReadOnlyList<string> _lines = [];
+
+	/// <summary>Whether the previous run is on screen instead of this one.</summary>
+	private bool _previous;
+
 	private string _filter = string.Empty;
 	private bool _copied;
 	private string? _copyError;
 
 	/// <summary>The lines actually on screen, newest last so the transcript reads in order.</summary>
-	private IReadOnlyList<DiagnosticLog.LogLine> Visible =>
+	private IReadOnlyList<string> Visible =>
 		_filter is { Length: > 0 } needle
-			? _lines.Where(line => line.Text.Contains(needle, StringComparison.OrdinalIgnoreCase)).ToArray()
+			? _lines.Where(line => line.Contains(needle, StringComparison.OrdinalIgnoreCase)).ToArray()
 			: _lines;
 
 	/// <summary>What the textarea shows, and what a rider copies out of it.</summary>
@@ -88,23 +133,53 @@
 
 	protected override void OnInitialized()
 	{
-		_lines = DiagnosticLog.Snapshot();
+		_lines = Ring();
 		DiagnosticLog.Changed += OnChanged;
+	}
+
+	/// <summary>This run, as the textarea wants it.</summary>
+	private static IReadOnlyList<string> Ring() =>
+		DiagnosticLog.Snapshot().Select(line => line.ToString()).ToArray();
+
+	/// <summary>
+	/// Switches between this run and the one before it.
+	/// <para>
+	/// The read is pushed off the render thread: a rolled file is two megabytes, and this is a
+	/// WebView on a phone. <c>Task.Run</c> on the browser hosts merely queues — they have no
+	/// previous file to read, so the button that calls this is not rendered there at all.
+	/// </para>
+	/// </summary>
+	/// <param name="previous">True for the previous run's file, false for the live ring.</param>
+	private async Task ShowAsync(bool previous)
+	{
+		if (_previous == previous)
+			return;
+
+		_previous = previous;
+		_copied = false;
+		_copyError = null;
+
+		_lines = previous
+			? await Task.Run(DiagnosticLog.ReadPreviousFile)
+			: Ring();
 	}
 
 	/// <summary>
 	/// Refreshes from the ring. Raised on whatever thread wrote the line — a hub callback, the
-	/// main thread, a background service — so this marshals before touching state, and honours
-	/// the follow switch so a rider reading something is not fighting a log that keeps moving.
+	/// main thread, a background service — so this marshals before touching state.
+	/// <para>
+	/// Ignored while the previous run is on screen: that file does not change, and a line written
+	/// by this run must not scroll a rider's view of the last one out from under them.
+	/// </para>
 	/// </summary>
 	private void OnChanged()
 	{
-		//if (!_follow)
-		return;
+		if (_previous)
+			return;
 
 		_ = InvokeAsync(() =>
 		{
-			_lines = DiagnosticLog.Snapshot();
+			_lines = Ring();
 			StateHasChanged();
 		});
 	}
@@ -183,7 +258,7 @@
 	private void Clear()
 	{
 		DiagnosticLog.Clear();
-		_lines = DiagnosticLog.Snapshot();
+		_lines = Ring();
 		_copied = false;
 	}
 
@@ -223,6 +298,16 @@
 	.log-page .filter { display: flex; align-items: center; gap: 0.35rem; flex: 1 1 12rem; }
 	.log-page .filter input { flex: 1; padding: 0.4rem; }
 	.log-page .follow { display: flex; align-items: center; gap: 0.35rem; }
+	/* A two-button segment rather than a drop-down: two options, both worth reading at a
+	   glance, and the one on screen is the one that looks pressed. */
+	.log-page .source { display: flex; }
+	.log-page .source button {
+		padding: 0.4rem 0.7rem; border: 1px solid var(--dlr-border, #4448); background: transparent;
+		color: inherit; font: inherit; cursor: pointer;
+	}
+	.log-page .source button:first-child { border-radius: 6px 0 0 6px; }
+	.log-page .source button:last-child { border-radius: 0 6px 6px 0; border-left-width: 0; }
+	.log-page .source button.on { background: var(--dlr-accent, #2b6cb0); color: #fff; }
 	.log-page .log-actions button { padding: 0.4rem 0.9rem; }
 	.log-page .count { margin: 0 0 0.35rem; font-size: 0.85rem; opacity: 0.7; }
 	/*
