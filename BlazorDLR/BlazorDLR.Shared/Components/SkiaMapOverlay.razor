@@ -1,4 +1,5 @@
-﻿@using BlazorDLR.Shared.Markers
+﻿@using BlazorDLR.Shared.Diagnostics
+@using BlazorDLR.Shared.Markers
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
 @using DLR.Core.Display
@@ -51,6 +52,12 @@
 		<strong>Map markers unavailable</strong>
 		<p>The base map is working, but pins, tracks and traveller positions could not be drawn.</p>
 		<p class="dlr-map-overlay-error-detail">@_error</p>
+		@*
+			Said on the screen because the person reading it is holding the device the evidence is
+			on, and the log is the only copy: what is written there is the type, the stack and
+			every exception this one wrapped, which is more than a banner can carry.
+		*@
+		<p class="dlr-map-overlay-error-detail">The full details are in Settings → Log.</p>
 	</div>
 }
 
@@ -107,6 +114,38 @@
 
 	/// <summary>A viewport or content change arrived mid-paint; repaint once the current one lands.</summary>
 	private bool _repaintPending;
+
+	/// <summary>
+	/// The paint currently in flight, or null. Held so <see cref="DisposeAsync"/> can wait for it
+	/// rather than pulling the Skia objects out from under it.
+	/// </summary>
+	private Task? _paint;
+
+	/// <summary>
+	/// Set the moment teardown starts, and checked at every point a paint could resume.
+	/// <para>
+	/// <strong>This is what stops a repaint drawing into objects that have been released.</strong>
+	/// Repaints run detached from the render loop and span several awaits — a Skia rasterise, a
+	/// PNG encode, a hop across the JS bridge — and disposal can land in any of those gaps.
+	/// Nothing used to stop the paint carrying on afterwards into a disposed
+	/// <see cref="SKSurface"/> and disposed paints, which is a use-after-dispose over native
+	/// handles: at best it asks for a canvas and is handed null, which the next line dereferences
+	/// as a <see cref="NullReferenceException"/> from a fire-and-forget task on a phone with the
+	/// map already gone; at worst it is a call into Skia with a handle that is no longer there.
+	/// </para>
+	/// </summary>
+	private bool _disposed;
+
+	/// <summary>
+	/// How long <see cref="DisposeAsync"/> gives the paint in flight to finish before releasing
+	/// the Skia objects anyway.
+	/// <para>
+	/// Long enough for a frame that is only waiting on the JS bridge, short enough that a WebView
+	/// which is never going to answer does not hold up the rider's navigation. See the wait itself
+	/// for why letting go early is safe.
+	/// </para>
+	/// </summary>
+	private const int DisposeWaitMs = 500;
 
 	/// <summary>
 	/// One route's line, decoded and ready to project. Rebuilt on every parameter set.
@@ -222,6 +261,27 @@
 	/// frame of a newly-seen icon shows the plain pin, the next shows the artwork.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		// Contained, and this is the boundary that matters most in the component.
+		//
+		// An exception escaping here does not fail a paint — it unmounts the overlay through
+		// RideMap's ErrorBoundary, which is the "Map markers unavailable … on this device" banner,
+		// and the overlay never comes back for the life of the page. Every failure below is
+		// recoverable on the next frame, so the overlay's own error line is the honest place for
+		// it: the map keeps its markers the moment the next repaint succeeds.
+		try
+		{
+			await PrimeAndPaintAsync(firstRender);
+		}
+		catch (Exception exception)
+		{
+			DiagnosticLog.WriteError("preparing the map overlay after render", exception);
+			_error = DiagnosticLog.Summarise(exception);
+			await ShowErrorAsync();
+		}
+	}
+
+	private async Task PrimeAndPaintAsync(bool firstRender)
 	{
 		if (firstRender)
 		{
@@ -441,14 +501,29 @@
 	/// shortcut the first version had, which tracked smoothly and put pins in the wrong place.
 	/// </para>
 	/// </summary>
-	private async Task RepaintAsync()
+	private Task RepaintAsync()
 	{
+		// Nothing starts after teardown has begun. The native objects a paint draws into are
+		// released in DisposeAsync, and one that got past this line would be drawing into them.
+		if (_disposed)
+		{
+			return Task.CompletedTask;
+		}
+
 		if (_painting)
 		{
 			_repaintPending = true;
-			return;
+			return Task.CompletedTask;
 		}
 
+		// Held rather than only awaited by whoever asked: most callers do not await this at all
+		// (OnParametersSet and the style-changed handler both fire and forget), so this field is
+		// the only handle DisposeAsync has on a paint that is still running.
+		return _paint = PaintFrameAsync();
+	}
+
+	private async Task PaintFrameAsync()
+	{
 		_painting = true;
 		try
 		{
@@ -456,14 +531,26 @@
 			{
 				_repaintPending = false;
 
+				// Re-checked on every pass and after every await below: a paint is several
+				// awaits long and disposal can land in any of the gaps.
+				if (_disposed)
+				{
+					return;
+				}
+
 				MapViewport target = Viewport;
 				string? frame = Rasterise(target);
-				if (frame is null)
+				if (frame is null || _disposed)
 				{
 					return;
 				}
 
 				IJSObjectReference module = await LoadModuleAsync();
+
+				if (_disposed)
+				{
+					return;
+				}
 
 				// The frame travels with the view it was drawn for. JS needs that to follow the
 				// map with these pixels until the next frame arrives, which is what stops a pan
@@ -503,12 +590,45 @@
 			// and the overlay just drew nothing. That is precisely the "blank rectangle rather
 			// than a stated error" §4.5 forbids, and it cost a debugging round trip on a device
 			// where there was no other way to ask what had gone wrong.
-			_error = exception.Message;
-			await InvokeAsync(StateHasChanged);
+			//
+			// The banner gets one line; the log gets the type, the stack and everything the
+			// exception wraps. A phone in a mount has no other way to answer "which null?".
+			DiagnosticLog.WriteError("painting the map overlay", exception);
+			_error = DiagnosticLog.Summarise(exception);
+
+			// Guarded, because this catch must not throw. The renderer may already be gone —
+			// that is the commonest way to arrive here — and an InvokeAsync against a disposed
+			// one would replace a contained failure with an escaping one, which is what took the
+			// whole overlay down through RideMap's error boundary.
+			await ShowErrorAsync();
 		}
 		finally
 		{
 			_painting = false;
+		}
+	}
+
+	/// <summary>
+	/// Re-renders so <see cref="_error"/> reaches the screen, and gives up quietly if it cannot.
+	/// </summary>
+	private async Task ShowErrorAsync()
+	{
+		if (_disposed)
+		{
+			return;
+		}
+
+		try
+		{
+			await InvokeAsync(StateHasChanged);
+		}
+		catch (ObjectDisposedException)
+		{
+			// The renderer went away between the check above and this call. Nothing to show it on.
+		}
+		catch (InvalidOperationException)
+		{
+			// Same, from a dispatcher that has already shut down.
 		}
 	}
 
@@ -560,10 +680,19 @@
 			_rasterHeight = viewport.CanvasHeightPx;
 		}
 
+		// Skia hands back null for a handle it no longer has, so this is where a paint that
+		// outlived its component used to die — see _disposed, which is the actual fix. This
+		// checks rather than assumes, so any path found around that guard is a frame that does
+		// not get drawn instead of a null dereference in a task nobody is awaiting.
+		if (_raster.Canvas is not { } canvas)
+		{
+			return null;
+		}
+
 		// Reused surface, so the clear inside PaintOverlay is now load-bearing rather than
 		// belt-and-braces: without it every frame would composite over the last one.
-		PaintOverlay(_raster.Canvas);
-		_raster.Canvas.Flush();
+		PaintOverlay(canvas);
+		canvas.Flush();
 
 		using SKPixmap pixmap = _raster.PeekPixels();
 		using SKDynamicMemoryWStream stream = new();
@@ -1586,7 +1715,31 @@
 
 	public async ValueTask DisposeAsync()
 	{
+		// First, and before anything is released: this is what stops a paint that is mid-flight
+		// from touching any of the native objects disposed below. See _disposed.
+		_disposed = true;
+
 		RouteStyles.Changed -= OnRouteStyleChanged;
+
+		// Then wait for the paint already running to notice. It short-circuits at its next await,
+		// so this is a frame at most — and it is the difference between disposing a surface
+		// nothing is using and pulling one out from under a rasterise.
+		//
+		// Bounded, because the last thing a paint does is cross the JS bridge and a WebView that
+		// is being torn down underneath it may never answer. Waiting for ever there would hang the
+		// navigation the rider just made. Letting go early is safe in a way that skipping the wait
+		// is not: past the rasterise, a paint touches no Skia object at all, and _disposed stops it
+		// starting another.
+		//
+		// A failed paint is not this method's business: it has already reported itself.
+		if (_paint is { } paint)
+		{
+			try { await Task.WhenAny(paint, Task.Delay(DisposeWaitMs)); }
+			catch (Exception exception) { DiagnosticLog.WriteError("finishing the last map overlay frame", exception); }
+
+			_paint = null;
+		}
+
 		_pathBuilder.Dispose();
 
 		// Native Skia handles, and instance-owned since v0.24 because their sizes depend on the

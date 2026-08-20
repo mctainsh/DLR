@@ -145,11 +145,129 @@ public static class DiagnosticLog
 		Changed?.Invoke();
 	}
 
-	/// <summary>Records an exception with its type, message and where it came from.</summary>
+	/// <summary>
+	/// Records an exception in full: what was being attempted, then the type, message and stack of
+	/// every exception in the chain.
+	/// <para>
+	/// <strong>The whole chain, and the stacks with it.</strong> This used to write one line of
+	/// type and message, which is enough for a failure that names itself and useless for one that
+	/// does not — "One or more errors occurred. (Object reference not set to an instance of an
+	/// object.)" is a wrapper's message quoting a null dereference with no hint of whose. The
+	/// wrapper is unwrapped, the inner exceptions are listed and every frame is kept, because the
+	/// device this most often happens on is a phone in a mount with no debugger anywhere near it,
+	/// and the log is the only evidence there will ever be.
+	/// </para>
+	/// </summary>
 	/// <param name="context">What was being attempted, in the app's own words.</param>
 	/// <param name="exception">What went wrong.</param>
 	public static void WriteError(string context, Exception exception) =>
-		Write($"ERROR — {context}: {exception.GetType().Name}: {exception.Message}");
+		Write($"ERROR — {context}: {Describe(exception)}");
+
+	/// <summary>
+	/// The whole of an exception as the log renders it: type, message and stack for it and for
+	/// everything it wraps.
+	/// <para>
+	/// <see cref="AggregateException"/> is flattened rather than quoted — its own message says
+	/// only how many there were, and the answer is always in what it carries. Every inner
+	/// exception is listed, indented under the one that wrapped it.
+	/// </para>
+	/// </summary>
+	/// <param name="exception">What went wrong.</param>
+	/// <returns>A multi-line description. One log entry, however many lines it runs to.</returns>
+	public static string Describe(Exception? exception)
+	{
+		if (exception is null)
+		{
+			return "<no exception>";
+		}
+
+		StringBuilder description = new();
+		Describe(exception, depth: 0, description);
+		return description.ToString().TrimEnd();
+	}
+
+	/// <summary>
+	/// A one-line summary for a screen: the innermost thing that actually went wrong.
+	/// <para>
+	/// What a rider or a developer standing over the phone reads off the banner. The full
+	/// description belongs in the log (<see cref="Describe(Exception?)"/>); this is what fits
+	/// under a heading, and it names the type because "Object reference not set to an instance of
+	/// an object." on its own has been the whole of the evidence more than once.
+	/// </para>
+	/// </summary>
+	/// <param name="exception">What went wrong.</param>
+	/// <returns>A single line, safe to render.</returns>
+	public static string Summarise(Exception? exception)
+	{
+		if (exception is null)
+		{
+			return "Unknown error.";
+		}
+
+		Exception innermost = exception is AggregateException aggregate
+			? aggregate.Flatten().InnerExceptions.FirstOrDefault() ?? aggregate
+			: exception;
+
+		while (innermost.InnerException is { } inner)
+		{
+			innermost = inner;
+		}
+
+		return $"{innermost.GetType().Name}: {innermost.Message}";
+	}
+
+	/// <summary>How deep the inner-exception walk goes before it stops describing.</summary>
+	/// <remarks>
+	/// A chain this long is a cycle or a wrapper gone mad, and either way the answer is in the
+	/// first few. The cap is here so one malformed exception cannot fill the ring on its own.
+	/// </remarks>
+	private const int MaxExceptionDepth = 8;
+
+	private static void Describe(Exception exception, int depth, StringBuilder description)
+	{
+		if (depth > MaxExceptionDepth)
+		{
+			description.AppendLine("  … further inner exceptions not shown.");
+			return;
+		}
+
+		string indent = new(' ', depth * 2);
+
+		description.Append(indent)
+			.Append(depth == 0 ? string.Empty : "← caused by ")
+			.Append(exception.GetType().FullName)
+			.Append(": ")
+			.AppendLine(exception.Message);
+
+		if (exception.StackTrace is { Length: > 0 } stack)
+		{
+			// Re-indented frame by frame rather than appended whole, so an inner exception's
+			// stack is visibly under the exception it belongs to when three of them are stacked
+			// up in one entry.
+			foreach (string frame in stack.ReplaceLineEndings("\n").Split('\n'))
+			{
+				description.Append(indent).AppendLine(frame.TrimEnd());
+			}
+		}
+
+		// Flattened, so a wrapper around a wrapper does not cost two levels of indent for one
+		// piece of information — and so every branch of a multi-error aggregate is listed rather
+		// than only whichever one happened to be first.
+		if (exception is AggregateException aggregate)
+		{
+			foreach (Exception inner in aggregate.Flatten().InnerExceptions)
+			{
+				Describe(inner, depth + 1, description);
+			}
+
+			return;
+		}
+
+		if (exception.InnerException is { } single)
+		{
+			Describe(single, depth + 1, description);
+		}
+	}
 
 	/// <summary>Everything held in memory, oldest first.</summary>
 	/// <returns>A snapshot that will not change underneath a render.</returns>

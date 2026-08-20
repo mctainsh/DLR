@@ -3,6 +3,7 @@ using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
+using Bunit.TestDoubles;
 using DLR.UI.Tests.Fakes;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -50,6 +51,12 @@ public sealed class MainLayoutTests : BunitContext
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
 		Services.AddSingleton<CurrentRideState>();
 
+		// The layout is also where the first-run introduction is decided (§18.6) — it is the one
+		// component above both Home and Welcome, so it is the only place that can own "the first
+		// thing you ever see". In-memory here, which reads as "never seen": see
+		// FirstRun_OpensTheIntroduction below.
+		Services.AddSingleton<IntroTourState>();
+
 		// The layout is where CommentNotifier gets its lifetime (§17.6): injecting it is what
 		// constructs it, and constructing it is what subscribes it to the hub. So these have to
 		// resolve here even though this suite is about the Body slot — a layout that cannot be
@@ -58,6 +65,46 @@ public sealed class MainLayoutTests : BunitContext
 		Services.AddSingleton<INotificationService, NoopNotificationService>();
 		Services.AddSingleton<NotificationRouting>();
 		Services.AddSingleton<CommentNotifier>();
+	}
+
+	[Fact]
+	public void FirstRun_OpensTheIntroduction()
+	{
+		WireServices();
+		BunitNavigationManager nav = Services.GetRequiredService<NavigationManager>() as BunitNavigationManager
+			?? throw new InvalidOperationException("bUnit did not register a BunitNavigationManager.");
+
+		IRenderedComponent<MainLayout> component = Render<MainLayout>(parameters => parameters
+			.Add(p => p.Body, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p>routed page</p>"))));
+
+		// The device store is empty, which is what a phone that has just been installed on looks
+		// like — and the one launch where a rider has no idea what this app is.
+		component.WaitForAssertion(() =>
+			nav.Uri.Contains("/intro", StringComparison.Ordinal).ShouldBeTrue(
+				$"§18.6: a first run must open the introduction; got '{nav.Uri}'."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ADeviceThatHasSeenTheIntroduction_IsTakenStraightIntoTheApp()
+	{
+		WireServices();
+		BunitNavigationManager nav = Services.GetRequiredService<NavigationManager>() as BunitNavigationManager
+			?? throw new InvalidOperationException("bUnit did not register a BunitNavigationManager.");
+		string before = nav.Uri;
+
+		// Marked seen before the layout is built — the second launch on a device, which is every
+		// launch but one.
+		await Services.GetRequiredService<IntroTourState>().MarkSeenAsync();
+
+		IRenderedComponent<MainLayout> component = Render<MainLayout>(parameters => parameters
+			.Add(p => p.Body, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p>routed page</p>"))));
+
+		component.WaitForAssertion(() =>
+			component.Markup.Contains("routed page", StringComparison.Ordinal).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		nav.Uri.ShouldBe(before, "a rider who has been through the deck must never be shown it again by itself.");
 	}
 
 	[Fact]

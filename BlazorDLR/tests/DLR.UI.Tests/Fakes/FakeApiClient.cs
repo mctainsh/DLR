@@ -28,8 +28,27 @@ public sealed class FakeApiClient : IApiClient
 	public ConcurrentQueue<string> Calls { get; } = new();
 
 	// Result fields — set from a test, read from the interface method.
-	public AboutInfo AboutResult { get; set; } =
-		new("AGPL-3.0-only", "https://github.com/mctainsh/dlr", "abcd1234", "1.0.0+abcd1234", null);
+
+	/// <summary>
+	/// What <see cref="GetAboutAsync"/> answers, or <c>null</c> — the default — for a host whose
+	/// client cannot answer About at all.
+	/// <para>
+	/// <strong>Null by default, and that is load-bearing.</strong> <c>SourceOfferFooter</c> sits at
+	/// the foot of every signed-out page (§14.6.2) and keeps its answer in a private <em>static</em>
+	/// so navigations do not refetch it — so any suite whose page happens to carry the footer can
+	/// write a value that the footer's own tests then read instead of the one they wired. Worse, it
+	/// can write it <em>late</em>: a footer mounted by a render the test never waited for lands
+	/// after that test has finished, inside somebody else's.
+	/// </para>
+	/// <para>
+	/// Answering null makes that impossible rather than unlikely: the footer catches
+	/// <see cref="NotImplementedException"/>, renders its placeholder — which is what a rider on a
+	/// host with no About endpoint sees anyway — and never touches the cache. A suite that is
+	/// actually testing the footer wires a value here, and clears the cache next to its render
+	/// (<c>SourceOfferFooterCache</c>).
+	/// </para>
+	/// </summary>
+	public AboutInfo? AboutResult { get; set; }
 
 	public TokenResponse? TokenResult { get; set; }
 	public bool UserNameAvailableResult { get; set; } = true;
@@ -76,8 +95,14 @@ public sealed class FakeApiClient : IApiClient
 
 	private void Record(string method) => Calls.Enqueue(method);
 
+	/// <summary>
+	/// Answers <see cref="AboutResult"/>, or throws the way a host that cannot answer About does —
+	/// see that property for why the throwing case is the default.
+	/// </summary>
 	public Task<AboutInfo> GetAboutAsync(CancellationToken cancellationToken = default) =>
-		Task.FromResult(Recorded(nameof(GetAboutAsync), AboutResult));
+		AboutResult is { } about
+			? Task.FromResult(Recorded(nameof(GetAboutAsync), about))
+			: throw new NotImplementedException("This fake has no About wired — set AboutResult if the test needs one.");
 
 	public Task<TokenResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
 	{

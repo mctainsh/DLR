@@ -1,4 +1,3 @@
-using System.Reflection;
 using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
 using Bunit;
@@ -25,12 +24,6 @@ namespace DLR.UI.Tests.Components;
 [Collection(SourceOfferFooterCollection.Name)]
 public sealed class SourceOfferFooterFallbackTests : BunitContext
 {
-	public SourceOfferFooterFallbackTests()
-	{
-		FieldInfo cache = typeof(SourceOfferFooter).GetField("_cached", BindingFlags.NonPublic | BindingFlags.Static)!;
-		cache.SetValue(null, null);
-	}
-
 	[Fact]
 	public void ShortCommit_RendersInFull()
 	{
@@ -45,6 +38,8 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 		};
 		Services.AddSingleton<IApiClient>(api);
 
+		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
 		component.WaitForAssertion(() =>
@@ -68,6 +63,8 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 		};
 		Services.AddSingleton<IApiClient>(api);
 
+		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
 		component.WaitForAssertion(() =>
@@ -88,6 +85,8 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 			.ThrowsAsync(new NotImplementedException("this host cannot answer /about"));
 		Services.AddSingleton(api);
 
+		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
 		component.WaitForAssertion(() =>

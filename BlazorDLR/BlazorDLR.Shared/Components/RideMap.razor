@@ -1,3 +1,4 @@
+@using BlazorDLR.Shared.Diagnostics
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
 @inject IMapInterop Map
@@ -29,10 +30,16 @@
 	it is pure JS in the WebView, while every button on every page stopped responding.
 
 	v0.24 fixed the cause — the overlay now rasterises off-screen and hands the frame to an
-	<img> (see SkiaMapOverlay) — so this boundary is no longer catching anything. It stays
-	because the blast radius is the whole application rather than one component, and because
-	the overlay is the one child here that touches a native rasteriser on three different
-	runtimes. Cheap insurance against a class of bug that has already shipped once.
+	<img> (see SkiaMapOverlay) — and the boundary stays because the blast radius is the whole
+	application rather than one component, and because the overlay is the one child here that
+	touches a native rasteriser on three different runtimes.
+
+	It is not idle insurance: it has fired in the field. A repaint that outlived its component
+	drew into a released Skia surface and the null that came back reached here as "Map markers
+	unavailable", with a wrapper's message for evidence and nothing in the log. The overlay now
+	stops its own paints at teardown and contains its own failures (see SkiaMapOverlay), so
+	anything that still reaches this boundary is something nobody has seen before — which is
+	exactly why it is a LoggingErrorBoundary and not a plain one.
 *@
 
 <div class="dlr-map-container @(OnMapClicked.HasDelegate && ShowPickingCursor ? "picking" : "")">
@@ -41,11 +48,16 @@
 	@if (_viewport is { CanvasWidthPx: > 0 } vp)
 	{
 		@*
-			@ref'd so a host that knows the overlay cannot work can decide not to mount it at
-			all. Without the boundary the failure is unrecoverable for the whole renderer, so
-			this is not the usual "wrap it just in case".
+			Without the boundary the failure is unrecoverable for the whole renderer, so this is
+			not the usual "wrap it just in case".
+
+			LoggingErrorBoundary, not the stock one: a boundary is the last place an exception is
+			ever seen — recovering is the point of one — so a boundary that only renders a message
+			loses it for good. This writes the type, the stack and every wrapped exception to the
+			diagnostic log first, which is the only way to find out what failed on a phone in a
+			mount (Settings → Log).
 		*@
-		<ErrorBoundary @ref="_overlayBoundary">
+		<LoggingErrorBoundary @ref="_overlayBoundary" Context="the map overlay">
 			<ChildContent>
 				<SkiaMapOverlay Viewport="vp" Markers="Markers" Routes="Routes" Circles="Circles" Boxes="Boxes" />
 			</ChildContent>
@@ -59,10 +71,19 @@
 				<div class="dlr-map-overlay-error" role="alert">
 					<strong>Map markers unavailable</strong>
 					<p>The base map is working, but pins, tracks and traveller positions cannot be drawn on this device.</p>
-					<p class="dlr-map-overlay-error-detail">@overlayError.Message</p>
+					@*
+						Summarise, not Message. A wrapper's own message is "One or more errors
+						occurred." followed by a parenthesised quote of what it holds, which names
+						nothing a rider or a developer can act on; this unwraps to the exception
+						that actually failed and states its type. The full detail — stacks and all
+						— is in the log, and the line below says so, because a banner on a map is
+						not where a stack trace belongs.
+					*@
+					<p class="dlr-map-overlay-error-detail">@DiagnosticLog.Summarise(overlayError)</p>
+					<p class="dlr-map-overlay-error-detail">The full details are in Settings → Log.</p>
 				</div>
 			</ErrorContent>
-		</ErrorBoundary>
+		</LoggingErrorBoundary>
 	}
 </div>
 
@@ -202,7 +223,7 @@ else if (_tileError is not null)
 	[Parameter] public EventCallback<MapGesture> OnGesture { get; set; }
 
 	private ElementReference _host;
-	private ErrorBoundary? _overlayBoundary;
+	private LoggingErrorBoundary? _overlayBoundary;
 	private bool _initialised;
 	private MapCamera? _appliedCamera;
 
@@ -310,7 +331,11 @@ else if (_tileError is not null)
 		}
 		catch (Exception exception)
 		{
-			_error = exception.Message;
+			// Logged in full as well as shown: the banner has room for a sentence, and the thing
+			// that stopped a map coming up — a module that would not import, a style that would
+			// not parse — is in the stack rather than in the message.
+			DiagnosticLog.WriteError("bringing up the base map", exception);
+			_error = DiagnosticLog.Summarise(exception);
 			await InvokeAsync(StateHasChanged);
 		}
 	}
@@ -374,7 +399,13 @@ else if (_tileError is not null)
 		_tileError = null;
 
 		try { await Map.SetSourceAsync(wanted); }
-		catch { /* see the remarks */ }
+		catch (Exception exception)
+		{
+			// Still not shown — see the remarks — but no longer invisible. A restyle that fails
+			// leaves the map on the tiles it already had, which is the right behaviour and looks
+			// exactly like a setting that did not take.
+			DiagnosticLog.WriteError($"restyling the map to {wanted.Kind}", exception);
+		}
 	}
 
 	/// <summary>

@@ -73,21 +73,11 @@ public sealed class LocationBroadcastStateTests
 		/// out" would send the next person reading it to the wrong place.
 		/// </para>
 		/// </summary>
-		public async Task UntilAsync(Func<bool> condition, string because)
-		{
-			for (int attempt = 0; attempt < 200; attempt++)
-			{
-				if (condition())
-				{
-					return;
-				}
-
-				await Task.Delay(10);
-			}
-
-			throw new Xunit.Sdk.XunitException(
-				$"Timed out waiting: {because}. Status={Broadcast.Status}, Detail={Broadcast.Detail ?? "<none>"}.");
-		}
+		public Task UntilAsync(Func<bool> condition, string because) =>
+			BackgroundWait.UntilAsync(
+				condition,
+				because,
+				() => $"Status={Broadcast.Status}, Detail={Broadcast.Detail ?? "<none>"}.");
 	}
 
 	private static LocationFix Fix(double latitude = Latitude, double longitude = Longitude, int secondsIn = 0) =>

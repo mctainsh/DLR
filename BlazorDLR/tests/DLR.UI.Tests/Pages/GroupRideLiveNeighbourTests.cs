@@ -144,7 +144,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 	/// Renders the ride and gets the device's receiver as far as one fix, which is where the panel
 	/// starts: it is measured from this phone's own reading and from nothing else.
 	/// </summary>
-	private IRenderedComponent<GroupRideLive> RenderRideLocatedAt(Guid rideId, double metresEast)
+	private async Task<IRenderedComponent<GroupRideLive>> RenderRideLocatedAtAsync(Guid rideId, double metresEast)
 	{
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
 
@@ -152,9 +152,11 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		component.WaitForAssertion(
-			() => Gps.WatchCount.ShouldBe(1, "sharing is on and the adventure is Live, so the GPS runs."),
-			timeout: TimeSpan.FromSeconds(3));
+		// Polled rather than waited on through the renderer — the watch starts after the last
+		// render the page has any reason to do. See BackgroundWait.
+		await BackgroundWait.UntilAsync(
+			() => Gps.WatchCount == 1,
+			"the receiver to start — sharing is on and the adventure is Live, so the GPS runs");
 
 		Gps.Emit(new LocationFix(
 			BaseLat, LonAt(metresEast), AccuracyM: 5, SpeedMps: 8, HeadingDeg: 90, RecordedUtc: FixedInstant));
@@ -185,7 +187,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
 		api.PositionsResult = [Fix(BobId, "Bob", 1_400)];
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, metresEast: 1_000);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, metresEast: 1_000);
 
 		component.WaitForAssertion(
 			() =>
@@ -208,7 +210,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
 		api.PositionsResult = [Fix(BobId, "Bob", 1_400)];
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, metresEast: 1_000);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, metresEast: 1_000);
 
 		component.WaitForAssertion(
 			() => component.FindAll(".live-neighbours").ShouldNotBeEmpty(),
@@ -225,7 +227,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync(withRoute: false);
 		api.PositionsResult = [Fix(BobId, "Bob", 1_400)];
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, metresEast: 1_000);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, metresEast: 1_000);
 
 		component.WaitForAssertion(
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
@@ -253,7 +255,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 
 		// The device knows better: they are 1 000 m up the road, so Bob is 1.5 km ahead of them and
 		// not the 2.5 km the ride's copy of this rider would make it.
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, metresEast: 1_000);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, metresEast: 1_000);
 
 		component.WaitForAssertion(
 			() => component.Find(".live-neighbours").TextContent.ShouldContain("1.5 km ahead"),
@@ -268,7 +270,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
 		api.PositionsResult = [Fix(BobId, "Bob", 1_400)];
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, metresEast: 1_000);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, metresEast: 1_000);
 
 		component.WaitForAssertion(
 			() => component.FindAll(".live-neighbours").ShouldNotBeEmpty(),
@@ -325,7 +327,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
 		api.PositionsResult = [Fix(BobId, "Bob", 1_400)];
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, metresEast: 1_000);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, metresEast: 1_000);
 
 		component.WaitForAssertion(
 			() => component.FindAll(".live-neighbours").ShouldNotBeEmpty(),
@@ -340,7 +342,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		await component.InvokeAsync(component.Instance.DisposeAsync().AsTask);
 
 		// The same device, opening the same ride again.
-		IRenderedComponent<GroupRideLive> reopened = RenderRideLocatedAt(rideId, metresEast: 1_000);
+		IRenderedComponent<GroupRideLive> reopened = await RenderRideLocatedAtAsync(rideId, metresEast: 1_000);
 
 		reopened.WaitForAssertion(
 			() => reopened.FindAll("button.hamburger").ShouldNotBeEmpty(),

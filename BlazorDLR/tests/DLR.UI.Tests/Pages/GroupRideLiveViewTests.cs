@@ -114,11 +114,19 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>This test's device GPS — the same instance the page's broadcaster is watching.</summary>
 	private FakeLocationProvider Gps => (FakeLocationProvider)Services.GetRequiredService<ILocationProvider>();
 
-	/// <summary>Waits for the page to have brought the receiver up, which sharing on a Live ride does.</summary>
-	private void WaitForReceiver(IRenderedComponent<GroupRideLive> component) =>
-		component.WaitForAssertion(
-			() => Gps.WatchCount.ShouldBe(1, "sharing is on and the adventure is Live, so the GPS runs."),
-			timeout: TimeSpan.FromSeconds(3));
+	/// <summary>
+	/// Waits for the page to have brought the receiver up, which sharing on a Live ride does.
+	/// <para>
+	/// Polled rather than waited on through the renderer: the watch starts on the broadcaster's
+	/// pump, one step after the last render the page has any reason to do, so a render-driven wait
+	/// only ever saw it by luck. See <see cref="BackgroundWait"/>.
+	/// </para>
+	/// </summary>
+	private Task WaitForReceiverAsync() =>
+		BackgroundWait.UntilAsync(
+			() => Gps.WatchCount == 1,
+			"the receiver to start — sharing is on and the adventure is Live, so the GPS runs",
+			() => $"WatchCount={Gps.WatchCount}, Status={Services.GetRequiredService<LocationBroadcastState>().Status}.");
 
 	private static LocationFix DeviceFix(
 		double latitude,
@@ -133,7 +141,10 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// else (§4.3). Returns once that fix is on the map, so a test can act on it without racing
 	/// the pump.
 	/// </summary>
-	private IRenderedComponent<GroupRideLive> RenderRideLocatedAt(Guid rideId, double latitude, double longitude)
+	private async Task<IRenderedComponent<GroupRideLive>> RenderRideLocatedAtAsync(
+		Guid rideId,
+		double latitude,
+		double longitude)
 	{
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
 
@@ -141,7 +152,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		WaitForReceiver(component);
+		await WaitForReceiverAsync();
 
 		Gps.Emit(DeviceFix(latitude, longitude));
 
@@ -357,7 +368,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -376,7 +387,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -405,7 +416,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await component.InvokeAsync(() => _map.RaiseViewport(new MapViewport(
 			-37.80, 144.95, -37.83, 144.98, ZoomLevel: 17, HeadingDeg: 0,
@@ -440,7 +451,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		WaitForReceiver(component);
+		await WaitForReceiverAsync();
 
 		Gps.Emit(DeviceFix(-37.8136, 144.9631));
 
@@ -470,7 +481,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		WaitForReceiver(component);
+		await WaitForReceiverAsync();
 
 		Gps.Emit(DeviceFix(-37.8136, 144.9631));
 
@@ -506,7 +517,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		WaitForReceiver(component);
+		await WaitForReceiverAsync();
 
 		// Speed held at a standstill for both, so nothing but the heading can decide the shape.
 		Gps.Emit(DeviceFix(-37.8136, 144.9631, speedMps: 0, headingDeg: headingDeg));
@@ -537,7 +548,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync([At(MeId, -37.80, 144.95)]);
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		IReadOnlyDictionary<Guid, MapMarker>? drawn = component.FindComponent<StubRideMap>().Instance.Markers;
 
@@ -673,11 +684,11 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		await component.InvokeAsync(() => hub.RaiseRideStateChanged(rideId, RideStateDto.Live));
 
-		component.WaitForAssertion(
-			() => Gps.WatchCount.ShouldBe(1,
-				"§5.1: consent was already given — the traveller must not have to find the switch and " +
-				"toggle it twice to get onto a map they already said yes to."),
-			timeout: TimeSpan.FromSeconds(3));
+		await BackgroundWait.UntilAsync(
+			() => Gps.WatchCount == 1,
+			"§5.1: the receiver to come up on its own — consent was already given, and the traveller "
+			+ "must not have to find the switch and toggle it twice to get onto a map they already "
+			+ "said yes to");
 	}
 
 	[Fact]
@@ -685,7 +696,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		int before = _map.Cameras.Count;
 
@@ -709,7 +720,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -735,7 +746,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -762,7 +773,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			LiveMapView.StorageKey,
 			new LiveMapView(Guid.NewGuid(), -33.868, 151.209, 11, FollowMe: true).Encode());
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		component.WaitForAssertion(() =>
 		{
@@ -805,7 +816,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
 
@@ -830,7 +841,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -870,7 +881,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -908,7 +919,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -934,7 +945,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await component.InvokeAsync(() => _map.RaiseGesture(MapGesture.Pan));
 
@@ -950,7 +961,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -1008,7 +1019,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 
@@ -1041,7 +1052,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1073,7 +1084,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		// The helper's fix carries a heading of 90° at 8 m/s — moving, so the heading is a
 		// direction rather than the noise between two readings of a parked bike.
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1094,7 +1105,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
 
@@ -1125,7 +1136,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		// One tap sets both — see ChoosingHeadingUp_SwitchesFollowingOnWithIt.
 		await ChooseMapOrientationAsync(component);
@@ -1158,7 +1169,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1188,7 +1199,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1210,7 +1221,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1243,7 +1254,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1274,7 +1285,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1316,7 +1327,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1344,7 +1355,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1371,7 +1382,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await PressFollowButtonAsync(component);
 		await ChooseMapOrientationAsync(component);
@@ -1413,7 +1424,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		// Choosing heading-up brings following with it, so this one tap sets both.
 		await ChooseMapOrientationAsync(component);
@@ -1463,7 +1474,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			LiveMapView.StorageKey,
 			new LiveMapView(Guid.NewGuid(), -33.868, 151.209, 11, FollowMe: false, HeadingUp: true).Encode());
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		component.WaitForAssertion(
 			() => component.FindAll("button.heading-up.on").ShouldNotBeEmpty(),
@@ -1485,7 +1496,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		await ChooseMapOrientationAsync(component);
 
@@ -1509,7 +1520,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			LiveMapView.StorageKey,
 			new LiveMapView(Guid.NewGuid(), -33.868, 151.209, 11, FollowMe: false, HeadingUp: true).Encode());
 
-		IRenderedComponent<GroupRideLive> component = RenderRideLocatedAt(rideId, -37.8136, 144.9631);
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
 		component.WaitForAssertion(() =>
 		{

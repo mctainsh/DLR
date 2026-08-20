@@ -154,6 +154,10 @@ internal class Program
 		// reloaded tab still knows which ride this browser is on.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
+		// Whether this browser has been shown the introduction (§18.6), kept in localStorage so a
+		// reloaded tab is not shown it a second time.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.IntroTourState>();
+
 		// No GPS on this host, and nothing standing in for one (§18.6).
 		//
 		// ILocationProvider, GpsProfileState, TrackRecordingState, PrivateAreaState and

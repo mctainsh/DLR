@@ -6,6 +6,7 @@
 @inject CommentNotifier Notifier
 @inject NotificationRouting Routing
 @inject NavigationManager Nav
+@inject IntroTourState Tour
 @implements IDisposable
 
 @*
@@ -54,6 +55,12 @@
 
 @code {
 	/// <summary>
+	/// Whether this launch was aimed somewhere by a tapped notification. Set in
+	/// <c>OnInitialized</c> and read once, by <see cref="ShowIntroductionIfFirstRunAsync"/>.
+	/// </summary>
+	private bool _routedByNotification;
+
+	/// <summary>
 	/// Subscribing here is what gives <see cref="CommentNotifier"/> a lifetime (§17.6).
 	/// <para>
 	/// Injecting it is what constructs it, and constructing it is what subscribes it to the hub —
@@ -83,7 +90,13 @@
 		// cold-launch case, which is most of them — is parked rather than raised, and this ordering
 		// is what makes sure exactly one of the two paths picks it up.
 		if (Routing.TakePending() is { } pending)
+		{
+			// Remembered so the first-run introduction does not open on top of it. A launch that
+			// was aimed somewhere by a notification is a launch with a destination already, and a
+			// rider who tapped a card about their ride wants the ride.
+			_routedByNotification = true;
 			OnRouteRequested(pending);
+		}
 	}
 
 	/// <summary>
@@ -120,7 +133,51 @@
 			// JS interop, neither of which exists during the prerender pass.
 			// AuthState.RestoreAsync is idempotent, so a second render costs nothing.
 			await Auth.RestoreAsync();
+
+			// After the session, because a rider who is already signed in on this device has run
+			// the app before and the introduction has nothing to tell them — the read below is the
+			// one that decides, and putting it first would race the restore for the navigation.
+			await ShowIntroductionIfFirstRunAsync();
 		}
+	}
+
+	/// <summary>
+	/// Opens the introduction slide show on a device that has never been through it (§18.6).
+	/// <para>
+	/// <strong>Here rather than on a page.</strong> The rider's first screen is Home or Welcome
+	/// depending on a session that is still being restored when the app starts, so neither of them
+	/// can own "the first thing you ever see". This layout is above both, and runs exactly once
+	/// per launch.
+	/// </para>
+	/// <para>
+	/// <strong>It never fires twice and never traps.</strong> The state is read from the device, so
+	/// a host with no store to read — the SSR prerender, which does not reach this method at all —
+	/// cannot start a redirect loop, and the deck marks itself seen whether it is finished or
+	/// skipped.
+	/// </para>
+	/// <para>
+	/// Where the rider was headed is carried across as <c>return</c>, so a first launch that opened
+	/// on a shared invitation still lands on the invitation afterwards.
+	/// </para>
+	/// </summary>
+	private async Task ShowIntroductionIfFirstRunAsync()
+	{
+		if (_routedByNotification)
+			return;
+
+		string here = Path(Nav.Uri);
+
+		// Already there — Settings' "How this works" card, or a reload of the deck itself.
+		if (here.StartsWith("/intro", StringComparison.OrdinalIgnoreCase))
+			return;
+
+		if (!await Tour.ShouldShowAsync())
+			return;
+
+		DiagnosticLog.Write("Startup: first run on this device; showing the introduction.");
+
+		string target = here is "/" ? "/intro" : $"/intro?return={Uri.EscapeDataString(here)}";
+		Nav.NavigateTo(target);
 	}
 
 	/// <summary>

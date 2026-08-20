@@ -1,0 +1,360 @@
+@page "/intro"
+@using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
+@inject IntroTourState Tour
+@inject NavigationManager Nav
+
+<PageTitle>How this works — Dumb Luck Routes</PageTitle>
+
+@*
+	The introduction slide show (§18.6): five cards saying what the app is for, shown once on a
+	device's first run and reachable from Settings ever after.
+
+	NOT [Authorize], deliberately. The launch it exists for is the first one, which is before
+	there is an account — a rider who has to register in order to find out what they are
+	registering for is a rider who does neither. It is the only screen besides Welcome and the
+	recovery pages that an anonymous caller can reach.
+
+	**Skip is on the first frame and every frame after it.** This screen stands between a rider
+	and the app; the one thing it must never be is a thing they cannot get out of. Skipping
+	marks the deck seen exactly as finishing does — see IntroTourState.MarkSeenAsync.
+
+	**Three ways forward, and they are the same code.** The buttons are what the SSR pass and a
+	screen reader get, the swipe is what a thumb on a phone reaches for, and the arrow keys are
+	what a desktop keyboard tries. All three call Advance/Retreat rather than each carrying its
+	own idea of where the deck is.
+
+	**The content is not here.** IntroTour.Slides holds the deck — adding or reordering a card is
+	an edit there and nothing else. The copy shipping today is placeholder, and says so.
+
+	The rail stays on screen throughout (this is a `.page`, not a `.page-full`). A rider who
+	decides mid-deck that they would rather just look at the map should be able to, and hiding
+	the app's navigation to protect a slide show would be the wrong way round.
+*@
+
+<div class="page page-form intro"
+	 tabindex="0"
+	 @ref="_surface"
+	 @onkeydown="OnKeyDownAsync"
+	 @ontouchstart="OnTouchStart"
+	 @ontouchend="OnTouchEnd">
+
+	<div class="intro-top">
+		@* Position first, then the way out. Both are readable before the card is. *@
+		<span class="intro-count">@(_index + 1) of @Slides.Count</span>
+		<button type="button" class="intro-skip" @onclick="FinishAsync">
+			@(IsLast ? "Done" : "Skip")
+		</button>
+	</div>
+
+	<section class="intro-card" aria-live="polite">
+		<i class="fa fa-fw @Current.Icon intro-icon" aria-hidden="true"></i>
+		<h1>@Current.Title</h1>
+		<p>@Current.Body</p>
+	</section>
+
+	@*
+		Dots are the progress indicator AND the jump control — a rider who wants the card they
+		just swiped past should not have to swipe back through the ones after it. Each is a real
+		button with an accessible name, because a row of 8 px circles is unusable to anyone not
+		pointing at it.
+	*@
+	<div class="intro-dots" role="tablist" aria-label="Introduction slides">
+		@for (int slide = 0; slide < Slides.Count; slide++)
+		{
+			int target = slide;
+			<button type="button"
+					role="tab"
+					class="intro-dot @(target == _index ? "current" : "")"
+					aria-selected="@(target == _index)"
+					aria-label="@($"Slide {target + 1}: {Slides[target].Title}")"
+					title="@Slides[target].Title"
+					@onclick="() => _index = target">
+			</button>
+		}
+	</div>
+
+	<div class="intro-actions">
+		<button type="button" class="intro-back" disabled="@(_index == 0)" @onclick="Retreat">
+			Back
+		</button>
+		<button type="button" class="primary intro-next" @onclick="AdvanceAsync">
+			@(IsLast ? "Get started" : "Next")
+		</button>
+	</div>
+</div>
+
+@* AGPL §13 source offer — this screen is reachable signed out, like Welcome (§14.6.2). *@
+@* <BlazorDLR.Shared.Components.SourceOfferFooter /> *@
+
+@code {
+	/// <summary>How far a thumb has to travel across the card before it counts as a swipe.</summary>
+	/// <remarks>
+	/// In CSS pixels, and generous. Under this, a tap that drifts — which is most taps taken with
+	/// gloves on, one-handed, on a moving vehicle — would page the deck the rider was reading.
+	/// </remarks>
+	private const double SwipeThreshold = 48;
+
+	private ElementReference _surface;
+	private int _index;
+	private double _touchStartX;
+	private bool _touching;
+	private bool _finishing;
+
+	/// <summary>
+	/// Where to go when the deck is done. Supplied by the launch redirect in
+	/// <c>MainLayout</c> so a first run that arrived on a deep link — a shared invitation, a
+	/// tapped notification — still lands where it was going once the introduction is out of the
+	/// way. Absent (Settings' "How this works" card) means home.
+	/// </summary>
+	[SupplyParameterFromQuery(Name = "return")]
+	public string? ReturnTo { get; set; }
+
+	private static IReadOnlyList<IntroSlide> Slides => IntroTour.Slides;
+
+	private IntroSlide Current => Slides[_index];
+
+	private bool IsLast => _index == Slides.Count - 1;
+
+	/// <summary>
+	/// Where <see cref="FinishAsync"/> navigates: the requested route, or home.
+	/// <para>
+	/// Only a path is honoured — one leading slash, and not two. <c>ReturnTo</c> arrives off the
+	/// query string, so it is whatever was in the URL that opened this screen; an absolute or
+	/// protocol-relative value there would make the last button of the app's welcome mat an
+	/// open redirect to somebody else's site.
+	/// </para>
+	/// </summary>
+	private string Destination =>
+		ReturnTo is { Length: > 1 } target && target[0] == '/' && target[1] != '/'
+			? target
+			: "/";
+
+	/// <summary>
+	/// Takes the focus so the arrow keys work without a click first. The surface carries
+	/// <c>tabindex</c> for the same reason — <c>FocusOnNavigate</c> aims at the <c>h1</c>, which
+	/// is inside this element, so a key pressed there bubbles here either way.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+			await _surface.FocusAsync();
+	}
+
+	/// <summary>
+	/// Next card, or out of the deck on the last one — the same button, because "Next" and "Get
+	/// started" are the same gesture and a rider should not have to find a different control for
+	/// the last of five taps.
+	/// </summary>
+	private async Task AdvanceAsync()
+	{
+		if (IsLast)
+		{
+			await FinishAsync();
+			return;
+		}
+
+		_index++;
+	}
+
+	private void Retreat()
+	{
+		if (_index > 0) _index--;
+	}
+
+	/// <summary>
+	/// Marks the deck seen and leaves. Reached by Skip, by Done, and by "Get started" — all three
+	/// are a rider saying they are finished with this screen, and all three have to stop it
+	/// opening by itself again.
+	/// </summary>
+	private async Task FinishAsync()
+	{
+		// A double tap on Get started would otherwise navigate twice — harmless on the web, and a
+		// visible flash on the phone's WebView.
+		if (_finishing) return;
+		_finishing = true;
+
+		// The write is awaited before the navigation, not after: this page is about to be torn
+		// down, and a fire-and-forget device write racing its own disposal is how a rider ends up
+		// seeing the introduction again on the next launch.
+		await Tour.MarkSeenAsync();
+
+		Nav.NavigateTo(Destination);
+	}
+
+	private void OnTouchStart(TouchEventArgs args)
+	{
+		// Multi-touch is a pinch or a stray palm, not a page turn.
+		if (args.Touches.Length != 1)
+		{
+			_touching = false;
+			return;
+		}
+
+		_touching = true;
+		_touchStartX = args.Touches[0].ClientX;
+	}
+
+	/// <summary>
+	/// Turns a horizontal drag into a page turn. Left goes forward, matching every other deck a
+	/// rider has ever swiped.
+	/// <para>
+	/// <c>ChangedTouches</c> rather than <c>Touches</c>: at <c>touchend</c> the finger that just
+	/// lifted is no longer in <c>Touches</c>, so reading that one gives an empty list and no
+	/// swipe ever registers.
+	/// </para>
+	/// </summary>
+	private void OnTouchEnd(TouchEventArgs args)
+	{
+		if (!_touching || args.ChangedTouches.Length == 0) return;
+		_touching = false;
+
+		double travelled = args.ChangedTouches[0].ClientX - _touchStartX;
+
+		if (travelled <= -SwipeThreshold)
+		{
+			// A swipe past the last card does NOT finish the deck. Leaving the app has to be a
+			// deliberate press — a flick that overshoots would otherwise dismiss the screen and
+			// leave a rider with no idea what they just did or how to get it back.
+			if (!IsLast) _index++;
+		}
+		else if (travelled >= SwipeThreshold)
+		{
+			Retreat();
+		}
+	}
+
+	private async Task OnKeyDownAsync(KeyboardEventArgs args)
+	{
+		switch (args.Key)
+		{
+			case "ArrowRight":
+				if (!IsLast) _index++;
+				break;
+			case "ArrowLeft":
+				Retreat();
+				break;
+			case "Escape":
+				await FinishAsync();
+				break;
+		}
+	}
+}
+
+<style>
+	/* A deck, not a form: the card is the page and it sits in the middle of what is left. */
+	.intro {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		outline: none;
+	}
+
+		/* Position on the left, the way out on the right. */
+		.intro .intro-top {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+		}
+
+		.intro .intro-count {
+			font-size: 0.85rem;
+			color: var(--dlr-fg-muted);
+			letter-spacing: 0.04em;
+		}
+
+		/* Quiet, but a real 44 px tap target — this is the control a rider in a hurry needs. */
+		.intro .intro-skip {
+			padding: 0.5rem 0.75rem;
+			background: transparent;
+			border: none;
+			color: var(--dlr-fg-muted);
+			font-size: 0.95rem;
+			cursor: pointer;
+		}
+
+		.intro .intro-card {
+			background: var(--dlr-surface);
+			border: 1px solid var(--dlr-border);
+			border-radius: 12px;
+			padding: 2rem 1.5rem;
+			text-align: center;
+			/* Every card is the height of the tallest one, so the dots and the buttons under
+			   them do not jump as the deck is paged — a moving Next button is a mis-tap. */
+			min-height: 15rem;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			gap: 0.75rem;
+		}
+
+		.intro .intro-icon {
+			font-size: 3rem;
+			color: var(--dlr-accent);
+		}
+
+		.intro .intro-card h1 {
+			margin: 0;
+			font-size: 1.5rem;
+		}
+
+		.intro .intro-card p {
+			margin: 0;
+			opacity: 0.85;
+			line-height: 1.5;
+		}
+
+		.intro .intro-dots {
+			display: flex;
+			justify-content: center;
+			gap: 0.5rem;
+		}
+
+		/* The dot is 10 px; the button around it is a finger wide. Padding rather than a bigger
+		   circle — the target has to grow, not the mark. */
+		.intro .intro-dot {
+			width: 2rem;
+			height: 2rem;
+			padding: 0;
+			background: transparent;
+			border: none;
+			cursor: pointer;
+			position: relative;
+		}
+
+			.intro .intro-dot::after {
+				content: "";
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 10px;
+				height: 10px;
+				margin: -5px 0 0 -5px;
+				border-radius: 50%;
+				background: var(--dlr-border-strong);
+			}
+
+			.intro .intro-dot.current::after {
+				background: var(--dlr-accent);
+			}
+
+		.intro .intro-actions {
+			display: flex;
+			gap: 0.75rem;
+		}
+
+			/* Both buttons full width and equal: this is a phone screen and the pair is the
+			   whole of the page's navigation. */
+			.intro .intro-actions button {
+				flex: 1;
+				padding: 0.75rem 1rem;
+				font-size: 1rem;
+			}
+
+		.intro .intro-back {
+			background: var(--dlr-surface-2);
+			color: var(--dlr-fg);
+			border: 1px solid var(--dlr-border);
+			border-radius: 4px;
+		}
+</style>

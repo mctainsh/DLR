@@ -230,9 +230,11 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
 
-		component.WaitForAssertion(
-			() => Gps.WatchCount.ShouldBe(1, "sharing is on and the adventure is Live, so the GPS runs."),
-			timeout: TimeSpan.FromSeconds(3));
+		// Polled rather than waited on through the renderer — the watch starts after the last render
+		// the page has any reason to do. See BackgroundWait.
+		await BackgroundWait.UntilAsync(
+			() => Gps.WatchCount == 1,
+			"the receiver to start — sharing is on and the adventure is Live, so the GPS runs");
 
 		Gps.Emit(new LocationFix(
 			Latitude: -33.868,

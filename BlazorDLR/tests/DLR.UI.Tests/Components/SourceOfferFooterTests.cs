@@ -1,4 +1,3 @@
-using System.Reflection;
 using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
 using Bunit;
@@ -16,15 +15,6 @@ namespace DLR.UI.Tests.Components;
 [Collection(SourceOfferFooterCollection.Name)]
 public sealed class SourceOfferFooterTests : BunitContext
 {
-	public SourceOfferFooterTests()
-	{
-		// The component keeps About behind a private static cache so navigations reuse it.
-		// Tests aren't navigations — every test has its own fake — so the cache from an earlier
-		// test poisons the next. Reflect the field to null before each test.
-		FieldInfo cache = typeof(SourceOfferFooter).GetField("_cached", BindingFlags.NonPublic | BindingFlags.Static)!;
-		cache.SetValue(null, null);
-	}
-
 	[Fact]
 	public void RendersLicenceSourceAndTruncatedCommit()
 	{
@@ -40,6 +30,8 @@ public sealed class SourceOfferFooterTests : BunitContext
 		};
 		Services.AddSingleton<IApiClient>(api);
 
+		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
 		// The footer fetches About in OnInitializedAsync and re-renders once the task
@@ -64,6 +56,8 @@ public sealed class SourceOfferFooterTests : BunitContext
 		// regardless of whether the endpoint answered. The rest fills in later.
 		Services.AddSingleton<IApiClient>(new FakeApiClient());
 
+		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
 		component.Markup.Contains("AGPL-3.0-only", StringComparison.Ordinal)

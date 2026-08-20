@@ -1,3 +1,5 @@
+using BlazorDLR.Shared.Diagnostics;
+
 using Microsoft.JSInterop;
 
 namespace BlazorDLR.Shared.Markers;
@@ -77,8 +79,12 @@ public static class MarkerIconCache
 		await Gate.WaitAsync();
 		try
 		{
+			if (await ModuleAsync(js) is not { } module)
+			{
+				return false;
+			}
+
 			bool added = false;
-			_module ??= await js.InvokeAsync<IJSObjectReference>("import", ModulePath);
 
 			foreach (string key in wanted)
 			{
@@ -90,32 +96,103 @@ public static class MarkerIconCache
 
 				// AssetPath, not string concatenation: an unrecognised key resolves to the note
 				// icon here rather than fetching a URL that does not exist.
-				byte[] rgba = await _module.InvokeAsync<byte[]>(
-					"renderPixels", MarkerIconGlyphs.AssetPath(key), RasterSize);
+				byte[]? rgba;
 
-				Pixels[key] = rgba.Length == RasterSize * RasterSize * 4 ? rgba : null;
+				try
+				{
+					rgba = await module.InvokeAsync<byte[]?>(
+						"renderPixels", MarkerIconGlyphs.AssetPath(key), RasterSize);
+				}
+				catch (Exception exception) when (IsTeardown(exception))
+				{
+					// The rider left the map mid-rasterise. Nothing is cached — the next map asks
+					// again — and nothing is reported: this is a normal way for a page to end.
+					return added;
+				}
+				catch (Exception exception)
+				{
+					// One icon that will not draw is one plain pin, not a map without markers.
+					// Cached negatively so it is asked for once, logged once for the same reason.
+					DiagnosticLog.WriteError($"rasterising the marker icon '{key}'", exception);
+					Pixels[key] = null;
+					continue;
+				}
+
+				// Pattern-matched rather than `rgba.Length`, which is what this was and what threw.
+				// The module answers an empty buffer for an icon it cannot draw — but a JS function
+				// that returns undefined, or one a stale cached module never had, deserialises as
+				// null, and the null dereference here left the whole overlay unmounted behind "Map
+				// markers unavailable" over a missing pin.
+				Pixels[key] = rgba is { Length: RasterSize * RasterSize * 4 } ? rgba : null;
 				added = true;
 			}
 
 			return added;
-		}
-		catch (JSException)
-		{
-			// No rasteriser module, no icons. The overlay's plain-pin fallback covers it — a map
-			// that draws pins beats a map that throws. Latched: without this the module import
-			// is retried on every render, which on a live ride is a thrown-and-caught interop
-			// exception per second for the rest of the session.
-			_unavailable = true;
-			return false;
-		}
-		catch (InvalidOperationException)
-		{
-			// Prerender: JS interop is unavailable during SSR. The interactive pass primes.
-			return false;
 		}
 		finally
 		{
 			Gate.Release();
 		}
 	}
+
+	/// <summary>
+	/// The rasteriser module, or null when this host is not going to produce one.
+	/// <para>
+	/// Separated from the per-icon loop because the two failures are not the same size: no module
+	/// means no icons at all and is worth latching, while one icon that will not draw is one plain
+	/// pin. Latching on the second was how a single bad key could have turned every marker on the
+	/// device into a dot for the rest of the session.
+	/// </para>
+	/// </summary>
+	/// <param name="js">The host's JS runtime.</param>
+	/// <returns>The module, or null.</returns>
+	private static async ValueTask<IJSObjectReference?> ModuleAsync(IJSRuntime js)
+	{
+		if (_module is not null)
+		{
+			return _module;
+		}
+
+		try
+		{
+			return _module = await js.InvokeAsync<IJSObjectReference>("import", ModulePath);
+		}
+		catch (InvalidOperationException)
+		{
+			// Prerender: JS interop is unavailable during SSR. The interactive pass primes.
+			return null;
+		}
+		catch (Exception exception) when (IsTeardown(exception))
+		{
+			// The WebView went away while the module was importing — the rider left the page.
+			// Not latched: the next map is a new WebView and can import perfectly well.
+			return null;
+		}
+		catch (Exception exception)
+		{
+			// No rasteriser module, no icons. The overlay's plain-pin fallback covers it — a map
+			// that draws pins beats a map that throws. Latched: without this the import is retried
+			// on every render, which on a live ride is a thrown-and-caught interop exception per
+			// second for the rest of the session.
+			//
+			// Logged, because "every marker is a plain dot" is a thing a rider notices and cannot
+			// otherwise explain, and the reason is only ever in this exception.
+			DiagnosticLog.WriteError("loading the marker rasteriser", exception);
+			_unavailable = true;
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Whether an exception is the page going away rather than something being wrong.
+	/// <para>
+	/// A prime runs from the overlay's <c>OnAfterRenderAsync</c>, so anything escaping it unmounts
+	/// the overlay through <c>RideMap</c>'s error boundary — and the commonest exception here is
+	/// simply a rider leaving the map while an icon is in flight. Both of these were guarded in
+	/// <c>SkiaMapOverlay.RepaintAsync</c> from the start and in neither of the paths that reach
+	/// this file.
+	/// </para>
+	/// </summary>
+	private static bool IsTeardown(Exception exception) =>
+		exception is JSDisconnectedException or ObjectDisposedException or OperationCanceledException;
 }

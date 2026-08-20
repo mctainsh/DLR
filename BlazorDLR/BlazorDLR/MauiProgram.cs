@@ -247,6 +247,11 @@ public static class MauiProgram
 		// with the ride still running, and the globe is what puts the rider back on it.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
+		// Whether this device has been shown the introduction (§18.6), in MAUI Preferences. This is
+		// the host it was written for: a phone is where the app is met for the first time, and the
+		// deck is what stands between "installed" and "what is this".
+		builder.Services.AddScoped<BlazorDLR.Shared.State.IntroTourState>();
+
 		// The one confirm modal for every destructive action in the app (§18.6).
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
 

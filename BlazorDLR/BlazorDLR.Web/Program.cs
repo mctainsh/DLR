@@ -187,6 +187,13 @@ builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 // the device — and the client re-resolves against localStorage the moment it takes over.
 builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
+// Whether this device has been shown the introduction (§18.6). MainLayout injects it, so it has to
+// resolve here or the prerender throws before WASM can boot. The in-memory store answers "never
+// seen" — but the redirect that reads it runs after first render, which the prerender never
+// reaches, so this host cannot bounce anybody into the deck. The client re-resolves against
+// localStorage the moment it takes over, and that is the answer that decides.
+builder.Services.AddScoped<BlazorDLR.Shared.State.IntroTourState>();
+
 // No GPS on this host, and nothing standing in for one (§18.6).
 //
 // ILocationProvider, GpsProfileState, TrackRecordingState, PrivateAreaState and
