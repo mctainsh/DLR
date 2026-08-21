@@ -399,6 +399,13 @@
 				? "Saved. This route is shared with everyone."
 				: "Saved.";
 		}
+		catch (ApiException apiException)
+		{
+			// The reason a share is refused is in the body, not in the status — which route this
+			// one duplicates, or which name is already taken (§18.2). Printing the title alone
+			// would leave a rider looking at "Already shared" with nothing to do about it.
+			_status = Reason(apiException, "Could not save it");
+		}
 		catch (Exception exception)
 		{
 			_status = $"Could not save it: {exception.Message}";
@@ -408,6 +415,21 @@
 			_busy = false;
 		}
 	}
+
+	/// <summary>
+	/// What the server actually said, as one line for the status strip.
+	/// </summary>
+	/// <param name="exception">The failed call.</param>
+	/// <param name="fallback">What was being attempted, for the case where the body said nothing.</param>
+	/// <remarks>
+	/// This page has one status line rather than the <c>ApiError</c> block the sign-in screens
+	/// use, so the messages are joined instead of listed — but they are still the server's own
+	/// words rather than a friendlier sentence invented here (§18.2).
+	/// </remarks>
+	private static string Reason(ApiException exception, string fallback) =>
+		exception.Error.Messages.Count > 0
+			? string.Join(" ", exception.Error.Messages)
+			: $"{fallback}: {exception.Error.Title}";
 
 	/// <summary>An image read off the device and waiting for Save. Mirrors AddMarker's.</summary>
 	private sealed record PickedPhoto(byte[] Bytes, string ContentType, string FileName);
@@ -434,6 +456,12 @@
 			_track = _track with { Track = renamed };
 			_renaming = false;
 			_status = "Renamed.";
+		}
+		catch (ApiException apiException)
+		{
+			// Renaming a route that is shared with everyone can be refused because the name is
+			// already on that list (§6.2), and the message says which one it clashes with.
+			_status = Reason(apiException, "Could not rename it");
 		}
 		catch (Exception exception)
 		{

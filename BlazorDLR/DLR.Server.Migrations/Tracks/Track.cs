@@ -169,6 +169,22 @@ public sealed class Track
 	/// </summary>
 	public byte[] ContentHash { get; set; } = [];
 
+	/// <summary>
+	/// SHA-256 over the coordinates alone, as the browse list's duplicate check reads it (§6.2).
+	/// <para>
+	/// Separate from <see cref="ContentHash"/> because it answers a separate question. That one
+	/// asks "is this the same recording?" and is scoped to one owner, where a second copy is the
+	/// rider's business. This one asks "is this the same road?" across every owner, and decides
+	/// whether publishing a route would put a line on everybody's list that is already there.
+	/// </para>
+	/// <para>
+	/// Empty on a row written before the check existed, and refilled from the blob the first time
+	/// that route is published. Empty therefore means "unknown", never "matches nothing" — a
+	/// comparison against it is skipped rather than treated as a match.
+	/// </para>
+	/// </summary>
+	public byte[] RouteHash { get; set; } = [];
+
 	/// <summary>The file it was imported from, for display and for support.</summary>
 	public string? ImportedFileName { get; set; }
 

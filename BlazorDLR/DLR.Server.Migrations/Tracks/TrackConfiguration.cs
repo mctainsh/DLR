@@ -61,6 +61,15 @@ public sealed class TrackConfiguration : IEntityTypeConfiguration<Track>
 			.HasIndex(track => new { track.OwnerId, track.ContentHash })
 			.HasDatabaseName("ix_track_owner_content_hash");
 
+		// The duplicate check a route passes on its way onto the browse list (§6.2): does any
+		// other public route already follow these coordinates? Filtered on Public for the same
+		// reason the two below are — a private route is never a candidate, and private routes
+		// are almost the whole table.
+		builder
+			.HasIndex(track => track.RouteHash)
+			.HasDatabaseName("ix_track_route_hash")
+			.HasFilter("visibility = 'Public'");
+
 		// The browse list: every public track, newest-shared first. Filtered rather than
 		// covering the whole table, because the shared routes are a small minority of the rows
 		// and this index is read on every page of a list expected to get long.

@@ -252,6 +252,19 @@ public sealed class TrackController : ControllerBase
 			return NotFound();
 		}
 
+		// A shared route's name is on a list other riders read, so it has to be its own (§6.2).
+		// A private track is the rider's own filing system and may be called whatever they like —
+		// the same rule the share itself applies, applied again here because a rename is the other
+		// way a route on that list can end up wearing a name that is already on it.
+		if (track.Visibility == TrackVisibility.Public
+			&& await SharedRoutes.NamedAsync(database, track.Id, name) is { } taken)
+		{
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "That name is taken",
+				detail: $"A route called {taken.Describe} is already shared with everyone. Try another name.");
+		}
+
 		track.Name = name;
 
 		await database.SaveChangesAsync();

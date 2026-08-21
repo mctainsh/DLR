@@ -59,6 +59,7 @@ public sealed class TrackStore(DlrDbContext database, IBlobStore blobs, TimeProv
 			BlobRef = blobRef,
 			SimplifiedPolyline = SimplifiedBytes(geometry),
 			ContentHash = TrackBlobCodec.ContentHash(geometry),
+			RouteHash = RouteFingerprint.Of(geometry),
 			ImportedFileName = importedFileName,
 			ImportedFormat = importedFileName is null ? null : "gpx",
 			Version = 1,

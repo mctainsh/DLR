@@ -47,6 +47,7 @@ public sealed class TrackSharingController : ControllerBase
 		[FromRoute] Guid id,
 		[FromBody] UpdateTrackDetailsRequest request,
 		[FromServices] DlrDbContext database,
+		[FromServices] IBlobStore blobs,
 		[FromServices] TimeProvider clock,
 		CancellationToken cancellationToken)
 	{
@@ -115,6 +116,43 @@ public sealed class TrackSharingController : ControllerBase
 					statusCode: StatusCodes.Status404NotFound,
 					title: "No such photo",
 					detail: "Upload the image first, and attach one you uploaded.");
+			}
+		}
+
+		// The two rules a route only has to satisfy on the way onto everybody's list (§6.2),
+		// checked on the transition and not on every save. A route that is already shared has
+		// already passed them, and re-checking here would refuse an edit to a description over a
+		// clash the rider has no way to see or to fix.
+		if (request.Visibility == TrackVisibilityDto.Public && track.Visibility != TrackVisibility.Public)
+		{
+			// Filled in on the way through for a track recorded before the fingerprint column
+			// existed. A missing blob leaves it empty rather than throwing: a route whose points
+			// cannot be read is a problem for the map to report, and refusing to share it here
+			// would report it as a duplicate, which it is not.
+			if (track.RouteHash.Length == 0)
+				track.RouteHash = await FingerprintAsync(blobs, track.BlobRef, cancellationToken);
+
+			if (await SharedRoutes.WithTheSamePointsAsync(database, ownerId, track.RouteHash, cancellationToken) is { } sameRoad)
+			{
+				return Problem(
+					statusCode: StatusCodes.Status409Conflict,
+					title: "Already shared",
+					detail: $"Another rider has already shared this route as {sameRoad.Describe} — it "
+						+ "follows exactly the same points. Look for it on the shared list rather than "
+						+ "putting a second copy of the same road on there.");
+			}
+
+			// An unnamed route is still shareable. Uniqueness is about telling two entries on a
+			// list apart, and refusing the share outright would be inventing a second rule — the
+			// one place a name is compulsory is where somebody was asked for one (§15.1).
+			if (TrackNaming.Clean(track.Name) is { Length: > 0 } name
+				&& await SharedRoutes.NamedAsync(database, track.Id, name, cancellationToken) is { } sameName)
+			{
+				return Problem(
+					statusCode: StatusCodes.Status409Conflict,
+					title: "That name is taken",
+					detail: $"A route called {sameName.Describe} is already shared with everyone. Give "
+						+ "this one a name of its own, and share it again.");
 			}
 		}
 
@@ -306,6 +344,25 @@ public sealed class TrackSharingController : ControllerBase
 
 		/// <summary>Great-circle kilometres from the filter's centre to the track's bounding-box centre.</summary>
 		public double AwayKm { get; init; }
+	}
+
+	/// <summary>
+	/// The fingerprint of a stored track's line, read back from its blob (§6.2).
+	/// <para>
+	/// Only ever needed for a row written before <c>route_hash</c> existed — every path that
+	/// writes points computes it as it goes. Publishing is a deliberate, once-per-route action,
+	/// so reading one blob to close that gap costs nothing anybody will notice.
+	/// </para>
+	/// </summary>
+	/// <param name="blobs">Where the points are.</param>
+	/// <param name="blobRef">Which blob.</param>
+	/// <param name="cancellationToken">Cancellation.</param>
+	/// <returns>The fingerprint, or empty when the blob is gone — which means "do not compare".</returns>
+	private static async Task<byte[]> FingerprintAsync(IBlobStore blobs, string blobRef, CancellationToken cancellationToken)
+	{
+		await using Stream? blob = await blobs.OpenAsync(blobRef, cancellationToken);
+
+		return blob is null ? [] : RouteFingerprint.Of(TrackBlobCodec.Read(blob));
 	}
 
 	/// <summary>Kilometres in a degree of latitude. Constant everywhere, which is why the box prefilter uses this half.</summary>

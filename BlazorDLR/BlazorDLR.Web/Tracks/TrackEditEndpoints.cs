@@ -268,9 +268,10 @@ public sealed class TrackEditController : ControllerBase
 	/// <summary>
 	/// Writes a new blob and rebuilds every derived figure from the surviving points (§15.5).
 	/// <para>
-	/// The simplified line and the content hash are regenerated too. A stale polyline would
-	/// keep drawing the trimmed span on a map, which for the privacy case is the entire
-	/// failure.
+	/// The simplified line, the content hash and the route fingerprint are regenerated too. A
+	/// stale polyline would keep drawing the trimmed span on a map, which for the privacy case
+	/// is the entire failure; a stale fingerprint would have the browse list's duplicate check
+	/// (§6.2) comparing a shared route against a line it no longer follows.
 	/// </para>
 	/// </summary>
 	private static async Task ApplyAsync(
@@ -292,6 +293,7 @@ public sealed class TrackEditController : ControllerBase
 
 		track.SimplifiedPolyline = simplified.ToArray();
 		track.ContentHash = TrackBlobCodec.ContentHash(geometry);
+		track.RouteHash = RouteFingerprint.Of(geometry);
 
 		TrackStats stats = TrackStats.From(geometry);
 

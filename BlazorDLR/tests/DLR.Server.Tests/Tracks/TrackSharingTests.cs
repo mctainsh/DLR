@@ -408,6 +408,232 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 		(await BrowseAsync(reader)).Items.ShouldHaveSingleItem().SharedUtc.ShouldBe(first);
 	}
 
+	/// <summary>
+	/// The browse list is a catalogue, and the same road on it twice is a page of results that is
+	/// mostly one route (§6.2). Only the points are compared — the second rider's copy has a name
+	/// and a description of its own, and is refused all the same.
+	/// </summary>
+	[Fact]
+	public async Task Sharing_RefusesARouteSomebodyElseHasAlreadyShared()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient first = await SignedInAsync(app, "DaveSmith");
+		using HttpClient second = await SignedInAsync(app, "RileyJones");
+
+		await ShareAsync(first, "Coast run north");
+
+		// The same line arriving from another rider — an export of the first one, imported and
+		// renamed, is exactly how this happens.
+		TrackSummary copy = await UploadAsync(second, name: "My favourite ride");
+
+		using HttpResponseMessage response = await PatchAsync(
+			second,
+			$"{TracksUrl}/{copy.Id}/details",
+			new UpdateTrackDetailsRequest("Found this one myself.", null, TrackVisibilityDto.Public));
+
+		string body = await response.Content.ReadAsStringAsync();
+
+		response.StatusCode.ShouldBe(HttpStatusCode.Conflict, body);
+
+		// And it says which route it clashes with, so the message is one a rider can act on.
+		body.ShouldContain("Coast run north");
+
+		// Refused means refused: nothing on the panel was stored, and the list still holds one route.
+		TrackDetail read = (await second.GetFromJsonAsync<TrackDetail>($"{TracksUrl}/{copy.Id}"))!;
+
+		read.Track.Visibility.ShouldBe(TrackVisibilityDto.Private);
+		read.Track.Description.ShouldBeNull("the whole panel is one save, and it did not happen");
+		(await BrowseAsync(second)).TotalCount.ShouldBe(1);
+	}
+
+	/// <summary>
+	/// The check is scoped to other owners. A rider who holds the same line twice — the recording
+	/// and the route they planned it from — publishes whichever of them they consider the good
+	/// copy, and refusing that would be telling somebody they may not share their own route.
+	/// </summary>
+	[Fact]
+	public async Task Sharing_AllowsTheSameLineTwiceFromTheSameOwner()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient owner = await SignedInAsync(app, "DaveSmith");
+		using HttpClient reader = await SignedInAsync(app, "RileyJones");
+
+		await ShareAsync(owner, "Coast run north");
+		await ShareAsync(owner, "Coast run north, the good version");
+
+		(await BrowseAsync(reader)).TotalCount.ShouldBe(2);
+	}
+
+	/// <summary>
+	/// The fingerprint column arrived after sharing did, so a track recorded before it has an
+	/// empty one. Empty means "not known yet" and is filled from the blob on the way through —
+	/// the alternative is two empty hashes matching each other, and every un-fingerprinted route
+	/// being a duplicate of every other.
+	/// </summary>
+	[Fact]
+	public async Task Sharing_ChecksARouteRecordedBeforeItHadAFingerprint()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient first = await SignedInAsync(app, "DaveSmith");
+		using HttpClient second = await SignedInAsync(app, "RileyJones");
+
+		TrackSummary mine = await UploadAsync(first, name: "Coast run north");
+		TrackSummary theirs = await UploadAsync(second, name: "Hills loop");
+
+		// Both rows as they would have been written a week ago.
+		await app.WithDatabaseAsync(database => database
+			.Set<Data.Tracks.Track>()
+			.Where(track => track.Id == mine.Id || track.Id == theirs.Id)
+			.ExecuteUpdateAsync(row => row.SetProperty(track => track.RouteHash, Array.Empty<byte>())));
+
+		await SaveDetailsAsync(first, mine.Id, new UpdateTrackDetailsRequest(null, null, TrackVisibilityDto.Public));
+
+		using HttpResponseMessage response = await PatchAsync(
+			second,
+			$"{TracksUrl}/{theirs.Id}/details",
+			new UpdateTrackDetailsRequest(null, null, TrackVisibilityDto.Public));
+
+		response.StatusCode.ShouldBe(HttpStatusCode.Conflict, await response.Content.ReadAsStringAsync());
+	}
+
+	/// <summary>
+	/// A name on the shared list identifies a route to somebody who did not record it, and three
+	/// rows called <em>Morning loop</em> identify nothing. Case is not a difference — nobody
+	/// reading a list sees two names there.
+	/// </summary>
+	[Fact]
+	public async Task Sharing_RefusesANameAnotherSharedRouteIsAlreadyUsing()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient first = await SignedInAsync(app, "DaveSmith");
+		using HttpClient second = await SignedInAsync(app, "RileyJones");
+
+		await ShareAsync(first, "Coast Run North");
+
+		// A different road, so it is the name and only the name that is in the way.
+		TrackSummary other = await UploadAsync(second, name: "coast run north", latitudeOffsetDeg: -2.7);
+
+		using HttpResponseMessage response = await PatchAsync(
+			second,
+			$"{TracksUrl}/{other.Id}/details",
+			new UpdateTrackDetailsRequest(null, null, TrackVisibilityDto.Public));
+
+		response.StatusCode.ShouldBe(HttpStatusCode.Conflict, await response.Content.ReadAsStringAsync());
+
+		// Renamed, it goes on the list.
+		using HttpResponseMessage renamed = await PatchAsync(
+			second,
+			$"{TracksUrl}/{other.Id}",
+			new RenameTrackRequest("Coast run south"));
+
+		renamed.StatusCode.ShouldBe(HttpStatusCode.OK, await renamed.Content.ReadAsStringAsync());
+
+		await SaveDetailsAsync(second, other.Id, new UpdateTrackDetailsRequest(null, null, TrackVisibilityDto.Public));
+
+		(await BrowseAsync(first)).TotalCount.ShouldBe(1, "a rider's own shared routes are never on their browse list");
+	}
+
+	/// <summary>
+	/// Uniqueness is a property of the list, not of the app. A private track is the rider's own
+	/// filing system and two of them may be called the same thing — the rule starts where somebody
+	/// else has to tell them apart.
+	/// </summary>
+	[Fact]
+	public async Task Sharing_LeavesPrivateNamesAlone()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient first = await SignedInAsync(app, "DaveSmith");
+		using HttpClient second = await SignedInAsync(app, "RileyJones");
+
+		await ShareAsync(first, "Coast run north");
+
+		TrackSummary theirs = await UploadAsync(second, name: "Coast run north", latitudeOffsetDeg: -2.7);
+
+		TrackSummary saved = await SaveDetailsAsync(
+			second,
+			theirs.Id,
+			new UpdateTrackDetailsRequest("Kept to myself.", null, TrackVisibilityDto.Private));
+
+		saved.Name.ShouldBe("Coast run north");
+		saved.Visibility.ShouldBe(TrackVisibilityDto.Private);
+	}
+
+	/// <summary>
+	/// Re-sharing a route is not a clash with itself, and neither is saving the panel again on one
+	/// that is already on the list. Either would otherwise be a route that could be taken off the
+	/// list and never put back.
+	/// </summary>
+	[Fact]
+	public async Task Sharing_ARouteAlreadyOnTheList_IsNotADuplicateOfItself()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient owner = await SignedInAsync(app, "DaveSmith");
+
+		TrackSummary track = await UploadAsync(owner, name: "Coast run north");
+
+		await SaveDetailsAsync(owner, track.Id, new UpdateTrackDetailsRequest(null, null, TrackVisibilityDto.Public));
+		await SaveDetailsAsync(owner, track.Id, new UpdateTrackDetailsRequest("Second thoughts.", null, TrackVisibilityDto.Public));
+		await SaveDetailsAsync(owner, track.Id, new UpdateTrackDetailsRequest(null, null, TrackVisibilityDto.Private));
+
+		TrackSummary again = await SaveDetailsAsync(owner, track.Id, new UpdateTrackDetailsRequest(null, null, TrackVisibilityDto.Public));
+
+		again.Visibility.ShouldBe(TrackVisibilityDto.Public);
+	}
+
+	/// <summary>
+	/// The other way a shared route ends up wearing a name that is already on the list. The rename
+	/// endpoint has to apply the same rule, or the check on the share is a door with a window
+	/// beside it.
+	/// </summary>
+	[Fact]
+	public async Task Rename_OfASharedRoute_RefusesANameAlreadyOnTheList()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient first = await SignedInAsync(app, "DaveSmith");
+		using HttpClient second = await SignedInAsync(app, "RileyJones");
+
+		await ShareAsync(first, "Coast run north");
+
+		TrackSummary theirs = await ShareAsync(second, "Hills loop", latitudeOffsetDeg: -2.7);
+
+		using HttpResponseMessage response = await PatchAsync(
+			second,
+			$"{TracksUrl}/{theirs.Id}",
+			new RenameTrackRequest("COAST RUN NORTH"));
+
+		response.StatusCode.ShouldBe(HttpStatusCode.Conflict, await response.Content.ReadAsStringAsync());
+
+		// And a name nobody has taken still goes through.
+		using HttpResponseMessage free = await PatchAsync(
+			second,
+			$"{TracksUrl}/{theirs.Id}",
+			new RenameTrackRequest("Hills loop, anticlockwise"));
+
+		free.StatusCode.ShouldBe(HttpStatusCode.OK, await free.Content.ReadAsStringAsync());
+	}
+
+	/// <summary>
+	/// A rider renaming their own shared route to what it is already called is not a clash with
+	/// itself — most obviously when they are correcting its capitalisation.
+	/// </summary>
+	[Fact]
+	public async Task Rename_OfASharedRoute_ToWhatItIsAlreadyCalled_IsFine()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient owner = await SignedInAsync(app, "DaveSmith");
+
+		TrackSummary track = await ShareAsync(owner, "coast run north");
+
+		using HttpResponseMessage response = await PatchAsync(
+			owner,
+			$"{TracksUrl}/{track.Id}",
+			new RenameTrackRequest("Coast Run North"));
+
+		response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+
+		(await response.Content.ReadFromJsonAsync<TrackSummary>())!.Name.ShouldBe("Coast Run North");
+	}
+
 	// -- Helpers -------------------------------------------------------------------------
 
 	private static async Task<SharedTrackPage> BrowseAsync(
