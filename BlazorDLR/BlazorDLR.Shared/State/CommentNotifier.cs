@@ -70,6 +70,19 @@ public sealed class CommentNotifier : IDisposable
 		"dlr.thread." + rideId.ToString("N", CultureInfo.InvariantCulture);
 
 	/// <summary>
+	/// The tag every post on one shared route shares (§6.2).
+	/// <para>
+	/// A different prefix from an adventure's, and that matters rather than being tidy: both are
+	/// guids, and one namespace would let a route's card replace the ride card a rider is halfway
+	/// through reading if the two identifiers ever collided.
+	/// </para>
+	/// </summary>
+	/// <param name="trackId">Which route.</param>
+	/// <returns>A tag stable across posts, so the newest replaces the last.</returns>
+	public static string TagForTrack(Guid trackId) =>
+		"dlr.route." + trackId.ToString("N", CultureInfo.InvariantCulture);
+
+	/// <summary>
 	/// Where <c>group-rides/thread/{id}</c> is assembled, so the notification and the router cannot
 	/// drift apart.
 	/// </summary>
@@ -77,6 +90,16 @@ public sealed class CommentNotifier : IDisposable
 	/// <returns>A route relative to the app's base href.</returns>
 	public static string RouteFor(Guid rideId) =>
 		"group-rides/thread/" + rideId.ToString("D", CultureInfo.InvariantCulture);
+
+	/// <summary>
+	/// Where <c>rides/{id}</c> is assembled — a route's thread lives on the route's own page rather
+	/// than on a screen of its own (§6.2), so tapping the card lands on the map, the description and
+	/// the conversation together.
+	/// </summary>
+	/// <param name="trackId">Which route.</param>
+	/// <returns>A route relative to the app's base href.</returns>
+	public static string RouteForTrack(Guid trackId) =>
+		"rides/" + trackId.ToString("D", CultureInfo.InvariantCulture);
 
 	/// <summary>
 	/// Withdraws whatever card is already showing for this adventure, because the rider has just
@@ -92,11 +115,21 @@ public sealed class CommentNotifier : IDisposable
 	/// </para>
 	/// </summary>
 	/// <param name="rideId">The thread now on screen.</param>
-	public void ThreadOpened(Guid rideId)
+	public void ThreadOpened(Guid rideId) => Opened(TagFor(rideId));
+
+	/// <summary>
+	/// The same housekeeping for a shared route's thread (§6.2), called by the route's page.
+	/// </summary>
+	/// <param name="trackId">The route whose thread is now on screen.</param>
+	public void TrackThreadOpened(Guid trackId) => Opened(TagForTrack(trackId));
+
+	/// <summary>Clears one thread's standing card and settles the permission while the app is up.</summary>
+	/// <param name="tag">Which card.</param>
+	private void Opened(string tag)
 	{
 		// Fire-and-forget: there is no caller waiting, and a failure leaves a stale card that the
 		// next post replaces anyway.
-		Forget(_notifications.CancelAsync(TagFor(rideId)));
+		Forget(_notifications.CancelAsync(tag));
 
 		if (!_notifications.IsSupported)
 			return;
@@ -147,12 +180,19 @@ public sealed class CommentNotifier : IDisposable
 	/// </summary>
 	/// <param name="comment">The post that arrived.</param>
 	/// <returns>What to hand the platform.</returns>
+	/// <remarks>
+	/// A post from a shared route's thread is tagged and routed to the route's page instead, which
+	/// is the only thing about a notification that the second kind of thread changed — the title,
+	/// the body and the "not your own post" rule are the same question about the same record.
+	/// </remarks>
 	public static LocalNotification Compose(CommentDto comment) =>
 		new(
-			Tag: TagFor(comment.GroupRideId),
+			Tag: comment.TrackId is { } trackTag ? TagForTrack(trackTag) : TagFor(comment.GroupRideId ?? Guid.Empty),
 			Title: string.IsNullOrWhiteSpace(comment.AuthorUserName) ? "New post" : comment.AuthorUserName,
 			Body: Summarise(comment),
-			Route: RouteFor(comment.GroupRideId));
+			Route: comment.TrackId is { } trackRoute
+				? RouteForTrack(trackRoute)
+				: RouteFor(comment.GroupRideId ?? Guid.Empty));
 
 	/// <summary>
 	/// The one line under the author's name.

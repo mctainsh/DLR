@@ -76,6 +76,24 @@ public sealed class FakeRideHubClient : IRideHubClient
 		return Task.CompletedTask;
 	}
 
+	/// <summary>Shared routes whose threads were joined, in order (§6.2).</summary>
+	public List<Guid> JoinedTracks { get; } = [];
+
+	/// <summary>Shared routes whose threads were left, in order.</summary>
+	public List<Guid> LeftTracks { get; } = [];
+
+	public Task JoinTrackAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		JoinedTracks.Add(trackId);
+		return Task.CompletedTask;
+	}
+
+	public Task LeaveTrackAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		LeftTracks.Add(trackId);
+		return Task.CompletedTask;
+	}
+
 	/// <summary>Every fix the device published through the hub, in order (§5.7).</summary>
 	public List<PositionUpdate> Published { get; } = [];
 

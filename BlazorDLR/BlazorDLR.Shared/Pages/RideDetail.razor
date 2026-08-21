@@ -40,7 +40,7 @@
 				<button type="button" class="primary" @onclick="DownloadGpxAsync">Download GPX</button>
 				@if (_track.Track.IsMine)
 				{
-					<button type="button" class="danger" disabled="@_busy" @onclick="DeleteAsync">Delete</button>
+					<button type="button" class="danger" disabled="@_busy" @onclick="DeleteAsync"> <i class="fa fa-fw fa-trash" aria-hidden="true"></i> </button>
 				}
 			}
 		</Actions>
@@ -193,6 +193,50 @@
 		</dl>
 
 		<RideMap Camera="_mapCamera" Routes="_routes" AllowRotation="false" />
+
+		@*
+			Stars and a conversation, and only once the route is actually shared (§6.2).
+
+			A private track has neither, and the reason is not a permission — the server would
+			serve the owner their own thread either way — it is that a rating nobody but you can
+			give and a thread nobody but you can read are two empty boxes on a page about a
+			recording. They appear the moment the route goes on the list, and the posts survive
+			it coming back off, so a rider who un-shares and re-shares finds the conversation
+			where they left it.
+		*@
+		@if (_track.Track.Visibility == TrackVisibilityDto.Public)
+		{
+			<section class="ratings">
+				<h2>Rating</h2>
+
+				<div class="rating-row">
+					<StarRating Summary="_rating" />
+				</div>
+
+				<p class="your-rating">
+					<span class="label">@(_track.Track.IsMine ? "Your own route — rate it if you like:" : "Your rating:")</span>
+					<StarRating Summary="_rating" Busy="_rating is null || _ratingBusy" OnRate="RateAsync" />
+				</p>
+
+				@if (_ratingError is not null)
+				{
+					<p class="error">@_ratingError</p>
+				}
+			</section>
+
+			<section class="route-thread">
+				<h2>Comments</h2>
+
+				@* Polls are off here, and that is editorial rather than technical. A poll is a
+				   group deciding something together; a route's thread is riders telling each
+				   other what the road is like. The server would take one either way. *@
+				<CommentThreadView TrackId="TrackId"
+								   CanModerate="_track.Track.IsMine"
+								   AllowPolls="false"
+								   Placeholder="What is this road like? Surface, traffic, where to stop."
+								   EmptyMessage="Nobody has said anything about this route yet." />
+			</section>
+		}
 	}
 </div>
 
@@ -237,6 +281,21 @@
 	/// <summary>The largest image the photo endpoint will take (§16.4), checked at the keyboard.</summary>
 	private const long MaxPhotoBytes = 12 * 1024 * 1024;
 
+	/// <summary>
+	/// How the route stands, or null while it is still being fetched (§6.2). Fetched separately
+	/// from the track rather than carried on <c>TrackDetail</c>: the track is served from the
+	/// offline repository and a rating is the one thing on this page that has no offline answer,
+	/// so folding it into that contract would put a field there that is null on the phone in a
+	/// tunnel for reasons nothing else on the record shares.
+	/// </summary>
+	private TrackRatingSummary? _rating;
+
+	/// <summary>Guards the star row, so a double tap cannot send two ratings.</summary>
+	private bool _ratingBusy;
+
+	/// <summary>Why the last rating did not stick. Kept apart from <see cref="_error"/>, which is about the track itself.</summary>
+	private string? _ratingError;
+
 	// Where "back" goes, and it is not always My routes any more. A stranger's route was reached
 	// from the browse tab, and sending the reader to a list their route is not in would read as
 	// the app having lost it.
@@ -258,6 +317,8 @@
 		_editingDetails = false;
 		_pickedPhoto = null;
 		_status = null;
+		_rating = null;
+		_ratingError = null;
 
 		try
 		{
@@ -266,6 +327,13 @@
 			{
 				_error = "Not found.";
 				return;
+			}
+
+			// After the track and never before it: a private route has no rating to show, and
+			// asking anyway would be a round trip on every open of a page that is mostly a map.
+			if (_track.Track.Visibility == TrackVisibilityDto.Public)
+			{
+				await LoadRatingAsync();
 			}
 
 			// Frame the map on the track's bounding box, and hand the simplified polyline
@@ -291,6 +359,42 @@
 		{
 			_error = exception.Message;
 		}
+	}
+
+	/// <summary>
+	/// Reads the star tally. Failure is swallowed into <see cref="_ratingError"/> rather than
+	/// taking the page with it — a map and a description that loaded are worth showing even when
+	/// the number beside them did not.
+	/// </summary>
+	private async Task LoadRatingAsync()
+	{
+		try { _rating = await Api.GetTrackRatingAsync(TrackId); }
+		catch (ApiException apiException) { _ratingError = apiException.Error.Title; }
+		catch (Exception exception) { _ratingError = exception.Message; }
+	}
+
+	/// <summary>
+	/// Sets or withdraws the reader's own rating (§6.2).
+	/// </summary>
+	/// <param name="stars">One to five, or null to withdraw — which is what tapping the star you
+	/// already gave means.</param>
+	private async Task RateAsync(int? stars)
+	{
+		if (_ratingBusy) return;
+		_ratingBusy = true;
+		_ratingError = null;
+
+		try
+		{
+			// The response is the whole tally, not an acknowledgement, so the average and the
+			// count move with the tap rather than after a refetch.
+			_rating = stars is { } value
+				? await Api.RateTrackAsync(TrackId, new RateTrackRequest(value))
+				: await Api.ClearTrackRatingAsync(TrackId);
+		}
+		catch (ApiException apiException) { _ratingError = apiException.Error.Title; }
+		catch (Exception exception) { _ratingError = exception.Message; }
+		finally { _ratingBusy = false; }
 	}
 
 	/// <summary>
@@ -682,5 +786,34 @@
 		flex-wrap: wrap;
 		gap: 0.75rem;
 		margin-top: 0.75rem;
+	}
+
+	.detail .ratings,
+	.detail .route-thread {
+		margin-top: 1.5rem;
+		padding-top: 1rem;
+		border-top: 1px solid #ffffff22;
+	}
+
+	.detail .ratings h2,
+	.detail .route-thread h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1.1rem;
+	}
+
+	.detail .rating-row {
+		font-size: 1.25rem;
+	}
+
+	.detail .your-rating {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin: 0.5rem 0 0;
+	}
+
+	.detail .your-rating .label {
+		opacity: 0.8;
 	}
 </style>

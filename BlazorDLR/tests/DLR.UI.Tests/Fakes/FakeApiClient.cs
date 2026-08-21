@@ -452,6 +452,70 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>Set to make <see cref="ListSharedTracksAsync"/> throw.</summary>
 	public Exception? ListSharedTracksException { get; set; }
 
+	/// <summary>What <see cref="GetTrackRatingAsync"/> answers, per route (§6.2).</summary>
+	public Dictionary<Guid, TrackRatingSummary> TrackRatings { get; } = new();
+
+	/// <summary>Every rating the UI set, in order — null stars means it was withdrawn.</summary>
+	public List<(Guid TrackId, int? Stars)> RatingsSet { get; } = new();
+
+	/// <summary>Set to make any of the three rating calls throw.</summary>
+	public Exception? TrackRatingException { get; set; }
+
+	public Task<TrackRatingSummary> GetTrackRatingAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(GetTrackRatingAsync));
+
+		return TrackRatingException is not null
+			? Task.FromException<TrackRatingSummary>(TrackRatingException)
+			: Task.FromResult(RatingFor(trackId));
+	}
+
+	public Task<TrackRatingSummary> RateTrackAsync(Guid trackId, RateTrackRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(RateTrackAsync));
+		RatingsSet.Add((trackId, request.Stars));
+
+		if (TrackRatingException is not null)
+		{
+			return Task.FromException<TrackRatingSummary>(TrackRatingException);
+		}
+
+		// The tally the real endpoint returns, recomputed the way it would be: the caller's own
+		// star replaces whatever they gave before, so a test that taps twice sees one rating and
+		// not two. Nobody else's ratings are modelled — the average moves to what this rider
+		// chose only when they are the only one.
+		TrackRatingSummary before = RatingFor(trackId);
+		int count = before.Mine is null ? before.Count + 1 : before.Count;
+		double total = ((before.Average ?? 0) * before.Count) - (before.Mine ?? 0) + request.Stars;
+
+		TrackRatings[trackId] = new TrackRatingSummary(count == 0 ? null : total / count, count, request.Stars);
+
+		return Task.FromResult(TrackRatings[trackId]);
+	}
+
+	public Task<TrackRatingSummary> ClearTrackRatingAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ClearTrackRatingAsync));
+		RatingsSet.Add((trackId, null));
+
+		if (TrackRatingException is not null)
+		{
+			return Task.FromException<TrackRatingSummary>(TrackRatingException);
+		}
+
+		TrackRatingSummary before = RatingFor(trackId);
+		int count = before.Mine is null ? before.Count : before.Count - 1;
+		double total = ((before.Average ?? 0) * before.Count) - (before.Mine ?? 0);
+
+		TrackRatings[trackId] = new TrackRatingSummary(count == 0 ? null : total / count, count, null);
+
+		return Task.FromResult(TrackRatings[trackId]);
+	}
+
+	/// <summary>What is on file for a route, or "nobody has rated it".</summary>
+	private TrackRatingSummary RatingFor(Guid trackId) =>
+		TrackRatings.TryGetValue(trackId, out TrackRatingSummary? summary) ? summary : TrackRatingSummary.None;
+
 	public Task<TrackSummary> UpdateTrackDetailsAsync(Guid trackId, UpdateTrackDetailsRequest request, CancellationToken cancellationToken = default)
 	{
 		Record(nameof(UpdateTrackDetailsAsync));
@@ -741,6 +805,38 @@ public sealed class FakeApiClient : IApiClient
 
 	public Task<CommentPage> GetThreadAsync(Guid rideId, string? cursor, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetThreadAsync), ThreadResult ?? new CommentPage(Array.Empty<CommentDto>(), Array.Empty<CommentDto>(), null)));
+
+	/// <summary>What <see cref="GetTrackThreadAsync"/> answers, or an empty thread (§6.2).</summary>
+	public CommentPage? TrackThreadResult { get; set; }
+
+	public Task<CommentPage> GetTrackThreadAsync(Guid trackId, string? cursor, CancellationToken cancellationToken = default) =>
+		Task.FromResult(Recorded(
+			nameof(GetTrackThreadAsync),
+			TrackThreadResult ?? new CommentPage(Array.Empty<CommentDto>(), Array.Empty<CommentDto>(), null)));
+
+	/// <summary>Every route the UI posted to, with what it sent, in order.</summary>
+	public List<(Guid TrackId, PostCommentRequest Request)> PostTrackCommentRequests { get; } = new();
+
+	public Task<CommentDto> PostTrackCommentAsync(Guid trackId, PostCommentRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(PostTrackCommentAsync));
+		PostTrackCommentRequests.Add((trackId, request));
+
+		return Task.FromResult(new CommentDto(
+			Id: Guid.NewGuid(),
+			GroupRideId: null,
+			TrackId: trackId,
+			AuthorId: Guid.NewGuid(),
+			AuthorUserName: "test",
+			Kind: request.Poll is null ? CommentKindDto.Text : CommentKindDto.Poll,
+			Body: request.Body,
+			PhotoId: request.PhotoId,
+			IsPinned: false,
+			CreatedUtc: request.CreatedUtc ?? SampleInstant,
+			PostedUtc: SampleInstant,
+			EditedUtc: null,
+			AuthoredEarlier: false));
+	}
 	/// <summary>Every PostCommentAsync request, in order.</summary>
 	public List<PostCommentRequest> PostCommentRequests { get; } = new();
 
@@ -751,6 +847,7 @@ public sealed class FakeApiClient : IApiClient
 		return Task.FromResult(new CommentDto(
 			Id: Guid.NewGuid(),
 			GroupRideId: rideId,
+			TrackId: null,
 			AuthorId: Guid.NewGuid(),
 			AuthorUserName: "test",
 			Kind: request.Poll is null ? CommentKindDto.Text : CommentKindDto.Poll,

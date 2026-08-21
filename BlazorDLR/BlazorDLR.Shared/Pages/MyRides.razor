@@ -210,6 +210,10 @@
 								{
 									<span>@FormatAway(away) away</span>
 								}
+								@* On the row rather than only on the detail page, because choosing
+								   between twenty roads without opening any of them is the whole
+								   job of this list (§6.2). *@
+								<StarRating Summary="new TrackRatingSummary(route.RatingAverage, route.RatingCount, null)" />
 							</p>
 							@if (route.Description is { Length: > 0 } description)
 							{

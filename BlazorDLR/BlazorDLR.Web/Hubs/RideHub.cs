@@ -3,6 +3,7 @@ using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
 using DLR.Server.Data;
 using DLR.Server.Data.Rides;
+using DLR.Server.Data.Tracks;
 using DLR.Server.Identity;
 using DLR.Server.Positions;
 using Microsoft.AspNetCore.Authorization;
@@ -70,7 +71,7 @@ public interface IRideClient
 	Task RidePermissionsChanged(RidePermissions permissions);
 
 	/// <summary>
-	/// Somebody posted to the thread (§17.8).
+	/// Somebody posted to a thread — an adventure's or a shared route's (§17.8, §6.2).
 	/// <para>
 	/// <strong>Delivering it is not notifying about it.</strong> The post arrives on every open
 	/// connection so the thread stays live; whether a phone is allowed to buzz is §17.1's table,
@@ -163,6 +164,51 @@ public sealed class RideHub(DlrDbContext database, PositionStore positions) : Hu
 		Groups.RemoveFromGroupAsync(Context.ConnectionId, Group(rideId));
 
 	/// <summary>
+	/// Subscribes to a shared route's thread (§6.2).
+	/// </summary>
+	/// <param name="trackId">Which route.</param>
+	/// <exception cref="HubException">When the route is not on the public list.</exception>
+	/// <remarks>
+	/// The check is the same shape as <see cref="JoinRide"/>'s and for the same reason — a valid
+	/// token proves who somebody is, not what they may watch — but the question it asks is
+	/// different. A route on the browse list has been put in front of every signed-in rider on
+	/// purpose, so "is it public?" is the whole of it; and the owner is admitted to their own
+	/// route whatever its visibility, so that un-sharing does not cut them off from the
+	/// conversation that is still there.
+	/// <para>
+	/// A blocked owner is not filtered here. The thread endpoint refuses that reader outright, so
+	/// there is nothing for a live message to add to a screen they cannot open — and the block
+	/// list is applied per reader on receipt, which is not something a group message can do
+	/// (§17.7).
+	/// </para>
+	/// </remarks>
+	public async Task JoinTrack(Guid trackId)
+	{
+		Guid userId = CallerId();
+
+		bool visible = await database
+			.Set<Track>()
+			.AnyAsync(track =>
+				track.Id == trackId
+				&& (track.Visibility == TrackVisibility.Public || track.OwnerId == userId));
+
+		if (!visible)
+		{
+			// The same answer a route that does not exist gets, on JoinRide's reasoning: a track
+			// id travels in links, and a distinguishable refusal would make this an oracle for
+			// which of them are real.
+			throw new HubException("No such route.");
+		}
+
+		await Groups.AddToGroupAsync(Context.ConnectionId, TrackGroup(trackId));
+	}
+
+	/// <summary>Unsubscribes from a route's thread.</summary>
+	/// <param name="trackId">Which route.</param>
+	public Task LeaveTrack(Guid trackId) =>
+		Groups.RemoveFromGroupAsync(Context.ConnectionId, TrackGroup(trackId));
+
+	/// <summary>
 	/// Publishes one fix into every ride this rider is sharing with (§5.7).
 	/// </summary>
 	/// <param name="update">The fix. Carries no ride id, deliberately.</param>
@@ -173,6 +219,18 @@ public sealed class RideHub(DlrDbContext database, PositionStore positions) : Hu
 	/// <param name="rideId">Which ride.</param>
 	/// <returns>The group name.</returns>
 	public static string Group(Guid rideId) => $"ride:{rideId}";
+
+	/// <summary>
+	/// The SignalR group name for a shared route's thread.
+	/// <para>
+	/// Prefixed differently from a ride's, and that is load-bearing rather than tidy: both are
+	/// guids, and a shared namespace would put every reader of a route into the group that
+	/// carries a ride's live positions if the two identifiers ever collided.
+	/// </para>
+	/// </summary>
+	/// <param name="trackId">Which route.</param>
+	/// <returns>The group name.</returns>
+	public static string TrackGroup(Guid trackId) => $"track:{trackId}";
 
 	private Guid CallerId() =>
 		(Context.User?.UserId())

@@ -37,6 +37,13 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	private readonly Func<CancellationToken, Task<string?>> _tokenProvider;
 	private readonly HashSet<Guid> _joinedRides = new();
 
+	/// <summary>
+	/// Shared routes whose threads this client is watching (§6.2). Held separately from the rides
+	/// for the reason the server keeps two group namespaces: both are guids, and one set would
+	/// re-join a route as a ride after a reconnect.
+	/// </summary>
+	private readonly HashSet<Guid> _joinedTracks = new();
+
 	private HubConnection? _connection;
 
 	/// <param name="hubUri">The absolute or origin-relative URL of the ride hub (§5.3).</param>
@@ -149,6 +156,12 @@ public sealed class SignalRRideHubClient : IRideHubClient
 				try { await connection.InvokeAsync("JoinRide", rideId); }
 				catch { /* the ride page's OnConnected handler will retry on next tick */ }
 			}
+
+			foreach (Guid trackId in _joinedTracks.ToList())
+			{
+				try { await connection.InvokeAsync("JoinTrack", trackId); }
+				catch { /* same: the route page re-joins on its next connection tick */ }
+			}
 		};
 
 		connection.Closed += error =>
@@ -211,6 +224,22 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	}
 
 	/// <inheritdoc />
+	public async Task JoinTrackAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		HubConnection connection = Require();
+		await connection.InvokeAsync("JoinTrack", trackId, cancellationToken);
+		_joinedTracks.Add(trackId);
+	}
+
+	/// <inheritdoc />
+	public async Task LeaveTrackAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		HubConnection connection = Require();
+		await connection.InvokeAsync("LeaveTrack", trackId, cancellationToken);
+		_joinedTracks.Remove(trackId);
+	}
+
+	/// <inheritdoc />
 	public async Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default)
 	{
 		HubConnection connection = Require();
@@ -226,6 +255,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 			_connection = null;
 		}
 		_joinedRides.Clear();
+		_joinedTracks.Clear();
 	}
 
 	private HubConnection Require() =>

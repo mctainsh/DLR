@@ -66,6 +66,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 		new(
 			Id: Guid.NewGuid(),
 			GroupRideId: rideId,
+			TrackId: null,
 			AuthorId: Guid.NewGuid(),
 			AuthorUserName: author,
 			Kind: CommentKindDto.Text,

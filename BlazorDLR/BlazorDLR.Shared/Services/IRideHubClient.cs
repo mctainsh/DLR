@@ -43,6 +43,19 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <summary>Unsubscribe.</summary>
 	Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Subscribe to a shared route's thread so its posts and reactions reach this client (§6.2).
+	/// <para>
+	/// A separate group from a ride's, and the server keeps them in separate namespaces: a route's
+	/// thread is open to every signed-in rider, while a ride's group also carries live positions
+	/// that only its members may see.
+	/// </para>
+	/// </summary>
+	Task JoinTrackAsync(Guid trackId, CancellationToken cancellationToken = default);
+
+	/// <summary>Unsubscribe from a route's thread.</summary>
+	Task LeaveTrackAsync(Guid trackId, CancellationToken cancellationToken = default);
+
 	/// <summary>Publish this device's position — one push, fanned out to every ride the rider is live in (§5.7).</summary>
 	Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default);
 
@@ -82,10 +95,13 @@ public interface IRideHubClient : IAsyncDisposable
 	event Action<Guid, MarkerDto>? MarkerUpdated;
 	event Action<Guid, Guid>? MarkerRemoved;
 
-	/// <summary>A comment was posted / edited / removed / pinned (§17.8).</summary>
+	/// <summary>A comment was posted / edited / removed / pinned (§17.8, §6.2).</summary>
 	/// <remarks>
-	/// The ride id is not carried because the SignalR group already scopes every message to
-	/// the ride the client joined via <see cref="JoinRideAsync"/>. Matches the server's
+	/// No thread id is carried because the SignalR group already scopes every message to the
+	/// adventure or the route the client joined via <see cref="JoinRideAsync"/> or
+	/// <see cref="JoinTrackAsync"/>. A subscriber that is watching both — which nothing does
+	/// today, but the events are process-wide — tells them apart by the <c>GroupRideId</c> and
+	/// <c>TrackId</c> on the payload. Matches the server's
 	/// <c>IRideClient.CommentPosted/Edited/Removed/PinChanged</c> exactly — a mismatch there
 	/// used to leave subscribers silent because SignalR could not bind the incoming payload.
 	/// </remarks>

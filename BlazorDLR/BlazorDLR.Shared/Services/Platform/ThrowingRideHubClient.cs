@@ -63,6 +63,14 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 		throw new NotImplementedException(SsrGuard);
 
 	/// <inheritdoc />
+	public Task JoinTrackAsync(Guid trackId, CancellationToken cancellationToken = default) =>
+		throw new NotImplementedException(SsrGuard);
+
+	/// <inheritdoc />
+	public Task LeaveTrackAsync(Guid trackId, CancellationToken cancellationToken = default) =>
+		throw new NotImplementedException(SsrGuard);
+
+	/// <inheritdoc />
 	public Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(SsrGuard);
 

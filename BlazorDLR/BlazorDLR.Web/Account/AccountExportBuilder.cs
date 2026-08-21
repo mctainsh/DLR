@@ -262,6 +262,7 @@ public static class AccountExportBuilder
 			.. comments.Select(comment => new ExportedComment(
 				comment.Id,
 				comment.GroupRideId,
+				comment.TrackId,
 				comment.Kind.ToString(),
 				comment.Body,
 				comment.PhotoId,

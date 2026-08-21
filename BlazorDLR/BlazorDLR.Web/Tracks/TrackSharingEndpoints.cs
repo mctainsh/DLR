@@ -310,7 +310,57 @@ public sealed class TrackSharingController : ControllerBase
 				measured ? row.AwayKm : null))
 			.ToListAsync(cancellationToken);
 
-		return Ok(new SharedTrackPage(items, query.Page, SharedTrackQuery.PageSize, total));
+		return Ok(new SharedTrackPage(
+			await WithRatingsAsync(database, items, callerId, cancellationToken),
+			query.Page,
+			SharedTrackQuery.PageSize,
+			total));
+	}
+
+	/// <summary>
+	/// Fills the star average and count in for a page of browse rows (§6.2).
+	/// <para>
+	/// One grouped query for the whole page rather than a correlated sub-select per row, and after
+	/// the projection rather than inside it — a thread page hydrates its reaction tallies the same
+	/// way and for the same two reasons. An aggregate over a second table does not belong in the
+	/// translated <c>Select</c> that builds a row, and twenty round trips to draw one page is the
+	/// N+1 that makes a fast feature feel broken.
+	/// </para>
+	/// </summary>
+	/// <param name="database">The one context.</param>
+	/// <param name="items">The page, as the projection built it.</param>
+	/// <param name="callerId">Whose own rating to report on each row.</param>
+	/// <param name="cancellationToken">Cancellation.</param>
+	private static async Task<List<SharedTrackSummary>> WithRatingsAsync(
+		DlrDbContext database,
+		List<SharedTrackSummary> items,
+		Guid callerId,
+		CancellationToken cancellationToken)
+	{
+		if (items.Count == 0)
+		{
+			return items;
+		}
+
+		IReadOnlyDictionary<Guid, TrackRatingSummary> ratings = await TrackRatingReader.SummariseAsync(
+			database,
+			[.. items.Select(item => item.Id)],
+			callerId,
+			cancellationToken);
+
+		for (int i = 0; i < items.Count; i++)
+		{
+			if (ratings.TryGetValue(items[i].Id, out TrackRatingSummary? rating))
+			{
+				items[i] = items[i] with
+				{
+					RatingAverage = rating.Average,
+					RatingCount = rating.Count,
+				};
+			}
+		}
+
+		return items;
 	}
 
 	/// <summary>

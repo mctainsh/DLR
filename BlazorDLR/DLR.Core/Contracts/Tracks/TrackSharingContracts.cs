@@ -56,6 +56,16 @@ public sealed record UpdateTrackDetailsRequest(
 /// Great-circle kilometres from the point the caller filtered around, or null when they did not
 /// filter around one. Null rather than zero: zero means "you are standing on it" (§8).
 /// </param>
+/// <param name="RatingAverage">
+/// The mean of every star given, or null when nobody has rated it yet (§6.2). On the row rather
+/// than fetched per route, because the whole point of a rating on a catalogue is choosing between
+/// rows without opening any of them — twenty extra round trips to draw one page would make the
+/// feature cost more than it is worth.
+/// </param>
+/// <param name="RatingCount">
+/// How many riders have rated it. Shown beside the average, because "5.0" from one rider and
+/// "4.4" from ninety are not the same claim and a bare average cannot tell them apart.
+/// </param>
 public sealed record SharedTrackSummary(
 	Guid Id,
 	string? Name,
@@ -67,7 +77,9 @@ public sealed record SharedTrackSummary(
 	DateTimeOffset SharedUtc,
 	double CentreLat,
 	double CentreLon,
-	double? AwayKm);
+	double? AwayKm,
+	double? RatingAverage = null,
+	int RatingCount = 0);
 
 /// <summary>
 /// One page of <c>GET /api/v1/tracks/shared</c> (§6.2).

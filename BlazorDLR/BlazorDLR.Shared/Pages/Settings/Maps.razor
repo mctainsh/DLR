@@ -90,7 +90,9 @@
 						<span class="size">@MapPackDownloader.Describe(pack.SizeBytes)</span>
 						<button type="button" class="remove" @onclick="() => DeletePackAsync(pack.PackId)"
 								disabled="@Packs.IsDownloading"
-								aria-label="@($"Delete {NameFor(pack.PackId)}")">Delete</button>
+								aria-label="@($"Delete {NameFor(pack.PackId)}")">
+							<i class="fa fa-fw fa-trash" aria-hidden="true"></i>
+						</button>
 					</li>
 				}
 			</ul>

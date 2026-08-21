@@ -158,6 +158,24 @@ public interface IApiClient
 	/// </summary>
 	Task<SharedTrackPage> ListSharedTracksAsync(SharedTrackQuery query, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// <c>GET /api/v1/tracks/{id}/rating</c> — the average, the count and the caller's own star
+	/// rating for one shared route (§6.2).
+	/// </summary>
+	Task<TrackRatingSummary> GetTrackRatingAsync(Guid trackId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>PUT /api/v1/tracks/{id}/rating</c> — rates a shared route, replacing whatever the caller
+	/// gave it before.
+	/// </summary>
+	Task<TrackRatingSummary> RateTrackAsync(Guid trackId, RateTrackRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>DELETE /api/v1/tracks/{id}/rating</c> — withdraws the caller's rating. Never a zero:
+	/// a stored nought would count as the worst possible score rather than as no opinion.
+	/// </summary>
+	Task<TrackRatingSummary> ClearTrackRatingAsync(Guid trackId, CancellationToken cancellationToken = default);
+
 	// -- Group rides (§5.2, §5.6, §5.8) ---------------------------------------------------
 
 	/// <summary><c>GET /api/v1/group-rides</c> — the caller's rides, split by role.</summary>
@@ -250,13 +268,28 @@ public interface IApiClient
 	/// </summary>
 	Task<PhotoUploaded> UploadPhotoAsync(Stream content, string contentType, string fileName, CancellationToken cancellationToken = default);
 
-	// -- Comments (§17) -------------------------------------------------------------------
+	// -- Comments (§17, §6.2) -------------------------------------------------------------
 
 	/// <summary><c>GET /api/v1/group-rides/{id}/comments</c> — thread page, pinned first (§17.8).</summary>
 	Task<CommentPage> GetThreadAsync(Guid rideId, string? cursor, CancellationToken cancellationToken = default);
 
 	/// <summary><c>POST /api/v1/group-rides/{id}/comments</c> — post text, photo or poll.</summary>
 	Task<CommentDto> PostCommentAsync(Guid rideId, PostCommentRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>GET /api/v1/tracks/{id}/comments</c> — a shared route's thread, pinned first (§6.2).
+	/// <para>
+	/// A separate pair of methods rather than one that takes a discriminated union, because the
+	/// two paths are the only thing that differs and a union would be a type invented so that two
+	/// string literals could share a method. Everything downstream — editing, deleting, pinning,
+	/// reacting, voting, reporting — already keys on the comment's own id and is shared as it
+	/// stands.
+	/// </para>
+	/// </summary>
+	Task<CommentPage> GetTrackThreadAsync(Guid trackId, string? cursor, CancellationToken cancellationToken = default);
+
+	/// <summary><c>POST /api/v1/tracks/{id}/comments</c> — post to a shared route's thread.</summary>
+	Task<CommentDto> PostTrackCommentAsync(Guid trackId, PostCommentRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary><c>PATCH /api/v1/comments/{id}</c> — author edit within window.</summary>
 	Task<CommentDto> EditCommentAsync(Guid commentId, EditCommentRequest request, CancellationToken cancellationToken = default);

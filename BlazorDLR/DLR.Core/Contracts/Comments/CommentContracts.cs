@@ -47,7 +47,13 @@ public sealed record PinCommentRequest(bool Pinned);
 /// A post as the thread shows it (§17.2, §17.3).
 /// </summary>
 /// <param name="Id">Which comment.</param>
-/// <param name="GroupRideId">Which thread.</param>
+/// <param name="GroupRideId">
+/// Which adventure's thread, or null when this post belongs to a shared route's thread instead.
+/// <strong>Exactly one of this and <paramref name="TrackId"/> is set</strong> — a comment hangs off
+/// one subject (§17.2), and the two threads are the same conversation machinery pointed at a
+/// different one.
+/// </param>
+/// <param name="TrackId">Which shared route's thread, or null when it is an adventure's (§6.2).</param>
 /// <param name="AuthorId">Who wrote it.</param>
 /// <param name="AuthorUserName">
 /// Their handle. Denormalised safely because §7.2 makes it immutable — there is no invalidation
@@ -74,7 +80,8 @@ public sealed record PinCommentRequest(bool Pinned);
 /// <param name="Poll">The poll, when <paramref name="Kind"/> is <see cref="CommentKindDto.Poll"/>.</param>
 public sealed record CommentDto(
 	Guid Id,
-	Guid GroupRideId,
+	Guid? GroupRideId,
+	Guid? TrackId,
 	Guid AuthorId,
 	string AuthorUserName,
 	CommentKindDto Kind,

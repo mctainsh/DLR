@@ -185,7 +185,8 @@ public sealed record ExportedRide(
 /// <param name="PollOptions">The options, when this is a poll.</param>
 public sealed record ExportedComment(
 	Guid Id,
-	Guid GroupRideId,
+	Guid? GroupRideId,
+	Guid? TrackId,
 	string Kind,
 	string? Body,
 	Guid? PhotoId,

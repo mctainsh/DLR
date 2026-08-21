@@ -428,20 +428,54 @@ public sealed class HttpApiClient : IApiClient
 		return body ?? throw new InvalidOperationException("Empty photo response.");
 	}
 
+	/// <inheritdoc />
+	public Task<TrackRatingSummary> GetTrackRatingAsync(Guid trackId, CancellationToken cancellationToken = default) =>
+		GetAsync<TrackRatingSummary>($"/api/v1/tracks/{trackId}/rating", cancellationToken);
+
+	/// <inheritdoc />
+	public async Task<TrackRatingSummary> RateTrackAsync(Guid trackId, RateTrackRequest request, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.PutAsJsonAsync(
+			$"/api/v1/tracks/{trackId}/rating", request, Json, cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+		TrackRatingSummary? body = await response.Content.ReadFromJsonAsync<TrackRatingSummary>(Json, cancellationToken);
+		return body ?? throw new InvalidOperationException("Empty rating response.");
+	}
+
+	/// <inheritdoc />
+	public async Task<TrackRatingSummary> ClearTrackRatingAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.DeleteAsync($"/api/v1/tracks/{trackId}/rating", cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+		TrackRatingSummary? body = await response.Content.ReadFromJsonAsync<TrackRatingSummary>(Json, cancellationToken);
+		return body ?? throw new InvalidOperationException("Empty rating response.");
+	}
+
 	// -- Comments --
 
 	/// <inheritdoc />
-	public Task<CommentPage> GetThreadAsync(Guid rideId, string? cursor, CancellationToken cancellationToken = default)
-	{
-		string path = cursor is null
-			? $"/api/v1/group-rides/{rideId}/comments"
-			: $"/api/v1/group-rides/{rideId}/comments?cursor={Uri.EscapeDataString(cursor)}";
-		return GetAsync<CommentPage>(path, cancellationToken);
-	}
+	public Task<CommentPage> GetThreadAsync(Guid rideId, string? cursor, CancellationToken cancellationToken = default) =>
+		GetAsync<CommentPage>(ThreadPath($"/api/v1/group-rides/{rideId}/comments", cursor), cancellationToken);
 
 	/// <inheritdoc />
 	public Task<CommentDto> PostCommentAsync(Guid rideId, PostCommentRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<PostCommentRequest, CommentDto>($"/api/v1/group-rides/{rideId}/comments", request, cancellationToken);
+
+	/// <inheritdoc />
+	public Task<CommentPage> GetTrackThreadAsync(Guid trackId, string? cursor, CancellationToken cancellationToken = default) =>
+		GetAsync<CommentPage>(ThreadPath($"/api/v1/tracks/{trackId}/comments", cursor), cancellationToken);
+
+	/// <inheritdoc />
+	public Task<CommentDto> PostTrackCommentAsync(Guid trackId, PostCommentRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<PostCommentRequest, CommentDto>($"/api/v1/tracks/{trackId}/comments", request, cancellationToken);
+
+	/// <summary>
+	/// Appends the cursor, escaped. The cursor is opaque to us — a position in a result set the
+	/// server chose the encoding of — so it goes through <see cref="Uri.EscapeDataString"/> rather
+	/// than being trusted to be URL-safe.
+	/// </summary>
+	private static string ThreadPath(string path, string? cursor) =>
+		cursor is null ? path : $"{path}?cursor={Uri.EscapeDataString(cursor)}";
 
 	/// <inheritdoc />
 	public async Task<CommentDto> EditCommentAsync(Guid commentId, EditCommentRequest request, CancellationToken cancellationToken = default)

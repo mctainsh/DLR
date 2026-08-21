@@ -1,0 +1,127 @@
+@using DLR.Core.Contracts.Tracks
+@using DLR.Core.Tracks
+
+@*
+	Five stars, read-only or tappable (§6.2).
+
+	One component for both jobs, because they are the same five glyphs and the same rounding —
+	a browse row that drew "4.5" one way and a detail page that drew it another would be the
+	same route disagreeing with itself between two screens. Interactive is the presence of an
+	OnRate callback rather than a separate flag: a caller that cannot handle a tap has nothing
+	to hand it, and a flag would let those two states drift apart.
+
+	The rounding is TrackRatings.ToHalfStars, in DLR.Core, so the server, this and anything
+	later all round the same way.
+*@
+
+@if (Interactive)
+{
+	<div class="stars interactive" role="radiogroup" aria-label="Your rating">
+		@for (int star = TrackRatings.MinStars; star <= TrackRatings.MaxStars; star++)
+		{
+			int value = star;
+
+			<button type="button"
+					class="@("star " + (Mine >= value ? "on" : "off"))"
+					role="radio"
+					aria-checked="@((Mine == value).ToString().ToLowerInvariant())"
+					aria-label="@($"{value} of {TrackRatings.MaxStars}")"
+					title="@($"{value} of {TrackRatings.MaxStars}")"
+					disabled="@Busy"
+					@onclick="() => TapAsync(value)">
+				@(Mine >= value ? "★" : "☆")
+			</button>
+		}
+
+		@* Tapping the star you already gave clears the rating (§6.2) — the same "tap it again to
+		   undo it" a reaction has, so there is no separate control to find. It is said out loud
+		   because a control that only reveals itself by being pressed is a control nobody
+		   presses. *@
+		@if (Mine is not null)
+		{
+			<span class="hint">Tap @Mine again to clear.</span>
+		}
+	</div>
+}
+else
+{
+	@* Not a button, not focusable, and aria-hidden on the glyphs: the number is the content, and
+	   a screen reader that read out five separate stars would be reading the decoration.
+
+	   A filled row clipped over an empty one, rather than a half-star glyph. There is a
+	   Unicode character for half a star and it is missing from enough phone fonts to render as
+	   a box, which is a worse answer than being approximate — this is exact, and needs nothing
+	   beyond the two glyphs that are everywhere. *@
+	<span class="stars" title="@Title">
+		<span class="glyphs" aria-hidden="true">
+			<span class="empty">☆☆☆☆☆</span>
+			<span class="fill" style="@FillStyle">★★★★★</span>
+		</span>
+		<span class="score">@Label</span>
+	</span>
+}
+
+@code {
+	/// <summary>How the route stands. Null while it is still loading.</summary>
+	[Parameter] public TrackRatingSummary? Summary { get; set; }
+
+	/// <summary>
+	/// Called when the reader taps a star, with the number they chose — or null when they tapped
+	/// the star they had already given, which clears the rating. Leave unset for a display-only
+	/// row, which is what a browse list wants.
+	/// </summary>
+	[Parameter] public EventCallback<int?> OnRate { get; set; }
+
+	/// <summary>Whether a rating request is in flight, so the row cannot be double-tapped.</summary>
+	[Parameter] public bool Busy { get; set; }
+
+	private bool Interactive => OnRate.HasDelegate;
+
+	private int? Mine => Summary?.Mine;
+
+	private double Filled => TrackRatings.ToHalfStars(Summary?.Average) ?? 0;
+
+	/// <summary>
+	/// How much of the filled row shows, as a percentage of five stars. Written with the invariant
+	/// culture explicitly: this is CSS, and a comma decimal separator would be a width the browser
+	/// silently ignores.
+	/// </summary>
+	private string FillStyle => string.Create(
+		System.Globalization.CultureInfo.InvariantCulture,
+		$"width:{Filled / TrackRatings.MaxStars * 100:0.##}%");
+
+	/// <summary>
+	/// The number beside the glyphs. Zero ratings is said in words rather than shown as five empty
+	/// stars and a "0.0" — a route nobody has rated has no score, and printing one would be
+	/// inventing the worst possible verdict out of an absence (§8).
+	/// </summary>
+	private string Label => Summary is not { Count: > 0 } summary
+		? "Not rated yet"
+		: $"{summary.Average!.Value:0.0} ({summary.Count})";
+
+	private string Title => Summary is not { Count: > 0 } summary
+		? "Nobody has rated this route yet"
+		: $"{summary.Average!.Value:0.0} out of {TrackRatings.MaxStars}, from {summary.Count} "
+			+ (summary.Count == 1 ? "rider" : "riders");
+
+	/// <summary>
+	/// Tapping the star already given clears it; tapping any other sets it. Decided here rather
+	/// than by each caller, so the gesture is the same wherever the widget appears.
+	/// </summary>
+	private Task TapAsync(int star) => OnRate.InvokeAsync(Mine == star ? null : star);
+}
+
+<style>
+	.stars { display: inline-flex; align-items: center; gap: 0.15rem; }
+	.stars .glyphs { position: relative; display: inline-block; white-space: nowrap; color: #fbbf24; letter-spacing: 0.05em; }
+	.stars .glyphs .empty { opacity: 0.55; }
+	.stars .glyphs .fill { position: absolute; left: 0; top: 0; overflow: hidden; }
+	.stars .score { margin-left: 0.35rem; font-size: 0.85rem; opacity: 0.8; font-variant-numeric: tabular-nums; }
+	.stars.interactive .star {
+		padding: 0 0.1rem; font-size: 1.5rem; line-height: 1;
+		background: none; border: none; cursor: pointer; color: #fbbf24;
+	}
+	.stars.interactive .star.off { opacity: 0.55; }
+	.stars.interactive .star:disabled { cursor: default; opacity: 0.4; }
+	.stars.interactive .hint { margin-left: 0.5rem; font-size: 0.8rem; opacity: 0.7; }
+</style>

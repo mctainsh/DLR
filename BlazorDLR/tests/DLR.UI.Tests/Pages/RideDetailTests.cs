@@ -7,6 +7,7 @@ using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace DLR.UI.Tests.Pages;
 
@@ -28,12 +29,29 @@ public sealed class RideDetailTests : PageTestContext
 
 	private readonly FakeApiClient _api = new();
 
+	/// <summary>The hub the page's thread joins, so a test can read what it joined.</summary>
+	private FakeRideHubClient Hub { get; } = new();
+
+	/// <summary>Who is reading. Signed out by default, which is what these tests were written against.</summary>
+	private AuthState Auth { get; }
+
+	public RideDetailTests() =>
+		Auth = new AuthState(_api, new FakeTokenStore(), new FakeTimeProvider(FixedInstant));
+
 	private FakeTrackRepository WireServices(TrackDetail? detail)
 	{
 		FakeTrackRepository repo = new() { DetailResult = detail };
 		Services.AddSingleton<ITrackRepository>(repo);
 		Services.AddSingleton<IApiClient>(_api);
 		Services.AddSingleton<ConfirmService>();
+
+		// A shared route's page now carries its thread (§6.2), which brings the thread's own
+		// dependencies with it: a hub to join the route's group, and the auth state the thread
+		// reads to decide whether a post is the reader's own. Both are held on fields so a test
+		// can assert on what the page joined and sign somebody in.
+		Services.AddSingleton<IRideHubClient>(Hub);
+		Services.AddSingleton(Auth);
+		Services.AddSingleton<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(Auth);
 		Services.AddSingleton<IMapInterop>(new FakeMapInterop
 		{
 			InitException = new InvalidOperationException("Test host — map interop is stubbed."),
@@ -187,10 +205,10 @@ public sealed class RideDetailTests : PageTestContext
 
 		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
 
-		component.WaitForAssertion(() => Button(component, "Delete").ShouldNotBeNull(),
+		component.WaitForAssertion(() => ButtonInner(component, "fa-trash").ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await component.InvokeAsync(() => Button(component, "Delete")!.Click());
+		await component.InvokeAsync(() => ButtonInner(component, "fa-trash")!.Click());
 
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 
@@ -222,10 +240,10 @@ public sealed class RideDetailTests : PageTestContext
 
 		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
 
-		component.WaitForAssertion(() => Button(component, "Delete").ShouldNotBeNull(),
+		component.WaitForAssertion(() => ButtonInner(component, "fa-trash").ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await component.InvokeAsync(() => Button(component, "Delete")!.Click());
+		await component.InvokeAsync(() => ButtonInner(component, "fa-trash")!.Click());
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => confirm.Respond(false));
@@ -254,10 +272,10 @@ public sealed class RideDetailTests : PageTestContext
 
 		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
 
-		component.WaitForAssertion(() => Button(component, "Delete").ShouldNotBeNull(),
+		component.WaitForAssertion(() => ButtonInner(component, "fa-trash").ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await component.InvokeAsync(() => Button(component, "Delete")!.Click());
+		await component.InvokeAsync(() => ButtonInner(component, "fa-trash")!.Click());
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 		await component.InvokeAsync(() => confirm.Respond(true));
 
@@ -275,6 +293,10 @@ public sealed class RideDetailTests : PageTestContext
 	private static AngleSharp.Dom.IElement? Button(IRenderedComponent<RideDetail> component, string text) =>
 		component.FindAll("button")
 			.FirstOrDefault(button => button.TextContent.Contains(text, StringComparison.Ordinal));
+
+	private static AngleSharp.Dom.IElement? ButtonInner(IRenderedComponent<RideDetail> component, string text) =>
+	component.FindAll("button")
+		.FirstOrDefault(button => button.InnerHtml.Contains(text, StringComparison.Ordinal));
 
 	[Fact]
 	public void NotFound_RendersFriendlyMessage()

@@ -68,27 +68,47 @@ public static class RideContentPermissions
 
 	/// <summary>
 	/// The refusal, worded so the rider knows it is a setting rather than a fault.
+	/// <para>
+	/// Separate from <see cref="Refuse"/> so that a caller which has <em>decided</em> a refusal
+	/// but is not yet returning it — <see cref="Comments.ThreadAccess"/>, which carries the
+	/// reason a thread is closed to somebody alongside the fact that it is — can hold the words
+	/// without holding an <see cref="IActionResult"/>. The two must not drift, so there is one
+	/// wording and the result is built from it.
+	/// </para>
 	/// </summary>
 	/// <param name="content">What they were adding.</param>
-	public static IActionResult Refuse(RideContent content) => new ObjectResult(
-		new ProblemDetails
-		{
-			Status = StatusCodes.Status403Forbidden,
-			Title = "The organiser has turned this off",
-			Detail = content switch
-			{
-				RideContent.Marker => "Only the organiser and leaders are adding markers to this adventure.",
-				RideContent.Comment => "Only the organiser and leaders are posting to this adventure. " +
-					"You can still read the thread, react and vote.",
-				RideContent.Photo => "Photos are turned off for this adventure. Text still works.",
-				_ => "That is turned off for this adventure.",
-			},
-
-			// Distinguishable, so a client can tell "you may not" from "that failed" (§5.8).
-			Extensions = { ["permission"] = content.ToString() },
-		})
+	public static ProblemDetails Describe(RideContent content) => new()
 	{
-		StatusCode = StatusCodes.Status403Forbidden,
+		Status = StatusCodes.Status403Forbidden,
+		Title = "The organiser has turned this off",
+		Detail = content switch
+		{
+			RideContent.Marker => "Only the organiser and leaders are adding markers to this adventure.",
+			RideContent.Comment => "Only the organiser and leaders are posting to this adventure. " +
+				"You can still read the thread, react and vote.",
+			RideContent.Photo => "Photos are turned off for this adventure. Text still works.",
+			_ => "That is turned off for this adventure.",
+		},
+
+		// Distinguishable, so a client can tell "you may not" from "that failed" (§5.8).
+		Extensions = { ["permission"] = content.ToString() },
+	};
+
+	/// <summary>
+	/// The refusal as an endpoint returns it.
+	/// </summary>
+	/// <param name="content">What they were adding.</param>
+	public static IActionResult Refuse(RideContent content) => AsResult(Describe(content));
+
+	/// <summary>
+	/// Wraps a decided refusal in the response shape every endpoint in this project returns one
+	/// in — the status on the result as well as in the body, and the problem content type, both
+	/// of which <see cref="ControllerBase.Problem"/> would otherwise be doing invisibly.
+	/// </summary>
+	/// <param name="problem">The refusal.</param>
+	public static IActionResult AsResult(ProblemDetails problem) => new ObjectResult(problem)
+	{
+		StatusCode = problem.Status ?? StatusCodes.Status403Forbidden,
 		ContentTypes = { "application/problem+json" },
 	};
 }

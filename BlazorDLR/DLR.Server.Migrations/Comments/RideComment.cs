@@ -1,6 +1,7 @@
 using DLR.Server.Data.Identity;
 using DLR.Server.Data.Photos;
 using DLR.Server.Data.Rides;
+using DLR.Server.Data.Tracks;
 
 namespace DLR.Server.Data.Comments;
 
@@ -19,7 +20,17 @@ public enum RideCommentKind
 }
 
 /// <summary>
-/// One post in a ride's thread (§17.2, §17.9).
+/// One post in a thread (§17.2, §17.9).
+/// <para>
+/// <strong>One table for both threads that exist.</strong> An adventure has a thread (§17.1) and,
+/// since routes went on a public list, so does a shared route (§6.2) — and they are the same
+/// conversation: the same plain-text body, the same photograph, the same six reactions, the same
+/// polls, the same edit window, the same report and block machinery. A second table would have
+/// been a second copy of every one of those, and the copy that drifted would be whichever one had
+/// fewer tests. <see cref="GroupRideId"/> and <see cref="TrackId"/> say which subject this post
+/// hangs off; exactly one of them is set, and the database enforces that rather than trusting
+/// every write path to remember.
+/// </para>
 /// <para>
 /// <strong>Two timestamps, and they are not redundant.</strong> <see cref="CreatedUtc"/> is when
 /// the rider wrote it; <see cref="PostedUtc"/> is when the server received it. A comment composed
@@ -40,8 +51,19 @@ public sealed class RideComment
 	/// <summary>Row identifier.</summary>
 	public Guid Id { get; set; }
 
-	/// <summary>Which ride's thread. Group rides only in v1 (§17.1).</summary>
-	public Guid GroupRideId { get; set; }
+	/// <summary>Which adventure's thread, or null when this post belongs to a route's (§17.1).</summary>
+	public Guid? GroupRideId { get; set; }
+
+	/// <summary>
+	/// Which shared route's thread, or null when this post belongs to an adventure's (§6.2).
+	/// <para>
+	/// A route's thread has a wider audience than an adventure's on purpose: an adventure's is
+	/// visible to the people in it and nobody else, while a route that has been put in front of
+	/// every rider on the service is read and answered by any of them. That difference lives in
+	/// the access check, not in the shape of a post.
+	/// </para>
+	/// </summary>
+	public Guid? TrackId { get; set; }
 
 	/// <summary>Who wrote it.</summary>
 	public Guid AuthorId { get; set; }
@@ -91,6 +113,9 @@ public sealed class RideComment
 
 	/// <summary>The ride, for cascade deletion.</summary>
 	public GroupRide? Ride { get; set; }
+
+	/// <summary>The route, for cascade deletion.</summary>
+	public Track? Track { get; set; }
 
 	/// <summary>The author.</summary>
 	public AppUser? Author { get; set; }

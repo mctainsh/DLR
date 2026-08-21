@@ -66,6 +66,7 @@ public sealed class CommentNotifierTests
 		new(
 			Id: Guid.NewGuid(),
 			GroupRideId: rideId,
+			TrackId: null,
 			AuthorId: authorId,
 			AuthorUserName: authorId == Me ? "DaveSmith" : "SarahJones",
 			Kind: kind,

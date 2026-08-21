@@ -1,6 +1,6 @@
 # Dumb Luck Rides — Design Outline
 
-> **Status:** Draft **v0.28** — architecture outline; Milestone A of `tasks-server.md` is built.
+> **Status:** Draft **v0.30** — architecture outline; Milestone A of `tasks-server.md` is built.
 > **Assumption:** "Mani" = **.NET MAUI**. Target framework `net10.0-android` / `net10.0-ios`.
 > **UI:** one shared Razor component library, hosted by **MAUI Blazor Hybrid** on mobile and **Blazor WebAssembly** on the web (§18).
 
@@ -192,6 +192,15 @@
 | 0.28 | **The private area gates publishing only — the rider's own screen keeps working inside it** (§10.1, §4.3). `LocationBroadcastState.OwnFix` no longer answers null while suppressed, and the `LastFix`/`OwnFix` pair is collapsed into one property | Reported from a ride: inside their own circle a rider's mark stopped moving, follow-me had nothing to follow and heading-up stopped turning — the map went dead in the driveway and came back at the edge of the area. The rule was written as *"nothing is recorded and nothing is broadcast"* and the implementation over-read it, blanking the one screen there was nobody to hide the house from: the person reading it is standing in it. The pair of properties differed only in this case, which is exactly the case it got wrong, so keeping both would invite the distinction being reinstated as a fix |
 | 0.28 | **The area is in the account export and named as personal data at rest** (§6.3, §10.1, §9) | It is the rider's own data and the export claims completeness. The rest of the cost is stated where the rider reads it rather than only here: the Location screen now says the point and radius are stored on the server and are in the backups, in the same paragraph that says no other traveller can see them |
 | **0.27** | **Android importance `Default` → `High`, lock-screen visibility `Private` → `Public`, on a new channel id `dlr.thread.v2`** (§17.6) | Reverses the v0.26 row above by operator decision. The new id is not cosmetic: Android fixes importance at channel *creation* and ignores later changes — correctly, so an app cannot turn its own volume back up — so on every phone that already had the app, raising the constant alone would have changed nothing. `Public` likewise stops the app overriding, for itself and in one direction only, Android's system-wide setting for sensitive lock-screen content. The retired channel is deleted on the first post after upgrade so the settings screen does not show two *"Adventure posts"* rows |
+| **0.30** | **A shared route gets a star rating and a thread of its own** (§19, §17). One to five whole stars, one rating per rider per route, replaced rather than accumulated; the average and the count ride on every browse row. Anyone signed in who can see the route can rate it and post to it | Required capability. A catalogue of other people's roads is only useful if it carries other people's verdicts — a browse list sorted by *when it was uploaded*, with a description written by the one person who cannot be objective about it, is a list you have to ride to evaluate |
+| **0.30** | **§17.1's *"group rides only in v1"* rule is reversed** (§17.1, §19.3). `RideComment.GroupRideId` becomes nullable, `TrackId` joins it, and a `CHECK ((group_ride_id IS NULL) <> (track_id IS NULL))` makes *exactly one subject* a property of the table (§17.9) | v0.14 refused this on the grounds that a thread on a public track lets people the organiser never admitted post into someone's space, discarding §5.2's consent model. That argument was about **an adventure's** abuse model, and it applied it to a surface that has none to discard: a route on the browse list was **deliberately** put in front of every rider on the service, and organiser consent was never what protected it. What actually protects it is the same machinery §17.7 already built for the harder case — reporting, blocking, the owner as moderator, the §7.8 ladder on posting. v0.14 also predicted the shape of the change correctly: *"adding a `TrackId` parent later is one migration"*, and it was |
+| 0.30 | **One comment table, one controller, and a `ThreadAccess` resolver holds the only difference** (§17.8, §19.3). Every endpoint from *edit* downwards — edit, delete, pin, react, vote, close a poll, report — is the code that was already there, unchanged | The two threads differ in exactly one place: who is allowed in and who runs it. A second table would have been a second copy of the reactions, the polls, the edit window, the pinning cap, the block filter and the cursor — and the copy that drifted would have been whichever had fewer tests |
+| 0.30 | **A second unique index, `ux_ride_comment_track_client`, carries idempotency for route posts** (§17.9) | Not tidiness — the existing index leads on `group_ride_id`, which is **null** for every route comment, and PostgreSQL treats nulls as distinct in a unique index. Widening the old one would have looked complete and let every drain of an outbox through. Each thread kind gets an index whose leading column is never null for the rows it has to judge |
+| 0.30 | **Un-sharing a route hides its thread and keeps the posts; deleting the route cascades both** (§19.2, §19.3) | Un-sharing is reversible and is the owner's own call about their own row; destroying other people's writing over it would be the app punishing a rider for changing their mind. Re-sharing brings the conversation back rather than starting a new one |
+| 0.30 | **A rating is anonymous and is therefore *not* filtered by the block list** — the one place §17.7's rule deliberately does not reach (§19.1) | Blocking hides what somebody **wrote**; nothing anywhere records who gave a route three stars. Filtering it would make one rider's average differ from another's for a number they are both being asked to trust — and the difference itself would leak that a blocked rider had rated this route |
+| 0.30 | **Clearing a rating deletes the row. There is no zero on the scale** (§19.1) | A stored nought averages in as the worst possible verdict for every rider who tapped a star and thought better of it, which is the opposite of what they meant. Same rule §8 already applies to distance and ascent, applied to a score |
+| 0.30 | **Polls are off on a route's thread — an editorial choice in the UI, not a server rule** (§19.2) | A poll is a group deciding something together; a route's thread is riders telling each other what the road is like. The server would accept one either way, and the switch is one component parameter, so this is a default rather than a prohibition |
+| 0.30 | **`RideThread.razor` is now a page of chrome over `CommentThreadView`**, and `ReactionBroadcastService` coalesces onto a hub **group name** rather than a ride id (§17.8, §18.2) | The route page had to render exactly the thread the adventure page renders — same reactions, same pinning, same optimistic insert, same block filter — and the only way to guarantee "exactly" is for there to be one of them. The broadcast service holding a group name instead of an id is the same move on the server: the group is decided once, where the change happened, rather than re-derived at flush time in a second file |
 | **0.29** | **The join code is shown to every member, not only the organiser** (§5.2). `RideDetail.JoinCode` and `RideSummary.JoinCode` carry it for anybody in the ride, so *Group adventures* shows the badge on a joined adventure exactly as it does on an organised one | Reported from use: once you have joined, the code is nowhere on any screen, so a rider who wants to bring a friend along has to go back to the organiser for a value they already used. The v0.20 argument was that the code is the ride's whole access control and a member's copy would let them re-share the curated group — but somebody already admitted can name the ride to anybody regardless, so what the rule actually withheld was the ability to invite, not the ability to leak. On an `Approval` ride the organiser still decides every admission and nothing changes; on an `Open` one the trade is deliberate, and the member cap, the member list and *remove member* are what bound it. **The account export still never carries it** (§6.3) — a file nobody thinks of as a sharing surface is a different question from a badge on a screen |
 
 ---
@@ -1087,6 +1096,11 @@ DELETE /api/v1/markers/{id}                    author or organiser
 POST   /api/v1/markers/{id}/report             UGC report → ContentReport (§17.7)
 GET    /api/v1/group-rides/{id}/comments       thread, cursor-paginated, pinned first (§17)
 POST   /api/v1/group-rides/{id}/comments       { body?, photoId?, poll? }
+GET    /api/v1/tracks/{id}/comments            a shared route's thread — same shape (§19.2)
+POST   /api/v1/tracks/{id}/comments            { body?, photoId? } — any signed-in rider
+GET    /api/v1/tracks/{id}/rating              { average?, count, mine? }        (§19.1)
+PUT    /api/v1/tracks/{id}/rating              { stars } — 1..5, replaces the caller's
+DELETE /api/v1/tracks/{id}/rating              withdraw; never a zero (§19.1)
 PATCH  /api/v1/comments/{id}                   author, within the edit window
 DELETE /api/v1/comments/{id}                   author or organiser
 POST   /api/v1/comments/{id}/pin               organiser or leader; { pinned }
@@ -3076,11 +3090,11 @@ Car_MarkerRendering_ShowsIconsWithoutTitlesOrNotes
 
 ---
 
-## 17. Ride Comments
+## 17. Comments
 
 ### 17.1 The safety decision comes before the feature
 
-A group ride gets one **thread**: text, photos, pinned posts, reactions and polls, visible to the ride's admitted members and nobody else.
+A group ride gets one **thread**: text, photos, pinned posts, reactions and polls, visible to the ride's admitted members and nobody else. **Since v0.30 a shared route gets the same thread**, on a wider audience — see the closing note of this sub-section, and §19.2.
 
 Before any of the mechanics, the constraint that shapes them:
 
@@ -3094,7 +3108,25 @@ That yielded three rules, of which **two remain** (detailed in §17.6):
 
 **The thread spans the whole ride, not just the live window**, and that is where most of the value is: *before* (what time, which route, who's actually coming — the poll case), and *after* (photos and argument about who was slowest). During the ride, traffic should be near zero, and the design should make that the path of least resistance rather than something riders have to resist.
 
-**Group rides only in v1.** A comment thread on a publicly shared *track* (§15) would let people the organiser never admitted post into someone's space, which discards the entire abuse model of §5.2 — organiser consent — and replaces it with a moderation problem. Adding a `TrackId` parent later is one migration and this project applies migrations on startup (§6.2); building the arc now on the chance it is wanted is speculative generality, and the last two sections earned their arcs by having a use for both sides on day one.
+~~**Group rides only in v1.**~~ **Reversed in v0.30 — a shared route has a thread too (§19.2).**
+
+v0.14 wrote the rule down like this, and it is left here rather than deleted because the reasoning is worth reading against what replaced it:
+
+> *A comment thread on a publicly shared track (§15) would let people the organiser never admitted post into someone's space, which discards the entire abuse model of §5.2 — organiser consent — and replaces it with a moderation problem.*
+
+**What that argument got wrong is which space it was talking about.** Organiser consent protects an adventure, whose whole premise is a curated group; it was never what protected a shared route, because a route on the browse list has been **deliberately** put in front of every signed-in rider on the service. There was no consent model there to discard. And "replaces it with a moderation problem" describes something the project had already solved for the harder case: reporting, blocking, an owner who can delete and pin, the §7.8 ladder holding new accounts back, and the caps in §17.7. A route thread inherits every one of those without a line being written for it.
+
+The rest of the paragraph was simply accurate. *"Adding a `TrackId` parent later is one migration"* — it was one migration; and building the arc in v0.14, before anything published a route to anybody, would have been the speculative generality it was called.
+
+**What the two threads do not share is who gets in**, and that is the whole of the difference:
+
+| | Adventure thread | Shared route thread |
+|---|---|---|
+| Who reads it | Admitted members only (§5.2) | Any signed-in rider, while the route is `Public` |
+| Who posts | Members, subject to §5.8's switches | Any signed-in rider, subject to §7.8's ladder |
+| Who moderates | Organiser and leaders | The route's owner |
+| Read-only when | The ride is `Archived` (§5.1) | Never — a route has no lifecycle to end |
+| Disappears when | The ride is deleted | The route is un-shared (posts survive) or deleted (they do not) |
 
 ### 17.2 Comments, and what they carry
 
@@ -3102,7 +3134,7 @@ That yielded three rules, of which **two remain** (detailed in §17.6):
 |---|---|
 | **Body** | Up to `Comments:MaxChars` (default 2000). **Plain text** — never rendered as HTML or Markdown, exactly as for marker notes (§16.2) |
 | **Photo** | One, optional, and it is the **same `Photo` resource as §16.4** — same ingest, same re-encode, same EXIF destruction, same quotas. Nothing new to secure |
-| **Author** | An admitted member. Their immutable username (§7.2) labels the post, and because it is immutable it can be denormalised into a cached thread with no invalidation |
+| **Author** | An admitted member, or — on a route's thread — any signed-in rider (§19.2). Their immutable username (§7.2) labels the post, and because it is immutable it can be denormalised into a cached thread with no invalidation |
 | **Kind** | `Text` or `Poll` (§17.5) |
 
 **A comment with a photo and no text is legitimate** — most post-ride posts are exactly that — so the validation is "body or photo, at least one", not "body required".
@@ -3197,34 +3229,40 @@ Android importance is **`High` as of v0.27** — a heads-up banner as well as a 
 - **Account deletion removes that account's comments, reactions and votes** (§10.1's hard delete is not negotiable). This leaves gaps in old threads. Accepted, and stated here so it is not discovered as a bug.
 - Deleting the ride cascades everything, including photos out of object storage (§16.6).
 
+**A route's thread has no lifecycle**, because a route has none — there is no `Live`, no `Completed` and no `Archived` for a line on a map to move through, so it is never read-only. The two events that do affect it are in §19.2: un-sharing hides it and keeps the posts, deleting the route cascades them away.
+
 ### 17.7 Moderation, permissions and caps
 
 The thread is now the largest user-generated-content surface in the product, so **`MarkerReport` (§16.5) is generalised** rather than joined by a second table:
 
 ```
-ContentReport(Id, TargetKind{Marker,Comment}, TargetId, ReportedByUserId,
+ContentReport(Id, TargetKind{Marker,Comment}, TargetId, GroupRideId?, ReportedByUserId,
               Reason, ContentSnapshot, CreatedUtc, ResolvedUtc?)
 ```
 
 `ContentSnapshot` is the point of the change: an organiser deleting an abusive comment must not also destroy the evidence for the report they just filed. The snapshot is purged with the resolved report by the nightly job (§7.11) after `Moderation:ReportRetentionDays` (default **90**). **Resolved ones only** — ageing out an open report would turn a backlog into a silent amnesty, and the operator's queue is exactly the thing that gets behind.
 
-| Action | Who |
-|---|---|
-| Post | Any admitted member **while `AllowMemberComments` is on**; photos additionally need `AllowMemberPhotos` (§5.8) |
-| React, vote | Any admitted member — **never gated by the content switches**, since neither carries free text or storage worth moderating |
-| Edit own post (within the window) | Author |
-| Delete a post | Author, **or** the organiser/leader |
-| Pin / unpin | Organiser, leader |
-| Create a poll | Any member; close it — author or organiser |
-| Report | Any member |
-| Block a user | Any member — hides that user's comments, reactions and markers from them, and prevents future co-membership (§16.5) |
+`GroupRideId` is **null for a report on a route's thread**, and the column was already nullable. A report is attached to a ride when there is an organiser to route it to; on a route the only other person with standing is the owner, who may well be who the report is about, so it goes straight to the operator. *Who may report* is likewise **reachability, not membership** — a membership check would have left the most public thread on the service as the one nobody could report, which is precisely the store-review requirement §10.2 exists to satisfy.
+
+The rows below are the adventure's. **A route's thread answers the same questions differently, and only these** (§19.2):
+
+| Action | Adventure | Shared route |
+|---|---|---|
+| Post | Any admitted member **while `AllowMemberComments` is on**; photos additionally need `AllowMemberPhotos` (§5.8) | Any signed-in rider who can see the route. No content switches exist — there is no organiser to own them — so §7.8's ladder is the whole gate |
+| React, vote | Any admitted member — **never gated by the content switches**, since neither carries free text or storage worth moderating | Any signed-in rider who can see the route |
+| Edit own post (within the window) | Author | Author |
+| Delete a post | Author, **or** the organiser/leader | Author, **or** the route's owner |
+| Pin / unpin | Organiser, leader | The route's owner |
+| Create a poll | Any member; close it — author or organiser | Accepted by the server, but **the composer does not offer it** (§19.2) |
+| Report | Any member | Anyone who can reach the thread |
+| Block a user | Any member — hides that user's comments, reactions and markers from them, and prevents future co-membership (§16.5) | Same, and it additionally takes the blocked rider's **routes, their threads and their ratings pages** off the blocker's screen entirely (§19.1) |
 
 Caps and limits, all configuration (§14.5):
 
 | Limit | Default |
 |---|---|
-| Comments per ride | 2 000 |
-| `POST /comments` | 30/hour per user per ride |
+| Comments per thread | 2 000 |
+| `POST /comments` | 30/hour per user **per thread** |
 | Polls per ride | 20; 5/day per user |
 | Reactions | 120/hour per user |
 | Pinned per ride | 3 |
@@ -3232,7 +3270,7 @@ Caps and limits, all configuration (§14.5):
 
 ### 17.8 Realtime and API
 
-Hub additions to `IRideClient` (§5.3), all scoped to the ride group:
+Hub additions to `IRideClient` (§5.3), scoped to the group the client joined:
 
 ```csharp
 Task CommentPosted(CommentDto comment);
@@ -3243,40 +3281,62 @@ Task ReactionsUpdated(Guid commentId, ReactionCounts counts);   // coalesced, §
 Task PollUpdated(Guid commentId, PollResults results);          // coalesced
 ```
 
-On reconnect the client **fetches the thread**, it does not replay — the same rule as positions, markers and everything else on this hub (§5.3).
+**There are two groups, in two namespaces**: `ride:{id}`, joined by `JoinRide` after the membership check §5.3 already describes, and `track:{id}`, joined by `JoinTrack` after a narrower one — *is the route public, or is the caller its owner*. The prefixes are load-bearing rather than tidy: both identifiers are guids, and one namespace would put every reader of a route into the group that carries a ride's live positions if the two ever collided. A message body carries `GroupRideId` and `TrackId` so a client watching both can tell them apart; nothing does today, but the events are process-wide.
+
+On reconnect the client **fetches the thread**, it does not replay — the same rule as positions, markers and everything else on this hub (§5.3). Both group kinds are re-joined.
 
 ```
 GET    /api/v1/group-rides/{id}/comments        cursor-paginated, pinned first
 POST   /api/v1/group-rides/{id}/comments        { body?, photoId?, poll? }
+GET    /api/v1/tracks/{id}/comments             a route's thread — identical shape (§19.2)
+POST   /api/v1/tracks/{id}/comments             { body?, photoId? }
 PATCH  /api/v1/comments/{id}                    author, within the edit window
-DELETE /api/v1/comments/{id}                    author or organiser
-POST   /api/v1/comments/{id}/pin                organiser or leader; { pinned }
+DELETE /api/v1/comments/{id}                    author, or whoever runs the thread
+POST   /api/v1/comments/{id}/pin                whoever runs the thread; { pinned }
 PUT    /api/v1/comments/{id}/reaction           { reaction } — null clears
 POST   /api/v1/comments/{id}/votes              { optionIds }
-POST   /api/v1/comments/{id}/close-poll         author or organiser
+POST   /api/v1/comments/{id}/close-poll         author, or whoever runs the thread
 POST   /api/v1/comments/{id}/report             → ContentReport
 ```
 
-The web app needs no separate work for any of this: since v0.16 it runs the same `DLR.UI` thread component and the same SignalR client as the phone (§18.4), so a self-updating thread is not a web feature at all — it is the feature, rendered in a second host.
+**Only the first two lines above are per-subject. Everything from `PATCH` down keys on the comment's own id and did not change at all** when routes gained threads — the difference is resolved once, before any of it runs, by a `ThreadAccess` record answering *may they read / post / attach a photo / moderate*, plus the refusal to return if not. That is the whole of the arc: one table, one controller, one resolver, and every permission check written in one place rather than two that will be changed once.
+
+The web app needs no separate work for any of this: since v0.16 it runs the same `DLR.UI` thread component and the same SignalR client as the phone (§18.4), so a self-updating thread is not a web feature at all — it is the feature, rendered in a second host. **v0.30 applied the same argument one level down**: the thread is a component (`CommentThreadView`) rather than a page, so the adventure's screen and the route's screen render the same reactions, the same pinning and the same optimistic insert because they are the same component, not because two files agree.
 
 ### 17.9 Schema
 
 ```
-RideComment(Id, GroupRideId, AuthorId, Kind{Text,Poll}, Body?, PhotoId?,
+RideComment(Id, GroupRideId?, TrackId?, AuthorId, Kind{Text,Poll}, Body?, PhotoId?,
             IsPinned, PinnedByUserId?, PinnedUtc?,
             CreatedUtc, PostedUtc, EditedUtc?)
             -- CHECK (Body IS NOT NULL OR PhotoId IS NOT NULL)      §17.2
+            -- CHECK ((GroupRideId IS NULL) <> (TrackId IS NULL))   §17.1, v0.30
             -- Ordering is on PostedUtc; CreatedUtc is clamped      §17.3
 CommentReaction(CommentId, UserId, Reaction)   -- PK (CommentId, UserId)  §17.4
 Poll(CommentId, AllowMultiple, ClosesUtc?, ClosedUtc?, ClosedByUserId?)
                                                -- PK CommentId, 1:1 with the comment
 PollOption(Id, CommentId, Ordinal, Text)
 PollVote(PollOptionId, UserId)                 -- PK (PollOptionId, UserId)  §17.5
-ContentReport(Id, TargetKind, TargetId, ReportedByUserId, Reason,
+ContentReport(Id, TargetKind, TargetId, GroupRideId?, ReportedByUserId, Reason,
               ContentSnapshot, CreatedUtc, ResolvedUtc?)            -- §17.7
 ```
 
-Indexes: `RideComment(GroupRideId, PostedUtc desc)`, partial `RideComment(GroupRideId) WHERE IsPinned`, `PollVote(PollOptionId)`, `ContentReport(ResolvedUtc)` partial on unresolved.
+**One table for both threads, with a check constraint holding the shape.** `RideComment` hangs off an adventure **or** a route, never both and never neither — and that is enforced in the database rather than promised by the endpoints, because it is exactly the state a future write path reaches by accident. Both foreign keys cascade.
+
+Indexes:
+
+| Index | Why |
+|---|---|
+| `RideComment(GroupRideId, PostedUtc desc)` | The adventure thread, newest first |
+| `RideComment(TrackId, PostedUtc desc)` | The route thread. **One per subject, not one composite** — a composite leading on both columns has a null in every row's leading column for half the table, which is an index the planner reaches for in neither case |
+| partial `RideComment(GroupRideId) WHERE IsPinned` | At most three rows per thread, fetched on every first load |
+| partial `RideComment(TrackId) WHERE IsPinned` | The same, for a route |
+| **unique** `RideComment(GroupRideId, AuthorId, ClientGuid)` | Idempotency for an adventure post (§17.3) |
+| **unique** `RideComment(TrackId, AuthorId, ClientGuid)` | Idempotency for a route post — and **this is why the pair could not simply be widened.** PostgreSQL treats nulls as distinct in a unique index, so the index above cannot decide anything about a row whose `GroupRideId` is null: every drain of an outbox would slip past it. Each kind gets an index whose leading column is never null for the rows it judges |
+| `PollVote(PollOptionId)` | Tallying a poll |
+| partial `ContentReport(ResolvedUtc)` on unresolved | The operator's queue |
+
+**Migrating is a widening, not a rewrite.** `GroupRideId` becoming nullable leaves every existing row holding its value, and the new check constraint is satisfied by all of them because `TrackId` defaults to null. Nothing is backfilled. Going back down narrows the column again and **fails outright if any route comment exists** — as it should: there is nowhere for those rows to go, and a `Down` that quietly discarded a conversation to make a column fit would be worse than one that refuses.
 
 ### 17.10 Tests to write first
 
@@ -3325,6 +3385,19 @@ MemberRemoved_KeepsPostsButRevokesAccess
 BlockedUser_CommentsAreHiddenFromTheBlocker
 AccountDeleted_RemovesCommentsReactionsAndVotes
 Report_SnapshotSurvivesDeletionOfTheComment                 — §17.7
+
+                                                            — the route thread, v0.30 (§19.2)
+AnySignedInRider_CanReadAndPostToASharedRoutesThread
+APrivateRoutesThread_IsA404ToEverybodyButItsOwner
+UnsharingHidesTheThread_AndResharingBringsItBack
+ARouteWhoseOwnerTheReaderBlocked_HasNoThreadForThem
+TheRoutesOwner_CanDeleteAndPinSomebodyElsesPost
+AReader_CannotPinOrDeleteSomebodyElsesPost
+RepostingTheSameClientGuid_IsTheSamePostRatherThanASecondOne — the second unique index, §17.9
+ARoutesThreadAndAnAdventuresThread_DoNotLeakIntoEachOther    — one table, two filters
+APostOnARoutesThread_CanBeReported                           — reachability, not membership
+DeletingTheRoute_TakesItsThreadWithIt
+ReactionsWorkOnARoutesThreadWithoutAnythingBeingAddedForThem  — the claim §17.8 makes, tested
 ```
 
 ---
@@ -3470,3 +3543,87 @@ WebAuth_SessionExpiresAfterConfiguredDays
 MobileAuth_SessionStillNeverExpires                   — §7.4 unchanged
 Repository_WebImplementation_SurfacesNetworkErrors    — §18.6
 ```
+
+---
+
+## 19. Shared Routes — Ratings and Conversation
+
+Sharing a route (`TrackVisibility.Public`) puts it on a catalogue every signed-in rider browses. Two things v0.30 adds to it, in one section because they answer the same question from opposite ends: **a star rating**, which is the fastest possible verdict, and **a thread**, which is the one with the detail in it.
+
+Appended as §19 rather than folded into §15 for the reason v0.12 gave when it appended §15: renumbering §§16–18 and every cross-reference in this document is a bad trade against a heading number.
+
+> **A note on where the browse list itself is written down: nowhere.** The two publication rules — *this road is already shared by somebody else* (a fingerprint over the coordinates) and *that name is taken* — along with the description, the cover photograph and the paged, filtered browse endpoint, were all built and shipped without a section here, and the `§6.2` citations throughout that code point at *6.2 Stack*, which is about Blazor and Npgsql. **That is a documentation debt this section does not clear.** It documents what v0.30 added; the gap is recorded so the next reader does not conclude those citations mean something.
+
+### 19.1 The rating
+
+**One to five whole stars. No half stars, and no zero.**
+
+The scale lives in `DLR.Core/Tracks/TrackRatings.cs` because three things have to agree about it — the endpoint that refuses a six, the check constraint on the column, and the widget that draws five glyphs — and a scale only two of them knew would be a widget drawing five boxes for a column that accepts ten values.
+
+**There is deliberately no zero.** Clearing a rating **deletes the row**; it does not store a nought. A nought would average in as the worst possible verdict for every rider who tapped a star and thought better of it, which is the opposite of what they meant — the same rule §8 already applies to a null ascent, applied to a score.
+
+**One rating per rider per route, and the primary key is the rule.** `TrackRating` is keyed on `(TrackId, UserId)`, exactly as `CommentReaction` is keyed on `(CommentId, UserId)` and for the same reason: rating again replaces rather than accumulates, as a shape rather than as something every write path has to remember. An average over the table is then the average of what people currently think, not of every time anybody changed their mind.
+
+| Concern | Decision |
+|---|---|
+| Who may rate | Any signed-in rider who can see the route — **the same audience that can post to its thread**, and for the same reason: a route on the browse list was put in front of everybody on purpose, and a score only the owner's friends could give is a score nobody should read |
+| The §7.8 ladder | Applies. A brand-new account cannot rate, exactly as it cannot share a route or post a comment. Carried by the endpoint's policy attribute, not restated in the body |
+| Rating your own route | **Allowed.** It is a strange thing to do and it is not this endpoint's business to forbid it — the alternative is a rule nobody asked for. The count is always shown beside the average precisely so that a score standing on one vote reads as one vote |
+| A route nobody has rated | `Average` is **null**, never `0`, and the UI says *"Not rated yet"* rather than drawing five empty stars and a `0.0` (§8) |
+| Verbs | `GET` reads, `PUT` sets — idempotent, because rating again replaces, so there is nothing for a `POST` to mean — `DELETE` withdraws. Withdrawing a rating that was never given is **success**, not a 404: an outbox sends it twice, and tapping your own star to clear it should not produce a scolding |
+
+**A rating is anonymous, and that is why the block list does not filter it.** This is the one place §17.7's rule deliberately does not reach, so it is worth saying why rather than leaving it to look like an oversight. Blocking hides what somebody *wrote* — their comments, their reactions, their votes are all authored content with a name attached. Nothing anywhere records who gave a route three stars. Filtering a blocked rider out of the tally would make one reader's average differ from another's for a number they are both being asked to trust, and the difference itself would leak that a blocked rider had rated this route. The block still works where there is something to hide: it takes the whole route, its thread and its rating off the blocker's screen.
+
+**The average and the count are on every browse row**, hydrated with one grouped query per page rather than a correlated sub-select per row — the same shape, and the same reasoning, as a thread page hydrating its reaction tallies (§17.4). Choosing between twenty roads without opening any of them is the entire job of that list; twenty extra round trips to draw one page would make the feature cost more than it is worth.
+
+### 19.2 The thread
+
+**It is §17's thread**, not a second one that resembles it. Same table, same controller, same plain-text body, same photograph, same six reactions, same fifteen-minute edit window, same pinning cap, same reporting and blocking. §17.1 carries the table of what differs; §17.7 carries the permissions; §17.8 carries the API and the hub groups. Only what is specific to a route is here.
+
+**Who gets in.** Any signed-in rider, while the route is `Public`. The owner reaches their own route's thread whatever its visibility, so that taking a route off the list does not lock them out of what was said about it. Three things are refused, and all three answer **404** rather than 403 — a track id travels in links, and a distinguishable refusal would turn the endpoint into an oracle for which identifiers are real:
+
+1. The route does not exist.
+2. It is not `Public`, and the caller is not its owner.
+3. The caller has blocked its owner (§17.7).
+
+**Un-sharing hides the thread and keeps the posts.** Un-sharing is reversible and is the owner's own call about their own row; destroying other people's writing over it would be the app punishing a rider for changing their mind. Re-sharing brings the conversation back rather than starting a new one. **Deleting the route cascades the thread away**, because there is nothing left for it to be about.
+
+**The route's owner moderates it** — deletes any post, pins up to `Comments:MaxPinned` — on the organiser's reasoning exactly: the person who published the thing is the person who has to be able to take an abusive post off it and pin the one worth reading first.
+
+**Polls are not offered, and that is a UI default rather than a server rule.** A poll is a group deciding something together; a route's thread is riders telling each other what the road is like. The server accepts one either way and the composer's `AllowPolls` parameter is a single `false` — so this is a position that can be reversed by changing one word, which is the right weight for an editorial judgement.
+
+**Rate limiting is per thread, not per ride.** Thirty posts an hour is a limit on flooding one conversation; spending it on somebody's route should not silence a rider in the adventure they are actually on. The bucket key is prefixed by kind, so a route and an adventure that happen to share an identifier do not share an allowance.
+
+### 19.3 What this cost, and what it did not
+
+The interesting property of v0.30 is how little of it is new code.
+
+| Reused unchanged | Written for this |
+|---|---|
+| The comment table, plus one nullable column and two constraints | `ThreadAccess` — a record of decisions, and two resolvers that fill it in |
+| Edit, delete, pin, react, vote, close a poll, report — **every one of them**, keying on the comment's own id | Two thread endpoints (`GET`/`POST /tracks/{id}/comments`) whose bodies are a caller check and a delegation |
+| `CommentReaction`, `Poll`, `PollOption`, `PollVote`, `ContentReport` — no schema change | `TrackRating` + its three verbs |
+| The whole thread UI, lifted from `RideThread.razor` into `CommentThreadView` | `StarRating.razor`, and the star row on the browse list |
+| Blocking, reporting, the §7.8 ladder, the caps, the cursor, the coalescing broadcast | A second unique index, because nulls are distinct (§17.9) |
+
+**Two seams moved to make that true**, and both are worth recording because each replaced a thing that would otherwise have been duplicated:
+
+- **`ReactionBroadcastService` holds a hub group name, not a ride id.** The group is decided once, at the point where the change happened, by asking `ThreadAccess`; storing an id and re-deciding at flush time would have been the same decision in a second file.
+- **`RideThread.razor` became a page of chrome.** The route page had to render *exactly* the thread the adventure page renders, and the only way to guarantee "exactly" is for there to be one of them. What is left on each page is the part that is genuinely about its own subject: a back link, and reading the permissions that decide whether the composer appears.
+
+### 19.4 Tests to write first
+
+```
+Rating_AveragesEverybodyAndReportsTheCallersOwn
+RatingTwice_ReplacesRatherThanCountingTwice                  — the PK is the rule, §19.1
+Withdrawing_RemovesTheRatingRatherThanScoringItZero
+WithdrawingARatingNeverGiven_IsSuccessRatherThanNotFound
+StarsOutsideTheScale_AreRefusedWithASentence                 — 0, 6, -1; a 400, not a 500
+APrivateRoute_CannotBeRatedByAnybodyElse_AndIsA404
+ARouteWhoseOwnerTheReaderBlocked_IsNotRateable
+ABlockedRidersRating_StaysInTheAverageEverybodyElseSees      — anonymous, so unfiltered §19.1
+Browse_CarriesTheAverageAndTheCountOnEveryRow
+DeletingTheRoute_TakesItsRatingsWithIt
+```
+
+The route thread's own list is in §17.10, beside the adventure's, because they are the same feature asked two questions.

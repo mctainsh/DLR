@@ -32,23 +32,29 @@ public sealed class ReactionBroadcastService(
 	IOptions<CommentOptions> options,
 	TimeProvider clock) : BackgroundService
 {
-	/// <summary>Comments whose reactions changed since the last tick, onto their ride.</summary>
-	private readonly ConcurrentDictionary<Guid, Guid> _reactions = new();
+	/// <summary>Comments whose reactions changed since the last tick, onto the group to tell.</summary>
+	/// <remarks>
+	/// The <em>group name</em> rather than a ride id, because a comment now hangs off an adventure
+	/// or off a shared route (§6.2) and this service has no business knowing which. Asking
+	/// <see cref="ThreadAccess.HubGroup"/> once, at the point where the change happened, is one
+	/// decision; storing an id here and re-deciding at flush time would be two, in different files.
+	/// </remarks>
+	private readonly ConcurrentDictionary<Guid, string> _reactions = new();
 
-	/// <summary>Comments whose votes changed since the last tick, onto their ride.</summary>
-	private readonly ConcurrentDictionary<Guid, Guid> _polls = new();
+	/// <summary>Comments whose votes changed since the last tick, onto the group to tell.</summary>
+	private readonly ConcurrentDictionary<Guid, string> _polls = new();
 
 	private readonly CommentOptions _options = options.Value;
 
 	/// <summary>Notes that a comment's reactions changed.</summary>
 	/// <param name="commentId">Which comment.</param>
-	/// <param name="rideId">Which ride's group to tell.</param>
-	public void ReactionChanged(Guid commentId, Guid rideId) => _reactions[commentId] = rideId;
+	/// <param name="group">Which hub group to tell — <see cref="ThreadAccess.HubGroup"/>.</param>
+	public void ReactionChanged(Guid commentId, string group) => _reactions[commentId] = group;
 
 	/// <summary>Notes that a poll's votes changed.</summary>
 	/// <param name="commentId">Which comment.</param>
-	/// <param name="rideId">Which ride's group to tell.</param>
-	public void PollChanged(Guid commentId, Guid rideId) => _polls[commentId] = rideId;
+	/// <param name="group">Which hub group to tell.</param>
+	public void PollChanged(Guid commentId, string group) => _polls[commentId] = group;
 
 	/// <summary>
 	/// Sends one message per dirty comment and clears the sets.
@@ -69,15 +75,15 @@ public sealed class ReactionBroadcastService(
 
 		// Taken and cleared before the work, so a reaction arriving mid-flush is picked up by the
 		// next tick rather than lost to this one.
-		List<KeyValuePair<Guid, Guid>> reactions = [.. _reactions];
-		List<KeyValuePair<Guid, Guid>> polls = [.. _polls];
+		List<KeyValuePair<Guid, string>> reactions = [.. _reactions];
+		List<KeyValuePair<Guid, string>> polls = [.. _polls];
 
-		foreach (KeyValuePair<Guid, Guid> entry in reactions)
+		foreach (KeyValuePair<Guid, string> entry in reactions)
 		{
 			_reactions.TryRemove(entry);
 		}
 
-		foreach (KeyValuePair<Guid, Guid> entry in polls)
+		foreach (KeyValuePair<Guid, string> entry in polls)
 		{
 			_polls.TryRemove(entry);
 		}
@@ -86,7 +92,7 @@ public sealed class ReactionBroadcastService(
 
 		DlrDbContext database = scope.ServiceProvider.GetRequiredService<DlrDbContext>();
 
-		foreach ((Guid commentId, Guid rideId) in reactions)
+		foreach ((Guid commentId, string group) in reactions)
 		{
 			// No block list: a group message has one body, and whose reactions each connection
 			// should not see is per connection. Clients apply their own list on receipt, exactly
@@ -98,10 +104,10 @@ public sealed class ReactionBroadcastService(
 				hidden: null,
 				cancellationToken);
 
-			await hub.Clients.Group(RideHub.Group(rideId)).ReactionsUpdated(commentId, counts);
+			await hub.Clients.Group(group).ReactionsUpdated(commentId, counts);
 		}
 
-		foreach ((Guid commentId, Guid rideId) in polls)
+		foreach ((Guid commentId, string group) in polls)
 		{
 			PollResults? results = await CommentPolls.ResultsAsync(
 				database,
@@ -113,7 +119,7 @@ public sealed class ReactionBroadcastService(
 
 			if (results is not null)
 			{
-				await hub.Clients.Group(RideHub.Group(rideId)).PollUpdated(commentId, results);
+				await hub.Clients.Group(group).PollUpdated(commentId, results);
 			}
 		}
 	}

@@ -176,6 +176,9 @@ public sealed class AuthStateTests
 		public Task PurgeTrackPreviousVersionAsync(Guid t, CancellationToken ct = default) => inner.PurgeTrackPreviousVersionAsync(t, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackSummary> UpdateTrackDetailsAsync(Guid t, DLR.Core.Contracts.Tracks.UpdateTrackDetailsRequest r, CancellationToken ct = default) => inner.UpdateTrackDetailsAsync(t, r, ct);
 		public Task<DLR.Core.Contracts.Tracks.SharedTrackPage> ListSharedTracksAsync(DLR.Core.Contracts.Tracks.SharedTrackQuery q, CancellationToken ct = default) => inner.ListSharedTracksAsync(q, ct);
+		public Task<DLR.Core.Contracts.Tracks.TrackRatingSummary> GetTrackRatingAsync(Guid t, CancellationToken ct = default) => inner.GetTrackRatingAsync(t, ct);
+		public Task<DLR.Core.Contracts.Tracks.TrackRatingSummary> RateTrackAsync(Guid t, DLR.Core.Contracts.Tracks.RateTrackRequest r, CancellationToken ct = default) => inner.RateTrackAsync(t, r, ct);
+		public Task<DLR.Core.Contracts.Tracks.TrackRatingSummary> ClearTrackRatingAsync(Guid t, CancellationToken ct = default) => inner.ClearTrackRatingAsync(t, ct);
 		public Task<DLR.Core.Contracts.Rides.MyRides> ListMyRidesAsync(CancellationToken ct = default) => inner.ListMyRidesAsync(ct);
 		public Task<DLR.Core.Contracts.Rides.RideDetail> GetRideAsync(Guid r, CancellationToken ct = default) => inner.GetRideAsync(r, ct);
 		public Task<DLR.Core.Contracts.Rides.RideDetail> CreateRideAsync(DLR.Core.Contracts.Rides.CreateRideRequest r, CancellationToken ct = default) => inner.CreateRideAsync(r, ct);
@@ -201,6 +204,8 @@ public sealed class AuthStateTests
 		public Task<DLR.Core.Contracts.Photos.PhotoUploaded> UploadPhotoAsync(Stream s, string ct2, string n, CancellationToken ct = default) => inner.UploadPhotoAsync(s, ct2, n, ct);
 		public Task<DLR.Core.Contracts.Comments.CommentPage> GetThreadAsync(Guid r, string? c, CancellationToken ct = default) => inner.GetThreadAsync(r, c, ct);
 		public Task<DLR.Core.Contracts.Comments.CommentDto> PostCommentAsync(Guid r, DLR.Core.Contracts.Comments.PostCommentRequest req, CancellationToken ct = default) => inner.PostCommentAsync(r, req, ct);
+		public Task<DLR.Core.Contracts.Comments.CommentPage> GetTrackThreadAsync(Guid t, string? c, CancellationToken ct = default) => inner.GetTrackThreadAsync(t, c, ct);
+		public Task<DLR.Core.Contracts.Comments.CommentDto> PostTrackCommentAsync(Guid t, DLR.Core.Contracts.Comments.PostCommentRequest req, CancellationToken ct = default) => inner.PostTrackCommentAsync(t, req, ct);
 		public Task<DLR.Core.Contracts.Comments.CommentDto> EditCommentAsync(Guid c, DLR.Core.Contracts.Comments.EditCommentRequest r, CancellationToken ct = default) => inner.EditCommentAsync(c, r, ct);
 		public Task DeleteCommentAsync(Guid c, CancellationToken ct = default) => inner.DeleteCommentAsync(c, ct);
 		public Task PinCommentAsync(Guid c, DLR.Core.Contracts.Comments.PinCommentRequest r, CancellationToken ct = default) => inner.PinCommentAsync(c, r, ct);

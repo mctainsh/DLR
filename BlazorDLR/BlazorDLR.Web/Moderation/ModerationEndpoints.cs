@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DLR.Core.Contracts.Moderation;
+using DLR.Server.Comments;
 using DLR.Server.Data;
 using DLR.Server.Data.Comments;
 using DLR.Server.Data.Identity;
@@ -73,7 +74,12 @@ public sealed class ModerationController : ControllerBase
 			.Include(row => row.Author)
 			.SingleOrDefaultAsync(row => row.Id == id, cancellationToken);
 
-		if (comment is null || !await IsMemberAsync(database, comment.GroupRideId, userId, cancellationToken))
+		// Reachable, not merely in a ride. A shared route's thread is open to every signed-in rider
+		// (§6.2), so "are you a member?" is the wrong question there and would leave the most
+		// public thread on the service as the one thing nobody could report — which is precisely
+		// the review requirement this file exists to satisfy.
+		if (comment is null
+			|| !(await CommentThreadAccess.ForCommentAsync(database, id, userId, cancellationToken)).Access.Exists)
 		{
 			return NotFound();
 		}
@@ -94,6 +100,11 @@ public sealed class ModerationController : ControllerBase
 			clock,
 			ReportTargetKind.Comment,
 			id,
+
+			// Null for a route's thread, which the column already allows. A report is filed
+			// against a ride when there is an organiser to route it to; a route's goes straight to
+			// the operator, because the only other person with standing is the route's owner and
+			// they may well be who it is about.
 			comment.GroupRideId,
 			comment.AuthorId,
 			userId,

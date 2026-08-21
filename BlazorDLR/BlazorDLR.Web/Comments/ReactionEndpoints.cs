@@ -2,9 +2,9 @@ using DLR.Core.Comments;
 using DLR.Core.Contracts.Comments;
 using DLR.Server.Data;
 using DLR.Server.Data.Comments;
-using DLR.Server.Data.Rides;
 using DLR.Server.Identity;
 using DLR.Server.Moderation;
+using DLR.Server.Rides;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +30,12 @@ public static class ReactionEndpoints
 /// <strong>Neither is ever gated by the §5.8 content switches</strong>, and that is deliberate
 /// rather than an oversight: a reaction carries no free text, no image and no storage cost worth
 /// naming, and switching off the ability to answer a poll would break the poll rather than
-/// moderate it. Membership is the only check.
+/// moderate it. Reaching the thread at all is the only check.
+/// </para>
+/// <para>
+/// Which also means this file did not have to learn that a shared route has a thread now (§6.2).
+/// It asks <see cref="CommentThreadAccess"/> the same question it always asked and gets an answer
+/// for either kind — the reactions, the votes, the coalescing and the tallies are unchanged.
 /// </para>
 /// </summary>
 [ApiController]
@@ -51,20 +56,17 @@ public sealed class ReactionController : ControllerBase
 			return Unauthorized();
 		}
 
-		(RideComment? comment, GroupRideMember? membership) =
-			await LoadAsync(database, id, userId, cancellationToken);
+		(RideComment? comment, ThreadAccess access) =
+			await CommentThreadAccess.ForCommentAsync(database, id, userId, cancellationToken);
 
-		if (comment is null || membership?.Ride is null)
+		if (comment is null)
 		{
 			return NotFound();
 		}
 
-		if (membership.Ride.State is GroupRideState.Archived)
+		if (access.ReadOnly)
 		{
-			return Problem(
-				statusCode: StatusCodes.Status409Conflict,
-				title: "Adventure is archived",
-				detail: "An archived adventure's thread is read-only.");
+			return RideContentPermissions.AsResult(access.Refusal!);
 		}
 
 		CommentReaction? existing = await database
@@ -114,7 +116,7 @@ public sealed class ReactionController : ControllerBase
 
 		// Marked dirty rather than sent. Twelve members tapping the same thumbs-up would otherwise
 		// be a message per tap per connection (§17.4).
-		broadcast.ReactionChanged(id, comment.GroupRideId);
+		broadcast.ReactionChanged(id, access.HubGroup);
 
 		return Ok(await CommentReactions.CountsAsync(
 			database,
@@ -139,10 +141,10 @@ public sealed class ReactionController : ControllerBase
 			return Unauthorized();
 		}
 
-		(RideComment? comment, GroupRideMember? membership) =
-			await LoadAsync(database, id, userId, cancellationToken);
+		(RideComment? comment, ThreadAccess access) =
+			await CommentThreadAccess.ForCommentAsync(database, id, userId, cancellationToken);
 
-		if (comment is null || membership?.Ride is null)
+		if (comment is null)
 		{
 			return NotFound();
 		}
@@ -226,7 +228,7 @@ public sealed class ReactionController : ControllerBase
 
 		await database.SaveChangesAsync(cancellationToken);
 
-		broadcast.PollChanged(id, comment.GroupRideId);
+		broadcast.PollChanged(id, access.HubGroup);
 
 		return Ok(await CommentPolls.ResultsAsync(
 			database,
@@ -251,10 +253,10 @@ public sealed class ReactionController : ControllerBase
 			return Unauthorized();
 		}
 
-		(RideComment? comment, GroupRideMember? membership) =
-			await LoadAsync(database, id, userId, cancellationToken);
+		(RideComment? comment, ThreadAccess access) =
+			await CommentThreadAccess.ForCommentAsync(database, id, userId, cancellationToken);
 
-		if (comment is null || membership?.Ride is null)
+		if (comment is null)
 		{
 			return NotFound();
 		}
@@ -268,17 +270,13 @@ public sealed class ReactionController : ControllerBase
 			return NotFound();
 		}
 
-		// The author, or the organiser and their leaders (§17.5).
-		bool mayClose =
-			comment.AuthorId == userId
-			|| membership.Role is GroupRideRole.Owner or GroupRideRole.Leader;
-
-		if (!mayClose)
+		// The author, or whoever runs the thread (§17.5).
+		if (comment.AuthorId != userId && !access.CanModerate)
 		{
 			return Problem(
 				statusCode: StatusCodes.Status403Forbidden,
 				title: "Not yours to close",
-				detail: "A poll is closed by the person who asked, or by the organiser.");
+				detail: "A poll is closed by the person who asked, or by whoever runs the thread.");
 		}
 
 		DateTimeOffset now = clock.GetUtcNow();
@@ -289,7 +287,7 @@ public sealed class ReactionController : ControllerBase
 
 		await database.SaveChangesAsync(cancellationToken);
 
-		broadcast.PollChanged(id, comment.GroupRideId);
+		broadcast.PollChanged(id, access.HubGroup);
 
 		return Ok(await CommentPolls.ResultsAsync(
 			database,
@@ -298,30 +296,5 @@ public sealed class ReactionController : ControllerBase
 			now,
 			await BlockList.HiddenFromAsync(database, userId, cancellationToken),
 			cancellationToken));
-	}
-
-	private static async Task<(RideComment?, GroupRideMember?)> LoadAsync(
-		DlrDbContext database,
-		Guid commentId,
-		Guid userId,
-		CancellationToken cancellationToken)
-	{
-		RideComment? comment = await database
-			.Set<RideComment>()
-			.SingleOrDefaultAsync(row => row.Id == commentId, cancellationToken);
-
-		if (comment is null)
-		{
-			return (null, null);
-		}
-
-		GroupRideMember? membership = await database
-			.Set<GroupRideMember>()
-			.Include(member => member.Ride)
-			.SingleOrDefaultAsync(
-				member => member.GroupRideId == comment.GroupRideId && member.UserId == userId,
-				cancellationToken);
-
-		return (comment, membership);
 	}
 }
