@@ -498,6 +498,63 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	}
 
 	/// <summary>
+	/// Reported from a ride: inside the rider's own private area the mark stopped moving, follow
+	/// had nothing to follow and heading-up stopped turning. The area is a rule about what leaves
+	/// the phone (§10.1) — it was never a reason to blank the map of the person standing in it,
+	/// who knows where they are.
+	/// </summary>
+	[Fact]
+	public async Task InsideThePrivateArea_TheRidersOwnMarkAndFollowStillWork()
+	{
+		(_, FakeRideHubClient hub, Guid rideId) = await WireServicesAsync();
+
+		// A circle wide enough that both fixes below fall inside it.
+		await Services.GetRequiredService<PrivateAreaState>()
+			.SetAsync(new PrivateArea(-37.8136, 144.9631, 5_000));
+
+		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await WaitForReceiverAsync();
+
+		Gps.Emit(DeviceFix(-37.8136, 144.9631));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component).ShouldNotBeNull(
+				"a traveller inside their own private area still has to be able to see themselves."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await PressFollowButtonAsync(component);
+
+		// Riding across the area. The report was a mark that froze, not one that never appeared,
+		// so the second fix is the one that matters.
+		Gps.Emit(DeviceFix(-37.8236, 144.9631));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.Latitude.ShouldBe(-37.8236, tolerance: 1e-6,
+				customMessage: "the traveller's own mark has to keep up with them across their own area."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Polled rather than waited on a render: the camera is applied after the render that the
+		// fix caused, so a render-driven waiter can stop checking before it lands. See BackgroundWait.
+		await BackgroundWait.UntilAsync(
+			() => Math.Abs(_map.Cameras[^1].Latitude - (-37.8236)) < 1e-4,
+			"the follow camera to keep up across the private area",
+			() => $"last camera {_map.Cameras[^1].Latitude}");
+
+		// The map turned to the heading off the same suppressed fix — the third symptom in the
+		// report, and the one with no other source: heading-up has nothing but the device's own fix.
+		_map.Cameras[^1].HeadingDeg.ShouldBe(0, tolerance: 0.001,
+			"following alone does not turn the map; the bearing is heading-up's, and it is off.");
+
+		// And the half the feature exists for: neither fix left the phone.
+		hub.Published.ShouldBeEmpty();
+	}
+
+	/// <summary>
 	/// The overlay picks the arrowhead over the green dot on <c>DirectionDeg</c> alone (see
 	/// <c>SkiaMapOverlay.DrawSelf</c>), so what matters on this side of the seam is that the
 	/// receiver's answer reaches it unchanged — including its <em>absence</em>. A heading quietly

@@ -175,10 +175,15 @@ public sealed class LocationBroadcastStateTests
 	}
 
 	[Fact]
-	public async Task InsideThePrivateArea_TheDeviceWillNotDrawItselfEither()
+	public async Task InsideThePrivateArea_TheRiderStillSeesThemselves()
 	{
-		// The other half of §10.1. Not sending it is the requirement; not drawing it is what keeps
-		// the map agreeing with the setting, rather than a dot sitting on the rider's own house.
+		// This asserted the opposite until riders reported the symptom: inside the circle the mark
+		// stopped moving, the follow camera had nothing to follow and heading-up stopped turning —
+		// the map went dead in the driveway and came back at the edge of the area.
+		//
+		// The rule §10.1 buys is that nobody else can see the fix, and that is enforced by not
+		// publishing it. Blanking the rider's own screen protected nobody: they are standing in the
+		// area, and this value never leaves the phone.
 		Harness harness = new Harness().Build();
 		await harness.PrivateAreas.SetAsync(new PrivateArea(Latitude, Longitude, 1_000));
 
@@ -191,9 +196,41 @@ public sealed class LocationBroadcastStateTests
 			() => harness.Broadcast.Status == LocationBroadcastStatus.Suppressed,
 			"the private area to suppress the fix");
 
-		harness.Broadcast.OwnFix.ShouldBeNull();
-		harness.Broadcast.LastFix.ShouldNotBeNull(
-			"the receiver is still alive, and the screens that report on it need to be able to say so.");
+		harness.Broadcast.OwnFix.ShouldNotBeNull(
+			"a rider's own map must keep working inside their own private area.");
+		harness.Broadcast.OwnFix!.Latitude.ShouldBe(Latitude);
+		harness.Broadcast.OwnFix.Longitude.ShouldBe(Longitude);
+
+		// And the half that is the whole point of the feature: it went nowhere.
+		harness.Hub.Published.ShouldBeEmpty();
+		harness.Broadcast.LastPublishedUtc.ShouldBeNull();
+	}
+
+	[Fact]
+	public async Task InsideThePrivateArea_TheOwnMarkKeepsMoving()
+	{
+		// The reported bug was not "no dot", it was "a dot that stopped updating". Two fixes, both
+		// suppressed: the second has to land on OwnFix as well, or a rider riding across their own
+		// area watches a stale mark all the way over it.
+		Harness harness = new Harness().Build();
+		await harness.PrivateAreas.SetAsync(new PrivateArea(Latitude, Longitude, 5_000));
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Suppressed,
+			"the first suppressed fix");
+
+		const double MovedLatitude = Latitude + 0.01;
+		harness.Provider.Emit(Fix(latitude: MovedLatitude, secondsIn: 10));
+
+		await harness.UntilAsync(
+			() => harness.Broadcast.OwnFix?.Latitude == MovedLatitude,
+			"the rider's own mark to follow them across the area");
+
+		harness.Hub.Published.ShouldBeEmpty("and neither fix left the phone.");
 	}
 
 	[Fact]
@@ -241,8 +278,8 @@ public sealed class LocationBroadcastStateTests
 
 		await harness.Broadcast.StopSharingAsync(rideId);
 
-		harness.Broadcast.OwnFix.ShouldBeNull();
-		harness.Broadcast.LastFix.ShouldBeNull();
+		harness.Broadcast.OwnFix.ShouldBeNull(
+			"a stopped GPS has no opinion about where the phone is.");
 	}
 
 	[Fact]

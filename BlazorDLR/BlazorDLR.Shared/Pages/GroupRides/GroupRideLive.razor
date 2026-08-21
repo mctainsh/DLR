@@ -963,10 +963,10 @@
 	/// This rider's own latest fix, or null when the ride has none for them.
 	/// <para>
 	/// The ride's own view of where they are — the same fix everyone else's map is drawing them
-	/// at — rather than a second read of the device's GPS. Following the pin the rider can see is
-	/// the behaviour the mode promises, and it works on every host: <see cref="ILocationProvider"/>
-	/// does not exist in a browser (§18.6), and a map that followed a private read would put the
-	/// rider somewhere their own suppressed position (§10.1) says nobody should be looking.
+	/// at — rather than a second read of the device's GPS, which a browser has no way to make
+	/// anyway (§18.6). This is what a host with no receiver falls back to; a phone prefers its own
+	/// reading, see <see cref="MyPoint"/>. On this host the private area does not arise: a
+	/// suppressed fix was never sent, so there is nothing here to draw.
 	/// </para>
 	/// <para>
 	/// Null while not sharing, and until the first fix lands. That is what the follow button's
@@ -1028,9 +1028,12 @@
 	/// waiting to appear, the difference between "still asking the platform" and "asking the sky"
 	/// is not one they can act on differently.
 	/// <para>
-	/// Not <see cref="LocationBroadcastStatus.Suppressed"/>, which looks identical from the map's
-	/// side and is the opposite thing: the rider's own private area doing exactly what they set it
-	/// to do (§10.1). Calling that "no signal" would send somebody hunting for a fault they built.
+	/// Not <see cref="LocationBroadcastStatus.Suppressed"/>, which is the opposite thing: the
+	/// rider's own private area doing exactly what they set it to do (§10.1). Calling that "no
+	/// signal" would send somebody hunting for a fault they built. It no longer looks the same
+	/// from the map's side either — inside the area the rider's own mark keeps moving and only the
+	/// hub is kept from the fix, so the one thing left to say about it is that nothing is being
+	/// sent, which is what the receiver's own line says.
 	/// </para>
 	/// </summary>
 	private bool ShowsNoGpsSignal =>
@@ -1053,12 +1056,14 @@
 	/// then jump backwards to a stale point the moment the GPS blinked.
 	/// </para>
 	/// <para>
-	/// The privacy rule that first put the ride's copy here survives on the host it applies to,
-	/// because it is enforced a layer down: <c>LocationBroadcastState.OwnFix</c> answers null while
-	/// the fix is suppressed by the private area (§10.1), so a phone following this never goes
-	/// anywhere the rider's own setting says nobody should be looking. In a browser the question
-	/// does not arise — a fix that was suppressed was never sent, so the server has nothing to
-	/// return.
+	/// <strong>The private area does not enter into this, and it used to.</strong> <c>OwnFix</c>
+	/// answered null while a fix was suppressed, so a rider inside their own circle lost the mark,
+	/// the follow camera and the heading-up rotation together — the map went dead in the driveway
+	/// and came back at the edge of the circle. There was never anyone to protect by that: this
+	/// value is read to draw one rider's own screen and goes nowhere else, and the person reading
+	/// it is standing in the area. §10.1 stops the fix reaching the hub, which is the part that
+	/// concerns anybody else (§10.1). In a browser the question does not arise — a suppressed fix
+	/// was never sent, so the server has nothing to return, and there the map really is blank.
 	/// </para>
 	/// </summary>
 	private (double Latitude, double Longitude)? MyPoint =>
@@ -1140,7 +1145,9 @@
 
 	/// <summary>
 	/// This device drawn as itself (§4.3), or null when there is no fix of its own to draw — the
-	/// web, a receiver that is off or still warming up, or a fix inside the private area.
+	/// web, or a receiver that is off or still warming up. <em>Not</em> the private area: a rider
+	/// inside their own circle still sees themselves, and only the hub is kept from the fix
+	/// (§10.1).
 	/// <para>
 	/// Only ever built from the device's own read; see <see cref="MyPoint"/> for why the ride's
 	/// copy of this rider is not an acceptable substitute.
@@ -2195,10 +2202,11 @@
 				// It is this phone's own fix after a round trip (§4.2, §5.3), so at best it is a
 				// worse copy of what SelfMarker already draws and at worst it is a second mark for
 				// one person: at a standstill they sit on top of each other, and at speed they read
-				// as two riders a few seconds apart. When there is no device fix — the GPS off or
-				// warming up, or the private area suppressing it (§10.1) — the honest answer is
-				// that this phone does not currently know where it is, not a point from before it
-				// stopped knowing.
+				// as two riders a few seconds apart. When there is no device fix — the GPS off, or
+				// warming up — the honest answer is that this phone does not currently know where
+				// it is, not a point from before it stopped knowing. A fix inside the private area
+				// is not one of those cases: it is drawn, and it is only the server that never
+				// received it (§10.1).
 				//
 				// A browser keeps it, and draws it as an ordinary rider pill: it has no receiver to
 				// do better with (§18.6), and what it is showing really is the server's view of

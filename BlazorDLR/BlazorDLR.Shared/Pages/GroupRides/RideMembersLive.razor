@@ -159,9 +159,9 @@
 	/// This device's own reading on a host that has one, and the ride's round-tripped copy only on
 	/// a host that does not — the same split, for the same reasons, as the live map's own
 	/// <c>MyPoint</c>: a phone has the current answer in its hand, and a browser has only ever had
-	/// the server's. The privacy rule survives on the host it applies to, because
-	/// <c>LocationBroadcastState.OwnFix</c> answers null while a fix is suppressed by the private
-	/// area (§10.1).
+	/// the server's. The private area does not narrow this: it stops a fix reaching the hub, and
+	/// the ranges in this list are measured on the phone, from the phone's own reading, for the
+	/// rider reading them (§10.1).
 	/// </para>
 	/// <para>
 	/// Null is an ordinary state and the page says so under the list rather than leaving a column

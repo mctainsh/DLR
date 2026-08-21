@@ -18,11 +18,19 @@ namespace BlazorDLR.Shared.State;
 /// </para>
 /// <para>
 /// <strong>The order of the gates is the privacy model.</strong> Every fix passes
-/// <see cref="PrivateAreaState.HidesLocation(LocationFix)"/> <em>before</em> anything else looks at
-/// it (§10.1) — before the accuracy filter, before the cadence filter, and long before the network.
-/// A fix from inside the rider's private area is not filtered, not queued and not retried: it is
-/// dropped where it was read. And because that state answers "hide" until it has an answer — from
-/// the account, or from this device's cache of it — a race at startup fails closed.
+/// <see cref="PrivateAreaState.HidesLocation(LocationFix)"/> <em>before</em> anything on the
+/// publishing path looks at it (§10.1) — before the accuracy filter, before the cadence filter,
+/// and long before the network. A fix from inside the rider's private area is not filtered, not
+/// queued and not retried: it is dropped where it was read. And because that state answers "hide"
+/// until it has an answer — from the account, or from this device's cache of it — a race at
+/// startup fails closed.
+/// <para>
+/// <strong>Publishing is the only thing that gate governs.</strong> It does not govern
+/// <see cref="OwnFix"/>, which is what this rider's own screen draws, and it never governed the
+/// recorder (§15.1). Suppressing a rider's position on their own phone hides their house from the
+/// one person who is standing in it, and costs them the map at the moment they are most likely to
+/// be reading it — see the remarks on <see cref="OwnFix"/>.
+/// </para>
 /// </para>
 /// <para>
 /// <strong>Only the MAUI host registers this.</strong> The web hosts register no GPS seam at all
@@ -124,30 +132,35 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	public IReadOnlyCollection<Guid> Rides => _reasons;
 
 	/// <summary>
-	/// The last fix the platform produced, published or not — including one refused by the gate or
-	/// suppressed by the private area. It is what "the GPS is alive" is drawn from; a screen that
-	/// only ever saw published fixes could not tell a warming-up receiver from a dead one.
-	/// </summary>
-	public LocationFix? LastFix { get; private set; }
-
-	/// <summary>
-	/// Where this device believes it is, for drawing on <em>this</em> rider's own map — or
-	/// <c>null</c> when there is nothing it may draw.
+	/// Where this device believes it is — the last fix the platform produced, published or not,
+	/// including one refused by the §4.2 gate or suppressed by the private area — or <c>null</c>
+	/// when the receiver is off or has not produced one yet.
 	/// <para>
 	/// <strong>This is the device's own read, and it deliberately does not wait for the server.</strong>
 	/// The rider pins on the live map come back from the ride (§5.3), which means they only exist
 	/// once a ride is <c>Live</c>, once a fix has cleared the gate, and once the next 5 s fan-out
 	/// tick has run. None of that is a reason for somebody to be unable to see where they are
-	/// standing, and a phone that has a fix in hand and draws nothing reads as a broken app.
+	/// standing, and a phone that has a fix in hand and draws nothing reads as a broken app. It is
+	/// also what "the GPS is alive" is drawn from: a screen that only ever saw published fixes
+	/// could not tell a warming-up receiver from a dead one.
 	/// </para>
 	/// <para>
-	/// <strong>Suppressed answers <c>null</c>, and that is the point.</strong> Inside the rider's
-	/// private area (§10.1) nothing is sent — and nothing is drawn either, so the map agrees with
-	/// the setting rather than showing a dot whose position the rider has asked the app not to know
-	/// about. <see cref="LastFix"/> still holds it; this is the property the map is allowed to read.
+	/// <strong>A suppressed fix is drawn here too, and that is a correction.</strong> This property
+	/// used to answer <c>null</c> inside the rider's private area, on the argument that the map
+	/// should agree with the setting. The argument does not hold: the setting is about what leaves
+	/// the phone, and on the rider's own screen there is nobody to hide their house from — they are
+	/// standing in it. What it cost was the whole map going dead at the moment a rider is most
+	/// likely to be reading it: no mark of their own, nothing for the camera to follow and no
+	/// heading to turn the map by, from the driveway to the edge of the circle. §10.1 is a rule
+	/// about publishing and it is enforced where publishing happens, in <c>HandleAsync</c>.
+	/// </para>
+	/// <para>
+	/// There is deliberately no second "but not this one" property beside it. The pair that used to
+	/// exist differed only inside the private area, which is exactly the case this got wrong, and
+	/// leaving both would invite somebody to reinstate the distinction as a fix.
 	/// </para>
 	/// </summary>
-	public LocationFix? OwnFix => Status is LocationBroadcastStatus.Suppressed ? null : LastFix;
+	public LocationFix? OwnFix { get; private set; }
 
 	/// <summary>When a fix last reached the server, or <c>null</c> if none has this run.</summary>
 	public DateTimeOffset? LastPublishedUtc { get; private set; }
@@ -392,7 +405,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		// Cleared with the receiver, not kept as a last-known. A stopped GPS has no opinion about
 		// where this phone is, and a dot left on the map from the last fix before the rider turned
 		// sharing off is the app claiming otherwise — on a screen they are still looking at.
-		LastFix = null;
+		OwnFix = null;
 
 		Set(LocationBroadcastStatus.Off);
 	}
@@ -434,7 +447,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 
 			await foreach (LocationFix fix in _provider.WatchAsync(profile, cancellationToken))
 			{
-				LastFix = fix;
+				OwnFix = fix;
 
 				// The recorder sees the fix first, and sees all of them (§15.1).
 				//
@@ -452,8 +465,9 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 				await HandleAsync(gate, fix, cancellationToken);
 
 				// Every fix moves this rider's own dot (see OwnFix), whether or not it was
-				// published and whether or not the status moved with it — so the UI is told about
-				// all of them, not only the ones that changed a status. Without this a rider on a
+				// published, whether or not the private area suppressed it, and whether or not the
+				// status moved with it — so the UI is told about all of them, not only the ones
+				// that changed a status. Without this a rider on a
 				// steadily broadcasting phone watched a dot that never moved: Set() is a no-op when
 				// nothing changed, which is exactly the steady state of a working receiver.
 				//
@@ -482,9 +496,13 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <param name="cancellationToken">Stops the publish.</param>
 	private async Task HandleAsync(PositionGate gate, LocationFix fix, CancellationToken cancellationToken)
 	{
-		// §10.1, and first. Not filtered, not queued, not retried — dropped where it was read,
-		// because the one copy of a rider's home that cannot leak is the one that never left the
-		// phone.
+		// §10.1, and first on this path. Not filtered, not queued, not retried — the fix is
+		// dropped here and never reaches the hub.
+		//
+		// "This path" is load-bearing: the caller has already recorded the fix and already assigned
+		// OwnFix, so the rider's own mark, the follow camera and the heading-up rotation all keep
+		// working inside the circle. Returning early from *here* is what makes the area a rule
+		// about what other people can see rather than a blindfold on the person wearing it.
 		if (_privateAreas.HidesLocation(fix))
 		{
 			Set(LocationBroadcastStatus.Suppressed);

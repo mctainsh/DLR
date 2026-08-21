@@ -400,6 +400,9 @@ above the platform seam and nothing below it.
       even though the phone build is fine.
 - [ ] **Both**: standing inside a configured private area publishes nothing, and the adventure's info
       page says so (§10.1).
+- [ ] **Both**: and riding *across* one, the member's own mark still moves, follow-me still follows
+      and heading-up still turns — the area hides the position from other members, not from its
+      owner (§10.1).
 - [ ] **Both**: a private area set on one device is in force on a second device signed in to the same
       account, and survives reinstalling the app — the whole reason it moved off the handset (§10.1).
 - [ ] **Both**: with the phone in flight mode, the Location screen still shows the circle, still says
