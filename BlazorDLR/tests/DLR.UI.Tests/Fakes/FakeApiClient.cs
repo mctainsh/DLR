@@ -276,6 +276,78 @@ public sealed class FakeApiClient : IApiClient
 		return Task.CompletedTask;
 	}
 
+	// -- Profile photograph (§7.3) --
+	//
+	// Like the private area above, this fake is the source of truth rather than a recorder: a test
+	// that sets an avatar and then reads a profile back is testing the real arrangement.
+
+	/// <summary>What every rider's avatar lookup answers, keyed on username. Absent means "no photograph".</summary>
+	public Dictionary<string, Guid?> AvatarsByUserName { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>Every batch of names the UI looked up, in order — what a test asserts the batching actually did.</summary>
+	public List<IReadOnlyCollection<string>> AvatarLookups { get; } = new();
+
+	/// <summary>Set to make <see cref="SetAvatarAsync"/> and <see cref="ClearAvatarAsync"/> throw.</summary>
+	public Exception? AvatarException { get; set; }
+
+	/// <summary>Set to make <see cref="GetRiderAvatarsAsync"/> throw — the phone in a tunnel.</summary>
+	public Exception? GetRiderAvatarsException { get; set; }
+
+	public Task<OwnProfile> SetAvatarAsync(SetAvatarRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(SetAvatarAsync));
+
+		if (AvatarException is not null)
+		{
+			return Task.FromException<OwnProfile>(AvatarException);
+		}
+
+		ProfileResult = CurrentProfile() with { AvatarPhotoId = request.PhotoId };
+
+		return Task.FromResult(ProfileResult);
+	}
+
+	public Task<OwnProfile> ClearAvatarAsync(CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ClearAvatarAsync));
+
+		if (AvatarException is not null)
+		{
+			return Task.FromException<OwnProfile>(AvatarException);
+		}
+
+		ProfileResult = CurrentProfile() with { AvatarPhotoId = null };
+
+		return Task.FromResult(ProfileResult);
+	}
+
+	/// <summary>
+	/// Answers for every name asked about, exactly as the endpoint does — a name with no entry
+	/// gets a row saying "no photograph" rather than no row at all.
+	/// </summary>
+	public Task<IReadOnlyList<RiderAvatarDto>> GetRiderAvatarsAsync(
+		IReadOnlyCollection<string> userNames,
+		CancellationToken cancellationToken = default)
+	{
+		Record(nameof(GetRiderAvatarsAsync));
+		AvatarLookups.Add(userNames);
+
+		if (GetRiderAvatarsException is not null)
+		{
+			return Task.FromException<IReadOnlyList<RiderAvatarDto>>(GetRiderAvatarsException);
+		}
+
+		return Task.FromResult<IReadOnlyList<RiderAvatarDto>>(
+		[
+			.. userNames.Select(name => new RiderAvatarDto(
+				name,
+				AvatarsByUserName.TryGetValue(name, out Guid? photoId) ? photoId : null)),
+		]);
+	}
+
+	private OwnProfile CurrentProfile() =>
+		ProfileResult ?? new OwnProfile(null, null, null, false, false, false, false);
+
 	public Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListTracksAsync), TracksResult));
 	private static readonly DateTimeOffset SampleInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
@@ -364,6 +436,83 @@ public sealed class FakeApiClient : IApiClient
 	}
 	public Task<TrackEditResponse> UndoTrackEditAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 	public Task PurgeTrackPreviousVersionAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+	/// <summary>Every details-and-sharing save the UI sent, in order (§6.2).</summary>
+	public List<(Guid TrackId, UpdateTrackDetailsRequest Request)> UpdatedTrackDetails { get; } = new();
+
+	/// <summary>Set to make <see cref="UpdateTrackDetailsAsync"/> throw.</summary>
+	public Exception? UpdateTrackDetailsException { get; set; }
+
+	/// <summary>What <see cref="ListSharedTracksAsync"/> pages through. The fake filters and pages it the way the server does.</summary>
+	public List<SharedTrackSummary> SharedTracks { get; } = new();
+
+	/// <summary>Every browse query the UI sent, in order — what a test asserts the filter controls actually did.</summary>
+	public List<SharedTrackQuery> SharedTrackQueries { get; } = new();
+
+	/// <summary>Set to make <see cref="ListSharedTracksAsync"/> throw.</summary>
+	public Exception? ListSharedTracksException { get; set; }
+
+	public Task<TrackSummary> UpdateTrackDetailsAsync(Guid trackId, UpdateTrackDetailsRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(UpdateTrackDetailsAsync));
+		UpdatedTrackDetails.Add((trackId, request));
+
+		if (UpdateTrackDetailsException is not null)
+		{
+			return Task.FromException<TrackSummary>(UpdateTrackDetailsException);
+		}
+
+		// The stored summary rather than an echo of the request, for RenameTrackAsync's reason:
+		// the real endpoint cleans on the way in and the screen prints back what was stored.
+		TrackSummary current = TrackDetailResult?.Track
+			?? TracksResult.FirstOrDefault(track => track.Id == trackId)
+			?? new TrackSummary(trackId, null, SampleInstant, null, null, 0, null, null, null, 0, 1, TrackSourceDto.Recorded, 1);
+
+		return Task.FromResult(current with
+		{
+			Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+			PhotoId = request.PhotoId,
+			Visibility = request.Visibility,
+		});
+	}
+
+	/// <summary>
+	/// Filters and pages <see cref="SharedTracks"/> the way the endpoint does, so a test can drive
+	/// the pager over more rows than a page holds without standing up a server.
+	/// </summary>
+	public Task<SharedTrackPage> ListSharedTracksAsync(SharedTrackQuery query, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ListSharedTracksAsync));
+		SharedTrackQueries.Add(query);
+
+		if (ListSharedTracksException is not null)
+		{
+			return Task.FromException<SharedTrackPage>(ListSharedTracksException);
+		}
+
+		IEnumerable<SharedTrackSummary> matches = SharedTracks;
+
+		if (!string.IsNullOrWhiteSpace(query.Name))
+		{
+			matches = matches.Where(track =>
+				track.Name is not null
+				&& track.Name.Contains(query.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+		}
+
+		if (query.HasArea)
+		{
+			matches = matches.Where(track => track.AwayKm is null || track.AwayKm <= query.WithinKm);
+		}
+
+		List<SharedTrackSummary> all = matches.ToList();
+
+		List<SharedTrackSummary> page = all
+			.Skip((Math.Max(1, query.Page) - 1) * SharedTrackQuery.PageSize)
+			.Take(SharedTrackQuery.PageSize)
+			.ToList();
+
+		return Task.FromResult(new SharedTrackPage(page, Math.Max(1, query.Page), SharedTrackQuery.PageSize, all.Count));
+	}
 
 	/// <summary>Overrideable MyRides response.</summary>
 	public MyRides MyRidesResult { get; set; } = new(Array.Empty<RideSummary>(), Array.Empty<RideSummary>());

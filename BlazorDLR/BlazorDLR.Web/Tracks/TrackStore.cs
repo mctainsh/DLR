@@ -105,9 +105,34 @@ public sealed class TrackStore(DlrDbContext database, IBlobStore blobs, TimeProv
 		}
 	}
 
-	/// <summary>The list and detail projection (§6.2).</summary>
+	/// <summary>
+	/// The list and detail projection, for the owner (§6.2).
+	/// </summary>
 	/// <param name="track">The stored track.</param>
-	public static TrackSummary Summarise(Track track) => new(
+	/// <remarks>
+	/// Every caller of this overload has already scoped its query to the caller's own rows, which
+	/// is why <see cref="TrackSummary.IsMine"/> comes back true and no owner name is carried — it
+	/// would be the reader's own username on every row of their own list.
+	/// </remarks>
+	public static TrackSummary Summarise(Track track) => Project(track, ownerName: null, isMine: true);
+
+	/// <summary>
+	/// The same projection for a track the caller does not own — a public route opened from the
+	/// browse list (§6.2).
+	/// </summary>
+	/// <param name="track">The stored track.</param>
+	/// <param name="ownerName">
+	/// Whose it is. The username, never a self-chosen display name (§7.3).
+	/// </param>
+	/// <remarks>
+	/// A separate method rather than a defaulted argument, so that publishing somebody else's
+	/// track through the owner overload is a call that does not compile rather than a screen that
+	/// quietly offers Delete on a stranger's route.
+	/// </remarks>
+	public static TrackSummary SummariseForReader(Track track, string ownerName) =>
+		Project(track, ownerName, isMine: false);
+
+	private static TrackSummary Project(Track track, string? ownerName, bool isMine) => new(
 		track.Id,
 		track.Name,
 		track.CreatedUtc,
@@ -120,7 +145,17 @@ public sealed class TrackStore(DlrDbContext database, IBlobStore blobs, TimeProv
 		track.PointCount,
 		track.SegmentCount,
 		track.Source == TrackSource.Imported ? TrackSourceDto.Imported : TrackSourceDto.Recorded,
-		track.Version);
+		track.Version,
+		track.Visibility switch
+		{
+			TrackVisibility.Public => TrackVisibilityDto.Public,
+			TrackVisibility.Link => TrackVisibilityDto.Link,
+			_ => TrackVisibilityDto.Private,
+		},
+		track.Description,
+		track.PhotoId,
+		ownerName,
+		isMine);
 
 	private static byte[] SimplifiedBytes(TrackGeometry geometry)
 	{

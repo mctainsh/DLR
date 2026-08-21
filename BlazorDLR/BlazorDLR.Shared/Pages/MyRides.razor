@@ -1,9 +1,14 @@
 @page "/rides"
 @attribute [Authorize]
+@using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
 @using DLR.Core.Contracts.Tracks
+@using DLR.Core.Tracks
 @inject ITrackRepository Tracks
+@inject IApiClient Api
 @inject NavigationManager Nav
+@inject IServiceProvider Services
+@inject IJSRuntime JS
 
 <PageTitle>My routes — Dumb Luck Routes</PageTitle>
 
@@ -14,64 +19,276 @@
 		</Actions>
 	</PageNav>
 
-	@if (_state == State.Loading)
+	@*
+		The tab lives in the query string rather than in a field, so that the back link on a
+		shared route's detail page can land the reader on the list they came from (§6.2). A
+		field would take them back to their own routes, which is not where they were.
+	*@
+	<div class="tabs" role="tablist" aria-label="Which routes">
+		<button type="button" role="tab" class="@(ShowingShared ? "" : "on")"
+				aria-selected="@((!ShowingShared).ToString().ToLowerInvariant())"
+				@onclick="() => SwitchTab(mine: true)">
+			My routes
+		</button>
+		<button type="button" role="tab" class="@(ShowingShared ? "on" : "")"
+				aria-selected="@(ShowingShared.ToString().ToLowerInvariant())"
+				@onclick="() => SwitchTab(mine: false)">
+			Others' shared routes
+		</button>
+	</div>
+
+	@if (!ShowingShared)
 	{
-		<p class="empty">Loading…</p>
-	}
-	else if (_state == State.Error)
-	{
-		<p class="error">Could not load adventures: @_error</p>
-		<button type="button" class="primary" @onclick="LoadAsync">Retry</button>
-	}
-	else if (_tracks is null || _tracks.Count == 0)
-	{
-		<div class="empty">
-			<p>No adventures yet.</p>
-			<p>Import a GPX to add one.</p>
-		</div>
+		@if (_state == State.Loading)
+		{
+			<p class="empty">Loading…</p>
+		}
+		else if (_state == State.Error)
+		{
+			<p class="error">Could not load adventures: @_error</p>
+			<button type="button" class="primary" @onclick="LoadAsync">Retry</button>
+		}
+		else if (_tracks is null || _tracks.Count == 0)
+		{
+			<div class="empty">
+				<p>No adventures yet.</p>
+				<p>Import a GPX to add one.</p>
+			</div>
+		}
+		else
+		{
+			<table>
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Source</th>
+						<th class="numeric">Distance</th>
+						<th class="numeric">Duration</th>
+						<th class="numeric">Ascent</th>
+						<th>When</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (TrackSummary track in _tracks)
+					{
+						<tr @onclick="() => OpenTrack(track.Id)">
+							<td>
+								@(track.Name ?? "Untitled")
+								@* Whether other people can see this route belongs on the row that
+								   lists it, not only on the screen that set it. A rider scanning
+								   their own list is the person most likely to want to check. *@
+								@if (track.Visibility == TrackVisibilityDto.Public)
+								{
+									<span class="badge shared" title="Shared with everyone">
+										<i class="fa fa-fw fa-globe" aria-hidden="true"></i> Shared
+									</span>
+								}
+							</td>
+							<td>
+								<span class="badge @(track.Source == TrackSourceDto.Imported ? "imported" : "recorded")">
+									@track.Source
+								</span>
+							</td>
+							<td class="numeric">@FormatKm(track.DistanceM)</td>
+							<td class="numeric">@FormatDuration(track.DurationS)</td>
+							<td class="numeric">@FormatAscent(track.AscentM)</td>
+							<td>@track.CreatedUtc.ToLocalTime().ToString("d MMM yyyy")</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
 	}
 	else
 	{
-		<table>
-			<thead>
-				<tr>
-					<th>Name</th>
-					<th>Source</th>
-					<th class="numeric">Distance</th>
-					<th class="numeric">Duration</th>
-					<th class="numeric">Ascent</th>
-					<th>When</th>
-				</tr>
-			</thead>
-			<tbody>
-				@foreach (TrackSummary track in _tracks)
+		<form class="filters" @onsubmit="SearchAsync" @onsubmit:preventDefault>
+			<label class="by-name">
+				Name
+				<input @bind="_nameFilter" @bind:event="oninput" maxlength="@TrackNaming.MaxLength"
+					   placeholder="coast" aria-label="Filter by route name" />
+			</label>
+
+			<label class="by-area">
+				Area
+				<select @bind="_withinKm" @bind:after="SearchAsync" aria-label="Filter by area">
+					<option value="0">Anywhere</option>
+					@foreach (double option in RadiusOptions)
+					{
+						<option value="@option">Within @($"{option:0}") km</option>
+					}
+				</select>
+			</label>
+
+			<div class="anchor">
+				<button type="button" @onclick="UseMyLocationAsync" disabled="@_locating">
+					@(_locating ? "Locating…" : "Use my location")
+				</button>
+				<button type="button" @onclick="() => _pickingOnMap = true">Pick on map</button>
+			</div>
+
+			<button type="submit" class="primary" disabled="@_sharedBusy">Search</button>
+		</form>
+
+		@* Said in words, because "within 50 km" is meaningless without saying of where. A rider
+		   who has not set a centre yet is told so rather than shown an empty list. *@
+		<p class="anchor-note">
+			@if (_anchor is { } centre)
+			{
+				<span>Measuring from <strong>@_anchorLabel</strong> (@FormatDegrees(centre.Lat), @FormatDegrees(centre.Lon)).</span>
+			}
+			else if (_withinKm > 0)
+			{
+				<span class="warn">Pick a point first — <em>Use my location</em> or <em>Pick on map</em>.</span>
+			}
+			else
+			{
+				<span>Every shared route, newest first. Choose an area to narrow it down.</span>
+			}
+		</p>
+
+		@if (_pickingOnMap)
+		{
+			<div class="map-pick">
+				<p class="hint">Tap the ground you want to search around.</p>
+				@* Rotation off and the picking cursor on, for the same reason the marker composer
+				   and the private-area picker refuse it (§16.1, §10.1): a tap here means "this
+				   ground", and a rider who has turned the map is aiming at a north-up mental
+				   image that is no longer on screen. *@
+				<RideMap Camera="_pickCamera" AllowRotation="false" OnMapClicked="OnMapPickedAsync" />
+				<button type="button" @onclick="() => _pickingOnMap = false">Cancel</button>
+			</div>
+		}
+
+		@if (_sharedError is not null)
+		{
+			<p class="error">Could not load shared routes: @_sharedError</p>
+			<button type="button" class="primary" @onclick="SearchAsync">Retry</button>
+		}
+		else if (_shared is null)
+		{
+			<p class="empty">Loading…</p>
+		}
+		else if (_shared.Items.Count == 0)
+		{
+			<div class="empty">
+				<p>No shared routes match that.</p>
+				<p>Widen the area, or clear the name.</p>
+			</div>
+		}
+		else
+		{
+			<p class="count">
+				@_shared.TotalCount shared @(_shared.TotalCount == 1 ? "route" : "routes")
+				— page @_shared.Page of @_shared.PageCount
+			</p>
+
+			<ul class="shared-list">
+				@foreach (SharedTrackSummary route in _shared.Items)
 				{
-					<tr @onclick="() => OpenTrack(track.Id)">
-						<td>@(track.Name ?? "Untitled")</td>
-						<td>
-							<span class="badge @(track.Source == TrackSourceDto.Imported ? "imported" : "recorded")">
-								@track.Source
+					<li @onclick="() => OpenTrack(route.Id)">
+						@if (route.PhotoId is { } photoId)
+						{
+							<AuthedImage Url="@($"/api/v1/photos/{photoId}/thumbnail")"
+										 Alt="@($"Photo of {route.Name ?? "this route"}")" Class="thumb" />
+						}
+						else
+						{
+							@* A placeholder rather than nothing, so a list of mixed rows keeps one
+							   column of text down the page instead of ragging left and right. *@
+							<span class="thumb placeholder" aria-hidden="true">
+								<i class="fa fa-fw fa-route"></i>
 							</span>
-						</td>
-						<td class="numeric">@FormatKm(track.DistanceM)</td>
-						<td class="numeric">@FormatDuration(track.DurationS)</td>
-						<td class="numeric">@FormatAscent(track.AscentM)</td>
-						<td>@track.CreatedUtc.ToLocalTime().ToString("d MMM yyyy")</td>
-					</tr>
+						}
+
+						<div class="about">
+							<h3>@(route.Name ?? "Untitled")</h3>
+							<p class="meta">
+								<span class="by"><RiderAvatar UserName="@route.OwnerName" />by @route.OwnerName</span>
+								<span>@FormatKm(route.DistanceM)</span>
+								<span>@FormatAscent(route.AscentM) climbed</span>
+								@if (route.AwayKm is { } away)
+								{
+									<span>@FormatAway(away) away</span>
+								}
+							</p>
+							@if (route.Description is { Length: > 0 } description)
+							{
+								<p class="blurb">@Summarise(description)</p>
+							}
+						</div>
+					</li>
 				}
-			</tbody>
-		</table>
+			</ul>
+
+			<div class="pager">
+				<button type="button" disabled="@(_sharedBusy || _shared.Page <= 1)"
+						@onclick="() => GoToPageAsync(_shared.Page - 1)">
+					Previous
+				</button>
+				<span>Page @_shared.Page of @_shared.PageCount</span>
+				<button type="button" disabled="@(_sharedBusy || _shared.Page >= _shared.PageCount)"
+						@onclick="() => GoToPageAsync(_shared.Page + 1)">
+					Next
+				</button>
+			</div>
+		}
 	}
 </div>
 
 @code {
 	private enum State { Loading, Loaded, Error }
 
+	/// <summary>Which tab, carried in the query string. Anything but <c>shared</c> is the rider's own.</summary>
+	[Parameter, SupplyParameterFromQuery(Name = "tab")] public string? TabName { get; set; }
+
+	private bool ShowingShared => string.Equals(TabName, "shared", StringComparison.OrdinalIgnoreCase);
+
 	private State _state = State.Loading;
 	private IReadOnlyList<TrackSummary>? _tracks;
 	private string? _error;
 
+	// -- The shared tab ------------------------------------------------------------------
+
+	/// <summary>The radii offered. Wide gaps on purpose — nobody is choosing between 50 and 60 km.</summary>
+	private static readonly double[] RadiusOptions = [10, 25, 50, 100, 250, 500];
+
+	private SharedTrackPage? _shared;
+	private string? _sharedError;
+	private bool _sharedBusy;
+
+	private string? _nameFilter;
+
+	/// <summary>The chosen radius in kilometres; zero is the "Anywhere" option rather than a real radius.</summary>
+	private double _withinKm;
+
+	/// <summary>Where the area filter measures from, once the rider has said.</summary>
+	private (double Lat, double Lon)? _anchor;
+
+	/// <summary>What to call that point on screen — "my location" reads very differently from "the map".</summary>
+	private string _anchorLabel = "";
+
+	private bool _locating;
+	private bool _pickingOnMap;
+
+	/// <summary>Where the picking map opens: on the last point chosen, or on the world.</summary>
+	private MapCamera _pickCamera = new(0, 0, 2);
+
+	/// <summary>Guards a second load of the shared tab when a re-render brings us back through here.</summary>
+	private bool _sharedLoaded;
+
 	protected override async Task OnInitializedAsync() => await LoadAsync();
+
+	protected override async Task OnParametersSetAsync()
+	{
+		// The first time the shared tab is opened, and only then. The query string changes on
+		// every tab switch, so without this the browse list would be re-fetched — and the
+		// rider's filters silently reset — every time they looked at their own routes.
+		if (ShowingShared && !_sharedLoaded)
+		{
+			_sharedLoaded = true;
+			await LoadSharedAsync(1);
+		}
+	}
 
 	private async Task LoadAsync()
 	{
@@ -89,6 +306,139 @@
 		}
 	}
 
+	private void SwitchTab(bool mine) => Nav.NavigateTo(mine ? "/rides" : "/rides?tab=shared");
+
+	/// <summary>Runs the filter from the top. Any change to what is being asked resets to page one.</summary>
+	private Task SearchAsync() => LoadSharedAsync(1);
+
+	private Task GoToPageAsync(int page) => LoadSharedAsync(page);
+
+	/// <summary>
+	/// Fetches one page of shared routes.
+	/// </summary>
+	/// <param name="page">Which page, one-based.</param>
+	/// <remarks>
+	/// The area half of the filter is sent only when there is a point to measure from. A radius
+	/// with no centre is not a narrower search, it is an unanswerable one — the note above the
+	/// list says so rather than the list quietly coming back empty.
+	/// </remarks>
+	private async Task LoadSharedAsync(int page)
+	{
+		_sharedBusy = true;
+		_sharedError = null;
+
+		try
+		{
+			SharedTrackQuery query = _anchor is { } centre && _withinKm > 0
+				? new SharedTrackQuery(_nameFilter, centre.Lat, centre.Lon, _withinKm, page)
+				: new SharedTrackQuery(_nameFilter, Page: page);
+
+			_shared = await Api.ListSharedTracksAsync(query);
+		}
+		catch (Exception exception)
+		{
+			_sharedError = exception.Message;
+		}
+		finally
+		{
+			_sharedBusy = false;
+		}
+	}
+
+	/// <summary>
+	/// Puts the area filter's centre on the rider, by whatever means this host has.
+	/// </summary>
+	/// <remarks>
+	/// Two paths, and the order matters. On a phone <see cref="ILocationProvider"/> is the
+	/// sanctioned seam and the one that knows how to ask for the platform's permissions (§4.3).
+	/// The web hosts do not register it at all — a browser cannot deliver the background,
+	/// high-cadence stream a ride needs (§18.6) — but a browser can perfectly well answer "where
+	/// am I, once", which is all a search filter is asking for. So the fallback is the browser's
+	/// own one-shot API rather than nothing, and the distinction §18.6 draws is preserved: this
+	/// never watches, and it never records.
+	/// </remarks>
+	private async Task UseMyLocationAsync()
+	{
+		_locating = true;
+		_sharedError = null;
+
+		try
+		{
+			if (Services.GetService<ILocationProvider>() is { IsSupported: true } provider)
+			{
+				if (await provider.EnsurePermissionsAsync() != LocationPermissionState.Granted)
+				{
+					_sharedError = "This app does not have permission to use your location. "
+						+ "Grant it in system settings, or pick a point on the map instead.";
+					return;
+				}
+
+				// One fix and stop. The stream is cancelled the moment it produces something,
+				// so the recorder is never left running behind a search box.
+				using CancellationTokenSource cancellation = new(TimeSpan.FromSeconds(30));
+
+				await foreach (LocationFix fix in provider.WatchAsync(AccuracyProfile.Balanced, cancellation.Token))
+				{
+					SetAnchor(fix.Latitude, fix.Longitude, "my location");
+					return;
+				}
+
+				_sharedError = "No fix yet. Try again outside, or pick a point on the map.";
+				return;
+			}
+
+			// The browser path. A Promise is returned and Blazor awaits it, so a rider who
+			// refuses the prompt gets null rather than an exception that would read as a bug.
+			double[]? fixed_ = await JS.InvokeAsync<double[]?>(
+				"eval",
+				"new Promise(function(done){if(!navigator.geolocation){done(null);return;}"
+				+ "navigator.geolocation.getCurrentPosition("
+				+ "function(p){done([p.coords.latitude,p.coords.longitude]);},"
+				+ "function(){done(null);},{timeout:10000,maximumAge:60000});})");
+
+			if (fixed_ is { Length: 2 })
+			{
+				SetAnchor(fixed_[0], fixed_[1], "my location");
+				return;
+			}
+
+			_sharedError = "Your browser would not say where you are. Pick a point on the map instead.";
+		}
+		catch (Exception exception)
+		{
+			_sharedError = $"Could not read your location: {exception.Message}";
+		}
+		finally
+		{
+			_locating = false;
+		}
+	}
+
+	private async Task OnMapPickedAsync(MapClick click)
+	{
+		_pickingOnMap = false;
+
+		SetAnchor(click.Latitude, click.Longitude, "the point you picked");
+
+		await SearchAsync();
+	}
+
+	/// <summary>
+	/// Moves the area filter's centre, and re-opens the picking map there next time. A rider
+	/// correcting a tap should not have to find the same country twice.
+	/// </summary>
+	private void SetAnchor(double latitude, double longitude, string label)
+	{
+		_anchor = (latitude, longitude);
+		_anchorLabel = label;
+		_pickCamera = new MapCamera(latitude, longitude, ZoomLevel: 8);
+
+		// A centre with no radius filters nothing, and a rider who has just said where they are
+		// plainly meant to narrow the list. Fifty kilometres is the middle option.
+		if (_withinKm <= 0)
+			_withinKm = 50;
+	}
+
 	private void OpenTrack(Guid id) => Nav.NavigateTo($"/rides/{id}");
 
 	// Zero is a real number for distance and ascent; null is not, and it should show as "—"
@@ -96,6 +446,24 @@
 	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
 	private static string FormatDuration(double? seconds) => seconds is null ? "—" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
 	private static string FormatAscent(double? metres) => metres is null ? "—" : $"{metres.Value:0} m";
+
+	// Two decimals below a kilometre would be false precision on a bounding-box centre, and a
+	// whole number above one is all anybody reads.
+	private static string FormatAway(double kilometres) => kilometres < 1 ? "< 1 km" : $"{kilometres:0} km";
+
+	private static string FormatDegrees(double degrees) => $"{degrees:0.000}°";
+
+	/// <summary>The first line or so of a description, for a row that has one line to spend on it.</summary>
+	private static string Summarise(string description)
+	{
+		const int limit = 160;
+
+		// Newlines collapse here and only here. The detail page renders them; a list row that
+		// honoured them would be four rows tall for one route and one for the next.
+		string flat = description.ReplaceLineEndings(" ").Trim();
+
+		return flat.Length <= limit ? flat : flat[..limit].TrimEnd() + "…";
+	}
 }
 
 <style>
@@ -108,4 +476,153 @@
 	.rides .badge { margin-left: 0; }
 	.rides .badge.imported { background: #fef3c730; }
 	.rides .badge.recorded { background: #d1fae590; }
+	.rides .badge.shared { background: #dbeafe90; margin-left: 0.5rem; }
+
+	.rides .tabs {
+		display: flex;
+		gap: 0.25rem;
+		margin-top: 1rem;
+		border-bottom: 1px solid #fff3;
+	}
+
+		/* The selected tab is joined to the panel below it, which is the whole of how a tab strip
+		   says which one you are looking at. */
+		.rides .tabs button {
+			background: transparent;
+			border: 0;
+			border-bottom: 3px solid transparent;
+			padding: 0.6rem 0.9rem;
+			cursor: pointer;
+			font: inherit;
+			color: inherit;
+			opacity: 0.7;
+		}
+
+		.rides .tabs button.on {
+			border-bottom-color: currentColor;
+			opacity: 1;
+			font-weight: 600;
+		}
+
+	.rides .filters {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 0.75rem;
+		margin-top: 1rem;
+	}
+
+		.rides .filters label {
+			display: flex;
+			flex-direction: column;
+			gap: 0.2rem;
+		}
+
+		/* The name box takes what is left of the row; everything else is its natural width. */
+		.rides .filters .by-name {
+			flex: 1 1 12rem;
+			min-width: 8rem;
+		}
+
+	.rides .anchor {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.rides .anchor-note {
+		margin: 0.5rem 0 0;
+		opacity: 0.85;
+		font-size: 0.9rem;
+	}
+
+		.rides .anchor-note .warn {
+			opacity: 1;
+			font-weight: 600;
+		}
+
+	.rides .map-pick {
+		margin: 0.75rem 0;
+	}
+
+		/* Enough map to recognise where you are, and not so much that the list vanishes. */
+		.rides .map-pick .dlr-map-container {
+			height: 22rem;
+		}
+
+	.rides .count {
+		margin: 1rem 0 0.5rem;
+		opacity: 0.85;
+	}
+
+	.rides .shared-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+		.rides .shared-list li {
+			display: flex;
+			gap: 0.75rem;
+			padding: 0.6rem 0.5rem;
+			border-bottom: 1px solid #fff2;
+			cursor: pointer;
+			align-items: flex-start;
+		}
+
+		.rides .shared-list li:hover {
+			background: #fff2;
+		}
+
+	.rides .thumb {
+		width: 4.5rem;
+		height: 4.5rem;
+		flex: 0 0 auto;
+		object-fit: cover;
+		border-radius: 4px;
+	}
+
+		.rides .thumb.placeholder {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: #fff2;
+			opacity: 0.6;
+		}
+
+	.rides .about {
+		min-width: 0; /* so a long description wraps instead of stretching the row */
+	}
+
+		.rides .about h3 {
+			margin: 0;
+			font-size: 1rem;
+		}
+
+	.rides .meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin: 0.15rem 0 0;
+		font-size: 0.9rem;
+		opacity: 0.85;
+	}
+
+		.rides .meta .by {
+			display: inline-flex;
+			align-items: center;
+		}
+
+	.rides .blurb {
+		margin: 0.3rem 0 0;
+		font-size: 0.9rem;
+		opacity: 0.9;
+	}
+
+	.rides .pager {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-top: 1rem;
+	}
 </style>

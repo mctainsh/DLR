@@ -550,11 +550,10 @@ Both a failures-only limiter and an all-attempts limiter make
 `TryAcquire` call above the ride lookup was the break that proved it.
 **Watch out — a blocked rider gets the same 404 as an unknown code.** Anything else hands them the
 one fact the organiser was trying not to have a conversation about.
-**Watch out — the join code goes only to the organiser.** It is the ride's entire access control,
-so a member's copy carrying it lets any member re-share the group the organiser curated.
-`JoinCode_IsNeverSentToAnybodyButTheOrganiser` asserts against the raw response body rather than
-the `JoinCode` property, because the rule is "a member never receives the code", not "one field is
-null" — and it covers the admitted-by-approval path, which reaches membership a different way.
+**The join code goes to every member** *(widened in v0.29; SRV-20 shipped it organiser-only)*.
+`JoinCode_IsSentToEveryMember` covers both ways into a ride — joining an open ride with the code,
+and being admitted to an approval ride — because they reach membership differently and have to
+agree. See §5.2 for why the earlier rule was dropped; the export rule (§6.3) is unchanged.
 **Watch out — the organiser is a member row from creation.** Otherwise every "is this person in
 the ride" check needs two answers, and one of the call sites will eventually only ask one.
 **Note:** create and join carry `AuthorizationPolicies.NotRestricted`, which is what finally let
@@ -882,7 +881,7 @@ exactly this reason, and it was broken separately to prove it.
 `Permissions_PhotosOff_MarkerWithoutPhotoStillSucceeds` is the only one that separates them, which
 is the whole reason §5.8 makes photos their own switch.
 **Watch out — `RideDetail` gained a field**, so anything constructing it positionally needs the
-`Permissions` argument. Sent to every member, unlike the join code.
+`Permissions` argument.
 **Deferred, and the reason is task order.** `Permissions_CommentsOff_MemberMayStillReactAndVote`
 and `Permissions_PhotosOff_TextCommentStillSucceeds` both need a thread, which arrives in SRV-29
 and SRV-30. The switch and its enforcement hook exist now; **both tests are written in SRV-29/30**,

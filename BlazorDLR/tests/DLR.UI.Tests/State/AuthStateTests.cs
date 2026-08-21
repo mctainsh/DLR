@@ -161,6 +161,9 @@ public sealed class AuthStateTests
 		public Task<PrivateAreaResponse> GetPrivateAreaAsync(CancellationToken ct = default) => inner.GetPrivateAreaAsync(ct);
 		public Task SetPrivateAreaAsync(PrivateAreaSettings r, CancellationToken ct = default) => inner.SetPrivateAreaAsync(r, ct);
 		public Task ClearPrivateAreaAsync(CancellationToken ct = default) => inner.ClearPrivateAreaAsync(ct);
+		public Task<OwnProfile> SetAvatarAsync(SetAvatarRequest r, CancellationToken ct = default) => inner.SetAvatarAsync(r, ct);
+		public Task<OwnProfile> ClearAvatarAsync(CancellationToken ct = default) => inner.ClearAvatarAsync(ct);
+		public Task<IReadOnlyList<RiderAvatarDto>> GetRiderAvatarsAsync(IReadOnlyCollection<string> n, CancellationToken ct = default) => inner.GetRiderAvatarsAsync(n, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackSummary> UploadTrackAsync(DLR.Core.Contracts.Tracks.UploadTrackRequest r, CancellationToken ct = default) => inner.UploadTrackAsync(r, ct);
 		public Task<IReadOnlyList<DLR.Core.Contracts.Tracks.TrackSummary>> ListTracksAsync(CancellationToken ct = default) => inner.ListTracksAsync(ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackDetail> GetTrackAsync(Guid t, CancellationToken ct = default) => inner.GetTrackAsync(t, ct);
@@ -171,6 +174,8 @@ public sealed class AuthStateTests
 		public Task<DLR.Core.Contracts.Tracks.TrackEditResponse> EditTrackAsync(Guid t, DLR.Core.Contracts.Tracks.EditTrackRequest r, CancellationToken ct = default) => inner.EditTrackAsync(t, r, ct);
 		public Task<DLR.Core.Contracts.Tracks.TrackEditResponse> UndoTrackEditAsync(Guid t, CancellationToken ct = default) => inner.UndoTrackEditAsync(t, ct);
 		public Task PurgeTrackPreviousVersionAsync(Guid t, CancellationToken ct = default) => inner.PurgeTrackPreviousVersionAsync(t, ct);
+		public Task<DLR.Core.Contracts.Tracks.TrackSummary> UpdateTrackDetailsAsync(Guid t, DLR.Core.Contracts.Tracks.UpdateTrackDetailsRequest r, CancellationToken ct = default) => inner.UpdateTrackDetailsAsync(t, r, ct);
+		public Task<DLR.Core.Contracts.Tracks.SharedTrackPage> ListSharedTracksAsync(DLR.Core.Contracts.Tracks.SharedTrackQuery q, CancellationToken ct = default) => inner.ListSharedTracksAsync(q, ct);
 		public Task<DLR.Core.Contracts.Rides.MyRides> ListMyRidesAsync(CancellationToken ct = default) => inner.ListMyRidesAsync(ct);
 		public Task<DLR.Core.Contracts.Rides.RideDetail> GetRideAsync(Guid r, CancellationToken ct = default) => inner.GetRideAsync(r, ct);
 		public Task<DLR.Core.Contracts.Rides.RideDetail> CreateRideAsync(DLR.Core.Contracts.Rides.CreateRideRequest r, CancellationToken ct = default) => inner.CreateRideAsync(r, ct);

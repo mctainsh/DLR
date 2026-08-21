@@ -1,0 +1,156 @@
+@using BlazorDLR.Shared.State
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceProvider Services
+@implements IDisposable
+
+@*
+	The little round photograph beside a rider's name (§7.3).
+
+	Three properties worth knowing before changing it:
+
+	  * It renders nothing at all when the rider has no photograph, and nothing while one is
+	    still resolving. Not a placeholder, not initials, not a spinner — a name is complete on
+	    its own, and a row of grey circles that pop into faces a moment later is a list that
+	    looks broken while it loads. The consequence is that a screen with no avatars is exactly
+	    the screen this project had before avatars existed.
+
+	  * It is sized in em, not px. "About twice the line height" has to hold in a member list, in
+	    a comment header and in a page title, and those are different type sizes — so the circle
+	    is a multiple of whatever text it sits beside and follows it automatically.
+
+	  * It asks RiderAvatars rather than fetching anything. Twenty rows naming the same rider are
+	    one lookup and one download; see that type for why that is not a detail.
+
+	  * Its stylesheet is RiderAvatar.razor.css — scoped, not a <style> block. A <style> in the
+	    markup is emitted once per instance, and this component renders once per name on the
+	    screen; a member list would carry twenty copies of the same rules in its DOM and in its
+	    text content.
+
+	  * It resolves that cache with GetService and accepts null, the way shared code treats
+	    ILocationProvider (§18.2). All three hosts register it, so null is not a state production
+	    reaches — but this component is now inside a dozen others, and the failure mode of a
+	    required injection is a screen that will not render because a decoration could not be
+	    built. A missing picture is the correct price for a missing registration; a blank member
+	    list is not.
+*@
+
+@if (_url is not null)
+{
+	<img class="rider-avatar @SizeClass @Class" src="@_url" alt="@Alt" loading="lazy" />
+}
+
+@code {
+	/// <summary>How big the circle is, relative to the text beside it.</summary>
+	public enum AvatarSize
+	{
+		/// <summary>
+		/// About twice the line height — beside a name in a list, a header or a byline. The
+		/// default, because that is nearly everywhere a name appears.
+		/// </summary>
+		Inline = 0,
+
+		/// <summary>
+		/// The large one, for a page whose subject is the rider themselves. Nothing renders this
+		/// yet; the rider detail screen that will is not built. It is here so that screen does not
+		/// arrive with a second avatar component beside this one.
+		/// </summary>
+		Detail = 1,
+	}
+
+	/// <summary>Whose photograph. Blank renders nothing.</summary>
+	[Parameter, EditorRequired] public string? UserName { get; set; }
+
+	/// <summary>Inline beside a name, or the large one on a rider's own page.</summary>
+	[Parameter] public AvatarSize Size { get; set; } = AvatarSize.Inline;
+
+	/// <summary>Extra classes for the one caller that needs to nudge the layout.</summary>
+	[Parameter] public string? Class { get; set; }
+
+	/// <summary>
+	/// The cache, or null on a host or a test that never registered one. See the note at the top:
+	/// this component degrades to drawing nothing rather than refusing to render.
+	/// </summary>
+	private RiderAvatars? _avatars;
+
+	private string? _url;
+
+	/// <summary>What was last asked about, so a re-render with the same name does not re-resolve.</summary>
+	private string? _resolved;
+
+	private CancellationTokenSource? _cancellation;
+
+	/// <summary>
+	/// Empty rather than the username. The name is already beside it in text, and a screen reader
+	/// announcing "riley, image, riley" reads the same person twice. This is decoration for a
+	/// label that is already there.
+	/// </summary>
+	private string Alt => string.Empty;
+
+	private string SizeClass => Size == AvatarSize.Detail ? "detail" : "inline";
+
+	protected override void OnInitialized()
+	{
+		_avatars = Services.GetService<RiderAvatars>();
+
+		if (_avatars is not null)
+		{
+			_avatars.Changed += OnAvatarsChanged;
+		}
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (string.Equals(UserName, _resolved, StringComparison.OrdinalIgnoreCase))
+		{
+			return;
+		}
+
+		_resolved = UserName;
+
+		await ResolveAsync();
+	}
+
+	private async Task ResolveAsync()
+	{
+		_cancellation?.Cancel();
+		_cancellation?.Dispose();
+		_cancellation = new CancellationTokenSource();
+
+		if (_avatars is null)
+		{
+			return;
+		}
+
+		string? url = await _avatars.ImageUrlAsync(UserName, _cancellation.Token);
+
+		// Checked after the await: the parameter may have moved on while the batch was in flight,
+		// which in a virtualised list is ordinary rather than rare.
+		if (string.Equals(UserName, _resolved, StringComparison.OrdinalIgnoreCase))
+		{
+			_url = url;
+		}
+	}
+
+	/// <summary>
+	/// Re-resolves when the cache says an answer stopped being true — the rider changing their own
+	/// photograph on the Profile screen, where every avatar of theirs on screen should follow.
+	/// </summary>
+	private void OnAvatarsChanged() => _ = InvokeAsync(async () =>
+	{
+		await ResolveAsync();
+
+		StateHasChanged();
+	});
+
+	public void Dispose()
+	{
+		if (_avatars is not null)
+		{
+			_avatars.Changed -= OnAvatarsChanged;
+		}
+
+		_cancellation?.Cancel();
+		_cancellation?.Dispose();
+	}
+}
+

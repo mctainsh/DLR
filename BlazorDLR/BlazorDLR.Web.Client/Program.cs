@@ -61,6 +61,11 @@ internal class Program
 		// Welcome page and the SSR cookie handoff both drive it.
 		builder.Services.AddScoped<AuthState>();
 		builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthState>());
+
+		// Username to profile photograph, for every screen that draws a name (§7.3). Scoped like
+		// AuthState above it, and for the same reason: what it holds belongs to one signed-in
+		// session and must go when that session does.
+		builder.Services.AddScoped<RiderAvatars>();
 		builder.Services.AddAuthorizationCore();
 
 		// Live positions and hub events (§5.3, §5.7). The token provider hands SignalR the

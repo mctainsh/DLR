@@ -55,6 +55,15 @@ public sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
 		// that owns it — so there is no index to want either.
 		builder.Ignore(user => user.HasPrivateArea);
 
+		// SetNull rather than Cascade, exactly as a marker's and a track's photo are (§16.4): an
+		// account whose profile picture was swept away is still an account, and cascading here
+		// would delete a rider because a blob went missing.
+		builder
+			.HasOne(user => user.AvatarPhoto)
+			.WithMany()
+			.HasForeignKey(user => user.AvatarPhotoId)
+			.OnDelete(DeleteBehavior.SetNull);
+
 		builder.Property(user => user.DisplayName).HasMaxLength(60);
 		builder.Property(user => user.PhoneNumber).HasMaxLength(20);
 

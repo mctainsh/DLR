@@ -3,6 +3,7 @@
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
+@using DLR.Core.Contracts.Photos
 @using DLR.Core.Contracts.Tracks
 @using DLR.Core.Tracks
 @inject ITrackRepository Tracks
@@ -17,17 +18,30 @@
 	@* Outside the load branches, so the bar — and the way back — is on screen while the
 	   track is still loading and if it fails to load at all. The actions inside it are
 	   what wait for the track, because neither can act on nothing. *@
-	<PageNav Title="@Title" BackHref="/rides" BackLabel="Back to my routes">
+	<PageNav Title="@Title" BackHref="@BackHref" BackLabel="@BackLabel">
 		<Actions>
 			@if (_track is not null)
 			{
-				<a class="button" href="/rides/@TrackId/edit">Edit</a>
-				@* Rename and delete apply to a recorded track and an imported one alike — they are
-				   the same entity, and a file somebody sent you is the one most likely to arrive
-				   called "Course 3" (§15.1). *@
-				<button type="button" class="primary" @onclick="StartRenaming">Rename</button>
+				@* Everything that writes is gated on ownership. This page is reached from the
+				   browse tab as well as from My routes now (§6.2), and a stranger's route has to
+				   arrive with no Edit, no Rename and no Delete on it — the server refuses all
+				   three anyway, but a button that exists to produce a 404 is not a button. *@
+				@if (_track.Track.IsMine)
+				{
+					<a class="button" href="/rides/@TrackId/edit">Edit</a>
+					@* Rename and delete apply to a recorded track and an imported one alike — they are
+					   the same entity, and a file somebody sent you is the one most likely to arrive
+					   called "Course 3" (§15.1). *@
+					<button type="button" class="primary" @onclick="StartRenaming">Rename</button>
+					<button type="button" class="primary" @onclick="StartEditingDetails">Details &amp; sharing</button>
+				}
+				@* Downloading is not gated. A route shared with everyone is shared to be ridden,
+				   and a GPX is how it gets onto the device that will ride it. *@
 				<button type="button" class="primary" @onclick="DownloadGpxAsync">Download GPX</button>
-				<button type="button" class="danger" disabled="@_busy" @onclick="DeleteAsync">Delete</button>
+				@if (_track.Track.IsMine)
+				{
+					<button type="button" class="danger" disabled="@_busy" @onclick="DeleteAsync">Delete</button>
+				}
 			}
 		</Actions>
 	</PageNav>
@@ -51,6 +65,75 @@
 		</div>
 	}
 
+	@if (_editingDetails && _track is not null)
+	{
+		<div class="details-panel">
+			<h2>Details &amp; sharing</h2>
+
+			<fieldset>
+				<legend>Photo</legend>
+
+				@* Three states, and they are genuinely different: a photo already stored, a new
+				   one picked but not yet uploaded, and none. The stored one is fetched through
+				   AuthedImage because /api/v1/photos is behind the bearer token (§16.4). *@
+				@if (_pickedPhoto is not null)
+				{
+					<p class="picked">
+						<em>@_pickedPhoto.FileName selected — @(_pickedPhoto.Bytes.Length / 1024) KB.</em>
+						<button type="button" @onclick="() => _pickedPhoto = null">Undo</button>
+					</p>
+				}
+				else if (_photoId is { } current)
+				{
+					<div class="cover-edit">
+						<AuthedImage Url="@($"/api/v1/photos/{current}/thumbnail")" Alt="Route photo" Class="cover-thumb" />
+						<button type="button" @onclick="() => _photoId = null">Remove photo</button>
+					</div>
+				}
+
+				@if (_pickedPhoto is null)
+				{
+					<InputFile OnChange="OnPhotoSelectedAsync" accept="image/jpeg,image/png,image/heic,image/webp" />
+				}
+
+				<p class="hint">
+					The server re-encodes every photo and strips its metadata (§16.4) — an EXIF GPS
+					tag from your driveway will not travel with a route you share.
+				</p>
+			</fieldset>
+
+			<label>
+				Description
+				<textarea @bind="_description" @bind:event="oninput" rows="5"
+						  maxlength="@TrackDescription.MaxLength"
+						  placeholder="Surface, traffic, where the road is broken, where to stop."
+						  aria-label="Route description"></textarea>
+			</label>
+			<p class="hint">@(_description?.Length ?? 0) of @TrackDescription.MaxLength characters.</p>
+
+			<label class="switch">
+				<input type="checkbox" @bind="_shared" />
+				Share this route with everyone
+			</label>
+			<p class="hint">
+				@* Said before the switch is thrown rather than discovered afterwards. What
+				   becomes visible is the whole line, and the line is where the rider lives
+				   unless they trimmed it (§15.6). *@
+				Shared routes appear in every rider's <a href="/rides">Others' shared routes</a>
+				list with your username, the whole line on the map and this description. Trim the
+				start and the end first if the route begins at your front door — turning this off
+				later does not un-see it.
+			</p>
+
+			<div class="panel-actions">
+				<button type="button" class="primary" disabled="@_busy" @onclick="SaveDetailsAsync">
+					@(_busy ? "Saving…" : "Save")
+				</button>
+				<button type="button" disabled="@_busy" @onclick="() => _editingDetails = false">Cancel</button>
+			</div>
+		</div>
+	}
+
 	@if (_status is not null)
 	{
 		<p class="status">@_status</p>
@@ -66,6 +149,38 @@
 	}
 	else if (_track is not null)
 	{
+		@* Whose it is, and whether anybody else can see it. Both are on the reading view rather
+		   than only inside the panel: a rider opening their own route wants to know at a glance
+		   that it is public, and a rider opening somebody else's needs to know it is not theirs
+		   before they wonder where Edit went. *@
+		@if (!_track.Track.IsMine)
+		{
+			<p class="byline">
+				<RiderAvatar UserName="@_track.Track.OwnerName" />
+				Shared by <strong>@(_track.Track.OwnerName ?? "another rider")</strong>
+			</p>
+		}
+		else if (_track.Track.Visibility == TrackVisibilityDto.Public)
+		{
+			<p class="byline shared">
+				<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
+				Shared with everyone.
+			</p>
+		}
+
+		@if (_track.Track.PhotoId is { } cover)
+		{
+			<AuthedImage Url="@($"/api/v1/photos/{cover}")" Alt="@($"Photo of {Title}")" Class="cover" />
+		}
+
+		@if (_track.Track.Description is { Length: > 0 } description)
+		{
+			@* white-space: pre-wrap in the stylesheet below, because TrackDescription keeps the
+			   newlines the rider typed and collapsing them here would throw away the paragraphs
+			   they wrote. Razor escapes the text either way. *@
+			<p class="description">@description</p>
+		}
+
 		<dl class="stats">
 			<dt>Distance</dt>
 			<dd>@FormatKm(_track.Track.DistanceM)</dd>
@@ -101,6 +216,34 @@
 	/// <summary>The one line under the bar that reports what a write did, or why it did not.</summary>
 	private string? _status;
 
+	/// <summary>Whether the details-and-sharing panel is open. Closed until asked for, like the rename box.</summary>
+	private bool _editingDetails;
+
+	/// <summary>What is in the description box while the panel is open.</summary>
+	private string? _description;
+
+	/// <summary>The cover photo the panel will save — the stored one, a cleared one, or the upload below.</summary>
+	private Guid? _photoId;
+
+	/// <summary>Whether the panel's switch is on, which is <see cref="TrackVisibilityDto.Public"/> in one bool.</summary>
+	private bool _shared;
+
+	/// <summary>
+	/// An image chosen but not yet uploaded. Held in memory rather than uploaded on selection, so
+	/// cancelling the panel leaves nothing on the server to sweep up.
+	/// </summary>
+	private PickedPhoto? _pickedPhoto;
+
+	/// <summary>The largest image the photo endpoint will take (§16.4), checked at the keyboard.</summary>
+	private const long MaxPhotoBytes = 12 * 1024 * 1024;
+
+	// Where "back" goes, and it is not always My routes any more. A stranger's route was reached
+	// from the browse tab, and sending the reader to a list their route is not in would read as
+	// the app having lost it.
+	private string BackHref => _track?.Track.IsMine == false ? "/rides?tab=shared" : "/rides";
+
+	private string BackLabel => _track?.Track.IsMine == false ? "Back to shared routes" : "Back to my routes";
+
 	// Two different "no name" cases, and they read differently: nothing has loaded yet
 	// (the generic word, so the bar is not blank), versus a track that loaded carrying no
 	// name of its own.
@@ -112,6 +255,8 @@
 		_error = null;
 		_routes = null;
 		_renaming = false;
+		_editingDetails = false;
+		_pickedPhoto = null;
 		_status = null;
 
 		try
@@ -159,6 +304,113 @@
 		_status = null;
 		_renaming = true;
 	}
+
+	/// <summary>
+	/// Opens the details panel over what the track already holds, so every control starts on the
+	/// stored value and a rider who came to change one of them does not have to retype the others.
+	/// </summary>
+	private void StartEditingDetails()
+	{
+		if (_track is null) return;
+
+		_description = _track.Track.Description;
+		_photoId = _track.Track.PhotoId;
+		_shared = _track.Track.Visibility == TrackVisibilityDto.Public;
+		_pickedPhoto = null;
+		_status = null;
+		_editingDetails = true;
+	}
+
+	/// <summary>
+	/// Reads the chosen image into memory. Nothing is uploaded here — see <see cref="_pickedPhoto"/>.
+	/// </summary>
+	private async Task OnPhotoSelectedAsync(InputFileChangeEventArgs args)
+	{
+		IBrowserFile file = args.File;
+
+		if (file.Size > MaxPhotoBytes)
+		{
+			// Said here rather than after a 413 from the far end of somebody's phone connection,
+			// which is the case this check exists for.
+			_status = "That photo is larger than 12 MB — the server would refuse it.";
+			return;
+		}
+
+		try
+		{
+			await using Stream stream = file.OpenReadStream(MaxPhotoBytes);
+			using MemoryStream memory = new();
+			await stream.CopyToAsync(memory);
+
+			_pickedPhoto = new PickedPhoto(memory.ToArray(), file.ContentType, file.Name);
+			_status = null;
+		}
+		catch (Exception exception)
+		{
+			_status = $"Could not read that photo: {exception.Message}";
+		}
+	}
+
+	/// <summary>
+	/// Uploads the picked photo if there is one, then saves the description, the cover and the
+	/// sharing switch in one request.
+	/// </summary>
+	/// <remarks>
+	/// The upload goes first and the panel closes only if the save that follows succeeds. A photo
+	/// uploaded and then never attached is an orphan the §7.11 sweep collects, which is a far
+	/// better outcome than a save that claims to have attached one it never uploaded.
+	/// </remarks>
+	private async Task SaveDetailsAsync()
+	{
+		if (_track is null) return;
+
+		_busy = true;
+		_status = null;
+
+		try
+		{
+			Guid? photoId = _photoId;
+
+			if (_pickedPhoto is { } picked)
+			{
+				using MemoryStream memory = new(picked.Bytes);
+
+				PhotoUploaded uploaded = await Api.UploadPhotoAsync(memory, picked.ContentType, picked.FileName);
+				photoId = uploaded.PhotoId;
+			}
+
+			TrackSummary saved = await Api.UpdateTrackDetailsAsync(
+				TrackId,
+				new UpdateTrackDetailsRequest(
+					_description,
+					photoId,
+
+					// Private rather than Link when the switch is off. Link visibility is the
+					// §6.3 share endpoint's to set and has no control on this screen; writing it
+					// here would silently take a route out of a state nothing can put it back in.
+					_shared ? TrackVisibilityDto.Public : TrackVisibilityDto.Private));
+
+			// What the server stored, not what was typed — the description is cleaned on the way
+			// in and a screen echoing the raw string would disagree with the browse list.
+			_track = _track with { Track = saved };
+			_pickedPhoto = null;
+			_editingDetails = false;
+			_status = saved.Visibility == TrackVisibilityDto.Public
+				? "Saved. This route is shared with everyone."
+				: "Saved.";
+		}
+		catch (Exception exception)
+		{
+			_status = $"Could not save it: {exception.Message}";
+		}
+		finally
+		{
+			_busy = false;
+		}
+	}
+
+	/// <summary>An image read off the device and waiting for Save. Mirrors AddMarker's.</summary>
+	private sealed record PickedPhoto(byte[] Bytes, string ContentType, string FileName);
 
 	/// <summary>
 	/// Renames the track. The response is the stored summary rather than what was typed, so what
@@ -296,6 +548,108 @@
 		}
 
 	.detail .rename-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 0.75rem;
+	}
+
+	.detail .byline {
+		display: flex;
+		align-items: center;
+		margin: 0.75rem 0 0;
+		opacity: 0.85;
+	}
+
+		.detail .byline.shared {
+			opacity: 1;
+		}
+
+	/* Capped rather than free. A 2048 px cover would push the stats and the map below the fold
+	   on a phone, and the map is what the page is for. */
+	.detail .cover {
+		display: block;
+		width: 100%;
+		max-width: 40rem;
+		max-height: 22rem;
+		object-fit: cover;
+		border-radius: 6px;
+		margin: 0.75rem 0;
+	}
+
+	/* pre-wrap, because TrackDescription keeps the newlines the rider typed — collapsing them
+	   here would throw away the paragraphs they wrote. */
+	.detail .description {
+		white-space: pre-wrap;
+		max-width: 44rem;
+		margin: 0.75rem 0;
+	}
+
+	.detail .details-panel {
+		padding: 0.75rem 1rem;
+		margin-top: 1rem;
+		background: #fff2;
+		border-radius: 6px;
+	}
+
+		.detail .details-panel h2 {
+			margin: 0 0 0.5rem;
+			font-size: 1.1rem;
+		}
+
+		.detail .details-panel fieldset {
+			border: 0;
+			margin: 0 0 0.75rem;
+			padding: 0;
+			min-width: 0; /* fieldset defaults to min-content, which stops it wrapping in a grid */
+		}
+
+		.detail .details-panel legend {
+			padding: 0;
+			margin-bottom: 0.35rem;
+		}
+
+		.detail .details-panel label {
+			display: block;
+		}
+
+		.detail .details-panel textarea {
+			display: block;
+			width: 100%;
+			resize: vertical;
+		}
+
+		/* The switch is a checkbox and its text on one line, which the block rule above would
+		   otherwise stack. */
+		.detail .details-panel label.switch {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			margin-top: 0.75rem;
+		}
+
+	.detail .cover-edit {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.detail .cover-thumb {
+		width: 6rem;
+		height: 6rem;
+		object-fit: cover;
+		border-radius: 4px;
+	}
+
+	.detail .picked {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.detail .panel-actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.75rem;

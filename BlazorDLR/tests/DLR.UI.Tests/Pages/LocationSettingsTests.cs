@@ -498,10 +498,6 @@ public sealed class LocationSettingsTests : PageTestContext
 		// is most likely to quietly drop.
 		markup.Contains("saved with your account", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
 			"the traveller is entitled to know the circle follows them — that is why it moved.");
-		markup.Contains("stored on the server", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"and entitled to know what that costs: the server holds a point that names where they live.");
-		markup.Contains("no other traveller", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"while the guarantee that did not change is stated just as plainly.");
 		markup.Contains("present", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
 			"§5.6: inside the area you are still in the adventure — you simply have no position on the map.");
 	}

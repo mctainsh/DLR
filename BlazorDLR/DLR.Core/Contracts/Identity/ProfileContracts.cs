@@ -25,6 +25,16 @@ namespace DLR.Core.Contracts.Identity;
 /// would be a setting with no effect.
 /// </para>
 /// </param>
+/// <param name="AvatarPhotoId">
+/// The photograph shown beside this rider's username wherever it is read, or null (§7.3, §16.4).
+/// <para>
+/// No sharing switch, on <paramref name="MarkerColour"/>'s reasoning rather than the three above
+/// it: a profile photograph has no private use, so adding one is the consent and removing it is
+/// how that is withdrawn. It is read-only here — <c>PUT /me/avatar</c> sets it, so that a client
+/// which has not been taught about it cannot clear it by saving the rest of the form. See
+/// <see cref="SetAvatarRequest"/>.
+/// </para>
+/// </param>
 public sealed record OwnProfile(
 	string? DisplayName,
 	string? PhoneNumber,
@@ -33,7 +43,8 @@ public sealed record OwnProfile(
 	bool ShareDisplayName,
 	bool SharePhoneNumber,
 	bool ShareEmail,
-	string? MarkerColour = null);
+	string? MarkerColour = null,
+	Guid? AvatarPhotoId = null);
 
 /// <summary>
 /// <c>PUT /api/v1/me/profile</c> (§7.14).

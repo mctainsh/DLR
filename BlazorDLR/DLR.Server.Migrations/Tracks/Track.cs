@@ -1,4 +1,5 @@
 using DLR.Server.Data.Identity;
+using DLR.Server.Data.Photos;
 
 namespace DLR.Server.Data.Tracks;
 
@@ -21,7 +22,10 @@ public enum TrackVisibility
 	/// <summary>Anyone holding the share link (§6.3's share endpoint, a later task).</summary>
 	Link = 1,
 
-	/// <summary>Anyone.</summary>
+	/// <summary>
+	/// Anyone signed in. What <em>share this route with everyone</em> sets, and the only
+	/// state <c>GET /api/v1/tracks/shared</c> will list.
+	/// </summary>
 	Public = 2,
 }
 
@@ -59,6 +63,17 @@ public sealed class Track
 
 	/// <summary>What the rider called it, or what the file did.</summary>
 	public string? Name { get; set; }
+
+	/// <summary>
+	/// What the rider wrote about it — surface, traffic, where to stop for coffee.
+	/// <para>
+	/// Free text, and the only field on a track written for somebody else to read. Newlines
+	/// survive <see cref="DLR.Core.Markers.MarkerText.Clean"/>, because a route description is
+	/// written in paragraphs far more often than a marker note is.
+	/// </para>
+	/// </summary>
+	public string? Description { get; set; }
+
 
 	/// <summary>When the server first stored it. What the track list sorts on.</summary>
 	public DateTimeOffset CreatedUtc { get; set; }
@@ -101,6 +116,30 @@ public sealed class Track
 
 	/// <summary>Who can see it.</summary>
 	public TrackVisibility Visibility { get; set; }
+
+	/// <summary>
+	/// When it first became <see cref="TrackVisibility.Public"/>, or null if it never has been.
+	/// <para>
+	/// What the browse list sorts on, and deliberately not <see cref="CreatedUtc"/>: a rider who
+	/// imports a decade of GPX files and shares one of them today has shared something new, and
+	/// ordering that list by when the file was recorded would bury it under nothing.
+	/// </para>
+	/// <para>
+	/// Set once and kept. Un-sharing and re-sharing does not push a route back to the top of
+	/// everybody's list, which is the one thing a timestamp reset here would be used for.
+	/// </para>
+	/// </summary>
+	public DateTimeOffset? FirstSharedUtc { get; set; }
+
+	/// <summary>
+	/// The photograph that represents this route in a list, or null for a route with no picture.
+	/// <para>
+	/// <c>SetNull</c> on delete, on <see cref="Data.Markers.Marker.PhotoId"/>'s reasoning: losing
+	/// the picture must not take the route with it.
+	/// </para>
+	/// </summary>
+	public Guid? PhotoId { get; set; }
+
 
 	/// <summary>Where the full-resolution points are (§9.1).</summary>
 	public string BlobRef { get; set; } = string.Empty;
@@ -153,4 +192,7 @@ public sealed class Track
 
 	/// <summary>The account, for cascade deletion.</summary>
 	public AppUser? Owner { get; set; }
+
+	/// <summary>The cover photograph, when there is one.</summary>
+	public Photo? Photo { get; set; }
 }

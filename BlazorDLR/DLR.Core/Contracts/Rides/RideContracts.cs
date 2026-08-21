@@ -78,8 +78,9 @@ public sealed record JoinResult(Guid RideId, bool Joined, Guid? RequestId);
 /// <param name="MemberCount">How many are in.</param>
 /// <param name="IsOrganiser">Whether the caller runs it.</param>
 /// <param name="JoinCode">
-/// Only ever sent to the organiser. It is the ride's entire access control (§5.2), so putting
-/// it in a member's copy would let any member re-share the ride the organiser curated.
+/// The code that gets somebody into the ride (§5.2). Sent to every member, not only the
+/// organiser: a rider who is already in wants to tell a friend how to follow along, and on an
+/// approval ride the organiser still decides who is actually admitted.
 /// </param>
 /// <param name="Permissions">
 /// What ordinary members may add (§5.8). Sent to everyone, not only the organiser: a client that
@@ -177,8 +178,8 @@ public sealed record RideMemberSummary(
 /// <param name="IsOrganiser">Whether the caller runs it.</param>
 /// <param name="MemberCount">How many are in.</param>
 /// <param name="JoinCode">
-/// Only ever sent to the organiser, same rule as <see cref="RideDetail.JoinCode"/>. Null for a
-/// joined-not-organised ride.
+/// Same rule as <see cref="RideDetail.JoinCode"/> — sent to every member, so a joined ride shows
+/// its code on the list as an organised one does.
 /// </param>
 public sealed record RideSummary(
 	Guid Id,

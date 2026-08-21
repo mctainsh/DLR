@@ -1,3 +1,4 @@
+using DLR.Core.Tracks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,6 +15,7 @@ public sealed class TrackConfiguration : IEntityTypeConfiguration<Track>
 		builder.HasKey(track => track.Id);
 
 		builder.Property(track => track.Name).HasMaxLength(120);
+		builder.Property(track => track.Description).HasMaxLength(TrackDescription.MaxLength);
 		builder.Property(track => track.BlobRef).HasMaxLength(64).IsRequired();
 		builder.Property(track => track.ImportedFileName).HasMaxLength(260);
 		builder.Property(track => track.ImportedFormat).HasMaxLength(20);
@@ -28,6 +30,15 @@ public sealed class TrackConfiguration : IEntityTypeConfiguration<Track>
 			.WithMany()
 			.HasForeignKey(track => track.OwnerId)
 			.OnDelete(DeleteBehavior.Cascade);
+
+		// SetNull rather than Cascade, exactly as a marker's photo is (§16.4): a route whose
+		// cover picture was swept away is still a route worth riding, and cascading here would
+		// delete somebody's shared adventure because a blob went missing.
+		builder
+			.HasOne(track => track.Photo)
+			.WithMany()
+			.HasForeignKey(track => track.PhotoId)
+			.OnDelete(DeleteBehavior.SetNull);
 
 		// What makes the upload idempotent (§6.3). A unique index rather than a check in the
 		// endpoint, because two drains of the same outbox can arrive at once and a read
@@ -49,6 +60,22 @@ public sealed class TrackConfiguration : IEntityTypeConfiguration<Track>
 		builder
 			.HasIndex(track => new { track.OwnerId, track.ContentHash })
 			.HasDatabaseName("ix_track_owner_content_hash");
+
+		// The browse list: every public track, newest-shared first. Filtered rather than
+		// covering the whole table, because the shared routes are a small minority of the rows
+		// and this index is read on every page of a list expected to get long.
+		builder
+			.HasIndex(track => new { track.Visibility, track.FirstSharedUtc })
+			.HasDatabaseName("ix_track_shared")
+			.HasFilter("visibility = 'Public'");
+
+		// The "near a point" filter compares the track's own bounding box before the
+		// great-circle distance narrows it. Latitude only: Postgres will use one of the two
+		// columns, and longitude spans widen towards the poles while latitude never does.
+		builder
+			.HasIndex(track => new { track.BoundsMinLat, track.BoundsMaxLat })
+			.HasDatabaseName("ix_track_shared_bounds_lat")
+			.HasFilter("visibility = 'Public'");
 	}
 }
 

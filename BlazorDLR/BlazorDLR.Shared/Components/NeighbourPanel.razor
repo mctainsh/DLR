@@ -34,6 +34,7 @@
 			{
 				<li class="@(row.IsSelf ? "self" : null)">
 					<span class="swatch" style="background: @row.Colour" aria-hidden="true"></span>
+					<RiderAvatar UserName="@row.UserName" />
 					<span class="name">@row.UserName</span>
 					<span class="gap">
 						@if (row.IsSelf)

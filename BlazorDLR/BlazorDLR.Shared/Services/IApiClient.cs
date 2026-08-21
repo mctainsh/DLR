@@ -71,6 +71,29 @@ public interface IApiClient
 	/// <summary><c>DELETE /api/v1/me/private-area</c> — forgets it, so the account shares from everywhere again.</summary>
 	Task ClearPrivateAreaAsync(CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// <c>PUT /api/v1/me/avatar</c> — the photograph shown beside the caller's username (§7.3).
+	/// <para>
+	/// Its own call rather than a field on <see cref="UpdateProfileAsync"/>, for the reason the
+	/// private area above has its own: that request replaces the whole profile, so an avatar
+	/// travelling inside it would be cleared by any client not taught about it.
+	/// </para>
+	/// </summary>
+	Task<OwnProfile> SetAvatarAsync(SetAvatarRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary><c>DELETE /api/v1/me/avatar</c> — removes it, so the name is drawn on its own again.</summary>
+	Task<OwnProfile> ClearAvatarAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>GET /api/v1/users/avatars</c> — the photographs for a screenful of usernames, in one
+	/// request (§7.3).
+	/// <para>
+	/// Callers should go through <c>RiderAvatars</c> rather than here: it is the thing that
+	/// batches a render pass into one call and remembers the answers, including the negative ones.
+	/// </para>
+	/// </summary>
+	Task<IReadOnlyList<RiderAvatarDto>> GetRiderAvatarsAsync(IReadOnlyCollection<string> userNames, CancellationToken cancellationToken = default);
+
 	// -- Tracks (§6.3, §15) ---------------------------------------------------------------
 
 	/// <summary>
@@ -112,6 +135,28 @@ public interface IApiClient
 
 	/// <summary><c>DELETE /api/v1/tracks/{id}/previous-version</c> — remove the retained original now (§15.6).</summary>
 	Task PurgeTrackPreviousVersionAsync(Guid trackId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>PATCH /api/v1/tracks/{id}/details</c> — the description, the cover photograph and
+	/// whether the route is shared with everyone (§6.2).
+	/// <para>
+	/// All three go together because the screen behind it is one panel with one Save. Carries no
+	/// version, on <see cref="RenameTrackAsync"/>'s reasoning: none of it moves a point.
+	/// </para>
+	/// </summary>
+	Task<TrackSummary> UpdateTrackDetailsAsync(Guid trackId, UpdateTrackDetailsRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>GET /api/v1/tracks/shared</c> — one page of the routes other riders have shared (§6.2).
+	/// <para>
+	/// Not on <see cref="ITrackRepository"/>, deliberately. That interface is the offline seam —
+	/// Phase 2 backs it with SQLite so a rider's own tracks are there in a tunnel (§4.4, §18.6) —
+	/// and browsing what strangers published today is the one track read that has no offline
+	/// answer at all. A repository method that could only ever throw on the phone would be worse
+	/// than not having one.
+	/// </para>
+	/// </summary>
+	Task<SharedTrackPage> ListSharedTracksAsync(SharedTrackQuery query, CancellationToken cancellationToken = default);
 
 	// -- Group rides (§5.2, §5.6, §5.8) ---------------------------------------------------
 

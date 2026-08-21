@@ -30,6 +30,9 @@
 			@foreach (Row row in _rows)
 			{
 				<li>
+					@* Outside .who, which stacks the name over the off-route note — inside it the
+					   circle would become a third row rather than sit beside the name. *@
+					<RiderAvatar UserName="@row.UserName" />
 					<div class="who">
 						<strong>@row.UserName</strong>
 						@if (row.OffRoute)
@@ -143,12 +146,14 @@
 }
 
 <style>
-	.gap-list .who { display: flex; flex-direction: column; }
+	/* The row itself is now a flex line: circle, then the stacked name and note, then the gap. */
+	.gap-list li { display: flex; align-items: center; }
+	.gap-list .who { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 	.gap-list .off {
 		font-size: 0.75rem; color: #92400e; margin-top: 0.15rem;
 	}
 	.gap-list .gap {
-		font-variant-numeric: tabular-nums; font-size: 0.9rem;
+		font-variant-numeric: tabular-nums; font-size: 0.9rem; margin-left: auto; padding-left: 0.5rem;
 	}
 	.gap-list .leader { color: #14532d; font-weight: 600; }
 	/* Tighter than the page-level empty state — this one sits in a narrow side panel. */

@@ -304,8 +304,7 @@ public sealed class RideController : ControllerBase
 		}
 
 		// One query: every ride the caller is a member of, with the caller's role. Split
-		// server-side so the client renders two sections without a second round trip and a
-		// non-organiser never sees a JoinCode.
+		// server-side so the client renders two sections without a second round trip.
 		var rows = await database
 			.Set<GroupRideMember>()
 			.AsNoTracking()
@@ -333,12 +332,13 @@ public sealed class RideController : ControllerBase
 				row.Name,
 				row.StartUtc,
 				(RideStateDto)row.State,
-
-				// Join code follows the RideDetail rule — organiser only. Anywhere else it
-				// would let any member re-share the group the organiser curated (§5.2).
 				row.IsOrganiser,
 				row.MemberCount,
-				row.IsOrganiser ? row.JoinCode : null);
+
+				// Every member sees the code, not only the organiser. A rider who has joined has
+				// already been let in, and withholding the code only stopped them telling a friend
+				// how to follow along — which is what they most want to do at the start line (§5.2).
+				row.JoinCode);
 
 			(row.IsOrganiser ? organised : joined).Add(summary);
 		}
@@ -513,9 +513,10 @@ public sealed class RideController : ControllerBase
 			ride.Members.Count,
 			isOrganiser,
 
-			// The code is the ride's whole access control (§5.2). A member's copy carrying it
-			// would let anybody in the ride re-share the group the organiser curated.
-			isOrganiser ? ride.JoinCode : null,
+			// Sent to every member, not only the organiser — same rule as the list (§5.2). The
+			// organiser still controls admission on an approval ride; on an open one the code is a
+			// convenience the people already in the ride are trusted with.
+			ride.JoinCode,
 
 			// Sent to everybody, unlike the join code. A client that does not know a switch is off
 			// draws a compose surface that produces a 403 when used, which reads as a broken app

@@ -51,8 +51,12 @@ public sealed class PollCardTests : BunitContext
 		string markup = component.Markup;
 		markup.Contains("Coast road", StringComparison.Ordinal).ShouldBeTrue();
 		markup.Contains("Mountain road", StringComparison.Ordinal).ShouldBeTrue();
-		markup.Contains("Alice, Bob, Cass", StringComparison.Ordinal).ShouldBeTrue(
-			"§17.5: votes are attributed and voter names are on the card.");
+		// One element per voter rather than one joined string, so each name can carry the rider's
+		// photograph beside it (§7.3). What §17.5 asks for is that the votes are attributed and in
+		// order, which is what this reads — the separator between them is now the stylesheet's job.
+		component.FindAll(".voters .voter").Select(voter => voter.TextContent.Trim())
+			.ShouldBe(["Alice", "Bob", "Cass", "Dave"],
+				"§17.5: votes are attributed and voter names are on the card.");
 	}
 
 	[Fact]

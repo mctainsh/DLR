@@ -27,6 +27,7 @@
 			@foreach (BlockedRider block in _blocks)
 			{
 				<li>
+					<RiderAvatar UserName="@block.UserName" />
 					<strong>@block.UserName</strong>
 					<span class="when">blocked @block.CreatedUtc.ToLocalTime().ToString("d MMM yyyy")</span>
 					<button type="button" class="primary" disabled="@_busy"

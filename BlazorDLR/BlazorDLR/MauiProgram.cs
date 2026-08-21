@@ -84,6 +84,11 @@ public static class MauiProgram
 		// access token in memory, and broadcasts sign-in / sign-out to AuthorizeView (§7.4).
 		builder.Services.AddScoped<AuthState>();
 		builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthState>());
+
+		// Username to profile photograph, for every screen that draws a name (§7.3). Scoped like
+		// AuthState above it, and for the same reason: what it holds belongs to one signed-in
+		// session and must go when that session does.
+		builder.Services.AddScoped<RiderAvatars>();
 		builder.Services.AddAuthorizationCore();
 
 		// Real SignalR hub client (§5.3). The token provider now reads from SecureStorage

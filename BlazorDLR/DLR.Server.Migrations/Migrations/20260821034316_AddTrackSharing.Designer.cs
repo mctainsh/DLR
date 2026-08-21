@@ -4,6 +4,7 @@ using System.Net;
 using DLR.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DLR.Server.Data.Migrations
 {
     [DbContext(typeof(DlrDbContext))]
-    partial class DlrDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260821034316_AddTrackSharing")]
+    partial class AddTrackSharing
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -232,10 +235,6 @@ namespace DLR.Server.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("access_failed_count");
 
-                    b.Property<Guid?>("AvatarPhotoId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("avatar_photo_id");
-
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text")
@@ -356,9 +355,6 @@ namespace DLR.Server.Data.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_asp_net_users");
-
-                    b.HasIndex("AvatarPhotoId")
-                        .HasDatabaseName("ix_asp_net_users_avatar_photo_id");
 
                     b.HasIndex("LastActiveUtc")
                         .HasDatabaseName("ix_users_last_active");
@@ -1379,17 +1375,6 @@ namespace DLR.Server.Data.Migrations
                     b.Navigation("Photo");
 
                     b.Navigation("Ride");
-                });
-
-            modelBuilder.Entity("DLR.Server.Data.Identity.AppUser", b =>
-                {
-                    b.HasOne("DLR.Server.Data.Photos.Photo", "AvatarPhoto")
-                        .WithMany()
-                        .HasForeignKey("AvatarPhotoId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_asp_net_users_photo_avatar_photo_id");
-
-                    b.Navigation("AvatarPhoto");
                 });
 
             modelBuilder.Entity("DLR.Server.Data.Identity.Device", b =>

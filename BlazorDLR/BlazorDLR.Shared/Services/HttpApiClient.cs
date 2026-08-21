@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -131,6 +132,45 @@ public sealed class HttpApiClient : IApiClient
 		await ThrowIfFailedAsync(response, cancellationToken);
 	}
 
+	/// <inheritdoc />
+	public async Task<OwnProfile> SetAvatarAsync(SetAvatarRequest request, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.PutAsJsonAsync("/api/v1/me/avatar", request, Json, cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+		OwnProfile? body = await response.Content.ReadFromJsonAsync<OwnProfile>(Json, cancellationToken);
+		return body ?? throw new InvalidOperationException("Empty avatar response body.");
+	}
+
+	/// <inheritdoc />
+	public async Task<OwnProfile> ClearAvatarAsync(CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.DeleteAsync("/api/v1/me/avatar", cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+		OwnProfile? body = await response.Content.ReadFromJsonAsync<OwnProfile>(Json, cancellationToken);
+		return body ?? throw new InvalidOperationException("Empty avatar response body.");
+	}
+
+	/// <inheritdoc />
+	public async Task<IReadOnlyList<RiderAvatarDto>> GetRiderAvatarsAsync(
+		IReadOnlyCollection<string> userNames,
+		CancellationToken cancellationToken = default)
+	{
+		if (userNames.Count == 0)
+		{
+			return [];
+		}
+
+		// No escaping around the separator: §7.2's allowed set is letters, digits and -._, so a
+		// username cannot contain a comma and cannot smuggle one in. The names are still escaped
+		// individually, because a client holding a name off a cached row is untrusted input like
+		// any other.
+		string names = string.Join(
+			AvatarLookup.Separator,
+			userNames.Take(AvatarLookup.MaxNames).Select(Uri.EscapeDataString));
+
+		return await GetAsync<List<RiderAvatarDto>>($"/api/v1/users/avatars?names={names}", cancellationToken);
+	}
+
 	// -- Tracks --
 
 	/// <inheritdoc />
@@ -195,6 +235,45 @@ public sealed class HttpApiClient : IApiClient
 		using HttpResponseMessage response = await _http.DeleteAsync(
 			$"/api/v1/tracks/{trackId}/previous-version", cancellationToken);
 		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
+	/// <inheritdoc />
+	public async Task<TrackSummary> UpdateTrackDetailsAsync(Guid trackId, UpdateTrackDetailsRequest request, CancellationToken cancellationToken = default)
+	{
+		using HttpRequestMessage message = new(HttpMethod.Patch, $"/api/v1/tracks/{trackId}/details")
+		{
+			Content = JsonContent.Create(request, options: Json),
+		};
+		using HttpResponseMessage response = await _http.SendAsync(message, cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+		TrackSummary? body = await response.Content.ReadFromJsonAsync<TrackSummary>(Json, cancellationToken);
+		return body ?? throw new InvalidOperationException("Empty details response body.");
+	}
+
+	/// <inheritdoc />
+	public Task<SharedTrackPage> ListSharedTracksAsync(SharedTrackQuery query, CancellationToken cancellationToken = default)
+	{
+		// Built as a list rather than one interpolated string so that an omitted filter is an
+		// absent parameter rather than an empty one — "name=" and no name at all are the same
+		// thing to the server today, and relying on that is how they stop being the same thing.
+		List<string> parts = [];
+
+		if (!string.IsNullOrWhiteSpace(query.Name))
+			parts.Add($"name={Uri.EscapeDataString(query.Name)}");
+
+		if (query.HasArea)
+		{
+			// Invariant, always. InvariantGlobalization is on for the whole solution, but a
+			// query string carrying "-34,92" because somebody's culture leaked in is the kind of
+			// bug that only appears on the one device it appears on.
+			parts.Add($"lat={query.Latitude!.Value.ToString(CultureInfo.InvariantCulture)}");
+			parts.Add($"lon={query.Longitude!.Value.ToString(CultureInfo.InvariantCulture)}");
+			parts.Add($"withinKm={query.WithinKm!.Value.ToString(CultureInfo.InvariantCulture)}");
+		}
+
+		parts.Add($"page={(query.Page < 1 ? 1 : query.Page).ToString(CultureInfo.InvariantCulture)}");
+
+		return GetAsync<SharedTrackPage>($"/api/v1/tracks/shared?{string.Join('&', parts)}", cancellationToken);
 	}
 
 	// -- Rides --

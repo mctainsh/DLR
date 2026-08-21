@@ -1,5 +1,6 @@
 using System.Net;
 using DLR.Core.Contracts.Identity;
+using DLR.Server.Data.Photos;
 using Microsoft.AspNetCore.Identity;
 
 namespace DLR.Server.Data.Identity;
@@ -83,6 +84,32 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	/// and never the map label — pins carry the username, which is the one that cannot change.
 	/// </summary>
 	public string? DisplayName { get; set; }
+
+	/// <summary>
+	/// The photograph shown beside this rider's username wherever it is read (§7.3, §16.4), or
+	/// null for an account that has not added one.
+	/// <para>
+	/// <strong>No sharing switch, and the reasoning is <see cref="MarkerColour"/>'s rather than
+	/// <see cref="DisplayName"/>'s.</strong> The three switched fields are facts about a person —
+	/// a phone number, an address — that a rider might record for themselves and not want read.
+	/// A profile photograph has no private use: its entire purpose is to be the thing next to the
+	/// name, so a photograph nobody could see would be a setting with no effect. Adding one is the
+	/// consent, and removing it is how it is withdrawn.
+	/// </para>
+	/// <para>
+	/// It therefore travels exactly as far as the username does and no further, which is already
+	/// every signed-in rider — a member list, a comment, a marker's author, a shared route's
+	/// byline. It is not gated on sharing a live adventure, because the name beside it is not.
+	/// </para>
+	/// <para>
+	/// <c>SetNull</c> on delete, like a marker's photo: losing the picture must not take the
+	/// account with it.
+	/// </para>
+	/// </summary>
+	public Guid? AvatarPhotoId { get; set; }
+
+	/// <summary>The profile photograph, when there is one.</summary>
+	public Photo? AvatarPhoto { get; set; }
 
 	/// <inheritdoc />
 	public bool ShareDisplayName { get; set; }

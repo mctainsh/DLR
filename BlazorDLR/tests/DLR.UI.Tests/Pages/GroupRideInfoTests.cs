@@ -50,7 +50,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 				MemberCap: 50,
 				MemberCount: members?.Count ?? 1,
 				IsOrganiser: isOrganiser,
-				JoinCode: isOrganiser ? "AB3K9Z" : null,
+				JoinCode: "AB3K9Z",
 				Permissions: new RidePermissions(),
 				Members: members ?? new[]
 				{
@@ -332,19 +332,25 @@ public sealed class GroupRideInfoTests : PageTestContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
-	[Fact]
-	public void OrganiserJoinCode_IsShownToTheOrganiser_AndOnlyToTheOrganiser()
+	/// <summary>
+	/// §5.2: the code is on the adventure page for whoever is in the ride, organiser or not — a
+	/// rider who joined has no other way to read it back off and pass it on.
+	/// </summary>
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public void JoinCode_IsShownToEveryMember(bool isOrganiser)
 	{
-		(_, _, Guid rideId) = WireServices(isOrganiser: true);
+		(_, _, Guid rideId) = WireServices(isOrganiser: isOrganiser);
 
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("AB3K9Z", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.2: the organiser sees the join code on the adventure page.");
-			component.Markup.Contains("Only you see this", StringComparison.Ordinal).ShouldBeTrue(
-				"the copy makes it clear this code is not on the shared view.");
+				"§5.2: every member sees the join code on the adventure page.");
+			component.Markup.Contains("Share it with", StringComparison.Ordinal).ShouldBeTrue(
+				"the copy says what the code is for.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

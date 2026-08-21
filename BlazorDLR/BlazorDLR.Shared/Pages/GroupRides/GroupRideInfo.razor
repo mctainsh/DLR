@@ -63,11 +63,15 @@
 			<p class="error">@problem</p>
 		}
 
-		@if (ride.IsOrganiser && ride.JoinCode is not null)
+		@if (ride.JoinCode is not null)
 		{
 			<div class="join-code">
 				<strong>Join code:</strong> <span class="code">@ride.JoinCode</span>
-				<em>Only you see this. Share it with the people you want on the adventure.</em>
+				<em>
+					@(ride.IsOrganiser
+						? "Share it with the people you want on the adventure."
+						: "Share it with anybody else who should come along.")
+				</em>
 			</div>
 		}
 

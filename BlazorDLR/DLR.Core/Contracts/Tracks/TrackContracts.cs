@@ -12,6 +12,22 @@ public enum TrackSourceDto
 	Imported = 1,
 }
 
+/// <summary>Who can see a track (§6.2). Mirrors the persisted enum.</summary>
+public enum TrackVisibilityDto
+{
+	/// <summary>The owner, and nobody else. Where every track starts.</summary>
+	Private = 0,
+
+	/// <summary>Anyone holding the share link (§6.3's share endpoint, a later task).</summary>
+	Link = 1,
+
+	/// <summary>
+	/// Anyone signed in. What <em>share this route with everyone</em> sets, and the only state
+	/// the browse list will show.
+	/// </summary>
+	Public = 2,
+}
+
 /// <summary>
 /// <c>POST /api/v1/tracks</c> (§6.3).
 /// <para>
@@ -72,6 +88,23 @@ public sealed record RenameTrackRequest(string Name);
 /// <param name="SegmentCount">Segments.</param>
 /// <param name="Source">Recorded or imported.</param>
 /// <param name="Version">Increments on every edit; an edit quotes it back (§15.5).</param>
+/// <param name="Visibility">Who can see it.</param>
+/// <param name="Description">What the owner wrote about it, or null.</param>
+/// <param name="PhotoId">The cover photograph, or null. Fetch it from <c>/api/v1/photos/{id}</c>.</param>
+/// <param name="OwnerName">
+/// Who shared it. Populated on a track the caller does not own — a shared route with no name
+/// against it is a route from nobody — and null on the caller's own, where it would be their
+/// own username on every row of their own list.
+/// </param>
+/// <param name="IsMine">
+/// Whether the caller owns it, and therefore whether the detail screen offers Edit, Rename,
+/// Delete and the sharing panel at all.
+/// <para>
+/// Defaults to <c>true</c> because every read that existed before sharing was owner-scoped and
+/// could return nothing else. The one read that can answer <c>false</c> — a public track opened
+/// by somebody else — says so explicitly.
+/// </para>
+/// </param>
 public sealed record TrackSummary(
 	Guid Id,
 	string? Name,
@@ -85,7 +118,12 @@ public sealed record TrackSummary(
 	int PointCount,
 	int SegmentCount,
 	TrackSourceDto Source,
-	int Version);
+	int Version,
+	TrackVisibilityDto Visibility = TrackVisibilityDto.Private,
+	string? Description = null,
+	Guid? PhotoId = null,
+	string? OwnerName = null,
+	bool IsMine = true);
 
 /// <summary>
 /// A track and the line the map draws (§6.3).

@@ -226,6 +226,19 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthState>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthState>());
 
+// RiderAvatars is deliberately NOT registered here, unlike in the two client hosts.
+//
+// It fetches thumbnails with an HttpClient this host does not have and would not want: the SSR
+// pass has no refresh cookie the token store can read (see the note above), so it has no bearer
+// token, so it could not read a photo endpoint even if one were wired. ValidateOnBuild says so
+// out loud rather than letting it be discovered at render time — registering it here fails
+// startup on the missing HttpClient, which is the check working.
+//
+// RiderAvatar resolves it with GetService and draws nothing without it, so the prerendered
+// markup carries names and no pictures. That is the correct prerender: the client renders the
+// photographs once it has a token, which is the same moment everything else on the page becomes
+// real.
+
 var app = builder.Build();
 
 // First, and before the `--migrate` branch below, because that branch needs a database and this

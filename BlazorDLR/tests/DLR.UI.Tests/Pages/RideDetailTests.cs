@@ -290,4 +290,126 @@ public sealed class RideDetailTests : PageTestContext
 				"a page reached with a bad id must say so — silently rendering an empty shell would be a bug that looks like a bug.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
+
+	[Fact]
+	public void DetailsPanel_OpensOnTheStoredValuesAndSavesAllThree()
+	{
+		Guid id = Guid.NewGuid();
+		WireServices(new TrackDetail(
+			Track: Sample() with { Id = id, Description = "Gravel after the bridge." },
+			Bounds: null,
+			Polyline: Array.Empty<TrackPoint>()));
+
+		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
+			.Add(p => p.TrackId, id));
+
+		component.WaitForAssertion(() => Button(component, "Details")!.Click(), timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(() =>
+		{
+			// Opened over what is stored, so a rider changing one field does not retype the rest.
+			// The value attribute rather than the text content: Blazor binds a textarea through
+			// value=, and its inner text stays empty however the box reads on screen.
+			component.Find(".details-panel textarea").GetAttribute("value").ShouldBe("Gravel after the bridge.");
+			component.Find(".details-panel input[type=checkbox]").HasAttribute("checked").ShouldBeFalse(
+				"private is where every track starts.");
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		component.Find(".details-panel textarea").Input("Now with a washout at the top.");
+		component.Find(".details-panel input[type=checkbox]").Change(true);
+		component.Find(".panel-actions button.primary").Click();
+
+		component.WaitForAssertion(() =>
+		{
+			(Guid TrackId, UpdateTrackDetailsRequest Request) saved = _api.UpdatedTrackDetails.ShouldHaveSingleItem();
+
+			saved.TrackId.ShouldBe(id);
+			saved.Request.Description.ShouldBe("Now with a washout at the top.");
+			saved.Request.Visibility.ShouldBe(TrackVisibilityDto.Public);
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void DetailsPanel_UncheckingSharingWritesPrivateRatherThanLink()
+	{
+		Guid id = Guid.NewGuid();
+		WireServices(new TrackDetail(
+			Track: Sample() with { Id = id, Visibility = TrackVisibilityDto.Public },
+			Bounds: null,
+			Polyline: Array.Empty<TrackPoint>()));
+
+		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
+			.Add(p => p.TrackId, id));
+
+		component.WaitForAssertion(() => Button(component, "Details")!.Click(), timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(
+			() => component.Find(".details-panel input[type=checkbox]").HasAttribute("checked").ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Find(".details-panel input[type=checkbox]").Change(false);
+		component.Find(".panel-actions button.primary").Click();
+
+		// Link visibility belongs to the §6.3 share endpoint and has no control on this screen.
+		// Writing it from here would put a route into a state nothing on this page can undo.
+		component.WaitForAssertion(
+			() => _api.UpdatedTrackDetails.ShouldHaveSingleItem().Request.Visibility.ShouldBe(TrackVisibilityDto.Private),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void SomebodyElsesRoute_OffersNoEditRenameOrDelete_AndNamesTheOwner()
+	{
+		Guid id = Guid.NewGuid();
+		WireServices(new TrackDetail(
+			Track: Sample() with
+			{
+				Id = id,
+				IsMine = false,
+				OwnerName = "riley",
+				Visibility = TrackVisibilityDto.Public,
+				Description = "Worth the climb.",
+			},
+			Bounds: null,
+			Polyline: Array.Empty<TrackPoint>()));
+
+		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
+			.Add(p => p.TrackId, id));
+
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll($"a[href='/rides/{id}/edit']").ShouldBeEmpty(
+				"the server refuses an edit on a stranger's route; a button that exists to produce "
+				+ "a 404 is not a button.");
+			Button(component, "Rename").ShouldBeNull();
+			Button(component, "Delete").ShouldBeNull();
+			Button(component, "Details").ShouldBeNull();
+
+			// Downloading is not gated: a route shared to be ridden needs a GPX to be ridden from.
+			Button(component, "Download GPX").ShouldNotBeNull();
+
+			component.Markup.Contains("riley", StringComparison.Ordinal).ShouldBeTrue(
+				"a shared route with no name against it is a route from nobody (§7.3).");
+			component.Markup.Contains("Worth the climb.", StringComparison.Ordinal).ShouldBeTrue();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void MyPublicRoute_SaysSoOnTheReadingView()
+	{
+		Guid id = Guid.NewGuid();
+		WireServices(new TrackDetail(
+			Track: Sample() with { Id = id, Visibility = TrackVisibilityDto.Public },
+			Bounds: null,
+			Polyline: Array.Empty<TrackPoint>()));
+
+		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
+			.Add(p => p.TrackId, id));
+
+		component.WaitForAssertion(
+			() => component.Find(".byline.shared").TextContent
+				.Contains("Shared with everyone", StringComparison.Ordinal)
+				.ShouldBeTrue("a rider opening their own route should see at a glance that it is public."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
 }

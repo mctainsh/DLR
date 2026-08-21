@@ -3,6 +3,7 @@ using BlazorDLR.Shared.Services;
 using Bunit;
 using DLR.Core.Contracts.Tracks;
 using DLR.UI.Tests.Fakes;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DLR.UI.Tests.Pages;
@@ -20,8 +21,32 @@ public sealed class MyRidesTests : PageTestContext
 	{
 		FakeTrackRepository repo = new();
 		Services.AddSingleton<ITrackRepository>(repo);
+
+		// The browse tab talks to IApiClient directly rather than through the repository — the
+		// repository is the offline seam and there is no offline answer to "what did strangers
+		// publish today" (§18.6). Registered for every test in here regardless of which tab it
+		// looks at, because Blazor injects the property before either tab renders.
+		Services.AddSingleton<IApiClient>(Api);
+
 		return repo;
 	}
+
+	/// <summary>The fake behind the shared tab. One per test; the class is instantiated per test.</summary>
+	private FakeApiClient Api { get; } = new();
+
+	private static SharedTrackSummary Shared(string name, string owner = "riley", double? awayKm = null, string? description = null) =>
+		new(
+			Guid.NewGuid(),
+			name,
+			description,
+			PhotoId: null,
+			owner,
+			DistanceM: 42_000,
+			AscentM: 300,
+			SharedUtc: FixedInstant,
+			CentreLat: -34.9,
+			CentreLon: 138.6,
+			awayKm);
 
 	[Fact]
 	public void EmptyList_ShowsImportCallToAction()
@@ -102,5 +127,197 @@ public sealed class MyRidesTests : PageTestContext
 			component.FindAll("button").Any(b => b.TextContent.Contains("Retry", StringComparison.Ordinal))
 				.ShouldBeTrue("a transient error is a retryable event — the button offers the retry.");
 		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void SharedRouteInMyList_IsBadgedAsShared()
+	{
+		FakeTrackRepository repo = WireServices();
+		repo.Tracks.Add(new TrackSummary(
+			Guid.NewGuid(), "Coast run", FixedInstant, null, null, 82_000, null, 900, null, 900, 1,
+			TrackSourceDto.Recorded, 1, Visibility: TrackVisibilityDto.Public));
+
+		IRenderedComponent<MyRides> component = Render<MyRides>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".badge.shared").ShouldNotBeEmpty(
+				"whether other people can see a route belongs on the row that lists it, not only "
+				+ "on the screen that set it."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void MyList_DoesNotBadgePrivateRoutes()
+	{
+		FakeTrackRepository repo = WireServices();
+		repo.Tracks.Add(new TrackSummary(
+			Guid.NewGuid(), "Private loop", FixedInstant, null, null, 12_000, null, null, null, 300, 1,
+			TrackSourceDto.Recorded, 1));
+
+		IRenderedComponent<MyRides> component = Render<MyRides>();
+
+		component.WaitForAssertion(
+			() => component.FindAll(".badge.shared").ShouldBeEmpty(
+				"private is where every track starts, and a badge on every row would say nothing."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void SharedTab_ListsOtherRidersRoutesWithOwnerAndBlurb()
+	{
+		WireServices();
+		Api.SharedTracks.Add(Shared("Adelaide Hills loop", owner: "riley", description: "Broken tarmac after the second bridge."));
+
+		IRenderedComponent<MyRides> component = RenderSharedTab();
+
+		component.WaitForAssertion(() =>
+		{
+			string markup = component.Markup;
+			markup.Contains("Adelaide Hills loop", StringComparison.Ordinal).ShouldBeTrue();
+			markup.Contains("by riley", StringComparison.Ordinal).ShouldBeTrue(
+				"a shared route with no name against it is a route from nobody (§7.3).");
+			markup.Contains("Broken tarmac", StringComparison.Ordinal).ShouldBeTrue(
+				"the description is what a browse row is being read for.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void SharedTab_NameFilterReachesTheServer()
+	{
+		WireServices();
+		Api.SharedTracks.Add(Shared("Coast run north"));
+		Api.SharedTracks.Add(Shared("Hills loop"));
+
+		IRenderedComponent<MyRides> component = RenderSharedTab();
+
+		component.WaitForAssertion(() => component.FindAll(".shared-list li").Count.ShouldBe(2),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Find(".filters input").Input("coast");
+		component.Find(".filters button[type=submit]").Click();
+
+		component.WaitForAssertion(() =>
+		{
+			// The filter is the server's job, not the list's. What this asserts is that the text
+			// actually travelled — a client-side filter would pass the row count check below
+			// while leaving the other 4 000 rows on the server unfiltered.
+			Api.SharedTrackQueries.ShouldContain(query => query.Name == "coast");
+			component.FindAll(".shared-list li").Count.ShouldBe(1);
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void SharedTab_SearchingResetsToTheFirstPage()
+	{
+		WireServices();
+
+		for (int index = 0; index < SharedTrackQuery.PageSize + 5; index++)
+		{
+			Api.SharedTracks.Add(Shared($"Route {index}"));
+		}
+
+		IRenderedComponent<MyRides> component = RenderSharedTab();
+
+		component.WaitForAssertion(() => component.FindAll(".shared-list li").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".pager button").Last().Click();
+
+		component.WaitForAssertion(() => Api.SharedTrackQueries.Last().Page.ShouldBe(2),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Find(".filters input").Input("Route 1");
+		component.Find(".filters button[type=submit]").Click();
+
+		// Narrowing the filter while on page 2 must not leave the reader on a page the new
+		// result set may not have — the classic way a filtered list comes back empty for no
+		// reason the reader can see.
+		component.WaitForAssertion(() => Api.SharedTrackQueries.Last().Page.ShouldBe(1),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void SharedTab_PagerCountsPagesAndStopsAtBothEnds()
+	{
+		WireServices();
+
+		for (int index = 0; index < SharedTrackQuery.PageSize + 1; index++)
+		{
+			Api.SharedTracks.Add(Shared($"Route {index}"));
+		}
+
+		IRenderedComponent<MyRides> component = RenderSharedTab();
+
+		component.WaitForAssertion(() =>
+		{
+			component.Markup.Contains("Page 1 of 2", StringComparison.Ordinal).ShouldBeTrue(
+				"a cursor cannot say how many pages there are, which is why this list is numbered.");
+
+			// Previous is off on page one. Next is not, because there is a page two.
+			component.FindAll(".pager button").First().HasAttribute("disabled").ShouldBeTrue();
+			component.FindAll(".pager button").Last().HasAttribute("disabled").ShouldBeFalse();
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".pager button").Last().Click();
+
+		component.WaitForAssertion(() =>
+		{
+			component.Markup.Contains("Page 2 of 2", StringComparison.Ordinal).ShouldBeTrue();
+			component.FindAll(".pager button").Last().HasAttribute("disabled").ShouldBeTrue(
+				"there is no page three, so Next has nowhere to go.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void SharedTab_RadiusWithNoCentreSaysSoRatherThanFilteringOnNothing()
+	{
+		WireServices();
+		Api.SharedTracks.Add(Shared("Coast run north"));
+
+		IRenderedComponent<MyRides> component = RenderSharedTab();
+
+		component.WaitForAssertion(() => component.FindAll(".shared-list li").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Find(".filters select").Change("50");
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find(".anchor-note").TextContent.Contains("Pick a point first", StringComparison.Ordinal)
+				.ShouldBeTrue("a radius with no centre is not a narrower search, it is an unanswerable one.");
+
+			// And nothing half-formed reached the server: no lat, no lon, no radius.
+			Api.SharedTrackQueries.ShouldAllBe(query => !query.HasArea);
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void SharedTab_ErrorShowsTheMessageAndOffersRetry()
+	{
+		WireServices();
+		Api.ListSharedTracksException = new InvalidOperationException("network hiccup");
+
+		IRenderedComponent<MyRides> component = RenderSharedTab();
+
+		component.WaitForAssertion(() =>
+		{
+			component.Markup.Contains("network hiccup", StringComparison.Ordinal).ShouldBeTrue();
+			component.FindAll("button").Any(button => button.TextContent.Contains("Retry", StringComparison.Ordinal))
+				.ShouldBeTrue();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Renders the page on the shared tab, which is a query-string state rather than a field —
+	/// see the note on <c>MyRides.TabName</c> for why.
+	/// </summary>
+	private IRenderedComponent<MyRides> RenderSharedTab()
+	{
+		// Navigated to rather than passed as a parameter, because that is what the query string
+		// is: bUnit refuses to set a [SupplyParameterFromQuery] directly, and rightly — a test
+		// that could would be testing a state the browser cannot produce.
+		Services.GetRequiredService<NavigationManager>().NavigateTo("/rides?tab=shared");
+
+		return Render<MyRides>();
 	}
 }

@@ -1,4 +1,4 @@
-﻿@page "/group-rides/live/{RideId:guid}"
+@page "/group-rides/live/{RideId:guid}"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Markers
@@ -428,16 +428,6 @@
 						</button>
 					}
 
-					@*
-						No "quiet while live" note beside this any more. It survived v0.26's removal
-						of the Live silence and was then simply wrong — the thread notifies in every
-						ride state (§17.6), so the label was telling riders the opposite of what the
-						app does.
-					*@
-					<button type="button" role="menuitem" @onclick="GoToThread">
-						<i class="fa fa-fw fa-comments" aria-hidden="true"></i> Adventure thread
-					</button>
-
 					<hr />
 
 					@*
@@ -536,7 +526,7 @@
 											   the point of it; in a list it would mean a row with nothing in the name
 											   column, so the icon's own name stands in. *@
 											<strong>@MarkerIconGlyphs.Name(marker.Title, marker.Icon)</strong>
-											<em>@marker.CreatedByUserName</em>
+											<em class="who"><RiderAvatar UserName="@marker.CreatedByUserName" />@marker.CreatedByUserName</em>
 										</span>
 										<span class="badges">
 											@if (!string.IsNullOrWhiteSpace(marker.Note))
@@ -590,7 +580,7 @@
 								<img class="glyph" alt="" src="@MarkerIconGlyphs.AssetPath(marker.Icon)" />
 								@MarkerIconGlyphs.Name(marker.Title, marker.Icon)
 							</h3>
-							<p class="by">@marker.CreatedByUserName</p>
+							<p class="by"><RiderAvatar UserName="@marker.CreatedByUserName" />@marker.CreatedByUserName</p>
 
 							<MarkerDetails Marker="marker" CanDelete="_session.CanDelete(marker)"
 										   Deleting="_deletingMarkerId == marker.Id"
@@ -2854,6 +2844,14 @@
 				opacity: 0.7;
 			}
 
+			/* The author line carries a circle now, so it is a flex row rather than a block —
+			   the rule above still truncates the name, and min-width:0 is what lets it. */
+			.live .marker-head .what em.who {
+				display: flex;
+				align-items: center;
+				min-width: 0;
+			}
+
 		.live .marker-head .badges {
 			font-size: 0.8rem;
 			opacity: 0.8;
@@ -2919,6 +2917,8 @@
 			}
 
 		.live .nearby-marker .by {
+			display: flex;
+			align-items: center;
 			margin: 0;
 			font-size: 0.8rem;
 			opacity: 0.7;

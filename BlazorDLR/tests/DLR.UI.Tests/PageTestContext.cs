@@ -72,5 +72,12 @@ public abstract class PageTestContext : BunitContext
 		Services.AddScoped<INotificationService, NoopNotificationService>();
 		Services.AddSingleton<NotificationRouting>();
 		Services.AddScoped<CommentNotifier>();
+
+		// Username to profile photograph (§7.3). Page-wide in the same sense as the notifier above:
+		// nearly every page draws somebody's name, and RiderAvatar sits beside each one. Registered
+		// here so a page test exercises the real DI graph — the component itself resolves this with
+		// GetService and draws nothing without it, so a component test below the page level does
+		// not have to know it exists.
+		Services.AddScoped<RiderAvatars>();
 	}
 }

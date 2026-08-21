@@ -2,6 +2,7 @@ using DLR.Core.Contracts.Identity;
 using DLR.Core.Display;
 using DLR.Server.Data;
 using DLR.Server.Data.Identity;
+using DLR.Server.Data.Photos;
 using DLR.Server.Data.Rides;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -30,6 +31,15 @@ public static class ProfileEndpoints
 
 	/// <summary>Route name for removing it.</summary>
 	public const string ClearPrivateAreaRouteName = "ClearPrivateArea";
+
+	/// <summary>Route name for setting the caller's profile photograph (§7.3).</summary>
+	public const string SetAvatarRouteName = "SetAvatar";
+
+	/// <summary>Route name for removing it.</summary>
+	public const string ClearAvatarRouteName = "ClearAvatar";
+
+	/// <summary>Route name for the batch avatar lookup every screen that draws names makes.</summary>
+	public const string AvatarsRouteName = "GetRiderAvatars";
 }
 
 /// <summary>The three optional fields and their three switches (§7.3, §7.14).</summary>
@@ -155,7 +165,8 @@ public sealed class ProfileController : ControllerBase
 		user.ShareDisplayName,
 		user.SharePhoneNumber,
 		user.ShareEmail,
-		user.MarkerColour);
+		user.MarkerColour,
+		user.AvatarPhotoId);
 
 	// -- Home private area (§10.1) ------------------------------------------------------------
 	//
@@ -267,6 +278,148 @@ public sealed class ProfileController : ControllerBase
 		{
 			ContentTypes = { "application/problem+json" },
 		};
+
+	// -- Profile photograph (§7.3, §16.4) -----------------------------------------------------
+	//
+	// Its own sub-resource, for the reason the private area above is one: PUT /me/profile replaces
+	// the whole profile, so an avatar carried inside it would be cleared by any client that had not
+	// been taught about it. A rider editing their phone number in an older build must not lose
+	// their photograph as a side effect.
+	//
+	// There is no sharing switch here and there is no route that withholds it, because the
+	// photograph exists to sit beside the username and the username is already readable by every
+	// signed-in rider (§7.2). Adding one is the consent; DELETE is how it is withdrawn.
+
+	/// <summary>
+	/// Sets the photograph shown beside the caller's username.
+	/// </summary>
+	/// <remarks>
+	/// The image must be one the caller uploaded. Anything else is a 404 rather than a silent
+	/// no-op — MarkerController's reasoning, and it bites harder here: a guessed identifier would
+	/// otherwise put somebody else's face beside the caller's name on every screen in the app.
+	/// </remarks>
+	[HttpPut("/api/v1/me/avatar", Name = ProfileEndpoints.SetAvatarRouteName)]
+	[Authorize(Policy = AuthorizationPolicies.NotRestricted)]
+	[EndpointSummary("Sets the photograph shown beside the caller's username.")]
+	public async Task<IActionResult> SetAvatarAsync(
+		[FromBody] SetAvatarRequest request,
+		[FromServices] UserManager<AppUser> users,
+		[FromServices] DlrDbContext database,
+		CancellationToken cancellationToken)
+	{
+		if (await User.LoadAsync(users) is not { } user)
+		{
+			return Unauthorized();
+		}
+
+		bool ownsIt = await database
+			.Set<Photo>()
+			.AnyAsync(photo => photo.Id == request.PhotoId && photo.OwnerId == user.Id, cancellationToken);
+
+		if (!ownsIt)
+		{
+			return Problem(
+				statusCode: StatusCodes.Status404NotFound,
+				title: "No such photo",
+				detail: "Upload the image first, and set one you uploaded.");
+		}
+
+		user.AvatarPhotoId = request.PhotoId;
+
+		IdentityResult result = await users.UpdateAsync(user);
+
+		return result.Succeeded ? Ok(Describe(user)) : Failed(result);
+	}
+
+	/// <summary>
+	/// Removes it, so the caller's name is drawn on its own again. Idempotent — an account with no
+	/// photograph is a 200 and not a 404, because the caller is asking for a state and not for a row.
+	/// </summary>
+	/// <remarks>
+	/// The <c>photo</c> row is deliberately left alone. It is the rider's own upload and may be
+	/// attached to a marker or a comment as well; the §7.11 sweep collects it once nothing points
+	/// at it, which is the same contract every other photo reference in the project has.
+	/// </remarks>
+	[HttpDelete("/api/v1/me/avatar", Name = ProfileEndpoints.ClearAvatarRouteName)]
+	[EndpointSummary("Removes the photograph shown beside the caller's username.")]
+	public async Task<IActionResult> ClearAvatarAsync([FromServices] UserManager<AppUser> users)
+	{
+		if (await User.LoadAsync(users) is not { } user)
+		{
+			return Unauthorized();
+		}
+
+		user.AvatarPhotoId = null;
+
+		IdentityResult result = await users.UpdateAsync(user);
+
+		return result.Succeeded ? Ok(Describe(user)) : Failed(result);
+	}
+
+	/// <summary>
+	/// The photographs for a screenful of usernames, in one request (§7.3).
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// <strong>A batch, and it has to be.</strong> A ride thread, a member list and a browse page
+	/// all draw dozens of names at once; one request per name would turn opening a screen into
+	/// forty round trips over a phone connection.
+	/// </para>
+	/// <para>
+	/// <strong>Every name asked about gets a row, including names that do not exist.</strong> A
+	/// caller that had to tell "no photograph" from "no such account" by the absence of a row would
+	/// be holding a username oracle, and a client that could not cache the negative answer would
+	/// ask again on every render. Both problems go away by answering for the question rather than
+	/// for the row.
+	/// </para>
+	/// </remarks>
+	[HttpGet("/api/v1/users/avatars", Name = ProfileEndpoints.AvatarsRouteName)]
+	[EndpointSummary("The profile photographs for a list of usernames. One request per screen, not per name.")]
+	public async Task<IActionResult> GetAvatarsAsync(
+		[FromQuery] string? names,
+		[FromServices] DlrDbContext database,
+		CancellationToken cancellationToken)
+	{
+		if (User.UserId() is null)
+		{
+			return Unauthorized();
+		}
+
+		// Truncated rather than refused: a client asking about too many names should get the first
+		// hundred avatars, not an error that leaves a screen with none.
+		List<string> wanted =
+		[
+			.. (names ?? string.Empty)
+				.Split(AvatarLookup.Separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.Take(AvatarLookup.MaxNames),
+		];
+
+		if (wanted.Count == 0)
+		{
+			return Ok(Array.Empty<RiderAvatarDto>());
+		}
+
+		// Matched on the normalised column, which is what Identity keys uniqueness on — a caller
+		// holding "davesmith" off a cached row must find the account stored as "DaveSmith" (§7.2).
+		List<string> normalised = [.. wanted.Select(name => name.ToUpperInvariant())];
+
+		Dictionary<string, Guid?> found = await database
+			.Users
+			.AsNoTracking()
+			.Where(user => user.NormalizedUserName != null && normalised.Contains(user.NormalizedUserName))
+			.Select(user => new { user.NormalizedUserName, user.AvatarPhotoId })
+			.ToDictionaryAsync(row => row.NormalizedUserName!, row => row.AvatarPhotoId, StringComparer.Ordinal, cancellationToken);
+
+		// Echoed back under the name that was asked about, not the stored one. The caller is going
+		// to look the answer up by the string it already holds, and handing it a different casing
+		// would be a cache that never hits.
+		return Ok(wanted
+			.Select(name => new RiderAvatarDto(
+				name,
+				found.TryGetValue(name.ToUpperInvariant(), out Guid? photoId) ? photoId : null))
+			.ToList());
+	}
 
 	private static string? Trimmed(string? value) =>
 		string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -73,22 +73,21 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 		asRider.MemberCount.ShouldBe(2);
 		asRider.IsOrganiser.ShouldBeFalse();
 
-		asRider.JoinCode.ShouldBeNull(
-			"the code is the adventure's whole access control — a member's copy carrying it would " +
-			"let anybody re-share the group the organiser curated");
+		asRider.JoinCode.ShouldBe(ride.JoinCode,
+			"a rider who joined can read the code back off their own copy and pass it on");
 	}
 
 	/// <summary>
-	/// The code is the ride's entire access control (§5.2), so a member's copy carrying it would
-	/// let anybody in the ride re-share the group the organiser curated.
+	/// Every member receives the code (§5.2), not only the organiser — a rider who is already in
+	/// wants to tell a friend how to follow along, and the two ways into a ride have to agree.
 	/// <para>
-	/// Asserted against the raw body rather than the <c>JoinCode</c> property, because the rule is
-	/// "a member never receives the code" — not "one particular field is null". A future field
-	/// that echoes the code back would satisfy the second and break the first.
+	/// Both membership paths are checked because they reach membership differently: joining an
+	/// open ride with the code, and being admitted to an approval ride by the organiser. On the
+	/// approval ride the code still does not admit anybody by itself — the organiser decides.
 	/// </para>
 	/// </summary>
 	[Fact]
-	public async Task JoinCode_IsNeverSentToAnybodyButTheOrganiser()
+	public async Task JoinCode_IsSentToEveryMember()
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
@@ -109,8 +108,8 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 			$"{RidesUrl}/{gated.Id}/join-requests/{asked.RequestId}",
 			new DecideJoinRequest(Admit: true));
 
-		await ShouldNotCarryTheCodeAsync(byCode, open, "joined with the code");
-		await ShouldNotCarryTheCodeAsync(byApproval, gated, "admitted by the organiser");
+		await ShouldCarryTheCodeAsync(byCode, open, "joined with the code");
+		await ShouldCarryTheCodeAsync(byApproval, gated, "was admitted by the organiser");
 
 		// And the organiser still gets it, or there is no way to invite anybody.
 		RideDetail mine = (await organiser.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{open.Id}"))!;
@@ -118,12 +117,14 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 		mine.JoinCode.ShouldBe(open.JoinCode);
 	}
 
-	private static async Task ShouldNotCarryTheCodeAsync(HttpClient member, RideDetail ride, string how)
+	private static async Task ShouldCarryTheCodeAsync(HttpClient member, RideDetail ride, string how)
 	{
-		string body = await member.GetStringAsync($"{RidesUrl}/{ride.Id}");
+		RideDetail asMember = (await member.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{ride.Id}"))!;
 
-		body.Contains(ride.JoinCode!, StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
-			$"a member who {how} can read the adventure, and must not be able to re-share it");
+		asMember.IsOrganiser.ShouldBeFalse($"the member who {how} does not run the adventure");
+
+		asMember.JoinCode.ShouldBe(ride.JoinCode,
+			$"a member who {how} sees the same code the organiser handed out");
 	}
 
 	/// <summary>

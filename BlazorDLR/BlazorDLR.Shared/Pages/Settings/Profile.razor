@@ -4,9 +4,11 @@
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
 @using DLR.Core.Contracts.Identity
+@using DLR.Core.Contracts.Photos
 @using DLR.Core.Display
 @inject IApiClient Api
 @inject AuthState Auth
+@inject RiderAvatars Avatars
 
 @*
 	Two optional fields and a marker colour (§7.3, §16.3) — everything on this screen is an
@@ -45,6 +47,62 @@
 	}
 	else
 	{
+		@*
+			Outside the form, and it saves on its own. Everything below goes up as one whole-profile
+			PUT; the photograph has its own endpoint so that a client which has not been taught
+			about it cannot clear it by saving the rest (§7.3) — and putting it inside a form whose
+			Save button does not save it would be the confusing half of that decision.
+		*@
+		<fieldset class="photo">
+			<legend>Photo</legend>
+
+			<p class="note">
+				Optional. Add one and it appears as a small circle beside your name everywhere
+				other travellers read it — member lists, adventure chat, markers you place, routes
+				you share. There is no switch: adding it is how you share it, and Remove is how
+				you stop.
+			</p>
+
+			<div class="photo-row">
+				@if (_pickedPhoto is not null)
+				{
+					<span class="picked-note"><em>@_pickedPhoto.FileName — @(_pickedPhoto.Bytes.Length / 1024) KB</em></span>
+				}
+				else if (Auth.UserName is { Length: > 0 } me)
+				{
+					@* The live component rather than a bare <img>, so what the rider is looking at
+					   is exactly what everybody else will see — same cache, same size, same crop. *@
+					<RiderAvatar UserName="@me" Size="RiderAvatar.AvatarSize.Detail" />
+				}
+
+				<div class="photo-actions">
+					<InputFile OnChange="OnPhotoSelectedAsync" accept="image/jpeg,image/png,image/heic,image/webp" />
+
+					@if (_pickedPhoto is not null)
+					{
+						<button type="button" class="primary" disabled="@_savingPhoto" @onclick="SavePhotoAsync">
+							@(_savingPhoto ? "Uploading…" : "Use this photo")
+						</button>
+						<button type="button" disabled="@_savingPhoto" @onclick="() => _pickedPhoto = null">Cancel</button>
+					}
+					else if (_profile.AvatarPhotoId is not null)
+					{
+						<button type="button" class="danger" disabled="@_savingPhoto" @onclick="RemovePhotoAsync">Remove</button>
+					}
+				</div>
+			</div>
+
+			<p class="note">
+				The server re-encodes every photo and strips its metadata — an EXIF GPS tag from
+				your driveway will not travel with it.
+			</p>
+
+			@if (_photoStatus is not null)
+			{
+				<p class="status">@_photoStatus</p>
+			}
+		</fieldset>
+
 		<form @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
 			<fieldset>
 				<legend>Phone number</legend>
@@ -171,6 +229,18 @@
 	private bool _saving;
 	private string? _status;
 
+	/// <summary>An image chosen but not yet uploaded. See OnPhotoSelectedAsync.</summary>
+	private PickedPhoto? _pickedPhoto;
+
+	/// <summary>Guards the photo buttons on their own — they save separately from the form below.</summary>
+	private bool _savingPhoto;
+
+	/// <summary>What the photo section reports, kept apart from the form's own status line.</summary>
+	private string? _photoStatus;
+
+	/// <summary>The largest image the photo endpoint will take (§16.4), checked at the keyboard.</summary>
+	private const long MaxPhotoBytes = 12 * 1024 * 1024;
+
 	/// <summary>
 	/// The marker background being composed, always a <c>#rrggbb</c> string (§16.3). Held
 	/// normalised rather than as the raw stored value so the swatch comparison and the preview do
@@ -214,6 +284,103 @@
 		}
 	}
 
+	/// <summary>
+	/// Reads the chosen image into memory. Nothing is uploaded until <em>Use this photo</em> —
+	/// cancelling then leaves nothing on the server for the §7.11 sweep to find.
+	/// </summary>
+	private async Task OnPhotoSelectedAsync(InputFileChangeEventArgs args)
+	{
+		IBrowserFile file = args.File;
+		_photoStatus = null;
+
+		if (file.Size > MaxPhotoBytes)
+		{
+			// Said at the keyboard rather than after a 413 from the far end of a phone connection,
+			// which is the case this check exists for.
+			_photoStatus = "That photo is larger than 12 MB — the server would refuse it.";
+			return;
+		}
+
+		try
+		{
+			await using Stream stream = file.OpenReadStream(MaxPhotoBytes);
+			using MemoryStream memory = new();
+			await stream.CopyToAsync(memory);
+
+			_pickedPhoto = new PickedPhoto(memory.ToArray(), file.ContentType, file.Name);
+		}
+		catch (Exception exception)
+		{
+			_photoStatus = $"Could not read that photo: {exception.Message}";
+		}
+	}
+
+	/// <summary>
+	/// Uploads the picked image and points the account at it.
+	/// </summary>
+	/// <remarks>
+	/// Two calls rather than one, because a photo is a standalone resource (§16.4). The upload
+	/// going through and the account not being updated leaves an orphan the nightly sweep
+	/// collects — a far better failure than an account pointing at bytes that never landed.
+	/// </remarks>
+	private async Task SavePhotoAsync()
+	{
+		if (_pickedPhoto is not { } picked) return;
+
+		_savingPhoto = true;
+		_photoStatus = null;
+
+		try
+		{
+			using MemoryStream memory = new(picked.Bytes);
+
+			PhotoUploaded uploaded = await Api.UploadPhotoAsync(memory, picked.ContentType, picked.FileName);
+
+			_profile = await Api.SetAvatarAsync(new SetAvatarRequest(uploaded.PhotoId));
+			_pickedPhoto = null;
+
+			// Every avatar of this rider currently on screen re-resolves — including the preview
+			// two lines above, which is the same component reading the same cache.
+			Avatars.Forget(Auth.UserName);
+
+			_photoStatus = "Photo saved.";
+		}
+		catch (Exception exception)
+		{
+			_photoStatus = $"Could not save that photo: {exception.Message}";
+		}
+		finally
+		{
+			_savingPhoto = false;
+		}
+	}
+
+	private async Task RemovePhotoAsync()
+	{
+		_savingPhoto = true;
+		_photoStatus = null;
+
+		try
+		{
+			_profile = await Api.ClearAvatarAsync();
+
+			Avatars.Forget(Auth.UserName);
+
+			_photoStatus = "Photo removed. Your name appears on its own again.";
+		}
+		catch (Exception exception)
+		{
+			_photoStatus = $"Could not remove it: {exception.Message}";
+		}
+		finally
+		{
+			_savingPhoto = false;
+		}
+	}
+
+	/// <summary>An image read off the device and waiting for a deliberate press.</summary>
+	private sealed record PickedPhoto(byte[] Bytes, string ContentType, string FileName);
+
 	private async Task SaveAsync()
 	{
 		_saving = true;
@@ -245,6 +412,32 @@
 
 <style>
 	.profile .switch { margin-top: 0.5rem; }
+
+	.profile .photo {
+		border: 0;
+		margin: 0 0 1.5rem;
+		padding: 0;
+		min-width: 0; /* fieldset defaults to min-content, which stops the row wrapping */
+	}
+
+		.profile .photo legend {
+			padding: 0;
+		}
+
+	.profile .photo-row {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
+		margin: 0.75rem 0;
+	}
+
+	.profile .photo-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
+	}
 	.profile .badge.good { background: #d1fae5; color: #196c2e; }
 	.profile .badge.bad { background: #fef3c730; color: #92400e; }
 	.profile .status { margin-top: 1rem; }

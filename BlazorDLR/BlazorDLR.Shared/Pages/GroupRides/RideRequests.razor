@@ -29,6 +29,7 @@
 			{
 				<li>
 					<div class="meta">
+						<RiderAvatar UserName="@request.UserName" />
 						<strong>@request.UserName</strong>
 						<span class="when">asked @Format(request.RequestedUtc)</span>
 						@if (!string.IsNullOrEmpty(request.Message))

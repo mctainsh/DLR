@@ -160,25 +160,42 @@ public sealed class TrackController : ControllerBase
 			return Unauthorized();
 		}
 
-		// Scoped to the owner, and 404 rather than 403 for anybody else's. Sharing arrives with
-		// the §6.3 share endpoint; until it does, a distinguishable answer would only be a way
-		// to ask whether a track id exists.
+		// The caller's own track, or one anybody may read because its owner shared it with
+		// everyone (§6.2). Everything else is 404 rather than 403, and still is: a
+		// distinguishable answer on a private track would be a way to ask whether a track id
+		// exists (§15.4).
 		Track? track = await database
 			.Set<Track>()
 			.AsNoTracking()
-			.SingleOrDefaultAsync(row => row.Id == id && row.OwnerId == ownerId);
+			.SingleOrDefaultAsync(row =>
+				row.Id == id
+				&& (row.OwnerId == ownerId || row.Visibility == TrackVisibility.Public));
 
 		if (track is null)
 		{
 			return NotFound();
 		}
 
+		bool isMine = track.OwnerId == ownerId;
+
+		// Read only for somebody else's, and only after the row proved to be public. A second
+		// query rather than an Include, because the owner's row is wanted on the rare read and
+		// joined onto every one of a rider's own.
+		string? ownerName = isMine
+			? null
+			: await database
+				.Set<Data.Identity.AppUser>()
+				.AsNoTracking()
+				.Where(user => user.Id == track.OwnerId)
+				.Select(user => user.UserName)
+				.SingleOrDefaultAsync();
+
 		using MemoryStream polyline = new(track.SimplifiedPolyline);
 
 		TrackGeometry simplified = TrackBlobCodec.Read(polyline);
 
 		return Ok(new TrackDetail(
-			TrackStore.Summarise(track),
+			isMine ? TrackStore.Summarise(track) : TrackStore.SummariseForReader(track, ownerName ?? "Unknown"),
 			new TrackBounds(
 				track.BoundsMinLat,
 				track.BoundsMinLon,

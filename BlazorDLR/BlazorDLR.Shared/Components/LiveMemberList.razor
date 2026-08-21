@@ -74,6 +74,7 @@
 					<span class="swatch" style="background: @row.Colour" aria-hidden="true"></span>
 
 					<div class="who">
+						<RiderAvatar UserName="@row.UserName" />
 						<strong>@row.UserName</strong>
 						@if (row.IsSelf)
 						{

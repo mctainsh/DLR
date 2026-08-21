@@ -39,6 +39,7 @@
     /* Semantic */
     --dlr-error:         #f87171;
     --dlr-error-bg:      #451818;
+    --dlr-error-border:  #7f1d1d; /* the destructive button's edge — reads as red against #451818 */
     --dlr-warn-bg:       #422006;
     --dlr-good:          #4ade80;
 
@@ -419,9 +420,38 @@ input:focus, textarea:focus, select:focus {
 
 .page legend { font-weight: 600; padding: 0 0.5rem; }
 
-/* The default button size. Anything smaller (a row action, a chip) says so locally,
-   and .primary below re-states its own padding to win this back. */
-.page button { padding: 0.5rem 1rem; }
+/*
+    THE NEUTRAL BUTTON — Cancel, Retry, Previous, Next, and every other button that is
+    not the affirmative action and not the destructive one.
+
+    This used to set padding and nothing else, which left every unclassed button as the
+    browser's own control: a light grey bevelled slab. On a near-black page that is the
+    brightest thing on screen, sitting next to a flat blue .primary that was styled — so
+    the quiet option drew more attention than the one the rider is meant to press, and
+    the pair looked like two controls from two different applications.
+
+    Stated here rather than on a class, because the markup for a secondary button is a
+    bare <button> in a dozen screens and giving them all a class would be a worse fix
+    than giving the element a default. `.primary` and `.danger` below both re-state their
+    own padding and colours, and both out-specify this on the element+class pair.
+
+    Anything smaller — a row action, a chip, an icon button — still says so locally:
+    every one of those rules is scoped under its page or component class, which beats
+    this, and every one of them declares its own background.
+*/
+.page button {
+    padding: 0.5rem 1rem;
+    background: var(--dlr-surface-2);
+    color: var(--dlr-fg);
+    border: 1px solid var(--dlr-border-strong);
+    border-radius: 4px;
+    font: inherit; /* the OS control font is not this app's, and the bevel came with it */
+    cursor: pointer;
+}
+
+.page button:hover:not(:disabled) {
+    border-color: var(--dlr-fg-quiet);
+}
 
 /*
     STACKED FORMS — opt in with `class="page form-page"`.
@@ -506,21 +536,50 @@ label.radio, .radio {
 
     Applies to every disabled button, not just .primary: the same is true of a plain one, and
     the two disabled buttons on that screen — this and Download — should not disagree.
+
+    THE LONG SELECTOR LIST IS SPECIFICITY, NOT SUPERSTITION. `.page button` above and
+    `.page button.danger` below are both scoped to the page, so the short forms
+    (`button:disabled`, `.danger:disabled`) lose to them on specificity no matter which
+    order the rules appear in — a disabled Delete would have gone on rendering in full
+    destructive red while refusing to be pressed. Each `.page`-scoped selector here exists
+    to out-specify exactly one rule that would otherwise win.
 */
-button:disabled, .primary:disabled, button.primary:disabled, .danger:disabled {
+button:disabled,
+.primary:disabled,
+button.primary:disabled,
+.danger:disabled,
+.page button:disabled,
+.page button.primary:disabled,
+.page button.danger:disabled {
     background: var(--dlr-surface-2);
     color: var(--dlr-fg-muted);
     border-color: var(--dlr-border);
     cursor: not-allowed;
 }
 
-/* Destructive, but not the point of the page — revoke a device, remove a range. */
-.danger, button.danger {
+/*
+    Destructive, but not the point of the page — revoke a device, remove a photo, delete
+    a track.
+
+    Retuned from a pale pink pill (#fdecea on #a91c1c) that was written for a light theme
+    this app has not had since the twin palette was deleted at the top of this file. On
+    near-black navy it rendered as a near-white block: the loudest control on the screen,
+    for the action a rider is least often reaching for.
+
+    Dark red fill, red text, red edge — from the tokens, so it retunes with everything
+    else. It reads as destructive without shouting, which is the balance the comment above
+    it always claimed: `.primary` is still the brightest thing on any screen that has one.
+*/
+.danger, button.danger, .page button.danger {
     padding: 0.5rem 1.25rem;
-    background: #fdecea;
-    color: #a91c1c;
-    border: 1px solid #f5c2c0;
+    background: var(--dlr-error-bg);
+    color: var(--dlr-error);
+    border: 1px solid var(--dlr-error-border);
     border-radius: 4px;
+}
+
+.page button.danger:hover:not(:disabled) {
+    border-color: var(--dlr-error);
 }
 
 /* An <a> that reads as a button. */

@@ -1,3 +1,4 @@
+@using BlazorDLR.Shared.Components
 @using DLR.Core.Contracts.Comments
 
 @*
@@ -43,8 +44,14 @@
 				</button>
 				@if (option.Voters.Count > 0)
 				{
+					@* One span per voter rather than a joined string, so each name can carry its
+					   own photograph (§7.3). The separator moves into CSS for the same reason —
+					   a comma in the markup would sit between a name and the next circle. *@
 					<div class="voters">
-						@string.Join(", ", option.Voters.Select(v => v.UserName))
+						@foreach (PollVoter voter in option.Voters)
+						{
+							<span class="voter"><RiderAvatar UserName="@voter.UserName" />@voter.UserName</span>
+						}
 					</div>
 				}
 			</div>
@@ -156,12 +163,22 @@
 	.poll .text { font-weight: 500; }
 	.poll .mine-tag { margin-left: 0.5rem; font-size: 0.75rem; color: #2563eb; }
 	.poll .count { font-variant-numeric: tabular-nums; font-size: 0.85rem; opacity: 0.85; }
-	.poll .voters { font-size: 0.8rem; opacity: 0.7; margin: 0.15rem 0 0.4rem 0.75rem; }
+	.poll .voters { font-size: 0.8rem; opacity: 0.7; margin: 0.15rem 0 0.4rem 0.75rem; display: flex; flex-wrap: wrap; gap: 0 0.5rem; }
+
+		.poll .voters .voter { display: inline-flex; align-items: center; }
+
+			/* The separator the joined string used to carry. Between voters only, so the last
+			   name does not trail a comma. */
+			.poll .voters .voter:not(:last-child)::after { content: ","; }
 	.poll .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
 	.poll .mode { font-size: 0.85rem; opacity: 0.75; }
 	.poll .closes { opacity: 0.85; }
+	/* The same palette as the global .danger in app.css, not a second opinion about it. Only
+	   the size is local: this button closes a poll from inside a comment card, where the
+	   page-wide button padding is too big for the row it sits on. */
 	.poll .close {
 		padding: 0.3rem 0.7rem; font-size: 0.85rem;
-		background: #fdecea; color: #a91c1c; border: 1px solid #f5c2c0; border-radius: 4px;
+		background: var(--dlr-error-bg); color: var(--dlr-error);
+		border: 1px solid var(--dlr-error-border); border-radius: 4px;
 	}
 </style>

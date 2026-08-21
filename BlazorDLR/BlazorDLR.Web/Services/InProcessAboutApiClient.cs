@@ -61,6 +61,21 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task<PrivateAreaResponse> GetPrivateAreaAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task SetPrivateAreaAsync(PrivateAreaSettings request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task ClearPrivateAreaAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<OwnProfile> SetAvatarAsync(SetAvatarRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<OwnProfile> ClearAvatarAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+
+	/// <summary>
+	/// Empty rather than a throw, unlike everything else on this stub.
+	/// <para>
+	/// Nothing on the SSR host should reach this: <c>RiderAvatars</c> is not registered there at
+	/// all (see the note in <c>Program.cs</c>), so no prerendered component asks. It answers
+	/// safely anyway because the cost of being wrong is the difference between a page with no
+	/// avatars and a prerender that threw — and this stub exists to make that choice explicitly
+	/// rather than by omission.
+	/// </para>
+	/// </summary>
+	public Task<IReadOnlyList<RiderAvatarDto>> GetRiderAvatarsAsync(IReadOnlyCollection<string> userNames, CancellationToken cancellationToken = default) =>
+		Task.FromResult<IReadOnlyList<RiderAvatarDto>>([]);
 	public Task<TrackSummary> UploadTrackAsync(UploadTrackRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
@@ -71,6 +86,8 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task<TrackEditResponse> EditTrackAsync(Guid trackId, EditTrackRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<TrackEditResponse> UndoTrackEditAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task PurgeTrackPreviousVersionAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<TrackSummary> UpdateTrackDetailsAsync(Guid trackId, UpdateTrackDetailsRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<SharedTrackPage> ListSharedTracksAsync(SharedTrackQuery query, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<RideDetail> CreateRideAsync(CreateRideRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);

@@ -1,0 +1,30 @@
+/*
+	The little round photograph beside a rider's name (§7.3).
+
+	Scoped rather than a <style> block in the component, because this renders once per name on the
+	screen — a member list would otherwise carry twenty copies of these rules inside its own DOM.
+
+	em rather than rem or px: "about twice the line height" has to hold beside a comment header, a
+	member-list row and a page heading, and those are three different type sizes. A multiple of the
+	surrounding text follows all three on its own.
+*/
+.rider-avatar {
+	border-radius: 50%;
+	object-fit: cover; /* a portrait photograph must fill the circle, not letterbox inside it */
+	flex: 0 0 auto; /* nearly every list this sits in is a flex row; without this the circle squashes */
+	vertical-align: middle; /* and the ones that are not flex put it on the text's centre line */
+	background: #fff2; /* what shows through while the image paints, and behind a transparent PNG */
+}
+
+.rider-avatar.inline {
+	width: 2em;
+	height: 2em;
+	margin-right: 0.4em;
+}
+
+/* For the rider detail page, which does not exist yet. See RiderAvatar.AvatarSize.Detail. */
+.rider-avatar.detail {
+	width: 8rem;
+	height: 8rem;
+	margin-right: 0;
+}

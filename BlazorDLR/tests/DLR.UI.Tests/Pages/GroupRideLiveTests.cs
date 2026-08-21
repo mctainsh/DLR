@@ -244,7 +244,6 @@ public sealed class GroupRideLiveTests : PageTestContext
 		string menu = component.Find(".menu").TextContent;
 		menu.ShouldContain("Info");
 		menu.ShouldContain("Add marker");
-		menu.ShouldContain("Adventure thread");
 		menu.ShouldContain("Markers");
 	}
 
@@ -266,7 +265,6 @@ public sealed class GroupRideLiveTests : PageTestContext
 		await OpenMenuAsync(component);
 
 		string menu = component.Find(".menu").TextContent;
-		menu.ShouldContain("Adventure thread");
 		menu.ShouldNotContain("quiet", Case.Insensitive,
 			"§17.6: every post notifies in every ride state, so no menu copy may say otherwise.");
 		menu.ShouldNotContain("silent", Case.Insensitive);
