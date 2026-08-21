@@ -1,3 +1,5 @@
+using DLR.Core.Contracts.Identity;
+
 namespace DLR.Core.Contracts.Account;
 
 /// <summary>
@@ -16,7 +18,7 @@ namespace DLR.Core.Contracts.Account;
 /// <param name="UserName">The name, which cannot have changed since registration (§7.2).</param>
 /// <param name="CreatedUtc">When the account was created.</param>
 /// <param name="LastActiveUtc">When the server last heard from it (§7.10).</param>
-/// <param name="Profile">The three optional fields and their three switches (§7.3).</param>
+/// <param name="Profile">The three optional fields, their three switches, and the home private area (§7.3, §10.1).</param>
 /// <param name="Tracks">Recorded and imported rides, with their points as GPX in the archive.</param>
 /// <param name="Markers">Markers this account placed, wherever they hang (§16).</param>
 /// <param name="Photos">Photographs it uploaded, with the image itself in the archive.</param>
@@ -56,6 +58,16 @@ public sealed record AccountExport(
 /// <param name="ShareDisplayName">Whether co-members see the display name.</param>
 /// <param name="SharePhoneNumber">Whether co-members see the phone number.</param>
 /// <param name="ShareEmail">Whether co-members see the address.</param>
+/// <param name="PrivateArea">
+/// The home private area the account holds, or null when it has none (§10.1).
+/// <para>
+/// Exported because the server holds it and it is the rider's data — the same reason the
+/// switches above are. It is also the one field in this record that is a location, so an export
+/// containing it is an export that names where somebody lives: the archive is handed to the
+/// account holder over an authenticated request and nowhere else, and that is worth remembering
+/// before anything else is ever allowed to read one.
+/// </para>
+/// </param>
 public sealed record ExportedProfile(
 	string? DisplayName,
 	string? PhoneNumber,
@@ -63,7 +75,8 @@ public sealed record ExportedProfile(
 	bool EmailConfirmed,
 	bool ShareDisplayName,
 	bool SharePhoneNumber,
-	bool ShareEmail);
+	bool ShareEmail,
+	PrivateAreaSettings? PrivateArea = null);
 
 /// <summary>One track, with its points written out as GPX beside this file (§15.1).</summary>
 /// <param name="Id">The track.</param>

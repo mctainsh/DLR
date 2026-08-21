@@ -751,11 +751,12 @@
 
 	/// <summary>
 	/// This rider's own private area (§10.1), drawn so they can see where the map stops carrying
-	/// them. Null when none is set, which is every device by default.
+	/// them. Null when none is set, which is every account by default.
 	/// <para>
-	/// <strong>Nobody else sees this.</strong> It is drawn from the device's own store and is not
-	/// part of the ride's data — the server has never been told it exists, so there is nothing for
-	/// another member's client to draw even if it wanted to.
+	/// <strong>Nobody else sees this.</strong> The server holds the circle for the account that
+	/// set it and answers with it to nobody else: it is not part of the ride's data, no endpoint
+	/// exposes another rider's area, and <c>SharedProfile</c> has no field for one — so there is
+	/// nothing for another member's client to draw even if it wanted to.
 	/// </para>
 	/// </summary>
 	private IReadOnlyList<MapCircle>? _privateAreaLayer;
@@ -1175,7 +1176,7 @@
 	private LocationBroadcastState? _broadcast;
 
 	/// <summary>
-	/// The device's private area (§10.1), or <c>null</c> on a host with no receiver for it to
+	/// This account's private area (§10.1), or <c>null</c> on a host with no receiver for it to
 	/// gate. The circle is drawn on this map so a rider can see how far it reaches; a browser has
 	/// nothing to draw, because nothing there was ever going to be suppressed by it.
 	/// </summary>

@@ -64,9 +64,9 @@ public sealed class LocationSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Renders the screen and waits for the private-area picker, which appears only once
-	/// <c>PrivateAreaState</c> has read the device — the section shows "Reading this device…"
-	/// until then, because a screen that offered the controls first would be inviting somebody
-	/// to overwrite an area it had not looked at yet.
+	/// <c>PrivateAreaState</c> has an answer — the section shows "Reading your account…" until
+	/// then, because a screen that offered the controls first would be inviting somebody to
+	/// overwrite an area it had not looked at yet.
 	/// </summary>
 	private IRenderedComponent<Location> RenderPage()
 	{
@@ -355,7 +355,7 @@ public sealed class LocationSettingsTests : PageTestContext
 	}
 
 	[Fact]
-	public async Task PrivateArea_TapPlacesTheCentre_AndSavingStoresItOnTheDevice()
+	public async Task PrivateArea_TapPlacesTheCentre_AndSavingStoresItOnTheAccount()
 	{
 		Wire();
 
@@ -374,10 +374,15 @@ public sealed class LocationSettingsTests : PageTestContext
 		// And the gate it exists to drive is now closed over that point.
 		state.HidesLocation(Latitude, Longitude).ShouldBeTrue();
 		state.HidesLocation(-33.918, Longitude).ShouldBeFalse();
+
+		// On the account, which is the whole of the change: the rider's next handset arrives
+		// already hiding this circle instead of quietly sharing from their doorstep.
+		_api.PrivateAreaResult.ShouldNotBeNull();
+		_api.PrivateAreaResult!.Latitude.ShouldBe(Latitude, tolerance: 1e-6);
 	}
 
 	[Fact]
-	public async Task PrivateArea_NeverReachesTheServer()
+	public async Task PrivateArea_TravelsOnItsOwnEndpoint_NotInsideTheProfileSave()
 	{
 		Wire();
 
@@ -387,11 +392,40 @@ public sealed class LocationSettingsTests : PageTestContext
 		PrivateAreaState state = Resolve<PrivateAreaState>();
 		component.WaitForAssertion(() => state.IsSet.ShouldBeTrue(), timeout: TimeSpan.FromSeconds(3));
 
-		// The headline claim of the feature, asserted rather than assumed: saving an area makes no
-		// call at all. An area that travelled would be a precise statement of where the rider
-		// lives, held by the one party the setting is meant to keep it from.
+		// Asserted rather than assumed, because the separation is what stops the circle being
+		// erased as a side effect: PUT /me/profile replaces the whole profile, so an area carried
+		// inside it would be cleared by any client that had not been taught about it (§7.14).
+		_api.Calls.ShouldContain(nameof(IApiClient.SetPrivateAreaAsync));
 		_api.Calls.ShouldNotContain(nameof(IApiClient.UpdateProfileAsync));
+
+		// And it is nowhere near the track upload either — a saved track is filtered against the
+		// area, it never carries it.
 		_api.Calls.ShouldNotContain(nameof(IApiClient.UploadTrackAsync));
+	}
+
+	[Fact]
+	public async Task PrivateArea_WhenTheAccountCannotBeReached_SaysTheRiderIsHiddenHereAnyway()
+	{
+		Wire();
+		_api.PrivateAreaException = new HttpRequestException("no network");
+
+		IRenderedComponent<Location> component = RenderPage();
+		await PlaceAndSaveAreaAsync(component, Latitude, Longitude);
+
+		PrivateAreaState state = Resolve<PrivateAreaState>();
+
+		component.WaitForAssertion(() =>
+		{
+			// The half that must not be understated: the rider standing in the circle is hidden
+			// now, on this phone, whatever the network did.
+			state.HidesLocation(Latitude, Longitude).ShouldBeTrue();
+
+			string markup = component.Markup;
+			markup.Contains("hidden here already", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+				"\"could not save\" would be false — the gate is closed and the phone has its copy.");
+			markup.Contains("other devices", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+				"and the half that must not be overstated: the account has not got it yet.");
+		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]
@@ -413,7 +447,7 @@ public sealed class LocationSettingsTests : PageTestContext
 		{
 			state.IsSet.ShouldBeFalse();
 			state.HidesLocation(Latitude, Longitude).ShouldBeFalse(
-				"removing the area means this device shares from everywhere again.");
+				"removing the area means every device on this account shares from everywhere again.");
 			component.FindAll(".area-actions button.danger").ShouldBeEmpty(
 				"with no area set there is nothing to remove.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -452,21 +486,24 @@ public sealed class LocationSettingsTests : PageTestContext
 	}
 
 	[Fact]
-	public void PrivateArea_CopyStatesThatItStaysOnTheDevice_AndThatYouStillAppearInTheRide()
+	public void PrivateArea_CopySaysWhereItIsKept_AndThatYouStillAppearInTheRide()
 	{
 		Wire();
 
 		IRenderedComponent<Location> component = RenderPage();
 		string markup = component.Markup;
 
-		// §10.1's discipline: the copy has to describe what the code does. Both halves matter —
-		// what the setting protects, and what it costs (no other device knows about it).
-		markup.Contains("never sent to the server", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"the traveller is entitled to know the area is not held anywhere but here.");
+		// §10.1's discipline: the copy has to describe what the code does, and it changed when the
+		// area moved onto the account. Three claims, and the middle one is the one a doc rewrite
+		// is most likely to quietly drop.
+		markup.Contains("saved with your account", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+			"the traveller is entitled to know the circle follows them — that is why it moved.");
+		markup.Contains("stored on the server", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+			"and entitled to know what that costs: the server holds a point that names where they live.");
+		markup.Contains("no other traveller", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
+			"while the guarantee that did not change is stated just as plainly.");
 		markup.Contains("present", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
 			"§5.6: inside the area you are still in the adventure — you simply have no position on the map.");
-		markup.Contains("another phone", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"the cost of device-local storage is stated, not buried.");
 	}
 
 	/// <summary>Rides north from the fixture's origin, one fix every <paramref name="stepM"/> metres.</summary>

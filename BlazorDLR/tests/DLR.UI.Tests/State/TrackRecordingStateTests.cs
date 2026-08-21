@@ -39,7 +39,7 @@ public sealed class TrackRecordingStateTests
 
 		public Harness()
 		{
-			PrivateAreas = new PrivateAreaState(Settings);
+			PrivateAreas = new PrivateAreaState(Settings, Api);
 			Recording = new TrackRecordingState(Settings, Api, PrivateAreas);
 		}
 

@@ -21,8 +21,8 @@ namespace BlazorDLR.Shared.State;
 /// <see cref="PrivateAreaState.HidesLocation(LocationFix)"/> <em>before</em> anything else looks at
 /// it (§10.1) — before the accuracy filter, before the cadence filter, and long before the network.
 /// A fix from inside the rider's private area is not filtered, not queued and not retried: it is
-/// dropped where it was read. And because that state answers "hide" until it has read the device,
-/// a race at startup fails closed.
+/// dropped where it was read. And because that state answers "hide" until it has an answer — from
+/// the account, or from this device's cache of it — a race at startup fails closed.
 /// </para>
 /// <para>
 /// <strong>Only the MAUI host registers this.</strong> The web hosts register no GPS seam at all
@@ -265,9 +265,12 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		// switched on. It failed as a watch that silently never started, which is the hardest
 		// possible shape for this bug to have.
 		//
-		// PrivateAreaState is awaited here for a second reason: it answers "hide" until it has been
-		// read (§10.1), so a fix arriving before it resolves would be dropped. Correct, but it
-		// would look exactly like a receiver that could not get a lock.
+		// PrivateAreaState is awaited here for a second reason: it answers "hide" until it has an
+		// answer (§10.1), so a fix arriving before it resolves would be dropped. Correct, but it
+		// would look exactly like a receiver that could not get a lock. Since the area moved onto
+		// the account this read can also involve the network, which makes the ordering matter
+		// more rather than less — it is a request, not a preference lookup, and the pump must not
+		// be the thing waiting on it.
 		await _privateAreas.LoadAsync();
 		await _profile.LoadAsync();
 

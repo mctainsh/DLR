@@ -15,10 +15,13 @@
 	and the one circle it does none of that inside.
 
 	The private area moved here from the Profile screen. That screen is about what other riders
-	are shown; this one is about the receiver, and the area is a setting on the receiver — it is
+	are shown; this one is about the receiver, and the area is what gates the receiver — it is
 	what the broadcaster consults before every fix and what the recorder filters against on the
 	way out. Splitting them meant a rider reading "nothing is sent from inside your private area"
 	had to go to another page to find out whether they had one.
+
+	The circle itself is no longer a device setting: it is stored on the account and cached here
+	(§10.1). Only the three settings above it belong to this phone.
 
 	This is a phone screen. The web hosts register none of the four states it is built on (§18.6),
 	so everything below the guard is unreachable there and Settings does not link to it — but the
@@ -261,10 +264,17 @@
 	</div>
 
 	@*
-		The private area (§10.1), moved here from Profile. It is device-local and never travels,
-		so there is no form and no save button beyond its own — a privacy control that is
-		unreachable because the network is down is a privacy control that is unreachable when it
-		matters.
+		The private area (§10.1). Stored on the rider's account and mirrored into this device's
+		settings store, which reverses the original device-only design — that one lost people
+		their circle to app updates and reinstalls without ever saying so, and a rider who
+		believes they have one and does not is broadcasting from their doorstep.
+
+		The cache is what keeps it usable with no network: the gate answers from memory, the
+		screen renders the cached circle, and a save is written to this phone before it is sent.
+		A privacy control that is unreachable because the network is down is a privacy control
+		that is unreachable when it matters — so the only thing a failed request costs is the
+		rider's *other* devices, and the copy below says exactly that rather than "could not
+		save".
 	*@
 	<div class="panel private-area">
 		<h2>Home private area</h2>
@@ -277,19 +287,46 @@
 		</p>
 
 		<p class="note">
-			<strong>This stays on this device.</strong> The point, the radius and the fact that
-			you set one at all are never sent to the server and never shown to another traveller. The
-			circle is drawn on your own adventure map so you can see how far it reaches — on this
-			device and nobody else's. The cost of that is real and worth stating: it does not
-			follow you to another phone, and reinstalling the app forgets it.
+			<strong>This is saved with your account, so it follows you.</strong> A new phone, a
+			reinstall or an app update keeps it — which is why it is no longer kept only on the
+			handset, where it was being wiped without anyone noticing. It works with no signal
+			too: this phone keeps its own copy, and the circle is in force whether or not the
+			server can be reached.
 		</p>
 
-		@if (!PrivateAreas.IsLoaded)
+		<p class="note">
+			<strong>What that costs, plainly.</strong> The point and the radius are
+			<strong>stored on the server</strong>, so they are in the nightly backups and in your
+			account export, and whoever runs the server could read them. That is a real change
+			from before, and it is the price of not losing the setting. What has not changed is
+			who else sees it: <strong>no other traveller can</strong>. Nothing you publish carries
+			it, there is no way for anyone to ask the server for somebody else's private area, and
+			the circle drawn on your adventure map is drawn on your screen only.
+		</p>
+
+		@if (!PrivateAreas.IsLoaded && PrivateAreas.SyncError is null)
 		{
-			<p class="empty">Reading this device…</p>
+			<p class="empty">Reading your account…</p>
 		}
 		else
 		{
+			@*
+				Not loaded, and the read has already failed: the account is unreachable and this
+				phone has never cached an answer. The controls are offered anyway — a rider with
+				no signal must still be able to place a circle, and there is nothing here to
+				overwrite — but the state has to be named, because in it the gate suppresses
+				everything, which is not what "no private area" looks like.
+			*@
+			@if (!PrivateAreas.IsLoaded)
+			{
+				<p class="status unsaved">
+					Your account could not be reached (@PrivateAreas.SyncError) and this phone has
+					no copy of your private area yet, so it is sending your position from nowhere
+					until it can check. Sharing needs the same connection this read failed on, so
+					nothing is being lost while you wait.
+				</p>
+			}
+
 			<div class="area-picker">
 				<RideMap Camera="_areaCamera" Circles="_areaCircle" OnMapClicked="OnAreaMapClicked"
 						 AllowRotation="false" />
@@ -348,13 +385,28 @@
 				   the whole job of this line. *@
 				<p class="status unsaved">
 					@(PrivateAreas.IsSet
-						? "Not saved yet — this device is still using the area you saved before."
-						: "Not saved yet — this device is still sharing from here.")
+						? "Not saved yet — you are still hidden inside the area you saved before."
+						: "Not saved yet — you are still sharing from here.")
 				</p>
 			}
 			else if (_areaStatus is not null)
 			{
-				<p class="status">@_areaStatus</p>
+				<p class="status @(_areaOffline ? "unsaved" : null)">@_areaStatus</p>
+			}
+
+			@*
+				The other thing this screen must not blur, now that there are two copies of the
+				setting: which of them it is showing. The circle in force on this phone is always
+				the one drawn above; whether the account agrees is a separate question and gets
+				its own sentence.
+			*@
+			@if (_areaStatus is null && PrivateAreas.IsLoaded && !PrivateAreas.IsFromAccount && PrivateAreas.SyncError is not null)
+			{
+				<p class="status unsaved">
+					Your account could not be reached (@PrivateAreas.SyncError). What is shown is
+					this phone's own copy, and it <em>is</em> being used here — but a circle you
+					set on another device may not have arrived yet.
+				</p>
 			}
 		}
 	</div>
@@ -443,11 +495,12 @@
 	}
 
 	/// <summary>
-	/// Reads the three device-local settings after first render — <em>not</em> in
-	/// <c>OnInitializedAsync</c>. On the MAUI host the store is MAUI Preferences; there is no
-	/// prerender to race, but the ordering is kept because it is the one the states document.
-	/// The private-area picker is not rendered until this lands, so the camera it opens with is
-	/// right the first time.
+	/// Reads the two device-local settings and the account's private area after first render —
+	/// <em>not</em> in <c>OnInitializedAsync</c>. On the MAUI host the device store is MAUI
+	/// Preferences; there is no prerender to race, but the ordering is kept because it is the one
+	/// the states document. The private area also makes a request from here, which is the other
+	/// reason it cannot move earlier. The picker is not rendered until this lands, so the camera
+	/// it opens with is right the first time.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -690,6 +743,13 @@
 			? [new MapCircle(latitude, longitude, _areaRadiusM)]
 			: null;
 
+	/// <summary>
+	/// Whether the last save or removal took effect here but not on the account. Drives the red
+	/// styling on the status line: the setting is doing its job, and the rider still needs to
+	/// know that the rest of it has not travelled.
+	/// </summary>
+	private bool _areaOffline;
+
 	private async Task SaveAreaAsync()
 	{
 		if (_areaLat is not { } latitude || _areaLon is not { } longitude)
@@ -697,26 +757,43 @@
 			return;
 		}
 
+		// Normalised here rather than letting SetAsync throw, so a typed coordinate that is not
+		// on the earth is a sentence about the two boxes above rather than an exception message —
+		// and so what is composed stays dirty instead of being reported as saved.
+		if (new PrivateArea(latitude, longitude, _areaRadiusM).Normalised() is not { } area)
+		{
+			_areaOffline = false;
+			_areaStatus = "That centre is not a point on the earth — check the latitude and longitude.";
+			return;
+		}
+
 		try
 		{
-			await PrivateAreas.SetAsync(new PrivateArea(latitude, longitude, _areaRadiusM));
+			await PrivateAreas.SetAsync(area);
 
-			// Read back what was actually stored rather than echoing what was typed: the radius
-			// is clamped on the way in, and a screen that reports a number the device is not
-			// using is the kind of lie this feature cannot afford.
-			if (PrivateAreas.Area is { } stored)
-			{
-				_areaRadiusM = stored.RadiusM;
-				RebuildAreaCircle();
-			}
-
-			_areaDirty = false;
-			_areaStatus = "Saved on this device.";
+			_areaOffline = false;
+			_areaStatus = "Saved to your account. Every device you sign in on hides this circle.";
 		}
 		catch (Exception exception)
 		{
-			_areaStatus = $"Could not save on this device: {exception.Message}";
+			// SetAsync closes the gate and writes this phone's copy before it uploads, so a
+			// failure here means "you are hidden, your account does not know yet" — a different
+			// sentence from "nothing was saved", and the rider needs the true one.
+			_areaOffline = true;
+			_areaStatus = "You are hidden here already, but your account could not be updated: "
+				+ $"{exception.Message} Your other devices will not have this circle until it reaches them.";
 		}
+
+		// Read back what was actually stored rather than echoing what was typed: the radius is
+		// clamped on the way in, and a screen that reports a number the app is not using is the
+		// kind of lie this feature cannot afford.
+		if (PrivateAreas.Area is { } stored)
+		{
+			_areaRadiusM = stored.RadiusM;
+			RebuildAreaCircle();
+		}
+
+		_areaDirty = false;
 	}
 
 	private async Task ClearAreaAsync()
@@ -725,17 +802,24 @@
 		{
 			await PrivateAreas.ClearAsync();
 
-			_areaLat = null;
-			_areaLon = null;
-			_areaRadiusM = PrivateArea.DefaultRadiusM;
-			_areaDirty = false;
-			_areaCircle = null;
-			_areaStatus = "Removed. This device shares from everywhere again.";
+			_areaOffline = false;
+			_areaStatus = "Removed from your account. Every device shares from everywhere again.";
 		}
 		catch (Exception exception)
 		{
-			_areaStatus = $"Could not remove it: {exception.Message}";
+			// The same asymmetry as the save, the other way up: this phone has stopped hiding and
+			// the devices that have not heard are still hiding. "Could not remove it" would send
+			// the rider back to a button that has already done its half.
+			_areaOffline = true;
+			_areaStatus = "Removed on this phone, but your account could not be updated: "
+				+ $"{exception.Message} Your other devices will keep hiding this circle until it reaches them.";
 		}
+
+		_areaLat = null;
+		_areaLon = null;
+		_areaRadiusM = PrivateArea.DefaultRadiusM;
+		_areaDirty = false;
+		_areaCircle = null;
 	}
 
 	public void Dispose()

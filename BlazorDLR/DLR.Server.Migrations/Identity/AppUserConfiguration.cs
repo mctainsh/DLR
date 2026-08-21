@@ -50,6 +50,11 @@ public sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
 		// third place for them to disagree.
 		builder.Ignore(user => user.IsRestricted);
 
+		// Same reasoning: the three private-area columns are the truth, and this reads them
+		// together (§10.1). Nothing queries on it — the only reader of an area is the account
+		// that owns it — so there is no index to want either.
+		builder.Ignore(user => user.HasPrivateArea);
+
 		builder.Property(user => user.DisplayName).HasMaxLength(60);
 		builder.Property(user => user.PhoneNumber).HasMaxLength(20);
 

@@ -21,6 +21,15 @@ public static class ProfileEndpoints
 
 	/// <summary>Route name for reading another rider's shared fields.</summary>
 	public const string SharedRouteName = "GetSharedProfile";
+
+	/// <summary>Route name for reading the caller's own home private area (§10.1).</summary>
+	public const string PrivateAreaRouteName = "GetPrivateArea";
+
+	/// <summary>Route name for placing or moving it.</summary>
+	public const string SetPrivateAreaRouteName = "SetPrivateArea";
+
+	/// <summary>Route name for removing it.</summary>
+	public const string ClearPrivateAreaRouteName = "ClearPrivateArea";
 }
 
 /// <summary>The three optional fields and their three switches (§7.3, §7.14).</summary>
@@ -147,6 +156,117 @@ public sealed class ProfileController : ControllerBase
 		user.SharePhoneNumber,
 		user.ShareEmail,
 		user.MarkerColour);
+
+	// -- Home private area (§10.1) ------------------------------------------------------------
+	//
+	// Its own sub-resource rather than three more fields on PUT /me/profile, and the separation
+	// is load-bearing rather than tidy. That endpoint takes a whole UpdateProfileRequest and
+	// writes every field on it, so an area carried inside it would be cleared by any client that
+	// had not been taught about it — a rider editing their display name in an older build would
+	// silently lose the circle around their house. A privacy control must not be deletable as a
+	// side effect of an unrelated save.
+	//
+	// Nothing here has a sharing switch, because there is nothing to switch: no route anywhere in
+	// the server answers with somebody else's area. GetSharedAsync above projects to SharedProfile,
+	// which has no field for one.
+
+	/// <summary>
+	/// The caller's own area, or the fact that they have none. Only ever their own — the route has
+	/// no user id in it, deliberately.
+	/// </summary>
+	[HttpGet("/api/v1/me/private-area", Name = ProfileEndpoints.PrivateAreaRouteName)]
+	[EndpointSummary("The caller's home private area, inside which their device publishes nothing.")]
+	public async Task<IActionResult> GetPrivateAreaAsync([FromServices] UserManager<AppUser> users)
+	{
+		if (await User.LoadAsync(users) is not { } user)
+		{
+			return Unauthorized();
+		}
+
+		return Ok(Area(user));
+	}
+
+	/// <summary>
+	/// Places or moves it.
+	/// <para>
+	/// The radius is clamped rather than refused and the centre is refused rather than clamped —
+	/// <c>PrivateAreaSettings.Normalised</c>, the same call the phone makes before it sends, so
+	/// the two cannot disagree about what was stored. A number outside the offered range is a
+	/// rider typing in a box; a centre that is not on the earth is a broken client, and quietly
+	/// picking a point for it would put a circle somewhere nobody chose.
+	/// </para>
+	/// </summary>
+	[HttpPut("/api/v1/me/private-area", Name = ProfileEndpoints.SetPrivateAreaRouteName)]
+	[EndpointSummary("Places or moves the caller's home private area.")]
+	public async Task<IActionResult> SetPrivateAreaAsync(
+		[FromBody] PrivateAreaSettings request,
+		[FromServices] UserManager<AppUser> users)
+	{
+		if (await User.LoadAsync(users) is not { } user)
+		{
+			return Unauthorized();
+		}
+
+		if (request.Normalised() is not { } area)
+		{
+			return new BadRequestObjectResult(new ValidationProblemDetails(new Dictionary<string, string[]>
+			{
+				[nameof(PrivateAreaSettings.Latitude)] = ["A private area needs a centre on the earth."],
+			}))
+			{
+				ContentTypes = { "application/problem+json" },
+			};
+		}
+
+		user.PrivateAreaLat = area.Latitude;
+		user.PrivateAreaLon = area.Longitude;
+		user.PrivateAreaRadiusM = area.RadiusM;
+
+		IdentityResult result = await users.UpdateAsync(user);
+
+		// The stored values, not the posted ones: the radius may have been clamped on the way in,
+		// and a screen that reports a number the account is not holding is the kind of lie this
+		// feature cannot afford.
+		return result.Succeeded ? Ok(Area(user)) : Failed(result);
+	}
+
+	/// <summary>
+	/// Forgets it, so the account shares from everywhere again. Idempotent — an account with no
+	/// area is a 200 and not a 404, because the caller is asking for a state and not for a row.
+	/// </summary>
+	[HttpDelete("/api/v1/me/private-area", Name = ProfileEndpoints.ClearPrivateAreaRouteName)]
+	[EndpointSummary("Removes the caller's home private area.")]
+	public async Task<IActionResult> ClearPrivateAreaAsync([FromServices] UserManager<AppUser> users)
+	{
+		if (await User.LoadAsync(users) is not { } user)
+		{
+			return Unauthorized();
+		}
+
+		// All three together. Two of them without the third is a row that HasPrivateArea reads as
+		// unset while still holding a coordinate nobody asked us to keep.
+		user.PrivateAreaLat = null;
+		user.PrivateAreaLon = null;
+		user.PrivateAreaRadiusM = null;
+
+		IdentityResult result = await users.UpdateAsync(user);
+
+		return result.Succeeded ? Ok(PrivateAreaResponse.None) : Failed(result);
+	}
+
+	private static PrivateAreaResponse Area(AppUser user) =>
+		user is { PrivateAreaLat: { } latitude, PrivateAreaLon: { } longitude, PrivateAreaRadiusM: { } radius }
+			? new PrivateAreaResponse(new PrivateAreaSettings(latitude, longitude, radius))
+			: PrivateAreaResponse.None;
+
+	private static BadRequestObjectResult Failed(IdentityResult result) =>
+		new(new ValidationProblemDetails(new Dictionary<string, string[]>
+		{
+			[string.Empty] = [.. result.Errors.Select(error => error.Description)],
+		}))
+		{
+			ContentTypes = { "application/problem+json" },
+		};
 
 	private static string? Trimmed(string? value) =>
 		string.IsNullOrWhiteSpace(value) ? null : value.Trim();

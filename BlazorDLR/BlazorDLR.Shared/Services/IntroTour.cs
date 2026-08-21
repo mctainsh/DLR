@@ -84,6 +84,6 @@ public static class IntroTour
 			"fa-user-shield",
 			"You decide who sees you",
 			"Sharing is only ever with the adventure you are on, and it stops when the adventure does. "
-			+ "You can hide a private area around home so it never leaves your phone at all."),
+			+ "Set a private area around home and your position is never sent from inside it."),
 	];
 }

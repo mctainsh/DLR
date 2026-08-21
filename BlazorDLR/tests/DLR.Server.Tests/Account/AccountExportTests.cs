@@ -127,6 +127,36 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 		profile.ShareDisplayName.ShouldBeTrue();
 		profile.SharePhoneNumber.ShouldBeFalse();
 		profile.ShareEmail.ShouldBeFalse();
+
+		profile.PrivateArea.ShouldBeNull("an account that has not set one has nothing to export.");
+	}
+
+	/// <summary>
+	/// The private area is on the account now (§10.1), so it is data the server holds about the
+	/// rider — and an export that claimed completeness while withholding the one setting that
+	/// names where they live would be answering a different question than the one asked.
+	/// </summary>
+	[Fact]
+	public async Task Profile_Export_IncludesTheHomePrivateArea()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient rider = await AccountDeletionTests.SignedInAsync(app, "DaveSmith");
+
+		using HttpResponseMessage saved = await rider.PutAsJsonAsync(
+			"/api/v1/me/private-area",
+			new PrivateAreaSettings(-33.868, 151.209, 1_500));
+
+		saved.EnsureSuccessStatusCode();
+
+		using ZipArchive archive = await ExportAsync(rider);
+
+		PrivateAreaSettings? area = Manifest(archive).Profile.PrivateArea;
+
+		area.ShouldNotBeNull();
+		area!.Latitude.ShouldBe(-33.868, tolerance: 1e-6);
+		area.Longitude.ShouldBe(151.209, tolerance: 1e-6);
+		area.RadiusM.ShouldBe(1_500);
 	}
 
 	/// <summary>

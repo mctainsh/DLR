@@ -163,9 +163,10 @@ internal class Program
 		// ILocationProvider, GpsProfileState, TrackRecordingState, PrivateAreaState and
 		// LocationBroadcastState are all absent, deliberately. A browser cannot deliver the
 		// background, high-cadence fixes a live ride needs, so every one of them was a stub
-		// answering "not supported" to screens that then had to explain themselves — and the
-		// private area in particular was the worst of them: a device-local circle set in a
-		// browser protects nothing and does not follow the rider to the phone that records.
+		// answering "not supported" to screens that then had to explain themselves. The private
+		// area is on the account now (§10.1) rather than on the device, so a browser could in
+		// principle edit it — but it gates a receiver this host does not have, and the screen it
+		// lives on is the one describing that receiver, so it stays with the rest of the set.
 		//
 		// The shared screens resolve the broadcaster with GetService rather than @inject and
 		// render their no-receiver branch when it is missing, which is what lets the whole set

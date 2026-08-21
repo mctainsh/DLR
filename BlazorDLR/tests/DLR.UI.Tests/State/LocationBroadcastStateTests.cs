@@ -57,7 +57,7 @@ public sealed class LocationBroadcastStateTests
 				Settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1").AsTask().Wait();
 			}
 
-			PrivateAreas = new PrivateAreaState(Settings);
+			PrivateAreas = new PrivateAreaState(Settings, Api);
 			Profile = new GpsProfileState(Settings);
 			Recording = new TrackRecordingState(Settings, Api, PrivateAreas);
 			Broadcast = new LocationBroadcastState(

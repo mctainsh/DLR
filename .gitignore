@@ -42,6 +42,11 @@ GoogleService-Info.plist
 *.mobileprovision
 *.provisionprofile
 
+# The signing env file Create-AndroidUploadKey.bat writes. It lives in
+# %USERPROFILE%\.dlr-signing\ and has no business here, but it holds the keystore
+# password in cleartext, so the repo refuses it if it is ever copied in.
+*signing-env.bat
+
 # ---------------------------------------------------------------------------
 # Infrastructure and data
 # ---------------------------------------------------------------------------

@@ -18,7 +18,11 @@ submitted. It has to cover, in these terms:
 - Precise location, collected only while a member has turned sharing on for a group adventure,
   shared only with the members of that adventure.
 - That location is collected **in the background**, and what stops it.
-- The private area (§10.1) — a device-local circle inside which nothing is recorded or sent.
+- The private area (§10.1) — a circle around home inside which nothing is sent. **Since v0.28 the
+  circle is stored on the member's account**, not only on the handset, so it survives a reinstall and
+  follows them to a new phone. That makes it precise location data held at rest by us, and the policy
+  has to say so — along with the part that did not change: no other member can see it, and there is no
+  route by which anyone could ask for somebody else's.
 - Account data: username, optional email, optional phone (§7.3).
 - Photos and comments attached to adventures.
 - Deletion: the account-deletion path in Settings → Data & export, and what it removes.
@@ -57,10 +61,51 @@ DLR_ANDROID_KEY_ALIAS      key alias
 DLR_ANDROID_KEY_PASS       key password
 ```
 
+### Where the signing material lives
+
+Created once by **`Create-AndroidUploadKey.bat`** (solution root), which refuses to overwrite an
+existing keystore. It writes two files, both **outside the repository**:
+
+| File | What it is |
+|---|---|
+| `%USERPROFILE%\.dlr-signing\dlr-upload.jks` | The upload key. PKCS12, RSA 4096, alias `dlr-upload`, 10000 days — Play requires validity past 22 Oct 2033. |
+| `%USERPROFILE%\.dlr-signing\dlr-signing-env.bat` | Sets the four `DLR_ANDROID_*` variables. **Contains the password in cleartext** — treat it as the key itself. |
+
+Both are ACL'd to the current user by the script. `%USERPROFILE%` on this machine is *not*
+OneDrive-redirected, which is deliberate: cloud-syncing an unrotatable key spreads it to every
+device and to a vendor's servers. Back it up to encrypted offline media instead, and put the
+password in a password manager.
+
+### Building the bundle
+
+**`Publish-Android.bat`** (solution root) is the whole procedure. It sources the signing
+environment, then runs the release checklist's gates in order before it will build — versions
+agreeing across the csproj and `AndroidManifest.xml`, a clean tree, `dotnet format`, the test suite.
+
+```
+Publish-Android.bat              full run
+Publish-Android.bat /skiptests   skip the test suite (no Docker needed)
+Publish-Android.bat /force       build from a dirty or unpushed tree
+```
+
+Output (the app ID is `au.com.securehub.dlr.v2`, so the bundle is named for it):
+
+```
+BlazorDLR/bin/Release/net10.0-android/publish/
+    au.com.securehub.dlr.v2-Signed.aab   <- upload this
+    mapping.txt                          <- upload this too, for readable crash reports
+```
+
+Or by hand, with the four variables already in the environment:
+
 ```bash
 dotnet publish BlazorDLR/BlazorDLR.csproj -f net10.0-android -c Release
-# → bin/Release/net10.0-android/publish/au.com.securehub.dlr-Signed.aab
 ```
+
+> Do not export a bare `OUTDIR`, `PROJ` or similar in a shell that then runs `dotnet publish`.
+> MSBuild imports the process environment as properties, so `OUTDIR` becomes `$(OutDir)` and
+> silently relocates every project's output. This is why every variable in `Publish-Android.bat`
+> is `DLR_`-prefixed.
 
 ### Background location — the part that gets apps rejected
 
@@ -244,7 +289,9 @@ submitting, because a reviewer following a path that does not exist is worse tha
 > working app: position updates stop when it is backgrounded and resume on return.
 >
 > A private area can also be set — **Settings → Location → Home private area** — a circle around
-> home, stored only on the device, inside which no position is recorded or sent to anyone.
+> home inside which no position is sent to anyone. It is saved to the member's account so that it
+> survives reinstalling the app and follows them to a new device; it is visible to no other member,
+> and there is no request by which one member could obtain another's.
 >
 > **User-generated content (guideline 1.2)**
 >
@@ -311,6 +358,11 @@ privacy policy URL, an age rating, and a category (Navigation or Sports).
 
 ## Before every release
 
+On Android, `BlazorDLR/Publish-Android.bat` aborts on the first four items below: the version
+check it makes is the Android half of item 1 (csproj against `AndroidManifest.xml` — it does not
+read `Info.plist`, which is the iOS build's problem), and then the clean tree, the format gate and
+the test suite. Everything after that is still yours.
+
 - [ ] Bump `ApplicationDisplayVersion` and `ApplicationVersion` in `BlazorDLR.csproj`, and the
       matching `CFBundleShortVersionString` / `CFBundleVersion` in `Info.plist` and
       `versionCode` / `versionName` in `AndroidManifest.xml`. They are currently maintained in all
@@ -348,4 +400,8 @@ above the platform seam and nothing below it.
       even though the phone build is fine.
 - [ ] **Both**: standing inside a configured private area publishes nothing, and the adventure's info
       page says so (§10.1).
+- [ ] **Both**: a private area set on one device is in force on a second device signed in to the same
+      account, and survives reinstalling the app — the whole reason it moved off the handset (§10.1).
+- [ ] **Both**: with the phone in flight mode, the Location screen still shows the circle, still says
+      it is this phone's copy, and saving a change says the account has not got it yet (§10.1).
 - [ ] **Both**: battery cost over a two-hour trip on each of the three accuracy profiles.

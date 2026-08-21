@@ -21,9 +21,10 @@ namespace BlazorDLR.Shared.Services;
 /// a Melbourne ride over Sydney — see <see cref="IsFor"/>.
 /// </para>
 /// <para>
-/// Device-local like <see cref="RouteStyle"/> and <see cref="PrivateArea"/>: same store, same
-/// hand-rolled versioned encoding, same "a value we cannot parse means the default" posture.
-/// It never travels to the server — where one rider last panned to is not the ride's business.
+/// Device-local like <see cref="RouteStyle"/>: same store, same hand-rolled versioned encoding,
+/// same "a value we cannot parse means the default" posture. It never travels to the server —
+/// where one rider last panned to is not the ride's business. (<see cref="PrivateArea"/> used to
+/// be the third of that set and is not: it is an account setting cached in the same store, §10.1.)
 /// </para>
 /// </summary>
 /// <param name="RideId">The ride the camera belongs to. <see cref="Latitude"/>/<see cref="Longitude"/>/<see cref="ZoomLevel"/> mean nothing without it.</param>

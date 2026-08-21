@@ -336,7 +336,7 @@ public sealed record RouteOverlay(string EncodedPolyline, string Colour = "#2563
 /// on the middle so the centre is findable when the ring is off screen.
 /// <para>
 /// Metres rather than pixels because every circle this app draws is a statement about the
-/// ground — today the private area on the profile screen (§10.1, §18.6), whose whole meaning is
+/// ground — today the private area on the Location screen (§10.1), whose whole meaning is
 /// "this far around here". A pixel radius would grow and shrink the protected area as the rider
 /// zoomed, which is exactly the wrong thing for a control someone is trying to reason about.
 /// </para>

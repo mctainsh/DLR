@@ -219,6 +219,63 @@ public sealed class FakeApiClient : IApiClient
 		return Task.CompletedTask;
 	}
 
+	// -- Home private area (§10.1) --
+	//
+	// Stateful rather than a canned result, unlike most of this fake: the account is now the
+	// source of truth for the private area, so a test that saves one and expects to read it back
+	// is testing the real arrangement. PrivateAreaStateTests builds a second state over the same
+	// fake to stand for the rider's other phone.
+
+	/// <summary>What the account holds, or null for an account that has never set one.</summary>
+	public PrivateAreaSettings? PrivateAreaResult { get; set; }
+
+	/// <summary>
+	/// Set to make all three private-area calls throw — the phone in a tunnel, which is the case
+	/// the gate has to keep answering through.
+	/// </summary>
+	public Exception? PrivateAreaException { get; set; }
+
+	/// <summary>How many times the account was asked for the area, for the "reads it once" assertions.</summary>
+	public int PrivateAreaReads { get; private set; }
+
+	public Task<PrivateAreaResponse> GetPrivateAreaAsync(CancellationToken cancellationToken = default)
+	{
+		Record(nameof(GetPrivateAreaAsync));
+		PrivateAreaReads++;
+
+		return PrivateAreaException is not null
+			? Task.FromException<PrivateAreaResponse>(PrivateAreaException)
+			: Task.FromResult(new PrivateAreaResponse(PrivateAreaResult));
+	}
+
+	public Task SetPrivateAreaAsync(PrivateAreaSettings request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(SetPrivateAreaAsync));
+
+		if (PrivateAreaException is not null)
+		{
+			return Task.FromException(PrivateAreaException);
+		}
+
+		// Normalised on the way in, like the endpoint: a test that writes an out-of-range radius
+		// and reads it back should see what the server would have kept.
+		PrivateAreaResult = request.Normalised();
+		return Task.CompletedTask;
+	}
+
+	public Task ClearPrivateAreaAsync(CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ClearPrivateAreaAsync));
+
+		if (PrivateAreaException is not null)
+		{
+			return Task.FromException(PrivateAreaException);
+		}
+
+		PrivateAreaResult = null;
+		return Task.CompletedTask;
+	}
+
 	public Task<IReadOnlyList<TrackSummary>> ListTracksAsync(CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListTracksAsync), TracksResult));
 	private static readonly DateTimeOffset SampleInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 

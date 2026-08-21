@@ -917,7 +917,7 @@
 		using SKPaint edge = new()
 		{
 			Style = SKPaintStyle.Stroke,
-			StrokeWidth = (ChevronStrokePx * scale) + 2f,
+			StrokeWidth = (ChevronStrokePx * scale) + 2.5f,
 			IsAntialias = true,
 			StrokeCap = SKStrokeCap.Round,
 			StrokeJoin = SKStrokeJoin.Round,
@@ -1083,11 +1083,18 @@
 	/// </summary>
 	private float RouteStyleDefaultWidthPx => (4f) * _scale;
 
-	/// <summary>Gap between direction chevrons along the line, in canvas pixels at scale 1.</summary>
-	private float ArrowSpacingPx => (72f) * _scale;
+	/// <summary>
+	/// Gap between direction chevrons along the line, in canvas pixels at scale 1. Wider than
+	/// the chevrons alone would need, because they are drawn large enough to read at a glance
+	/// (§16.2) and a tighter gap at that size turns the line into a continuous chain.
+	/// </summary>
+	private float ArrowSpacingPx => (88f) * _scale;
 
-	/// <summary>Stroke width of a chevron at scale 1.</summary>
-	private float ChevronStrokePx => (2.2f) * _scale;
+	/// <summary>
+	/// Stroke width of a chevron at scale 1 — half again the default 4 px line, so a chevron
+	/// reads as a solid arrowhead rather than as a hairline scratched over the line.
+	/// </summary>
+	private float ChevronStrokePx => (6f) * _scale;
 
 	/// <summary>How far outside the canvas something may sit and still be worth drawing.</summary>
 	private float CanvasMarginPx => (32f) * _scale;
@@ -1139,11 +1146,15 @@
 		return builder.Detach();
 	}
 
-	/// <summary>Chevron tip to the line through its two tails, along the direction of travel.</summary>
-	private float ChevronHalfLength => (3.5f) * _scale;
+	/// <summary>
+	/// Chevron tip to the line through its two tails, along the direction of travel. Sized
+	/// together with <see cref="ChevronHalfSpan"/>: the span is the wider of the two so the
+	/// arrowhead opens out past the line it sits on, which is what makes it visible at speed.
+	/// </summary>
+	private float ChevronHalfLength => (5.5f) * _scale;
 
 	/// <summary>Half the span across the chevron's two tails.</summary>
-	private float ChevronHalfSpan => (4.5f) * _scale;
+	private float ChevronHalfSpan => (7f) * _scale;
 
 	private void DrawMarkers(SKCanvas canvas)
 	{

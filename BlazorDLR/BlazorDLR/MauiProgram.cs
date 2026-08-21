@@ -236,10 +236,14 @@ public static class MauiProgram
 		// RideMap listens to the same instance the settings page writes.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
-		// The private area (§10.1, §18.6). This is the host that records and publishes fixes,
-		// so this is the host where the gate matters: every fix goes through
+		// The private area (§10.1). This is the host that records and publishes fixes, so this
+		// is the host where the gate matters: every fix goes through
 		// PrivateAreaState.HidesLocation before it is stored or sent, and the state answers
-		// "hide" until LoadAsync has read the device — see its remarks.
+		// "hide" until LoadAsync has an answer — see its remarks.
+		//
+		// Not a device preference any more, unlike the two registrations above it: the circle
+		// lives on the rider's account and this store holds a cache of it, which is what lets
+		// the gate answer with no network and what lets the setting survive a reinstall.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.PrivateAreaState>();
 
 		// The ride the nav rail's globe leads back to (§18.6), in MAUI Preferences. This is the

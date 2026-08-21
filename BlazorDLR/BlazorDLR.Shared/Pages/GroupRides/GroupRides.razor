@@ -90,6 +90,12 @@
 									· @ride.State
 								</span>
 							</a>
+							@if (!string.IsNullOrEmpty(ride.JoinCode))
+							{
+								<span class="join-code" title="Join code — share with people you invite">
+									@ride.JoinCode
+								</span>
+							}
 						</li>
 					}
 				</ul>

@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using DLR.Core.Contracts.Account;
+using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
 using DLR.Core.Markers;
 using DLR.Core.Tracks;
@@ -153,7 +154,13 @@ public static class AccountExportBuilder
 				user.EmailConfirmed,
 				user.ShareDisplayName,
 				user.SharePhoneNumber,
-				user.ShareEmail),
+				user.ShareEmail,
+				// The account holds the private area now (§10.1), so an export that left it out
+				// would be claiming completeness while withholding the one setting a rider is
+				// most likely to want to check.
+				user is { PrivateAreaLat: { } areaLat, PrivateAreaLon: { } areaLon, PrivateAreaRadiusM: { } areaRadius }
+					? new PrivateAreaSettings(areaLat, areaLon, areaRadius)
+					: null),
 			exportedTracks,
 			[
 				.. markers.Select(marker => new ExportedMarker(

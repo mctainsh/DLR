@@ -339,6 +339,14 @@ to decide, not now.
 one boolean, so it needs no database, no HTTP and no ride.
 **Deferred, as the task says:** the co-membership half of `Profile_NonCoMember_ReceivesEmptyProfile`
 lands in SRV-21. What exists now exercises the rule those tests will drive.
+**Extended in v0.28 — the home private area is now a sub-resource of `/me`.** `GET`/`PUT`/`DELETE
+/api/v1/me/private-area` on the same controller, three nullable columns on `asp_net_users`, and
+`PrivateAreaTests` beside `ProfileTests`. It is deliberately **not** three more fields on
+`UpdateProfileRequest`: that request replaces the whole profile, so an area carried inside it
+would be erased by any client that had not been taught about it, and
+`SavingTheProfile_DoesNotDisturbThePrivateArea` is the test that says so. Nothing was added to
+`SharedProfile` — `AnotherRider_CannotSeeIt_OnAnyRoute` asserts the payload rather than the type,
+so a field added there later fails here rather than shipping (§10.1, §7.14).
 **Watch out — the suite outgrew PostgreSQL's default.** `53300: sorry, too many clients already`,
 in whichever test happened to run when the hundredth connection was opened. One database per
 factory and one factory per test, each with Npgsql's default ceiling of 100 connectors. Pools are

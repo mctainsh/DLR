@@ -5,10 +5,12 @@ namespace BlazorDLR.Shared.State;
 /// <summary>
 /// The <see cref="AccuracyProfile"/> this device records and publishes at (§4.2, §18.6).
 /// <para>
-/// Device-local like <see cref="RouteStyleState"/> and <see cref="PrivateAreaState"/>, and for a
-/// reason particular to this one: the profile is a battery decision, and the battery belongs to
-/// the phone, not to the account. A rider with a hard-wired bike mount and a rider on a three-day
-/// tour want different answers on the same day, and neither is wrong.
+/// Device-local like <see cref="RouteStyleState"/>, and for a reason particular to this one: the
+/// profile is a battery decision, and the battery belongs to the phone, not to the account. A
+/// rider with a hard-wired bike mount and a rider on a three-day tour want different answers on
+/// the same day, and neither is wrong. That is exactly the argument
+/// <see cref="PrivateAreaState"/> fails — where somebody lives is the same on every handset they
+/// own, which is why that one moved to the account (§10.1) and this one did not.
 /// </para>
 /// <para>
 /// Read once, held in memory, <see cref="Changed"/> on every write — the recorder asks for the

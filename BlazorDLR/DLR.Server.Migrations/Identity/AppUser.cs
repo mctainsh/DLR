@@ -109,4 +109,51 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	/// </para>
 	/// </summary>
 	public string? MarkerColour { get; set; }
+
+	/// <summary>
+	/// The centre latitude of this account's home private area in decimal degrees, or null when
+	/// the account has none (§10.1).
+	/// <para>
+	/// <strong>This column reverses an earlier decision, and it is worth knowing which.</strong>
+	/// The private area used to live only in the phone's own settings store, on the argument that
+	/// a centre is a precise statement of where somebody lives and the only copy that cannot leak
+	/// is the one the server never has. What that argument missed is the failure people actually
+	/// hit: an app update, a reinstall or a new phone wiped it in silence, and a rider who
+	/// believes they have a circle around their house and does not is broadcasting from their
+	/// doorstep. Losing the setting turned out to be the larger risk, so the account holds it and
+	/// the device caches it.
+	/// </para>
+	/// <para>
+	/// <strong>What that makes this column.</strong> Sensitive personal data at rest: readable by
+	/// the server, by an operator with database access, present in the nightly backups (§9) and
+	/// in the account export (§6.3), which is the rider's own data. What it is not is visible to
+	/// another rider — no endpoint answers with anybody else's area, it is absent from
+	/// <c>SharedProfile</c> by construction, and nothing published to a ride carries it. Treat any
+	/// new read of these three columns as a privacy decision (§10.1).
+	/// </para>
+	/// <para>
+	/// <c>double precision</c> rather than the scaled integers positions and markers use. Those
+	/// are measurements, sampled once and never shown back as numbers; this one is typed into a
+	/// box, echoed into the same box, and drawn as a circle the rider is lining up with their own
+	/// roof, so a metre of rounding on every save-and-reload would visibly walk it.
+	/// </para>
+	/// </summary>
+	public double? PrivateAreaLat { get; set; }
+
+	/// <summary>The centre longitude of the home private area in decimal degrees, or null. See <see cref="PrivateAreaLat"/>.</summary>
+	public double? PrivateAreaLon { get; set; }
+
+	/// <summary>
+	/// The radius of the home private area in metres, or null. Clamped by the endpoint to the
+	/// range <c>PrivateAreaSettings</c> offers. See <see cref="PrivateAreaLat"/>.
+	/// </summary>
+	public double? PrivateAreaRadiusM { get; set; }
+
+	/// <summary>
+	/// Whether a home private area is set. The three columns move together — the endpoint writes
+	/// them in one statement and nulls them in one — so any one of them would answer this; the
+	/// property is here to say that reading them apart is a bug.
+	/// </summary>
+	public bool HasPrivateArea =>
+		PrivateAreaLat is not null && PrivateAreaLon is not null && PrivateAreaRadiusM is not null;
 }

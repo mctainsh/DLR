@@ -111,6 +111,26 @@ public sealed class HttpApiClient : IApiClient
 		await ThrowIfFailedAsync(response, cancellationToken);
 	}
 
+	// -- Home private area (§10.1) --
+
+	/// <inheritdoc />
+	public Task<PrivateAreaResponse> GetPrivateAreaAsync(CancellationToken cancellationToken = default) =>
+		GetAsync<PrivateAreaResponse>("/api/v1/me/private-area", cancellationToken);
+
+	/// <inheritdoc />
+	public async Task SetPrivateAreaAsync(PrivateAreaSettings request, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.PutAsJsonAsync("/api/v1/me/private-area", request, Json, cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
+	/// <inheritdoc />
+	public async Task ClearPrivateAreaAsync(CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.DeleteAsync("/api/v1/me/private-area", cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
 	// -- Tracks --
 
 	/// <inheritdoc />

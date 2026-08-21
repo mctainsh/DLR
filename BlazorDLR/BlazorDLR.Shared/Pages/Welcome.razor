@@ -152,7 +152,7 @@
 
 			@if (ExternalProviders.Any())
 			{
-				<div class="external">
+				@* <div class="external">
 					<div class="external-divider"><span>or</span></div>
 					@foreach (IExternalSignInProvider provider in ExternalProviders)
 					{
@@ -167,7 +167,7 @@
 							}
 						</button>
 					}
-				</div>
+				</div> *@
 			}
 		</div>
 	</NotAuthorized>

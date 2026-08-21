@@ -49,6 +49,28 @@ public interface IApiClient
 	Task<OwnProfile> GetProfileAsync(CancellationToken cancellationToken = default);
 	Task UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken = default);
 
+	// -- Home private area (§10.1) ---------------------------------------------------------
+
+	/// <summary>
+	/// <c>GET /api/v1/me/private-area</c> — the circle inside which this account publishes
+	/// nothing, or the fact that it has none (§10.1).
+	/// <para>
+	/// Its own three endpoints rather than three more fields on <c>PUT /me/profile</c>, and the
+	/// separation is load-bearing rather than tidy: the profile screen sends a whole
+	/// <see cref="UpdateProfileRequest"/> every time somebody edits a display name, so a private
+	/// area riding along inside that request would be cleared by any client that had not been
+	/// taught about it. A privacy control must not be deletable as a side effect of an unrelated
+	/// save.
+	/// </para>
+	/// </summary>
+	Task<PrivateAreaResponse> GetPrivateAreaAsync(CancellationToken cancellationToken = default);
+
+	/// <summary><c>PUT /api/v1/me/private-area</c> — places or moves it. The radius is clamped server-side.</summary>
+	Task SetPrivateAreaAsync(PrivateAreaSettings request, CancellationToken cancellationToken = default);
+
+	/// <summary><c>DELETE /api/v1/me/private-area</c> — forgets it, so the account shares from everywhere again.</summary>
+	Task ClearPrivateAreaAsync(CancellationToken cancellationToken = default);
+
 	// -- Tracks (§6.3, §15) ---------------------------------------------------------------
 
 	/// <summary>

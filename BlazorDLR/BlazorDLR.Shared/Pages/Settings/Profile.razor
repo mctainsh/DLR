@@ -20,9 +20,12 @@
 	a save that left them out would quietly erase what the screen no longer shows.
 
 	The home private area used to sit at the bottom of it and now lives on the Location screen
-	(§10.1). It was the one control here that was never sent anywhere, and it belongs beside the
-	receiver it gates and beside the recording it filters, rather than beside three switches about
-	what other riders may see.
+	(§10.1). It is stored on the account like the fields above — but it is not one of them: it is
+	not a fact other riders may be shown, it is a gate on the receiver, and it belongs beside the
+	receiver it gates and the recording it filters. It is deliberately not part of this form's
+	PUT /me/profile either, for the reason spelled out two paragraphs up: this page replaces the
+	whole profile on every save, and a privacy control must not be erasable by a client that has
+	not been taught about it. It has its own endpoints.
 *@
 
 <PageTitle>Profile — Dumb Luck Routes</PageTitle>
@@ -143,7 +146,8 @@
 
 	<p class="note">
 		Looking for the home private area? It has moved to
-		<a href="/settings/location">Location</a>, beside the GPS it switches off.
+		<a href="/settings/location">Location</a>, beside the GPS it switches off. It is saved with
+		your account, so it follows you to a new phone — and it is still shown to nobody else.
 	</p>
 </div>
 

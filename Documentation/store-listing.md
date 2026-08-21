@@ -92,8 +92,8 @@ Join an adventure with a code from the organiser, or ask and be admitted. Inside
 SHARING YOU CONTROL, PER ADVENTURE
 You are asked when you join, and the answer starts at no. Turning sharing off deletes your stored position rather than merely stopping the broadcast. You can be on an adventure without sharing at all, and the member list makes that visible rather than hiding it. When an adventure ends, sharing ends with it — the organiser can allow a short, capped wind-down so people can watch each other get home, and the server enforces the cap. There is no always-on friend tracking in this app, and there is no way to switch it on.
 
-A PRIVATE AREA THAT NEVER LEAVES YOUR PHONE
-Draw a circle around home. Inside it nothing is recorded and nothing is sent. The circle is stored on your device and is never uploaded.
+A PRIVATE AREA AROUND HOME
+Draw a circle around home. Inside it, your position is never sent — to the adventure, to the map, to anyone. Other travellers still see you as present, you simply have no position on their map until you move out of it. The circle is saved with your account, so it follows you to a new phone and survives reinstalling the app, and no other traveller can see it.
 
 MAPS THAT WORK WITHOUT A SIGNAL
 Download a map pack for the region you are heading into before you leave, and the map keeps drawing when the phone drops to no bars. Recording never needed a signal in the first place.
