@@ -464,12 +464,24 @@ input:focus, textarea:focus, select:focus {
 .form-page label { display: block; margin: 0.75rem 0; }
 .form-page label em { opacity: 0.7; font-weight: normal; }
 
-.form-page input, .form-page textarea {
+.form-page input, .form-page textarea, .form-page select {
     display: block;
     width: 100%;
     padding: 0.5rem;
     margin-top: 0.25rem;
     font-size: 1rem;
+}
+
+/* A select is a tap that opens the platform's own picker, and a small one on a phone in
+   gloves is a mis-tap — the same 44 px target the map settings give theirs. The colours are
+   named rather than left to the UA so the control does not stay light in the dark theme. */
+.form-page select {
+    min-height: 44px;
+    border: 1px solid var(--dlr-border-strong);
+    border-radius: 6px;
+    background: var(--dlr-bg);
+    color: var(--dlr-fg);
+    font: inherit;
 }
 
 .form-page button[type="submit"] {

@@ -73,7 +73,13 @@
 				rider pill beside it: where the machine reading the map is, which for somebody
 				watching a ride from a laptop is not where their bike is.
 			*@
-			<RideMap @ref="_map" Camera="_camera" Markers="_markerLayer" Routes="_routeLayer"
+			@*
+				Bounds is the *opening* frame and nothing else — see _openingBounds. Every other
+				map in the app that passes one is showing a fixed extent; this one hands over a
+				box once, the first time a rider opens a given ride, and then never changes it
+				again, so following and panning own the view from the second frame onward.
+			*@
+			<RideMap @ref="_map" Camera="_camera" Bounds="_openingBounds" Markers="_markerLayer" Routes="_routeLayer"
 					 Circles="_privateAreaLayer" ShowUserLocation="!HasOwnReceiver"
 					 OnViewportReported="OnMapViewportReportedAsync"
 					 OnGesture="OnMapGestureAsync"
@@ -604,6 +610,20 @@
 	private static readonly MapCamera DefaultCamera = new(-33.868, 151.209, 11);
 
 	/// <summary>
+	/// How far in a ride with no planned route opens on the rider's own position — about a
+	/// suburb across.
+	/// <para>
+	/// Only the routeless case needs a number at all: a ride that has a route is framed on the
+	/// route's box, which is the whole reason <see cref="RideMap.Bounds"/> exists rather than a
+	/// guessed zoom (a suburban loop and a day tour are not the same view). With nothing on the
+	/// map but the rider there is no box to fit, so this is a judgement: close enough to name the
+	/// streets around the meeting point, wide enough that the rest of the group coming from the
+	/// other side of the suburb are already on screen.
+	/// </para>
+	/// </summary>
+	private const double OpeningZoomLevel = 14;
+
+	/// <summary>
 	/// How often a pan may reach the device store. The map reports a viewport on every frame of
 	/// a drag, and <c>localStorage</c> behind JS interop is not a per-frame surface — so the view
 	/// is held in memory and written at this cadence, plus once on the way out
@@ -727,6 +747,43 @@
 
 	/// <summary>The view last written to the device store, so an unchanged one is not written twice.</summary>
 	private LiveMapView? _savedView;
+
+	/// <summary>
+	/// Whether this ride's map has been put somewhere on purpose yet.
+	/// <para>
+	/// A latch, not a mode: it goes up once per ride and stays up, which is what keeps
+	/// <see cref="FrameOpeningAsync"/> from re-framing under a rider who has since panned. It is
+	/// reset — with <see cref="_openingBounds"/> — when the page is handed a different ride.
+	/// </para>
+	/// </summary>
+	private bool _framed;
+
+	/// <summary>
+	/// Whether the device store has been read yet, so a frame is not chosen before we know
+	/// whether this rider already has a view for this ride.
+	/// <para>
+	/// <see cref="OnParametersSetAsync"/> — where the ride loads, and therefore where its routes
+	/// arrive — runs before the first <see cref="OnAfterRenderAsync"/>, which is the first moment
+	/// there is a device to read at all (§18.6). Without this latch the routes would frame the map
+	/// a moment before <see cref="RestoreViewAsync"/> answered "this rider left it half a mile up
+	/// the road", and the fit and the stored camera would then race for the same view.
+	/// </para>
+	/// </summary>
+	private bool _viewRestored;
+
+	/// <summary>
+	/// The ground the map opens framed on the first time this rider opens this ride — the box
+	/// round its planned routes — or null when it has none, or when the view came from somewhere
+	/// with a better claim (see <see cref="FrameOpeningAsync"/>).
+	/// <para>
+	/// <strong>A box rather than a camera, and only for the opening frame.</strong> A zoom guessed
+	/// for a route is wrong for every route but one, which is why <see cref="RideMap.Bounds"/>
+	/// exists; but this page's view is not a fixed extent, so the box is set once and then left
+	/// alone. <c>RideMap</c> fits a box it has not already fitted and ignores it thereafter, so a
+	/// value that never changes again costs nothing on the thousand renders that follow.
+	/// </para>
+	/// </summary>
+	private TrackBounds? _openingBounds;
 
 	/// <summary>The view waiting to be written, if the throttle has not let one through yet.</summary>
 	private LiveMapView? _pendingView;
@@ -1302,6 +1359,11 @@
 
 		// Cheap when the rider has neither moved nor turned — see _followedTo and _aimedBearing.
 		await AimCameraAsync();
+
+		// A ride with no planned route opens on this fix, and on a phone this is where the first
+		// one lands. Latched after the first, so the rest of the ride's fixes cost only the test at
+		// the top of it — see FrameOpeningAsync.
+		await FrameOpeningAsync();
 	});
 
 	/// <summary>
@@ -1358,6 +1420,13 @@
 			_mapViewport = null;
 			_followedTo = null;
 
+			// A different ride is a different question of where the map should open, and the
+			// answer is not the last ride's — see FrameOpeningAsync. The stored view is consulted
+			// again from memory (_savedView) rather than re-read: it names one ride, and the one
+			// it names is the one just left.
+			_framed = false;
+			_openingBounds = null;
+
 			// Forgotten with the camera, not with the mode: _headingUp and _followMe carry across
 			// rides, and these two are only the record of where the map was last aimed *for* them.
 			// Keeping them would leave a new ride's map refusing to turn until the rider's heading
@@ -1406,6 +1475,12 @@
 			await CurrentRide.ForgetAsync(RideId);
 		}
 
+		// The ride's routes are in, which is the frame this page prefers. A no-op on the very
+		// first load — the device store has not been read yet, so RestoreViewAsync makes this call
+		// instead — and the whole of it on every change of ride after that, where there is no
+		// second first render to hang it off.
+		await FrameOpeningAsync();
+
 		// Consent prompt: shown once per joined ride that we do not yet share with. §5.6's
 		// rule is dismissing = "not now", which is a no-op — closing the modal simply removes it.
 		if (!_session.Sharing && _session.Ride?.State == RideStateDto.Open)
@@ -1433,6 +1508,11 @@
 			// Every position batch is a chance that this rider moved, and this is the only place
 			// that learns about one. Cheap when they did not — see _followedTo.
 			await AimCameraAsync();
+
+			// The other half of the fix that arrives in OnBroadcastChanged, and the only half a
+			// browser has: with no receiver of its own, this rider's own point is the ride's copy
+			// of it (see MyPoint). Also where a route attached between the load and now shows up.
+			await FrameOpeningAsync();
 		});
 	}
 
@@ -1955,24 +2035,28 @@
 	{
 		LiveMapView? stored = LiveMapView.Decode(await Settings.GetAsync(LiveMapView.StorageKey));
 
-		if (stored is null)
+		// A device with nothing stored still has to come out the bottom of this method, not out of
+		// the top of it: the whole of the opening frame is downstream of _viewRestored, and a first
+		// run — a device that has never opened a live map — is exactly the case it exists for.
+		if (stored is not null)
 		{
-			return;
-		}
+			_savedView = stored;
+			_followMe = stored.FollowMe;
+			_headingUp = stored.HeadingUp;
 
-		_savedView = stored;
-		_followMe = stored.FollowMe;
-		_headingUp = stored.HeadingUp;
+			// Carried across rides like the two above it. A device that has never chosen reads back
+			// as on — see LiveMapView.Neighbours — so this is only ever a rider's own "no" arriving.
+			_showNeighbours = stored.Neighbours;
+			RebuildNeighbours();
 
-		// Carried across rides like the two above it. A device that has never chosen reads back as
-		// on — see LiveMapView.Neighbours — so this is only ever a rider's own "no" arriving.
-		_showNeighbours = stored.Neighbours;
-		RebuildNeighbours();
-
-		if (stored.IsFor(RideId))
-		{
-			_camera = stored.ToCamera();
-			await ApplyCameraAsync(_camera);
+			if (stored.IsFor(RideId))
+			{
+				// The rider was on this ride minutes ago and left the map somewhere on purpose.
+				// Nothing downstream gets to move it — see FrameOpeningAsync.
+				_framed = true;
+				_camera = stored.ToCamera();
+				await ApplyCameraAsync(_camera);
+			}
 		}
 
 		await InvokeAsync(StateHasChanged);
@@ -1982,6 +2066,111 @@
 		// set on a previous screen is not a change of mind, and a map that announced its own
 		// settings on every open would be one more thing to dismiss at the start of every ride.
 		await AimCameraAsync();
+
+		// Only now, and after the aim: the device has answered, so "this rider has nothing stored
+		// for this ride" is a fact rather than a read that has not come back yet, and the modes
+		// have already said whether they want this map — see FrameOpeningAsync.
+		_viewRestored = true;
+		await FrameOpeningAsync();
+	}
+
+	/// <summary>
+	/// Which way up the map is now, as a value that may safely be written into
+	/// <see cref="_camera"/>.
+	/// <para>
+	/// <strong>Why this is not simply <c>_camera.HeadingDeg</c>.</strong> Heading-up turns the map
+	/// through the component and deliberately leaves <see cref="_camera"/> alone — see
+	/// <see cref="AimCameraAsync"/> — so the field lags a turning map by as much as the whole
+	/// rotation. Anything that <em>does</em> write the field has to put the current bearing back
+	/// with it, because <c>RideMap</c> re-applies the parameter on the render that follows: build
+	/// a camera on <c>_camera.HeadingDeg</c> and the next frame straightens the map under a rider
+	/// who asked for heading-up. <see cref="_aimedBearing"/> is where that turn was recorded, and
+	/// the viewport is where a turn the rider made by hand was.
+	/// </para>
+	/// </summary>
+	private double CurrentBearingDeg => _aimedBearing ?? _mapViewport?.HeadingDeg ?? _camera.HeadingDeg;
+
+	/// <summary>
+	/// Puts the map somewhere worth looking the first time this rider opens this ride, and never
+	/// touches it again.
+	/// <para>
+	/// <strong>The default camera is a guess about a city, and it was wrong for everybody outside
+	/// one.</strong> A rider joining an adventure got Sydney at zoom 11 until they panned. What
+	/// they want is the thing the ride is about: the planned route if it has one, and where they
+	/// are standing if it does not.
+	/// </para>
+	/// <para>
+	/// <strong>Once per ride, latched.</strong> <see cref="_framed"/> goes up the first time this
+	/// answers and every later call returns at the top — which matters because this runs off
+	/// position batches and device fixes, both of which arrive about once a second. Re-framing on
+	/// those would drag the map back off whatever the rider had panned to, once per second, for
+	/// the length of the ride. The second and every later open reads the stored view instead
+	/// (<see cref="RestoreViewAsync"/>), which is where the rider left it.
+	/// </para>
+	/// <para>
+	/// <strong>Following outranks both, when it has something to follow.</strong> A rider who left
+	/// the last ride centred on themselves has said where they want the map, and it is not a fact
+	/// about this ride's ground — so the frame stands down rather than fitting a route that
+	/// <see cref="AimCameraAsync"/> would pull off a second later. With no fix yet it does
+	/// <em>not</em> stand down: a following map with nothing to follow is the default camera, and
+	/// the route is better than that until the first fix lands.
+	/// </para>
+	/// </summary>
+	private async Task FrameOpeningAsync()
+	{
+		// Before the store has answered, "nothing is stored for this ride" is not yet knowable —
+		// see _viewRestored.
+		if (_framed || !_viewRestored)
+			return;
+
+		if (_followMe && MyPoint is not null)
+		{
+			// AimCameraAsync has this map. Latched all the same: the rider is on screen, which is
+			// what an opening frame is for, and re-asking once a second would be the only thing
+			// this method could do for the rest of the ride.
+			_framed = true;
+			return;
+		}
+
+		// Every route the ride carries, not the first: §5.4 lets a ride hold the short option and
+		// the long one, and framing on one of them puts the other off the screen. Ill-formed boxes
+		// are dropped rather than merged — one corner at a longitude of 1000 would frame the map
+		// on the whole world and hide the routes that were fine.
+		if (TrackBounds.Around([.. _session.Routes
+			.Select(route => route.Bounds)
+			.OfType<TrackBounds>()
+			.Where(box => box.IsWellFormed)]) is { } routes)
+		{
+			_framed = true;
+			_openingBounds = routes;
+
+			// Both, exactly as the track pages do it: the camera is what a base map that has not
+			// attached yet opens on — it needs a centre before it has a canvas to measure — and
+			// the fit is the correction once there is one. The zoom carried here is a placeholder
+			// for that one frame, so it does not matter that it is the default's.
+			_camera = new MapCamera(
+				MapGeometry.MercatorMidLatitude(routes.MaxLatitude, routes.MinLatitude),
+				(routes.MinLongitude + routes.MaxLongitude) / 2,
+				_camera.ZoomLevel,
+				CurrentBearingDeg);
+
+			await ApplyCameraAsync(_camera);
+			return;
+		}
+
+		if (MyPoint is { } here)
+		{
+			// No route, so there is no box — just the one point worth opening on. A zoom has to be
+			// guessed here and only here; see OpeningZoomLevel.
+			_framed = true;
+			_camera = new MapCamera(here.Latitude, here.Longitude, OpeningZoomLevel, CurrentBearingDeg);
+
+			await ApplyCameraAsync(_camera);
+		}
+
+		// Neither, and not latched: a ride with no route on a phone that has not got a fix yet is
+		// the ordinary first few seconds of standing outside. The default camera holds until the
+		// receiver answers, and the fix that arrives comes back through here.
 	}
 
 	/// <summary>

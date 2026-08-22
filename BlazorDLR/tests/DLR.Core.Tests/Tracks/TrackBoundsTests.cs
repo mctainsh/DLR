@@ -78,6 +78,45 @@ public sealed class TrackBoundsTests
 		new TrackBounds(minLatitude, minLongitude, maxLatitude, maxLongitude).IsWellFormed.ShouldBeFalse();
 	}
 
+	// ---------- Covering several boxes at once ----------
+
+	/// <summary>
+	/// What a group ride's map opens framed on. A ride carries a set of planned routes rather than
+	/// one (§5.4), so framing on the first of them would put the long option — or the way home —
+	/// off the screen at the moment the rider is deciding which to take.
+	/// </summary>
+	[Fact]
+	public void TheBoxRoundSeveralBoxes_CoversAllOfThem()
+	{
+		TrackBounds sydney = new(-33.90, 151.15, -33.85, 151.25);
+		TrackBounds blueMountains = new(-33.75, 150.30, -33.65, 150.45);
+
+		TrackBounds? covered = TrackBounds.Around([sydney, blueMountains]);
+
+		covered.ShouldNotBeNull();
+		covered.Value.MinLatitude.ShouldBe(-33.90);
+		covered.Value.MinLongitude.ShouldBe(150.30);
+		covered.Value.MaxLatitude.ShouldBe(-33.65);
+		covered.Value.MaxLongitude.ShouldBe(151.25);
+	}
+
+	[Fact]
+	public void TheBoxRoundOneBox_IsThatBox()
+	{
+		TrackBounds.Around([Nsw]).ShouldBe(Nsw);
+	}
+
+	/// <summary>
+	/// Null rather than a box round nothing, exactly as the point overload answers for a track with
+	/// no points — the caller's question is "what should the map be framed on", and "nothing" is a
+	/// real answer to it that a zero-sized box at the origin is not.
+	/// </summary>
+	[Fact]
+	public void TheBoxRoundNoBoxes_IsNothing()
+	{
+		TrackBounds.Around(Array.Empty<TrackBounds>()).ShouldBeNull();
+	}
+
 	/// <summary>A single point is a legitimate box — degenerate, but nothing here has to refuse it.</summary>
 	[Fact]
 	public void AZeroSizedBoxIsWellFormed()

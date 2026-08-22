@@ -346,6 +346,14 @@ public sealed class HttpApiClient : IApiClient
 		await ThrowIfFailedAsync(response, cancellationToken);
 	}
 
+	/// <inheritdoc />
+	public async Task DeleteRideAsync(Guid rideId, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.DeleteAsync(
+			$"/api/v1/group-rides/{rideId}", cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
 	// -- Planned routes --
 
 	/// <inheritdoc />

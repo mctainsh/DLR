@@ -702,6 +702,32 @@ public sealed class FakeApiClient : IApiClient
 
 	public Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default) { Record(nameof(RemoveMemberAsync)); return Task.CompletedTask; }
 
+	/// <summary>Every ride id passed to <see cref="DeleteRideAsync"/>, in order.</summary>
+	public List<Guid> DeletedRides { get; } = new();
+
+	/// <summary>Set to make the delete fail — the §5.6 refusal on a ride in progress is the real one.</summary>
+	public ApiException? DeleteRideException { get; set; }
+
+	public Task DeleteRideAsync(Guid rideId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(DeleteRideAsync));
+
+		if (DeleteRideException is not null)
+		{
+			return Task.FromException(DeleteRideException);
+		}
+
+		DeletedRides.Add(rideId);
+
+		// The list the server hands back afterwards no longer has it — the fake keeps that true so
+		// a page that refetches after deleting sees what it did.
+		MyRidesResult = new MyRides(
+			[.. MyRidesResult.Organised.Where(row => row.Id != rideId)],
+			[.. MyRidesResult.Joined.Where(row => row.Id != rideId)]);
+
+		return Task.CompletedTask;
+	}
+
 	/// <summary>
 	/// What <see cref="ListRideRoutesAsync"/> hands back (§5.4). Mutable rather than a fixed list,
 	/// because attaching and detaching are meant to be visible in a later call — a test that adds
@@ -718,10 +744,18 @@ public sealed class FakeApiClient : IApiClient
 	public Task<IReadOnlyList<RideRoute>> ListRideRoutesAsync(Guid rideId, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(ListRideRoutesAsync), (IReadOnlyList<RideRoute>)[.. RoutesResult]));
 
+	/// <summary>Set to make attaching a route fail, which is a case the composer has to state.</summary>
+	public ApiException? AddRideRouteException { get; set; }
+
 	public Task<RideRoute> AddRideRouteAsync(Guid rideId, AddRideRouteRequest request, CancellationToken cancellationToken = default)
 	{
 		Record(nameof(AddRideRouteAsync));
 		AddedRoutes.Add((rideId, request.TrackId));
+
+		if (AddRideRouteException is not null)
+		{
+			return Task.FromException<RideRoute>(AddRideRouteException);
+		}
 
 		// The server answers with the whole set refreshed; the fake keeps that true by adding to
 		// its own list, so a component that refetches after attaching sees what it just added.

@@ -6,6 +6,7 @@ using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
+using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -15,11 +16,13 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// Where the live ride map is pointing, and what keeps it there.
 /// <para>
-/// Two behaviours, one state. The map re-opens on the ground it was left on — leaving for the
-/// info page or the marker composer and coming straight back is the commonest thing a rider
-/// does mid-ride, and re-panning at the side of a road is the cost of getting it wrong. And
-/// "follow me" keeps this rider centred as their fixes arrive, which is the other half of not
-/// having to touch the map while riding.
+/// Three behaviours, one state. The map <em>opens</em> on the thing the adventure is about — its
+/// planned route, or where the traveller is standing when it has none — because the default
+/// camera is a guess about one city and was wrong for everybody outside it. It <em>re-opens</em>
+/// on the ground it was left on, because leaving for the info page or the marker composer and
+/// coming straight back is the commonest thing a rider does mid-ride, and re-panning at the side
+/// of a road is the cost of getting that wrong. And "follow me" keeps this rider centred as their
+/// fixes arrive, which is the other half of not having to touch the map while riding.
 /// </para>
 /// <para>
 /// The map is the real <c>RideMap</c> behind <see cref="StubRideMap"/>: its viewport plumbing
@@ -138,8 +141,16 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>
 	/// Renders the ride and gets the device's receiver as far as one fix — which is where every
 	/// follow-me test starts, because following aims at this phone's own reading and at nothing
-	/// else (§4.3). Returns once that fix is on the map, so a test can act on it without racing
-	/// the pump.
+	/// else (§4.3). Returns once that fix is on the map <em>and</em> the map has opened on it, so a
+	/// test can act on both without racing the pump.
+	/// <para>
+	/// The two are not the same moment and the second is the one that matters here. A fix rebuilds
+	/// the marker layer and renders before the page decides where to point the map, so a wait that
+	/// stopped at the mark would return with the opening frame still to come — and every test that
+	/// counts camera moves from that point would be counting from a number that was about to
+	/// change under it. The adventures these tests wire have no route, so the frame is this fix:
+	/// there is always exactly one, and it has always happened by the time this returns.
+	/// </para>
 	/// </summary>
 	private async Task<IRenderedComponent<GroupRideLive>> RenderRideLocatedAtAsync(
 		Guid rideId,
@@ -158,6 +169,11 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => SelfMarkOn(component).ShouldNotBeNull("the device's fix has to have landed first."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(
+			() => _map.Cameras.ShouldNotBeEmpty(
+				"an adventure with no route opens on this fix — see the remarks."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		return component;
@@ -226,6 +242,232 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	private static RiderPositionDto At(Guid userId, double latitude, double longitude) =>
 		new(userId, "Me", PositionScale.FromDegrees(latitude), PositionScale.FromDegrees(longitude),
 			SpeedMps: 8, HeadingDeg: 90, FixedInstant);
+
+	/// <summary>
+	/// A planned route on the adventure, as a straight line between two corners of a box the test
+	/// then asserts the map was framed on.
+	/// </summary>
+	private static RideRoute Route(string name, double minLatitude, double minLongitude, double maxLatitude, double maxLongitude) =>
+		new(TrackId: Guid.NewGuid(),
+			Name: name,
+			DistanceM: 4_600,
+			PointCount: 2,
+			EncodedPolyline: PolylineCodec.EncodePoints(
+				[new TrackPoint(minLatitude, minLongitude), new TrackPoint(maxLatitude, maxLongitude)]),
+			Bounds: new TrackBounds(minLatitude, minLongitude, maxLatitude, maxLongitude),
+			AddedUtc: FixedInstant,
+			AddedByUserId: MeId,
+			AddedByUserName: "Me");
+
+	// ---------- Opening an adventure for the first time ----------
+
+	/// <summary>
+	/// The first open of an adventure that has a route frames the map on the route, not on the
+	/// app's default city. A traveller in Perth joining a Perth adventure used to get Sydney at
+	/// city scale and a pan to do before they could read anything.
+	/// </summary>
+	[Fact]
+	public async Task AnAdventureWithARoute_OpensFramedOnIt()
+	{
+		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
+
+		api.RoutesResult.Add(Route("The way out", -37.83, 144.95, -37.80, 144.99));
+
+		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
+
+		component.WaitForAssertion(
+			() => _map.Fits.ShouldContain(
+				new TrackBounds(-37.83, 144.95, -37.80, 144.99),
+				"the whole point of the adventure is on screen, or the traveller pans to find it."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Every route, not the first. §5.4 lets an adventure carry the short option and the long one,
+	/// or the way out and the way home, and framing on whichever was attached first puts the rest
+	/// off the screen at the moment somebody is choosing between them.
+	/// </summary>
+	[Fact]
+	public async Task AnAdventureWithSeveralRoutes_OpensFramedOnAllOfThem()
+	{
+		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
+
+		api.RoutesResult.Add(Route("The short way", -37.83, 144.95, -37.80, 144.99));
+		api.RoutesResult.Add(Route("The long way", -37.90, 145.10, -37.85, 145.20));
+
+		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
+
+		component.WaitForAssertion(
+			() => _map.Fits.ShouldContain(
+				new TrackBounds(-37.90, 144.95, -37.80, 145.20),
+				"both options are on screen, or the one that is not may as well not be attached."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// No route, so there is no box — and the one thing worth opening on is where the traveller is
+	/// standing. This is the meeting-point case: an adventure somebody has just joined, nothing
+	/// planned yet, and a map that ought to show the street they are on.
+	/// </summary>
+	[Fact]
+	public async Task AnAdventureWithNoRoute_OpensOnWhereTheTravellerIs()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		await RenderRideLocatedAtAsync(rideId, -31.9523, 115.8613);
+
+		_map.Fits.ShouldBeEmpty("there is no route, so there is no box to fit.");
+
+		CamerasAskedFor().ShouldContain(
+			camera => Math.Abs(camera.Latitude - -31.9523) < 1e-4
+				&& Math.Abs(camera.Longitude - 115.8613) < 1e-4,
+			"a traveller in Perth opening a Perth adventure should not be shown Sydney.");
+	}
+
+	/// <summary>
+	/// The opening frame is a frame, not a mode. It happens once and then the map belongs to the
+	/// traveller — a second fix from a moving bike must not drag the view back, which is what
+	/// "follow me" is for and what this deliberately is not.
+	/// </summary>
+	[Fact]
+	public async Task TheOpeningFrame_HappensOnceAndThenLetsGo()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -31.9523, 115.8613);
+
+		int framed = _map.Cameras.Count;
+
+		Gps.Emit(DeviceFix(-31.9600, 115.8700));
+
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.Latitude.ShouldBe(-31.96, tolerance: 1e-4),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Cameras.Count.ShouldBe(framed,
+			"following is a mode the traveller turns on; opening the map is not.");
+	}
+
+	/// <summary>
+	/// A stored view for this adventure outranks the route: the traveller was here five minutes
+	/// ago and left the map looking at something. Re-framing on the whole route would undo that
+	/// every time they stepped out to the info page.
+	/// </summary>
+	[Fact]
+	public async Task AStoredViewForThisAdventure_OutranksItsRoute()
+	{
+		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
+
+		api.RoutesResult.Add(Route("The way out", -37.83, 144.95, -37.80, 144.99));
+
+		await _settings.SetAsync(
+			LiveMapView.StorageKey,
+			new LiveMapView(rideId, -37.8136, 144.9631, 17, FollowMe: false).Encode());
+
+		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
+
+		component.WaitForAssertion(() =>
+			CamerasAskedFor().ShouldContain(
+				camera => Math.Abs(camera.ZoomLevel - 17) < 1e-6,
+				"the view the traveller left is where they meant to come back to."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Fits.ShouldBeEmpty(
+			"framing the route over a stored view would zoom back out on somebody who had zoomed in.");
+	}
+
+	/// <summary>
+	/// Following and the opening frame answer different moments, and the map is not stuck between
+	/// them: the route is what there is to show before a receiver has said anything, and following
+	/// takes over the instant it does.
+	/// <para>
+	/// Ordered this way rather than standing the frame down because following is on. A traveller
+	/// arrives at a new adventure with the mode already set — it carries across (see
+	/// <see cref="LiveMapView.FollowMe"/>) — and a GPS takes seconds to answer, sometimes never on
+	/// a laptop watching from home. Holding the default city for that whole time so as to avoid one
+	/// re-frame is the wrong trade.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task WithFollowingOn_TheRouteFramesTheMapUntilTheFirstFix()
+	{
+		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
+
+		api.RoutesResult.Add(Route("The way out", -37.83, 144.95, -37.80, 144.99));
+
+		// Stored against a different adventure: the camera does not carry across but the mode does,
+		// which is exactly the traveller arriving at a new adventure with following already on.
+		await _settings.SetAsync(
+			LiveMapView.StorageKey,
+			new LiveMapView(Guid.NewGuid(), -33.868, 151.209, 11, FollowMe: true).Encode());
+
+		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
+
+		component.WaitForAssertion(
+			() => _map.Fits.ShouldContain(
+				new TrackBounds(-37.83, 144.95, -37.80, 144.99),
+				"before the receiver has answered there is nobody to follow, and the route beats Sydney."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await WaitForReceiverAsync();
+		Gps.Emit(DeviceFix(-37.8200, 144.9700));
+
+		component.WaitForAssertion(
+			() => _map.Cameras.ShouldContain(
+				camera => Math.Abs(camera.Latitude - -37.8200) < 1e-4
+					&& Math.Abs(camera.Longitude - 144.9700) < 1e-4,
+				"the moment there is somebody to follow, following is what the map does."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Fits.Count.ShouldBe(1,
+			"the frame is an opening, not a mode — it does not fight the fixes that follow it.");
+	}
+
+	/// <summary>
+	/// Once there <em>is</em> a fix in hand, following takes the map and the opening frame stands
+	/// down: fitting a route the traveller is standing on, only to be pulled off it on the same
+	/// tick, is two moves where one was asked for. This is the traveller who steps back onto the
+	/// live map from the info page mid-adventure.
+	/// </summary>
+	[Fact]
+	public async Task AFixAlreadyInHand_LeavesTheMapToFollowingRatherThanTheRoute()
+	{
+		(FakeApiClient api, _, Guid rideId) = await WireServicesAsync();
+
+		api.RoutesResult.Add(Route("The way out", -37.83, 144.95, -37.80, 144.99));
+
+		await _settings.SetAsync(
+			LiveMapView.StorageKey,
+			new LiveMapView(Guid.NewGuid(), -33.868, 151.209, 11, FollowMe: true).Encode());
+
+		// The broadcaster is scoped and outlives the page, so a fix taken before this map is
+		// rendered is one it finds already waiting — which is the mid-adventure case.
+		LocationBroadcastState broadcast = Services.GetRequiredService<LocationBroadcastState>();
+		await broadcast.ShareWithAsync(rideId);
+
+		await BackgroundWait.UntilAsync(
+			() => Gps.WatchCount == 1,
+			"the receiver to start before the map is rendered",
+			() => $"WatchCount={Gps.WatchCount}, Status={broadcast.Status}.");
+
+		Gps.Emit(DeviceFix(-37.8136, 144.9631));
+
+		await BackgroundWait.UntilAsync(
+			() => broadcast.OwnFix is not null,
+			"the fix to reach the broadcaster before the map is rendered",
+			() => $"OwnFix={broadcast.OwnFix}.");
+
+		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
+
+		component.WaitForAssertion(
+			() => _map.Cameras.ShouldContain(
+				camera => Math.Abs(camera.Latitude - -37.8136) < 1e-4,
+				"a traveller who left the last map centred on themselves has said where they want this one."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		_map.Fits.ShouldBeEmpty(
+			"a route fitted here would be pulled off it on the same tick — two moves for one request.");
+	}
 
 	// ---------- Re-opening on the ground it was left on ----------
 

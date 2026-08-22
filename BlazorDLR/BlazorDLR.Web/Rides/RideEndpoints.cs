@@ -59,6 +59,9 @@ public static class RideEndpoints
 
 	/// <summary>Route name for a decision.</summary>
 	public const string DecideRouteName = "DecideJoinRequest";
+
+	/// <summary>Route name for deleting a ride.</summary>
+	public const string DeleteRouteName = "DeleteRide";
 }
 
 /// <summary>Creating a ride, joining one, and deciding who is in (§5.2).</summary>
@@ -470,6 +473,65 @@ public sealed class RideController : ControllerBase
 		await database.SaveChangesAsync();
 
 		await notifications.DecisionMadeAsync(ride, request.UserId, decision.Admit);
+
+		return NoContent();
+	}
+
+	[HttpDelete("/api/v1/group-rides/{id:guid}", Name = RideEndpoints.DeleteRouteName)]
+	[EndpointSummary("Deletes one of the caller's own adventures and everything hanging off it. Irreversible.")]
+	public async Task<IActionResult> DeleteAsync(
+		[FromRoute] Guid id,
+		[FromServices] DlrDbContext database,
+		[FromServices] PositionStore positions,
+		CancellationToken cancellationToken)
+	{
+		if (User.UserId() is not { } userId)
+		{
+			return Unauthorized();
+		}
+
+		// Owner only, and matched in the same query as the lookup so a member of somebody else's
+		// ride gets the same answer as a stranger. §5.2's rule that a ride id is shareable is
+		// what makes that necessary: 403 here would confirm the ride exists to anyone holding one.
+		GroupRide? ride = await database
+			.Set<GroupRide>()
+			.AsNoTracking()
+			.SingleOrDefaultAsync(row => row.Id == id && row.OwnerId == userId, cancellationToken);
+
+		if (ride is null)
+		{
+			// Including a second press of the same button. The organiser asked for it to be gone
+			// and it is, but answering 204 to any id at all would make this a way to probe.
+			return NotFound();
+		}
+
+		// The one refusal. Deleting a ride in progress takes the map out from under everybody
+		// still on the road — §5.6 already gives the organiser the verb for that moment, and it
+		// is End, which stops the sharing without destroying the day's thread and markers.
+		if (ride.State is GroupRideState.Live)
+		{
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "This adventure is in progress",
+				detail: "End the adventure first. Deleting one that is running would blank the map "
+					+ "for every rider still out there.");
+		}
+
+		// Before the row goes, because the cascade clears the table and not the §5.5 cache in
+		// front of it — a fix left in memory would keep answering for a ride that no longer exists.
+		await positions.ClearRideAsync(id);
+
+		// Members, join requests, routes, markers, comments and their reactions and polls all
+		// reach group_ride through ON DELETE CASCADE, so this one statement is the whole delete.
+		// Photographs are the exception, and deliberately not handled here: a photo row belongs
+		// to the account that uploaded it (§16.6), not to the ride it was shown in, and it
+		// outlives a deleted comment for the same reason. Deleting them from this endpoint would
+		// make one ride's delete reach into another ride's thread whenever the same image was
+		// posted twice.
+		await database
+			.Set<GroupRide>()
+			.Where(row => row.Id == id && row.OwnerId == userId)
+			.ExecuteDeleteAsync(cancellationToken);
 
 		return NoContent();
 	}

@@ -214,6 +214,17 @@ public interface IApiClient
 	/// <summary><c>DELETE /api/v1/group-rides/{id}/members/{userId}</c> — organiser removes a member.</summary>
 	Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// <c>DELETE /api/v1/group-rides/{id}</c> — the organiser deletes the whole adventure.
+	/// <para>
+	/// Irreversible, and not the same verb as ending one (§5.6): ending stops the sharing and
+	/// keeps the day — the thread, the markers, who was there. This takes all of it. The server
+	/// refuses on a ride that is <see cref="RideStateDto.Live"/>, because deleting one in
+	/// progress would blank the map for everybody still on the road.
+	/// </para>
+	/// </summary>
+	Task DeleteRideAsync(Guid rideId, CancellationToken cancellationToken = default);
+
 	// -- Planned routes (§5.4) ------------------------------------------------------------
 
 	/// <summary>

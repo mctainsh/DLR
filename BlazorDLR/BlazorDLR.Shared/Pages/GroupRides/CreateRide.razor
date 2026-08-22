@@ -1,6 +1,7 @@
 @page "/group-rides/create"
 @attribute [Authorize]
 @using DLR.Core.Contracts.Rides
+@using DLR.Core.Contracts.Tracks
 @inject IApiClient Api
 @inject NavigationManager Nav
 @inject TimeProvider Clock
@@ -15,43 +16,85 @@
 		or whether every joiner needs your approval (§5.2).
 	</p>
 
-	<form @onsubmit="CreateAsync" @onsubmit:preventDefault="true">
-		<label>
-			Name
-			<input @bind="_name" placeholder="Saturday Coast Run" required maxlength="80" />
-		</label>
-
-		<label>
-			When it starts
-			<input @bind="_startLocal" type="datetime-local" required />
-		</label>
-
-		<label>
-			Description (optional)
-			<textarea @bind="_description" rows="3" maxlength="500"
-					  placeholder="Where to meet, what to bring."></textarea>
-		</label>
-
-		<fieldset>
-			<legend>How people join</legend>
-			<label class="radio">
-				<input type="radio" name="policy" value="@JoinPolicyDto.Approval"
-					   checked="@(_joinPolicy == JoinPolicyDto.Approval)"
-					   @onchange="() => _joinPolicy = JoinPolicyDto.Approval" />
-				Approval — a valid code creates a pending request; nobody enters until you admit them.
+	@if (_createdRideId is { } created)
+	{
+		@*
+			The adventure exists; only the route did not attach (§5.4). The form is gone rather
+			than re-armed on purpose — pressing Create again would make a second adventure, and
+			the way on from here is the ride's own Info screen, where routes are managed anyway.
+		*@
+		<p><a class="button" href="@($"/group-rides/{created}/info")">Open the adventure</a></p>
+	}
+	else
+	{
+		<form @onsubmit="CreateAsync" @onsubmit:preventDefault="true">
+			<label>
+				Name
+				<input @bind="_name" placeholder="Saturday Coast Run" required maxlength="80" />
 			</label>
-			<label class="radio">
-				<input type="radio" name="policy" value="@JoinPolicyDto.Open"
-					   checked="@(_joinPolicy == JoinPolicyDto.Open)"
-					   @onchange="() => _joinPolicy = JoinPolicyDto.Open" />
-				Open — a valid code joins immediately.
-			</label>
-		</fieldset>
 
-		<button type="submit" class="primary" disabled="@_busy">
-			@(_busy ? "Creating…" : "Create adventure")
-		</button>
-	</form>
+			<label>
+				When it starts
+				<input @bind="_startLocal" type="datetime-local" required />
+			</label>
+
+			<label>
+				Description (optional)
+				<textarea @bind="_description" rows="3" maxlength="500"
+						  placeholder="Where to meet, what to bring."></textarea>
+			</label>
+
+			@*
+				The planned route, chosen here rather than only afterwards (§5.4). Optional, and a
+				failed track fetch says so inside the control instead of blocking the form — a rider
+				creating an adventure at the trailhead should not be stopped by a list they were
+				never going to pick from.
+			*@
+			<label>
+				Route <em>(optional)</em>
+				<select @onchange="OnRouteChanged" value="@(_trackId?.ToString() ?? string.Empty)"
+						disabled="@(_tracks is null or { Count: 0 })">
+					<option value="">@RoutePlaceholder</option>
+					@foreach (TrackSummary track in _tracks ?? [])
+					{
+						<option value="@track.Id">@(track.Name ?? "Unnamed track") — @FormatKm(track.DistanceM)</option>
+					}
+				</select>
+			</label>
+
+			@if (_tracks is { Count: 0 })
+			{
+				@*
+					Only the caller's own tracks can be attached (§15.4) — a route somebody sent you
+					is added by importing their GPX, which is the copy feature.
+				*@
+				<p class="hint">
+					Routes come from your own tracks — <a href="/import">import a GPX</a> or record
+					an adventure first, then attach it from the adventure's Info screen.
+				</p>
+			}
+
+			<fieldset>
+				<legend>How people join</legend>
+				<label class="radio">
+					<input type="radio" name="policy" value="@JoinPolicyDto.Approval"
+						   checked="@(_joinPolicy == JoinPolicyDto.Approval)"
+						   @onchange="() => _joinPolicy = JoinPolicyDto.Approval" />
+					Approval — a valid code creates a pending request; nobody enters until you admit them.
+				</label>
+				<label class="radio">
+					<input type="radio" name="policy" value="@JoinPolicyDto.Open"
+						   checked="@(_joinPolicy == JoinPolicyDto.Open)"
+						   @onchange="() => _joinPolicy = JoinPolicyDto.Open" />
+					Open — a valid code joins immediately.
+				</label>
+			</fieldset>
+
+			<button type="submit" class="primary" disabled="@_busy">
+				@(_busy ? "Creating…" : "Create adventure")
+			</button>
+		</form>
+	}
 
 	@if (_error is not null)
 	{
@@ -73,17 +116,66 @@
 @code {
 	private string _name = string.Empty;
 	private string _description = string.Empty;
-	// datetime-local binds directly to DateTime. Default set in OnInitialized against
+	// datetime-local binds directly to DateTime. Default set in OnInitializedAsync against
 	// TimeProvider (§10.4) so a fake clock in tests drives this the same as everything else.
 	private DateTime _startLocal;
-
-	protected override void OnInitialized()
-	{
-		_startLocal = Clock.GetLocalNow().DateTime.AddHours(1);
-	}
 	private JoinPolicyDto _joinPolicy = JoinPolicyDto.Approval;
 	private ApiError? _error;
 	private bool _busy;
+
+	// The caller's own tracks, for the route picker. Null while loading and after a failed
+	// fetch; the two are told apart by _tracksError, which is what the placeholder reads.
+	private IReadOnlyList<TrackSummary>? _tracks;
+	private string? _tracksError;
+	private Guid? _trackId;
+
+	// Set only when the ride was created but its route would not attach — see the markup.
+	private Guid? _createdRideId;
+
+	/// <summary>
+	/// The tracks are fetched here rather than behind a "pick a route" button, because the whole
+	/// point of offering the choice on this screen is that it costs the organiser no extra step.
+	/// A failed fetch is kept and shown in the placeholder — the route is optional, so it must
+	/// never stop somebody creating the adventure.
+	/// </summary>
+	protected override async Task OnInitializedAsync()
+	{
+		_startLocal = Clock.GetLocalNow().DateTime.AddHours(1);
+
+		try
+		{
+			_tracks = await Api.ListTracksAsync();
+		}
+		catch (ApiException apiException)
+		{
+			_tracksError = apiException.Error.Title;
+		}
+		catch (Exception exception)
+		{
+			_tracksError = exception.Message;
+		}
+	}
+
+	/// <summary>
+	/// The empty option's text, which is also where the picker says why it has nothing to
+	/// offer — a disabled dropdown reading a bare "No route" looks like a broken control.
+	/// </summary>
+	private string RoutePlaceholder => (_tracks, _tracksError) switch
+	{
+		(_, not null) => $"No route — {_tracksError}",
+		(null, _) => "Loading your tracks…",
+		({ Count: 0 }, _) => "No route — you have no tracks yet",
+		_ => "No route — add one later",
+	};
+
+	/// <summary>
+	/// Parsed rather than <c>@bind</c>ed to a <see cref="Guid"/>? so the empty option is
+	/// unambiguously "no route" rather than whatever a failed conversion would leave behind.
+	/// </summary>
+	private void OnRouteChanged(ChangeEventArgs args) =>
+		_trackId = Guid.TryParse(args.Value?.ToString(), out Guid picked) ? picked : null;
+
+	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
 
 	private async Task CreateAsync()
 	{
@@ -100,6 +192,24 @@
 				StartUtc: startUtc,
 				Description: string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
 				JoinPolicy: _joinPolicy));
+
+			// After the create, because POST /group-rides/{id}/routes needs an id (§5.4). A
+			// refusal here leaves a perfectly good adventure with no route on it, so it is
+			// reported as exactly that rather than as a failed create.
+			if (_trackId is { } trackId)
+			{
+				try
+				{
+					await Api.AddRideRouteAsync(ride.Id, new AddRideRouteRequest(trackId));
+				}
+				catch (Exception exception)
+				{
+					_createdRideId = ride.Id;
+					_error = new ApiError(default, "The adventure was created, but the route was not attached.",
+						new[] { exception is ApiException refused ? refused.Error.Title : exception.Message });
+					return;
+				}
+			}
 
 			Nav.NavigateTo($"/group-rides/live/{ride.Id}");
 		}

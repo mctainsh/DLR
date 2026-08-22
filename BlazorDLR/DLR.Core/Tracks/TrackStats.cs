@@ -194,6 +194,30 @@ public readonly record struct TrackBounds(
 				points.Max(point => point.Longitude));
 
 	/// <summary>
+	/// The smallest box containing every one of <paramref name="boxes"/>, or null when there are
+	/// none.
+	/// <para>
+	/// What a group ride is framed on. A ride carries a <em>set</em> of planned routes rather than
+	/// one (§5.4) — the short option and the long one, the way out and the way home — so opening
+	/// on the first of them would put the rest off the screen.
+	/// </para>
+	/// <para>
+	/// Naive across the antimeridian in exactly the way the point overload above is, and for the
+	/// same reason: a box built from minima and maxima cannot describe one that wraps, so nothing
+	/// that produces a <see cref="TrackBounds"/> can hand one to this.
+	/// </para>
+	/// </summary>
+	/// <param name="boxes">The boxes to cover.</param>
+	public static TrackBounds? Around(IReadOnlyList<TrackBounds> boxes) =>
+		boxes.Count == 0
+			? null
+			: new TrackBounds(
+				boxes.Min(box => box.MinLatitude),
+				boxes.Min(box => box.MinLongitude),
+				boxes.Max(box => box.MaxLatitude),
+				boxes.Max(box => box.MaxLongitude));
+
+	/// <summary>
 	/// Whether a point falls inside this box, edges included.
 	/// <para>
 	/// Inclusive because the boxes this answers for are map-pack extents (§4.2), and a rider

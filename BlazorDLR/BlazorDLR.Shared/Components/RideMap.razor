@@ -129,8 +129,15 @@ else if (_tileError is not null)
 	/// the two never disagree about which ground is being talked about.
 	/// </para>
 	/// <para>
-	/// Null on every map whose view is not a fixed extent — the live ride, which is following a
-	/// rider, and the pickers, where the rider is choosing a point and being re-framed under their
+	/// <para>
+	/// The live ride passes one too, and passes it exactly once: the box round the ride's planned
+	/// routes, the first time a rider opens that ride. Its view is not a fixed extent — it follows
+	/// a rider, and the rider pans it — so it sets the box for the opening frame and then leaves
+	/// the value alone forever. That works because a box already fitted is ignored (see
+	/// <see cref="ApplyBoundsAsync"/>), so the parameter is inert from the second render onward.
+	/// </para>
+	/// <para>
+	/// Null on the pickers, where the rider is choosing a point and being re-framed under their
 	/// hand would take the map off what they were aiming at.
 	/// </para>
 	/// </summary>
