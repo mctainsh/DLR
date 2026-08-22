@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using BlazorDLR.Shared.Services.Platform;
 using DLR.UI.Tests.Fakes;
 
@@ -245,6 +246,38 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 
 		server.IsSupported.ShouldBeFalse();
 		(await server.ResolveAsync("au-nsw")).ShouldBeNull();
+	}
+
+	[Fact]
+	public async Task ConnectionsThatAreResetBeforeTheyAreServed_DoNotStopTheServer()
+	{
+		// The regression this exists for. Every style swap and every `map.remove()` aborts the tile
+		// fetches that were in flight, and the WebView resets those connections — some of them
+		// before the accept has completed, which surfaces on this side as a SocketException against
+		// a listener that is perfectly healthy.
+		//
+		// The accept loop used to return on one of those. The port then stopped answering for the
+		// rest of the run while the resolved URL carried on naming it, so every offline map
+		// afterwards failed at the fetch with the browser's bare "Load failed" — no status, no
+		// body, nothing in the log — and only restarting the app brought the map back. That is what
+		// a rider sees as "downloading the second pack broke the first one".
+		Uri url = await UrlAsync();
+
+		for (int i = 0; i < 20; i++)
+		{
+			using TcpClient client = new();
+			await client.ConnectAsync(IPAddress.Loopback, url.Port);
+
+			// Zero-length linger: closing sends RST rather than FIN, which is what an aborted
+			// fetch does and what a graceful close would not reproduce.
+			client.LingerState = new LingerOption(true, 0);
+		}
+
+		using HttpResponseMessage response = await GetAsync(url, "bytes=4-6");
+
+		response.StatusCode.ShouldBe(HttpStatusCode.PartialContent,
+			"a burst of aborted connections must leave the server accepting.");
+		(await response.Content.ReadAsByteArrayAsync()).ShouldBe(new byte[] { 4, 5, 6 });
 	}
 
 	[Fact]

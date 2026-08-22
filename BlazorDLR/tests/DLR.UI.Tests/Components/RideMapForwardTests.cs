@@ -297,6 +297,66 @@ public sealed class RideMapForwardTests : BunitContext
 		component.Markup.ShouldNotContain("a later consequence of it");
 	}
 
+	[Fact]
+	public void AnOfflinePackThatCannotBeRead_IsResolvedAgainOnce()
+	{
+		// A pack's archive is served over loopback, and the URL in the style carries a port the OS
+		// assigned to this run. That address can stop being true while the map is still on screen —
+		// a phone that suspends the app long enough for the listener to go takes every tile with it,
+		// and the map never comes back on its own. Asking for the source again re-resolves the URL
+		// and restarts the server, which is why this is worth one attempt before the banner.
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, Camera)
+			.Add(p => p.Source, MapSource.OfflinePack("au-qld")));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		map.RaiseError("Load failed — source: protomaps");
+
+		component.WaitForAssertion(
+			() => map.Sources.ShouldBe([MapSource.OfflinePack("au-qld")]),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// And once only: a pack that is genuinely unreadable would otherwise restyle the map on
+		// every failed tile for as long as the screen is open.
+		map.RaiseError("Load failed — source: protomaps");
+		map.RaiseError("Load failed — source: protomaps");
+
+		component.WaitForAssertion(
+			() => component.Markup.ShouldContain("Map tiles unavailable"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		map.Sources.Count.ShouldBe(1, "the re-resolve is spent against a source, not repeated per failed tile.");
+	}
+
+	[Fact]
+	public void AnOnlineSourceThatCannotDrawTiles_IsNotResolvedAgain()
+	{
+		// Nothing to re-resolve: an OSM or custom template is the same string every time it is
+		// asked for, so a restyle would only cost the rider a second round of failed tiles.
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, Camera)
+			.Add(p => p.Source, MapSource.Default));
+
+		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
+
+		map.RaiseError("Failed to fetch https://tile.openstreetmap.org/12/3/4.png");
+
+		component.WaitForAssertion(
+			() => component.Markup.ShouldContain("Map tiles unavailable"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		map.Sources.ShouldBeEmpty();
+	}
+
 	// -- A caller holding the source (§4.2) -----------------------------------------------------
 
 	/// <summary>

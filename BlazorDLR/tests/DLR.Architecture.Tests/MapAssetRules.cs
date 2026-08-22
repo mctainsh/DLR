@@ -177,6 +177,57 @@ public sealed class MapAssetRules
 	}
 
 	/// <summary>
+	/// The style documents still declare the three ground layers the offline map is floored with.
+	/// <para>
+	/// <strong>What this protects.</strong> A regional pack holds only the tiles its region's box
+	/// touches — one tile at z0 through z3 for Queensland — and MapLibre reads that box out of the
+	/// archive and refuses to ask for anything outside it. Everything else on screen is the style's
+	/// background colour, which reads as a dead band of zooms between "the world fits in the pack's
+	/// z0 tile" and "the rider is inside the region". <c>addWorldUnderlay</c> in
+	/// <c>map.maplibre.js</c> answers that by cloning these three layers onto a second source capped
+	/// at zoom 0, so the pack's own world tile floors the map everywhere.
+	/// </para>
+	/// <para>
+	/// It clones them <em>by id</em>, and it gives up quietly when it finds none — a map with the
+	/// old grey void beats a map that throws on a style this build does not recognise. Quietly is
+	/// the problem: a vendored style that renamed these would bring the void back with nothing
+	/// failing anywhere, so the naming is pinned here instead.
+	/// </para>
+	/// </summary>
+	/// <param name="document">Which theme's style document.</param>
+	[Theory]
+	[InlineData("basemap.json")]
+	[InlineData("basemap.dark.json")]
+	public void TheStyleCarriesTheGroundLayersTheOfflineUnderlayClones(string document)
+	{
+		string path = Path.Combine(
+			SourceTree.Root,
+			$"{MapFolder}/style/{document}".Replace('/', Path.DirectorySeparatorChar));
+
+		using System.Text.Json.JsonDocument style = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+
+		List<System.Text.Json.JsonElement> layers = [.. style.RootElement.GetProperty("layers").EnumerateArray()];
+
+		layers[0].GetProperty("type").GetString().ShouldBe("background",
+			"the underlay is inserted after the first layer, on the assumption it is the background.");
+
+		foreach (string id in new[] { "earth", "landcover", "water" })
+		{
+			System.Text.Json.JsonElement layer = layers.SingleOrDefault(
+				candidate => candidate.TryGetProperty("id", out System.Text.Json.JsonElement name)
+					&& name.GetString() == id);
+
+			layer.ValueKind.ShouldBe(System.Text.Json.JsonValueKind.Object,
+				$"map.maplibre.js clones '{id}' onto the zoom-0 source that floors an offline pack. " +
+				"Renaming it in the style leaves the map grey outside the downloaded region, and " +
+				"nothing else says so.");
+
+			layer.GetProperty("type").GetString().ShouldBe("fill",
+				$"'{id}' floors the map, so it has to be something that paints an area.");
+		}
+	}
+
+	/// <summary>
 	/// Both themes ask for the same fonts.
 	/// <para>
 	/// The glyphs are shipped once and shared, which is what keeps a second theme at ~290 KB rather

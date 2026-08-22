@@ -1,3 +1,4 @@
+using BlazorDLR.Shared.Diagnostics;
 using DLR.Core.Tracks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -159,6 +160,14 @@ public sealed class MapLibreInterop : IMapInterop
 		if (source.Kind == MapSourceKind.Offline && source.PackId is { } packId)
 		{
 			archive = await _packs.ResolveAsync(packId, cancellationToken);
+
+			// The one line that says which archive a map was told to read, and on which port.
+			// Without it the fallback below is silent, and a rider whose pack has gone sees a map
+			// that simply stopped being offline — while a rider whose pack is fine but whose
+			// server has moved sees the identical screen for the opposite reason.
+			DiagnosticLog.Write(archive is null
+				? $"Offline map pack '{packId}' could not be served on this device; the map falls back to OpenStreetMap."
+				: $"Offline map pack '{packId}' ({source.Theme.ToString().ToLowerInvariant()}) is being served from port {archive.Port}.");
 		}
 
 		MapSource usable = source.Kind == MapSourceKind.Offline && archive is null

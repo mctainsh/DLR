@@ -3,12 +3,12 @@
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
+@using DLR.Core.Tracks
 @inject MapSourceState MapSources
 @inject MapPackState Packs
 @inject IDeviceSettings Settings
 @inject ConfirmService Confirm
-@inject TimeProvider Clock
-@implements IAsyncDisposable
+@implements IDisposable
 
 @*
 	Which tiles go under every map in the app (§4.5, §18.6).
@@ -392,11 +392,11 @@
 		<h2>Preview</h2>
 		<p class="hint">
 			The same base map every adventure is drawn over. Pan and zoom it to check the tiles load at
-			the detail you travel at — it opens where you left it last, or over your last adventure.
+			the detail you travel at — it opens on the whole world, or on the ground a map pack covers.
 		</p>
 		<div class="preview-map">
-			<RideMap Camera="_preview" AllowRotation="false" ShowPickingCursor="false"
-					 OnViewportReported="OnPreviewMovedAsync" />
+			<RideMap Camera="WorldView" Bounds="PreviewFrame" AllowRotation="false"
+					 ShowPickingCursor="false" />
 		</div>
 	</section>
 
@@ -414,75 +414,61 @@
 
 @code {
 	/// <summary>
-	/// Where the preview opens on a device that has neither moved it nor ever opened a live ride:
-	/// the whole world.
+	/// The camera the preview opens with: the whole world.
 	/// <para>
-	/// The last of three answers, and the only one that is a constant. The preview's own stored
-	/// camera comes first, then the ground the live ride map was last over
-	/// (<see cref="BorrowLiveViewAsync"/>) — both of them places this rider knows, which is what the
-	/// check they came to make needs.
+	/// A fixed city would be an opinion this screen has no business holding. <c>GroupRideLive</c>
+	/// falls back to one because it has a ride to show and must show it somewhere; this map is a
+	/// sample of a tile source with no place in mind, and Sydney would tell every rider who does not
+	/// live there that the check they came to make starts with a pan. The world also answers the
+	/// first question fastest, since at that zoom whether the tiles arrive at all is visible before
+	/// touching anything.
 	/// </para>
 	/// <para>
-	/// It is the world rather than a city when neither is on the device. A fixed city is an opinion
-	/// this screen has no business holding: <c>GroupRideLive</c> falls back to one because it has a
-	/// ride to show and must show it somewhere, while this map is a sample of a tile server and has
-	/// no place in mind — and Sydney tells every rider who does not live there that the check starts
-	/// with a pan. The world also answers the first question fastest, since at that zoom whether the
-	/// tiles arrive at all is visible before touching anything.
+	/// It is the camera rather than the frame because a camera is what a base map needs before it has
+	/// a canvas to measure. <see cref="PreviewFrame"/> is the correction once it has one, and the two
+	/// agree about which ground is being talked about — see <c>RideMap.Bounds</c>.
 	/// </para>
 	/// </summary>
 	private static readonly MapCamera WorldView = new(0, 0, 0);
 
 	/// <summary>
-	/// Where the preview is pointed.
+	/// The world as a box, which is what an online source is framed on.
 	/// <para>
-	/// Assigned once — from the device, after the first render — and never again. It is a parameter
-	/// to <c>RideMap</c>, which pushes any change at the base map, so writing the rider's own pans
-	/// back into it would fight the hand that made them: every drag would report a viewport, set the
-	/// camera, and be re-applied a frame later. What the rider moves to is held in
-	/// <see cref="_previewNow"/> instead, which nothing renders.
+	/// Latitude stops at 85 rather than 90 because that is where Web Mercator stops: the projection
+	/// sends the poles to infinity, and a box claiming them is a fit whose zoom is whatever the
+	/// arithmetic happened to produce. Everything a tile server draws is inside this.
 	/// </para>
 	/// </summary>
-	private MapCamera _preview = WorldView;
+	private static readonly TrackBounds WorldFrame = new(-85, -180, 85, 180);
 
 	/// <summary>
-	/// The latest view the preview has reported, saved or not. Null until it reports one.
-	/// </summary>
-	private MapCamera? _previewNow;
-
-	/// <summary>What <see cref="_previewNow"/> was when the device was last written.</summary>
-	private MapCamera? _previewSaved;
-
-	/// <summary>
-	/// Whether the stored camera has been read yet. Until it has, the preview's own reports are
-	/// ignored.
+	/// The ground the preview frames itself on: what an offline pack covers when one is being drawn
+	/// with, and the whole world for OpenStreetMap and a tile server.
 	/// <para>
-	/// <strong>Not a detail.</strong> A child renders before its parent, so <c>RideMap</c> attaches
-	/// and announces the view it opened on — the world — while this page is still one render away
-	/// from reading the device. Without this flag that announcement is a pan as far as the handler
-	/// below can tell, and it writes the world over the ground the rider left, every visit. The
-	/// feature would have failed in exactly the case it exists for and looked like a store that does
-	/// not persist.
+	/// The two answers are the same question asked of two kinds of source. An online source draws
+	/// everywhere, so the honest sample of it is everywhere — and a rider judging one is looking for
+	/// whether tiles arrive at all before they look at any particular street. A pack draws one
+	/// region and nothing outside it, so the world would be a preview of a grey rectangle with the
+	/// answer somewhere off in a corner; its own extent is the only frame that shows what was
+	/// downloaded.
+	/// </para>
+	/// <para>
+	/// The extent comes from the catalogue rather than the archive, so it is known exactly when the
+	/// catalogue read has landed (§4.2) — and it is a newer field than the catalogue riders are
+	/// fetching from today, so a pack with no published box is ordinary rather than broken. Both of
+	/// those fall back to the world, which is where the preview opened anyway.
+	/// </para>
+	/// <para>
+	/// Read on every render and handed to <c>RideMap</c>, which re-frames only when the box changes:
+	/// switching between the two online sources leaves the rider's pan alone, and switching to a pack
+	/// — or between two of them — moves the map to what that pack holds.
 	/// </para>
 	/// </summary>
-	private bool _previewRestored;
-
-	/// <summary>
-	/// The clock reading at the last write, for the throttle below. Never compared against anything
-	/// but itself, so a device whose clock jumps costs at most one extra write.
-	/// </summary>
-	private DateTimeOffset _lastPreviewSaveUtc;
-
-	/// <summary>
-	/// How often panning the preview is allowed to reach the device store.
-	/// <para>
-	/// The map reports a viewport on every frame of a drag, and on the web every write is a JS
-	/// interop round trip. Nothing reads this value until the next visit, so writing it at frame rate
-	/// buys nothing — and what the throttle holds back is not dropped, because
-	/// <see cref="DisposeAsync"/> writes whatever is pending on the way out.
-	/// </para>
-	/// </summary>
-	private static readonly TimeSpan PreviewSaveInterval = TimeSpan.FromSeconds(2);
+	private TrackBounds PreviewFrame =>
+		_kind == MapSourceKind.Offline
+			&& Packs.Offers.FirstOrDefault(offer => offer.Id == _packId)?.Bounds is { } covered
+				? covered
+				: WorldFrame;
 
 	private MapSourceKind _kind = MapSourceKind.Osm;
 	private string _template = string.Empty;
@@ -755,17 +741,6 @@
 		// is actually applied — those agree, because applying one writes this too.
 		Remember(RememberedMapSetup.Decode(await Settings.GetAsync(RememberedMapSetup.StorageKey)));
 
-		// Nothing panned here yet: borrow the ground the rider was last riding over instead of
-		// opening on the world. See BorrowLiveViewAsync.
-		if (_previewNow is null)
-		{
-			await BorrowLiveViewAsync();
-		}
-
-		// Only now may the preview's reports count as the rider moving it. Set whether or not there
-		// was a camera to restore: a device that stored none still wants the first pan kept.
-		_previewRestored = true;
-
 		// Adopted here rather than left to the Changed handler. LoadAsync only raises when it was
 		// the read that resolved the value — a rider arriving from another screen that already
 		// read the device gets no event at all, and this form would open on the default while the
@@ -837,96 +812,6 @@
 		_template = draft.TileTemplate ?? string.Empty;
 		_attribution = draft.TileAttribution ?? string.Empty;
 		_maxZoom = draft.TileMaxZoom;
-
-		if (draft.PreviewCamera is not { } camera)
-		{
-			return;
-		}
-
-		// One of only two assignments to _preview — see the field, and BorrowLiveViewAsync below.
-		// RideMap has already opened on the world by now, and it handles a camera that arrives after
-		// its first render: the parameter change is pushed at the base map, which is the one move
-		// this restore needs.
-		_preview = camera;
-		_previewNow = camera;
-		_previewSaved = camera;
-	}
-
-	/// <summary>
-	/// Points the preview at wherever the live ride map was last looking, for a device that has never
-	/// moved the preview itself.
-	/// <para>
-	/// The world is a poor first view for the job this map has. A rider is here to judge whether a
-	/// tile source draws the ground they ride over — at the detail they ride at — and at zoom 0
-	/// nothing on it is ground they can recognise, so the check starts with a pan and a pinch every
-	/// time. The one place on the device that already knows which ground that is is
-	/// <see cref="LiveMapView"/>, written by the live map they were just on.
-	/// </para>
-	/// <para>
-	/// <strong>The ride the view belongs to is not checked</strong>, which is the opposite of what
-	/// the live page does with the same value. There, applying one ride's camera to another opens
-	/// Melbourne over Sydney and misrepresents the ride on screen. Here there is no ride to
-	/// misrepresent — this map is a tile sample, and any ride the rider has opened is ground they
-	/// know. Refusing a stale <c>RideId</c> would send them back to the world for no gain.
-	/// </para>
-	/// <para>
-	/// Nothing is written as a result. <see cref="_previewSaved"/> is set to the borrowed camera so
-	/// that leaving without touching the map stores nothing — the borrow stays a borrow, and the next
-	/// visit takes whatever the live map says <em>then</em> rather than freezing today's answer into
-	/// the preview's own slot. The first pan is what makes it this screen's, through the ordinary
-	/// path.
-	/// </para>
-	/// </summary>
-	private async Task BorrowLiveViewAsync()
-	{
-		LiveMapView? live = LiveMapView.Decode(await Settings.GetAsync(LiveMapView.StorageKey));
-
-		// Re-normalised rather than trusted: LiveMapView clamps to what a live map offers, and this
-		// is the range the preview's own slot is kept in. They agree today; a camera that fails is
-		// simply not borrowed, and the world is already on screen.
-		if (RememberedMapSetup.NormalisedCamera(live?.ToCamera()) is not { } camera)
-		{
-			return;
-		}
-
-		_preview = camera;
-		_previewNow = camera;
-		_previewSaved = camera;
-	}
-
-	/// <summary>
-	/// The preview reported a new view — a pan, a pinch, or the base map settling after it opened.
-	/// Held, and let through to the device at most every <see cref="PreviewSaveInterval"/>.
-	/// </summary>
-	/// <param name="viewport">Where the base map is now looking.</param>
-	private Task OnPreviewMovedAsync(MapViewport viewport)
-	{
-		// A viewport with no canvas is a map that has not laid out yet, and its centre is not a place.
-		// And nothing is written before the stored camera has been read — see _previewRestored.
-		if (!_previewRestored || viewport is not { CanvasWidthPx: > 0 })
-		{
-			return Task.CompletedTask;
-		}
-
-		MapCamera? moved = RememberedMapSetup.NormalisedCamera(
-			new MapCamera(viewport.CentreLatitude, viewport.CentreLongitude, viewport.ZoomLevel));
-
-		if (moved is null || moved == _previewSaved)
-		{
-			return Task.CompletedTask;
-		}
-
-		_previewNow = moved;
-
-		DateTimeOffset stamp = Clock.GetUtcNow();
-
-		if (stamp - _lastPreviewSaveUtc < PreviewSaveInterval)
-		{
-			return Task.CompletedTask;
-		}
-
-		_lastPreviewSaveUtc = stamp;
-		return RememberAsync();
 	}
 
 	/// <summary>
@@ -941,21 +826,10 @@
 	/// Whatever is there is kept, finished or not — see <see cref="RememberedMapSetup"/>. An empty
 	/// form removes the key rather than storing three blanks.
 	/// </para>
-	/// <para>
-	/// The preview camera rides along with it. One key holds the whole screen's memory, so a rider
-	/// who pans the map and then types a URL writes both at once rather than racing two keys — and a
-	/// blur that saves a tile server also banks whatever panning the throttle was still holding.
-	/// </para>
 	/// </summary>
 	private async Task RememberAsync()
 	{
-		RememberedMapSetup draft = new(
-			_template.Trim(),
-			_attribution.Trim(),
-			_maxZoom,
-			_previewNow);
-
-		_previewSaved = draft.PreviewCamera;
+		RememberedMapSetup draft = new(_template.Trim(), _attribution.Trim(), _maxZoom);
 
 		if (draft.IsEmpty)
 		{
@@ -1174,22 +1048,13 @@
 	}
 
 	/// <summary>
-	/// Unhooks, and writes whatever the throttle was still holding.
-	/// <para>
-	/// This is what makes <see cref="PreviewSaveInterval"/> a throttle rather than a way of losing
-	/// the last pan: leaving the screen is the commonest thing a rider does immediately after moving
-	/// the preview, and it is exactly the moment the held value would otherwise go.
-	/// </para>
+	/// Unhooks from the two states this page listens to. Nothing is written on the way out: what the
+	/// screen remembers is written when a field loses focus, and the preview keeps nothing.
 	/// </summary>
-	public async ValueTask DisposeAsync()
+	public void Dispose()
 	{
 		MapSources.Changed -= OnSourceChanged;
 		Packs.Changed -= OnPacksChanged;
-
-		if (_previewNow != _previewSaved)
-		{
-			await RememberAsync();
-		}
 	}
 }
 

@@ -298,6 +298,18 @@ else if (_tileError is not null)
 	/// </summary>
 	private string? _tileError;
 
+	/// <summary>
+	/// How many errors the base map has raised over this component's life. Shown nowhere — it is
+	/// the log's, and it is what separates one bad glyph from a source that cannot be read at all.
+	/// </summary>
+	private int _mapErrors;
+
+	/// <summary>How often a continuing failure repeats itself in the log. See <see cref="OnMapError"/>.</summary>
+	private const int MapErrorLogEvery = 50;
+
+	/// <summary>Whether the one re-resolve <see cref="RetryOfflineSourceAsync"/> allows has been spent.</summary>
+	private bool _retriedSource;
+
 	private MapViewport? _viewport;
 
 	protected override void OnInitialized()
@@ -450,8 +462,10 @@ else if (_tileError is not null)
 
 		// A new source deserves a fresh verdict — the last one's complaint says nothing about it.
 		// This is also what lets a caller answering OnTileError with a different source hear about
-		// the replacement failing too.
+		// the replacement failing too. The retry is reset with it, for the same reason: it is spent
+		// against a source, not against the component.
 		_tileError = null;
+		_retriedSource = false;
 
 		try { await Map.SetSourceAsync(wanted); }
 		catch (Exception exception)
@@ -503,9 +517,28 @@ else if (_tileError is not null)
 	/// <summary>
 	/// The base map reported something it could not do. Kept only if it is the first — see
 	/// <see cref="_tileError"/> — and told to the caller on the same terms.
+	/// <para>
+	/// <strong>Logged on different terms from the ones it is shown on.</strong> The screen keeps
+	/// the first message because a source that cannot be read raises one per tile and a flickering
+	/// banner helps nobody. The log wants the opposite: whether a map failed once on a bad glyph or
+	/// is failing continuously is most of the diagnosis, and it is invisible on screen. So the
+	/// first is written in full and the count is written every so often after it — which is how a
+	/// rider's log says "this map never drew a tile" rather than "something went wrong once".
+	/// </para>
 	/// </summary>
 	private void OnMapError(string message)
 	{
+		_mapErrors++;
+
+		if (_mapErrors == 1)
+		{
+			DiagnosticLog.Write($"Base map error, drawing {_appliedSource?.Kind.ToString() ?? "nothing yet"}: {message}");
+		}
+		else if (_mapErrors % MapErrorLogEvery == 0)
+		{
+			DiagnosticLog.Write($"Base map error #{_mapErrors} (still failing): {message}");
+		}
+
 		if (_tileError is not null)
 		{
 			return;
@@ -520,7 +553,53 @@ else if (_tileError is not null)
 			{
 				await OnTileError.InvokeAsync(message);
 			}
+
+			await RetryOfflineSourceAsync();
 		});
+	}
+
+	/// <summary>
+	/// One re-resolve of an offline pack after the base map said it could not read it.
+	/// <para>
+	/// <strong>Why an offline pack alone gets this.</strong> Its archive is served over loopback,
+	/// and the URL carries a port the OS assigned and a secret this run generated — so the address
+	/// inside the style document is the one thing under a map that can stop being true while the
+	/// map is still on screen. A phone that suspends the app long enough for the listener to go
+	/// (a long pack download in the background is the way it happens) leaves every tile request
+	/// aimed at a port nothing answers, and the rider's map never comes back without a restart.
+	/// Asking C# for the source again re-resolves that URL — and starts the server again if it has
+	/// stopped — which is a fix the rider does not have to be told about.
+	/// </para>
+	/// <para>
+	/// <strong>Once.</strong> A pack that is genuinely unreadable would otherwise restyle the map
+	/// on every failed tile, forever. The banner is what a second failure gets, because at that
+	/// point the rider does need to know.
+	/// </para>
+	/// </summary>
+	private async Task RetryOfflineSourceAsync()
+	{
+		if (_retriedSource || _error is not null || _appliedSource is not { Kind: MapSourceKind.Offline } offline)
+		{
+			return;
+		}
+
+		_retriedSource = true;
+
+		DiagnosticLog.Write($"Re-resolving offline pack '{offline.PackId}' after the base map could not read it.");
+
+		try
+		{
+			await Map.SetSourceAsync(offline);
+
+			// Optimistic, and safe: if the fresh URL fails too the next error puts the banner
+			// straight back — this field is what the handler above tests before keeping one.
+			_tileError = null;
+			StateHasChanged();
+		}
+		catch (Exception exception)
+		{
+			DiagnosticLog.WriteError($"re-resolving offline pack '{offline.PackId}'", exception);
+		}
 	}
 
 	/// <summary>

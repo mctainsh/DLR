@@ -178,9 +178,114 @@ async function ensurePmtilesProtocol(maplibregl) {
     const protocol = new pmtiles.Protocol();
 
     // Wrapped rather than passed directly, so the handler cannot lose its `this` if the plugin
-    // ever stops defining `tile` as a bound property.
-    maplibregl.addProtocol("pmtiles", (params, abortController) => protocol.tile(params, abortController));
+    // ever stops defining `tile` as a bound property — and, since v0.27, so that a read which
+    // fails says which archive it was reading and what the archive says for itself. See
+    // `describePmtilesFailure`: what reaches the rider without it is "Load failed", which is the
+    // browser's whole vocabulary for a fetch that never got a response.
+    maplibregl.addProtocol("pmtiles", async (params, abortController) => {
+        try {
+            return await protocol.tile(params, abortController);
+        } catch (error) {
+            throw await describePmtilesFailure(params, error, abortController);
+        }
+    });
     pmtilesProtocol = protocol;
+}
+
+// The archive part of a `pmtiles://…/{z}/{x}/{y}` URL, and the tile coordinates after it.
+function splitPmtilesUrl(url) {
+    const text = String(url ?? "").replace(/^pmtiles:\/\//, "");
+    const tile = text.match(/^(.*)\/(\d+)\/(\d+)\/(\d+)$/);
+
+    return tile
+        ? { archive: tile[1], tile: `z${tile[2]}/x${tile[3]}/y${tile[4]}` }
+        : { archive: text, tile: null };
+}
+
+// A pack URL with its secret taken out.
+//
+// The loopback server puts a per-run token in the first path segment, and it is a real secret: it
+// is what stops another app on the same phone walking the port range and reading whatever this one
+// has downloaded. These strings go to C#, into the diagnostics log, and onto the screen under
+// "Map tiles unavailable" — all three of which a rider may mail to somebody. The port and the pack
+// are the diagnostic content; the token is not.
+function redactPackUrl(url) {
+    try {
+        const parsed = new URL(url);
+
+        if (parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") return url;
+
+        const segments = parsed.pathname.split("/").filter(Boolean);
+
+        if (segments.length > 1) segments[0] = "…";
+
+        return `${parsed.origin}/${segments.join("/")}`;
+    } catch {
+        return String(url ?? "");
+    }
+}
+
+// One range request against the archive itself, so a failed tile can say whether the thing serving
+// it is answering at all. Cached briefly: a source that cannot be read fails once per tile and
+// twenty of those arrive together, which should cost one probe rather than twenty.
+//
+// The distinction it buys is the one that matters and the one no other line in this file can make:
+// a status code means the server answered and the archive or the range is wrong, while a network
+// error means nothing is listening on that port any more — which is what a dead loopback listener
+// looks like from in here.
+const archiveProbes = new Map();
+
+function probeArchive(archiveUrl) {
+    if (!archiveProbes.has(archiveUrl)) {
+        const probe = fetch(archiveUrl, { method: "GET", headers: { Range: "bytes=0-0" }, cache: "no-store" })
+            .then(
+                (response) => `the archive answered HTTP ${response.status}`,
+                (error) => `the archive could not be reached at all (${error?.name ?? "Error"}: ${error?.message ?? error})`);
+
+        archiveProbes.set(archiveUrl, probe);
+
+        // Not kept: the loopback server binds a new port when its listener dies, and a stale
+        // verdict about the old one would outlive the failure it described.
+        probe.finally(() => setTimeout(() => archiveProbes.delete(archiveUrl), 10_000));
+    }
+
+    return archiveProbes.get(archiveUrl);
+}
+
+// What to throw in place of whatever the PMTiles reader threw.
+//
+// MapLibre reports the error it is given and nothing else, and what the reader gives it for an
+// unreachable archive is the fetch layer's bare "Load failed" / "Failed to fetch" — no URL, no
+// status, no source. That is indistinguishable from a corrupt archive, a wrong range, a pack the
+// device deleted, and a listener that has stopped answering, which are four different faults with
+// four different fixes.
+async function describePmtilesFailure(params, error, abortController) {
+    // A cancelled tile is not a failure. Every pan and every style swap aborts the fetches in
+    // flight, and dressing those up as errors would fill the log with the map working correctly.
+    if (abortController?.signal?.aborted || error?.name === "AbortError") return error;
+
+    const { archive, tile } = splitPmtilesUrl(params?.url);
+
+    let verdict = "";
+
+    try {
+        verdict = ` — ${await probeArchive(archive)}`;
+    } catch {
+        // The probe is a courtesy. Its own failure must not replace the error it was explaining.
+    }
+
+    const described = new Error(
+        `PMTiles read failed for ${redactPackUrl(archive)}` +
+        `${tile ? ` at ${tile}` : ""} (${params?.type ?? "tile"}): ` +
+        `${error?.name ?? "Error"}: ${error?.message ?? error}${verdict}`);
+
+    described.name = "PmtilesError";
+
+    // The original too, whole: on a phone this is what a remote debugger shows, and the stack is
+    // in it.
+    console.error("[dlr-map] pmtiles", { url: params?.url, type: params?.type }, error);
+
+    return described;
 }
 
 // One in-flight fetch per theme, keyed by name — a rider comparing light against dark on the
@@ -256,7 +361,87 @@ async function offlineStyle(source) {
         url: `pmtiles://${source.archiveUrl}`,
     };
 
+    addWorldUnderlay(style, sourceName, source.archiveUrl);
+
     return style;
+}
+
+// The source name for the coarse ground beneath a pack. Not a name any vendored style uses, and
+// checked below rather than assumed.
+const WORLD_SOURCE = "dlr-pack-world";
+
+// The ground layers, in the order the vendored styles declare them. Ids rather than a rule about
+// source-layers, because these three are the ones that paint the whole surface — land, what grows
+// on it, and water — and everything after them is detail that only exists inside the region.
+const WORLD_GROUND_LAYERS = ["earth", "landcover", "water"];
+
+// A coarse world under the pack, drawn from the pack's own zoom-0 tile (§4.5, §13 Q26).
+//
+// WHAT THIS FIXES. A regional pack holds exactly the tiles its region's box touches — for
+// Queensland that is ONE tile at z0, one at z1, one at z2, one at z3, two at z4, six at z5. The
+// archive publishes that box in its header, MapLibre reads it through the PMTiles TileJSON, and it
+// then refuses to ask for anything outside it. So the map only ever paints inside a rectangle, and
+// the rest of the screen is the style's `background` colour — flat grey, no coastline, nothing.
+//
+// The effect reads as a dead zoom range rather than as a dead area, which is what makes it so
+// confusing to hit. Right out at world zoom the pack's single z0 tile happens to cover the whole
+// screen, so the map looks fine; right in, the rider is inside the rectangle, so the map looks
+// fine; in between — roughly z2 to z7 — the rectangle is a strip in a grey void, and a pan of any
+// distance leaves nothing on screen at all.
+//
+// THE FIX. A second source over the same archive, capped at `maxzoom: 0`, so MapLibre only ever
+// requests the one tile every pack contains — z0, which is the whole world — and stretches it over
+// whatever is on screen. The three ground layers are cloned onto it underneath the real ones. It
+// costs one tile (about 90 KB, already inside the pack), reaches no network, and cannot fail
+// differently from the pack itself.
+//
+// It does not invent detail. Outside the region a rider gets land, water and a coarse coastline
+// and no roads, which is the truth about what they downloaded — and inside it nothing changes,
+// because the detailed layers paint over the top.
+function addWorldUnderlay(style, sourceName, archiveUrl) {
+    const ground = style.layers.filter(layer => WORLD_GROUND_LAYERS.includes(layer.id));
+
+    // A vendored style that no longer declares them. Better a map with the old grey than a map
+    // that throws on a style this build does not recognise.
+    if (ground.length === 0 || Object.hasOwn(style.sources, WORLD_SOURCE)) return;
+
+    style.sources[WORLD_SOURCE] = {
+        ...style.sources[sourceName],
+        url: `pmtiles://${archiveUrl}`,
+        // The whole point. MapLibre asks for tiles at min(zoom, maxzoom), so this pins every
+        // request to 0/0/0 — the one tile a regional extract is guaranteed to hold, because the
+        // z0 tile's box touches every region there is.
+        maxzoom: 0,
+    };
+
+    const clones = ground.map(layer => {
+        const clone = { ...layer, id: `${layer.id}-world`, source: WORLD_SOURCE };
+
+        // Cleared so the clone draws at every zoom: the layer's own range is about detail
+        // arriving, and this one is only ever the same tile stretched further.
+        delete clone.minzoom;
+        delete clone.maxzoom;
+
+        return clone;
+    });
+
+    // After the background and before everything else, so the pack's real layers — and the Skia
+    // overlay above them — are unchanged wherever the pack has data.
+    style.layers = [style.layers[0], ...clones, ...style.layers.slice(1)];
+}
+
+// A source in one line, for a log somebody reads days later. Every field that decides whether the
+// map can draw, and no field that does not — the token inside an archive URL is taken out by
+// `redactPackUrl` rather than being trusted to a log file a rider may send on.
+function describeSource(source) {
+    const chosen = source ?? DEFAULT_SOURCE;
+
+    if (chosen.kind === "offline") {
+        return `offline pack '${chosen.packId ?? "(none chosen)"}', ${chosen.theme ?? DEFAULT_THEME} theme, ` +
+            `${chosen.archiveUrl ? redactPackUrl(chosen.archiveUrl) : "NO ARCHIVE URL"}`;
+    }
+
+    return `${chosen.kind ?? "osm"} tiles, ${chosen.tileUrl ?? "(no tile URL)"}, to z${chosen.maxZoom ?? 19}`;
 }
 
 // The style for a chosen source (§4.5). Async because the offline one is a document on disk.
@@ -314,6 +499,12 @@ export async function createMap(hostElement, options, callbacks) {
     }
 
     const initialStyle = await styleFor(options.source);
+
+    // What the map is currently drawing with, kept because the error handler below is the one
+    // place that needs it and the style document no longer says: MapLibre reports a failed source
+    // by the id inside the style ("protomaps"), which is the same word for every pack ever
+    // downloaded and names neither the archive nor the region.
+    let currentSource = options.source ?? DEFAULT_SOURCE;
 
     hostElement.classList.remove("dlr-map-placeholder");
     hostElement.replaceChildren();
@@ -452,9 +643,20 @@ export async function createMap(hostElement, options, callbacks) {
         // AJAXError carries both; a decode failure carries neither, which is itself informative.
         const parts = [error?.message ?? String(error ?? "The map reported an error.")];
 
+        // The type of the error is the cheapest half of that diagnosis and used to be dropped.
+        // "TypeError" is a fetch that never reached anything; "AJAXError" reached a server and was
+        // refused by it; "PmtilesError" is this module's own, and already carries the archive.
+        if (error?.name && error.name !== "Error") parts.push(error.name);
+
         if (error?.status) parts.push(`HTTP ${error.status}`);
-        if (error?.url) parts.push(error.url);
+        if (error?.url) parts.push(redactPackUrl(error.url));
         if (event?.sourceId) parts.push(`source: ${event.sourceId}`);
+
+        // Which source, always. "source: protomaps" is the style's internal id for the vector
+        // layer group and is identical for every pack a rider has ever downloaded — so on its own
+        // it cannot tell Queensland from New South Wales, an archive from a missing archive, or a
+        // pack from the OSM fallback.
+        parts.push(`using: ${describeSource(currentSource)}`);
 
         // Console too: on a phone this is what a remote debugger shows, and it carries the whole
         // object rather than the one line that fits on screen.
@@ -578,6 +780,8 @@ export async function createMap(hostElement, options, callbacks) {
             if (source?.kind === "offline") {
                 await ensurePmtilesProtocol(maplibregl);
             }
+
+            currentSource = source ?? DEFAULT_SOURCE;
 
             map.setStyle(await styleFor(source), { diff: false });
 

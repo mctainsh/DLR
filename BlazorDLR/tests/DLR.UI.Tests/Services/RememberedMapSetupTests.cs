@@ -45,6 +45,24 @@ public sealed class RememberedMapSetupTests
 		decoded.TileMaxZoom.ShouldBe(17, "and the two trailing fields are simply dropped.");
 	}
 
+	/// <summary>
+	/// Version 2 carried the preview map's camera after the zoom. The preview frames itself on its
+	/// source now — the world for a tile server, the pack's extent for a pack — so those three
+	/// fields went the same way version 1's pack link did, and for the same reason they are read
+	/// past rather than rejected.
+	/// </summary>
+	[Fact]
+	public void AVersionTwoValueCarryingAPreviewCamera_StillGivesBackTheTileServer()
+	{
+		RememberedMapSetup? decoded = RememberedMapSetup.Decode(
+			"2|https%3A%2F%2Ftiles.example.com%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png|%C2%A9%20Example|17|-33.868|151.209|11");
+
+		decoded.ShouldNotBeNull();
+		decoded.TileTemplate.ShouldBe("https://tiles.example.com/{z}/{x}/{y}.png");
+		decoded.TileAttribution.ShouldBe("© Example");
+		decoded.TileMaxZoom.ShouldBe(17, "and the camera on the tail is simply dropped.");
+	}
+
 	[Fact]
 	public void AHalfTypedTemplateIsKept()
 	{

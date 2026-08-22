@@ -4,6 +4,7 @@ using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -164,6 +165,26 @@ public sealed class MapSettingsTests : PageTestContext
 	/// </summary>
 	private static Task ChoosePackToDownloadAsync(IRenderedComponent<Maps> page, string packId) =>
 		page.InvokeAsync(() => page.Find("select.offers").Change(packId));
+
+	/// <summary>
+	/// The frame an online source puts the preview on: the world, stopping at the latitude Web
+	/// Mercator stops at. Matches <c>Maps.WorldFrame</c>, which is the value under test.
+	/// </summary>
+	private static readonly TrackBounds TheWholeWorld = new(-85, -180, 85, 180);
+
+	/// <summary>
+	/// Lets the base map attach, which the tests about framing need and the rest do not: a fit is
+	/// applied to a map that came up, so <see cref="FakeMapInterop.InitException"/> — the default
+	/// here — would swallow every one of them. Attaching also mounts <c>SkiaMapOverlay</c>, which
+	/// talks to its own JS module.
+	/// </summary>
+	private void AttachTheBaseMap()
+	{
+		_map.InitException = null;
+		JSInterop.SetupModule("./_content/BlazorDLR.Shared/map/overlay.js")
+			.SetupVoid("present", _ => true)
+			.SetVoidResult();
+	}
 
 	private IRenderedComponent<Maps> RenderPage() => Render<Maps>();
 
@@ -1197,17 +1218,16 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// With nothing at all on the device — no preview camera and no live ride ever opened — the
-	/// preview opens on the whole world, not on a city.
+	/// An online source opens the preview on the whole world, not on a city.
 	/// <para>
 	/// A fixed city is an opinion this screen has no business holding. The live map falls back to
 	/// Sydney because it has a ride to show and must show it somewhere; this one is a sample of a
-	/// tile server with no place in mind, and opening on one city tells every rider who does not live
-	/// there that the check they came to make starts with a pan.
+	/// tile server with no place in mind, and opening on one city tells every traveller who does not
+	/// live there that the check they came to make starts with a pan.
 	/// </para>
 	/// </summary>
 	[Fact]
-	public void WithNothingOnTheDevice_ThePreviewOpensOnTheWholeWorld()
+	public void ThePreviewOpensOnTheWholeWorld()
 	{
 		Wire();
 
@@ -1219,183 +1239,97 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Where the rider left the preview comes back, and survives the app being killed — it is in the
-	/// device store, not in the page.
-	/// </summary>
-	[Fact]
-	public async Task PanningThePreview_IsKeptOnTheDevice()
-	{
-		Wire();
-		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
-
-		IRenderedComponent<Maps> page = RenderPage();
-
-		// The page reads the store after its first render, and nothing the map says before that read
-		// counts as a pan — otherwise the view it opened on would overwrite what was stored. The
-		// stored source landing is what says that read has happened.
-		page.WaitForAssertion(
-			() => page.FindAll("input[name=map-source]")[0].HasAttribute("checked").ShouldBeTrue(),
-			timeout: TimeSpan.FromSeconds(3));
-
-		await page.InvokeAsync(() => _map.RaiseViewport(new MapViewport(
-			TopLeftLatitude: -33.85, TopLeftLongitude: 151.18,
-			BottomRightLatitude: -33.89, BottomRightLongitude: 151.24,
-			ZoomLevel: 13,
-			HeadingDeg: 0,
-			CanvasWidthPx: 800, CanvasHeightPx: 600,
-			DevicePixelRatio: 1)));
-
-		RememberedMapSetup? stored =
-			RememberedMapSetup.Decode(await settings.GetAsync(RememberedMapSetup.StorageKey));
-
-		stored.ShouldNotBeNull();
-		stored.PreviewCamera.ShouldNotBeNull();
-		stored.PreviewCamera.Latitude.ShouldBe(-33.87, 0.01);
-		stored.PreviewCamera.Longitude.ShouldBe(151.21, 0.01);
-		stored.PreviewCamera.ZoomLevel.ShouldBe(13);
-	}
-
-	/// <summary>
-	/// And it is applied on the next visit. The map has already opened on the world by the time the
-	/// device read lands — a child renders before its parent — so the restore is a camera pushed at
-	/// an attached base map rather than the one it was initialised with.
-	/// </summary>
-	[Fact]
-	public async Task ThePreviewReopensWhereItWasLeft()
-	{
-		// The one test here that lets the base map attach: a camera pushed at a map that never
-		// attached goes nowhere, so the restore would be invisible. That also mounts the Skia
-		// overlay, which talks to its own JS module.
-		_map.InitException = null;
-		JSInterop.SetupModule("./_content/BlazorDLR.Shared/map/overlay.js")
-			.SetupVoid("present", _ => true)
-			.SetVoidResult();
-
-		Wire();
-		await Services.GetRequiredService<IDeviceSettings>().SetAsync(
-			RememberedMapSetup.StorageKey,
-			new RememberedMapSetup(PreviewCamera: new MapCamera(-33.868, 151.209, 11)).Encode());
-
-		IRenderedComponent<Maps> page = RenderPage();
-
-		page.WaitForAssertion(
-			() => _map.Cameras.ShouldContain(new MapCamera(-33.868, 151.209, 11)),
-			timeout: TimeSpan.FromSeconds(3));
-	}
-
-	/// <summary>
-	/// A device that has never moved the preview opens it over the ground the live ride map was last
-	/// on, rather than over the world.
+	/// And the frame agrees with the camera: the world, to the edge of what Web Mercator draws.
 	/// <para>
-	/// The world is a poor first view for this map's job: at zoom 0 nothing on it is ground the rider
-	/// can recognise, so judging a tile source starts with a pan and a pinch every visit. The live
-	/// view is already on the device and is by definition somewhere they know.
-	/// </para>
-	/// <para>
-	/// The ride the stored view belongs to is not checked, which the ride id here — belonging to no
-	/// ride this page has ever heard of — is what pins down. The live page refuses another ride's
-	/// camera because applying it would open Melbourne over Sydney and misrepresent the ride on
-	/// screen; there is no ride on this screen to misrepresent.
+	/// The camera is where the base map opens, before it has a canvas to measure; the fit is the
+	/// correction once it has one, which is why this test lets the map attach and the one above does
+	/// not.
 	/// </para>
 	/// </summary>
 	[Fact]
-	public async Task WithNoPreviewOfItsOwn_ThePreviewOpensOverTheLastRide()
+	public void AnOnlineSource_FramesThePreviewOnTheWholeWorld()
 	{
-		// As in ThePreviewReopensWhereItWasLeft: the camera is pushed at an attached base map after
-		// the device read, so the map has to be allowed to attach for it to be visible.
-		_map.InitException = null;
-		JSInterop.SetupModule("./_content/BlazorDLR.Shared/map/overlay.js")
-			.SetupVoid("present", _ => true)
-			.SetVoidResult();
-
+		AttachTheBaseMap();
 		Wire();
-		await Services.GetRequiredService<IDeviceSettings>().SetAsync(
-			LiveMapView.StorageKey,
-			new LiveMapView(Guid.NewGuid(), -37.814, 144.963, 12, FollowMe: false).Encode());
 
 		IRenderedComponent<Maps> page = RenderPage();
 
 		page.WaitForAssertion(
-			() => _map.Cameras.ShouldContain(new MapCamera(-37.814, 144.963, 12)),
+			() => _map.Fits.ShouldContain(TheWholeWorld),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
-	/// And the preview's own camera wins over it. The live view is a stand-in for an answer this
-	/// screen does not have yet — once the rider has pointed the preview somewhere themselves, that
-	/// is where it belongs, however recently they rode elsewhere.
+	/// A map pack is previewed over the ground it covers instead (§4.2).
+	/// <para>
+	/// The world would be a preview of a grey rectangle with the answer off in a corner: a pack
+	/// draws one region and nothing outside it, so its own extent is the only frame that shows what
+	/// was downloaded. The extent comes from the catalogue, which is read when the offline source is
+	/// picked.
+	/// </para>
 	/// </summary>
 	[Fact]
-	public async Task ThePreviewsOwnCamera_BeatsTheLastRide()
+	public async Task AMapPack_FramesThePreviewOnTheGroundItCovers()
 	{
-		_map.InitException = null;
-		JSInterop.SetupModule("./_content/BlazorDLR.Shared/map/overlay.js")
-			.SetupVoid("present", _ => true)
-			.SetVoidResult();
-
+		AttachTheBaseMap();
+		_catalogue = new StubHttpHandler(BoundedCatalogue);
 		Wire();
-		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
 
-		await settings.SetAsync(
-			LiveMapView.StorageKey,
-			new LiveMapView(Guid.NewGuid(), -37.814, 144.963, 12, FollowMe: false).Encode());
-		await settings.SetAsync(
-			RememberedMapSetup.StorageKey,
-			new RememberedMapSetup(PreviewCamera: new MapCamera(-33.868, 151.209, 11)).Encode());
+		// One pack on the device, so picking the offline source also selects it.
+		_packs.Add("au-tas", [1, 2, 3, 4]);
 
 		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
 
 		page.WaitForAssertion(
-			() => _map.Cameras.ShouldContain(new MapCamera(-33.868, 151.209, 11)),
+			() => _map.Fits.ShouldContain(new TrackBounds(-43.70, 143.80, -39.50, 148.50)),
 			timeout: TimeSpan.FromSeconds(3));
-
-		_map.Cameras.ShouldNotContain(new MapCamera(-37.814, 144.963, 12));
 	}
 
 	/// <summary>
-	/// Borrowing writes nothing. The preview's slot stays empty until the rider moves the map
-	/// themselves, so the next visit takes whatever the live map says <em>then</em> rather than
-	/// freezing today's ride into this screen's own memory.
+	/// And going back to an online source frames the world again — the preview follows whichever
+	/// source it is drawing with, in both directions.
 	/// </summary>
 	[Fact]
-	public async Task BorrowingTheLastRide_StoresNothingUnderThePreviewsOwnKey()
+	public async Task LeavingThePack_FramesThePreviewOnTheWorldAgain()
 	{
+		AttachTheBaseMap();
+		_catalogue = new StubHttpHandler(BoundedCatalogue);
 		Wire();
-		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
-
-		await settings.SetAsync(
-			LiveMapView.StorageKey,
-			new LiveMapView(Guid.NewGuid(), -37.814, 144.963, 12, FollowMe: false).Encode());
+		_packs.Add("au-tas", [1, 2, 3, 4]);
 
 		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
 
-		// The stored source landing is what says the device read has happened.
 		page.WaitForAssertion(
-			() => page.FindAll("input[name=map-source]")[0].HasAttribute("checked").ShouldBeTrue(),
+			() => _map.Fits.ShouldContain(new TrackBounds(-43.70, 143.80, -39.50, 148.50)),
 			timeout: TimeSpan.FromSeconds(3));
 
-		await page.InvokeAsync(page.Instance.DisposeAsync);
+		await page.InvokeAsync(() => page.FindAll("input[name=map-source]")[0].Change(true));
 
-		(await settings.GetAsync(RememberedMapSetup.StorageKey)).ShouldBeNull(
-			customMessage: "a borrow is not a pan.");
+		page.WaitForAssertion(
+			() => _map.Fits[^1].ShouldBe(TheWholeWorld),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
-	/// A device that has only ever panned the preview still has its tile server read back, and the
-	/// other way about — one key holds the whole screen's memory, so neither half may evict the other.
+	/// A pack whose entry publishes no box leaves the preview on the world. The field is newer than
+	/// the catalogue travellers are fetching from today, so this is the ordinary case rather than a
+	/// broken one — and the world is a worse frame, not a wrong one.
 	/// </summary>
 	[Fact]
-	public void APannedPreview_DoesNotThrowAwayTheTileServer()
+	public async Task APackWithNoPublishedExtent_LeavesThePreviewOnTheWorld()
 	{
-		RememberedMapSetup stored = new(
-			"https://tiles.example.com/{z}/{x}/{y}.png",
-			"© Example Maps",
-			17,
-			new MapCamera(-33.868, 151.209, 11));
+		AttachTheBaseMap();
+		Wire();
+		_packs.Add("au-tas", [1, 2, 3, 4]);
 
-		RememberedMapSetup? read = RememberedMapSetup.Decode(stored.Encode());
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+		WaitForCatalogue(page);
 
-		read.ShouldBe(stored);
+		_map.Fits.ShouldNotBeEmpty("the world was framed on the way in.");
+		_map.Fits.ShouldAllBe(box => box == TheWholeWorld, "and nothing moved it off.");
 	}
 
 	[Fact]
