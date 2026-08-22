@@ -2,6 +2,7 @@ using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -150,6 +151,13 @@ public sealed class RideMapForwardTests : BunitContext
 			Cameras.Add(camera);
 			return ValueTask.CompletedTask;
 		}
+
+		/// <summary>Nothing to record: a map that never finishes attaching is never framed either.</summary>
+		public ValueTask FitBoundsAsync(
+			TrackBounds bounds,
+			double paddingPx = 32,
+			double maxZoomLevel = 16,
+			CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 
 		public ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default) =>
 			ValueTask.CompletedTask;
@@ -438,6 +446,13 @@ public sealed class RideMapForwardTests : BunitContext
 			LastOptions = options;
 			return _inner.InitAsync(host, options, cancellationToken);
 		}
+
+		public ValueTask FitBoundsAsync(
+			TrackBounds bounds,
+			double paddingPx = 32,
+			double maxZoomLevel = 16,
+			CancellationToken cancellationToken = default) =>
+			_inner.FitBoundsAsync(bounds, paddingPx, maxZoomLevel, cancellationToken);
 
 		public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default) => _inner.SetCameraAsync(camera, cancellationToken);
 		public ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default) => _inner.SetSourceAsync(source, cancellationToken);

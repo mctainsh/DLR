@@ -85,7 +85,7 @@
 			server's: an interior cut becomes a segment break there (§15.3), which one
 			polyline overlay cannot express.
 		*@
-		<RideMap Camera="_mapCamera" Routes="_routes" Markers="_cursorLayer"
+		<RideMap Camera="_mapCamera" Bounds="_mapBounds" Routes="_routes" Markers="_cursorLayer"
 				 OnMapClicked="OnMapTapped" OnViewportReported="OnViewportReported" AllowRotation="false"/>
 
 		@if (session.Cursor is { } cursor)
@@ -153,6 +153,14 @@
 	private bool _busy;
 
 	private MapCamera _mapCamera = new(0, 0, 2);
+
+	/// <summary>
+	/// The box the map frames itself on. Set once per load and never from the session: trimming
+	/// shrinks the surviving line, and a map that re-fitted on every bite would zoom in under the
+	/// rider's finger between one press of ◀ 10 and the next.
+	/// </summary>
+	private TrackBounds? _mapBounds;
+
 	private IReadOnlyList<RouteOverlay>? _routes;
 	private IReadOnlyDictionary<Guid, MapMarker>? _cursorLayer;
 	private MapViewport? _viewport;
@@ -191,12 +199,15 @@
 			.Select(point => new TrackPoint(point.Latitude, point.Longitude)),
 	]);
 
-		// Frame on the bounding box, as the ride page does. A track with no bounds keeps the
-		// whole-world camera rather than claiming a position off the Gulf of Guinea.
+		// Frame on the bounding box, as the ride page does — the box rather than a guessed zoom,
+		// so the whole line is on screen before the first tap goes looking for a point on it. A
+		// track with no bounds keeps the whole-world camera rather than claiming a position off
+		// the Gulf of Guinea.
 		if (_track.Bounds is { } bounds)
 		{
+			_mapBounds = bounds;
 			_mapCamera = new MapCamera(
-				Latitude: (bounds.MinLatitude + bounds.MaxLatitude) / 2,
+				Latitude: MapGeometry.MercatorMidLatitude(bounds.MaxLatitude, bounds.MinLatitude),
 				Longitude: (bounds.MinLongitude + bounds.MaxLongitude) / 2,
 				ZoomLevel: 11);
 		}

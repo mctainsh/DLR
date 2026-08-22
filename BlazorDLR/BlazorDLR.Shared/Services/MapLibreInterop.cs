@@ -1,3 +1,4 @@
+using DLR.Core.Tracks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -93,6 +94,30 @@ public sealed class MapLibreInterop : IMapInterop
 			zoomLevel = camera.ZoomLevel,
 			headingDeg = camera.HeadingDeg,
 		});
+
+	/// <inheritdoc />
+	public ValueTask FitBoundsAsync(
+		TrackBounds bounds,
+		double paddingPx = 32,
+		double maxZoomLevel = 16,
+		CancellationToken cancellationToken = default)
+	{
+		// Both no-ops are the interface's, stated there. Checked on this side of the bridge rather
+		// than in the module because a box carrying a NaN corner is a bug in C#, and one that crosses
+		// comes back as "Invalid LngLat object" with nothing in it pointing at the track it came from.
+		if (_map is null || !bounds.IsWellFormed)
+			return ValueTask.CompletedTask;
+
+		return Call("fitBounds", cancellationToken, new
+		{
+			west = bounds.MinLongitude,
+			south = bounds.MinLatitude,
+			east = bounds.MaxLongitude,
+			north = bounds.MaxLatitude,
+			paddingPx,
+			maxZoomLevel,
+		});
+	}
 
 	/// <inheritdoc />
 	public async ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default)

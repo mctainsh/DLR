@@ -192,7 +192,7 @@
 			<dd>@_track.Track.PointCount</dd>
 		</dl>
 
-		<RideMap Camera="_mapCamera" Routes="_routes" AllowRotation="false" />
+		<RideMap Camera="_mapCamera" Bounds="_mapBounds" Routes="_routes" AllowRotation="false" />
 
 		@*
 			Stars and a conversation, and only once the route is actually shared (§6.2).
@@ -246,6 +246,13 @@
 	private TrackDetail? _track;
 	private string? _error;
 	private MapCamera _mapCamera = new(0, 0, 2);
+
+	/// <summary>
+	/// The box the map frames itself on, or null for a track that carries no bounds — one with a
+	/// single point, or none — where there is nothing to fit and the whole-world camera stands.
+	/// </summary>
+	private TrackBounds? _mapBounds;
+
 	private IReadOnlyList<RouteOverlay>? _routes;
 
 	/// <summary>Whether the rename box is open. Closed until asked for — this is a reading page.</summary>
@@ -313,6 +320,7 @@
 		_track = null;
 		_error = null;
 		_routes = null;
+		_mapBounds = null;
 		_renaming = false;
 		_editingDetails = false;
 		_pickedPhoto = null;
@@ -339,10 +347,17 @@
 			// Frame the map on the track's bounding box, and hand the simplified polyline
 			// to the Skia overlay. The polyline is encoded here via PolylineCodec, which is
 			// the one implementation in DLR.Core (§15.7).
+			//
+			// Both a camera and a box. The camera is where the map opens — the base map needs a
+			// centre before it has a canvas — and the zoom on it is a placeholder for the one frame
+			// before the fit lands, which is why it no longer matters what it is. The box is what
+			// decides the view: a fixed zoom framed a suburban loop and a day tour identically, and
+			// one of the two was always wrong.
 			if (_track.Bounds is { } bounds)
 			{
+				_mapBounds = bounds;
 				_mapCamera = new MapCamera(
-					Latitude: (bounds.MinLatitude + bounds.MaxLatitude) / 2,
+					Latitude: MapGeometry.MercatorMidLatitude(bounds.MaxLatitude, bounds.MinLatitude),
 					Longitude: (bounds.MinLongitude + bounds.MaxLongitude) / 2,
 					ZoomLevel: 11);
 			}
@@ -702,9 +717,8 @@
 	.detail .cover {
 		display: block;
 		width: 100%;
-		max-width: 40rem;
-		max-height: 22rem;
-		object-fit: cover;
+		max-height: 28rem;
+		object-fit: contain;
 		border-radius: 6px;
 		margin: 0.75rem 0;
 	}

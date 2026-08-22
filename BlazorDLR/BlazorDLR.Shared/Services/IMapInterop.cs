@@ -83,6 +83,48 @@ public interface IMapInterop
 	ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Frame the camera on a lat / lon box, so the whole of it is on screen at the closest zoom
+	/// that still holds it (§15.5).
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// <strong>Not expressible as a <see cref="SetCameraAsync"/> call</strong>, which is why it is
+	/// its own method rather than a helper that computes a <see cref="MapCamera"/>. The zoom that
+	/// fits a box depends on the size of the canvas the box has to fit inside, and no caller knows
+	/// that: the map is a responsive element whose height is set by CSS and whose width is whatever
+	/// is left after the nav rail. A page picking a zoom is guessing, and the guess is wrong on
+	/// every screen but the one it was tuned on — which is what a fixed zoom level was.
+	/// </para>
+	/// <para>
+	/// Instantaneous, like <see cref="SetCameraAsync"/> and for the same reason: an animated fit
+	/// reports a stream of intermediate viewports that the Skia overlay draws the route against,
+	/// which reads as the line sliding into place rather than as a map opening on it.
+	/// </para>
+	/// <para>
+	/// A no-op on a map that has not attached, and on a box that is not well formed
+	/// (<see cref="TrackBounds.IsWellFormed"/>) — a track with one point, or none, has nothing to
+	/// frame, and a caller holding one should not have to know that.
+	/// </para>
+	/// </remarks>
+	/// <param name="bounds">The ground to fit on screen.</param>
+	/// <param name="paddingPx">
+	/// CSS pixels of breathing room between the box and the edge of the map. A route drawn hard
+	/// against the frame looks clipped, and the overlay's own line has width the base map knows
+	/// nothing about.
+	/// </param>
+	/// <param name="maxZoomLevel">
+	/// How far in the fit may go. It only ever binds on a box smaller than the screen — a track
+	/// recorded round a car park, or one whose points all landed on the same fix — where the fit
+	/// would otherwise run to the deepest zoom the tiles have and show a rider a roof.
+	/// </param>
+	/// <param name="cancellationToken">Cancels the call.</param>
+	ValueTask FitBoundsAsync(
+		TrackBounds bounds,
+		double paddingPx = 32,
+		double maxZoomLevel = 16,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Put different tiles under the map, without tearing it down (§4.5).
 	/// <para>
 	/// The camera, the bearing and the rider's place on screen all survive — this replaces the

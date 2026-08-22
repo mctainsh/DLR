@@ -1,4 +1,5 @@
 using BlazorDLR.Shared.Services;
+using DLR.Core.Tracks;
 using Microsoft.AspNetCore.Components;
 
 namespace DLR.UI.Tests.Fakes;
@@ -83,6 +84,13 @@ public sealed class FakeMapInterop : IMapInterop
 	public List<MapCamera> Cameras { get; } = new();
 
 	/// <summary>
+	/// Every box passed to <see cref="FitBoundsAsync"/>, in order — the frames a map was asked to
+	/// fit itself to. Real <c>fitBounds</c> resolves a zoom against the canvas, which a bUnit test
+	/// has none of, so what is asserted here is the request rather than the view it produced.
+	/// </summary>
+	public List<TrackBounds> Fits { get; } = new();
+
+	/// <summary>
 	/// Every source passed to <see cref="SetSourceAsync"/>, in order — the restyles a map performs
 	/// while it is on screen (§4.5). The one <see cref="InitAsync"/> opened with is not in here;
 	/// that is <c>LastOptions.EffectiveSource</c>.
@@ -104,6 +112,16 @@ public sealed class FakeMapInterop : IMapInterop
 	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default)
 	{
 		Cameras.Add(camera);
+		return ValueTask.CompletedTask;
+	}
+
+	public ValueTask FitBoundsAsync(
+		TrackBounds bounds,
+		double paddingPx = 32,
+		double maxZoomLevel = 16,
+		CancellationToken cancellationToken = default)
+	{
+		Fits.Add(bounds);
 		return ValueTask.CompletedTask;
 	}
 

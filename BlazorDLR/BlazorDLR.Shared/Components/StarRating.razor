@@ -12,6 +12,12 @@
 
 	The rounding is TrackRatings.ToHalfStars, in DLR.Core, so the server, this and anything
 	later all round the same way.
+
+	The stars are drawn, not typed. Both rows were once ★ and ☆ text glyphs, one row clipped
+	over the other to show a fraction — which only works if the two characters share an advance
+	width, and they do not in every font this app lands in. A row that disagreed with itself by
+	half a character drew a sixth star nobody had rated. A path has the width the viewBox says it
+	has on every platform, and both rows draw the same one.
 *@
 
 @if (Interactive)
@@ -22,14 +28,14 @@
 			int value = star;
 
 			<button type="button"
-					class="@("star " + (Mine >= value ? "on" : "off"))"
+					class="star-button"
 					role="radio"
 					aria-checked="@((Mine == value).ToString().ToLowerInvariant())"
 					aria-label="@($"{value} of {TrackRatings.MaxStars}")"
 					title="@($"{value} of {TrackRatings.MaxStars}")"
 					disabled="@Busy"
 					@onclick="() => TapAsync(value)">
-				@(Mine >= value ? "★" : "☆")
+				@Glyph(Mine >= value ? 1 : 0)
 			</button>
 		}
 
@@ -45,18 +51,18 @@
 }
 else
 {
-	@* Not a button, not focusable, and aria-hidden on the glyphs: the number is the content, and
+	@* Not a button, not focusable, and aria-hidden on the stars: the number is the content, and
 	   a screen reader that read out five separate stars would be reading the decoration.
 
-	   A filled row clipped over an empty one, rather than a half-star glyph. There is a
-	   Unicode character for half a star and it is missing from enough phone fonts to render as
-	   a box, which is a worse answer than being approximate — this is exact, and needs nothing
-	   beyond the two glyphs that are everywhere. *@
+	   Half a star is drawn as half a star rather than reached for in Unicode. There is a
+	   character for it and it is missing from enough phone fonts to render as a box, which is a
+	   worse answer than being approximate — this is exact, and ToHalfStars has already promised
+	   that a half is the only fraction that can turn up. *@
 	<span class="stars" title="@Title">
-		<span class="glyphs" aria-hidden="true">
-			<span class="empty">☆☆☆☆☆</span>
-			<span class="fill" style="@FillStyle">★★★★★</span>
-		</span>
+		@for (int star = TrackRatings.MinStars; star <= TrackRatings.MaxStars; star++)
+		{
+			@Glyph(Math.Clamp(Filled - (star - 1), 0, 1))
+		}
 		<span class="score">@Label</span>
 	</span>
 }
@@ -75,6 +81,28 @@ else
 	/// <summary>Whether a rating request is in flight, so the row cannot be double-tapped.</summary>
 	[Parameter] public bool Busy { get; set; }
 
+	/// <summary>
+	/// A five-pointed star on a 24×24 canvas, centred so that half its width is half the star —
+	/// which is what lets the half state be an inset of exactly 50%.
+	/// </summary>
+	private const string StarPath =
+		"M12 2.8 14.18 9.01 20.75 9.16 15.52 13.14 17.41 19.44 12 15.7 "
+		+ "6.59 19.44 8.48 13.14 3.25 9.16 9.82 9.01Z";
+
+	/// <summary>
+	/// One star, filled none, half or all of the way. The outline is always drawn, so an empty
+	/// star is still a star rather than a gap in the row, and the fill sits on top of it.
+	/// </summary>
+	/// <param name="fill">How much of it is earned: 0, 0.5 or 1.</param>
+	private RenderFragment Glyph(double fill) =>
+		@<svg class="star" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+			<path class="outline" d="@StarPath" />
+			@if (fill > 0)
+			{
+				<path class="fill" d="@StarPath" style="@(fill < 1 ? "clip-path:inset(0 50% 0 0)" : null)" />
+			}
+		</svg>;
+
 	private bool Interactive => OnRate.HasDelegate;
 
 	private int? Mine => Summary?.Mine;
@@ -82,16 +110,7 @@ else
 	private double Filled => TrackRatings.ToHalfStars(Summary?.Average) ?? 0;
 
 	/// <summary>
-	/// How much of the filled row shows, as a percentage of five stars. Written with the invariant
-	/// culture explicitly: this is CSS, and a comma decimal separator would be a width the browser
-	/// silently ignores.
-	/// </summary>
-	private string FillStyle => string.Create(
-		System.Globalization.CultureInfo.InvariantCulture,
-		$"width:{Filled / TrackRatings.MaxStars * 100:0.##}%");
-
-	/// <summary>
-	/// The number beside the glyphs. Zero ratings is said in words rather than shown as five empty
+	/// The number beside the stars. Zero ratings is said in words rather than shown as five empty
 	/// stars and a "0.0" — a route nobody has rated has no score, and printing one would be
 	/// inventing the worst possible verdict out of an absence (§8).
 	/// </summary>
@@ -112,16 +131,16 @@ else
 }
 
 <style>
-	.stars { display: inline-flex; align-items: center; gap: 0.15rem; }
-	.stars .glyphs { position: relative; display: inline-block; white-space: nowrap; color: #fbbf24; letter-spacing: 0.05em; }
-	.stars .glyphs .empty { opacity: 0.55; }
-	.stars .glyphs .fill { position: absolute; left: 0; top: 0; overflow: hidden; }
-	.stars .score { margin-left: 0.35rem; font-size: 0.85rem; opacity: 0.8; font-variant-numeric: tabular-nums; }
-	.stars.interactive .star {
-		padding: 0 0.1rem; font-size: 1.5rem; line-height: 1;
-		background: none; border: none; cursor: pointer; color: #fbbf24;
+	.stars { display: inline-flex; align-items: center; gap: 0.1rem; color: #fbbf24; }
+	.stars .star { flex: none; width: 1.15em; height: 1.15em; display: block; overflow: visible; }
+	.stars .star .outline { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.5; }
+	.stars .star .fill { fill: currentColor; }
+	.stars .score { margin-left: 0.5rem; font-size: 0.85rem; opacity: 0.8; font-variant-numeric: tabular-nums; }
+	.stars .hint { margin-left: 0.5rem; font-size: 0.8rem; opacity: 0.7; }
+	.stars.interactive .star-button {
+		padding: 0 0.1rem; line-height: 0;
+		background: none; border: none; cursor: pointer; color: inherit;
 	}
-	.stars.interactive .star.off { opacity: 0.55; }
-	.stars.interactive .star:disabled { cursor: default; opacity: 0.4; }
-	.stars.interactive .hint { margin-left: 0.5rem; font-size: 0.8rem; opacity: 0.7; }
+	.stars.interactive .star-button .star { width: 1.5rem; height: 1.5rem; }
+	.stars.interactive .star-button:disabled { cursor: default; opacity: 0.4; }
 </style>

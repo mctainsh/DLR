@@ -133,7 +133,7 @@ public sealed class TrackEditorTests : PageTestContext
 	[Fact]
 	public void DrawsTheTrackAndFramesTheMapOnIt()
 	{
-		WireServices();
+		(_, FakeMapInterop map) = WireServices();
 
 		IRenderedComponent<TrackEditor> component = RenderEditor();
 
@@ -149,7 +149,16 @@ public sealed class TrackEditorTests : PageTestContext
 			.Select(point => point.Longitude)
 			.ShouldBe(Line.Select(point => point.Longitude), tolerance: 1e-6);
 
-		drawn.Camera.Longitude.ShouldBe(0, tolerance: 1e-9, "framed on the bounding box.");
+		drawn.Camera.Longitude.ShouldBe(0, tolerance: 1e-9, "the map opens on the middle of the bounding box.");
+
+		// The box, not the zoom, is what decides the view. A fixed zoom framed a car-park loop and
+		// a day tour identically, and the tap that places the cursor has to land on a line the
+		// rider can see the whole of before they can aim at a point on it.
+		drawn.Bounds.ShouldBe(new TrackBounds(0, -0.5, 0, 0.5),
+			"the editor frames on the track's own bounds rather than guessing a zoom level.");
+
+		map.Fits.ShouldBe([new TrackBounds(0, -0.5, 0, 0.5)],
+			"and the box reaches the base map, which is the only thing that knows the canvas it has to fit inside.");
 	}
 
 	[Fact]

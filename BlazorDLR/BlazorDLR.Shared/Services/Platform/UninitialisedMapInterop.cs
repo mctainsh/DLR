@@ -1,3 +1,4 @@
+using DLR.Core.Tracks;
 using Microsoft.AspNetCore.Components;
 
 namespace BlazorDLR.Shared.Services.Platform;
@@ -57,8 +58,16 @@ public sealed class UninitialisedMapInterop : IMapInterop
 	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(SsrGuard);
 
+	/// <inheritdoc />
+	public ValueTask FitBoundsAsync(
+		TrackBounds bounds,
+		double paddingPx = 32,
+		double maxZoomLevel = 16,
+		CancellationToken cancellationToken = default) =>
+		throw new NotImplementedException(SsrGuard);
+
 	/// <summary>
-	/// Silently ignored, unlike the two above.
+	/// Silently ignored, unlike the three above.
 	/// <para>
 	/// This one is not a component asking a prerender to do something impossible — it is
 	/// <c>MapSourceState</c> broadcasting a change that every mounted map listens for, and on this

@@ -3,6 +3,7 @@ using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,6 +38,49 @@ namespace DLR.UI.Tests.Components;
 public sealed class RideMapTests : BunitContext
 {
 	private static readonly MapCamera SampleCamera = new(-33.868, 151.209, 12);
+
+	/// <summary>
+	/// A map given a box frames itself on it, and does not do it again until the box moves.
+	/// <para>
+	/// The second half is the half worth having. Framing is a <em>correction</em> applied after
+	/// the base map attaches, so it runs off <c>OnParametersSetAsync</c> — which fires for every
+	/// re-render of the page hosting the map, and the track detail re-renders for a rating
+	/// arriving, a status line and a panel opening. Without the applied-box guard, a rider who had
+	/// panned along their route to look at a junction would be snapped back to the whole line by
+	/// the next unrelated render.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public void Bounds_FrameTheMapOnce_AndAgainOnlyWhenTheBoxMoves()
+	{
+		FakeMapInterop map = new();
+		Services.AddSingleton<IMapInterop>(map);
+		Services.AddRideMapServices();
+
+		TrackBounds box = new(-33.90, 151.10, -33.80, 151.30);
+
+		IRenderedComponent<RideMap> component = Render<RideMap>(parameters => parameters
+			.Add(p => p.Camera, SampleCamera)
+			.Add(p => p.Bounds, box));
+
+		component.WaitForAssertion(
+			() => map.Fits.ShouldBe([box],
+				"the box is set before the base map exists, so the fit has to be sent once it attaches."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// A re-render for something else entirely. The host page does this constantly.
+		component.Render(parameters => parameters.Add(p => p.ShowUserLocation, true));
+
+		map.Fits.ShouldBe([box],
+			"a map already framed on this box must not re-frame — a rider who has panned away would be dragged back.");
+
+		TrackBounds moved = new(-34.00, 151.00, -33.70, 151.40);
+		component.Render(parameters => parameters.Add(p => p.Bounds, moved));
+
+		component.WaitForAssertion(
+			() => map.Fits.ShouldBe([box, moved], "a different box is a different route to look at."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
 
 	[Fact]
 	public void BaseMapUnavailable_ShowsStatedError_NotBlankMap()

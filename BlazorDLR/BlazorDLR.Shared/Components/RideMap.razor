@@ -1,6 +1,7 @@
 @using BlazorDLR.Shared.Diagnostics
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
+@using DLR.Core.Tracks
 @inject IMapInterop Map
 @inject MapSourceState MapSources
 @implements IAsyncDisposable
@@ -117,6 +118,37 @@ else if (_tileError is not null)
 	/// <summary>Where the map opens.</summary>
 	[Parameter, EditorRequired] public MapCamera Camera { get; set; } = default!;
 
+	/// <summary>
+	/// Ground the map must show all of, framed at the closest zoom that still holds it.
+	/// <para>
+	/// Set by the pages that open on a route somebody already rode — the track detail and the
+	/// track editor — where the interesting view is the whole line and nothing else. It is applied
+	/// over <see cref="Camera"/> rather than instead of it: the camera is where the map
+	/// <em>opens</em>, which the base map needs before it has a canvas to measure, and the fit is
+	/// the correction once it has one. Give both, and give a camera on the middle of the box so
+	/// the two never disagree about which ground is being talked about.
+	/// </para>
+	/// <para>
+	/// Null on every map whose view is not a fixed extent — the live ride, which is following a
+	/// rider, and the pickers, where the rider is choosing a point and being re-framed under their
+	/// hand would take the map off what they were aiming at.
+	/// </para>
+	/// </summary>
+	[Parameter] public TrackBounds? Bounds { get; set; }
+
+	/// <summary>
+	/// CSS pixels between <see cref="Bounds"/> and the edge of the map. Clamped by the module to
+	/// what the canvas can spare, so a small map is framed tight rather than refusing to frame.
+	/// </summary>
+	[Parameter] public double BoundsPaddingPx { get; set; } = 32;
+
+	/// <summary>
+	/// How far in <see cref="Bounds"/> may zoom. Only binds on a box smaller than the map — a
+	/// track round a car park, or one whose points all landed on the same fix, which would
+	/// otherwise be framed at the deepest zoom the tiles have.
+	/// </summary>
+	[Parameter] public double BoundsMaxZoomLevel { get; set; } = 16;
+
 	/// <summary>Whether the base map draws its own current-position marker.</summary>
 	[Parameter] public bool ShowUserLocation { get; set; }
 
@@ -228,6 +260,14 @@ else if (_tileError is not null)
 	private MapCamera? _appliedCamera;
 
 	/// <summary>
+	/// The box the map has already been framed on, or null if it never has been. The same "have I
+	/// sent this yet" marker <see cref="_appliedCamera"/> is, and it earns its place for the same
+	/// reason: a page that re-renders for any other cause — a status line, a rating arriving —
+	/// would otherwise re-fit the map underneath a rider who had panned away from the route.
+	/// </summary>
+	private TrackBounds? _appliedBounds;
+
+	/// <summary>
 	/// The tile source the base map is currently drawing, or null before it has attached — the
 	/// same "is the map there yet" marker <see cref="_appliedCamera"/> is, and used the same way.
 	/// <para>
@@ -283,6 +323,10 @@ else if (_tileError is not null)
 			await Map.SetCameraAsync(Camera);
 		}
 
+		// After the camera, never before it: both move the same view, and a caller that changed
+		// the pair together means the box.
+		await ApplyBoundsAsync();
+
 		// A caller-supplied source changing is the same event as the device's changing, and is
 		// handled the same way — see OnMapSourceChanged, which this shares so the two cannot
 		// disagree about what a restyle involves.
@@ -323,6 +367,10 @@ else if (_tileError is not null)
 				_appliedCamera = Camera;
 				await Map.SetCameraAsync(Camera);
 			}
+
+			// The first fit, and the one that matters: the box was almost certainly set before the
+			// base map existed, so OnParametersSetAsync found nothing attached and returned.
+			await ApplyBoundsAsync();
 
 			if (OnReady.HasDelegate)
 			{
@@ -405,6 +453,43 @@ else if (_tileError is not null)
 			// leaves the map on the tiles it already had, which is the right behaviour and looks
 			// exactly like a setting that did not take.
 			DiagnosticLog.WriteError($"restyling the map to {wanted.Kind}", exception);
+		}
+	}
+
+	/// <summary>
+	/// Frames the map on <see cref="Bounds"/>, if it has been given one it has not already been
+	/// framed on. See <see cref="Bounds"/> for why this is not simply a camera.
+	/// <para>
+	/// Silent on failure, like <see cref="ApplySourceAsync"/>: a map that could not be framed is
+	/// still a map showing the right ground at the wrong zoom, and a rider can pinch. A map that
+	/// has gone away entirely has already said so above.
+	/// </para>
+	/// </summary>
+	private async Task ApplyBoundsAsync()
+	{
+		// Null until InitAsync has succeeded — the same "is the base map attached" test the camera
+		// uses. A fit needs a canvas to measure, so before that there is nothing to fit against.
+		if (_appliedCamera is null || _error is not null)
+			return;
+
+		if (Bounds is null)
+		{
+			// Forgotten rather than kept. A caller that hands over null has stopped talking about a
+			// fixed extent — the track page does it while loading the next track — and the same box
+			// arriving again after that is a fresh request to frame, not a repeat of this one.
+			_appliedBounds = null;
+			return;
+		}
+
+		if (Bounds is not { } wanted || wanted == _appliedBounds)
+			return;
+
+		_appliedBounds = wanted;
+
+		try { await Map.FitBoundsAsync(wanted, BoundsPaddingPx, BoundsMaxZoomLevel); }
+		catch (Exception exception)
+		{
+			DiagnosticLog.WriteError("framing the map on the route", exception);
 		}
 	}
 

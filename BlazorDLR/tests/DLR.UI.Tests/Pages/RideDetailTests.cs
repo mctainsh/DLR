@@ -101,6 +101,63 @@ public sealed class RideDetailTests : PageTestContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
+	/// <summary>
+	/// The map opens on the whole route, not at a fixed zoom over the middle of it.
+	/// <para>
+	/// Asserted on the parameter rather than on a resulting camera, because the zoom that fits a
+	/// box is a function of the canvas the box has to fit inside — the base map resolves it, and
+	/// a bUnit render has no canvas. What this page is responsible for is handing the box over;
+	/// <c>RideMapTests</c> covers the map acting on it.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public void Map_IsFramedOnTheWholeRoute_NotAFixedZoom()
+	{
+		Guid id = Guid.NewGuid();
+		TrackBounds bounds = new(-33.90, 151.10, -33.80, 151.30);
+
+		WireServices(new TrackDetail(
+			Track: Sample() with { Id = id },
+			Bounds: bounds,
+			Polyline: [new TrackPoint(-33.90, 151.10), new TrackPoint(-33.80, 151.30)]));
+
+		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
+			.Add(p => p.TrackId, id));
+
+		component.WaitForAssertion(
+			() => component.FindComponent<BlazorDLR.Shared.Components.RideMap>().Instance.Bounds
+				.ShouldBe(bounds,
+					"a 40 km tour and a lap of the block were both framed at zoom 11 — one of the two was always wrong."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A track with no bounds hands the map nothing to frame on, rather than a degenerate box.
+	/// <para>
+	/// It is reachable: <c>TrackBounds.Around</c> answers null for a track with no points, which
+	/// is what an import that decoded to nothing leaves behind. Fitting on a null box is the map's
+	/// no-op, and the whole-world camera the page opened with stands — a stated "we do not know
+	/// where this is" rather than a claim.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public void Map_WithNoBounds_IsNotFramedAtAll()
+	{
+		Guid id = Guid.NewGuid();
+
+		WireServices(new TrackDetail(
+			Track: Sample() with { Id = id },
+			Bounds: null,
+			Polyline: Array.Empty<TrackPoint>()));
+
+		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
+			.Add(p => p.TrackId, id));
+
+		component.WaitForAssertion(
+			() => component.FindComponent<BlazorDLR.Shared.Components.RideMap>().Instance.Bounds.ShouldBeNull(),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
 	[Fact]
 	public void Stats_NullAscentRendersAsEmDash_NotZero()
 	{

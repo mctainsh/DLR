@@ -533,6 +533,34 @@ export async function createMap(hostElement, options, callbacks) {
             });
             reporter.report();
         },
+        fitBounds(box) {
+            // The zoom that fits a box is a function of the canvas it has to fit inside, and the
+            // canvas only exists here — see IMapInterop.FitBoundsAsync. This is the whole reason
+            // the call crosses the bridge instead of a page computing a zoom level.
+            //
+            // Padding is clamped rather than trusted. MapLibre throws on padding that leaves no
+            // room, and the map is a responsive element: the same 32 px that is breathing room on
+            // a laptop is more than half the height of a map squeezed into a landscape phone.
+            const width = map.getContainer().clientWidth || 0;
+            const height = map.getContainer().clientHeight || 0;
+            const room = Math.floor(Math.min(width, height) / 2) - 1;
+            const padding = Math.max(0, Math.min(box.paddingPx ?? 32, room));
+
+            map.fitBounds(
+                [[box.west, box.south], [box.east, box.north]],
+                {
+                    padding,
+                    // maxZoom binds on a box smaller than the screen — a track round a car park,
+                    // or one whose points all landed on a single fix, which is a box with no
+                    // extent at all and would otherwise fit at the deepest zoom the tiles have.
+                    maxZoom: box.maxZoomLevel ?? 16,
+                    // Not animated, for the reason setCamera does not animate either: the overlay
+                    // draws the route against every viewport reported on the way, so a flight
+                    // reads as the line sliding into place rather than a map opening on it.
+                    animate: false,
+                });
+            reporter.report();
+        },
         async setSource(source) {
             // Swaps what is under the map without tearing it down (§4.5). `setStyle` keeps the
             // camera, the bearing and the canvas — which is the whole point on the settings
