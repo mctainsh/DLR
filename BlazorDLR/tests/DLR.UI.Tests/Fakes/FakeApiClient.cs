@@ -803,6 +803,23 @@ public sealed class FakeApiClient : IApiClient
 		return Task.FromResult(new PublishResult(Array.Empty<Guid>()));
 	}
 
+	/// <summary>Private-area crossings that came in over REST — the fallback path (§10.1).</summary>
+	public List<PositionPrivacyUpdate> PublishedPrivacy { get; } = [];
+
+	/// <summary>Set to make the REST privacy call fail too.</summary>
+	public ApiException? SetPositionPrivacyException { get; set; }
+
+	public Task<PublishResult> SetPositionPrivacyAsync(PositionPrivacyUpdate update, CancellationToken cancellationToken = default)
+	{
+		if (SetPositionPrivacyException is not null)
+		{
+			return Task.FromException<PublishResult>(SetPositionPrivacyException);
+		}
+
+		PublishedPrivacy.Add(update);
+		return Task.FromResult(new PublishResult(Array.Empty<Guid>()));
+	}
+
 	/// <summary>The last <see cref="CreateMarkerAsync"/> request the UI sent, for §16.2 assertions.</summary>
 	public CreateMarkerRequest? LastCreateMarkerRequest { get; private set; }
 

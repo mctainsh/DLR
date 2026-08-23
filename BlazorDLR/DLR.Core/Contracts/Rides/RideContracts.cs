@@ -157,6 +157,24 @@ public sealed record RidePermissions(
 /// from here and applies it to whichever fix arrives for that rider.
 /// </para>
 /// </param>
+/// <param name="Private">
+/// Whether this rider is inside their own private area right now (§10.1), which is why the ride
+/// holds no position for them.
+/// <para>
+/// <strong>A third reason for an empty pin, and it has to be told apart from the other two.</strong>
+/// <paramref name="Sharing"/> off is a decision about this ride, no position with sharing on is a
+/// tunnel, and this is a rider who is at home and has said so. Collapsed into "no signal" the ride
+/// waits at a junction for somebody who is in their kitchen; collapsed into "not sharing" it reads
+/// as a decision they never made.
+/// </para>
+/// <para>
+/// It says <em>that</em> they are private and never <em>where</em>: the circle itself lives on
+/// their profile and reaches no other rider (see <c>PrivateAreaSettings</c>). While this is set the
+/// ride holds no position for them at all — the rows are deleted, not withheld — so every figure
+/// derived from a position (range, along the route, gap, off-route) is absent for them by
+/// construction rather than by a client agreeing to hide it.
+/// </para>
+/// </param>
 public sealed record RideMemberSummary(
 	Guid UserId,
 	string UserName,
@@ -164,7 +182,8 @@ public sealed record RideMemberSummary(
 	DateTimeOffset JoinedUtc,
 	bool Sharing = false,
 	bool HasPosition = false,
-	string? MarkerColour = null);
+	string? MarkerColour = null,
+	bool Private = false);
 
 /// <summary>
 /// One row of the "my rides" landing (§5.2). A summary rather than a full <see cref="RideDetail"/>

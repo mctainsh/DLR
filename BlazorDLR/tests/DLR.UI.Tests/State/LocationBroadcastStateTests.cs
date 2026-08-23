@@ -146,6 +146,92 @@ public sealed class LocationBroadcastStateTests
 	}
 
 	[Fact]
+	public async Task EnteringThePrivateArea_TellsTheRide_WithoutTellingItWhere()
+	{
+		// The other half of §10.1, and the reason the rider stops being a pin frozen outside their
+		// own house: the fix is dropped, and one bit goes in its place. Nothing on the wire is a
+		// coordinate — several edge-snapped points would bound the centre, which is the one number
+		// this protects.
+		Harness harness = new Harness().Build();
+		await harness.PrivateAreas.SetAsync(new PrivateArea(Latitude, Longitude, 1_000));
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+
+		await harness.UntilAsync(
+			() => harness.Hub.PublishedPrivacy.Count == 1,
+			"the ride to be told the rider is private");
+
+		harness.Hub.PublishedPrivacy[0].Private.ShouldBeTrue();
+		harness.Hub.Published.ShouldBeEmpty("no position may accompany it.");
+
+		// Said once per crossing, not once per fix: fixes arrive about once a second and the answer
+		// changes twice a ride.
+		harness.Provider.Emit(Fix(secondsIn: 2));
+		harness.Provider.Emit(Fix(secondsIn: 4));
+
+		await harness.UntilAsync(() => harness.Broadcast.OwnFix?.RecordedUtc == Start.AddSeconds(4), "the later fixes");
+
+		harness.Hub.PublishedPrivacy.Count.ShouldBe(1);
+
+		// And leaving says so explicitly rather than leaving the published fix to imply it — the
+		// §4.2 gate can refuse fixes for a while after a rider rolls out of their street.
+		harness.Provider.Emit(Fix(latitude: -33.900, secondsIn: 10));
+
+		await harness.UntilAsync(() => harness.Hub.PublishedPrivacy.Count == 2, "the ride to be told they are back");
+
+		harness.Hub.PublishedPrivacy[1].Private.ShouldBeFalse();
+	}
+
+	[Fact]
+	public async Task WithNoAnswerAboutThePrivateAreaYet_NothingIsAnnounced()
+	{
+		// The gate suppresses while this device has no answer, because a published fix costs the
+		// whole feature and a suppressed one costs a moment (§10.1). Announcing on that would be a
+		// different thing entirely: telling a rider's friends they are at home every time the app
+		// starts up without a network.
+		Harness harness = new Harness().Build();
+		harness.Api.PrivateAreaException = new ApiException(
+			new ApiError(System.Net.HttpStatusCode.ServiceUnavailable, "Offline", ["No network."]));
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Suppressed,
+			"the unanswered gate to suppress the fix");
+
+		harness.Hub.PublishedPrivacy.ShouldBeEmpty();
+		harness.Api.PublishedPrivacy.ShouldBeEmpty();
+	}
+
+	[Fact]
+	public async Task WhenTheHubCannotCarryThePrivacyNotice_RestDoes()
+	{
+		// The message whose loss is expensive: a fix is replaced a second later, this is sent once,
+		// at the kerb. A hub that happens to be reconnecting must not be the difference between a
+		// rider being hidden and being parked outside their house.
+		Harness harness = new Harness().Build();
+		harness.Hub.PublishException = new InvalidOperationException("hub reconnecting");
+		await harness.PrivateAreas.SetAsync(new PrivateArea(Latitude, Longitude, 1_000));
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+
+		await harness.UntilAsync(
+			() => harness.Api.PublishedPrivacy.Count == 1,
+			"the REST fallback to carry the notice");
+
+		harness.Api.PublishedPrivacy[0].Private.ShouldBeTrue();
+	}
+
+	[Fact]
 	public async Task TheDeviceKnowsWhereItIs_WhetherOrNotTheFixWentAnywhere()
 	{
 		// OwnFix is what this rider's own map draws (§4.3). It must not wait on the server: the

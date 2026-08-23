@@ -236,6 +236,48 @@ public sealed class RideMembersLiveTests : PageTestContext
 	}
 
 	[Fact]
+	public async Task MemberPrivacyChanged_LeavesThemOnTheList_AndTakesTheirFiguresAway()
+	{
+		// §10.1 as the rest of the ride sees it. They are still on the adventure — the row stays —
+		// and every figure derived from a position goes, because the ride no longer holds one.
+		Guid bob = Guid.NewGuid();
+		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices(members:
+		[
+			new RideMemberSummary(bob, "Bob", "Rider", FixedInstant, Sharing: true, HasPosition: true),
+		]);
+
+		api.PositionsResult = [Fix(bob, "Bob", BaseLat, BaseLon)];
+
+		IRenderedComponent<RideMembersLive> component = RenderMembers(rideId);
+
+		component.WaitForAssertion(
+			() => component.Find(".live-members .state").TextContent.Trim().ShouldBe("sharing"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => hub.RaiseMemberPrivacyChanged(rideId, bob, isPrivate: true));
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find(".live-members .state").TextContent.Trim().ShouldBe("private");
+			component.Markup.ShouldContain("Bob", Case.Sensitive);
+
+			// Not "—" four times: the four columns are not rendered at all. A row of dashes reads as
+			// an app that has lost somebody, where the chip has already said what happened.
+			component.FindAll(".live-members .range").ShouldBeEmpty();
+			component.FindAll(".live-members .along").ShouldBeEmpty();
+			component.FindAll(".live-members .gap").ShouldBeEmpty();
+			component.FindAll(".live-members .age").ShouldBeEmpty();
+		}, timeout: TimeSpan.FromSeconds(3));
+
+		// And riding back out puts them back, without a refetch (§5.3).
+		await component.InvokeAsync(() => hub.RaiseMemberPrivacyChanged(rideId, bob, isPrivate: false));
+
+		component.WaitForAssertion(
+			() => component.Find(".live-members .state").TextContent.Trim().ShouldBe("no signal"),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
 	public void ARideWithNoRoute_SaysWhyTheRouteColumnsAreEmpty()
 	{
 		(_, _, Guid rideId) = WireServices();

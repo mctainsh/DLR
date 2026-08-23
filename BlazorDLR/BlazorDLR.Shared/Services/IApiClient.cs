@@ -254,6 +254,26 @@ public interface IApiClient
 	/// </summary>
 	Task<PublishResult> PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// <c>POST /api/v1/positions/privacy</c> — the device saying this rider has entered or left
+	/// their own private area (§10.1).
+	/// <para>
+	/// <strong>No coordinate travels, in either direction.</strong> A fix from inside the circle is
+	/// dropped where it was read; this is the one bit that goes instead, and it is what turns a pin
+	/// frozen outside somebody's house into a member row that says "private". Going private deletes
+	/// the rider's stored position on the server — suppression, not obfuscation.
+	/// </para>
+	/// <para>
+	/// The hub carries this too and is the ordinary path. This exists because losing it is expensive
+	/// in a way that losing one fix is not: it is sent once, at the edge of the circle, rather than
+	/// every tick.
+	/// </para>
+	/// </summary>
+	/// <param name="update">Which way the rider crossed the edge of their circle.</param>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	/// <returns>The rides that were told, empty when the server already believed it.</returns>
+	Task<PublishResult> SetPositionPrivacyAsync(PositionPrivacyUpdate update, CancellationToken cancellationToken = default);
+
 	// -- Markers (§16) --------------------------------------------------------------------
 
 	/// <summary><c>POST /api/v1/markers</c> — attaches to exactly one parent (§16.1).</summary>

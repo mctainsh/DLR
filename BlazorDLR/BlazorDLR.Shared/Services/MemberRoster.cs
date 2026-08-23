@@ -29,7 +29,16 @@ public enum MemberSort
 	Range = 3,
 }
 
-/// <summary>What a member's position is doing, as §5.6 insists it be said: three states, not two.</summary>
+/// <summary>
+/// What a member's position is doing, as §5.6 insists it be said: never fewer states than there are
+/// reasons.
+/// <para>
+/// It started at three — sharing, no signal, not sharing — on the rule that a pin missing for
+/// different reasons must not be one grey row. <see cref="Private"/> is the fourth, added when the
+/// private area stopped freezing a rider in place and started taking them off the map (§10.1); it
+/// is the same rule applied again rather than a new one.
+/// </para>
+/// </summary>
 public enum MemberPresence
 {
 	/// <summary>Broadcasting, with a fix that has arrived recently enough to believe.</summary>
@@ -46,6 +55,18 @@ public enum MemberPresence
 	/// is not on the map at all.
 	/// </summary>
 	NotSharing = 2,
+
+	/// <summary>
+	/// They are inside their own private area (§10.1) — at home, and the app is doing what they set
+	/// it to do. Sharing is on and their pin is not on the map, and will be again when they ride out
+	/// of the circle.
+	/// <para>
+	/// The third reason a row can be empty, and it has to be its own word for the reason §5.6 gives
+	/// about the other two: a group waits at the junction for <em>no signal</em>, and does not wait
+	/// for somebody who is still in their kitchen.
+	/// </para>
+	/// </summary>
+	Private = 3,
 }
 
 /// <summary>One rider, as the live rider list draws them.</summary>
@@ -57,7 +78,7 @@ public enum MemberPresence
 /// the map have to name the same rider the same way or the swatch is worse than no swatch.
 /// </param>
 /// <param name="IsSelf">Whether this row is the person reading it.</param>
-/// <param name="Presence">Sharing, no signal, or not sharing.</param>
+/// <param name="Presence">Sharing, private, no signal, or not sharing.</param>
 /// <param name="FixAge">
 /// How old their newest fix is, or null when the ride holds none for them. Null and
 /// <see cref="TimeSpan.Zero"/> are very different answers and must not be collapsed.
@@ -90,7 +111,7 @@ public readonly record struct MemberRow(
 /// (§5.3, §5.4, §5.6).
 /// <para>
 /// <strong>Here rather than in the component, for the reason <see cref="RiderMarker"/> gives.</strong>
-/// Six columns, three presence states and four orders is a pile of rules, and a rule that can only
+/// Six columns, four presence states and four orders is a pile of rules, and a rule that can only
 /// be checked by rendering it and reading the markup is a rule that gets checked once. Everything
 /// below is pure — members in, rows out — so the ordering and the arithmetic are testable without
 /// a renderer, and the component is left holding layout and nothing else.
@@ -138,6 +159,21 @@ public static class MemberRoster
 	/// <param name="selfUserId">Who is reading, so their own row can say so.</param>
 	/// <param name="now">The instant ages are measured against.</param>
 	/// <param name="sort">Which of the four orders to return them in.</param>
+	/// <param name="ownFix">
+	/// This device's own last reading, or null on a host that has no receiver (§18.6).
+	/// <para>
+	/// It fills exactly one hole: the reader's own row while the reader is inside their own private
+	/// area (§10.1). The ride holds no position for them then — that is the point — so without this
+	/// a rider who went home would watch their own row empty out and read "private" at them, which
+	/// is the app hiding somebody's house from the person standing in it. The circle governs what
+	/// leaves the phone, and every figure on this row is worked out on the phone, for the person
+	/// holding it.
+	/// </para>
+	/// <para>
+	/// Nobody else's row is ever filled from it, and it is not a general fallback for a missing fix:
+	/// only the private case, only for the reader.
+	/// </para>
+	/// </param>
 	/// <returns>One row per member, ordered.</returns>
 	public static IReadOnlyList<MemberRow> Build(
 		IReadOnlyList<RideMemberSummary> members,
@@ -146,7 +182,8 @@ public static class MemberRoster
 		(double Latitude, double Longitude)? from,
 		Guid? selfUserId,
 		DateTimeOffset now,
-		MemberSort sort)
+		MemberSort sort,
+		LocationFix? ownFix = null)
 	{
 		if (members is null || members.Count == 0)
 		{
@@ -158,10 +195,32 @@ public static class MemberRoster
 
 		foreach (RideMemberSummary member in members)
 		{
+			bool isSelf = selfUserId is { } self && self == member.UserId;
+
 			RiderPositionDto? fix = positions is not null
 				&& positions.TryGetValue(member.UserId, out RiderPositionDto? found)
 					? found
 					: null;
+
+			// The reader's own row, standing inside their own circle. See the ownFix parameter: this
+			// is the one place a row is filled from the device rather than from the ride, and it is
+			// what keeps this screen unchanged for the rider while it empties for everybody else.
+			bool ownReading = fix is null && isSelf && member.Private && ownFix is not null;
+
+			if (ownReading)
+			{
+				fix = new RiderPositionDto(
+					member.UserId,
+					member.UserName,
+					PositionScale.FromDegrees(ownFix!.Latitude),
+					PositionScale.FromDegrees(ownFix.Longitude),
+
+					// Neither is read by any column here, and narrowing a double to a short is where
+					// unclamped casts wrap (§5.7). Left null rather than converted for nothing.
+					SpeedMps: null,
+					HeadingDeg: null,
+					ownFix.RecordedUtc);
+			}
 
 			// The age is clamped at zero rather than rendered negative: a fix is stamped by the
 			// device that took it (§5.7), so a phone whose clock runs a few seconds fast produces
@@ -197,8 +256,8 @@ public static class MemberRoster
 				UserName: string.IsNullOrWhiteSpace(member.UserName) ? "?" : member.UserName,
 				Role: member.Role ?? string.Empty,
 				Colour: MarkerColours.Or(member.MarkerColour),
-				IsSelf: selfUserId is { } self && self == member.UserId,
-				Presence: PresenceOf(member, fix, age, positions is not null),
+				IsSelf: isSelf,
+				Presence: PresenceOf(member, fix, age, positions is not null, ownReading),
 				FixAge: age,
 				RangeMetres: range,
 				AlongMetres: along,
@@ -229,15 +288,30 @@ public static class MemberRoster
 	/// one — the snapshot's own <see cref="RideMemberSummary.HasPosition"/> is the whole of what is
 	/// known, and freshness is simply not a question that can be asked.
 	/// </param>
+	/// <param name="ownReading">
+	/// Whether this row is the reader's own and was filled from this device's receiver rather than
+	/// from the ride — the private-area case in <see cref="Build"/>. Their own screen is the one
+	/// place the circle changes nothing, so the row reads exactly as it did before they got home.
+	/// </param>
 	private static MemberPresence PresenceOf(
 		RideMemberSummary member,
 		RiderPositionDto? fix,
 		TimeSpan? age,
-		bool havePositions)
+		bool havePositions,
+		bool ownReading)
 	{
 		if (!member.Sharing)
 		{
 			return MemberPresence.NotSharing;
+		}
+
+		if (member.Private && !ownReading)
+		{
+			// Ahead of the freshness check below, because it explains the same silence and explains it
+			// better: there is no fix to age, and there was never going to be one. Behind the sharing
+			// check above, because a rider who turned this ride off has made a decision about *this*
+			// ride, and that is the more useful of the two things to say.
+			return MemberPresence.Private;
 		}
 
 		if (!havePositions)

@@ -59,6 +59,18 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <summary>Publish this device's position — one push, fanned out to every ride the rider is live in (§5.7).</summary>
 	Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Say that this rider has entered — or left — their own private area (§10.1).
+	/// <para>
+	/// Sent <em>instead of</em> a position, never alongside one: a fix from inside the circle is
+	/// dropped on the device, and this one bit goes in its place. It takes the rider off every other
+	/// map they are on and leaves them on the member list, labelled.
+	/// </para>
+	/// </summary>
+	/// <param name="update">Which way they crossed the edge.</param>
+	/// <param name="cancellationToken">Abandons the send.</param>
+	Task PublishPrivacyAsync(PositionPrivacyUpdate update, CancellationToken cancellationToken = default);
+
 	// -- Server → client events (§5.3) ----------------------------------------------------
 
 	/// <summary>A batch of every member's latest position for one ride (§5.3).</summary>
@@ -124,4 +136,15 @@ public interface IRideHubClient : IAsyncDisposable
 
 	/// <summary>A member turned sharing on or off (§5.6).</summary>
 	event Action<Guid, Guid, bool>? MemberSharingChanged;
+
+	/// <summary>
+	/// A member entered or left their own private area (§10.1, §5.6) — ride, rider, and whether they
+	/// are now private.
+	/// <para>
+	/// The payload is that one bit and nothing else. While it is set the ride holds no position for
+	/// them at all, so this is the difference between a member row that reads "no signal" — wait at
+	/// the junction — and one that reads "private", which is somebody at home who will be along.
+	/// </para>
+	/// </summary>
+	event Action<Guid, Guid, bool>? MemberPrivacyChanged;
 }

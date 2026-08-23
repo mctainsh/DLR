@@ -164,6 +164,22 @@ public sealed class RiderPositionCache(TimeProvider clock)
 		}
 	}
 
+	/// <summary>
+	/// Drops one rider from every ride at once — what entering a private area asks for (§10.1).
+	/// <para>
+	/// A sweep rather than a loop over the rides the caller believes the rider is in. The two lists
+	/// can disagree — a ride that ended, a membership that changed while the phone was in a tunnel —
+	/// and the direction the disagreement must not go is "a position left behind in a ride nobody
+	/// remembered to ask about".
+	/// </para>
+	/// </summary>
+	/// <param name="userId">Which rider.</param>
+	/// <returns>The rides a position was actually removed from, for the caller to announce to.</returns>
+	public IReadOnlyList<Guid> RemoveRider(Guid userId) =>
+	[
+		.. rides.Where(ride => ride.Value.TryRemove(userId, out _)).Select(ride => ride.Key),
+	];
+
 	/// <summary>Drops a whole ride — the default ending, and cancellation (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
 	public void RemoveRide(Guid rideId) => rides.TryRemove(rideId, out _);

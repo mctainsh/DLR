@@ -382,6 +382,10 @@ public sealed class HttpApiClient : IApiClient
 	public Task<PublishResult> PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default) =>
 		PostAsync<PositionUpdate, PublishResult>("/api/v1/positions", update, cancellationToken);
 
+	/// <inheritdoc />
+	public Task<PublishResult> SetPositionPrivacyAsync(PositionPrivacyUpdate update, CancellationToken cancellationToken = default) =>
+		PostAsync<PositionPrivacyUpdate, PublishResult>("/api/v1/positions/privacy", update, cancellationToken);
+
 	// -- Markers --
 
 	/// <inheritdoc />

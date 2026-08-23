@@ -7,6 +7,26 @@ using Microsoft.EntityFrameworkCore;
 namespace DLR.Server.Positions;
 
 /// <summary>
+/// What one publish did (§5.7, §10.1).
+/// <para>
+/// Two facts rather than one because they fan out on different channels: the rides tell the caller
+/// nothing it has to send, while <paramref name="LeftPrivateArea"/> is a member-list change every
+/// connection on those rides has to be told about. Returning it here rather than announcing it
+/// inside the store keeps the hub out of the write path, the way every other broadcast in this
+/// server is done from its endpoint.
+/// </para>
+/// </summary>
+/// <param name="RideIds">
+/// Every ride the fix was written to — the rides where this rider's own consent flag is set. An
+/// empty list is the correct answer for a rider who is sharing with nobody, not an error.
+/// </param>
+/// <param name="LeftPrivateArea">
+/// Whether this fix also ended a spell of privacy: the rider was marked private and a coordinate
+/// has now proved otherwise.
+/// </param>
+public sealed record PositionPublication(IReadOnlyList<Guid> RideIds, bool LeftPrivateArea);
+
+/// <summary>
 /// Reading, writing and — the part that matters — <em>deleting</em> live positions (§5.5, §5.6).
 /// <para>
 /// Every route that ends a rider's participation funnels through <see cref="StopSharingAsync"/>:
@@ -24,15 +44,16 @@ namespace DLR.Server.Positions;
 /// </summary>
 /// <param name="database">The one context.</param>
 /// <param name="cache">The write-behind cache.</param>
-public sealed class PositionStore(DlrDbContext database, RiderPositionCache cache)
+/// <param name="privacy">Who is inside their own private area right now (§10.1).</param>
+public sealed class PositionStore(DlrDbContext database, RiderPositionCache cache, RiderPrivacyCache privacy)
 {
 	/// <summary>
 	/// Writes a fix into every ride where this rider's own consent flag is set (§5.7).
 	/// </summary>
 	/// <param name="userId">Whose fix.</param>
 	/// <param name="update">The fix.</param>
-	/// <returns>The rides it landed in.</returns>
-	public async Task<IReadOnlyList<Guid>> PublishAsync(Guid userId, PositionUpdate update)
+	/// <returns>Where it landed, and whether it also ended a spell of privacy.</returns>
+	public async Task<PositionPublication> PublishAsync(Guid userId, PositionUpdate update)
 	{
 		// Consent is filtered on the *write* (§5.7). A rider not sharing with a ride has no row
 		// in it at all — broadcasting anyway and having the recipients' apps hide the pin would
@@ -53,6 +74,13 @@ public sealed class PositionStore(DlrDbContext database, RiderPositionCache cach
 			.Select(member => member.GroupRideId)
 			.ToListAsync();
 
+		// A coordinate arriving is proof the rider is outside their circle, so it clears the flag
+		// whether or not the device remembered to say so (§10.1). The device does say so, and this
+		// is what makes a lost "no longer private" call cost one tick instead of the rest of the
+		// ride: the ways of being wrong are not equal, and the one that leaves somebody hidden
+		// while their pin moves is the one that reads as a broken app.
+		bool leftPrivateArea = privacy.Set(userId, isPrivate: false);
+
 		PositionEntry entry = PositionEntry.From(update, isDirty: true);
 
 		foreach (Guid rideId in rideIds)
@@ -60,7 +88,76 @@ public sealed class PositionStore(DlrDbContext database, RiderPositionCache cach
 			cache.Upsert(rideId, userId, entry);
 		}
 
-		return rideIds;
+		return new PositionPublication(rideIds, leftPrivateArea);
+	}
+
+	/// <summary>
+	/// Takes a rider off every map they are on, or puts them back — the private area, as the rest of
+	/// the ride sees it (§10.1, §5.6).
+	/// </summary>
+	/// <param name="userId">Which rider.</param>
+	/// <param name="isPrivate">True on the way into the circle, false on the way out.</param>
+	/// <returns>
+	/// The rides to announce the change to, or an empty list when nothing changed — a device
+	/// re-stating what the server already believes must not put a message on every connection.
+	/// </returns>
+	/// <remarks>
+	/// Going private <strong>deletes</strong>, on <see cref="StopSharingAsync"/>'s reasoning and for
+	/// a sharper reason. Ceasing to update would leave the last fix before the driveway sitting in
+	/// the database and on every other rider's map — a pin that has stopped moving a few streets from
+	/// somebody's house is a better clue to where they live than most of what this feature withholds.
+	/// <para>
+	/// The sharing flag is untouched: this is a place, not a decision about the ride, and the rider
+	/// goes back on the map by riding out of the circle rather than by finding a switch.
+	/// </para>
+	/// </remarks>
+	public async Task<IReadOnlyList<Guid>> SetPrivateAsync(Guid userId, bool isPrivate)
+	{
+		if (!privacy.Set(userId, isPrivate))
+		{
+			return [];
+		}
+
+		if (!isPrivate)
+		{
+			// Coming out is only the flag: the next fix is a second away and puts the pin back. There
+			// is nothing to restore, because nothing was kept.
+			return await SharedRideIdsAsync(userId);
+		}
+
+		await database
+			.Set<RiderPosition>()
+			.Where(position => position.UserId == userId)
+			.ExecuteDeleteAsync();
+
+		// The union of "rides the cache had them in" and "rides they are sharing with". The two can
+		// disagree, and both halves matter: the first is where a stale pin would otherwise be left,
+		// the second is where a member list needs to hear that the empty row is privacy rather than
+		// a tunnel.
+		HashSet<Guid> announce = [.. cache.RemoveRider(userId)];
+		announce.UnionWith(await SharedRideIdsAsync(userId));
+
+		return [.. announce];
+	}
+
+	/// <summary>Who is currently private, for the member list (§5.2).</summary>
+	/// <returns>The riders inside their own private area.</returns>
+	public IReadOnlySet<Guid> PrivateRiders() => privacy.Everyone();
+
+	/// <summary>The rides a fix from this rider would currently land in (§5.7).</summary>
+	private async Task<IReadOnlyList<Guid>> SharedRideIdsAsync(Guid userId)
+	{
+		DateTimeOffset now = cache.Clock.GetUtcNow();
+
+		return await database
+			.Set<GroupRideMember>()
+			.Where(member =>
+				member.UserId == userId
+				&& member.ShareLocation
+				&& (member.Ride!.State == GroupRideState.Live
+					|| (member.Ride.SharingEndsUtc != null && member.Ride.SharingEndsUtc > now)))
+			.Select(member => member.GroupRideId)
+			.ToListAsync();
 	}
 
 	/// <summary>

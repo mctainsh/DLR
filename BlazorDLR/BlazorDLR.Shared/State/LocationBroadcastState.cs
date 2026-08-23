@@ -52,6 +52,17 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// </summary>
 	public const string DisclosureStorageKey = "dlr.location-disclosure";
 
+	/// <summary>
+	/// How often "this rider is private" is restated while it stays true (§10.1).
+	/// <para>
+	/// Long, because it is insurance rather than a heartbeat: the one thing it covers is the server
+	/// having forgotten — a restart, or a hub that reconnected across the moment the rider reached
+	/// their street. A minute of being a stale pin is the worst case it leaves, against one small
+	/// message a minute while somebody is sitting at home.
+	/// </para>
+	/// </summary>
+	public static readonly TimeSpan PrivacyRepeat = TimeSpan.FromMinutes(1);
+
 	private readonly ILocationProvider _provider;
 	private readonly IRideHubClient _hub;
 	private readonly IApiClient _api;
@@ -72,6 +83,22 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	private CancellationTokenSource? _running;
 	private Task? _pump;
 	private bool _disposed;
+
+	/// <summary>
+	/// What the server was last told about this rider's private area, or <c>null</c> when it has not
+	/// been told anything this run (§10.1).
+	/// <para>
+	/// Three states again, and for the same reason <see cref="PrivateArea.TryDecodeCached"/> needs
+	/// three: "told them private", "told them not private" and "have not said" are different, and
+	/// only the third one may be re-sent unconditionally. Without it every fix inside the circle
+	/// would put a message on the wire — one a second, for the length of a driveway — and every fix
+	/// outside it would put another.
+	/// </para>
+	/// </summary>
+	private bool? _announcedPrivate;
+
+	/// <summary>When that was said, for the repeat below.</summary>
+	private DateTimeOffset _announcedUtc;
 
 	/// <summary>Creates the broadcaster over one host's seams.</summary>
 	/// <param name="provider">The platform GPS. Non-functional on the web hosts (§18.6).</param>
@@ -372,6 +399,12 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		_running = null;
 		_pump = null;
 
+		// Forgotten rather than reversed. The receiver stopping is not the rider leaving their private
+		// area — they are usually stopping *because* they got home — so announcing "no longer private"
+		// here would put them back on a map from their own driveway. What this does mean is that the
+		// next run has said nothing yet, so the first fix inside the circle states it again.
+		_announcedPrivate = null;
+
 		if (running is null)
 		{
 			Set(LocationBroadcastStatus.Off);
@@ -506,8 +539,26 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		if (_privateAreas.HidesLocation(fix))
 		{
 			Set(LocationBroadcastStatus.Suppressed);
+
+			// IsInsideArea, not the gate that was just consulted. The gate suppresses while this
+			// device has no answer about the circle yet, and announcing on that would tell a rider's
+			// friends they are at home every time the app starts up out of signal. Only a circle we
+			// actually hold, that actually contains this fix, is a fact worth stating.
+			if (_privateAreas.IsInsideArea(fix))
+			{
+				await AnnouncePrivacyAsync(isPrivate: true, cancellationToken);
+			}
+
 			return;
 		}
+
+		// Out of the circle, said explicitly rather than left to the publish below to imply. The
+		// publish is not guaranteed to happen — the §4.2 gate refuses fixes that are too inaccurate
+		// or too close together, and a rider rolling out of their street at walking pace can be
+		// refused for a while — so relying on it would leave somebody labelled "private" on a map they
+		// are visibly moving across. The server clears the flag on a published fix as well, which is
+		// the belt to this pair of braces.
+		await AnnouncePrivacyAsync(isPrivate: false, cancellationToken);
 
 		PositionGateDecision decision = gate.Evaluate(fix);
 		LastGateReason = decision.Reason;
@@ -526,6 +577,83 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		}
 
 		await PublishAsync(fix, cancellationToken);
+	}
+
+	/// <summary>
+	/// Tells the ride that this rider has entered or left their own private area (§10.1).
+	/// <para>
+	/// <strong>Once per crossing, not once per fix.</strong> Fixes arrive about once a second and the
+	/// answer changes twice a ride; a message per fix would be a message per second saying what the
+	/// server already knows. <see cref="_announcedPrivate"/> is what makes it a transition.
+	/// </para>
+	/// <para>
+	/// <strong>Except that "private" is repeated on a slow timer.</strong> This is the one message
+	/// whose loss is expensive: a fix is replaced by the next one a second later, while this is sent
+	/// once, at the kerb, and if it goes missing the rider is a pin parked outside their house for
+	/// the rest of the ride. A server restart or a hub reconnect in that moment is exactly the case
+	/// the repeat covers, and the cost of it is one small message a minute while somebody is at home.
+	/// The <em>public</em> direction is not repeated: it heals itself, because the next published fix
+	/// clears the flag server-side.
+	/// </para>
+	/// <para>
+	/// Hub first and REST second, on <see cref="PublishAsync"/>'s reasoning — with the two failure
+	/// modes swapped in importance. A failed send is swallowed rather than shown: it is retried by
+	/// the repeat above, and the fix it would have accompanied was not sent either way.
+	/// </para>
+	/// </summary>
+	/// <param name="isPrivate">Which way the rider crossed the edge.</param>
+	/// <param name="cancellationToken">Abandons the send.</param>
+	private async Task AnnouncePrivacyAsync(bool isPrivate, CancellationToken cancellationToken)
+	{
+		DateTimeOffset now = _clock.GetUtcNow();
+
+		if (_announcedPrivate == isPrivate && (!isPrivate || now - _announcedUtc < PrivacyRepeat))
+		{
+			return;
+		}
+
+		// Set before the send, not after. A send that throws must not leave this loop trying again
+		// on the next fix a second later — the repeat window is the retry, and it is deliberately
+		// slower than the fixes are.
+		_announcedPrivate = isPrivate;
+		_announcedUtc = now;
+
+		PositionPrivacyUpdate update = new(isPrivate);
+
+		try
+		{
+			if (!_hub.IsConnected)
+			{
+				await _hub.ConnectAsync(cancellationToken);
+			}
+
+			await _hub.PublishPrivacyAsync(update, cancellationToken);
+			return;
+		}
+		catch (OperationCanceledException)
+		{
+			throw;
+		}
+		catch
+		{
+			// Falls through to REST, exactly as a fix does.
+		}
+
+		try
+		{
+			await _api.SetPositionPrivacyAsync(update, cancellationToken);
+		}
+		catch (OperationCanceledException)
+		{
+			throw;
+		}
+		catch
+		{
+			// Both paths refused. Not surfaced: the rider's own screen is unaffected either way, the
+			// position that would have gone with this was suppressed on the device regardless, and the
+			// repeat above will say it again shortly. Turning this into a red status would report a
+			// privacy failure for something that leaked nothing.
+		}
 	}
 
 	/// <summary>

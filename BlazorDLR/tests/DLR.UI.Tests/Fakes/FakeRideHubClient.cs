@@ -39,6 +39,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
 	public event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
+	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
 #pragma warning restore CS0067
 
 	/// <summary>Raised by <see cref="ConnectAsync"/> and by <see cref="SetConnected"/>.</summary>
@@ -111,6 +112,20 @@ public sealed class FakeRideHubClient : IRideHubClient
 		return Task.CompletedTask;
 	}
 
+	/// <summary>Every private-area crossing the device announced through the hub, in order (§10.1).</summary>
+	public List<PositionPrivacyUpdate> PublishedPrivacy { get; } = [];
+
+	public Task PublishPrivacyAsync(PositionPrivacyUpdate update, CancellationToken cancellationToken = default)
+	{
+		if (PublishException is not null)
+		{
+			return Task.FromException(PublishException);
+		}
+
+		PublishedPrivacy.Add(update);
+		return Task.CompletedTask;
+	}
+
 	public ValueTask DisposeAsync()
 	{
 		IsConnected = false;
@@ -127,6 +142,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public void RaiseMemberJoined(Guid rideId, RideMemberSummary member) => MemberJoined?.Invoke(rideId, member);
 	public void RaiseMemberLeft(Guid rideId, Guid userId) => MemberLeft?.Invoke(rideId, userId);
 	public void RaiseMemberSharingChanged(Guid rideId, Guid userId, bool sharing) => MemberSharingChanged?.Invoke(rideId, userId, sharing);
+	public void RaiseMemberPrivacyChanged(Guid rideId, Guid userId, bool isPrivate) => MemberPrivacyChanged?.Invoke(rideId, userId, isPrivate);
 	public void RaiseMarkerAdded(Guid rideId, MarkerDto marker) => MarkerAdded?.Invoke(rideId, marker);
 	public void RaiseMarkerRemoved(Guid rideId, Guid markerId) => MarkerRemoved?.Invoke(rideId, markerId);
 	public void RaisePositionsUpdated(PositionBatch batch) => PositionsUpdated?.Invoke(batch);

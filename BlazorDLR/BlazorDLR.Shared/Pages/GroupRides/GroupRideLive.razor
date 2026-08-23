@@ -2468,7 +2468,12 @@
 				MyPoint,
 				Auth.UserId,
 				Clock.GetUtcNow(),
-				MemberSort.AlongRoute),
+				MemberSort.AlongRoute,
+
+				// So the reader keeps their own place on the route while they are inside their own
+				// private area (§10.1). Nobody else's row is filled from it — a rider who has gone
+				// private has no place in this panel, which is the point.
+				HasOwnReceiver ? _broadcast?.OwnFix : null),
 			Auth.UserId,
 			MyAlongMetres);
 	}

@@ -49,6 +49,28 @@ public sealed record PositionUpdate(
 	short? HeadingDeg = null,
 	short? AccuracyM = null);
 
+/// <summary>
+/// The device saying it has entered — or left — the rider's own private area (§10.1, §5.7).
+/// <para>
+/// <strong>It carries no coordinate, and that is the whole design.</strong> A position from inside
+/// the circle is dropped on the phone and never sent; what is sent instead is one bit saying the
+/// rider is somewhere they have chosen not to be observed. Sending a jittered or edge-snapped point
+/// would be worse than useless — several of them bound the true centre, which is the one number the
+/// private area exists to protect.
+/// </para>
+/// <para>
+/// Published device-wide rather than per ride, for the same reason <see cref="PositionUpdate"/> is:
+/// consent is per ride and the <em>server</em> applies it, so the client cannot get the fan-out
+/// wrong in the direction that leaks.
+/// </para>
+/// </summary>
+/// <param name="Private">
+/// True on the way into the area, false on the way out. False is also implied by the next published
+/// fix — a coordinate arriving is proof the rider is outside — so a lost "no longer private" call
+/// heals itself rather than leaving somebody hidden for the rest of the ride.
+/// </param>
+public sealed record PositionPrivacyUpdate(bool Private);
+
 /// <summary>What a publish landed in (§5.7).</summary>
 /// <param name="RideIds">
 /// Every ride the fix was written to — the rides where this rider's own consent flag is set. An

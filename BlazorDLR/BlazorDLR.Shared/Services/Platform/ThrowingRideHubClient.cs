@@ -47,6 +47,7 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
 	public event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
+	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
 	public event Action? ConnectionChanged;
 #pragma warning restore CS0067
 
@@ -72,6 +73,10 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 
 	/// <inheritdoc />
 	public Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default) =>
+		throw new NotImplementedException(SsrGuard);
+
+	/// <inheritdoc />
+	public Task PublishPrivacyAsync(PositionPrivacyUpdate update, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(SsrGuard);
 
 	/// <inheritdoc />

@@ -117,6 +117,26 @@ public sealed class PrivateAreaState
 	public bool HidesLocation(LocationFix fix) => HidesLocation(fix.Latitude, fix.Longitude);
 
 	/// <summary>
+	/// Whether the rider is <em>known</em> to be inside a circle they drew — which is a narrower
+	/// question than <see cref="HidesLocation(double, double)"/> and must not be confused with it.
+	/// <para>
+	/// The gate answers "hide" while this device has no answer yet, because a suppressed fix costs a
+	/// moment off somebody's map and a published one costs the whole feature. This answers
+	/// <c>false</c> there instead, and the difference is what the ride is told: a rider whose app is
+	/// still starting up must not be announced to their friends as being at home. Only a loaded
+	/// circle that actually contains the fix is worth saying out loud (§10.1).
+	/// </para>
+	/// </summary>
+	/// <param name="latitudeDeg">The fix's latitude in decimal degrees.</param>
+	/// <param name="longitudeDeg">The fix's longitude in decimal degrees.</param>
+	public bool IsInsideArea(double latitudeDeg, double longitudeDeg) =>
+		_loaded && _area?.Contains(latitudeDeg, longitudeDeg) == true;
+
+	/// <summary>Whether a fix from the platform is known to be inside the area.</summary>
+	/// <param name="fix">The fix as <see cref="ILocationProvider"/> reported it.</param>
+	public bool IsInsideArea(LocationFix fix) => IsInsideArea(fix.Latitude, fix.Longitude);
+
+	/// <summary>
 	/// Reads the area: this device's cached copy first, then the account, which wins.
 	/// <para>
 	/// Idempotent once the account has answered — the host's startup and the settings screen both

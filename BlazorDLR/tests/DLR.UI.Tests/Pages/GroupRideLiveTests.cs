@@ -541,6 +541,52 @@ public sealed class GroupRideLiveTests : PageTestContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
+	/// <summary>
+	/// Another rider going private takes their pin off this map, rather than freezing it (§10.1).
+	/// <para>
+	/// The freeze is what this replaces, and it was the worse of the two: a marker that stops moving
+	/// a few streets from somebody's house is a better clue to where they live than most of what the
+	/// private area withholds. The server deletes the position; this asserts the client does not go
+	/// on drawing the last one it saw.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task ARiderWhoGoesPrivate_LeavesTheMap()
+	{
+		Guid riderId = Guid.NewGuid();
+		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices();
+
+		api.RideResult = api.RideResult! with
+		{
+			Members = [new RideMemberSummary(riderId, "DaveSmith", "Rider", FixedInstant, true, true)],
+		};
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => hub.RaisePositionsUpdated(new PositionBatch(rideId,
+		[
+			new PositionFix(riderId, -33_868_000, 151_209_000, SpeedMps: 0, HeadingDeg: null, FixedInstant),
+		])));
+
+		component.WaitForAssertion(
+			() => component.FindComponent<RideMap>().Instance.Markers!.Values
+				.Count(marker => marker.Kind == MarkerKind.Rider).ShouldBe(1),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => hub.RaiseMemberPrivacyChanged(rideId, riderId, isPrivate: true));
+
+		component.WaitForAssertion(
+			() => component.FindComponent<RideMap>().Instance.Markers!.Values
+				.ShouldNotContain(marker => marker.Kind == MarkerKind.Rider,
+					"a pin left where somebody stopped is the thing the private area exists to prevent."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
 	// ---------- The rider's own private area on the live map (§10.1) ----------
 
 	[Fact]

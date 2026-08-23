@@ -64,6 +64,11 @@ builder.Services.AddScoped<PositionStore>();
 // container validation above exists to catch.
 builder.Services.Configure<RideOptions>(builder.Configuration.GetSection(RideOptions.Section));
 builder.Services.AddSingleton<RiderPositionCache>();
+
+// Same lifetime and the same reasoning as the position cache: it is live presence, not a record.
+// Deliberately never a column — a durable log of when each account was at home would be a weaker
+// copy of the very thing the private area withholds (§10.1).
+builder.Services.AddSingleton<RiderPrivacyCache>();
 builder.Services.AddScoped<IPositionWriter, PositionWriter>();
 builder.Services.AddSingletonHostedService<PositionFlushService>();
 builder.Services.AddSingletonHostedService<PositionCacheRehydrator>();

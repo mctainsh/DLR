@@ -77,11 +77,17 @@
 			<p class="error">@problem</p>
 		}
 
+		@*
+			OwnFix is this device's own reading and it fills exactly one hole: the reader's own row
+			while their private area has emptied it (§10.1). Everybody else's row is the ride's answer
+			and only the ride's — a list drawn from two sources per rider would be two lists.
+		*@
 		<LiveMemberList Members="ride.Members"
 						Positions="_session.Positions"
 						Route="GapRoute"
 						From="MyPoint"
 						SelfUserId="Auth.UserId"
+						OwnFix="@(HasOwnReceiver ? _broadcast?.OwnFix : null)"
 						@bind-Sort="_sort" />
 
 		@if (MyPoint is null)

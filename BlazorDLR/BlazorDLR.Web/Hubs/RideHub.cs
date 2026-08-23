@@ -31,6 +31,24 @@ public interface IRideClient
 	/// <param name="sharing">Their new state.</param>
 	Task MemberSharingChanged(Guid memberId, bool sharing);
 
+	/// <summary>
+	/// A rider entered or left their own private area (§10.1, §5.6).
+	/// <para>
+	/// <strong>The message carries no coordinate and never has one to carry.</strong> Going private
+	/// deletes the rider's stored position, so this is the notice that the row about to go empty is
+	/// a choice rather than a tunnel — the distinction §5.6 keeps insisting on, applied to a third
+	/// reason a pin can be missing. Where the circle is stays on the rider's own profile.
+	/// </para>
+	/// <para>
+	/// The ride id rides along, unlike <see cref="MemberSharingChanged"/>'s, because a client holds
+	/// one session per ride and process-wide events have to be able to say which one they are about.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="memberId">Which rider.</param>
+	/// <param name="isPrivate">Whether they are now private.</param>
+	Task MemberPrivacyChanged(Guid rideId, Guid memberId, bool isPrivate);
+
 	/// <summary>The ride moved through the §5.1 lifecycle.</summary>
 	/// <param name="state">Where it is now.</param>
 	Task RideStateChanged(RideStateDto state);
@@ -127,8 +145,16 @@ public interface IRideClient
 /// </summary>
 /// <param name="database">For the membership check.</param>
 /// <param name="positions">Where a published fix goes.</param>
+/// <param name="clients">
+/// The ride groups, for the one thing this hub announces itself. Everything else on
+/// <see cref="IRideClient"/> is sent from an endpoint; privacy is sent from here because it is the
+/// only state change a client makes over the hub rather than over REST.
+/// </param>
 [Authorize]
-public sealed class RideHub(DlrDbContext database, PositionStore positions) : Hub<IRideClient>
+public sealed class RideHub(
+	DlrDbContext database,
+	PositionStore positions,
+	IHubContext<RideHub, IRideClient> clients) : Hub<IRideClient>
 {
 	/// <summary>The path the query-string token lift is scoped to (§7.6).</summary>
 	public const string Path = "/hubs/ride";
@@ -212,8 +238,47 @@ public sealed class RideHub(DlrDbContext database, PositionStore positions) : Hu
 	/// Publishes one fix into every ride this rider is sharing with (§5.7).
 	/// </summary>
 	/// <param name="update">The fix. Carries no ride id, deliberately.</param>
-	public async Task PublishPosition(PositionUpdate update) =>
-		await positions.PublishAsync(CallerId(), update);
+	public async Task PublishPosition(PositionUpdate update)
+	{
+		Guid userId = CallerId();
+		PositionPublication published = await positions.PublishAsync(userId, update);
+
+		if (published.LeftPrivateArea)
+		{
+			// A coordinate is proof the rider is out of their circle, so the flag is cleared on the
+			// write path as well as on the device's own say-so (§10.1). Announcing it here is what
+			// keeps a dropped "no longer private" call costing one tick rather than the rest of the
+			// ride: the next batch is about to put their pin back, and a member list still reading
+			// "private" beside a moving pin is worse than either state on its own.
+			await clients.AnnouncePrivacyAsync(published.RideIds, userId, isPrivate: false);
+		}
+	}
+
+	/// <summary>
+	/// Takes this rider off every map they are on, or puts them back — the private area (§10.1).
+	/// </summary>
+	/// <param name="update">Which way they crossed the edge of their own circle.</param>
+	/// <remarks>
+	/// <strong>No coordinate, in either direction.</strong> The phone drops fixes from inside the
+	/// circle where it read them and sends this instead, so the only thing that reaches the server is
+	/// that the rider is somewhere they chose not to be observed. A jittered or edge-snapped point
+	/// would be worse than nothing — a handful of them bound the true centre.
+	/// <para>
+	/// The hub rather than the REST endpoint is the ordinary path, for the reason every fix takes it:
+	/// the connection is already open. The endpoint exists because this message is the one whose loss
+	/// is expensive — it is sent once at a boundary rather than repeated every tick — so it must
+	/// survive a reconnecting hub.
+	/// </para>
+	/// </remarks>
+	public async Task PublishPrivacy(PositionPrivacyUpdate update)
+	{
+		Guid userId = CallerId();
+
+		await clients.AnnouncePrivacyAsync(
+			await positions.SetPrivateAsync(userId, update.Private),
+			userId,
+			update.Private);
+	}
 
 	/// <summary>The SignalR group name for a ride.</summary>
 	/// <param name="rideId">Which ride.</param>
@@ -235,4 +300,32 @@ public sealed class RideHub(DlrDbContext database, PositionStore positions) : Hu
 	private Guid CallerId() =>
 		(Context.User?.UserId())
 		?? throw new HubException("Not signed in.");
+}
+
+/// <summary>
+/// Telling a set of rides that one of their members went private, or stopped being (§10.1, §5.6).
+/// </summary>
+public static class RidePrivacyBroadcast
+{
+	/// <summary>
+	/// Sends <see cref="IRideClient.MemberPrivacyChanged"/> to each ride in turn.
+	/// </summary>
+	/// <param name="hub">The connections.</param>
+	/// <param name="rideIds">
+	/// The rides to tell. Empty when nothing changed, which is the ordinary case for a device
+	/// re-stating what the server already believes — and then this sends nothing at all.
+	/// </param>
+	/// <param name="userId">Which rider.</param>
+	/// <param name="isPrivate">Their new state.</param>
+	public static async Task AnnouncePrivacyAsync(
+		this IHubContext<RideHub, IRideClient> hub,
+		IReadOnlyList<Guid> rideIds,
+		Guid userId,
+		bool isPrivate)
+	{
+		foreach (Guid rideId in rideIds)
+		{
+			await hub.Clients.Group(RideHub.Group(rideId)).MemberPrivacyChanged(rideId, userId, isPrivate);
+		}
+	}
 }

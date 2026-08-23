@@ -29,8 +29,9 @@ public sealed class MemberRosterTests
 		bool sharing = true,
 		bool hasPosition = true,
 		string role = "Rider",
-		string? colour = null) =>
-		new(id, name, role, Now, sharing, hasPosition, colour);
+		string? colour = null,
+		bool isPrivate = false) =>
+		new(id, name, role, Now, sharing, hasPosition, colour, isPrivate);
 
 	private static RiderPositionDto Fix(Guid id, string name, double lat, double lon, DateTimeOffset recordedUtc) =>
 		new(id, name, PositionScale.FromDegrees(lat), PositionScale.FromDegrees(lon), null, null, recordedUtc);
@@ -424,6 +425,133 @@ public sealed class MemberRosterTests
 
 			rows[0].UserName.ShouldBe("Adam", $"{sort} leaves equal rows in a stated order rather than an arbitrary one.");
 		}
+	}
+
+	// -- The private area (§10.1) -----------------------------------------------------------------
+
+	[Fact]
+	public void Private_IsItsOwnState_NotNoSignal()
+	{
+		// The distinction the whole feature turns on. "No signal" is a reason to wait at the
+		// junction; "private" is somebody in their kitchen who will be along.
+		Guid home = Guid.NewGuid();
+		Guid tunnel = Guid.NewGuid();
+
+		IReadOnlyList<MemberRow> rows = MemberRoster.Build(
+			[Member(home, "Home", hasPosition: false, isPrivate: true), Member(tunnel, "Tunnel", hasPosition: false)],
+			new Dictionary<Guid, RiderPositionDto>(),
+			route: null,
+			from: null,
+			selfUserId: null,
+			now: Now,
+			sort: MemberSort.Name);
+
+		rows.Single(row => row.UserId == home).Presence.ShouldBe(MemberPresence.Private);
+		rows.Single(row => row.UserId == tunnel).Presence.ShouldBe(MemberPresence.NoSignal,
+			"§10.1: an empty row means something different when the rider chose it.");
+	}
+
+	[Fact]
+	public void NotSharing_StillWins_OverPrivate()
+	{
+		// Both are true of the same rider, and only one of them is about *this* ride. A member who
+		// switched sharing off is not coming back onto the map at the end of their street.
+		Guid rider = Guid.NewGuid();
+
+		IReadOnlyList<MemberRow> rows = MemberRoster.Build(
+			[Member(rider, "Rider", sharing: false, hasPosition: false, isPrivate: true)],
+			new Dictionary<Guid, RiderPositionDto>(),
+			route: null,
+			from: null,
+			selfUserId: null,
+			now: Now,
+			sort: MemberSort.Name);
+
+		rows.Single().Presence.ShouldBe(MemberPresence.NotSharing);
+	}
+
+	[Fact]
+	public void APrivateRider_CarriesNoneOfTheFourFigures()
+	{
+		// Range, along, gap and off-route are all derived from a position the ride no longer holds —
+		// and the leader is worked out over the same column, so a private rider cannot be one.
+		Guid home = Guid.NewGuid();
+		Guid moving = Guid.NewGuid();
+
+		IReadOnlyList<MemberRow> rows = MemberRoster.Build(
+			[Member(home, "Home", hasPosition: false, isPrivate: true), Member(moving, "Moving")],
+			new Dictionary<Guid, RiderPositionDto> { [moving] = Fix(moving, "Moving", BaseLat, BaseLon + 0.01, Now) },
+			EastwardRoute(),
+			from: (BaseLat, BaseLon),
+			selfUserId: null,
+			now: Now,
+			sort: MemberSort.Name);
+
+		MemberRow row = rows.Single(candidate => candidate.UserId == home);
+
+		row.RangeMetres.ShouldBeNull();
+		row.AlongMetres.ShouldBeNull();
+		row.GapMetres.ShouldBeNull();
+		row.OffMetres.ShouldBeNull();
+		row.OffRoute.ShouldBeFalse();
+		row.FixAge.ShouldBeNull();
+		row.IsLeader.ShouldBeFalse();
+
+		rows.Single(candidate => candidate.UserId == moving).IsLeader.ShouldBeTrue(
+			"the rider who is actually on the road leads it.");
+	}
+
+	[Fact]
+	public void TheReadersOwnRow_KeepsItsFigures_FromTheirOwnDevice_WhileTheyArePrivate()
+	{
+		// §10.1 is a rule about what leaves the phone. On the phone there is nobody to hide the
+		// rider's house from — they are standing in it — so their own row reads exactly as it did
+		// before they got home.
+		Guid me = Guid.NewGuid();
+
+		IReadOnlyList<MemberRow> rows = MemberRoster.Build(
+			[Member(me, "Me", hasPosition: false, isPrivate: true)],
+			new Dictionary<Guid, RiderPositionDto>(),
+			EastwardRoute(),
+			from: (BaseLat, BaseLon + 0.01),
+			selfUserId: me,
+			now: Now,
+			sort: MemberSort.Name,
+			ownFix: new LocationFix(BaseLat, BaseLon + 0.01, null, null, null, Now));
+
+		MemberRow row = rows.Single();
+
+		row.Presence.ShouldBe(MemberPresence.Sharing,
+			"the reader's own screen is the one place the circle changes nothing.");
+		row.FixAge.ShouldBe(TimeSpan.Zero);
+		row.AlongMetres.ShouldNotBeNull();
+		row.RangeMetres!.Value.ShouldBeLessThan(1, "the range from the reader to themselves is zero.");
+	}
+
+	[Fact]
+	public void SomebodyElsesRow_IsNeverFilledFromThisDevicesFix()
+	{
+		// The device's own reading answers for one row and one row only. Filling a private rider's
+		// row from wherever this phone happens to be would put them on the map at the reader's
+		// position, which is worse than leaving them off it.
+		Guid me = Guid.NewGuid();
+		Guid them = Guid.NewGuid();
+
+		IReadOnlyList<MemberRow> rows = MemberRoster.Build(
+			[Member(me, "Me"), Member(them, "Them", hasPosition: false, isPrivate: true)],
+			new Dictionary<Guid, RiderPositionDto> { [me] = Fix(me, "Me", BaseLat, BaseLon, Now) },
+			EastwardRoute(),
+			from: (BaseLat, BaseLon),
+			selfUserId: me,
+			now: Now,
+			sort: MemberSort.Name,
+			ownFix: new LocationFix(BaseLat, BaseLon, null, null, null, Now));
+
+		MemberRow row = rows.Single(candidate => candidate.UserId == them);
+
+		row.Presence.ShouldBe(MemberPresence.Private);
+		row.RangeMetres.ShouldBeNull();
+		row.AlongMetres.ShouldBeNull();
 	}
 
 	// -- Formatting -------------------------------------------------------------------------------

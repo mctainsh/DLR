@@ -1,3 +1,4 @@
+@using BlazorDLR.Shared.Services
 @using DLR.Core.Contracts.Rides
 @using DLR.Core.Tracks
 @inject TimeProvider Clock
@@ -17,15 +18,18 @@
 	see that file for why they are not in here. This component is layout: a swatch, a name, a
 	state chip and four figures.
 
-	**Three states per member, never two** (§5.6):
+	**One state per reason, never a shared grey row** (§5.6, §10.1):
 
 	  - Sharing — broadcasting, with a fix fresh enough to believe.
 	  - No signal — broadcasting, but nothing recent is arriving. Their last point is still
 	    on the map, and it is not moving.
 	  - Not sharing — they chose not to. Their pin is not on the map at all.
+	  - Private — inside their own private area. Sharing is on, the ride holds no position
+	    for them, and their pin is not on anybody else's map until they ride out of it.
 
-	Collapsing the last two is exactly the ambiguity that gets somebody left behind at a
-	junction, so the chip says which, and the colour is never the only thing that does.
+	Collapsing any two of those is exactly the ambiguity that gets somebody left behind at a
+	junction, so the chip says which, and the colour is never the only thing that does. The
+	last one also takes the four figures away with it — see the note beside them.
 *@
 
 <div class="live-members row-list">
@@ -92,40 +96,54 @@
 						screen this narrow — "340 m" and "4.2 km" are different measurements of
 						different things, and which is which cannot be inferred from the order they
 						happen to be laid out in.
-					*@
-					<dl class="stats">
-						<div class="age">
-							<dt>Last fix</dt>
-							<dd>@MemberRoster.FormatAge(row.FixAge)</dd>
-						</div>
-						<div class="range">
-							<dt>Range</dt>
-							<dd>@MemberRoster.FormatDistance(row.RangeMetres)</dd>
-						</div>
-						<div class="along">
-							<dt>Along</dt>
-							<dd>@MemberRoster.FormatDistance(row.AlongMetres)</dd>
-						</div>
-						<div class="gap">
-							<dt>Gap</dt>
-							<dd>
-								@if (row.IsLeader)
-								{
-									<span class="leader">leader</span>
-								}
-								else
-								{
-									@MemberRoster.FormatDistance(row.GapMetres)
-								}
-							</dd>
-						</div>
-					</dl>
 
-					@if (row.OffRoute)
+						A private rider gets none of them, and gets no columns of dashes either
+						(§10.1). Every one of the four is derived from a position the ride no longer
+						holds, so four em dashes would be four invitations to wonder whether the app
+						has lost them — where the chip beside their name has already given the whole
+						answer. Off-route goes with them: a rider who is at home is not off route,
+						they are somewhere this ride has agreed not to measure.
+					*@
+					@if (row.Presence == MemberPresence.Private)
 					{
-						@* Its own line rather than a fifth figure: it is not a measurement the rider
-						   is comparing against the others, it is a thing that has gone wrong. *@
-						<p class="off">Off route by @MemberRoster.FormatDistance(row.OffMetres)</p>
+						<p class="hidden-note">Position hidden while they are in their private area.</p>
+					}
+					else
+					{
+						<dl class="stats">
+							<div class="age">
+								<dt>Last fix</dt>
+								<dd>@MemberRoster.FormatAge(row.FixAge)</dd>
+							</div>
+							<div class="range">
+								<dt>Range</dt>
+								<dd>@MemberRoster.FormatDistance(row.RangeMetres)</dd>
+							</div>
+							<div class="along">
+								<dt>Along</dt>
+								<dd>@MemberRoster.FormatDistance(row.AlongMetres)</dd>
+							</div>
+							<div class="gap">
+								<dt>Gap</dt>
+								<dd>
+									@if (row.IsLeader)
+									{
+										<span class="leader">leader</span>
+									}
+									else
+									{
+										@MemberRoster.FormatDistance(row.GapMetres)
+									}
+								</dd>
+							</div>
+						</dl>
+
+						@if (row.OffRoute)
+						{
+							@* Its own line rather than a fifth figure: it is not a measurement the rider
+							   is comparing against the others, it is a thing that has gone wrong. *@
+							<p class="off">Off route by @MemberRoster.FormatDistance(row.OffMetres)</p>
+						}
 					}
 				</li>
 			}
@@ -158,6 +176,16 @@
 	/// <summary>Who is reading, so their own row can say so and the range can start from them.</summary>
 	[Parameter] public Guid? SelfUserId { get; set; }
 
+	/// <summary>
+	/// This device's own last reading, or null on a host with no receiver (§18.6).
+	/// <para>
+	/// Only the reader's own row uses it, and only while their private area has emptied it (§10.1):
+	/// the circle decides what leaves the phone, and this list is drawn on the phone. See
+	/// <c>MemberRoster.Build</c>'s <c>ownFix</c>.
+	/// </para>
+	/// </summary>
+	[Parameter] public LocationFix? OwnFix { get; set; }
+
 	/// <summary>Which of the four orders the list is in.</summary>
 	[Parameter] public MemberSort Sort { get; set; } = MemberSort.LastActive;
 
@@ -185,7 +213,8 @@
 		From,
 		SelfUserId,
 		Clock.GetUtcNow(),
-		Sort);
+		Sort,
+		OwnFix);
 
 	private async Task OnSortChangedAsync(ChangeEventArgs args)
 	{
@@ -202,6 +231,7 @@
 	{
 		MemberPresence.NotSharing => "not sharing",
 		MemberPresence.NoSignal => "no signal",
+		MemberPresence.Private => "private",
 		_ => "sharing",
 	};
 
@@ -209,6 +239,7 @@
 	{
 		MemberPresence.NotSharing => "not-sharing",
 		MemberPresence.NoSignal => "no-signal",
+		MemberPresence.Private => "private",
 		_ => "sharing",
 	};
 }
@@ -295,6 +326,16 @@
 	.live-members .state.sharing { background: #d1fae5; color: #14532d; }
 	.live-members .state.not-sharing { background: #eef1f520; color: #94a3b8; }
 	.live-members .state.no-signal { background: #fef3c730; color: #f87171; }
+	.live-members .state.private { background: #ede9fe; color: #5b21b6; }
+
+	/* Where the four figures would have been. Muted and not red: nothing is wrong, and a warning
+	   colour would read as one. */
+	.live-members .hidden-note {
+		flex: 1 0 100%;
+		margin: 0.15rem 0 0;
+		font-size: 0.75rem;
+		color: var(--dlr-fg-muted);
+	}
 
 	/* Four labelled figures. Fixed columns rather than a flex row: the numbers change every few
 	   seconds, and a layout that reflowed as "9 s" became "10 s" would be unreadable at a glance. */

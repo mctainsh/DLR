@@ -197,6 +197,7 @@ public sealed class AuthStateTests
 		public Task RemoveRideRouteAsync(Guid r, Guid t, CancellationToken ct = default) => inner.RemoveRideRouteAsync(r, t, ct);
 		public Task<IReadOnlyList<DLR.Core.Contracts.Rides.RiderPositionDto>> GetPositionsSnapshotAsync(Guid r, CancellationToken ct = default) => inner.GetPositionsSnapshotAsync(r, ct);
 		public Task<DLR.Core.Contracts.Rides.PublishResult> PublishPositionAsync(DLR.Core.Contracts.Rides.PositionUpdate u, CancellationToken ct = default) => inner.PublishPositionAsync(u, ct);
+		public Task<DLR.Core.Contracts.Rides.PublishResult> SetPositionPrivacyAsync(DLR.Core.Contracts.Rides.PositionPrivacyUpdate u, CancellationToken ct = default) => inner.SetPositionPrivacyAsync(u, ct);
 		public Task<DLR.Core.Contracts.Markers.MarkerDto> CreateMarkerAsync(DLR.Core.Contracts.Markers.CreateMarkerRequest r, CancellationToken ct = default) => inner.CreateMarkerAsync(r, ct);
 		public Task<IReadOnlyList<DLR.Core.Contracts.Markers.MarkerDto>> ListRideMarkersAsync(Guid r, CancellationToken ct = default) => inner.ListRideMarkersAsync(r, ct);
 		public Task<DLR.Core.Contracts.Markers.MarkerDto> UpdateMarkerAsync(Guid m, DLR.Core.Contracts.Markers.UpdateMarkerRequest r, CancellationToken ct = default) => inner.UpdateMarkerAsync(m, r, ct);

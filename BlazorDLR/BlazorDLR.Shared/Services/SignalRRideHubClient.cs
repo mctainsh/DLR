@@ -100,6 +100,8 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	/// <inheritdoc />
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
 	/// <inheritdoc />
+	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
+	/// <inheritdoc />
 	public event Action? ConnectionChanged;
 
 	/// <inheritdoc />
@@ -140,6 +142,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.On<Guid, RidePermissions>("RidePermissionsChanged", (r, p) => PermissionsChanged?.Invoke(r, p));
 		connection.On<Guid, DateTimeOffset>("SharingWindDownStarted", (r, ends) => SharingWindDownStarted?.Invoke(r, ends));
 		connection.On<Guid, Guid, bool>("MemberSharingChanged", (r, u, s) => MemberSharingChanged?.Invoke(r, u, s));
+		connection.On<Guid, Guid, bool>("MemberPrivacyChanged", (r, u, p) => MemberPrivacyChanged?.Invoke(r, u, p));
 
 		connection.Reconnected += async _ =>
 		{
@@ -244,6 +247,13 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	{
 		HubConnection connection = Require();
 		await connection.InvokeAsync("PublishPosition", update, cancellationToken);
+	}
+
+	/// <inheritdoc />
+	public async Task PublishPrivacyAsync(PositionPrivacyUpdate update, CancellationToken cancellationToken = default)
+	{
+		HubConnection connection = Require();
+		await connection.InvokeAsync("PublishPrivacy", update, cancellationToken);
 	}
 
 	/// <inheritdoc />

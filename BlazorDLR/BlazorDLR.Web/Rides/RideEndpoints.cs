@@ -564,6 +564,11 @@ public sealed class RideController : ControllerBase
 		// yet, and showing them as no-signal would be wrong for as long as the flush period.
 		IReadOnlySet<Guid> located = await positions.LocatedAsync(rideId);
 
+		// The third reason a member can have no pin (§10.1). Read here rather than inferred from the
+		// empty position, because "at home and has said so" is a different fact from "in a tunnel" and
+		// a client that had to guess between them would guess wrong at exactly the wrong moment.
+		IReadOnlySet<Guid> hidden = positions.PrivateRiders();
+
 		return new RideDetail(
 			ride.Id,
 			ride.Name,
@@ -598,7 +603,8 @@ public sealed class RideController : ControllerBase
 					// How this member's marker is painted on the live map (§16.3). Sent with the
 					// member rather than with their position: the position batch goes out every
 					// tick and this changes about as often as a username does.
-					member.User.MarkerColour))]);
+					member.User.MarkerColour,
+					hidden.Contains(member.UserId)))]);
 	}
 }
 

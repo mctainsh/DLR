@@ -674,6 +674,7 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MemberJoined += OnMemberJoined;
 		_hub.MemberLeft += OnMemberLeft;
 		_hub.MemberSharingChanged += OnMemberSharing;
+		_hub.MemberPrivacyChanged += OnMemberPrivacy;
 		_hub.MarkerAdded += OnMarkerUpserted;
 		_hub.MarkerUpdated += OnMarkerUpserted; // same treatment — upsert
 		_hub.MarkerRemoved += OnMarkerRemoved;
@@ -689,6 +690,7 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MemberJoined -= OnMemberJoined;
 		_hub.MemberLeft -= OnMemberLeft;
 		_hub.MemberSharingChanged -= OnMemberSharing;
+		_hub.MemberPrivacyChanged -= OnMemberPrivacy;
 		_hub.MarkerAdded -= OnMarkerUpserted;
 		_hub.MarkerUpdated -= OnMarkerUpserted;
 		_hub.MarkerRemoved -= OnMarkerRemoved;
@@ -772,6 +774,42 @@ public sealed class RideSession : IAsyncDisposable
 		};
 
 		if (!sharing)
+		{
+			_positions.Remove(userId);
+		}
+
+		Raise();
+	}
+
+	/// <summary>
+	/// A member entered or left their own private area (§10.1, §5.6).
+	/// <para>
+	/// The position goes with the flag, and it goes on the client as well as on the server. The
+	/// server has already deleted it, but the batch that arrives is only ever the riders it
+	/// <em>has</em> a fix for — nothing in it says "and this one is gone" — so a client that only
+	/// took the flag would keep drawing the last pin before the driveway until the ride ended. That
+	/// pin, stopped, a few streets from somebody's house, is a better clue to where they live than
+	/// most of what the private area withholds.
+	/// </para>
+	/// <para>
+	/// The reader's own row is not special-cased here. Their device draws their own mark from its own
+	/// receiver (see <c>LocationBroadcastState.OwnFix</c>) and the member list falls back to the same
+	/// reading, so what this removes for them is the round-tripped copy they were not being shown
+	/// anyway.
+	/// </para>
+	/// </summary>
+	private void OnMemberPrivacy(Guid rideId, Guid userId, bool isPrivate)
+	{
+		if (rideId != _rideId || Ride is null) return;
+
+		Ride = Ride with
+		{
+			Members = Ride.Members
+				.Select(member => member.UserId == userId ? member with { Private = isPrivate } : member)
+				.ToList(),
+		};
+
+		if (isPrivate)
 		{
 			_positions.Remove(userId);
 		}
