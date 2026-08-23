@@ -59,8 +59,8 @@
 		<div class="map-fill">
 			@* ShowPickingCursor follows the mode rather than being off outright: an ordinary tap
 			   here interrogates what is already on the map, but a tap while placing does put
-			   something down, and that is the one time a crosshair is honest. *@
-			@*
+			   something down, and that is the one time a crosshair is honest.
+
 				ShowUserLocation is the base map's own blue dot, and it is asked for only on a host
 				that has no receiver of its own — the browser (§18.6). It cannot work on the phone:
 				MapLibre's GeolocateControl reads navigator.geolocation, which is the *WebView's*
@@ -72,8 +72,7 @@
 				— see SelfMarker. Note that the browser's dot answers a different question from the
 				rider pill beside it: where the machine reading the map is, which for somebody
 				watching a ride from a laptop is not where their bike is.
-			*@
-			@*
+
 				Bounds is the *opening* frame and nothing else — see _openingBounds. Every other
 				map in the app that passes one is showing a fixed extent; this one hands over a
 				box once, the first time a rider opens a given ride, and then never changes it
@@ -98,9 +97,7 @@
 				Order is by what a rider does about it: the connection first (nothing else on
 				this screen can be true while it is down), then the receiver, then what the
 				group can see of them, then whatever an action of theirs failed at.
-			*@
 
-			@*
 				The ride could not be fetched and this device's own copy was drawn instead (§4.4).
 
 				It has to carry an age. A map of where the group was twenty minutes ago is the
@@ -476,8 +473,7 @@
 						a consent decision and lives on the info page beside the words describing
 						it — but a rider mid-ride needs to be able to answer "am I on their map?"
 						without leaving the map, and the honest answer is not "the switch is on".
-					*@
-					@*
+
 						Absent on a host with no receiver (§18.6) rather than reporting that it has
 						none: a rider on a laptop is watching other people's pins, and a line in
 						their own menu saying "this device cannot share its location" answers a
@@ -665,6 +661,13 @@
 	private MapCamera _camera = DefaultCamera;
 	private MapViewport? _mapViewport;
 	private readonly Dictionary<Guid, MapMarker> _markerLayer = new();
+
+	/// <summary>
+	/// How long a rider's pin outlives the fix behind it on this device (§5.3, §18.6). Chosen on
+	/// Settings → Maps and read on first render; <see cref="PinExpiry.Default"/> until it lands,
+	/// which is the same answer for a device that has never chosen.
+	/// </summary>
+	private TimeSpan _pinExpiry = PinExpiry.Default;
 
 	/// <summary>
 	/// Whether the map keeps this rider centred as their fixes arrive (§5.3).
@@ -1301,6 +1304,13 @@
 		// neighbours panel calls "ahead". Idempotent, and the map overlay inside RideMap asks for
 		// the same read — whichever of the two arrives first pays for it.
 		await RouteStyles.LoadAsync();
+
+		// How long a silent rider stays drawn, from the same device store (§18.6). Read before the
+		// view is restored so the first frame a rider sees is already filtered — and the layer is
+		// rebuilt, because the ride's snapshot may have landed several renders ago and built one
+		// under the default.
+		_pinExpiry = PinExpiry.Decode(await Settings.GetAsync(PinExpiry.StorageKey));
+		RebuildMapLayer();
 
 		await RestoreViewAsync();
 		await HoldScreenAsync();
@@ -2371,6 +2381,10 @@
 
 		_markerLayer.Clear();
 
+		// One reading for the whole rebuild, so two riders whose fixes are the same age cannot land
+		// on opposite sides of the cut-off because the clock moved between them.
+		DateTimeOffset now = Clock.GetUtcNow();
+
 		foreach (RiderPositionDto position in _session.Positions.Values)
 		{
 			if (HasOwnReceiver && position.UserId == Auth.UserId)
@@ -2393,6 +2407,20 @@
 				// HasOwnReceiver.
 				continue;
 			}
+
+			// Too long since this rider was last heard from to keep claiming to know where they are
+			// (§18.6). A position stays in the ride's cache until sharing stops, and it is rebroadcast
+			// every tick whether or not it moved, so a phone that went flat leaves a pin that reads
+			// exactly like somebody standing there — which is how a group ends up riding back for
+			// one. How long is the rider's own answer; see PinExpiry.
+			//
+			// The map and the neighbours panel, which are the two things on this screen that cannot
+			// say how old what they are showing is — a pin has no age on it and "300 m ahead" is a
+			// claim about now. Their row on the members list stays, with the age of that fix written
+			// beside it (see MemberRoster), which is where somebody goes to find out what happened
+			// to them.
+			if (PinExpiry.IsExpired(position.RecordedUtc, now, _pinExpiry))
+				continue;
 
 			// The colour and the name both come off the member row, not the fix. A position
 			// batch carries neither (§5.3) — the username because it is immutable and would be
@@ -2449,6 +2477,13 @@
 	/// for why the ride's round-tripped copy of this phone's own fix is not good enough to measure
 	/// everybody else against.
 	/// </para>
+	/// <para>
+	/// Narrowed by the same <see cref="PinExpiry"/> the pins are, and for a sharper version of the
+	/// same reason: a gap is a claim about where somebody is <em>now</em>. A traveller nobody has
+	/// heard from in an hour would otherwise hold one of the four lines while drifting backwards
+	/// down it. Their row on the members list is untouched — that screen writes the age of the fix
+	/// beside every number it draws from it.
+	/// </para>
 	/// </summary>
 	private void RebuildNeighbours()
 	{
@@ -2475,7 +2510,8 @@
 				// private has no place in this panel, which is the point.
 				HasOwnReceiver ? _broadcast?.OwnFix : null),
 			Auth.UserId,
-			MyAlongMetres);
+			MyAlongMetres,
+			keepFor: _pinExpiry);
 	}
 
 	// -- Markers ------------------------------------------------------------------------------

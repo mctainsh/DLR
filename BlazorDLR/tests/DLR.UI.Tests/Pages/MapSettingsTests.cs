@@ -1348,4 +1348,78 @@ public sealed class MapSettingsTests : PageTestContext
 		page.Find("input[placeholder^='https://tiles.example.com']")
 			.GetAttribute("value").ShouldBe("https://tiles.example.com/{z}/{x}/{y}.png");
 	}
+
+	// ---------- How long a rider's pin outlives their last fix (§5.3) ----------
+
+	/// <summary>
+	/// The one control on this screen that changes what is drawn on the map rather than what it is
+	/// drawn over. It is here because it is a map preference held on this device, like the tile
+	/// source above it — and, like it, it never reaches the server.
+	/// </summary>
+	[Fact]
+	public void PinExpiry_OffersTheSixValues_AndOpensOnTenMinutes()
+	{
+		Wire();
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		page.FindAll("fieldset.pin-expiry option")
+			.Select(option => option.TextContent)
+			.ShouldBe(new[] { "5 minutes", "10 minutes", "30 minutes", "1 hour", "2 hours", "6 hours" });
+
+		page.Find("fieldset.pin-expiry select").GetAttribute("value").ShouldBe("10",
+			"a device that has never chosen gets PinExpiry.Default, and the dropdown has to say so.");
+	}
+
+	[Fact]
+	public async Task ChoosingHowLongPinsLast_StoresItOnThisDevice()
+	{
+		Wire();
+		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await page.InvokeAsync(() => page.Find("fieldset.pin-expiry select").Change("30"));
+
+		(await settings.GetAsync(PinExpiry.StorageKey)).ShouldBe("30",
+			"the live map reads this key when it opens — nothing else carries the choice to it.");
+		page.Find("fieldset.pin-expiry select").GetAttribute("value").ShouldBe("30");
+	}
+
+	/// <summary>
+	/// The same rule the tile fields follow: a rider coming back to this screen finds their own
+	/// answer selected rather than the app's default, which is the only way to tell what the map
+	/// is currently doing.
+	/// </summary>
+	[Fact]
+	public async Task ThePinExpiryDropdown_OpensOnWhatIsAlreadyStored()
+	{
+		Wire();
+		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
+		await settings.SetAsync(PinExpiry.StorageKey, "360");
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		page.WaitForAssertion(
+			() => page.Find("fieldset.pin-expiry select").GetAttribute("value").ShouldBe("360"),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A value from a build that offered something this one does not — the store is on a phone we
+	/// do not control, and the list is meant to be able to change. It lands on an offered value, so
+	/// the dropdown cannot show one thing while the map does another.
+	/// </summary>
+	[Fact]
+	public async Task APinExpiryThisBuildDoesNotOffer_OpensOnTheNearestOneItDoes()
+	{
+		Wire();
+		IDeviceSettings settings = Services.GetRequiredService<IDeviceSettings>();
+		await settings.SetAsync(PinExpiry.StorageKey, "20");
+
+		IRenderedComponent<Maps> page = RenderPage();
+
+		page.WaitForAssertion(
+			() => page.Find("fieldset.pin-expiry select").GetAttribute("value").ShouldBe("30"),
+			timeout: TimeSpan.FromSeconds(3));
+	}
 }

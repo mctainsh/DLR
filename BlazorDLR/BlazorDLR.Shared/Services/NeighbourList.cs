@@ -95,6 +95,24 @@ public static class NeighbourList
 	/// </para>
 	/// </param>
 	/// <param name="count">How many other riders to carry. Defaults to <see cref="DefaultCount"/>.</param>
+	/// <param name="keepFor">
+	/// How long a fix is still worth naming somebody's place from — <see cref="PinExpiry"/>, the same
+	/// span the map draws pins for — or null to name every rider the ride holds a fix for.
+	/// <para>
+	/// It is the same argument the map makes, and it is stronger here. A pin at least sits where the
+	/// rider was; this panel turns that fix into "300 m ahead", which is a claim about now and about
+	/// a gap somebody is deciding whether to close. A phone that went flat at the last stop would sit
+	/// in the panel as a traveller drifting steadily backwards, and the four lines the panel has are
+	/// then spent on somebody who is not there — pushing off it a rider who is.
+	/// </para>
+	/// <para>
+	/// The reader's own row is never aged out: on a phone it is measured from this device's own
+	/// receiver rather than from the ride (see <paramref name="selfAlongMetres"/>), and dropping the
+	/// anchor everything else is measured from would empty the panel rather than trim it. The
+	/// members screen is where an old fix still belongs, with its age written beside it — see
+	/// <see cref="MemberRoster"/>.
+	/// </para>
+	/// </param>
 	/// <returns>
 	/// The chosen riders <em>and</em> the reader, furthest along the route first — so the rider off
 	/// the front is at the top of the panel and the one off the back is at the bottom, which is the
@@ -105,7 +123,8 @@ public static class NeighbourList
 		IReadOnlyList<MemberRow> rows,
 		Guid? selfUserId,
 		double? selfAlongMetres,
-		int count = DefaultCount)
+		int count = DefaultCount,
+		TimeSpan? keepFor = null)
 	{
 		if (rows is null || rows.Count == 0 || selfUserId is not { } me || selfAlongMetres is not { } mine)
 		{
@@ -122,6 +141,12 @@ public static class NeighbourList
 				reader = row;
 				continue;
 			}
+
+			// Too long since they were last heard from to keep turning that fix into a gap (§18.6).
+			// The age is clamped at zero for a fix from the future — see MemberRoster — so a phone
+			// whose clock runs fast is never dropped for it.
+			if (keepFor is { } limit && row.FixAge > limit)
+				continue;
 
 			// No projection, no place in this panel. A rider who is not sharing has no fix at all, and
 			// one on a ride with no route has nothing to be along — and "—" on a panel whose entire

@@ -11,7 +11,8 @@
 @implements IDisposable
 
 @*
-	Which tiles go under every map in the app (§4.5, §18.6).
+	Which tiles go under every map in the app (§4.5, §18.6), and — at the bottom — how long a
+	rider's pin outlives their last fix on the live map (§5.3).
 
 	A device preference, like the route style — two riders on the same ride can hold different
 	answers and neither is wrong. It never reaches the server. (The private area used to be
@@ -19,8 +20,9 @@
 	than storing it, §10.1.)
 
 	The base map is only ever tiles, camera, rotation and attribution: every marker, rider pin
-	and route is drawn by the Skia overlay on top (§4.5 v0.21). So nothing on this screen can
-	change what a ride shows — only what it is drawn over.
+	and route is drawn by the Skia overlay on top (§4.5 v0.21). So no tile source can change what
+	a ride shows — only what it is drawn over. The pin expiry at the bottom is the one control
+	here that does reach the overlay, and it takes nothing away but a pin nobody has heard from.
 
 	The preview is the point of the screen rather than decoration. A tile URL is the one
 	setting in this app whose value is impossible to judge by reading it: the difference
@@ -35,8 +37,9 @@
 	<PageNav Title="Maps" BackHref="/settings" BackLabel="Back to settings" />
 
 	<p class="lead">
-		Where the map's tiles come from. Stored on this device and never sent to the server —
-		your routes, markers and everyone's positions are drawn on top and do not change.
+		Where the map's tiles come from, and how long a rider stays on the live map after their last
+		position. Both are stored on this device and never sent to the server — the tiles change
+		nothing about your routes and markers, which are drawn on top of them.
 	</p>
 
 	<fieldset>
@@ -401,6 +404,38 @@
 	</section>
 
 	@*
+		How long a rider's pin outlives their last fix (§5.3).
+
+		Last on the page, and the one control here that is not about tiles: everything above
+		changes what the map is drawn over, and this changes what is drawn on it. It belongs on
+		this screen rather than one of its own for the reason the rest of it is here — it is a map
+		preference, held on this device, and it reaches no server and nobody else's phone.
+
+		A dropdown rather than the radios above. Six values as radios is the tallest control on the
+		page for the least consequential choice on it, and unlike a tile source none of the six
+		needs a sentence saying what it costs.
+	*@
+	<fieldset class="pin-expiry">
+		<legend>Riders' pins</legend>
+
+		<label>
+			Keep a rider's pin for
+			<select value="@PinExpiry.Encode(_pinExpiry)" @onchange="ChooseExpiryAsync">
+				@foreach (TimeSpan option in PinExpiry.Options)
+				{
+					<option value="@PinExpiry.Encode(option)">@PinExpiry.Label(option)</option>
+				}
+			</select>
+		</label>
+		<p class="hint">
+			How long somebody stays on the live map after their last position. A phone that goes
+			flat or loses signal leaves a pin sitting where it stopped, which reads as a rider
+			standing there — past this it comes off instead. Nothing is deleted: they keep their
+			row on the members list, with the age of that last position beside it.
+		</p>
+	</fieldset>
+
+	@*
 		Rendered here rather than beside the button it belongs to: it is a fixed-position layer over
 		the whole screen, and hanging it inside a fieldset would put a full-screen dialog inside a
 		form group for no reason. It carries its own map, which is a second base map on this page —
@@ -486,6 +521,13 @@
 	private MapTheme _theme = MapTheme.Light;
 
 	private string? _status;
+
+	/// <summary>
+	/// How long this device keeps a rider's pin after their last fix (§5.3). Read from the store
+	/// on first render like everything else here; until it lands the dropdown shows
+	/// <see cref="PinExpiry.Default"/>, which is what an unconfigured device uses anyway.
+	/// </summary>
+	private TimeSpan _pinExpiry = PinExpiry.Default;
 
 	/// <summary>
 	/// Which country the rider has narrowed to, or empty for all of them.
@@ -741,6 +783,11 @@
 		// is actually applied — those agree, because applying one writes this too.
 		Remember(RememberedMapSetup.Decode(await Settings.GetAsync(RememberedMapSetup.StorageKey)));
 
+		// The one setting on this page the map below does not draw, so nothing else reads it back
+		// for us: it is stored on its own key, and GroupRideLive reads the same one when a rider
+		// opens a live map.
+		_pinExpiry = PinExpiry.Decode(await Settings.GetAsync(PinExpiry.StorageKey));
+
 		// Adopted here rather than left to the Changed handler. LoadAsync only raises when it was
 		// the read that resolved the value — a rider arriving from another screen that already
 		// read the device gets no event at all, and this form would open on the default while the
@@ -944,6 +991,31 @@
 	}
 
 	/// <summary>
+	/// How long a rider's pin outlives their last fix, stored the moment it is picked (§5.3).
+	/// <para>
+	/// Written straight to the device rather than into a scoped state. Nothing on this screen draws
+	/// pins — the preview map is base map only — and the one page that does reads the store when
+	/// it opens, which is the only moment the value matters. A state object would exist to raise an
+	/// event no live map is mounted to hear.
+	/// </para>
+	/// <para>
+	/// No status line, unlike the tile source: the dropdown holds the answer where the rider is
+	/// looking, and a sentence somewhere further up the page saying what it already says is a
+	/// message about a change rather than a confirmation of one.
+	/// </para>
+	/// </summary>
+	/// <param name="changed">What the dropdown now holds — whole minutes, as <see cref="PinExpiry.Encode"/> writes them.</param>
+	private async Task ChooseExpiryAsync(ChangeEventArgs changed)
+	{
+		// Through Decode rather than parsed here, so a value this build did not put in the list —
+		// an older option, a host that fired the event with something else — lands on an offered
+		// one instead of on whatever it happened to say.
+		_pinExpiry = PinExpiry.Decode(changed.Value?.ToString());
+
+		await Settings.SetAsync(PinExpiry.StorageKey, PinExpiry.Encode(_pinExpiry));
+	}
+
+	/// <summary>
 	/// Fetches one of the packs on offer, filing it under the catalogue's id.
 	/// <para>
 	/// Nothing is selected as a result. A rider adding Victoria while riding on the New South Wales
@@ -1067,7 +1139,8 @@
 
 	.map-settings fieldset.custom,
 	.map-settings fieldset.appearance,
-	.map-settings fieldset.catalogue {
+	.map-settings fieldset.catalogue,
+	.map-settings fieldset.pin-expiry {
 		margin-top: 1rem;
 	}
 

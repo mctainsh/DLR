@@ -215,6 +215,124 @@ public sealed class NeighbourListTests
 		NeighbourList.FormatRelative(metres).ShouldBe(expected,
 			"the row order already says which way; a minus sign at 0.8 rem through a visor does not.");
 
+	// -- Travellers nobody has heard from -----------------------------------------------------
+
+	/// <summary>
+	/// Builds a roster where each traveller's fix has an age, so the tests below can state "nobody
+	/// has heard from her in twenty minutes" as a fact rather than by sleeping.
+	/// </summary>
+	/// <param name="riders">Each traveller's name, distance along the route, and how old their fix is.</param>
+	private static IReadOnlyList<MemberRow> AgedRoster(
+		params (Guid Id, string Name, double AlongMetres, TimeSpan Age)[] riders)
+	{
+		List<RideMemberSummary> members = [];
+		Dictionary<Guid, RiderPositionDto> positions = [];
+
+		foreach ((Guid id, string name, double along, TimeSpan age) in riders)
+		{
+			members.Add(Member(id, name));
+			positions[id] = Fix(id, name, along, Now - age);
+		}
+
+		return MemberRoster.Build(members, positions, EastwardRoute(), null, Me, Now, MemberSort.AlongRoute);
+	}
+
+	/// <summary>
+	/// The point of <see cref="PinExpiry"/> applied to a gap rather than a pin, and it bites harder
+	/// here: a pin at least sits where the traveller was, and "300 m ahead" is a claim about now.
+	/// A flat phone at the last stop would otherwise drift backwards down the panel all afternoon.
+	/// </summary>
+	[Fact]
+	public void ATravellerNobodyHasHeardFromInTooLong_IsNotNamed()
+	{
+		IReadOnlyList<MemberRow> rows = AgedRoster(
+			(Me, "Me", 1_000, TimeSpan.Zero),
+			(Rider(1), "FlatPhone", 1_100, TimeSpan.FromMinutes(20)),
+			(Rider(2), "Riding", 1_400, TimeSpan.FromSeconds(4)));
+
+		IReadOnlyList<NeighbourRow> panel =
+			NeighbourList.Nearest(rows, Me, selfAlongMetres: 1_000, keepFor: TimeSpan.FromMinutes(10));
+
+		panel.Select(row => row.UserName).ShouldBe(["Riding", "Me"],
+			"the nearer of the two has not been heard from in twenty minutes, and a gap to somebody "
+			+ "who is not there is worse than one line fewer.");
+	}
+
+	/// <summary>
+	/// Dropping one is not the same as leaving a hole where they were: the panel carries four
+	/// travellers, and they should be the four nearest ones who are actually out there.
+	/// </summary>
+	[Fact]
+	public void TheLineAQuietTravellerWouldHaveTaken_GoesToTheNextOneAlong()
+	{
+		IReadOnlyList<MemberRow> rows = AgedRoster(
+			(Me, "Me", 1_000, TimeSpan.Zero),
+			(Rider(1), "Silent", 1_050, TimeSpan.FromHours(1)),
+			(Rider(2), "Near", 1_200, TimeSpan.Zero),
+			(Rider(3), "Far", 4_000, TimeSpan.Zero));
+
+		IReadOnlyList<NeighbourRow> panel =
+			NeighbourList.Nearest(rows, Me, selfAlongMetres: 1_000, count: 1, keepFor: TimeSpan.FromMinutes(10));
+
+		panel.Select(row => row.UserName).ShouldBe(["Near", "Me"]);
+	}
+
+	/// <summary>
+	/// The reader is the thing every other number is measured from, and on a phone their place comes
+	/// from this device's own receiver rather than from the ride's round-tripped copy of it. Ageing
+	/// them out would empty the panel rather than trim it.
+	/// </summary>
+	[Fact]
+	public void TheReaderIsNeverAgedOutOfTheirOwnPanel()
+	{
+		IReadOnlyList<MemberRow> rows = AgedRoster(
+			(Me, "Me", 1_000, TimeSpan.FromHours(2)),
+			(Rider(1), "Riding", 1_200, TimeSpan.Zero));
+
+		IReadOnlyList<NeighbourRow> panel =
+			NeighbourList.Nearest(rows, Me, selfAlongMetres: 1_000, keepFor: TimeSpan.FromMinutes(10));
+
+		panel.Select(row => row.UserName).ShouldBe(["Riding", "Me"]);
+	}
+
+	/// <summary>
+	/// The rule is opt-in, so a caller that has no answer for how long a fix is worth reading gets
+	/// the behaviour the panel has always had rather than a silent cut-off of somebody's choosing.
+	/// </summary>
+	[Fact]
+	public void WithNoLimitAsked_AgeIsNotAReasonToDropAnybody()
+	{
+		IReadOnlyList<MemberRow> rows = AgedRoster(
+			(Me, "Me", 1_000, TimeSpan.Zero),
+			(Rider(1), "Ancient", 1_100, TimeSpan.FromDays(1)));
+
+		NeighbourList.Nearest(rows, Me, selfAlongMetres: 1_000)
+			.Select(row => row.UserName).ShouldBe(["Ancient", "Me"]);
+	}
+
+	/// <summary>
+	/// The other half of the same decision, and the reason dropping them from the panel is honest
+	/// rather than a lie by omission: the members screen still has them, and it writes the age of
+	/// that fix beside every figure it draws from one.
+	/// </summary>
+	[Fact]
+	public void TheMembersScreenKeepsTheTravellerThePanelDropped()
+	{
+		IReadOnlyList<MemberRow> rows = AgedRoster(
+			(Me, "Me", 1_000, TimeSpan.Zero),
+			(Rider(1), "FlatPhone", 1_100, TimeSpan.FromMinutes(20)));
+
+		NeighbourList.Nearest(rows, Me, selfAlongMetres: 1_000, keepFor: TimeSpan.FromMinutes(10))
+			.Select(row => row.UserName).ShouldNotContain("FlatPhone");
+
+		MemberRow dropped = rows.Single(row => row.UserName == "FlatPhone");
+
+		dropped.AlongMetres!.Value.ShouldBe(1_100, tolerance: 5,
+			"nothing was deleted — the roster the members screen draws is untouched by any of this.");
+		dropped.FixAge.ShouldBe(TimeSpan.FromMinutes(20),
+			"and it carries the age that says what happened to them.");
+	}
+
 	// -- When there is nothing to say ---------------------------------------------------------
 
 	/// <summary>
