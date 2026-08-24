@@ -35,6 +35,18 @@ namespace DLR.Core.Contracts.Identity;
 /// <see cref="SetAvatarRequest"/>.
 /// </para>
 /// </param>
+/// <param name="IsAdmin">
+/// Whether this account is named in the server's administration roster (§14.6).
+/// <para>
+/// Read-only, and here rather than in the token because it is the same answer the server checks
+/// per request — a client asking "should I offer the administration screens" and a server asking
+/// "may this caller read them" must not be able to disagree, and a claim minted an hour ago can.
+/// </para>
+/// <para>
+/// It gates a menu entry and nothing else. Every route behind it is checked again server-side, so
+/// a client that set this flag on itself would find three endpoints that still say 403.
+/// </para>
+/// </param>
 public sealed record OwnProfile(
 	string? DisplayName,
 	string? PhoneNumber,
@@ -44,7 +56,8 @@ public sealed record OwnProfile(
 	bool SharePhoneNumber,
 	bool ShareEmail,
 	string? MarkerColour = null,
-	Guid? AvatarPhotoId = null);
+	Guid? AvatarPhotoId = null,
+	bool IsAdmin = false);
 
 /// <summary>
 /// <c>PUT /api/v1/me/profile</c> (§7.14).

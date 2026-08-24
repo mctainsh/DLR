@@ -127,6 +127,19 @@ public sealed class RiderPositionCache(TimeProvider clock)
 			? ride.ToDictionary()
 			: new Dictionary<Guid, PositionEntry>();
 
+	/// <summary>Who currently has a position in a ride, without copying what they are.</summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <returns>The rider ids, or empty when the ride holds nothing.</returns>
+	/// <remarks>
+	/// <see cref="ForRide"/> snapshots every <see cref="PositionEntry"/> so a caller can read the
+	/// values safely. A caller that only wants to know <em>who</em> is out there — the statistics
+	/// screen counting distinct riders — would pay for a copy it immediately discards.
+	/// </remarks>
+	public IEnumerable<Guid> RiderIds(Guid rideId) =>
+		rides.TryGetValue(rideId, out ConcurrentDictionary<Guid, PositionEntry>? ride)
+			? ride.Keys
+			: [];
+
 	/// <summary>Every dirty entry, as the flush wants them (§5.5).</summary>
 	/// <returns>The rows needing a write.</returns>
 	public IReadOnlyList<DirtyPosition> Dirty() =>

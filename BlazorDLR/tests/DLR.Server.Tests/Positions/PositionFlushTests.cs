@@ -212,6 +212,7 @@ public sealed class PositionFlushTests
 
 		PositionFlushService flush = new(
 			cache,
+			new PositionActivityMeter(clock),
 			provider.GetRequiredService<IServiceScopeFactory>(),
 			clock,
 			Options.Create(new RideOptions()),

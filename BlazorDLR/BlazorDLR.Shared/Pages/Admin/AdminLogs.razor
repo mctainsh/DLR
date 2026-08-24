@@ -1,0 +1,308 @@
+@page "/admin/logs"
+@attribute [Authorize]
+@using System.Globalization
+@using DLR.Core.Contracts.Admin
+@inject IApiClient Api
+
+@*
+	The server's log (§14.6).
+
+	**Not this device's log.** Settings → Log is the one that says what the app did on the phone
+	in your hand; this one says what the server did, and the two answer completely different
+	questions. Both are named plainly for that reason.
+
+	The day is picked from a list the server supplies rather than typed, and that is a security
+	property rather than a convenience: the endpoint takes a *date* and builds the filename
+	itself, so there is no way to ask it for a file of your choosing. See ServerLogReader.
+
+	Newest first, because a log is read from the end. The level filter is a floor rather than an
+	exact match — "warnings" means warnings, errors and criticals, which is what somebody
+	looking for a problem means by it.
+*@
+
+<PageTitle>Server log — Administration — Dumb Luck Routes</PageTitle>
+
+<div class="page page-wide admin-logs">
+	<PageNav Title="Server log" BackHref="/admin" BackLabel="Back to administration" />
+
+	<div class="controls">
+		<label>
+			<span>Day</span>
+			<select value="@_day" @onchange="OnDayChangedAsync" aria-label="Which day to read">
+				@if (_page is { AvailableDays.Count: 0 })
+				{
+					<option value="">No files yet</option>
+				}
+				@foreach (DateOnly day in _page?.AvailableDays ?? [])
+				{
+					<option value="@day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)">
+						@day.ToString("ddd d MMM yyyy", CultureInfo.InvariantCulture)
+					</option>
+				}
+			</select>
+		</label>
+
+		<label>
+			<span>From level</span>
+			<select value="@_level" @onchange="OnLevelChangedAsync" aria-label="Lowest level to show">
+				@foreach ((string value, string label) in Levels)
+				{
+					<option value="@value">@label</option>
+				}
+			</select>
+		</label>
+
+		<button type="button" class="secondary" @onclick="LoadAsync">
+			<i class="fa fa-fw fa-rotate" aria-hidden="true"></i> Refresh
+		</button>
+	</div>
+
+	@if (_error is { } problem)
+	{
+		<p class="error">@problem</p>
+	}
+	else if (_page is not { } log)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (log.Entries.Count == 0)
+	{
+		@*
+			Two very different reasons for an empty list, and an administrator who cannot tell them
+			apart will go looking for a fault that is a setting. An empty day list means nothing has
+			ever been written, which on a default deployment means the file log is switched off.
+		*@
+		<p class="empty">
+			@if (log.AvailableDays.Count == 0)
+			{
+				<text>
+					No log files. Writing one is off by default — set <code>FileLog:Enabled</code> to
+					true in the server's configuration and restart it.
+				</text>
+			}
+			else
+			{
+				<text>Nothing at this level on this day.</text>
+			}
+		</p>
+	}
+	else
+	{
+		<div class="scroller">
+			<ol class="entries">
+				@foreach (AdminLogEntry entry in log.Entries)
+				{
+					<li class="@LevelClass(entry.Level)">
+						<span class="when">@Stamp(entry)</span>
+						<span class="level">@(entry.Level.Length == 0 ? "—" : entry.Level)</span>
+						<span class="category" title="@entry.Category">@Short(entry.Category)</span>
+						<span class="message">@entry.Message</span>
+					</li>
+				}
+			</ol>
+		</div>
+
+		<p class="hint">
+			@log.Entries.Count line@(log.Entries.Count == 1 ? null : "s"), newest first.
+			@if (log.Truncated)
+			{
+				<strong>Older lines exist in this file and were not read.</strong>
+			}
+		</p>
+	}
+</div>
+
+@code {
+	/// <summary>
+	/// The floor options. Values are what the server ranks against; the labels say out loud that
+	/// each one includes everything above it, because a naive reading of "Warnings" is that errors
+	/// are excluded.
+	/// </summary>
+	private static readonly (string Value, string Label)[] Levels =
+	[
+		("", "Everything"),
+		("Information", "Information and above"),
+		("Warning", "Warnings and above"),
+		("Error", "Errors and criticals"),
+	];
+
+	private AdminLogPage? _page;
+
+	private string? _error;
+
+	/// <summary>Which day is selected, <c>yyyy-MM-dd</c>, or blank for "whatever is newest".</summary>
+	private string _day = string.Empty;
+
+	private string _level = string.Empty;
+
+	protected override Task OnInitializedAsync() => LoadAsync();
+
+	private async Task OnDayChangedAsync(ChangeEventArgs args)
+	{
+		_day = args.Value?.ToString() ?? string.Empty;
+
+		await LoadAsync();
+	}
+
+	private async Task OnLevelChangedAsync(ChangeEventArgs args)
+	{
+		_level = args.Value?.ToString() ?? string.Empty;
+
+		await LoadAsync();
+	}
+
+	private async Task LoadAsync()
+	{
+		try
+		{
+			DateOnly? day = DateOnly.TryParseExact(
+				_day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly parsed)
+				? parsed
+				: null;
+
+			_page = await Api.AdminLogsAsync(day, _level, take: 500);
+			_error = null;
+
+			// The first load asks for "newest" and the server answers with which day that was, so
+			// the picker can show it selected rather than sitting on a blank option.
+			if (_day.Length == 0)
+			{
+				_day = _page.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+			}
+		}
+		catch (ApiException failure)
+		{
+			_error = failure.Error.Title;
+			_page = null;
+		}
+	}
+
+	/// <summary>The time of day, or a dash for a line that carried no stamp.</summary>
+	private static string Stamp(AdminLogEntry entry) =>
+		entry.Utc is { } utc
+			? utc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture)
+			: "—";
+
+	/// <summary>
+	/// The last two segments of a category. Full type names are the widest thing on the row and
+	/// the namespace is the same for nearly all of them; the whole name is on the title.
+	/// </summary>
+	private static string Short(string category)
+	{
+		if (category.Length == 0)
+		{
+			return "—";
+		}
+
+		string[] parts = category.Split('.');
+
+		return parts.Length <= 2 ? category : string.Join('.', parts[^2..]);
+	}
+
+	/// <summary>The modifier the row is coloured by. Blank for a line with no level, which is not
+	/// the same as a line at the lowest one.</summary>
+	private static string LevelClass(string level) => level.Trim().ToUpperInvariant() switch
+	{
+		"CRIT" or "CRITICAL" => "critical",
+		"ERROR" => "error",
+		"WARN" or "WARNING" => "warning",
+		"DEBUG" or "TRACE" => "quiet",
+		_ => string.Empty,
+	};
+}
+
+<style>
+	.admin-logs .controls {
+		display: flex;
+		align-items: flex-end;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin: 0.75rem 0;
+	}
+
+		.admin-logs .controls label {
+			display: flex;
+			flex-direction: column;
+			gap: 0.2rem;
+			font-size: 0.75rem;
+			color: var(--dlr-fg-muted);
+		}
+
+		/* 44 px, because this is still the app and the app is used with gloves on — even if this
+		   particular screen is mostly read at a desk. */
+		.admin-logs .controls select {
+			min-height: 44px;
+			padding: 0.2rem 0.4rem;
+			background: var(--dlr-surface-2);
+			color: var(--dlr-fg);
+			border: 1px solid var(--dlr-border);
+			border-radius: 4px;
+			font: inherit;
+		}
+
+	.admin-logs .scroller {
+		overflow-x: auto;
+		border: 1px solid var(--dlr-border);
+		border-radius: 4px;
+	}
+
+	.admin-logs .entries {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: 0.75rem;
+	}
+
+		.admin-logs .entries li {
+			display: grid;
+			grid-template-columns: 5.5rem 3.5rem 12rem 1fr;
+			gap: 0.6rem;
+			padding: 0.25rem 0.6rem;
+			border-left: 3px solid transparent;
+		}
+
+		.admin-logs .entries li:nth-child(odd) {
+			background: #fff1;
+		}
+
+		.admin-logs .when, .admin-logs .level, .admin-logs .category {
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			color: var(--dlr-fg-quiet);
+		}
+
+		/* pre-wrap, because the reader unfolds the newlines the writer folded out of a stack
+		   trace — a trace collapsed onto one line is a trace nobody reads. */
+		.admin-logs .message {
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+
+		.admin-logs .entries li.warning { border-left-color: #f59e0b; }
+		.admin-logs .entries li.warning .level { color: #f59e0b; }
+
+		.admin-logs .entries li.error { border-left-color: var(--dlr-error); }
+		.admin-logs .entries li.error .level { color: var(--dlr-error); }
+
+		/* Critical gets a tinted row as well as an edge. It is the one level where the reader
+		   should not have to be scanning the left margin to find it. */
+		.admin-logs .entries li.critical {
+			border-left-color: var(--dlr-error);
+			background: #45181880;
+		}
+
+		.admin-logs .entries li.critical .level {
+			color: var(--dlr-error);
+			font-weight: 700;
+		}
+
+		.admin-logs .entries li.quiet .message { color: var(--dlr-fg-muted); }
+
+	.admin-logs .hint {
+		margin: 0.6rem 0 0;
+		font-size: 0.75rem;
+		color: var(--dlr-fg-muted);
+	}
+</style>

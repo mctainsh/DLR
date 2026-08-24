@@ -1,5 +1,6 @@
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Display;
+using DLR.Server.Admin;
 using DLR.Server.Data;
 using DLR.Server.Data.Identity;
 using DLR.Server.Data.Photos;
@@ -94,16 +95,19 @@ public sealed class ProfileController : ControllerBase
 
 	[HttpGet("/api/v1/me/profile", Name = ProfileEndpoints.GetRouteName)]
 	[EndpointSummary("The caller's own profile values and sharing switches.")]
-	public async Task<IActionResult> GetAsync([FromServices] UserManager<AppUser> users) =>
+	public async Task<IActionResult> GetAsync(
+		[FromServices] UserManager<AppUser> users,
+		[FromServices] AdminRoster roster) =>
 		await User.LoadAsync(users) is { } user
-			? Ok(Describe(user))
+			? Ok(Describe(user, roster))
 			: Unauthorized();
 
 	[HttpPut("/api/v1/me/profile", Name = ProfileEndpoints.UpdateRouteName)]
 	[EndpointSummary("Updates the optional fields and their sharing switches.")]
 	public async Task<IActionResult> UpdateAsync(
 		[FromBody] UpdateProfileRequest request,
-		[FromServices] UserManager<AppUser> users)
+		[FromServices] UserManager<AppUser> users,
+		[FromServices] AdminRoster roster)
 	{
 		if (await User.LoadAsync(users) is not { } user)
 		{
@@ -147,7 +151,7 @@ public sealed class ProfileController : ControllerBase
 		IdentityResult result = await users.UpdateAsync(user);
 
 		return result.Succeeded
-			? Ok(Describe(user))
+			? Ok(Describe(user, roster))
 			: new BadRequestObjectResult(new ValidationProblemDetails(new Dictionary<string, string[]>
 			{
 				[string.Empty] = [.. result.Errors.Select(error => error.Description)],
@@ -157,7 +161,13 @@ public sealed class ProfileController : ControllerBase
 			};
 	}
 
-	private static OwnProfile Describe(AppUser user) => new(
+	/// <summary>
+	/// The owner's own view of their account.
+	/// </summary>
+	/// <param name="user">The account.</param>
+	/// <param name="roster">Answers the one field that is not a column (§14.6).</param>
+	/// <returns>The contract, projected by hand — ApiSurfaceRules forbids the entity itself.</returns>
+	private static OwnProfile Describe(AppUser user, AdminRoster roster) => new(
 		user.DisplayName,
 		user.PhoneNumber,
 		user.Email,
@@ -166,7 +176,8 @@ public sealed class ProfileController : ControllerBase
 		user.SharePhoneNumber,
 		user.ShareEmail,
 		user.MarkerColour,
-		user.AvatarPhotoId);
+		user.AvatarPhotoId,
+		roster.IsAdmin(user.UserName));
 
 	// -- Home private area (§10.1) ------------------------------------------------------------
 	//
@@ -305,6 +316,7 @@ public sealed class ProfileController : ControllerBase
 		[FromBody] SetAvatarRequest request,
 		[FromServices] UserManager<AppUser> users,
 		[FromServices] DlrDbContext database,
+		[FromServices] AdminRoster roster,
 		CancellationToken cancellationToken)
 	{
 		if (await User.LoadAsync(users) is not { } user)
@@ -328,7 +340,7 @@ public sealed class ProfileController : ControllerBase
 
 		IdentityResult result = await users.UpdateAsync(user);
 
-		return result.Succeeded ? Ok(Describe(user)) : Failed(result);
+		return result.Succeeded ? Ok(Describe(user, roster)) : Failed(result);
 	}
 
 	/// <summary>
@@ -342,7 +354,9 @@ public sealed class ProfileController : ControllerBase
 	/// </remarks>
 	[HttpDelete("/api/v1/me/avatar", Name = ProfileEndpoints.ClearAvatarRouteName)]
 	[EndpointSummary("Removes the photograph shown beside the caller's username.")]
-	public async Task<IActionResult> ClearAvatarAsync([FromServices] UserManager<AppUser> users)
+	public async Task<IActionResult> ClearAvatarAsync(
+		[FromServices] UserManager<AppUser> users,
+		[FromServices] AdminRoster roster)
 	{
 		if (await User.LoadAsync(users) is not { } user)
 		{
@@ -353,7 +367,7 @@ public sealed class ProfileController : ControllerBase
 
 		IdentityResult result = await users.UpdateAsync(user);
 
-		return result.Succeeded ? Ok(Describe(user)) : Failed(result);
+		return result.Succeeded ? Ok(Describe(user, roster)) : Failed(result);
 	}
 
 	/// <summary>

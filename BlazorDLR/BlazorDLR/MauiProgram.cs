@@ -236,6 +236,10 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IDeviceSettings, PreferencesDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
+		// Whether to offer the administration card on Settings (§14.6). The server decides — this
+		// only caches the answer so the menu does not ask again on every visit.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.AdminAccess>();
+
 		// Which tiles go under the map (§4.5). Scoped like every other device preference, and
 		// scoped is what lets the settings screen's preview restyle as the rider edits it —
 		// RideMap listens to the same instance the settings page writes.

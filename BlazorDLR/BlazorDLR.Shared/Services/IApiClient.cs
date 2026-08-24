@@ -1,4 +1,5 @@
 using DLR.Core.Contracts.Account;
+using DLR.Core.Contracts.Admin;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
@@ -373,6 +374,42 @@ public interface IApiClient
 	/// to end an account.
 	/// </summary>
 	Task DeleteAccountAsync(DeleteAccountRequest request, CancellationToken cancellationToken = default);
+
+	// -- Administration (§14.6) -----------------------------------------------------------
+	//
+	// All three are 403 for everybody not named in the server's Admins roster, and the screens
+	// behind them are only reachable from a Settings entry that OwnProfile.IsAdmin unlocks. The
+	// flag is a convenience for the menu; these are still checked server-side on every call.
+
+	/// <summary>
+	/// <c>GET /api/v1/admin/users</c> — every account, with what it has put into the service.
+	/// </summary>
+	/// <param name="search">Filters by username, or null for everybody.</param>
+	/// <param name="skip">How many rows to step over.</param>
+	/// <param name="take">How many rows to return.</param>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	Task<IReadOnlyList<AdminUserRow>> AdminUsersAsync(
+		string? search = null,
+		int skip = 0,
+		int take = 50,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>GET /api/v1/admin/logs</c> — the newest entries in the server's log file.
+	/// </summary>
+	/// <param name="day">Which day, or null for the newest the server holds.</param>
+	/// <param name="level">Lowest level to include, or null for everything.</param>
+	/// <param name="take">How many lines.</param>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	Task<AdminLogPage> AdminLogsAsync(
+		DateOnly? day = null,
+		string? level = null,
+		int take = 200,
+		CancellationToken cancellationToken = default);
+
+	/// <summary><c>GET /api/v1/admin/stats</c> — activity, live rides and fixes per minute.</summary>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>The AGPL §13 offer, minted server-side (§14.6.2).</summary>

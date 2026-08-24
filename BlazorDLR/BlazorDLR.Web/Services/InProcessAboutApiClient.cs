@@ -1,5 +1,6 @@
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Account;
+using DLR.Core.Contracts.Admin;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
@@ -133,4 +134,7 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task<IReadOnlyList<BlockedRider>> ListBlocksAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<HttpResponseMessage> ExportAccountAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task DeleteAccountAsync(DeleteAccountRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<IReadOnlyList<AdminUserRow>> AdminUsersAsync(string? search = null, int skip = 0, int take = 50, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<AdminLogPage> AdminLogsAsync(DateOnly? day = null, string? level = null, int take = 200, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 }

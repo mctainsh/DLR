@@ -1,6 +1,7 @@
 ﻿@page "/settings"
 @attribute [Authorize]
 @inject IServiceProvider Services
+@inject AdminAccess Admin
 
 <PageTitle>Settings — Dumb Luck Routes</PageTitle>
 
@@ -70,6 +71,22 @@
 			<p>What the app has been doing on this device. For working out why something did not happen.</p>
 		</a>
 
+		@*
+			The administration screens (§14.6), and the only link to them anywhere in the app.
+
+			Offered on a roster the server keeps, not on anything this account can set — see
+			AdminAccess. It renders once the answer is back rather than reserving a space for it,
+			because for nearly every account the answer is "no" and a card that appeared a moment
+			after the page did would be the only thing on this screen that moved.
+		*@
+		@if (_isAdmin)
+		{
+			<a class="card" href="/admin">
+				<h2><i class="fa fa-fw fa-screwdriver-wrench" aria-hidden="true"></i> Administration</h2>
+				<p>Travellers, server statistics and the server's log. Only for this server's administrators.</p>
+			</a>
+		}
+
 		<div>Version : @typeof(BlazorDLR.Shared.Components.SourceOfferFooter).Assembly.GetName().Version</div>
 	</div>
 </div>
@@ -81,4 +98,12 @@
 	/// the service <em>is</em> the answer rather than something to ask a seam about.
 	/// </summary>
 	private bool HasReceiver => Services.GetService<LocationBroadcastState>() is not null;
+
+	/// <summary>
+	/// Whether to offer the administration card. False until the server has answered, so the
+	/// overwhelmingly common case — an account that is not an administrator — never sees it flicker.
+	/// </summary>
+	private bool _isAdmin;
+
+	protected override async Task OnInitializedAsync() => _isAdmin = await Admin.IsAdminAsync();
 }

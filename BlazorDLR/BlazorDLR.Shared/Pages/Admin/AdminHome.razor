@@ -1,0 +1,68 @@
+@page "/admin"
+@attribute [Authorize]
+@inject AdminAccess Admin
+
+@*
+	The administration screens' front door (§14.6).
+
+	Three destinations and nothing else on it, in the same card shape Settings uses, because
+	it is reached the same way and by the same person — the entry on Settings is the only
+	link to it anywhere in the app.
+
+	**Not on the nav rail.** The rail is five destinations for what a rider opens twice in a
+	ride with gloves on; this is a thing somebody opens at a desk when a question has come
+	up, and it is a thing most accounts must never see at all. See NavMenu's own note on why
+	that list does not grow.
+
+	The gate here is a courtesy, not the control. It stops an administrator's browser
+	offering three screens that would only ever answer 403, and it is checked again — against
+	the server's own roster, per request — by everything behind it.
+*@
+
+<PageTitle>Administration — Dumb Luck Routes</PageTitle>
+
+<div class="page page-medium">
+	<PageNav Title="Administration" BackHref="/settings" BackLabel="Back to settings" />
+
+	@if (_allowed is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (_allowed is false)
+	{
+		<p class="error">
+			This account is not an administrator of this server. Administrators are named in the
+			server's own configuration — there is nothing to switch on from in here.
+		</p>
+	}
+	else
+	{
+		<div class="cards">
+			<a class="card" href="/admin/users">
+				<h2><i class="fa fa-fw fa-users" aria-hidden="true"></i> Travellers</h2>
+				<p>Every account, when it was last heard from, and what it has put into the service.</p>
+			</a>
+
+			<a class="card" href="/admin/stats">
+				<h2><i class="fa fa-fw fa-chart-line" aria-hidden="true"></i> Statistics</h2>
+				<p>Who is active, what is live right now, and GPS fixes per minute over the day.</p>
+			</a>
+
+			<a class="card" href="/admin/logs">
+				<h2><i class="fa fa-fw fa-file-lines" aria-hidden="true"></i> Server log</h2>
+				<p>What the server has been doing. Not this device's log — that one is under Settings.</p>
+			</a>
+		</div>
+	}
+</div>
+
+@code {
+	/// <summary>
+	/// Whether this account may be here. Null while the answer is still being fetched, which is
+	/// drawn as "loading" rather than as "no" — flashing a refusal at an administrator on every
+	/// visit would teach them to ignore it.
+	/// </summary>
+	private bool? _allowed;
+
+	protected override async Task OnInitializedAsync() => _allowed = await Admin.IsAdminAsync();
+}

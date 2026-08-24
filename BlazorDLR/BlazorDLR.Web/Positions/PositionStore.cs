@@ -45,7 +45,11 @@ public sealed record PositionPublication(IReadOnlyList<Guid> RideIds, bool LeftP
 /// <param name="database">The one context.</param>
 /// <param name="cache">The write-behind cache.</param>
 /// <param name="privacy">Who is inside their own private area right now (§10.1).</param>
-public sealed class PositionStore(DlrDbContext database, RiderPositionCache cache, RiderPrivacyCache privacy)
+public sealed class PositionStore(
+	DlrDbContext database,
+	RiderPositionCache cache,
+	RiderPrivacyCache privacy,
+	PositionActivityMeter meter)
 {
 	/// <summary>
 	/// Writes a fix into every ride where this rider's own consent flag is set (§5.7).
@@ -87,6 +91,13 @@ public sealed class PositionStore(DlrDbContext database, RiderPositionCache cach
 		{
 			cache.Upsert(rideId, userId, entry);
 		}
+
+		// Counted here rather than at the flush, and once rather than once per ride. The flush
+		// upserts one row per rider per ride and coalesces a whole period of movement into it, so
+		// counting there would report a rider publishing at 1 Hz as one fix every ten seconds; and
+		// counting per ride would say a rider who joined three adventures rode three times as far.
+		// This is the one place a fix arrives (§5.7), which is what makes it the place to count.
+		meter.Record(userId);
 
 		return new PositionPublication(rideIds, leftPrivateArea);
 	}

@@ -77,6 +77,7 @@ public sealed class HostWithoutGpsTests : PageTestContext
 		Services.AddSingleton<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(auth);
 		Services.AddSingleton<ConfirmService>();
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
+		Services.AddSingleton<AdminAccess>();
 		Services.AddSingleton<RouteStyleState>();
 		Services.AddSingleton<CurrentRideState>();
 		Services.AddSingleton<IMapInterop>(new FakeMapInterop

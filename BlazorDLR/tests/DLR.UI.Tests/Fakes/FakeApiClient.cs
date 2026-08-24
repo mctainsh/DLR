@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Account;
+using DLR.Core.Contracts.Admin;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
@@ -986,5 +987,65 @@ public sealed class FakeApiClient : IApiClient
 		Record(nameof(DeleteAccountAsync));
 		LastDeleteAccountRequest = request;
 		return Task.CompletedTask;
+	}
+
+	// -- Administration (§14.6) --
+
+	/// <summary>What the next <c>AdminUsersAsync</c> answers with.</summary>
+	public IReadOnlyList<AdminUserRow> AdminUsers { get; set; } = [];
+
+	/// <summary>What the next <c>AdminLogsAsync</c> answers with.</summary>
+	public AdminLogPage AdminLogs { get; set; } =
+		new([], new DateOnly(2026, 1, 1), [], Truncated: false);
+
+	/// <summary>What the next <c>AdminStatsAsync</c> answers with.</summary>
+	public AdminStats AdminStats { get; set; } = new(
+		UsersTotal: 0,
+		ActiveLastDay: 0,
+		ActiveLastWeek: 0,
+		ActiveLastMonth: 0,
+		RidersSharingNow: 0,
+		LiveRides: 0,
+		PositionsPerMinute: [],
+		WindowStartUtc: default,
+		MeterStartedUtc: default);
+
+	/// <summary>The search term the last user listing was asked for.</summary>
+	public string? LastAdminSearch { get; private set; }
+
+	/// <summary>
+	/// Set to make the next user listing fail. A 403 is the ordinary failure on this screen — an
+	/// account taken off the roster while the tab was open — so a test needs to be able to cause one.
+	/// </summary>
+	public ApiException? AdminUsersFailure { get; set; }
+
+	public Task<IReadOnlyList<AdminUserRow>> AdminUsersAsync(
+		string? search = null,
+		int skip = 0,
+		int take = 50,
+		CancellationToken cancellationToken = default)
+	{
+		Record(nameof(AdminUsersAsync));
+		LastAdminSearch = search;
+
+		return AdminUsersFailure is { } failure
+			? Task.FromException<IReadOnlyList<AdminUserRow>>(failure)
+			: Task.FromResult(AdminUsers);
+	}
+
+	public Task<AdminLogPage> AdminLogsAsync(
+		DateOnly? day = null,
+		string? level = null,
+		int take = 200,
+		CancellationToken cancellationToken = default)
+	{
+		Record(nameof(AdminLogsAsync));
+		return Task.FromResult(AdminLogs);
+	}
+
+	public Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default)
+	{
+		Record(nameof(AdminStatsAsync));
+		return Task.FromResult(AdminStats);
 	}
 }

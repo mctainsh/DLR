@@ -10,12 +10,14 @@ namespace DLR.Server.Positions;
 /// </para>
 /// </summary>
 /// <param name="cache">Where the dirty entries live.</param>
+/// <param name="meter">The fix counts to fold into each rider's lifetime total (§14.6).</param>
 /// <param name="scopes">A scope per flush, because the writer holds a scoped context.</param>
 /// <param name="clock">Drives the timer, so tests advance rather than sleep (§10.4).</param>
 /// <param name="options">The period.</param>
 /// <param name="logger">Where a failed write is recorded.</param>
 public sealed class PositionFlushService(
 	RiderPositionCache cache,
+	PositionActivityMeter meter,
 	IServiceScopeFactory scopes,
 	TimeProvider clock,
 	IOptions<RideOptions> options,
@@ -58,7 +60,12 @@ public sealed class PositionFlushService(
 	{
 		IReadOnlyList<DirtyPosition> batch = cache.Dirty();
 
-		if (batch.Count == 0)
+		// Drained together with the positions and on the same tick, because they are counts *of*
+		// those positions — and drained before the early return below, so a tick with nothing dirty
+		// still banks the fixes that were coalesced into an earlier write.
+		IReadOnlyDictionary<Guid, long> counted = meter.DrainRiderCounts();
+
+		if (batch.Count == 0 && counted.Count == 0)
 		{
 			// No scope, no connection, no command. A quiet server must be quiet — otherwise the
 			// idle cost of the feature is a database round trip every ten seconds, forever.
@@ -72,6 +79,7 @@ public sealed class PositionFlushService(
 			IPositionWriter writer = scope.ServiceProvider.GetRequiredService<IPositionWriter>();
 
 			await writer.WriteAsync(batch, cancellationToken);
+			await writer.CountAsync(counted, cancellationToken);
 
 			foreach (DirtyPosition position in batch)
 			{
@@ -83,6 +91,11 @@ public sealed class PositionFlushService(
 			// Deliberately leaves the entries dirty. The next tick retries them, and the upsert's
 			// WHERE guard makes retrying safe — whereas marking them clean on a failed write
 			// would silently discard exactly the positions that failed to persist.
+			//
+			// The counts have already left the meter, so they go back by hand or they are gone:
+			// unlike the positions there is no second copy of them anywhere.
+			meter.Restore(counted);
+
 			logger.LogError(exception, "Could not flush {Count} rider positions.", batch.Count);
 		}
 	}

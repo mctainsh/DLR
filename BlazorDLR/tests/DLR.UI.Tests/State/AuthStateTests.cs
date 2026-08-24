@@ -221,5 +221,8 @@ public sealed class AuthStateTests
 		public Task<IReadOnlyList<DLR.Core.Contracts.Moderation.BlockedRider>> ListBlocksAsync(CancellationToken ct = default) => inner.ListBlocksAsync(ct);
 		public Task<HttpResponseMessage> ExportAccountAsync(CancellationToken ct = default) => inner.ExportAccountAsync(ct);
 		public Task DeleteAccountAsync(DLR.Core.Contracts.Account.DeleteAccountRequest r, CancellationToken ct = default) => inner.DeleteAccountAsync(r, ct);
+		public Task<IReadOnlyList<DLR.Core.Contracts.Admin.AdminUserRow>> AdminUsersAsync(string? search = null, int skip = 0, int take = 50, CancellationToken ct = default) => inner.AdminUsersAsync(search, skip, take, ct);
+		public Task<DLR.Core.Contracts.Admin.AdminLogPage> AdminLogsAsync(DateOnly? day = null, string? level = null, int take = 200, CancellationToken ct = default) => inner.AdminLogsAsync(day, level, take, ct);
+		public Task<DLR.Core.Contracts.Admin.AdminStats> AdminStatsAsync(CancellationToken ct = default) => inner.AdminStatsAsync(ct);
 	}
 }

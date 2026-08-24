@@ -258,6 +258,23 @@ input:focus, textarea:focus, select:focus {
     padding: 0 1rem;
 }
 
+/* Text for a screen reader and nobody else. Off-screen rather than display:none, which would
+   take it away from both — the whole point is that it is still read out.
+
+   Here rather than in the one component that first needed it because there are now two, which
+   is the threshold: a utility class with a single consumer is a component's own rule wearing a
+   global name. Bootstrap ships an identical .visually-hidden and is linked by both browser
+   hosts, but no shared component reaches for a Bootstrap utility anywhere else in this project
+   and one that did would be the odd one out. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 .page-narrow { --dlr-page-width: 24rem; }
 .page-form   { --dlr-page-width: 32rem; }
 .page-medium { --dlr-page-width: 40rem; }

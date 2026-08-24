@@ -5,9 +5,11 @@ using BlazorDLR.Shared.State;
 using BlazorDLR.Web.Components;
 using BlazorDLR.Web.Services;
 using DLR.Server;
+using DLR.Server.Admin;
 using DLR.Server.Api;
 using DLR.Server.Comments;
 using DLR.Server.Data;
+using DLR.Server.Diagnostics;
 using DLR.Server.Hubs;
 using DLR.Server.Identity;
 using DLR.Server.Maintenance;
@@ -49,6 +51,12 @@ builder.Services.AddDbContext<DlrDbContext>(options =>
 builder.Services.AddDlrIdentity();
 builder.Services.AddDlrAbuseControls(builder.Configuration);
 
+// The administration roster, its policy, and the log file the log screen reads (§14.6). The
+// roster is a list of usernames in configuration rather than a column, so who may see this is
+// set by whoever controls the deployment and not by anybody using the app.
+builder.Services.AddDlrAdmin(builder.Configuration);
+builder.Logging.AddDlrFileLog();
+
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.Section));
 builder.Services.Configure<BlobStoreOptions>(builder.Configuration.GetSection(BlobStoreOptions.Section));
 builder.Services.AddSingleton<IBlobStore, FileSystemBlobStore>();
@@ -69,6 +77,11 @@ builder.Services.AddSingleton<RiderPositionCache>();
 // Deliberately never a column — a durable log of when each account was at home would be a weaker
 // copy of the very thing the private area withholds (§10.1).
 builder.Services.AddSingleton<RiderPrivacyCache>();
+
+// Counts fixes on their way past, for the administration screen (§14.6). A singleton for the
+// cache's reason — it is live state — and deliberately never on the write path: the flush drains
+// it, so a fix arriving never waits on a counter.
+builder.Services.AddSingleton<PositionActivityMeter>();
 builder.Services.AddScoped<IPositionWriter, PositionWriter>();
 builder.Services.AddSingletonHostedService<PositionFlushService>();
 builder.Services.AddSingletonHostedService<PositionCacheRehydrator>();
@@ -180,6 +193,10 @@ builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternal
 // it boots.
 builder.Services.AddScoped<IDeviceSettings, InMemoryDeviceSettings>();
 builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
+
+// Whether to offer the administration card on Settings (§14.6). The server decides — this only
+// caches the answer so the menu does not ask again on every visit.
+builder.Services.AddScoped<BlazorDLR.Shared.State.AdminAccess>();
 
 // Which tiles go under the map (§4.5). RideMap injects it, so it has to resolve here or the
 // prerender throws before WASM can boot. The in-memory store answers "nothing chosen", which is

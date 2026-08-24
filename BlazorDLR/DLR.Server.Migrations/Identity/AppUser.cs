@@ -41,6 +41,28 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	public DateTimeOffset CreatedUtc { get; set; }
 
 	/// <summary>
+	/// How many GPS fixes this account has ever published (§5.5).
+	/// <para>
+	/// <strong>A counter, because the rows it counts are deleted.</strong> Positions are swept as
+	/// soon as the ride carrying them stops being live, so there is no table left to count — a
+	/// <c>SELECT count(*)</c> over <c>rider_position</c> answers "how many fixes are on a map right
+	/// now", which is a different and much smaller question. This is the only record that a rider
+	/// who has been out every weekend for a year is not a new account.
+	/// </para>
+	/// <para>
+	/// Written by the position flush in one batched statement per tick, never on the publish path
+	/// itself — a fix arriving must not wait on a row lock, and at 500 riders publishing every
+	/// second that lock would be the whole cost of the feature.
+	/// </para>
+	/// <para>
+	/// Accounts that existed before the column start at zero rather than at their true total.
+	/// Nothing was kept that could have back-filled them, and a zero that is visibly wrong is
+	/// better than a number invented to look right.
+	/// </para>
+	/// </summary>
+	public long PositionsRecorded { get; set; }
+
+	/// <summary>
 	/// When the 150-day inactivity warning was sent, or null if it has not been (§7.11).
 	/// <para>
 	/// <strong>Not derivable from the other two columns, which is why it is a column.</strong> The

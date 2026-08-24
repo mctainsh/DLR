@@ -1,0 +1,323 @@
+﻿@page "/admin/stats"
+@attribute [Authorize]
+@using System.Globalization
+@using DLR.Core.Contracts.Admin
+@inject IApiClient Api
+@inject TimeProvider Clock
+@implements IDisposable
+
+@*
+	What the service is doing right now (§14.6).
+
+	Six figures and one graph. The figures divide into two kinds and the screen says which is
+	which, because they are easy to read as one another:
+
+	  - **Sharing now** and **live adventures** are this minute. They come from the position
+	    cache, which is live state.
+	  - **Active in 24 h / 7 d / 30 d** are counted from "last active", which the server writes
+	    at most once an hour per account (§7.10). They are accurate to the hour and are a
+	    measure of who has opened the app, not of who is riding.
+
+	**The graph is this process's own count and starts empty when it restarts.** Positions are
+	deleted with the ride, so there is nothing durable to plot; the server counts fixes in
+	memory as they arrive. That is stated under the graph rather than left to be discovered,
+	because a chart that climbs out of an empty morning looks exactly like a service that lost
+	all its riders overnight.
+
+	Inline SVG rather than a charting library: it is one series of 1 440 integers against a
+	linear axis, and a dependency for that would be a licence to reconcile and a payload to
+	send for a shape that is thirty lines of path data.
+*@
+
+<PageTitle>Statistics — Administration — Dumb Luck Routes</PageTitle>
+
+<div class="page page-wide admin-stats">
+	<PageNav Title="Statistics" BackHref="/admin" BackLabel="Back to administration" />
+
+	@if (_error is { } problem)
+	{
+		<p class="error">@problem</p>
+	}
+	else if (_stats is not { } stats)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else
+	{
+		<div class="stats">
+			<div class="stat live">
+				<span class="value">@stats.RidersSharingNow</span>
+				<span class="label">Sharing now</span>
+			</div>
+			<div class="stat live">
+				<span class="value">@stats.LiveRides</span>
+				<span class="label">Live adventures</span>
+			</div>
+			<div class="stat">
+				<span class="value">@stats.ActiveLastDay</span>
+				<span class="label">Active, 24 h</span>
+			</div>
+			<div class="stat">
+				<span class="value">@stats.ActiveLastWeek</span>
+				<span class="label">Active, 7 d</span>
+			</div>
+			<div class="stat">
+				<span class="value">@stats.ActiveLastMonth</span>
+				<span class="label">Active, 30 d</span>
+			</div>
+			<div class="stat">
+				<span class="value">@stats.UsersTotal</span>
+				<span class="label">Accounts</span>
+			</div>
+		</div>
+
+		<p class="hint">
+			The first two are this minute, from the live position cache. The three
+			<em>active</em> figures count accounts the server has heard from, which it records at
+			most once an hour — they say who has opened the app, not who is out riding.
+		</p>
+
+		<h2>GPS fixes per minute</h2>
+
+		@*
+			Bars rather than a line: the series is mostly zero on a quiet server, and a line
+			through a field of zeros draws a horizontal rule that reads as no data at all rather
+			than as none arriving.
+		*@
+		<div class="chart">
+			<svg viewBox="0 0 @Columns @(ChartHeight + 1)"
+				 preserveAspectRatio="none"
+				 role="img"
+				 aria-label="@ChartSummary(stats)">
+				@for (int index = 0; index < Columns; index++)
+				{
+					int value = _buckets[index];
+
+					if (value == 0)
+					{
+						continue;
+					}
+
+					double height = Math.Max(1, (double)value / _peak * ChartHeight);
+
+					<rect x="@index.ToString(CultureInfo.InvariantCulture)"
+						  y="@((ChartHeight - height).ToString("0.##", CultureInfo.InvariantCulture))"
+						  width="1"
+						  height="@height.ToString("0.##", CultureInfo.InvariantCulture)" />
+				}
+				<line x1="0" y1="@ChartHeight" x2="@Columns" y2="@ChartHeight" class="axis" />
+			</svg>
+
+			<div class="axis-labels">
+				<span>@Label(stats.WindowStartUtc)</span>
+				<span>@Label(stats.WindowStartUtc.AddHours(6))</span>
+				<span>@Label(stats.WindowStartUtc.AddHours(12))</span>
+				<span>@Label(stats.WindowStartUtc.AddHours(18))</span>
+				<span>now</span>
+			</div>
+		</div>
+
+		<p class="hint">
+			Peak @_peak.ToString("N0") in a minute; @_total.ToString("N0") fixes in the
+			window. Counted in memory by this server as the fixes arrived — the stored positions
+			are deleted with the adventure, so there is nothing on disk to plot.
+			@if (stats.MeterStartedUtc > stats.WindowStartUtc)
+			{
+				<strong>
+					Counting began @Label(stats.MeterStartedUtc) — anything before that is missing
+					rather than quiet.
+				</strong>
+			}
+		</p>
+	}
+</div>
+
+@code {
+	/// <summary>How many minutes the graph draws, and the SVG's own width in user units.</summary>
+	private const int Columns = 24 * 60;
+
+	/// <summary>The plot's height in the same units. A 24:1 box, which is what a day of minutes wants.</summary>
+	private const int ChartHeight = 60;
+
+	/// <summary>How often the figures are refetched. A minute, because that is the graph's own unit.</summary>
+	private static readonly TimeSpan Refresh = TimeSpan.FromMinutes(1);
+
+	private AdminStats? _stats;
+
+	private string? _error;
+
+	/// <summary>
+	/// The series, padded to <see cref="Columns"/>.
+	/// <para>
+	/// Held rather than read off the contract each render because the drawing loop indexes it 1 440
+	/// times, and a server that sent a short array — an older build, or one restarted mid-request —
+	/// must not throw at the reader.
+	/// </para>
+	/// </summary>
+	private int[] _buckets = new int[Columns];
+
+	private ITimer? _tick;
+
+	/// <summary>
+	/// The tallest minute, and never zero: it is the divisor.
+	/// <para>
+	/// A field filled once per load rather than a property scanning <see cref="_buckets"/> on every
+	/// read — the draw loop below divides by it 1 440 times, and the page reloads every minute for as
+	/// long as the tab is open.
+	/// </para>
+	/// </summary>
+	private int _peak = 1;
+
+	/// <summary>Every fix in the window, summed on the same pass as <see cref="_peak"/>.</summary>
+	private int _total;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadAsync();
+
+		_tick = Clock.CreateTimer(
+			_ => _ = InvokeAsync(async () =>
+			{
+				await LoadAsync();
+				StateHasChanged();
+			}),
+			state: null,
+			dueTime: Refresh,
+			period: Refresh);
+	}
+
+	private async Task LoadAsync()
+	{
+		try
+		{
+			AdminStats stats = await Api.AdminStatsAsync();
+
+			_buckets = new int[Columns];
+
+			int peak = 1;
+			int total = 0;
+
+			for (int index = 0; index < Math.Min(Columns, stats.PositionsPerMinute.Count); index++)
+			{
+				int value = stats.PositionsPerMinute[index];
+
+				_buckets[index] = value;
+				total += value;
+
+				if (value > peak)
+				{
+					peak = value;
+				}
+			}
+
+			_peak = peak;
+			_total = total;
+
+			_stats = stats;
+			_error = null;
+		}
+		catch (ApiException failure)
+		{
+			_error = failure.Error.Title;
+		}
+	}
+
+	/// <summary>The clock time a minute of the window falls at, in the reader's own zone.</summary>
+	private static string Label(DateTimeOffset instant) =>
+		instant.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
+
+	/// <summary>
+	/// What the chart says, for a reader who cannot see it. A bar chart is an image, and an image
+	/// with no accessible name is 1 440 rectangles announced as nothing.
+	/// </summary>
+	private string ChartSummary(AdminStats stats) =>
+		$"GPS fixes per minute since {Label(stats.WindowStartUtc)}: " +
+		$"{_total:N0} in total, peaking at {_peak:N0} in one minute.";
+
+	public void Dispose() => _tick?.Dispose();
+}
+
+<style>
+	.admin-stats .stats {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+		gap: 0.5rem;
+		margin: 0.75rem 0;
+	}
+
+	.admin-stats .stat {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		padding: 0.6rem 0.75rem;
+		background: var(--dlr-surface-2);
+		border: 1px solid var(--dlr-border);
+		border-radius: 4px;
+	}
+
+		/* The two that mean "this minute". Coloured so the eye separates them from the four that
+		   are counted over days — the note under them says the same thing in words. */
+		.admin-stats .stat.live .value {
+			color: var(--dlr-good);
+		}
+
+		.admin-stats .stat .value {
+			font-size: 1.5rem;
+			font-weight: 700;
+			font-variant-numeric: tabular-nums;
+			line-height: 1.1;
+		}
+
+		.admin-stats .stat .label {
+			font-size: 0.7rem;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			color: var(--dlr-fg-quiet);
+		}
+
+	.admin-stats h2 {
+		margin: 1.25rem 0 0.5rem;
+		font-size: 1rem;
+	}
+
+	.admin-stats .chart {
+		padding: 0.5rem;
+		background: var(--dlr-surface-2);
+		border: 1px solid var(--dlr-border);
+		border-radius: 4px;
+	}
+
+		/* preserveAspectRatio is none on the SVG, so the 1 440 columns stretch to whatever width
+		   the page has: one bar per minute regardless of the viewport, rather than a chart that
+		   has to be scrolled or resampled. */
+		.admin-stats .chart svg {
+			display: block;
+			width: 100%;
+			height: 9rem;
+		}
+
+		.admin-stats .chart rect {
+			fill: var(--dlr-accent);
+		}
+
+		.admin-stats .chart .axis {
+			stroke: var(--dlr-border-strong);
+			stroke-width: 0.5;
+			vector-effect: non-scaling-stroke;
+		}
+
+		.admin-stats .axis-labels {
+			display: flex;
+			justify-content: space-between;
+			margin-top: 0.25rem;
+			font-size: 0.7rem;
+			font-variant-numeric: tabular-nums;
+			color: var(--dlr-fg-quiet);
+		}
+
+	.admin-stats .hint {
+		margin: 0.5rem 0 0;
+		font-size: 0.75rem;
+		color: var(--dlr-fg-muted);
+	}
+</style>

@@ -12,6 +12,13 @@ public interface IPositionWriter
 	/// <param name="batch">What to write.</param>
 	/// <param name="cancellationToken">Abandons the write on shutdown.</param>
 	Task WriteAsync(IReadOnlyList<DirtyPosition> batch, CancellationToken cancellationToken);
+
+	/// <summary>
+	/// Adds each rider's newly counted fixes to their lifetime total (§14.6).
+	/// </summary>
+	/// <param name="counts">Fixes per rider since the last flush.</param>
+	/// <param name="cancellationToken">Abandons the write on shutdown.</param>
+	Task CountAsync(IReadOnlyDictionary<Guid, long> counts, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -51,6 +58,44 @@ public sealed class PositionWriter(DlrDbContext database) : IPositionWriter
 		WHERE excluded.recorded_utc > rider_position.recorded_utc;
 		""";
 
+	/// <summary>
+	/// The lifetime counter's statement.
+	/// <para>
+	/// An <c>UPDATE … FROM UNNEST</c> for the same reason the upsert above is one: this runs on
+	/// every flush for every rider who moved, and a change-tracked read-modify-write would be two
+	/// round trips per rider and a lost update whenever two flushes overlap. <c>+ delta</c> in the
+	/// statement leaves the arithmetic to PostgreSQL, where the row lock already is.
+	/// </para>
+	/// <para>
+	/// A rider deleted between the fix and the flush simply matches nothing, which is the right
+	/// answer — an account that has gone does not need its total kept up to date.
+	/// </para>
+	/// </summary>
+	private const string AddCounts = """
+		UPDATE asp_net_users AS u
+		SET positions_recorded = u.positions_recorded + c.delta
+		FROM UNNEST (@userIds, @deltas) AS c(user_id, delta)
+		WHERE u.id = c.user_id;
+		""";
+
+	/// <inheritdoc />
+	public async Task CountAsync(IReadOnlyDictionary<Guid, long> counts, CancellationToken cancellationToken)
+	{
+		if (counts.Count == 0)
+		{
+			return;
+		}
+
+		NpgsqlConnection connection = await OpenAsync(cancellationToken);
+
+		await using NpgsqlCommand command = new(AddCounts, connection);
+
+		command.Parameters.Add(Array("userIds", NpgsqlDbType.Uuid, [.. counts.Keys]));
+		command.Parameters.Add(Array("deltas", NpgsqlDbType.Bigint, [.. counts.Values]));
+
+		await command.ExecuteNonQueryAsync(cancellationToken);
+	}
+
 	/// <inheritdoc />
 	public async Task WriteAsync(IReadOnlyList<DirtyPosition> batch, CancellationToken cancellationToken)
 	{
@@ -59,12 +104,7 @@ public sealed class PositionWriter(DlrDbContext database) : IPositionWriter
 			return;
 		}
 
-		NpgsqlConnection connection = (NpgsqlConnection)database.Database.GetDbConnection();
-
-		if (connection.State != System.Data.ConnectionState.Open)
-		{
-			await connection.OpenAsync(cancellationToken);
-		}
+		NpgsqlConnection connection = await OpenAsync(cancellationToken);
 
 		await using NpgsqlCommand command = new(Upsert, connection);
 
@@ -85,6 +125,19 @@ public sealed class PositionWriter(DlrDbContext database) : IPositionWriter
 			"times", NpgsqlDbType.TimestampTz, [.. batch.Select(row => row.Entry.RecordedUtc)]));
 
 		await command.ExecuteNonQueryAsync(cancellationToken);
+	}
+
+	/// <summary>The context's own connection, opened if this is the first command on it.</summary>
+	private async Task<NpgsqlConnection> OpenAsync(CancellationToken cancellationToken)
+	{
+		NpgsqlConnection connection = (NpgsqlConnection)database.Database.GetDbConnection();
+
+		if (connection.State != System.Data.ConnectionState.Open)
+		{
+			await connection.OpenAsync(cancellationToken);
+		}
+
+		return connection;
 	}
 
 	private static NpgsqlParameter Array<T>(string name, NpgsqlDbType elementType, T[] values) =>

@@ -4,6 +4,7 @@ using DLR.Server.Data.Moderation;
 using DLR.Server.Data.Positions;
 using DLR.Server.Data.Rides;
 using DLR.Server.Data.Tracks;
+using DLR.Server.Diagnostics;
 using DLR.Server.Identity;
 using DLR.Server.Moderation;
 using DLR.Server.Tracks;
@@ -146,12 +147,17 @@ public sealed class NightlyMaintenanceService(
 				"orphaned blobs",
 				() => DeleteOrphanBlobsAsync(scope, database, settings, now, cancellationToken),
 				0),
+
+			LogFilesDeleted = await SweepAsync(
+				"log files",
+				() => Task.FromResult(DeleteOldLogFiles(scope, settings, now)),
+				0),
 		};
 
 		logger.LogInformation(
 			"Nightly maintenance finished: {Deleted} accounts deleted, {Warned} warned, " +
 			"{Ips} addresses cleared, {Positions} positions, {Tokens} refresh tokens, " +
-			"{Revisions} revisions, {Reports} reports, {Blobs} blobs.",
+			"{Revisions} revisions, {Reports} reports, {Blobs} blobs, {Logs} log files.",
 			report.AccountsDeleted,
 			report.AccountsWarned,
 			report.RegistrationIpsCleared,
@@ -159,7 +165,8 @@ public sealed class NightlyMaintenanceService(
 			report.RefreshTokensDeleted,
 			report.RevisionsPurged,
 			report.ReportsPurged,
-			report.OrphanBlobsDeleted);
+			report.OrphanBlobsDeleted,
+			report.LogFilesDeleted);
 
 		await SweepAsync("run alert", () => AlertAsync(scope, settings, report, now), false);
 
@@ -206,6 +213,7 @@ public sealed class NightlyMaintenanceService(
 				Track revisions purged:  {report.RevisionsPurged}
 				Reports purged:          {report.ReportsPurged}
 				Orphaned blobs deleted:  {report.OrphanBlobsDeleted}
+				Log files deleted:       {report.LogFilesDeleted}
 
 				Inactive account candidates:
 				{candidates}
@@ -391,6 +399,40 @@ public sealed class NightlyMaintenanceService(
 			.ExecuteUpdateAsync(
 				user => user.SetProperty(entity => entity.CreatedByIp, (System.Net.IPAddress?)null),
 				cancellationToken);
+	}
+
+	/// <summary>
+	/// Deletes daily log files past <see cref="FileLogOptions.RetainDays"/> (§14.6).
+	/// <para>
+	/// In the nightly job rather than in the log provider, because it is the same kind of thing as
+	/// every other sweep here — a bounded amount of deletion, once a day, honouring the same
+	/// <see cref="MaintenanceOptions.DryRun"/> switch. A provider that pruned as it wrote would be
+	/// doing filesystem work on the logging path, which is the one place this project has decided
+	/// not to do work.
+	/// </para>
+	/// <para>
+	/// <em>Which</em> files are ours is the reader's question, not this one's — see
+	/// <see cref="ServerLogReader.Prune"/>. This decides only when they expire.
+	/// </para>
+	/// </summary>
+	/// <param name="scope">Where the reader and the settings come from.</param>
+	/// <param name="settings">Honours <see cref="MaintenanceOptions.DryRun"/>.</param>
+	/// <param name="now">The run's instant (§10.4).</param>
+	/// <returns>How many files were deleted, or would have been.</returns>
+	private static int DeleteOldLogFiles(IServiceScope scope, MaintenanceOptions settings, DateTimeOffset now)
+	{
+		FileLogOptions logging = scope.ServiceProvider.GetRequiredService<IOptions<FileLogOptions>>().Value;
+
+		if (logging.RetainDays <= 0)
+		{
+			// Retention off. Kept as an explicit branch rather than a zero-day cut-off, which would
+			// read as "delete everything" and quietly do it.
+			return 0;
+		}
+
+		DateOnly cutoff = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-logging.RetainDays);
+
+		return scope.ServiceProvider.GetRequiredService<ServerLogReader>().Prune(cutoff, settings.DryRun);
 	}
 
 	private static async Task<int> DeleteStalePositionsAsync(

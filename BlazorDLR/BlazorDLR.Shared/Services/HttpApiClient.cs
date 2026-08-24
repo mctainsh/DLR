@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using BlazorDLR.Shared.Diagnostics;
 using DLR.Core.Contracts.Account;
+using DLR.Core.Contracts.Admin;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
@@ -635,4 +636,51 @@ public sealed class HttpApiClient : IApiClient
 	}
 
 	private sealed record UserNameAvailability(bool Available);
+
+	// -- Administration (§14.6) --
+
+	/// <inheritdoc />
+	public async Task<IReadOnlyList<AdminUserRow>> AdminUsersAsync(
+		string? search = null,
+		int skip = 0,
+		int take = 50,
+		CancellationToken cancellationToken = default)
+	{
+		string query = $"?skip={skip}&take={take}";
+
+		if (!string.IsNullOrWhiteSpace(search))
+		{
+			query += $"&search={Uri.EscapeDataString(search.Trim())}";
+		}
+
+		return await GetAsync<List<AdminUserRow>>($"/api/v1/admin/users{query}", cancellationToken);
+	}
+
+	/// <inheritdoc />
+	public Task<AdminLogPage> AdminLogsAsync(
+		DateOnly? day = null,
+		string? level = null,
+		int take = 200,
+		CancellationToken cancellationToken = default)
+	{
+		string query = $"?take={take}";
+
+		// Round-trip date format, never a filename: the server rebuilds the path from this value,
+		// which is the whole of why the log endpoint is not a file-reading endpoint.
+		if (day is { } chosen)
+		{
+			query += $"&day={chosen:yyyy-MM-dd}";
+		}
+
+		if (!string.IsNullOrWhiteSpace(level))
+		{
+			query += $"&level={Uri.EscapeDataString(level)}";
+		}
+
+		return GetAsync<AdminLogPage>($"/api/v1/admin/logs{query}", cancellationToken);
+	}
+
+	/// <inheritdoc />
+	public Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default) =>
+		GetAsync<AdminStats>("/api/v1/admin/stats", cancellationToken);
 }

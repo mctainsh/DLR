@@ -1,0 +1,366 @@
+@page "/admin/users"
+@attribute [Authorize]
+@using DLR.Core.Contracts.Admin
+@inject IApiClient Api
+@inject TimeProvider Clock
+
+@*
+	Every account, with what it has put into the service (§14.6).
+
+	**A table, and one of the few in the app.** Everything else here is a list of cards because
+	everything else is read on a phone at the side of a road; this is read at a desk, and the
+	question it answers — who is this, and is this account doing anything — is a comparison
+	across rows. Comparison is what a table is for. It scrolls sideways inside its own box
+	rather than making the page do it.
+
+	Two of the columns need their own note, because both are counts of things that get deleted:
+
+	  - **GPS** is a lifetime counter kept on the account, not a count of rows. Positions are
+	    swept as soon as the ride carrying them stops being live, so nothing could be counted
+	    after the fact. Accounts that predate the counter read zero, and that is honest rather
+	    than fixable.
+	  - **Live** beside it is the row count — fixes on a map right now — which is nearly always
+	    zero and is the only one of the two that says anything about this minute.
+
+	**Hours** is recorded riding time, summed from the account's own tracks. It is not time
+	spent in the app: nothing has ever measured that, and a number derived from "last active"
+	would be a guess wearing a measurement's clothes.
+*@
+
+<PageTitle>Travellers — Administration — Dumb Luck Routes</PageTitle>
+
+<div class="page page-wide admin-users">
+	<PageNav Title="Travellers" BackHref="/admin" BackLabel="Back to administration" />
+
+	<label class="search">
+		<span class="visually-hidden">Search by username</span>
+		<i class="fa fa-fw fa-magnifying-glass" aria-hidden="true"></i>
+		<input type="search"
+			   placeholder="Search by username"
+			   value="@_search"
+			   @oninput="OnSearchAsync"
+			   autocomplete="off" />
+	</label>
+
+	@if (_error is { } problem)
+	{
+		<p class="error">@problem</p>
+	}
+	else if (_rows is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (_rows.Count == 0)
+	{
+		<p class="empty">No accounts match that.</p>
+	}
+	else
+	{
+		<div class="scroller">
+			<table>
+				@*
+					The columns are declared, not inferred. With table-layout: auto the browser
+					sizes each column from its widest content, and on this table that produced
+					header cells and body cells that did not share a track — the numbers ended up
+					bunched to the left of headings that marched off to the right. Fixed layout
+					takes every width from this colgroup and nothing else, so a heading and the
+					figures under it cannot disagree about where the column is.
+
+					One col carries no width: it takes whatever is left over. That is the name,
+					which is the only column holding text of unpredictable length.
+				*@
+				<colgroup>
+					<col />
+					<col style="width: 6rem" />
+					<col style="width: 6rem" />
+					<col style="width: 5.5rem" />
+					<col style="width: 4rem" />
+					<col style="width: 4.5rem" />
+					<col style="width: 6.5rem" />
+					<col style="width: 5rem" />
+					<col style="width: 4.5rem" />
+					<col style="width: 5rem" />
+					<col style="width: 5.5rem" />
+					<col style="width: 5.5rem" />
+				</colgroup>
+				<thead>
+					<tr>
+						<th scope="col">Traveller</th>
+						<th scope="col">Last active</th>
+						<th scope="col">Joined</th>
+						<th scope="col" class="num" title="Lifetime GPS fixes published">GPS</th>
+						<th scope="col" class="num" title="Fixes currently on a map">Live</th>
+						<th scope="col" class="num">Hours</th>
+						<th scope="col" class="num">Adventures</th>
+						<th scope="col" class="num">Routes</th>
+						<th scope="col" class="num">Posts</th>
+						<th scope="col" class="num">Photos</th>
+						<th scope="col" class="num">Markers</th>
+						<th scope="col" class="num">Devices</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (AdminUserRow row in _rows)
+					{
+						<tr>
+							<th scope="row">
+								<span class="name">@row.UserName</span>
+								@if (row.IsAdmin)
+								{
+									<span class="tag admin" title="Named in the server's admin roster">admin</span>
+								}
+								@*
+									The address and whether it is proved, under the name rather than in a
+									column of its own: it is the widest thing on the row and it is read
+									when somebody has already found the row they wanted.
+								*@
+								@if (!string.IsNullOrWhiteSpace(row.Email))
+								{
+									<span class="email @(row.EmailConfirmed ? null : "unconfirmed")"
+										  title="@(row.EmailConfirmed ? "Confirmed" : "Not confirmed")">@row.Email</span>
+								}
+							</th>
+							<td><span title="@row.LastActiveUtc.ToString("u")">@Ago(row.LastActiveUtc)</span></td>
+							<td><span title="@row.CreatedUtc.ToString("u")">@Ago(row.CreatedUtc)</span></td>
+							<td class="num">@row.PositionsRecorded.ToString("N0")</td>
+							<td class="num @(row.PositionsHeld > 0 ? "now" : null)">@row.PositionsHeld.ToString("N0")</td>
+							<td class="num">@row.TrackedHours.ToString("N1")</td>
+							<td class="num">@row.Adventures</td>
+							<td class="num">@row.Routes</td>
+							<td class="num">@row.Posts</td>
+							<td class="num">@row.Photos</td>
+							<td class="num">@row.Markers</td>
+							<td class="num">@row.Devices</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		<p class="hint">
+			@_rows.Count account@(_rows.Count == 1 ? null : "s"), most recently active first.
+			<strong>GPS</strong> is every fix an account has ever sent; <strong>Live</strong> is how
+			many are on a map at this moment. <strong>Hours</strong> is recorded riding time, not
+			time spent in the app.
+		</p>
+	}
+</div>
+
+@code {
+	/// <summary>The rows on screen, or null while the first page is still being fetched.</summary>
+	private IReadOnlyList<AdminUserRow>? _rows;
+
+	private string _search = string.Empty;
+
+	private string? _error;
+
+	/// <summary>
+	/// Cancels the previous search when a new keystroke arrives.
+	/// <para>
+	/// Without it, typing six characters starts six requests whose answers can land in any order,
+	/// and the list ends up showing the results for whichever one the server happened to finish
+	/// last — which is not necessarily what is in the box.
+	/// </para>
+	/// </summary>
+	private CancellationTokenSource? _inFlight;
+
+	protected override Task OnInitializedAsync() => LoadAsync();
+
+	private async Task OnSearchAsync(ChangeEventArgs args)
+	{
+		_search = args.Value?.ToString() ?? string.Empty;
+
+		await LoadAsync();
+	}
+
+	private async Task LoadAsync()
+	{
+		await (_inFlight?.CancelAsync() ?? Task.CompletedTask);
+		_inFlight?.Dispose();
+
+		CancellationTokenSource mine = new();
+		_inFlight = mine;
+
+		try
+		{
+			_rows = await Api.AdminUsersAsync(_search, take: 200, cancellationToken: mine.Token);
+			_error = null;
+		}
+		catch (OperationCanceledException)
+		{
+			// Superseded by a later keystroke. The request that replaced this one owns the list now.
+		}
+		catch (ApiException failure)
+		{
+			// 403 here is the ordinary case rather than a fault: somebody followed a link, or was
+			// taken off the roster while the tab was open. It is said in the same place as any
+			// other failure because the reader's next move is the same — go back.
+			_error = failure.Error.Title;
+			_rows = null;
+		}
+	}
+
+	/// <summary>
+	/// How long ago, coarsely. The exact stamp is on the cell's title — this column is scanned
+	/// down for "who has gone quiet", which is a question about order of magnitude.
+	/// </summary>
+	private string Ago(DateTimeOffset instant)
+	{
+		TimeSpan age = Clock.GetUtcNow() - instant;
+
+		return age switch
+		{
+			{ TotalMinutes: < 1 } => "just now",
+			{ TotalHours: < 1 } => $"{(int)age.TotalMinutes} min",
+			{ TotalDays: < 1 } => $"{(int)age.TotalHours} h",
+			{ TotalDays: < 31 } => $"{(int)age.TotalDays} d",
+			{ TotalDays: < 365 } => $"{(int)(age.TotalDays / 30)} mo",
+			_ => $"{(int)(age.TotalDays / 365)} y",
+		};
+	}
+}
+
+<style>
+	.admin-users .search {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0.75rem 0;
+		padding: 0 0.6rem;
+		background: var(--dlr-surface-2);
+		border: 1px solid var(--dlr-border);
+		border-radius: 4px;
+		color: var(--dlr-fg-muted);
+	}
+
+		.admin-users .search input {
+			flex: 1 1 auto;
+			min-height: 44px;
+			padding: 0;
+			background: none;
+			border: 0;
+			color: var(--dlr-fg);
+			font: inherit;
+		}
+
+		.admin-users .search input:focus {
+			outline: none;
+		}
+
+	/* The table scrolls inside this rather than making the page scroll sideways: a page whose
+	   whole body slides under the nav rail is a page a reader loses their place in. */
+	.admin-users .scroller {
+		overflow-x: auto;
+		border: 1px solid var(--dlr-border);
+		border-radius: 4px;
+	}
+
+	/* min-width, so a viewport narrower than the twelve columns need scrolls the table inside
+	   .scroller rather than crushing the columns into each other. table-layout: fixed is what
+	   makes the colgroup above authoritative — see the note there. */
+	.admin-users table {
+		width: 100%;
+		min-width: 72rem;
+		table-layout: fixed;
+		border-collapse: collapse;
+		font-size: 0.85rem;
+	}
+
+	.admin-users th, .admin-users td {
+		padding: 0.4rem 0.6rem;
+		text-align: left;
+		white-space: nowrap;
+	}
+
+	/* Headings may wrap inside their column and break a word if they have to, because under
+	   fixed layout anything that will not fit overflows the cell instead of widening it — and an
+	   overflowing heading is exactly the misalignment this table had. Bottom-aligned so a
+	   heading that takes two lines still sits on the same line as its neighbours. */
+	.admin-users thead th {
+		position: sticky;
+		top: 0;
+		background: var(--dlr-surface-2);
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--dlr-fg-quiet);
+		white-space: normal;
+		overflow-wrap: anywhere;
+		vertical-align: bottom;
+	}
+
+	.admin-users tbody tr:nth-child(odd) {
+		background: #fff1;
+	}
+
+	/* Tabular figures, right-aligned: these columns are compared down, and proportional digits
+	   make a column of numbers a ragged edge that cannot be. */
+	/*
+		The numeric columns.
+
+		**Named `num`, and never `figure`.** Bootstrap is linked on every host and its own
+		`.figure` component is `display: inline-block` — which, applied to a cell, stops it being
+		a cell. The nine numeric columns then fall out of the table's column tracks and stack up
+		the side of it, which is exactly what this screen did until the class was renamed. Any
+		class on shared markup has to survive being read by Bootstrap's stylesheet too.
+
+		`display: table-cell` is restated for the same reason rather than left to the user agent:
+		it is one declaration, and it makes the next collision a cosmetic bug instead of a
+		structural one.
+	*/
+	.admin-users .num {
+		display: table-cell;
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.admin-users tbody .num.now {
+		color: var(--dlr-good);
+		font-weight: 600;
+	}
+
+	.admin-users tbody th {
+		font-weight: 600;
+		white-space: normal;
+	}
+
+		.admin-users tbody th .name {
+			display: block;
+		}
+
+		.admin-users .email {
+			display: block;
+			font-weight: 400;
+			font-size: 0.75rem;
+			color: var(--dlr-fg-quiet);
+
+			/* Addresses have no spaces to break at, and this is the one column with no declared
+			   width — without this a long one would overflow the cell it is in. */
+			overflow-wrap: anywhere;
+		}
+
+		/* An address nobody has proved is not a way of reaching this person, and the difference
+		   matters most to whoever is reading this screen because something went wrong. */
+		.admin-users .email.unconfirmed {
+			color: var(--dlr-error);
+			text-decoration: underline dotted;
+		}
+
+	.admin-users .tag.admin {
+		display: inline-block;
+		margin-left: 0.3rem;
+		padding: 0.05rem 0.35rem;
+		border-radius: 3px;
+		background: #ede9fe;
+		color: #5b21b6;
+		font-size: 0.65rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.admin-users .hint {
+		margin: 0.6rem 0 0;
+		font-size: 0.75rem;
+		color: var(--dlr-fg-muted);
+	}
+</style>

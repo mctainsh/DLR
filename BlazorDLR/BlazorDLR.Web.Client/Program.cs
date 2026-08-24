@@ -151,6 +151,10 @@ internal class Program
 		builder.Services.AddScoped<IDeviceSettings, LocalStorageDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
+		// Whether to offer the administration card on Settings (§14.6). The server decides — this
+		// only caches the answer so the menu does not ask again on every visit.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.AdminAccess>();
+
 		// Which tiles go under the map (§4.5). The offline option resolves to OpenStreetMap here —
 		// this host has no pack store (§18.6), which MapSourceState reads off IOfflineStore.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();

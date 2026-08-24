@@ -46,6 +46,9 @@ public sealed record MaintenanceReport
 
 	/// <summary>Blobs on the volume that no row pointed at (§16.6).</summary>
 	public int OrphanBlobsDeleted { get; init; }
+
+	/// <summary>Daily log files older than the configured retention (§14.6).</summary>
+	public int LogFilesDeleted { get; init; }
 }
 
 /// <summary>An account the inactivity predicate selected (§7.11).</summary>
