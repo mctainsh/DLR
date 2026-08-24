@@ -1,5 +1,6 @@
 @using BlazorDLR.Shared.Services
 @using DLR.Core.Contracts.Rides
+@using DLR.Core.Display
 @using DLR.Core.Tracks
 @inject TimeProvider Clock
 
@@ -14,9 +15,14 @@
 	leader. Two lists of the same people, one of them a strict subset of the other, is a
 	screen a rider has to visit twice.
 
-	Every row is derived by MemberRoster, which is where the rules and all four orders live —
-	see that file for why they are not in here. This component is layout: a swatch, a name, a
-	state chip and four figures.
+	Every row is derived by MemberRoster, which is where the rules, all four orders and the words
+	for the four states live — see that file for why they are not in here. This component is
+	layout: a name wearing that rider's marker colour, a state glyph and four figures.
+
+	NeighbourPanel, the other list of live riders, keeps the swatch-and-name this one dropped, and
+	that is not an oversight to tidy up. It sits over the map at 0.8rem with the tiles showing
+	through it; a bordered pill per row at that size, on top of a satellite tile, reads as clutter
+	where a plain square reads as a colour.
 
 	**One state per reason, never a shared grey row** (§5.6, §10.1):
 
@@ -28,8 +34,9 @@
 	    for them, and their pin is not on anybody else's map until they ride out of it.
 
 	Collapsing any two of those is exactly the ambiguity that gets somebody left behind at a
-	junction, so the chip says which, and the colour is never the only thing that does. The
-	last one also takes the four figures away with it — see the note beside them.
+	junction, so each gets its own glyph — a different shape, not the same shape in a different
+	colour, and the word behind it for a screen reader and a long press. The last one also takes
+	the four figures away with it — see the note beside them.
 *@
 
 <div class="live-members row-list">
@@ -69,27 +76,54 @@
 			@foreach (MemberRow row in Rows)
 			{
 				<li class="@(row.IsSelf ? "self" : null)">
-					@*
-						The colour that rider's marker is drawn in on the map (§16.3), so the list and
-						the map name the same person the same way. It is the only thing on the row
-						that carries no words, which is why it is never the whole of an answer — the
-						state chip beside it is text.
-					*@
-					<span class="swatch" style="background: @row.Colour" aria-hidden="true"></span>
-
 					<div class="who">
 						<RiderAvatar UserName="@row.UserName" />
-						<strong>@row.UserName</strong>
-						@if (row.IsSelf)
-						{
-							<span class="you">you</span>
-						}
+
+						@*
+							The name wearing that rider's marker colour (§16.3) — the same pairing the
+							map label and the profile preview are drawn with: the rider picks only the
+							background, and MarkerColours derives the ink, so a white marker cannot end
+							up white on white. It replaces the swatch that used to sit beside the name,
+							because one thing carrying both the colour and the words beats a coloured
+							square that has to be matched to a name by eye.
+
+							The ink is named once and the border takes it from there — an unqualified
+							`border: 1px solid` in the stylesheet resolves to currentColor, which is
+							this colour, so stating it twice would be two places to keep in step.
+
+							The full username, not RiderMarker.Label's crop. The map crops because a
+							label out on a tile has a fixed width to live in; this is the screen a rider
+							opens to read the whole name, and the CSS ellipsis already handles a row too
+							narrow for it.
+
+							Italic for the reader's own row, in place of the "you" chip it replaces. It
+							is a name the rider already knows, so the slant is a reminder rather than
+							the only way to tell — the accent edge down the left of the row is the other.
+						*@
+						<strong class="name" style="background: @row.Colour; color: @MarkerColours.ForegroundFor(row.Colour);">@row.UserName</strong>
+
 						@if (row.Role != "Rider" && !string.IsNullOrEmpty(row.Role))
 						{
 							<span class="role">@row.Role</span>
 						}
-						<span class="state @StateClass(row.Presence)">@StateLabel(row.Presence)</span>
 					</div>
+
+					@*
+						The presence, as a glyph at the right-hand end of the name line rather than a
+						word beside the name. Four chips of four different widths gave a ragged edge
+						that had to be read one row at a time; one fixed-width column of shapes is read
+						down.
+
+						The word goes with it, because §5.6 is about telling the four states apart and
+						a glyph nobody can name does not do that: in the span a screen reader reads,
+						and in the key under the list for everybody else. The title is a desktop
+						nicety on top of those two rather than the answer for either — a WebView on a
+						phone, which is what this screen is written for, has no hover to show it on.
+					*@
+					<span class="state presence @StateClass(row.Presence)" title="@MemberRoster.Label(row.Presence)">
+						<i class="fa fa-fw @StateIcon(row.Presence)" aria-hidden="true"></i>
+						<span class="word">@MemberRoster.Label(row.Presence)</span>
+					</span>
 
 					@*
 						The four figures, each labelled. A bare row of numbers is unreadable on a
@@ -100,8 +134,8 @@
 						A private rider gets none of them, and gets no columns of dashes either
 						(§10.1). Every one of the four is derived from a position the ride no longer
 						holds, so four em dashes would be four invitations to wonder whether the app
-						has lost them — where the chip beside their name has already given the whole
-						answer. Off-route goes with them: a rider who is at home is not off route,
+						has lost them — where the glyph at the end of their name line has already given
+						the whole answer. Off-route goes with them: a rider who is at home is not off route,
 						they are somewhere this ride has agreed not to measure.
 					*@
 					@if (row.Presence == MemberPresence.Private)
@@ -148,6 +182,28 @@
 				</li>
 			}
 		</ul>
+
+		@*
+			The key. A glyph is worth exactly what the reader can name, and the four that replaced
+			§5.6's four words are not glyphs anybody arrives already knowing — so the list says
+			what they mean, once, under the rows where it is out of the way of them.
+
+			All four states every time, not only the ones on screen. The question this answers is
+			usually asked about somebody who is *not* showing what the rider expected, and a key
+			that listed only the states currently in the list would drop the one being looked up
+			at exactly the moment it is wanted.
+		*@
+		<dl class="key">
+			@foreach (MemberPresence presence in AllPresences)
+			{
+				<div>
+					<dt class="presence @StateClass(presence)">
+						<i class="fa fa-fw @StateIcon(presence)" aria-hidden="true"></i>
+					</dt>
+					<dd><strong>@MemberRoster.Label(presence)</strong> — @MemberRoster.Describe(presence)</dd>
+				</div>
+			}
+		</dl>
 	}
 </div>
 
@@ -195,6 +251,13 @@
 	private static readonly MemberSort[] AllSorts =
 		[MemberSort.LastActive, MemberSort.Name, MemberSort.AlongRoute, MemberSort.Range];
 
+	/// <summary>
+	/// The four states, in the order the key lists them: the two that mean a position is arriving
+	/// or has stopped arriving first, then the two that mean there was never going to be one.
+	/// </summary>
+	private static readonly MemberPresence[] AllPresences =
+		[MemberPresence.Sharing, MemberPresence.NoSignal, MemberPresence.NotSharing, MemberPresence.Private];
+
 	private bool HasRoute => Route is { Count: >= 2 };
 
 	/// <summary>
@@ -227,20 +290,32 @@
 		await SortChanged.InvokeAsync(picked);
 	}
 
-	private static string StateLabel(MemberPresence presence) => presence switch
-	{
-		MemberPresence.NotSharing => "not sharing",
-		MemberPresence.NoSignal => "no signal",
-		MemberPresence.Private => "private",
-		_ => "sharing",
-	};
-
+	/// <summary>
+	/// The modifier the row's glyph and the key's are painted by. A CSS class rather than a word,
+	/// which is why it stays here while <see cref="MemberRoster.Label(MemberPresence)"/> and its
+	/// sentence live in MemberRoster: the rider-facing words are the ride's, the class names are
+	/// this markup's.
+	/// </summary>
 	private static string StateClass(MemberPresence presence) => presence switch
 	{
 		MemberPresence.NotSharing => "not-sharing",
 		MemberPresence.NoSignal => "no-signal",
 		MemberPresence.Private => "private",
 		_ => "sharing",
+	};
+
+	/// <summary>
+	/// The glyph for each of §5.6's four states. Four shapes, not one shape in four colours, for
+	/// the reason <c>GroupRideLive</c>'s own receiver glyph gives: the list is read through a visor
+	/// in daylight and the colour is the first thing to go. The same glyphs that screen uses for
+	/// the same facts — a dish for a receiver being heard, a locked house for a private area.
+	/// </summary>
+	private static string StateIcon(MemberPresence presence) => presence switch
+	{
+		MemberPresence.NotSharing => "fa-eye-slash",
+		MemberPresence.NoSignal => "fa-triangle-exclamation",
+		MemberPresence.Private => "fa-house-lock",
+		_ => "fa-satellite-dish",
 	};
 }
 
@@ -284,19 +359,10 @@
 	}
 
 	/* The reader's own row. A left edge rather than a background, so it does not fight the
-	   stripes underneath it or the state chip at the other end. */
+	   stripes underneath it or the state glyph at the other end. */
 	.live-members li.self {
 		border-left: 3px solid var(--dlr-accent);
 		padding-left: calc(0.6rem - 3px);
-	}
-
-	.live-members .swatch {
-		flex: 0 0 auto;
-		width: 1rem;
-		height: 1rem;
-		margin-top: 0.2rem;
-		border: 1px solid #0006;
-		border-radius: 3px;
 	}
 
 	.live-members .who {
@@ -308,13 +374,28 @@
 		min-width: 0;
 	}
 
-		.live-members .who strong {
+		/* The map's rider tag, in HTML: the rider's colour behind the name and the contrasting
+		   ink on top and around it. The same pill the profile preview draws, at list size — not
+		   pixel-identical to the Skia label and not trying to be, because what it has to get
+		   right is the pairing a rider matches the two by. The border is in the ink rather than
+		   a fixed grey for the one colour that needs it: white on a light row is a name floating
+		   with no tag at all. */
+		.live-members .name {
+			max-width: 100%;
+			padding: 0.1rem 0.55rem;
+			border: 1px solid;
+			border-radius: 999px;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
 
-	.live-members .you, .live-members .role {
+		/* The reader's own name, in place of the "you" chip that used to follow it. */
+		.live-members li.self .name {
+			font-style: italic;
+		}
+
+	.live-members .role {
 		font-size: 0.7rem;
 		padding: 0.1rem 0.4rem;
 		border-radius: 3px;
@@ -322,11 +403,66 @@
 		color: #1e40af;
 	}
 
-	.live-members .state { font-size: 0.8rem; padding: 0.15rem 0.5rem; border-radius: 4px; }
-	.live-members .state.sharing { background: #d1fae5; color: #14532d; }
-	.live-members .state.not-sharing { background: #eef1f520; color: #94a3b8; }
-	.live-members .state.no-signal { background: #fef3c730; color: #f87171; }
-	.live-members .state.private { background: #ede9fe; color: #5b21b6; }
+	/* The presence glyph, held at the right-hand end of the name line. margin-left is auto
+	   rather than a fixed column because .who is the part that grows: the glyph lands in the
+	   same place on every row either way, which is the whole point of it being a glyph — four
+	   rows are read down one column rather than one row at a time. */
+	.live-members .state {
+		position: relative;
+		flex: 0 0 auto;
+		margin: 0.2rem 0 0 auto;
+		font-size: 1rem;
+	}
+
+		/* The word itself, off-screen: the title attribute says it on a hover or a long press,
+		   and this is what a screen reader reads. Not display:none, which would take it away
+		   from both. */
+		.live-members .state .word {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+
+	/* Colour still separates them, but it is now the second thing that does. On .presence rather
+	   than .state so the key's glyphs and the rows' are painted by one rule — a key drawn in
+	   different colours from the thing it is a key to is worse than no key. */
+	.live-members .presence.sharing { color: var(--dlr-good); }
+	.live-members .presence.not-sharing { color: var(--dlr-fg-muted); }
+	.live-members .presence.no-signal { color: var(--dlr-error); }
+	/* The one of the four with no token behind it — a private area is not a state anything else in
+	   the app paints, so a --dlr-* entry would have exactly one reader. */
+	.live-members .presence.private { color: #7c3aed; }
+
+	/* The key. Quiet and small: it is read once, by somebody who has just met the glyphs, and
+	   then never again by that rider — so it must not compete with the rows above it. */
+	.live-members .key {
+		margin: 0.75rem 0 0;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--dlr-border);
+		font-size: 0.75rem;
+		color: var(--dlr-fg-muted);
+	}
+
+		/* Glyph and sentence on one line, with the glyphs in a column of their own so the four
+		   shapes can be compared down the edge rather than hunted for in four paragraphs. */
+		.live-members .key > div {
+			display: flex;
+			align-items: baseline;
+			gap: 0.5rem;
+			margin: 0.2rem 0;
+		}
+
+		.live-members .key dt {
+			font-size: 0.9rem;
+		}
+
+		/* Only to drop the user agent's list indent — the sentence wraps on its own. */
+		.live-members .key dd {
+			margin: 0;
+		}
 
 	/* Where the four figures would have been. Muted and not red: nothing is wrong, and a warning
 	   colour would read as one. */

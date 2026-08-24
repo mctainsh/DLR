@@ -447,4 +447,42 @@ public static class MemberRoster
 		MemberSort.Range => "Range",
 		_ => sort.ToString(),
 	};
+
+	/// <summary>
+	/// The one word a rider's state is called by (§5.6).
+	/// <para>
+	/// Here rather than on the screen that draws it, for the reason
+	/// <c>LocationBroadcastState.Describe</c> gives about the receiver's own states: the live list,
+	/// the map's neighbour panel and anything that comes after them must not drift into calling the
+	/// same fact three different things, and a word that can only be checked by rendering a
+	/// component and reading the markup back is a word that gets checked once.
+	/// </para>
+	/// </summary>
+	/// <param name="presence">Which state.</param>
+	/// <returns>The rider-facing word.</returns>
+	public static string Label(MemberPresence presence) => presence switch
+	{
+		MemberPresence.NotSharing => "not sharing",
+		MemberPresence.NoSignal => "no signal",
+		MemberPresence.Private => "private",
+		_ => "sharing",
+	};
+
+	/// <summary>
+	/// What that state means, in the words a rider would use at the side of a road — the sentence
+	/// the live list's key carries under each glyph.
+	/// <para>
+	/// The two that matter most are the two §5.6 exists to keep apart: a group waits at the
+	/// junction for <em>no signal</em>, and does not wait for somebody who is still at home.
+	/// </para>
+	/// </summary>
+	/// <param name="presence">Which state.</param>
+	/// <returns>One sentence, ending in a full stop.</returns>
+	public static string Describe(MemberPresence presence) => presence switch
+	{
+		MemberPresence.NotSharing => "they have sharing turned off, so nothing of theirs is on the map.",
+		MemberPresence.NoSignal => "sharing, but nothing recent has arrived. Their last point is still on the map and it is not moving.",
+		MemberPresence.Private => "inside their own private area — at home, most likely. Their position comes back when they ride out of it.",
+		_ => "their position is arriving, and it is fresh enough to ride on.",
+	};
 }

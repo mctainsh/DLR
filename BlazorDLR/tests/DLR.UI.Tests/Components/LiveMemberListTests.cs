@@ -1,7 +1,9 @@
+using AngleSharp.Dom;
 using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
 using Bunit;
 using DLR.Core.Contracts.Rides;
+using DLR.Core.Display;
 using DLR.Core.Tracks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -13,9 +15,9 @@ namespace DLR.UI.Tests.Components;
 /// <para>
 /// The arithmetic and all four orders belong to <c>MemberRoster</c> and are tested there. What
 /// is left for a renderer is what only a renderer can answer: that every rider gets a row, that
-/// the row says which of §5.6's three states they are in <em>in words</em> rather than by colour
-/// alone, that the swatch is the colour the map draws them in, and that the order control
-/// actually reorders the rows a rider is looking at.
+/// the row says which of §5.6's states they are in by a <em>shape</em> and a word rather than by
+/// colour alone, that the name is drawn as the tag the map draws that rider, and that the order
+/// control actually reorders the rows a rider is looking at.
 /// </para>
 /// </summary>
 public sealed class LiveMemberListTests : BunitContext
@@ -60,10 +62,11 @@ public sealed class LiveMemberListTests : BunitContext
 	}
 
 	[Fact]
-	public void TheThreeStates_AreSaidInWords_NotByColourAlone()
+	public void TheStates_AreSaidInWordsAndInShapes_NotByColourAlone()
 	{
 		// §5.6 leans on these staying distinguishable. A rider reading a phone through a visor in
-		// daylight loses the colour first, so the chip has to carry the word.
+		// daylight loses the colour first, so the glyph has to be a different shape per state and
+		// the word has to be there behind it.
 		Guid sharing = Guid.NewGuid();
 		Guid quiet = Guid.NewGuid();
 		Guid off = Guid.NewGuid();
@@ -80,11 +83,58 @@ public sealed class LiveMemberListTests : BunitContext
 				[sharing] = Fix(sharing, "Live", BaseLat, BaseLon),
 			}));
 
-		string[] states = [.. component.FindAll(".live-members .state").Select(chip => chip.TextContent.Trim())];
+		string[] states = [.. component.FindAll(".live-members .state .word").Select(word => word.TextContent.Trim())];
 
 		states.ShouldContain("sharing");
 		states.ShouldContain("no signal");
 		states.ShouldContain("not sharing");
+
+		// And the shape a rider actually sees is a different one per state — three glyphs in three
+		// colours would be one glyph, which is the thing §5.6 is written against.
+		string[] glyphs = [.. component.FindAll(".live-members .state i").Select(Glyph)];
+
+		glyphs.Length.ShouldBe(3);
+		glyphs.ShouldBeUnique();
+	}
+
+	/// <summary>
+	/// The FontAwesome shape on an icon element, without the <c>fa</c> and <c>fa-fw</c> it shares
+	/// with every other icon in the app. Read off the class list rather than the class attribute so
+	/// the assertion does not answer to what order the classes happen to be written in.
+	/// </summary>
+	private static string Glyph(IElement icon) =>
+		icon.ClassList.Single(name => name.StartsWith("fa-", StringComparison.Ordinal) && name != "fa-fw");
+
+	[Fact]
+	public void TheKey_NamesAllFourGlyphs_WhicheverStatesAreOnScreen()
+	{
+		// The rider on screen is sharing, and the key still has to carry the other three: the
+		// question it answers is nearly always asked about somebody who is *not* doing what was
+		// expected, so a key trimmed to what is showing drops the entry being looked up.
+		IRenderedComponent<LiveMemberList> component = Render<LiveMemberList>(parameters => parameters
+			.Add(p => p.Members, [Member(Guid.NewGuid(), "Adam")]));
+
+		string[] named =
+		[
+			.. component.FindAll(".live-members .key dd strong").Select(entry => entry.TextContent.Trim()),
+		];
+
+		// Exact and in order, not four substring checks over one blob of text — "sharing" appears
+		// inside "not sharing", so a key that said one word four times would pass that.
+		named.ShouldBe(
+		[
+			MemberRoster.Label(MemberPresence.Sharing),
+			MemberRoster.Label(MemberPresence.NoSignal),
+			MemberRoster.Label(MemberPresence.NotSharing),
+			MemberRoster.Label(MemberPresence.Private),
+		]);
+
+		// And each entry is the glyph the rows are drawn with, not a second set that would have to
+		// be kept in step by hand.
+		string[] glyphs = [.. component.FindAll(".live-members .key dt i").Select(Glyph)];
+
+		glyphs.ShouldBeUnique();
+		glyphs.ShouldContain(Glyph(component.Find(".live-members li .state i")));
 	}
 
 	[Fact]
@@ -93,9 +143,13 @@ public sealed class LiveMemberListTests : BunitContext
 		IRenderedComponent<LiveMemberList> component = Render<LiveMemberList>(parameters => parameters
 			.Add(p => p.Members, [Member(Guid.NewGuid(), "Picky", colour: "#dc2626")]));
 
-		// §16.3: the swatch and the pin have to agree, or the swatch is worse than no swatch.
-		(component.Find(".live-members .swatch").GetAttribute("style") ?? string.Empty)
-			.ShouldContain("#dc2626");
+		// §16.3: the name here and the label out on the map have to be the same tag, or the colour
+		// is worse than no colour. Background and ink both, because the ink is derived from the
+		// background rather than chosen — a white marker with white text is a rider who vanished.
+		string style = component.Find(".live-members .name").GetAttribute("style") ?? string.Empty;
+
+		style.ShouldContain("#dc2626");
+		style.ShouldContain(MarkerColours.ForegroundFor("#dc2626"));
 	}
 
 	[Fact]
@@ -107,8 +161,11 @@ public sealed class LiveMemberListTests : BunitContext
 			.Add(p => p.Members, [Member(me, "Me"), Member(Guid.NewGuid(), "Someone")])
 			.Add(p => p.SelfUserId, me));
 
+		// One row, and it is the reader's. The slant that says so is a stylesheet rule on .self,
+		// which is the part a bUnit render cannot see — what it can see, and what that rule hangs
+		// off, is that exactly one row is marked and it is the one carrying the reader's name.
 		component.FindAll(".live-members li.self").Count.ShouldBe(1);
-		component.Find(".live-members li.self").TextContent.ShouldContain("you");
+		component.Find(".live-members li.self .name").TextContent.Trim().ShouldBe("Me");
 	}
 
 	[Fact]

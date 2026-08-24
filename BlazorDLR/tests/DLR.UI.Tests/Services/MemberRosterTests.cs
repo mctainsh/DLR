@@ -577,4 +577,29 @@ public sealed class MemberRosterTests
 	[InlineData(7_200, "2 h")]
 	public void FormatAge_GetsCoarserAsTheFixGetsOlder(int seconds, string expected) =>
 		MemberRoster.FormatAge(TimeSpan.FromSeconds(seconds)).ShouldBe(expected);
+
+	[Fact]
+	public void EveryState_IsCalledSomethingOfItsOwn()
+	{
+		// §5.6's whole point: a group waits at the junction for "no signal" and does not wait for
+		// somebody who is still in their kitchen. Two states sharing a word is that distinction
+		// gone, and it is the kind of thing a rewording does by accident.
+		string[] words = [.. AllStates.Select(MemberRoster.Label)];
+
+		words.ShouldBeUnique();
+		words.ShouldAllBe(word => !string.IsNullOrWhiteSpace(word));
+	}
+
+	[Fact]
+	public void EveryState_ExplainsItself_ForTheKeyUnderTheList()
+	{
+		// The sentence is what a glyph is worth: the list draws four shapes, and a shape nobody can
+		// name tells the four states apart no better than four shades of grey.
+		string[] sentences = [.. AllStates.Select(MemberRoster.Describe)];
+
+		sentences.ShouldBeUnique();
+		sentences.ShouldAllBe(sentence => sentence.EndsWith('.'));
+	}
+
+	private static IEnumerable<MemberPresence> AllStates => Enum.GetValues<MemberPresence>();
 }
