@@ -104,7 +104,7 @@
 					{
 						<tr>
 							<th scope="row">
-								<span class="name">@row.UserName</span>
+								<span>@row.UserName</span>
 								@if (row.IsAdmin)
 								{
 									<span class="tag admin" title="Named in the server's admin roster">admin</span>
@@ -323,10 +323,6 @@
 		font-weight: 600;
 		white-space: normal;
 	}
-
-		.admin-users tbody th .name {
-			display: block;
-		}
 
 		.admin-users .email {
 			display: block;

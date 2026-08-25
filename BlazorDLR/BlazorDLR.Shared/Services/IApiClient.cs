@@ -400,11 +400,16 @@ public interface IApiClient
 	/// <param name="day">Which day, or null for the newest the server holds.</param>
 	/// <param name="level">Lowest level to include, or null for everything.</param>
 	/// <param name="take">How many lines.</param>
+	/// <param name="databaseCommands">
+	/// Whether EF Core's statement lines count against <paramref name="take"/>. False makes the
+	/// server step over them while reading, so the cap is spent on the lines the caller came for.
+	/// </param>
 	/// <param name="cancellationToken">Abandons the call.</param>
 	Task<AdminLogPage> AdminLogsAsync(
 		DateOnly? day = null,
 		string? level = null,
 		int take = 200,
+		bool databaseCommands = true,
 		CancellationToken cancellationToken = default);
 
 	/// <summary><c>GET /api/v1/admin/stats</c> — activity, live rides and fixes per minute.</summary>

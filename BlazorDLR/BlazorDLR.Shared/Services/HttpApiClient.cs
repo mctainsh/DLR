@@ -661,9 +661,10 @@ public sealed class HttpApiClient : IApiClient
 		DateOnly? day = null,
 		string? level = null,
 		int take = 200,
+		bool databaseCommands = true,
 		CancellationToken cancellationToken = default)
 	{
-		string query = $"?take={take}";
+		string query = $"?take={take}&databaseCommands={(databaseCommands ? "true" : "false")}";
 
 		// Round-trip date format, never a filename: the server rebuilds the path from this value,
 		// which is the whole of why the log endpoint is not a file-reading endpoint.

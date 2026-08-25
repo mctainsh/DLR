@@ -44,17 +44,41 @@ internal sealed class FileLogger(FileLoggerProvider provider, string category) :
 
 		ArgumentNullException.ThrowIfNull(formatter);
 
+		provider.Enqueue(Compose(provider.Now, logLevel, category, formatter(state, exception), exception));
+	}
+
+	/// <summary>
+	/// One entry as it appears on disk: stamp, level, category, message, tab-separated.
+	/// <para>
+	/// Shared with <see cref="FileLoggerProvider"/>, which writes the startup block at the head of
+	/// each new day's file without going through a logger — the header has to be the file's first
+	/// line, and anything queued would land behind whatever line caused the roll.
+	/// </para>
+	/// </summary>
+	/// <param name="moment">When the entry happened.</param>
+	/// <param name="level">Its level.</param>
+	/// <param name="category">Usually a type name.</param>
+	/// <param name="message">The formatted message.</param>
+	/// <param name="exception">The exception to append, if there is one.</param>
+	/// <returns>The line, without its terminator.</returns>
+	internal static string Compose(
+		DateTimeOffset moment,
+		LogLevel level,
+		string category,
+		string message,
+		Exception? exception = null)
+	{
 		StringBuilder line = new();
 
 		// Round-trip format: sorts lexically, carries the offset, and parses back without a culture
 		// — which matters because InvariantGlobalization is on solution-wide.
-		line.Append(provider.Now.ToString("O", CultureInfo.InvariantCulture))
+		line.Append(moment.ToString("O", CultureInfo.InvariantCulture))
 			.Append(Separator)
-			.Append(Level(logLevel))
+			.Append(Level(level))
 			.Append(Separator)
 			.Append(category)
 			.Append(Separator)
-			.Append(Flatten(formatter(state, exception)));
+			.Append(Flatten(message));
 
 		if (exception is not null)
 		{
@@ -64,7 +88,7 @@ internal sealed class FileLogger(FileLoggerProvider provider, string category) :
 			line.Append(" | ").Append(Flatten(exception.ToString()));
 		}
 
-		provider.Enqueue(line.ToString());
+		return line.ToString();
 	}
 
 	/// <summary>The short level name, fixed width so a file reads as columns.</summary>

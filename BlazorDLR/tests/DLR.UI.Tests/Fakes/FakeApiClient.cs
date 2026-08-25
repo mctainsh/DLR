@@ -995,8 +995,21 @@ public sealed class FakeApiClient : IApiClient
 	public IReadOnlyList<AdminUserRow> AdminUsers { get; set; } = [];
 
 	/// <summary>What the next <c>AdminLogsAsync</c> answers with.</summary>
-	public AdminLogPage AdminLogs { get; set; } =
-		new([], new DateOnly(2026, 1, 1), [], Truncated: false);
+	public AdminLogPage AdminLogs { get; set; } = new(
+		[],
+		new DateOnly(2026, 1, 1),
+		[],
+		Truncated: false,
+		DatabaseCommandsHidden: 0,
+		Enabled: true,
+		Directory: @"C:\dlr\logs",
+		Problem: null);
+
+	/// <summary>
+	/// Whether the last log read asked for EF Core's statement lines. The filter is the server's,
+	/// so what the screen decides is visible here and nowhere else.
+	/// </summary>
+	public bool? LastAdminLogsDatabaseCommands { get; private set; }
 
 	/// <summary>What the next <c>AdminStatsAsync</c> answers with.</summary>
 	public AdminStats AdminStats { get; set; } = new(
@@ -1037,9 +1050,12 @@ public sealed class FakeApiClient : IApiClient
 		DateOnly? day = null,
 		string? level = null,
 		int take = 200,
+		bool databaseCommands = true,
 		CancellationToken cancellationToken = default)
 	{
 		Record(nameof(AdminLogsAsync));
+		LastAdminLogsDatabaseCommands = databaseCommands;
+
 		return Task.FromResult(AdminLogs);
 	}
 

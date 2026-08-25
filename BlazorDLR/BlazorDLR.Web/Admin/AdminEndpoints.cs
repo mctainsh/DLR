@@ -149,6 +149,12 @@ public sealed class AdminController : ControllerBase
 	/// <param name="day">Which day, <c>yyyy-MM-dd</c> in UTC. Omitted reads the newest available.</param>
 	/// <param name="level">Lowest level to include, or omitted for everything.</param>
 	/// <param name="take">How many lines, newest first.</param>
+	/// <param name="databaseCommands">
+	/// Whether EF Core's statement lines are included. Omitted means yes — the log as written is
+	/// the honest default for a caller that did not ask for a filter. The screen asks for
+	/// <c>false</c>, because filtering here rather than after the page arrives is what lets
+	/// <paramref name="take"/> buy a day of the interesting lines instead of a few minutes of SQL.
+	/// </param>
 	/// <param name="cancellationToken">Abandons the read.</param>
 	/// <returns>The page, empty when file logging is off or that day has no file.</returns>
 	/// <remarks>
@@ -163,8 +169,10 @@ public sealed class AdminController : ControllerBase
 		[FromQuery] DateOnly? day,
 		[FromQuery] string? level,
 		[FromQuery] int take,
+		[FromQuery] bool? databaseCommands,
 		CancellationToken cancellationToken) =>
-		Ok(await reader.ReadAsync(day, take <= 0 ? 200 : take, level, cancellationToken));
+		Ok(await reader.ReadAsync(
+			day, take <= 0 ? 200 : take, level, databaseCommands ?? true, cancellationToken));
 
 	/// <summary>
 	/// What the service is doing right now (§5.5, §7.10).

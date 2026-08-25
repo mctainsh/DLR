@@ -92,11 +92,37 @@ public sealed record AdminLogEntry(
 /// <param name="AvailableDays">Every day the log directory currently holds a file for, newest
 /// first — the picker's options, so a caller never has to guess a filename.</param>
 /// <param name="Truncated">Whether older lines exist in this file beyond what was returned.</param>
+/// <param name="DatabaseCommandsHidden">
+/// How many of EF Core's statement lines the reader stepped over on the way to
+/// <paramref name="Entries"/>, or zero when they were asked for.
+/// <para>
+/// Counted over the part of the file that was read rather than over the whole day, because the
+/// read stops at <paramref name="Truncated"/>. It is here so the screen can say that a filter is
+/// on and how much it is holding back — a short list otherwise reads as a quiet day.
+/// </para>
+/// </param>
+/// <param name="Enabled">Whether the server was asked to write a file at all — <c>FileLog:Enabled</c>
+/// as the running process bound it, not as the file on disk reads.</param>
+/// <param name="Directory">The absolute directory the server resolved and is writing to. Relative
+/// configuration is resolved against the application's base directory, which is not the working
+/// directory under IIS — so the answer to "where are they then" is worth stating rather than
+/// leaving an administrator to derive.</param>
+/// <param name="Problem">Why nothing is being written, when the writer has failed — a directory it
+/// may not create, a disk that has filled. Null when the writer is healthy.</param>
+/// <remarks>
+/// The last three carry no entries and exist for the empty case. "No files" has several causes
+/// that look identical on screen and have completely different fixes, and the one an administrator
+/// guesses at first — the setting — is the one that is usually already right.
+/// </remarks>
 public sealed record AdminLogPage(
 	IReadOnlyList<AdminLogEntry> Entries,
 	DateOnly Day,
 	IReadOnlyList<DateOnly> AvailableDays,
-	bool Truncated);
+	bool Truncated,
+	int DatabaseCommandsHidden,
+	bool Enabled,
+	string Directory,
+	string? Problem);
 
 /// <summary>
 /// What the service is doing right now (§5.5, §7.10).

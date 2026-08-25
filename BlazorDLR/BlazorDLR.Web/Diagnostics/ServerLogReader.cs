@@ -24,18 +24,32 @@ namespace DLR.Server.Diagnostics;
 /// <param name="options">The read cap.</param>
 public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLogOptions> options)
 {
+	/// <summary>The tail of the category EF Core logs every statement it runs under.</summary>
+	private const string DatabaseCommandCategory = "Database.Command";
+
 	/// <summary>
 	/// The newest <paramref name="take"/> entries of a day's log, newest first.
 	/// </summary>
 	/// <param name="day">Which day, in UTC. Null reads the newest day a file exists for.</param>
 	/// <param name="take">How many lines, clamped to <see cref="FileLogOptions.MaxLinesPerRead"/>.</param>
 	/// <param name="minimum">Drop entries below this level, or null for all of them.</param>
+	/// <param name="databaseCommands">
+	/// Whether EF Core's statement lines count towards <paramref name="take"/>.
+	/// <para>
+	/// Dropped here rather than on the screen, and that is the whole point of the parameter: EF
+	/// Core logs every statement it runs, so on a server doing anything at all most of a file is
+	/// SQL. A page filtered after it arrived would spend its whole cap on statements and show an
+	/// administrator a few minutes of history; filtered on the way out of the file, the same cap
+	/// buys them the day.
+	/// </para>
+	/// </param>
 	/// <param name="cancellationToken">Abandons the read.</param>
 	/// <returns>The page, empty when that day has no file.</returns>
 	public async Task<AdminLogPage> ReadAsync(
 		DateOnly? day,
 		int take,
 		string? minimum,
+		bool databaseCommands,
 		CancellationToken cancellationToken)
 	{
 		IReadOnlyList<DateOnly> days = AvailableDays();
@@ -50,11 +64,20 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 
 		if (!IsInsideLogDirectory(path) || !File.Exists(path))
 		{
-			return new AdminLogPage([], target, days, Truncated: false);
+			return Page([], target, days, truncated: false, hidden: 0);
 		}
 
 		List<AdminLogEntry> entries = new(limit);
 		bool truncated = false;
+		int hidden = 0;
+
+		// How many lines may be *looked at*, as against returned. A filtered read yields fewer lines
+		// than it examines — that is the point of filtering while reading — but without a second
+		// bound the day this exists for is the day it is worst: a file that is almost all statements
+		// would be walked from end to beginning, every block parsed, to fill a page of five hundred.
+		// The configured cap is the same promise made about the other end, so it is the honest one
+		// to make here: the cost of a read is the size of what was asked for, not the size of a day.
+		int examine = options.Value.MaxLinesPerRead;
 
 		// Ranked once for the read rather than per line: Rank trims and upper-cases, and the floor is
 		// the same string for every one of the (up to) MaxLinesPerRead lines about to be parsed.
@@ -64,8 +87,24 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 		{
 			AdminLogEntry entry = Parse(line);
 
+			if (--examine < 0)
+			{
+				// Stopped by the scan budget rather than by the page filling up. Older lines exist
+				// either way, which is exactly what Truncated says.
+				truncated = true;
+
+				break;
+			}
+
 			if (Rank(entry.Level) < floor)
 			{
+				continue;
+			}
+
+			if (!databaseCommands && IsDatabaseCommand(entry))
+			{
+				hidden++;
+
 				continue;
 			}
 
@@ -81,8 +120,39 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 			entries.Add(entry);
 		}
 
-		return new AdminLogPage(entries, target, days, truncated);
+		return Page(entries, target, days, truncated, hidden);
 	}
+
+	/// <summary>
+	/// Whether a line is one of EF Core's statement lines.
+	/// <para>
+	/// Matched on the tail of the category rather than in full. The framework's own is
+	/// <c>Microsoft.EntityFrameworkCore.Database.Command</c>, and matching the end also catches a
+	/// second context or an interceptor logging under a category of its own that still ends the
+	/// same way — which is what somebody unticking the box means by "not the SQL".
+	/// </para>
+	/// </summary>
+	/// <param name="entry">A parsed line.</param>
+	/// <returns><c>true</c> when the filter should step over it.</returns>
+	private static bool IsDatabaseCommand(AdminLogEntry entry) =>
+		entry.Category.EndsWith(DatabaseCommandCategory, StringComparison.Ordinal);
+
+	/// <summary>
+	/// Wraps a result in the writer's current state, so an empty page can explain itself.
+	/// </summary>
+	/// <param name="entries">The lines, newest first.</param>
+	/// <param name="day">Which day they came from.</param>
+	/// <param name="days">The picker's options.</param>
+	/// <param name="truncated">Whether the cap cut the read short.</param>
+	/// <param name="hidden">How many statement lines the read stepped over.</param>
+	/// <returns>The page the endpoint returns.</returns>
+	private AdminLogPage Page(
+		IReadOnlyList<AdminLogEntry> entries,
+		DateOnly day,
+		IReadOnlyList<DateOnly> days,
+		bool truncated,
+		int hidden) =>
+		new(entries, day, days, truncated, hidden, provider.Enabled, provider.Directory, provider.Problem);
 
 	/// <summary>Every day the directory currently holds a file for, newest first.</summary>
 	/// <returns>The picker's options. Empty when logging to file is off or nothing has been written.</returns>

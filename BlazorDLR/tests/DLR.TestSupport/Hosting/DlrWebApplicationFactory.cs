@@ -221,6 +221,14 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 
 				["Blobs:RootPath"] = BlobRoot,
 
+				// The shipped settings switch the file log on and point it at a real folder. A
+				// suite that inherited that writes its fake-dated days — 2026-01-01, 2027-02-05 —
+				// into the developer's own log directory and leaves them there, where the
+				// administration screen then offers them beside the real ones. The tests that are
+				// about the writer build their own provider on a temporary directory instead (see
+				// ServerLogReaderTests); everything a test needs to read is in CapturedLogs.
+				["FileLog:Enabled"] = "false",
+
 				// The test host connects over loopback, so the forwarded header is only
 				// honoured if loopback is a known proxy. Without this every test would see
 				// its own socket address and §7.8's per-address rules would be untestable.
