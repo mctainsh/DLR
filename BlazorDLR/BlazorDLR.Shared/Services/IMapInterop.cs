@@ -80,7 +80,28 @@ public interface IMapInterop
 	ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default);
 
 	/// <summary>Move the camera.</summary>
-	ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default);
+	/// <param name="camera">Where the map should be looking.</param>
+	/// <param name="animation">
+	/// How long to take getting there. <see cref="TimeSpan.Zero"/> — the default — puts the camera
+	/// there on the next frame, which is what a caller <em>asserting</em> a view wants: opening on a
+	/// stored camera, framing a ride, straightening after a restyle.
+	/// <para>
+	/// <strong>Anything above zero is for a camera being driven by something that keeps changing</strong>
+	/// — following a rider, or turning the map to their heading (§5.3). Those arrive about once a
+	/// second, and a fix-by-fix jump is a map that lurches: the ground holds still for a second and
+	/// then teleports a bike-length, and on a corner the whole world snaps round in steps. Spreading
+	/// each move across the gap to the next one is what turns that into travel. A duration a little
+	/// under the arrival cadence is the useful range; longer and the map is showing where the rider
+	/// <em>was</em>.
+	/// </para>
+	/// <para>
+	/// It is a request, not a promise. A device set to reduce motion gets the jump — the base map
+	/// honours that preference itself, and a rider who has asked their phone to stop animating things
+	/// has not made an exception for maps.
+	/// </para>
+	/// </param>
+	/// <param name="cancellationToken">Cancels the call.</param>
+	ValueTask SetCameraAsync(MapCamera camera, TimeSpan animation = default, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Frame the camera on a lat / lon box, so the whole of it is on screen at the closest zoom
@@ -96,9 +117,10 @@ public interface IMapInterop
 	/// every screen but the one it was tuned on — which is what a fixed zoom level was.
 	/// </para>
 	/// <para>
-	/// Instantaneous, like <see cref="SetCameraAsync"/> and for the same reason: an animated fit
-	/// reports a stream of intermediate viewports that the Skia overlay draws the route against,
-	/// which reads as the line sliding into place rather than as a map opening on it.
+	/// Instantaneous, always — unlike <see cref="SetCameraAsync"/>, which takes a duration for the
+	/// modes that drive a camera continuously. Nothing drives a fit continuously: it is a caller
+	/// stating what should be on screen, once, and a flight to it reads as the route sliding into
+	/// place rather than as a map opening on it.
 	/// </para>
 	/// <para>
 	/// A no-op on a map that has not attached, and on a box that is not well formed

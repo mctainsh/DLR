@@ -3,10 +3,12 @@ using DLR.Core.Rides;
 using DLR.Server.Data;
 using DLR.Server.Data.Identity;
 using DLR.Server.Data.Rides;
+using DLR.Server.Hubs;
 using DLR.Server.Identity;
 using DLR.Server.Positions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -59,6 +61,9 @@ public static class RideEndpoints
 
 	/// <summary>Route name for a decision.</summary>
 	public const string DecideRouteName = "DecideJoinRequest";
+
+	/// <summary>Route name for taking one's own request back.</summary>
+	public const string WithdrawRouteName = "WithdrawJoinRequest";
 
 	/// <summary>Route name for deleting a ride.</summary>
 	public const string DeleteRouteName = "DeleteRide";
@@ -151,6 +156,7 @@ public sealed class RideController : ControllerBase
 		[FromServices] DlrDbContext database,
 		[FromServices] RequestThrottle throttle,
 		[FromServices] RideNotifications notifications,
+		[FromServices] RideMembers members,
 		[FromServices] IOptions<RideJoinOptions> options,
 		[FromServices] TimeProvider clock)
 	{
@@ -216,15 +222,21 @@ public sealed class RideController : ControllerBase
 
 		if (ride.JoinPolicy == JoinPolicy.Open)
 		{
-			database.Add(new GroupRideMember
+			GroupRideMember joined = new()
 			{
 				GroupRideId = ride.Id,
 				UserId = userId,
 				Role = GroupRideRole.Rider,
 				JoinedUtc = clock.GetUtcNow(),
-			});
+			};
+
+			database.Add(joined);
 
 			await database.SaveChangesAsync();
+
+			// After the commit, so the ride is never told about a member the database does not
+			// have. The people already on it are watching a list this row belongs in (§5.3).
+			await members.AnnounceJoinedAsync(ride.Id, joined);
 
 			return Ok(new JoinResult(ride.Id, Joined: true, RequestId: null));
 		}
@@ -292,7 +304,7 @@ public sealed class RideController : ControllerBase
 
 		await database.SaveChangesAsync();
 
-		await notifications.RequestReceivedAsync(ride, userId);
+		await notifications.RequestReceivedAsync(ride, created);
 
 		return Ok(new JoinResult(ride.Id, Joined: false, created.Id));
 	}
@@ -346,7 +358,41 @@ public sealed class RideController : ControllerBase
 			(row.IsOrganiser ? organised : joined).Add(summary);
 		}
 
-		return Ok(new MyRides(organised, joined));
+		// A second query rather than a join onto the first: a pending requester has no member row,
+		// which is exactly the fact the ride screens rely on (§5.2), so there is nothing to widen
+		// the query above to reach. Most callers have none of these and the query is an index hit
+		// on (user_id, status).
+		//
+		// Projected to WaitingRide and not to RideSummary, and that is the whole point of the type:
+		// the join code and the member count are a member's, and this caller is not one yet.
+		// Projected to an anonymous type and mapped afterwards, exactly as the query above is. The
+		// enum cast is why: GroupRideState and RideStateDto are two different types, and Npgsql has
+		// no translation for a cast between them — done inline it compiles and then 500s at runtime.
+		var asked = await database
+			.Set<GroupRideJoinRequest>()
+			.AsNoTracking()
+			.Where(row => row.UserId == userId && row.Status == JoinRequestStatus.Pending)
+			.OrderByDescending(row => row.RequestedUtc)
+			.Select(row => new
+			{
+				row.GroupRideId,
+				RequestId = row.Id,
+				row.Ride!.Name,
+				row.Ride.StartUtc,
+				row.Ride.State,
+				row.RequestedUtc,
+			})
+			.ToListAsync();
+
+		List<WaitingRide> waiting = [.. asked.Select(row => new WaitingRide(
+			row.GroupRideId,
+			row.RequestId,
+			row.Name,
+			row.StartUtc,
+			(RideStateDto)row.State,
+			row.RequestedUtc))];
+
+		return Ok(new MyRides(organised, joined, waiting));
 	}
 
 	[HttpGet("/api/v1/group-rides/{id:guid}", Name = RideEndpoints.DetailRouteName)]
@@ -412,6 +458,7 @@ public sealed class RideController : ControllerBase
 		[FromBody] DecideJoinRequest decision,
 		[FromServices] DlrDbContext database,
 		[FromServices] RideNotifications notifications,
+		[FromServices] RideMembers members,
 		[FromServices] TimeProvider clock)
 	{
 		if (User.UserId() is not { } userId)
@@ -443,6 +490,10 @@ public sealed class RideController : ControllerBase
 
 		DateTimeOffset now = clock.GetUtcNow();
 
+		// Null on a decline, which is the whole of the difference: declining answers a request
+		// and changes nobody's membership, so there is nothing for the ride to be told.
+		GroupRideMember? admitted = null;
+
 		if (decision.Admit)
 		{
 			if (ride.Members.Count >= ride.MemberCap)
@@ -453,13 +504,15 @@ public sealed class RideController : ControllerBase
 					detail: $"This adventure has reached its limit of {ride.MemberCap} members.");
 			}
 
-			database.Add(new GroupRideMember
+			admitted = new GroupRideMember
 			{
 				GroupRideId = id,
 				UserId = request.UserId,
 				Role = GroupRideRole.Rider,
 				JoinedUtc = now,
-			});
+			};
+
+			database.Add(admitted);
 		}
 
 		request.Status = decision.Admit ? JoinRequestStatus.Approved : JoinRequestStatus.Declined;
@@ -472,7 +525,87 @@ public sealed class RideController : ControllerBase
 
 		await database.SaveChangesAsync();
 
-		await notifications.DecisionMadeAsync(ride, request.UserId, decision.Admit);
+		await notifications.DecisionMadeAsync(ride, request, decision.Admit);
+
+		if (admitted is not null)
+		{
+			// The same announcement the open-code path makes, for the same reason: from the ride's
+			// point of view these are one event — somebody is on it now — and they arrived by two
+			// different doors (§5.2).
+			await members.AnnounceJoinedAsync(id, admitted);
+		}
+
+		return NoContent();
+	}
+
+	/// <summary>
+	/// The asker takes their own request back (§5.2).
+	/// <para>
+	/// <c>DELETE</c> on the same path <see cref="DecideAsync"/> answers with <c>POST</c>: one
+	/// request, two people who may act on it, and the verb is what says which of them is acting.
+	/// </para>
+	/// <para>
+	/// <strong>The row is deleted, not marked.</strong> There is no <c>Withdrawn</c> status and
+	/// there should not be one — nobody decided anything, and recording a decline the organiser
+	/// never made would put a lie in the table the organiser reads. Deleting also frees the
+	/// pending slot, which is the point: a rider who changed their mind is not spending one of
+	/// their allowance on it.
+	/// </para>
+	/// <para>
+	/// <strong>It is not a way out of a block.</strong> Only a <c>Pending</c> row can be withdrawn,
+	/// and a block lives on a <c>Declined</c> one — so the row that stops somebody asking again
+	/// survives this call untouched. Nor does it refund the daily throttle, which counts attempts
+	/// rather than rows (§14.5), so asking and withdrawing in a loop buys nothing.
+	/// </para>
+	/// </summary>
+	[HttpDelete("/api/v1/group-rides/{id:guid}/join-requests/{requestId:guid}", Name = RideEndpoints.WithdrawRouteName)]
+	[EndpointSummary("Takes back a join request the caller made and nobody has answered.")]
+	public async Task<IActionResult> WithdrawAsync(
+		[FromRoute] Guid id,
+		[FromRoute] Guid requestId,
+		[FromServices] DlrDbContext database,
+		[FromServices] RideNotifications notifications)
+	{
+		if (User.UserId() is not { } userId)
+		{
+			return Unauthorized();
+		}
+
+		// The caller's own id is in the predicate, not checked after the fetch: this is the whole
+		// of the authorisation, and somebody else's request must be as invisible here as a request
+		// that does not exist. A ride id travels in links (§5.2), so the two answer alike.
+		GroupRideJoinRequest? request = await database
+			.Set<GroupRideJoinRequest>()
+			.SingleOrDefaultAsync(row =>
+				row.Id == requestId
+				&& row.GroupRideId == id
+				&& row.UserId == userId
+				&& row.Status == JoinRequestStatus.Pending);
+
+		if (request is null)
+		{
+			// Already answered, already withdrawn, or never theirs. NoContent rather than NotFound
+			// on the first two: the caller asked for this request to be gone and it is gone, and a
+			// rider who taps Withdraw a half-second after the organiser taps Admit should not be
+			// shown a failure for a race they cannot see. Their next load says which way it went.
+			return NoContent();
+		}
+
+		GroupRide? ride = await database
+			.Set<GroupRide>()
+			.SingleOrDefaultAsync(row => row.Id == id);
+
+		database.Remove(request);
+
+		await database.SaveChangesAsync();
+
+		if (ride is not null)
+		{
+			// The organiser's badge is counting this one. Nothing is e-mailed — an organiser does
+			// not need a message every time somebody changes their mind, and the count going down
+			// is the whole of what they need to know.
+			await notifications.RequestWithdrawnAsync(ride, request);
+		}
 
 		return NoContent();
 	}
@@ -609,30 +742,127 @@ public sealed class RideController : ControllerBase
 }
 
 /// <summary>
+/// Telling a ride that somebody is now on it (§5.2, §5.3).
+/// <para>
+/// Its own service rather than three more <c>[FromServices]</c> parameters on each of the two
+/// endpoints that admit people: building the member row the way the list draws it needs the
+/// account (for the handle and the marker colour) and the position store (for whether they are
+/// inside their own private area), and doing that twice is how the two doors into a ride come to
+/// describe the same rider differently.
+/// </para>
+/// </summary>
+/// <param name="database">For the account behind the membership row.</param>
+/// <param name="positions">For the one member flag that is not on the row.</param>
+/// <param name="hub">The live connections.</param>
+/// <param name="logger">Where a failed announcement is recorded.</param>
+public sealed class RideMembers(
+	DlrDbContext database,
+	PositionStore positions,
+	IHubContext<RideHub, IRideClient> hub,
+	ILogger<RideMembers> logger)
+{
+	/// <summary>Tells everybody already on the ride that the membership grew.</summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="member">The row that was just committed.</param>
+	public async Task AnnounceJoinedAsync(Guid rideId, GroupRideMember member)
+	{
+		AppUser? user = await database.Users.FindAsync(member.UserId);
+
+		if (user is null)
+		{
+			// The foreign key says this cannot happen. Nothing useful to announce without a handle
+			// to announce, and the membership itself is already recorded.
+			return;
+		}
+
+		await hub.AnnounceJoinedAsync(
+			rideId,
+			new RideMemberSummary(
+				member.UserId,
+				user.UserName!,
+				member.Role.ToString(),
+				member.JoinedUtc,
+
+				// Off, and read from the row rather than assumed: joining a ride and agreeing to
+				// broadcast are separate decisions and the second one defaults to off (§5.6).
+				member.ShareLocation,
+
+				// Nobody has a fix in a ride they joined a moment ago. Stated rather than looked
+				// up, because the lookup is ride-scoped and could only ever answer false here.
+				HasPosition: false,
+
+				// How their marker is painted on the live map (§16.3).
+				user.MarkerColour,
+
+				// The one flag that is neither on the membership row nor false by construction: a
+				// private area is a property of the rider, not of this ride, so somebody can join
+				// from their own kitchen and be hidden from the first moment (§10.1).
+				positions.PrivateRiders().Contains(member.UserId)),
+			logger);
+	}
+}
+
+/// <summary>
 /// Telling people what happened to a request (§5.2).
 /// <para>
-/// §5.2 specifies push, which is Phase 2 work. Email is what exists, and it goes only where an
-/// address is known — silently impossible otherwise, which is another line in §7.2's trade-off.
-/// When push arrives this is where it attaches.
+/// Two transports, and they answer different questions. The <strong>hub</strong> reaches the
+/// people who decide, on the screens they already have open, and is what keeps the waiting count
+/// on the live map and the info page true without a reload (§5.3). <strong>E-mail</strong>
+/// reaches whoever is not looking — including the asker, who is not on the ride yet and so is in
+/// no hub group at all.
+/// </para>
+/// <para>
+/// §5.2 specifies push, which is Phase 2 work. When it arrives this is still where it attaches.
+/// Email goes only where an address is known — silently impossible otherwise, which is another
+/// line in §7.2's trade-off.
+/// </para>
+/// <para>
+/// <strong>Neither transport may undo what has been recorded.</strong> The row is committed by
+/// the time anything here runs, so a hub that has gone away and a mail server that is down are
+/// both logged and swallowed (§7.12). It also means the two are independent: an organiser with
+/// no e-mail address still gets the live count.
 /// </para>
 /// </summary>
 /// <param name="database">For looking up who to tell.</param>
-/// <param name="email">The transport.</param>
+/// <param name="hub">The live connections.</param>
+/// <param name="email">The transport for whoever is not looking.</param>
 /// <param name="logger">Where a failed notification is recorded.</param>
 public sealed class RideNotifications(
 	DlrDbContext database,
+	IHubContext<RideHub, IRideClient> hub,
 	IEmailSender email,
 	ILogger<RideNotifications> logger)
 {
-	/// <summary>Tells the organiser somebody is waiting.</summary>
+	/// <summary>Tells the people who decide that somebody is waiting.</summary>
 	/// <param name="ride">The ride.</param>
-	/// <param name="requesterId">Who asked.</param>
-	public async Task RequestReceivedAsync(GroupRide ride, Guid requesterId)
+	/// <param name="request">The row that was just written.</param>
+	public async Task RequestReceivedAsync(GroupRide ride, GroupRideJoinRequest request)
 	{
-		AppUser? organiser = await database.Users.FindAsync(ride.OwnerId);
-		AppUser? requester = await database.Users.FindAsync(requesterId);
+		AppUser? requester = await database.Users.FindAsync(request.UserId);
 
-		if (organiser?.Email is null || requester is null)
+		if (requester is null)
+		{
+			// The foreign key says this cannot happen. Returning rather than throwing, because the
+			// request is already committed and there is nothing useful left to say about it.
+			return;
+		}
+
+		// Before the e-mail, and not conditional on it. An organiser who never confirmed an address
+		// still has the app open, and the badge is the notification for them.
+		await AnnounceAsync(
+			ride.Id,
+			client => client.JoinRequestReceived(
+				ride.Id,
+				new JoinRequestSummary(
+					request.Id,
+					request.UserId,
+					requester.UserName!,
+					request.Message,
+					request.RequestedUtc)));
+
+		AppUser? organiser = await database.Users.FindAsync(ride.OwnerId);
+
+		if (organiser?.Email is null)
 		{
 			return;
 		}
@@ -649,13 +879,23 @@ public sealed class RideNotifications(
 			ride.Id);
 	}
 
-	/// <summary>Tells the rider what the organiser decided.</summary>
+	/// <summary>
+	/// Tells the rider what the organiser decided, and takes the answered request off the
+	/// deciders' count.
+	/// </summary>
 	/// <param name="ride">The ride.</param>
-	/// <param name="riderId">Who asked.</param>
+	/// <param name="request">The request that was answered.</param>
 	/// <param name="admitted">Whether they are in.</param>
-	public async Task DecisionMadeAsync(GroupRide ride, Guid riderId, bool admitted)
+	public async Task DecisionMadeAsync(GroupRide ride, GroupRideJoinRequest request, bool admitted)
 	{
-		AppUser? rider = await database.Users.FindAsync(riderId);
+		// The deciders, not the rider — see IRideClient.JoinRequestDecided. This is the half that
+		// stops an organiser's second device, or a co-leader's, from going on showing a number that
+		// has already been answered. The rider is told by e-mail, below.
+		await AnnounceAsync(
+			ride.Id,
+			client => client.JoinRequestDecided(ride.Id, new JoinResult(ride.Id, admitted, request.Id)));
+
+		AppUser? rider = await database.Users.FindAsync(request.UserId);
 
 		if (rider?.Email is null)
 		{
@@ -676,6 +916,45 @@ public sealed class RideNotifications(
 					The organiser of {ride.Name} did not admit you this time.
 					""",
 			ride.Id);
+	}
+
+	/// <summary>
+	/// Takes a withdrawn request off the deciders' count (§5.2).
+	/// <para>
+	/// Hub only, no e-mail. The other two events here are about a decision somebody is waiting on;
+	/// this one is somebody quietly changing their mind, and an organiser who is not looking at the
+	/// app does not need to be told about it at all — the list will simply be one shorter when they
+	/// next open it.
+	/// </para>
+	/// </summary>
+	/// <param name="ride">The ride.</param>
+	/// <param name="request">The request that was taken back.</param>
+	public Task RequestWithdrawnAsync(GroupRide ride, GroupRideJoinRequest request) =>
+		AnnounceAsync(ride.Id, client => client.JoinRequestWithdrawn(ride.Id, request.Id));
+
+	/// <summary>
+	/// Sends one message to everybody who may decide who is on this ride (§5.2).
+	/// <para>
+	/// Swallowing, on <see cref="SendAsync"/>'s reasoning and §7.12's rule: the request or the
+	/// decision is already in the database, and a hub that cannot deliver must not turn a committed
+	/// write into a 500 for the person who made it. The cost of a lost message is one stale badge
+	/// until the next load re-counts, which is what <c>RideSession.RefreshJoinRequestsAsync</c> is
+	/// for — §5.3's rule holds here as everywhere: the snapshot is authoritative and this is the
+	/// delta on top.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride's deciders.</param>
+	/// <param name="send">What to send them.</param>
+	private async Task AnnounceAsync(Guid rideId, Func<IRideClient, Task> send)
+	{
+		try
+		{
+			await send(hub.Clients.Group(RideHub.DecidersGroup(rideId)));
+		}
+		catch (Exception exception)
+		{
+			logger.LogError(exception, "Could not announce a join request for {RideId}.", rideId);
+		}
 	}
 
 	private async Task SendAsync(string to, string subject, string body, Guid rideId)

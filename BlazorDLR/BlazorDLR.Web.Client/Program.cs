@@ -127,6 +127,9 @@ internal class Program
 		// implementation in BlazorDLR.Web.Client/Services/BrowserMediaPicker.cs.
 		builder.Services.AddScoped<IMediaPicker, BrowserMediaPicker>();
 
+		// Downloads go the only way a browser offers: a Blob URL on a synthetic anchor click.
+		builder.Services.AddScoped<IFileSaver, BrowserFileSaver>();
+
 		// Social sign-in (§7.16). Scaffolded but not available today — real bindings
 		// need registrations at the provider that happen with store submission (Phase 3
 		// exit criterion). The Welcome page shows the buttons dimmed until IsAvailable

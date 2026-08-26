@@ -5,16 +5,26 @@
 @using DLR.Core.Contracts.Rides
 @inject IApiClient Api
 @inject ConfirmService Confirm
+@* §ClockRules: never DateTime.Now — the wait below is measured against the injected clock. *@
+@inject TimeProvider Clock
+@* Leaving takes the rail's globe with it when it was pointing at this ride (§18.6), and the
+   device's own copy of it (§4.4) — a ride nobody is on must not still open from a cache. *@
+@inject CurrentRideState CurrentRide
+@inject RideSnapshotCache Cache
 
 <PageTitle>Group adventures — Dumb Luck Routes</PageTitle>
 
 @*
 	The signed-in entry point to group rides (§5.2).
 
-	Two sections split server-side (§5.2), so a member of one ride and the organiser of
-	another gets two lists rather than one list plus a filter. Both sections show the join
+	Sections split server-side (§5.2), so a member of one ride and the organiser of
+	another gets two lists rather than one list plus a filter. Both show the join
 	code — a rider who has joined needs it to tell somebody else how to follow along, and
 	the badge is the only place they can read it back off.
+
+	The third list is the odd one out and is meant to be: an adventure the rider has asked to
+	join and not been let into is not theirs yet. Its rows do not open, they carry no join code,
+	and the section is absent entirely when nobody is waiting on anything.
 *@
 
 <div class="page page-medium">
@@ -50,6 +60,73 @@
 	}
 	else
 	{
+		@*
+			Waiting on somebody else's decision (§5.2).
+
+			First, because it is the only list on this page with an open question in it. The other
+			two are things the rider can already do; this one is the one they came back to check.
+
+			Rendered only when it has rows, unlike the two below it. Those say "you have not created
+			any adventures yet" because being empty is a state worth naming to somebody who has just
+			arrived — it is what the two cards at the top are an answer to. This one has no such
+			job: almost nobody ever has a pending request, and a permanent "you are not waiting on
+			anything" is a line every rider reads forever so that a few can read it once.
+		*@
+		@if (_rides.Waiting.Count > 0)
+		{
+			<section class="ride-section waiting">
+				<h2>Waiting for approval</h2>
+				<ul class="ride-list">
+					@foreach (WaitingRide waiting in _rides.Waiting)
+					{
+						@*
+							A li and not an anchor. Every other row on this page opens a ride; this one
+							cannot, because the caller is not on it — the detail endpoint answers a
+							non-member the same 404 a stranger gets (§5.2), so a link here would be a
+							control that leads to a dead end. Nothing about the row invites a tap.
+						*@
+						<li class="ride pending">
+							<div class="ride-link">
+								<h2>@waiting.Name</h2>
+								<span class="meta">
+									@waiting.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")
+									· @waiting.State
+								</span>
+								@*
+									How long they have been waiting, which is the thing this list is
+									really for. "Asked 3 days ago" is what tells somebody the organiser
+									is never going to answer; a date on its own leaves them counting.
+								*@
+								<span class="meta asked">Asked @Ago(waiting.RequestedUtc)</span>
+							</div>
+
+							@* No join code here, and none available to put here — see WaitingRide. *@
+							<span class="pending-badge" title="The organiser has not answered yet">
+								<i class="fa fa-fw fa-hourglass-half" aria-hidden="true"></i>
+								Pending
+							</span>
+
+							@*
+								The way out of a wait. Until this existed the only way to stop waiting was to
+								be answered, which for a ride whose organiser has gone quiet is never.
+
+								Not `danger`, unlike the organiser's trash beside it: nothing is destroyed
+								here but a request nobody answered, and the rider can ask again with the same
+								code the moment they change their mind back. The trash is red because it takes
+								an adventure away from everybody; this one is the smallest undo in the app.
+							*@
+							<button type="button" class="withdraw" disabled="@(_leaving == waiting.RideId)"
+									title="Withdraw this request"
+									aria-label="@($"Withdraw your request to join {waiting.Name}")"
+									@onclick="() => WithdrawAsync(waiting)">
+								<i class="fa fa-fw fa-xmark" aria-hidden="true"></i>
+							</button>
+						</li>
+					}
+				</ul>
+			</section>
+		}
+
 		<section class="ride-section">
 			<h2>Organised by you</h2>
 			@if (_rides.Organised.Count == 0)
@@ -118,6 +195,27 @@
 									@ride.JoinCode
 								</span>
 							}
+
+							@*
+								Leaving, from the list rather than only from inside the ride (§5.6).
+
+								It was reachable before this — the ride's own info page has "Leave adventure…"
+								— but only by opening the ride first, which is the wrong shape for the case it
+								is most wanted in: a rider tidying up several adventures they are done with.
+								The confirm is the same one, and it is the confirm rather than the placement
+								that makes this safe.
+
+								Only on this list. The organised rows have the trash instead, and the server
+								refuses to let an organiser leave their own ride outright (409, "a ride nobody
+								organises has nobody to decide who is in it") — so a Leave there would be a
+								control that cannot work.
+							*@
+							<button type="button" class="leave" disabled="@(_leaving == ride.Id)"
+									title="Leave this adventure"
+									aria-label="@($"Leave {ride.Name}")"
+									@onclick="() => LeaveAsync(ride)">
+								<i class="fa fa-fw fa-right-from-bracket" aria-hidden="true"></i>
+							</button>
 						</li>
 					}
 				</ul>
@@ -134,7 +232,32 @@
 	// and greying all of them out because one is going says the wrong thing about the others.
 	private Guid? _deleting;
 
+	// The same idea for the two ways off a ride. One field for both, because a row is either a
+	// membership or a request and never both — and it is keyed by ride id in both cases, so a
+	// rider who is somehow on one list and waiting on the other still only ever locks one row.
+	private Guid? _leaving;
+
 	protected override async Task OnInitializedAsync() => await LoadAsync();
+
+	/// <summary>
+	/// How long ago a request was made, in the words a rider would use.
+	/// <para>
+	/// Rounded down and coarse on purpose: the reader is deciding whether the organiser has
+	/// forgotten about them, and "2 days ago" answers that where a timestamp makes them do the
+	/// arithmetic. The same ladder <c>RideRequests</c> shows the organiser, so the two sides of
+	/// one wait are described the same way.
+	/// </para>
+	/// </summary>
+	private string Ago(DateTimeOffset when)
+	{
+		TimeSpan waited = Clock.GetUtcNow() - when;
+
+		if (waited < TimeSpan.FromMinutes(1)) return "just now";
+		if (waited < TimeSpan.FromHours(1)) return $"{(int)waited.TotalMinutes} min ago";
+		if (waited < TimeSpan.FromDays(1)) return $"{(int)waited.TotalHours} h ago";
+
+		return $"{(int)waited.TotalDays} d ago";
+	}
 
 	private async Task LoadAsync()
 	{
@@ -145,6 +268,116 @@
 		catch (Exception exception)
 		{
 			_error = exception.Message;
+		}
+	}
+
+	/// <summary>
+	/// Leaves an adventure the caller was admitted to (§5.6).
+	/// <para>
+	/// The same three consequences the ride's own Leave has, because it is the same act: the
+	/// membership goes, the device's copy goes with it — a ride nobody is on must not still open
+	/// from a cache (§4.4) — and the rail's globe stops pointing at it if that is where it pointed
+	/// (§18.6). Doing two of the three would leave the app remembering a ride the server has
+	/// forgotten.
+	/// </para>
+	/// <para>
+	/// The receiver is not touched here, unlike in <c>RideSession.LeaveRideAsync</c>. It is stopped
+	/// per ride by the session that started it, and this page has none — a rider on this screen is
+	/// not on a map, and the server has already stopped copying their position into a ride they
+	/// left (§5.6). The next ride they open brings its own receiver up.
+	/// </para>
+	/// </summary>
+	private async Task LeaveAsync(RideSummary ride)
+	{
+		if (_leaving is not null)
+		{
+			return;
+		}
+
+		bool confirmed = await Confirm.AskAsync(
+			$"Leave {ride.Name}?",
+			"Your location stops going to the group, the position the adventure holds for you is "
+			+ "deleted, and it drops off this list. The adventure itself carries on without you. "
+			+ "You would need the join code — or a new request — to get back on.",
+			confirmText: "Leave");
+
+		if (!confirmed)
+		{
+			return;
+		}
+
+		_leaving = ride.Id;
+		_error = null;
+
+		try
+		{
+			await Api.LeaveRideAsync(ride.Id);
+
+			// Both before the refetch, so the list and the rail cannot disagree even for a render.
+			await Cache.ForgetAsync(ride.Id);
+			await CurrentRide.ForgetAsync(ride.Id);
+
+			await LoadAsync();
+		}
+		catch (Exception exception)
+		{
+			// The one that lands here is the organiser's 409, which this list should never be able
+			// to produce — the button is only on rides they joined. Shown rather than swallowed, on
+			// the principle that a refusal the app did not expect is exactly the one worth reading.
+			_error = $"Could not leave {ride.Name}: {exception.Message}";
+		}
+		finally
+		{
+			_leaving = null;
+		}
+	}
+
+	/// <summary>
+	/// Takes back a request nobody has answered (§5.2).
+	/// <para>
+	/// No cache and no globe to clear, unlike <see cref="LeaveAsync"/>: neither ever pointed at
+	/// this adventure, because the rider was never on it. Withdrawing frees their pending slot and
+	/// leaves them free to ask again with the same code.
+	/// </para>
+	/// <para>
+	/// Confirmed, though it destroys nothing. What it costs is the queue position and the
+	/// organiser's attention — asking again puts them at the back of a list somebody has already
+	/// read — and the button sits a thumb's width from nothing else on the row.
+	/// </para>
+	/// </summary>
+	private async Task WithdrawAsync(WaitingRide waiting)
+	{
+		if (_leaving is not null)
+		{
+			return;
+		}
+
+		bool confirmed = await Confirm.AskAsync(
+			$"Withdraw your request to join {waiting.Name}?",
+			"The organiser stops seeing it. You can ask again with the same join code whenever "
+			+ "you like.",
+			confirmText: "Withdraw");
+
+		if (!confirmed)
+		{
+			return;
+		}
+
+		_leaving = waiting.RideId;
+		_error = null;
+
+		try
+		{
+			await Api.WithdrawJoinRequestAsync(waiting.RideId, waiting.RequestId);
+			await LoadAsync();
+		}
+		catch (Exception exception)
+		{
+			_error = $"Could not withdraw your request to join {waiting.Name}: {exception.Message}";
+		}
+		finally
+		{
+			_leaving = null;
 		}
 	}
 
@@ -218,6 +451,59 @@
 		padding: 0 0.6rem;
 		font-size: 1rem;
 	}
+
+	/*
+		A row that is not a way in. Dashed rather than filled, and the heading quieter than the two
+		lists below: an adventure nobody has admitted this rider to should not sit on the page
+		looking exactly like the ones they can open.
+	*/
+	.ride.pending {
+		background: transparent;
+		border: 1px dashed var(--dlr-border);
+	}
+
+	/* The div in a pending row takes the flex share the anchor takes in the others, without
+	   taking the pointer or the underline that go with being a link. */
+	.ride.pending .ride-link { cursor: default; }
+
+	.ride .asked { opacity: 0.6; }
+
+	.ride .pending-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		flex: 0 0 auto;
+		padding: 0.25rem 0.6rem;
+		border-radius: 999px;
+		background: #fef3c730;
+		font-size: 0.8rem;
+		white-space: nowrap;
+	}
+
+	/*
+		The two ways off a ride, sized like the trash beside them so the three read as one column
+		down the right of the page rather than three different affordances.
+
+		Neither is red. The trash takes an adventure away from everybody and says so in colour;
+		these two take one rider off one ride, and both are undoable with a join code.
+	*/
+	.ride .leave, .ride .withdraw {
+		flex: 0 0 auto;
+		min-width: 44px;
+		min-height: 44px;
+		padding: 0 0.6rem;
+		font-size: 1rem;
+		background: transparent;
+		border: 1px solid var(--dlr-border);
+		border-radius: 6px;
+		color: inherit;
+		cursor: pointer;
+	}
+
+		.ride .leave:disabled, .ride .withdraw:disabled {
+			opacity: 0.6;
+			cursor: default;
+		}
 
 	.ride .join-code {
 		font-family: ui-monospace, monospace;

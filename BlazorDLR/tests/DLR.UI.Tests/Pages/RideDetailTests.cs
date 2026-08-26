@@ -32,6 +32,9 @@ public sealed class RideDetailTests : PageTestContext
 	/// <summary>The hub the page's thread joins, so a test can read what it joined.</summary>
 	private FakeRideHubClient Hub { get; } = new();
 
+	/// <summary>Where a download ends up, so a test can read back what the page handed over.</summary>
+	private FakeFileSaver Saver { get; } = new();
+
 	/// <summary>Who is reading. Signed out by default, which is what these tests were written against.</summary>
 	private AuthState Auth { get; }
 
@@ -52,6 +55,7 @@ public sealed class RideDetailTests : PageTestContext
 		Services.AddSingleton<IRideHubClient>(Hub);
 		Services.AddSingleton(Auth);
 		Services.AddSingleton<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(Auth);
+		Services.AddSingleton<IFileSaver>(Saver);
 		Services.AddSingleton<IMapInterop>(new FakeMapInterop
 		{
 			InitException = new InvalidOperationException("Test host — map interop is stubbed."),
@@ -489,6 +493,78 @@ public sealed class RideDetailTests : PageTestContext
 			() => component.Find(".byline.shared").TextContent
 				.Contains("Shared with everyone", StringComparison.Ordinal)
 				.ShouldBeTrue("a rider opening their own route should see at a glance that it is public."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Download GPX fetches the file and hands it to <see cref="IFileSaver"/>.
+	/// <para>
+	/// The regression this guards: the button used to build a <c>data:</c> anchor in JS and click
+	/// it. That works in a browser and does nothing at all inside the MAUI WebView — Android's
+	/// WebView never implemented the <c>download</c> attribute, so the click was swallowed with no
+	/// error and the rider saw a dead button. Routing through the seam is what lets the phone host
+	/// answer with a share sheet instead, so the assertion is that the page goes through it.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public void Download_HandsTheGpxToTheHostsFileSaver_RatherThanClickingAnAnchor()
+	{
+		Guid id = Guid.NewGuid();
+		WireServices(new TrackDetail(
+			Track: Sample() with { Id = id, Name = "Sunday coast run" },
+			Bounds: null,
+			Polyline: Array.Empty<TrackPoint>()));
+
+		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
+			.Add(p => p.TrackId, id));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button").Any(b => b.TextContent.Contains("Download GPX", StringComparison.Ordinal)).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll("button")
+			.First(b => b.TextContent.Contains("Download GPX", StringComparison.Ordinal))
+			.Click();
+
+		component.WaitForAssertion(() =>
+		{
+			_api.ExportedTracks.ShouldBe([id]);
+
+			SavedFile saved = Saver.Saves.ShouldHaveSingleItem();
+			saved.FileName.ShouldBe("Sunday coast run.gpx");
+			saved.ContentType.ShouldBe("application/gpx+xml");
+			saved.Content.ShouldBe(_api.TrackGpxBytes);
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// A host that cannot save says so on the page. The old inline anchor had no failure path at
+	/// all — every outcome, including "nothing happened", looked identical to the rider.
+	/// </summary>
+	[Fact]
+	public void Download_WhenTheHostCannotSave_SaysSoRatherThanFailingSilently()
+	{
+		Guid id = Guid.NewGuid();
+		WireServices(new TrackDetail(
+			Track: Sample() with { Id = id },
+			Bounds: null,
+			Polyline: Array.Empty<TrackPoint>()));
+
+		Saver.Result = FileSaveResult.Failed("no room on the device.");
+
+		IRenderedComponent<RideDetail> component = Render<RideDetail>(parameters => parameters
+			.Add(p => p.TrackId, id));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button").Any(b => b.TextContent.Contains("Download GPX", StringComparison.Ordinal)).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll("button")
+			.First(b => b.TextContent.Contains("Download GPX", StringComparison.Ordinal))
+			.Click();
+
+		component.WaitForAssertion(
+			() => component.Find("p.status").TextContent.ShouldContain("no room on the device."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 }

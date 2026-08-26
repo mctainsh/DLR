@@ -431,7 +431,26 @@
 			{
 				<div class="organiser">
 					<h3>Organiser</h3>
-					<a href="/group-rides/@RideId/requests">Join requests</a>
+					@*
+						A button rather than the link it was, because it is the one thing in this
+						section that can have work waiting behind it, and a line of blue text
+						cannot carry a count. An organiser had to open the list to find out
+						whether anybody was in it — which, on most days, is opening it for nothing.
+
+						The number is on the badge and not in the label. A button reading
+						"Accept join requests (3)" beside a circle reading 3 is one fact drawn
+						twice, and the two would be free to disagree the moment one of them was
+						fetched and the other was not.
+
+						Not disabled while the ride is busy, unlike the buttons below it: this one
+						navigates and changes nothing, so there is no state for a half-finished
+						call to leave it disagreeing with.
+					*@
+					<button type="button" class="requests" @onclick="GoToRequests">
+						<span>Accept join requests</span>
+						<PendingBadge Count="_session.PendingJoinRequests" Noun="waiting to join" />
+					</button>
+
 					<a href="/group-rides/@RideId/permissions">Content permissions</a>
 
 					@if (ride.State == RideStateDto.Open)
@@ -611,6 +630,12 @@
 
 		await _session.LoadAsync(RideId);
 	}
+
+	/// <summary>
+	/// Opens the list the badge is counting. A handler rather than an <c>href</c> because the
+	/// control is a button now — see the comment above it.
+	/// </summary>
+	private void GoToRequests() => Nav.NavigateTo($"/group-rides/{RideId}/requests");
 
 	// -- Routes (§5.4) ------------------------------------------------------------------------
 
@@ -1162,6 +1187,26 @@
 	.ride-info .organiser button {
 		margin-top: 0.5rem;
 		padding: 0.4rem 0.8rem;
+	}
+
+	/*
+		Label and badge on one line, with the circle against the words rather than pushed out to
+		the button's right edge: an unread count sits on the thing it counts, and a gap wide
+		enough to read as a column would make it look like a separate control.
+
+		Quieter than the two `.primary` buttons under it. Those start and end the adventure; this
+		one opens a list, and it is the badge that is meant to catch the eye here — an accent-
+		filled button with a red circle on it is two things shouting at once.
+	*/
+	.ride-info .organiser .requests {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		background: #fff3;
+		border: 1px solid var(--dlr-border);
+		border-radius: 6px;
+		color: inherit;
+		cursor: pointer;
 	}
 
 	.ride-info .end-dialog {

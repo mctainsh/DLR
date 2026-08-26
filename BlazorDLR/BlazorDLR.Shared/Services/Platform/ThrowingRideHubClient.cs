@@ -35,6 +35,7 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 	public event Action<Guid>? RoutesChanged;
 	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
 	public event Action<Guid, JoinResult>? JoinRequestDecided;
+	public event Action<Guid, Guid>? JoinRequestWithdrawn;
 	public event Action<Guid, MarkerDto>? MarkerAdded;
 	public event Action<Guid, MarkerDto>? MarkerUpdated;
 	public event Action<Guid, Guid>? MarkerRemoved;

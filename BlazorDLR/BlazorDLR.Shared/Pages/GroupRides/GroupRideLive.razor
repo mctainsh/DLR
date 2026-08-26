@@ -352,6 +352,21 @@
 					aria-expanded="@(_menuOpen ? "true" : "false")"
 					aria-label="Adventure actions">
 				<i class="fa fa-bars" aria-hidden="true"></i>
+
+				@*
+					The one indicator this button carries again, and it is not a mode.
+
+					The dot that used to live here said which camera mode was on, and went when both
+					modes became lit buttons directly below it — a second indicator for a state a
+					button beside it already shows is the one that goes stale. This is the opposite
+					case: nothing else on this screen says that somebody is waiting to be let in, and
+					the only place that says it at all is two taps away behind Info. An organiser
+					riding a route has no reason to open this menu on the off-chance.
+
+					Organiser-only, because PendingJoinRequests is zero for everybody else and the
+					badge draws nothing at zero — there is no branch here to keep in step.
+				*@
+				<PendingBadge Count="_session.PendingJoinRequests" Noun="waiting to join" />
 			</button>
 
 			@*
@@ -421,6 +436,26 @@
 					<button type="button" role="menuitem" @onclick="GoToInfo">
 						<i class="fa fa-fw fa-circle-info" aria-hidden="true"></i> Info
 					</button>
+
+					@*
+						What the badge outside is about, so that opening the menu it sent a rider to
+						leads somewhere. Without this the trail ends at Info, and a corner dot whose
+						only answer is "look around" is a dot people learn to ignore.
+
+						Organiser-only, and only while somebody is actually waiting. Every other item
+						in here is a permanent part of the screen; this one is an errand, and an
+						organiser with nothing pending should not be reading past a row that has
+						nothing behind it for the whole of a ride. It is also why the badge is drawn
+						unconditionally rather than gated a second time — the row exists exactly when
+						the badge would have something to say.
+					*@
+					@if (_session.IsOrganiser && _session.PendingJoinRequests > 0)
+					{
+						<button type="button" role="menuitem" @onclick="GoToRequests">
+							<i class="fa fa-fw fa-user-plus" aria-hidden="true"></i> Accept join requests
+							<PendingBadge Count="_session.PendingJoinRequests" Noun="waiting to join" />
+						</button>
+					}
 
 					@if (ride.Permissions.AllowMemberMarkers || ride.IsOrganiser)
 					{
@@ -656,6 +691,56 @@
 	/// </para>
 	/// </summary>
 	private const double HeadingChangeDeg = 3;
+
+	/// <summary>
+	/// How long the map takes to travel to where the automatic modes have aimed it (§5.3).
+	/// <para>
+	/// <strong>The whole of the fix for a map that lurched.</strong> Following and heading-up re-aim
+	/// on the rider's fixes, which arrive about once a second — so a camera that jumped held the
+	/// ground still for a second and then teleported it a bike-length, and a corner arrived as the
+	/// world snapping round in three or four steps. Neither is what the rider is doing: they are
+	/// travelling, continuously, and the map should say so.
+	/// </para>
+	/// <para>
+	/// Just under the arrival cadence rather than equal to it. The move lands a moment before the
+	/// next one starts, so the rider is exactly where the mode promised for an instant every second
+	/// — which is what makes a following map feel <em>accurate</em> rather than merely fluid. Longer
+	/// than the gap and every move would be cut off part-way, leaving the camera permanently short
+	/// of the rider and getting further behind on every corner.
+	/// </para>
+	/// <para>
+	/// Not tuned to the slower case on purpose. A rider with no receiver of their own is followed
+	/// from the published fan-out instead, which is a 5 s tick (§5.3) — stretching to that would
+	/// have the map showing where the group was several seconds ago, which is worse than a
+	/// once-per-5 s glide that finishes early and waits.
+	/// </para>
+	/// <para>
+	/// A device set to reduce motion gets none of this and keeps the jump; the base map honours
+	/// that itself (<see cref="IMapInterop.SetCameraAsync"/>).
+	/// </para>
+	/// </summary>
+	private static readonly TimeSpan CameraGlide = TimeSpan.FromMilliseconds(900);
+
+	/// <summary>
+	/// How long the map takes to swing back to north when the rider chooses "North up"
+	/// (<see cref="StraightenAsync"/>).
+	/// <para>
+	/// Shorter than <see cref="CameraGlide"/> because it answers a tap rather than a fix: nothing is
+	/// following it, so there is no cadence to fit inside, and a control that takes the better part
+	/// of a second to visibly do anything reads as a control that did not work. Long enough that the
+	/// rider sees <em>which way</em> the map turned, which is the whole information a snap loses —
+	/// on a map that had been swung most of the way round, a snap to north leaves somebody with no
+	/// idea whether the ground in front of them is now behind them.
+	/// </para>
+	/// <para>
+	/// <strong>The only tap on this page that animates, and only because it is a pure rotation.</strong>
+	/// The map turns about a centre that does not move, so there is nothing to travel across. Every
+	/// other tap that moves this camera — switching following on, choosing heading-up, going to a
+	/// marker — can be asked to cross a city, and easing over that distance would drag the base map
+	/// through every tile on the way for a view the rider asked to simply <em>be</em> at.
+	/// </para>
+	/// </summary>
+	private static readonly TimeSpan TurnGlide = TimeSpan.FromMilliseconds(450);
 
 	private RideSession _session = default!;
 	private MapCamera _camera = DefaultCamera;
@@ -1368,7 +1453,8 @@
 		StateHasChanged();
 
 		// Cheap when the rider has neither moved nor turned — see _followedTo and _aimedBearing.
-		await AimCameraAsync();
+		// Glided, because this is the fix-by-fix case: a second of travel arriving at once.
+		await AimCameraAsync(CameraGlide);
 
 		// A ride with no planned route opens on this fix, and on a phone this is where the first
 		// one lands. Latched after the first, so the rest of the ride's fixes cost only the test at
@@ -1516,8 +1602,9 @@
 			}
 
 			// Every position batch is a chance that this rider moved, and this is the only place
-			// that learns about one. Cheap when they did not — see _followedTo.
-			await AimCameraAsync();
+			// that learns about one. Cheap when they did not — see _followedTo. Glided for the same
+			// reason as the receiver fix above.
+			await AimCameraAsync(CameraGlide);
 
 			// The other half of the fix that arrives in OnBroadcastChanged, and the only half a
 			// browser has: with no receiver of its own, this rider's own point is the ride's copy
@@ -1536,6 +1623,12 @@
 	{
 		_menuOpen = false;
 		Nav.NavigateTo($"/group-rides/{RideId}/info");
+	}
+
+	private void GoToRequests()
+	{
+		_menuOpen = false;
+		Nav.NavigateTo($"/group-rides/{RideId}/requests");
 	}
 
 	private void GoToThread()
@@ -1621,7 +1714,10 @@
 			ShowToast("Following you — the map stays centred as you travel.");
 		}
 
-		await AimCameraAsync();
+		// Not glided: switching following on brings a rider back from wherever they had panned to,
+		// which can be the far side of the ride. See TurnGlide for why crossing that distance is a
+		// jump. Every re-aim after this one glides.
+		await AimCameraAsync(TimeSpan.Zero);
 		await RememberViewAsync(now: true);
 	}
 
@@ -1741,7 +1837,9 @@
 
 		if (_headingUp)
 		{
-			await AimCameraAsync();
+			// Not glided, for the reason ToggleFollowMeAsync is not: this recentres as well as
+			// turning, and the recentre is the half that can span a city.
+			await AimCameraAsync(TimeSpan.Zero);
 		}
 		else
 		{
@@ -1756,11 +1854,16 @@
 	/// choosing "North up" does; see <see cref="ToggleHeadingUpAsync"/>.
 	/// </summary>
 	private Task StraightenAsync() =>
-		ApplyCameraAsync(new MapCamera(
-			_mapViewport?.CentreLatitude ?? _camera.Latitude,
-			_mapViewport?.CentreLongitude ?? _camera.Longitude,
-			_mapViewport?.ZoomLevel ?? _camera.ZoomLevel,
-			HeadingDeg: 0));
+		ApplyCameraAsync(
+			new MapCamera(
+				_mapViewport?.CentreLatitude ?? _camera.Latitude,
+				_mapViewport?.CentreLongitude ?? _camera.Longitude,
+				_mapViewport?.ZoomLevel ?? _camera.ZoomLevel,
+				HeadingDeg: 0),
+
+			// Turned rather than snapped — see TurnGlide. The centre is held, so this is the one
+			// camera on this page that a tap may animate without dragging the map across ground.
+			TurnGlide);
 
 	/// <summary>
 	/// The rider took hold of the map. Whatever the map was doing on its own that the gesture has
@@ -1941,7 +2044,10 @@
 		// frame of the rider's own drag, which is the map fighting the hand that is moving it.
 		if ((_followMe && _followedTo is null) || (_headingUp && _aimedBearing is null))
 		{
-			await AimCameraAsync();
+			// Not glided: this is the map opening, and the camera it is opening *from* is wherever
+			// the ride was framed — a mode restored from the device store would otherwise slide the
+			// map in from the other side of the route on every open.
+			await AimCameraAsync(TimeSpan.Zero);
 		}
 
 		await RememberViewAsync();
@@ -1967,8 +2073,19 @@
 	/// <see cref="_camera"/>, so a rider who has panned while only the bearing is being driven —
 	/// or turned the map while only the centre is — keeps what they did.
 	/// </para>
+	/// <para>
+	/// <strong>The move is animated, and that is what stops the map lurching.</strong> Both modes
+	/// re-aim on fixes arriving about once a second, so each one is a whole second's travel that
+	/// used to land in a single frame — see <see cref="CameraGlide"/>.
+	/// </para>
 	/// </summary>
-	private async Task AimCameraAsync()
+	/// <param name="animation">
+	/// How long the move should take. <see cref="CameraGlide"/> for the mode's own re-aiming, which
+	/// is every caller but one: the first aim after a map opens with a mode already on has nothing
+	/// to travel <em>from</em> — the camera is wherever the ride was framed, which can be the other
+	/// side of a city — so that one jumps.
+	/// </param>
+	private async Task AimCameraAsync(TimeSpan animation)
 	{
 		(double Latitude, double Longitude)? centre = _followMe ? MyPoint : null;
 		double? bearing = _headingUp ? MyHeadingDeg : null;
@@ -2006,11 +2123,13 @@
 		// camera the map *opens* on, and a following map re-aims about once a second: writing
 		// each of those into the parameter would have every render re-issue the move the
 		// component had already made, a second interop call a tick for nothing.
-		await ApplyCameraAsync(new MapCamera(
-			centre?.Latitude ?? _mapViewport?.CentreLatitude ?? _camera.Latitude,
-			centre?.Longitude ?? _mapViewport?.CentreLongitude ?? _camera.Longitude,
-			_mapViewport?.ZoomLevel ?? _camera.ZoomLevel,
-			bearing ?? _mapViewport?.HeadingDeg ?? _camera.HeadingDeg));
+		await ApplyCameraAsync(
+			new MapCamera(
+				centre?.Latitude ?? _mapViewport?.CentreLatitude ?? _camera.Latitude,
+				centre?.Longitude ?? _mapViewport?.CentreLongitude ?? _camera.Longitude,
+				_mapViewport?.ZoomLevel ?? _camera.ZoomLevel,
+				bearing ?? _mapViewport?.HeadingDeg ?? _camera.HeadingDeg),
+			animation);
 	}
 
 	/// <summary>
@@ -2075,7 +2194,8 @@
 		// the ground they were looking at a ride ago. Silent — no toast: restoring a mode the rider
 		// set on a previous screen is not a change of mind, and a map that announced its own
 		// settings on every open would be one more thing to dismiss at the start of every ride.
-		await AimCameraAsync();
+		// Not glided, for the same reason as the first frame above — this *is* the map opening.
+		await AimCameraAsync(TimeSpan.Zero);
 
 		// Only now, and after the aim: the device has answered, so "this rider has nothing stored
 		// for this ride" is a fact rather than a read that has not come back yet, and the modes
@@ -2249,7 +2369,13 @@
 	/// or choosing the same marker again — would do nothing at all the second time.
 	/// </para>
 	/// </summary>
-	private async Task ApplyCameraAsync(MapCamera camera)
+	/// <param name="camera">Where the map should be looking.</param>
+	/// <param name="animation">
+	/// How long to take getting there. Zero — the default — is the jump this page has always made
+	/// when it <em>asserts</em> a view: opening on the stored camera, framing the ride, going to a
+	/// marker. <see cref="CameraGlide"/> is what the two automatic modes use instead; see there.
+	/// </param>
+	private async Task ApplyCameraAsync(MapCamera camera, TimeSpan animation = default)
 	{
 		if (_map is null)
 		{
@@ -2258,7 +2384,7 @@
 
 		try
 		{
-			await _map.SetCameraAsync(camera);
+			await _map.SetCameraAsync(camera, animation);
 		}
 		catch
 		{
@@ -2654,6 +2780,40 @@
 	}
 
 	/*
+		The waiting-join-requests count, worn on the hamburger the way an unread count is worn on
+		an app icon: pinned to the top-right corner and hanging over the edge, not sat in the
+		button's flex row where it would shove the bars aside.
+
+		Here and not in PendingBadge's own file. The badge draws the pill; where it sits is a fact
+		about this button — a 48 px control in a stack over a map — and every number in it is in px
+		for that reason: the offsets have to hold against a fixed-size button and a 2 px border,
+		not against whatever type size the badge inherited.
+
+		The colours are restated rather than inherited. This is the one badge in the app drawn over
+		moving map tiles, so it cannot rely on winning against the accent-filled button underneath
+		it, and the ring is what keeps it legible: a red dot over a red-roofed building with no edge
+		of its own disappears. Ring in the surface colour, not white, so it reads as a hole punched
+		in the chrome rather than as a sticker on the map.
+
+		`.hamburger` in the selector, not just `> button`: it wins any tie with the component's own
+		scoped rules outright, rather than depending on which stylesheet the host emitted last.
+	*/
+	.live .chrome > button.hamburger .count-badge {
+		position: absolute;
+		top: -5px;
+		right: -5px;
+
+		min-width: 18px;
+		height: 18px;
+		padding: 0 4px;
+
+		background: #dc2626;
+		color: #fff;
+		border: 2px solid var(--dlr-surface);
+		font-size: 11px;
+	}
+
+	/*
 		The two camera modes — "centre on me and follow", and "turn the map to my heading" — with
 		nothing switched on.
 
@@ -2744,6 +2904,14 @@
 		margin-left: auto;
 		font-size: 0.8rem;
 		color: var(--dlr-fg-muted);
+	}
+
+	/* The badge takes the same right-hand column the marker count does, so the two rows line
+	   up rather than each ending wherever their own label stopped. Plain class selector, no
+	   ::deep: this page's rules are a plain style block and so already global, and PendingBadge's
+	   own scoping only narrows what *it* may style. */
+	.live .menu .count-badge {
+		margin-left: auto;
 	}
 
 	/* The receiver's state. Reads as a caption under the menu's items rather than as another

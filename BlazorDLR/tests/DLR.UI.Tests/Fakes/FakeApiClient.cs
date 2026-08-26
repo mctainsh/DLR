@@ -383,7 +383,26 @@ public sealed class FakeApiClient : IApiClient
 	public Task<TrackDetail> GetTrackAsync(Guid trackId, CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(GetTrackAsync), TrackDetailResult
 			?? new TrackDetail(new TrackSummary(trackId, "Test", SampleInstant, null, null, 0, null, null, null, 0, 1, TrackSourceDto.Recorded, 1), null, Array.Empty<DLR.Core.Tracks.TrackPoint>())));
-	public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+	public Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default)
+	{
+		ExportedTracks.Add(trackId);
+
+		HttpResponseMessage response = new(TrackGpxStatus)
+		{
+			Content = new ByteArrayContent(TrackGpxBytes),
+		};
+		response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/gpx+xml");
+		return Task.FromResult(response);
+	}
+
+	/// <summary>Every track the UI asked the server to export as GPX (§15.7).</summary>
+	public List<Guid> ExportedTracks { get; } = new();
+
+	/// <summary>The body <see cref="ExportTrackGpxAsync"/> hands back.</summary>
+	public byte[] TrackGpxBytes { get; set; } = System.Text.Encoding.UTF8.GetBytes("<gpx version=\"1.1\" />");
+
+	/// <summary>Set to a failure code to make the download page render its error path.</summary>
+	public System.Net.HttpStatusCode TrackGpxStatus { get; set; } = System.Net.HttpStatusCode.OK;
 
 	/// <summary>Every rename the UI sent, in order (§15.1).</summary>
 	public List<(Guid TrackId, string Name)> RenamedTracks { get; } = new();
@@ -580,7 +599,8 @@ public sealed class FakeApiClient : IApiClient
 	}
 
 	/// <summary>Overrideable MyRides response.</summary>
-	public MyRides MyRidesResult { get; set; } = new(Array.Empty<RideSummary>(), Array.Empty<RideSummary>());
+	public MyRides MyRidesResult { get; set; } =
+		new(Array.Empty<RideSummary>(), Array.Empty<RideSummary>(), Array.Empty<WaitingRide>());
 
 	public Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default) =>
 		Task.FromResult(Recorded(nameof(ListMyRidesAsync), MyRidesResult));
@@ -647,6 +667,34 @@ public sealed class FakeApiClient : IApiClient
 	}
 
 	public Task<IReadOnlyList<JoinRequestSummary>> ListJoinRequestsAsync(Guid rideId, CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListJoinRequestsAsync), JoinRequestsResult));
+
+	/// <summary>Every request handed to <see cref="WithdrawJoinRequestAsync"/>, in order.</summary>
+	public List<(Guid RideId, Guid RequestId)> WithdrawnRequests { get; } = new();
+
+	/// <summary>Set to make withdrawing fail, the way a server that refuses would.</summary>
+	public ApiException? WithdrawFailure { get; set; }
+
+	/// <inheritdoc />
+	public Task WithdrawJoinRequestAsync(Guid rideId, Guid requestId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(WithdrawJoinRequestAsync));
+
+		if (WithdrawFailure is not null)
+		{
+			return Task.FromException(WithdrawFailure);
+		}
+
+		WithdrawnRequests.Add((rideId, requestId));
+
+		// The list the server hands back afterwards no longer has it, so a page that refetches
+		// after withdrawing sees what it did — the same courtesy DeleteRideAsync does above.
+		MyRidesResult = MyRidesResult with
+		{
+			Waiting = [.. MyRidesResult.Waiting.Where(row => row.RequestId != requestId)],
+		};
+
+		return Task.CompletedTask;
+	}
 	public Task DecideJoinRequestAsync(Guid rideId, Guid requestId, DecideJoinRequest request, CancellationToken cancellationToken = default)
 	{
 		Record(nameof(DecideJoinRequestAsync));
@@ -690,6 +738,9 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>Set to make <see cref="LeaveRideAsync"/> throw — the organiser's 409, most obviously.</summary>
 	public ApiException? LeaveRideException { get; set; }
 
+	/// <summary>Every ride id passed to <see cref="LeaveRideAsync"/>, in order.</summary>
+	public List<Guid> LeftRides { get; } = new();
+
 	public Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default)
 	{
 		if (LeaveRideException is not null)
@@ -698,6 +749,15 @@ public sealed class FakeApiClient : IApiClient
 		}
 
 		Record(nameof(LeaveRideAsync));
+		LeftRides.Add(rideId);
+
+		// Gone from the list the server hands back next, the same courtesy DeleteRideAsync does: a
+		// page that refetches after leaving has to see what it did.
+		MyRidesResult = MyRidesResult with
+		{
+			Joined = [.. MyRidesResult.Joined.Where(row => row.Id != rideId)],
+		};
+
 		return Task.CompletedTask;
 	}
 
@@ -724,7 +784,8 @@ public sealed class FakeApiClient : IApiClient
 		// a page that refetches after deleting sees what it did.
 		MyRidesResult = new MyRides(
 			[.. MyRidesResult.Organised.Where(row => row.Id != rideId)],
-			[.. MyRidesResult.Joined.Where(row => row.Id != rideId)]);
+			[.. MyRidesResult.Joined.Where(row => row.Id != rideId)],
+			MyRidesResult.Waiting);
 
 		return Task.CompletedTask;
 	}

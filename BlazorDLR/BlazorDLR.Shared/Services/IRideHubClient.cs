@@ -102,6 +102,12 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <summary>An organiser decided on a request the caller made.</summary>
 	event Action<Guid, JoinResult>? JoinRequestDecided;
 
+	/// <summary>
+	/// The asker took their own request back (§5.2). Sent to the people who may decide, for the
+	/// same reason the two above are: it is their waiting count it moves.
+	/// </summary>
+	event Action<Guid, Guid>? JoinRequestWithdrawn;
+
 	/// <summary>A marker was added, updated or removed (§16.6).</summary>
 	event Action<Guid, MarkerDto>? MarkerAdded;
 	event Action<Guid, MarkerDto>? MarkerUpdated;

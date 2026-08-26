@@ -10,7 +10,7 @@
 @inject IApiClient Api
 @inject ConfirmService Confirm
 @inject NavigationManager Nav
-@inject IJSRuntime JS
+@inject IFileSaver FileSaver
 
 <PageTitle>@Title — Dumb Luck Routes</PageTitle>
 
@@ -37,7 +37,7 @@
 				}
 				@* Downloading is not gated. A route shared with everyone is shared to be ridden,
 				   and a GPX is how it gets onto the device that will ride it. *@
-				<button type="button" class="primary" @onclick="DownloadGpxAsync">Download GPX</button>
+				<button type="button" class="primary" disabled="@_busy" @onclick="DownloadGpxAsync">Download GPX</button>
 				@if (_track.Track.IsMine)
 				{
 					<button type="button" class="danger" disabled="@_busy" @onclick="DeleteAsync"> <i class="fa fa-fw fa-trash" aria-hidden="true"></i> </button>
@@ -634,26 +634,52 @@
 	}
 
 	/// <summary>
-	/// Downloads the raw GPX. On the web the browser drives the save via a data-URL link;
-	/// on the phone MAUI's Save API would take over — but the file the server returns is
-	/// the same on either side, so this method is host-neutral.
+	/// Downloads the raw GPX. The file the server returns is the same on every host; where it
+	/// then goes is not, so the save itself is <see cref="IFileSaver"/>'s job — a browser
+	/// download on the web, the system share sheet on a phone (§15.2). The anchor-click this
+	/// used to do inline was inert inside the MAUI WebView, which is why the button appeared
+	/// to do nothing there.
 	/// </summary>
 	private async Task DownloadGpxAsync()
 	{
-		using HttpResponseMessage response = await Api.ExportTrackGpxAsync(TrackId);
-		response.EnsureSuccessStatusCode();
+		if (_busy)
+			return;
 
-		byte[] bytes = await response.Content.ReadAsByteArrayAsync();
-		string base64 = Convert.ToBase64String(bytes);
-		string fileName = ($"{_track?.Track.Name ?? "adventure"}.gpx").Replace('/', '-');
+		_busy = true;
+		_status = null;
 
-		// A tiny JS helper wired inline: build a data-URL <a> and click it. Works in every
-		// browser and inside the MAUI BlazorWebView — the same DOM in both cases.
-		await JS.InvokeVoidAsync(
-			"eval",
-			$"(function(){{var a=document.createElement('a');" +
-			$"a.href='data:application/gpx+xml;base64,{base64}';" +
-			$"a.download='{fileName}';document.body.appendChild(a);a.click();a.remove();}})();");
+		try
+		{
+			using HttpResponseMessage response = await Api.ExportTrackGpxAsync(TrackId);
+			if (!response.IsSuccessStatusCode)
+			{
+				ApiError error = await ProblemDetailsReader.ReadAsync(response);
+				_status = $"Could not download it: {error.Title}";
+				return;
+			}
+
+			byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+			string fileName = $"{_track?.Track.Name ?? "adventure"}.gpx";
+
+			FileSaveResult saved = await FileSaver.SaveAsync(fileName, "application/gpx+xml", bytes);
+
+			// On success the host has already shown the rider something — a download shelf, a
+			// share sheet — so only speak up when there is something it did not say.
+			_status = saved.Status switch
+			{
+				FileSaveStatus.Saved => saved.Detail,
+				FileSaveStatus.Cancelled => null,
+				_ => $"Could not save it: {saved.Detail ?? "this device has nowhere to put the file."}",
+			};
+		}
+		catch (Exception exception)
+		{
+			_status = $"Could not download it: {exception.Message}";
+		}
+		finally
+		{
+			_busy = false;
+		}
 	}
 
 	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";

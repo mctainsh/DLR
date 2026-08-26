@@ -152,6 +152,37 @@ public sealed class RideMembersLiveTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
+	/// <summary>
+	/// The same member announced twice must not become two rows.
+	/// <para>
+	/// Not a theoretical worry now that the server actually sends this (§5.3): a reconnect replays
+	/// nothing and promises nothing, so the same arrival can reach a client that already has them.
+	/// A list that can show one rider twice is worse than one that is briefly a row short — it is
+	/// the list the gap panel and the member count are both read off.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task MemberJoined_TwiceForTheSameRider_IsStillOneRow()
+	{
+		(_, FakeRideHubClient hub, Guid rideId) = WireServices();
+
+		IRenderedComponent<RideMembersLive> component = RenderMembers(rideId);
+
+		component.WaitForAssertion(
+			() => component.FindAll(".live-members li").Count.ShouldBe(1),
+			timeout: TimeSpan.FromSeconds(3));
+
+		RideMemberSummary alice = new(Guid.NewGuid(), "AliceNewJoiner", "Rider", FixedInstant);
+
+		await component.InvokeAsync(() => hub.RaiseMemberJoined(rideId, alice));
+		await component.InvokeAsync(() => hub.RaiseMemberJoined(rideId, alice));
+
+		component.WaitForAssertion(
+			() => component.FindAll(".live-members li").Count.ShouldBe(2,
+				"the rider who was already there is replaced, not appended a second time"),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
 	[Fact]
 	public async Task MemberLeft_DropsThemFromTheList()
 	{

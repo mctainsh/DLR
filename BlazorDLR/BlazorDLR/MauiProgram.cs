@@ -209,6 +209,10 @@ public static class MauiProgram
 		// MAUI's MediaPicker / FilePicker back the shared IMediaPicker on the phone (§16.4).
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IMediaPicker, MauiMediaPicker>();
 
+		// Saving a file out of the app (§15.2, §17.3). The web's <a download> is inert in a
+		// WebView, so this host writes to the cache and raises the system share sheet.
+		builder.Services.AddScoped<BlazorDLR.Shared.Services.IFileSaver, MauiFileSaver>();
+
 		// Social sign-in (§7.16). Scaffolded but not available today — real bindings
 		// need registrations at the provider that happen with store submission (Phase 3
 		// exit criterion). The Welcome page shows the buttons dimmed until IsAvailable

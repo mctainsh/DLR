@@ -724,16 +724,47 @@ export async function createMap(hostElement, options, callbacks) {
     return {
         provider: "maplibre",
         setCamera(camera) {
-            // jumpTo, not easeTo: SetCameraAsync is how C# asserts where the map should be —
-            // following a rider (§5.3), opening the composer on the ride's ground (§16.1) —
-            // and an animation would report a stream of intermediate viewports the overlay
-            // would draw the pins against, which reads as the markers sliding into place.
-            map.jumpTo({
+            const target = {
                 center: [camera.longitude, camera.latitude],
                 zoom: camera.zoomLevel,
                 bearing: camera.headingDeg ?? 0,
-            });
-            reporter.report();
+            };
+
+            // Two behaviours behind one call, chosen by the caller — see IMapInterop.SetCameraAsync.
+            //
+            // No duration is C# *asserting* a view: opening on a stored camera, framing a ride,
+            // putting the composer on the ride's ground (§16.1). Those are one-off statements about
+            // where the map should be, and a flight to them reads as the map sliding into place.
+            //
+            // A duration is a camera something is *driving* — follow-me and heading-up, which
+            // re-aim on every fix (§5.3). Jumping those is what made the live map lurch: a fix
+            // arrives about once a second, so the ground sat still and then teleported a bike-length,
+            // and a corner arrived as the world snapping round in three or four steps.
+            const duration = camera.durationMs ?? 0;
+
+            if (duration <= 0) {
+                map.jumpTo(target);
+                reporter.report();
+                return;
+            }
+
+            // Linear, and that is the whole of why this is smooth rather than merely animated.
+            // MapLibre's default easing is ease-in-out, which is right for one flight and wrong for
+            // a chain of them: each fix would restart the curve, so the map would accelerate away
+            // and brake to a stop once a second — the same lurch as the jump, just with the edges
+            // sanded off. A constant velocity across the gap to the next fix reads as travel.
+            //
+            // Nothing here says `essential: true`, deliberately. MapLibre drops the duration to zero
+            // on a device set to reduce motion, and somebody who has asked their phone to stop
+            // animating things has not made an exception for the map they are riding behind.
+            //
+            // Bearing takes the short way round on its own — easeTo normalises the target against
+            // the current bearing — so a rider drifting across north turns a degree, not 359.
+            map.easeTo({ ...target, duration, easing: (t) => t });
+
+            // No report here: easeTo raises movestart, which starts the frame pump, and the pump is
+            // what keeps the overlay in register for every frame of the move. Reporting the target
+            // view now would hand the overlay a frame the tiles have not reached yet.
         },
         fitBounds(box) {
             // The zoom that fits a box is a function of the canvas it has to fit inside, and the

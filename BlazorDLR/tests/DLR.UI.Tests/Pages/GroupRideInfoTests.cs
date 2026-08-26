@@ -962,4 +962,78 @@ public sealed class GroupRideInfoTests : PageTestContext
 			component.FindAll(".end-dialog").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 	}
+
+	/// <summary>A request waiting on the organiser (§5.2).</summary>
+	private static JoinRequestSummary Waiting(string userName) =>
+		new(Guid.NewGuid(), Guid.NewGuid(), userName, null, FixedInstant);
+
+	[Fact]
+	public void Organiser_ReadsThePendingCount_WithoutOpeningTheList()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		api.JoinRequestsResult = [Waiting("DaveSmith"), Waiting("JanePark"), Waiting("SamLee")];
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		component.WaitForAssertion(
+			() => component.Find(".organiser .requests .count-badge").TextContent.Trim().ShouldBe("3",
+				"the point of the badge: the organiser learns three people are waiting from this "
+				+ "screen, rather than by opening the list to find out."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// A control, not a line of text — it is the one thing in this section with work behind it.
+		component.Find(".organiser .requests").TagName.ShouldBe("BUTTON", StringCompareShould.IgnoreCase);
+	}
+
+	[Fact]
+	public void Organiser_WithNobodyWaiting_GetsTheButtonAndNoBadge()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		api.JoinRequestsResult = [];
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		component.WaitForAssertion(
+			() => component.FindAll(".organiser .requests").ShouldNotBeEmpty(
+				"the way to the list stays put — an organiser may want to look even when it is empty."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".organiser .requests .count-badge").ShouldBeEmpty(
+			"a badge reading nought is a permanent decoration a reader learns to stop seeing.");
+	}
+
+	[Fact]
+	public async Task Organiser_TappingTheButton_OpensTheRequestsList()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		api.JoinRequestsResult = [Waiting("DaveSmith")];
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		await ClickAsync(component, "Accept join requests");
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
+			.ShouldEndWith($"/group-rides/{rideId}/requests",
+				customMessage: "the button replaced a link and has to go the same place it did.");
+	}
+
+	[Fact]
+	public void Member_IsNeverAskedToCountRequests()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: false);
+
+		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
+
+		component.WaitForAssertion(
+			() => api.Calls.ShouldContain(nameof(IApiClient.GetRideAsync)),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// Only the organiser may list them, so asking on a member's behalf is a call that 403s —
+		// and the whole Organiser section is absent for them anyway.
+		api.Calls.ShouldNotContain(nameof(IApiClient.ListJoinRequestsAsync));
+		component.FindAll(".organiser").ShouldBeEmpty();
+	}
 }

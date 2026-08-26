@@ -79,5 +79,11 @@ public abstract class PageTestContext : BunitContext
 		// GetService and draws nothing without it, so a component test below the page level does
 		// not have to know it exists.
 		Services.AddScoped<RiderAvatars>();
+
+		// Saving a file out of the app (§15.2, §17.3). Page-wide because two pages offer it and
+		// neither can do the saving itself — the anchor-click that used to be inline in RideDetail
+		// was inert inside the MAUI WebView, which is the bug the seam exists to keep fixed. A test
+		// that asserts on a download registers its own FakeFileSaver and reads it back.
+		Services.AddScoped<IFileSaver, FakeFileSaver>();
 	}
 }

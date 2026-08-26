@@ -507,6 +507,279 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 			"a member who never chose sends nothing — the default is applied where it is drawn.");
 	}
 
+	/// <summary>
+	/// A rider waiting on an approval can see that they are waiting, and on what (§5.2).
+	/// <para>
+	/// They are in neither of the other two lists, because both are built from membership rows and
+	/// a pending requester has none — which is the fact every other ride screen leans on. Without a
+	/// third list, asking to join an adventure produced no visible trace anywhere at all.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task MyRides_ListsWhatTheCallerIsStillWaitingOn()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		JoinResult asked = await JoinAsync(rider, ride.JoinCode!);
+
+		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
+
+		mine.Organised.ShouldBeEmpty();
+		mine.Joined.ShouldBeEmpty("asking is not joining — nobody has admitted them");
+
+		WaitingRide waiting = mine.Waiting.ShouldHaveSingleItem();
+
+		waiting.RideId.ShouldBe(ride.Id);
+		waiting.RequestId.ShouldBe(asked.RequestId!.Value);
+		waiting.Name.ShouldBe(ride.Name, "a list that cannot name what it is waiting on says nothing");
+	}
+
+	/// <summary>
+	/// <strong>The join code is a member's.</strong> It is the credential that gets a third person
+	/// into the adventure, and somebody the organiser has not admitted must not be handed one on a
+	/// list — which is why the waiting rows are their own contract with no field to put it in.
+	/// </summary>
+	[Fact]
+	public async Task MyRides_WaitingRows_CarryNothingThatBelongsToAMember()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		await JoinAsync(rider, ride.JoinCode!);
+
+		using HttpResponseMessage response = await rider.GetAsync(RidesUrl);
+
+		response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+		// Asserted on the JSON rather than the deserialised object, because the point is what left
+		// the server. A field that WaitingRide does not have cannot be read back off a typed model.
+		string body = await response.Content.ReadAsStringAsync();
+
+		body.ShouldNotContain(
+			ride.JoinCode!,
+			Case.Insensitive,
+			"the code gets somebody else in; a rider nobody has admitted has not earned it");
+	}
+
+	/// <summary>An answered request stops being a wait, whichever way it was answered.</summary>
+	[Fact]
+	public async Task MyRides_OnceAdmitted_TheRideMovesFromWaitingToJoined()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		JoinResult asked = await JoinAsync(rider, ride.JoinCode!);
+
+		using HttpResponseMessage decided = await organiser.PostAsJsonAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{asked.RequestId}",
+			new DecideJoinRequest(Admit: true, Block: false));
+
+		decided.StatusCode.ShouldBe(HttpStatusCode.NoContent, await decided.Content.ReadAsStringAsync());
+
+		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
+
+		mine.Waiting.ShouldBeEmpty("the request is answered — there is nothing left to wait for");
+		mine.Joined.ShouldHaveSingleItem().Id.ShouldBe(ride.Id);
+	}
+
+	/// <summary>A decline is an answer too, and leaves the same empty list.</summary>
+	[Fact]
+	public async Task MyRides_OnceDeclined_TheRideIsInNeitherList()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		JoinResult asked = await JoinAsync(rider, ride.JoinCode!);
+
+		using HttpResponseMessage decided = await organiser.PostAsJsonAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{asked.RequestId}",
+			new DecideJoinRequest(Admit: false, Block: false));
+
+		decided.StatusCode.ShouldBe(HttpStatusCode.NoContent, await decided.Content.ReadAsStringAsync());
+
+		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
+
+		mine.Waiting.ShouldBeEmpty("a declined request is not a pending one, and the list is pending only");
+		mine.Joined.ShouldBeEmpty();
+	}
+
+	// -- Withdrawing a request (§5.2) -----------------------------------------------------------
+
+	[Fact]
+	public async Task Withdraw_TakesTheRequestOffTheOrganisersList()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		JoinResult asked = await JoinAsync(rider, ride.JoinCode!);
+
+		using HttpResponseMessage withdrawn = await rider.DeleteAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{asked.RequestId}");
+
+		withdrawn.StatusCode.ShouldBe(HttpStatusCode.NoContent, await withdrawn.Content.ReadAsStringAsync());
+
+		IReadOnlyList<JoinRequestSummary> pending =
+			(await organiser.GetFromJsonAsync<List<JoinRequestSummary>>($"{RidesUrl}/{ride.Id}/join-requests"))!;
+
+		pending.ShouldBeEmpty("the organiser has nothing left to decide");
+
+		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
+
+		mine.Waiting.ShouldBeEmpty();
+		mine.Joined.ShouldBeEmpty("withdrawing is not a way in");
+	}
+
+	/// <summary>
+	/// Somebody else's request is as invisible here as one that does not exist. A ride id travels in
+	/// links (§5.2), so a distinguishable answer would make this an oracle for who is asking to join
+	/// what.
+	/// </summary>
+	[Fact]
+	public async Task Withdraw_CannotTakeBackSomebodyElsesRequest()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+		using HttpClient meddler = await SignedInAsync(app, "NosyNed");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		JoinResult asked = await JoinAsync(rider, ride.JoinCode!);
+
+		using HttpResponseMessage attempt = await meddler.DeleteAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{asked.RequestId}");
+
+		attempt.StatusCode.ShouldBe(HttpStatusCode.NoContent, "it answers alike either way");
+
+		// The row is untouched, which is the assertion that matters — the status code is only the
+		// half of it a caller can see.
+		IReadOnlyList<JoinRequestSummary> pending =
+			(await organiser.GetFromJsonAsync<List<JoinRequestSummary>>($"{RidesUrl}/{ride.Id}/join-requests"))!;
+
+		pending.ShouldHaveSingleItem().Id.ShouldBe(asked.RequestId!.Value);
+	}
+
+	/// <summary>
+	/// <strong>Withdrawing is not a way out of a block.</strong> A block lives on a Declined row and
+	/// only a Pending one can be withdrawn, so the row that stops somebody asking again survives this
+	/// call — and the ride goes on answering them the way it answers a stranger.
+	/// </summary>
+	[Fact]
+	public async Task Withdraw_CannotClearABlock()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		JoinResult asked = await JoinAsync(rider, ride.JoinCode!);
+
+		using HttpResponseMessage blocked = await organiser.PostAsJsonAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{asked.RequestId}",
+			new DecideJoinRequest(Admit: false, Block: true));
+
+		blocked.StatusCode.ShouldBe(HttpStatusCode.NoContent, await blocked.Content.ReadAsStringAsync());
+
+		// The obvious attack: delete the row that carries the block.
+		using HttpResponseMessage attempt = await rider.DeleteAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{asked.RequestId}");
+
+		attempt.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+		using HttpResponseMessage retry = await rider.PostAsJsonAsync(
+			$"{RidesUrl}/join",
+			new JoinByCodeRequest(ride.JoinCode!));
+
+		retry.StatusCode.ShouldBe(
+			HttpStatusCode.NotFound,
+			"a blocked rider gets the answer an unknown code gets, before and after this call");
+	}
+
+	/// <summary>
+	/// Idempotent by design: the caller asked for the request to be gone, and it is. A rider who taps
+	/// Withdraw a half-second after the organiser taps Admit must not be shown a failure for a race
+	/// they cannot see — their next load says which way it went.
+	/// </summary>
+	[Fact]
+	public async Task Withdraw_AfterItWasAlreadyAnswered_SucceedsQuietly()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		JoinResult asked = await JoinAsync(rider, ride.JoinCode!);
+
+		using HttpResponseMessage admitted = await organiser.PostAsJsonAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{asked.RequestId}",
+			new DecideJoinRequest(Admit: true, Block: false));
+
+		admitted.StatusCode.ShouldBe(HttpStatusCode.NoContent, await admitted.Content.ReadAsStringAsync());
+
+		using HttpResponseMessage late = await rider.DeleteAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{asked.RequestId}");
+
+		late.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+		// And the membership the organiser granted is untouched — a late withdrawal must not undo it.
+		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
+
+		mine.Joined.ShouldHaveSingleItem().Id.ShouldBe(ride.Id);
+	}
+
+	/// <summary>Withdrawing frees the pending slot, which is the point of deleting the row.</summary>
+	[Fact]
+	public async Task Withdraw_LetsThemAskTheSameRideAgain()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient rider = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser, JoinPolicyDto.Approval);
+
+		JoinResult first = await JoinAsync(rider, ride.JoinCode!);
+
+		using HttpResponseMessage withdrawn = await rider.DeleteAsync(
+			$"{RidesUrl}/{ride.Id}/join-requests/{first.RequestId}");
+
+		withdrawn.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+		JoinResult second = await JoinAsync(rider, ride.JoinCode!);
+
+		second.RequestId.ShouldNotBe(first.RequestId, "a new ask is a new request, at the back of the list");
+
+		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
+
+		mine.Waiting.ShouldHaveSingleItem().RequestId.ShouldBe(second.RequestId!.Value);
+	}
+
 	private static async Task<RideDetail> CreateRideAsync(
 		HttpClient organiser,
 		JoinPolicyDto policy,

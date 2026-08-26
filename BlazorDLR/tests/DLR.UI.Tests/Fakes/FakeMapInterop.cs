@@ -84,6 +84,18 @@ public sealed class FakeMapInterop : IMapInterop
 	public List<MapCamera> Cameras { get; } = new();
 
 	/// <summary>
+	/// The animation duration asked for with each of <see cref="Cameras"/>, same order and same
+	/// length — <see cref="TimeSpan.Zero"/> for a jump.
+	/// <para>
+	/// A parallel list rather than a field on the camera, because a <see cref="MapCamera"/> is
+	/// where the map is looking and how it got there is not part of that. It is here so a test can
+	/// tell the two apart: following a rider and opening on a stored view send the same camera and
+	/// differ only in this (§5.3).
+	/// </para>
+	/// </summary>
+	public List<TimeSpan> CameraAnimations { get; } = new();
+
+	/// <summary>
 	/// Every box passed to <see cref="FitBoundsAsync"/>, in order — the frames a map was asked to
 	/// fit itself to. Real <c>fitBounds</c> resolves a zoom against the canvas, which a bUnit test
 	/// has none of, so what is asserted here is the request rather than the view it produced.
@@ -109,9 +121,10 @@ public sealed class FakeMapInterop : IMapInterop
 		return ValueTask.CompletedTask;
 	}
 
-	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default)
+	public ValueTask SetCameraAsync(MapCamera camera, TimeSpan animation = default, CancellationToken cancellationToken = default)
 	{
 		Cameras.Add(camera);
+		CameraAnimations.Add(animation);
 		return ValueTask.CompletedTask;
 	}
 

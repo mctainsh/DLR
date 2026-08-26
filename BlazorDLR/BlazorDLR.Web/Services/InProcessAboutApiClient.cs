@@ -97,6 +97,9 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task<RideDetail> CreateRideAsync(CreateRideRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<JoinResult> JoinRideByCodeAsync(JoinByCodeRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<IReadOnlyList<JoinRequestSummary>> ListJoinRequestsAsync(Guid rideId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+
+	/// <inheritdoc />
+	public Task WithdrawJoinRequestAsync(Guid rideId, Guid requestId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task DecideJoinRequestAsync(Guid rideId, Guid requestId, DecideJoinRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task StartRideAsync(Guid rideId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task EndRideAsync(Guid rideId, EndRideRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);

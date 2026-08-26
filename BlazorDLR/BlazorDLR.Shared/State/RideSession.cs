@@ -204,6 +204,21 @@ public sealed class RideSession : IAsyncDisposable
 	public bool IsOrganiser => Ride?.IsOrganiser == true;
 
 	/// <summary>
+	/// How many join requests are waiting on a decision (§5.2) — the number both ride screens
+	/// draw in the badge beside "Join requests".
+	/// <para>
+	/// Zero for anybody who is not the organiser, and zero until the snapshot lands: only the
+	/// organiser may list them, so counting on a member's behalf would be a call that 403s.
+	/// </para>
+	/// <para>
+	/// Counted here rather than by each screen because both of them draw it — the info page
+	/// beside the link that opens the list, the live map on its hamburger — and two screens
+	/// counting the same thing separately is how they come to disagree.
+	/// </para>
+	/// </summary>
+	public int PendingJoinRequests { get; private set; }
+
+	/// <summary>
 	/// Who may attach or detach a planned route: the organiser, or a leader (§5.4).
 	/// <para>
 	/// Mirrors <c>RideRouteController.AuthoriseWriteAsync</c> so the controls are simply absent
@@ -271,6 +286,7 @@ public sealed class RideSession : IAsyncDisposable
 		RoutePolyline = null;
 		WindDownEndsUtc = null;
 		Sharing = false;
+		PendingJoinRequests = 0;
 		_positions.Clear();
 		_markers.Clear();
 		Raise();
@@ -311,6 +327,10 @@ public sealed class RideSession : IAsyncDisposable
 			// waiting for a hub event, so a ride opened with the hub unreachable still draws its
 			// routes: §5.3's rule is that the snapshot is authoritative and the hub is the delta.
 			ApplyRoutes(await _api.ListRideRoutesAsync(rideId));
+
+			// Last of the load, and the only call here that is allowed to fail quietly — see
+			// RefreshJoinRequestsAsync. The four above are the ride; this one is a badge on it.
+			await RefreshJoinRequestsAsync();
 
 			// Everything landed, so this is a whole ride and worth keeping. After the four calls
 			// and before the hub, so the copy is exactly what the server said and carries none of
@@ -635,6 +655,34 @@ public sealed class RideSession : IAsyncDisposable
 		Raise();
 	}
 
+	/// <summary>
+	/// Re-counts the waiting join requests. Does nothing for a member — only the organiser may
+	/// list them, and the endpoint says so with a 403.
+	/// <para>
+	/// Swallows its own failures. This is a badge on two screens: a ride whose snapshot landed
+	/// has to open when only this call did not, and a count that could not be had is better
+	/// absent than turned into an error over the map.
+	/// </para>
+	/// </summary>
+	public async Task RefreshJoinRequestsAsync()
+	{
+		if (!IsOrganiser) return;
+
+		try
+		{
+			int waiting = (await _api.ListJoinRequestsAsync(_rideId)).Count;
+
+			if (waiting == PendingJoinRequests) return;
+
+			PendingJoinRequests = waiting;
+			Raise();
+		}
+		catch
+		{
+			// See the summary — no badge beats no ride.
+		}
+	}
+
 	/// <summary>Clears a stated error once the person has had a chance to read it.</summary>
 	public void ClearError()
 	{
@@ -682,6 +730,9 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.RideStateChanged += OnRideStateChanged;
 		_hub.SharingWindDownStarted += OnWindDownStarted;
 		_hub.PermissionsChanged += OnPermissionsChanged;
+		_hub.JoinRequestReceived += OnJoinRequestReceived;
+		_hub.JoinRequestDecided += OnJoinRequestDecided;
+		_hub.JoinRequestWithdrawn += OnJoinRequestWithdrawn;
 	}
 
 	private void UnwireHub()
@@ -698,6 +749,9 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.RideStateChanged -= OnRideStateChanged;
 		_hub.SharingWindDownStarted -= OnWindDownStarted;
 		_hub.PermissionsChanged -= OnPermissionsChanged;
+		_hub.JoinRequestReceived -= OnJoinRequestReceived;
+		_hub.JoinRequestDecided -= OnJoinRequestDecided;
+		_hub.JoinRequestWithdrawn -= OnJoinRequestWithdrawn;
 	}
 
 	private void OnPositions(PositionBatch batch)
@@ -715,10 +769,23 @@ public sealed class RideSession : IAsyncDisposable
 		Raise();
 	}
 
+	/// <summary>
+	/// Somebody is now on the ride (§5.2, §5.3).
+	/// <para>
+	/// An upsert rather than an append, on the same reasoning as the markers above. The ordinary
+	/// case is a name this list has never held — the snapshot is fetched before the hub group is
+	/// joined, so a rider who arrives in that window is missed rather than duplicated — but a
+	/// reconnect replays nothing and guarantees nothing (§5.3), and a member list that can show
+	/// the same person twice is a worse failure than one that is briefly a row short.
+	/// </para>
+	/// </summary>
 	private void OnMemberJoined(Guid rideId, RideMemberSummary member)
 	{
 		if (rideId != _rideId || Ride is null) return;
-		Ride = Ride with { Members = Ride.Members.Concat(new[] { member }).ToList() };
+
+		List<RideMemberSummary> members = [.. Ride.Members.Where(row => row.UserId != member.UserId), member];
+
+		Ride = Ride with { Members = members };
 		Raise();
 	}
 
@@ -916,6 +983,48 @@ public sealed class RideSession : IAsyncDisposable
 	{
 		if (rideId != _rideId || Ride is null) return;
 		Ride = Ride with { Permissions = permissions };
+		Raise();
+	}
+
+	/// <summary>
+	/// Somebody asked to join (§5.2). The server sends this to the organiser only, so the
+	/// number it moves is only ever the organiser's.
+	/// </summary>
+	private void OnJoinRequestReceived(Guid rideId, JoinRequestSummary request)
+	{
+		if (rideId != _rideId || !IsOrganiser) return;
+
+		PendingJoinRequests++;
+		Raise();
+	}
+
+	/// <summary>
+	/// A request was admitted or declined — on the requests page, or on a co-organiser's
+	/// device. Either way one fewer is waiting.
+	/// <para>
+	/// Clamped at zero rather than trusted: this is a delta on a count that a reconnect can
+	/// have missed the other half of (§5.3), and a badge reading -1 is worse than one reading
+	/// nothing. The next load re-counts from the server.
+	/// </para>
+	/// </summary>
+	private void OnJoinRequestDecided(Guid rideId, JoinResult result)
+	{
+		if (rideId != _rideId || !IsOrganiser) return;
+
+		PendingJoinRequests = Math.Max(0, PendingJoinRequests - 1);
+		Raise();
+	}
+
+	/// <summary>
+	/// The asker changed their mind before anybody answered (§5.2). One fewer waiting, exactly as
+	/// a decision is — the count does not care which of the two took the request away, and the
+	/// same clamp applies for the same reason.
+	/// </summary>
+	private void OnJoinRequestWithdrawn(Guid rideId, Guid requestId)
+	{
+		if (rideId != _rideId || !IsOrganiser) return;
+
+		PendingJoinRequests = Math.Max(0, PendingJoinRequests - 1);
 		Raise();
 	}
 

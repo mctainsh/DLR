@@ -1543,6 +1543,85 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
+	// ---------- How the map gets there ----------
+	//
+	// The two automatic modes re-aim on the traveller's fixes, which arrive about once a second.
+	// Sending each of those as a jump is a map that lurches — the ground holds still for a second
+	// and then teleports a bike-length, and a corner arrives as the world snapping round in three
+	// or four steps — so a driven camera is given a duration to travel over. A camera the page is
+	// *asserting* still jumps, and the distinction is what these three pin down.
+
+	[Fact]
+	public async Task WhileFollowing_ANewFixTravelsTheCameraRatherThanJumpingIt()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
+
+		await PressFollowButtonAsync(component);
+
+		component.WaitForAssertion(
+			() => component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("true"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		Gps.Emit(DeviceFix(-37.82, 144.97));
+
+		// The mark first, for the reason the heading test above waits on it: it is rebuilt and
+		// rendered on the way to the camera being aimed, so it is what says the aim has happened.
+		component.WaitForAssertion(
+			() => SelfMarkOn(component)!.Latitude.ShouldBe(-37.82, tolerance: 1e-4),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.WaitForAssertion(
+			() => _map.CameraAnimations[^1].ShouldBeGreaterThan(TimeSpan.Zero,
+				customMessage: "a second of travel arriving in one frame is what made the map lurch."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The map opening is not travel and must not be animated as though it were: the camera it
+	/// would be travelling <em>from</em> is the app's default, which can be a continent away from
+	/// the adventure being opened.
+	/// </summary>
+	[Fact]
+	public async Task TheMapOpening_JumpsToItsFirstCameraRatherThanTravellingToIt()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
+
+		_map.CameraAnimations.ShouldAllBe(
+			animation => animation == TimeSpan.Zero,
+			customMessage: "nothing before the first fix is the traveller moving.");
+	}
+
+	/// <summary>
+	/// The one tap on this page that animates, because it is the one that turns the map without
+	/// moving it: a snap back to north leaves somebody who had been riding south with no idea
+	/// which way the ground just went.
+	/// </summary>
+	[Fact]
+	public async Task ChoosingNorthUp_TurnsTheMapRatherThanSnappingIt()
+	{
+		(_, _, Guid rideId) = await WireServicesAsync();
+
+		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(
+			() => _map.Cameras[^1].HeadingDeg.ShouldBe(90, tolerance: 1e-6),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await ChooseMapOrientationAsync(component);
+
+		component.WaitForAssertion(() =>
+		{
+			_map.Cameras[^1].HeadingDeg.ShouldBe(0, tolerance: 1e-6);
+			_map.CameraAnimations[^1].ShouldBeGreaterThan(TimeSpan.Zero);
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
 	/// <summary>
 	/// A GPS heading is derived from successive fixes, so at a standstill it is the noise between
 	/// two readings of a bike leaning against a fence — arriving once a second. Honouring it would

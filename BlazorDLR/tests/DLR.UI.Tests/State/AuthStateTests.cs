@@ -190,6 +190,7 @@ public sealed class AuthStateTests
 		public Task UpdatePermissionsAsync(Guid r, DLR.Core.Contracts.Rides.RidePermissions p, CancellationToken ct = default) => inner.UpdatePermissionsAsync(r, p, ct);
 		public Task SetSharingAsync(Guid r, DLR.Core.Contracts.Rides.SetSharingRequest req, CancellationToken ct = default) => inner.SetSharingAsync(r, req, ct);
 		public Task LeaveRideAsync(Guid r, CancellationToken ct = default) => inner.LeaveRideAsync(r, ct);
+		public Task WithdrawJoinRequestAsync(Guid r, Guid q, CancellationToken ct = default) => inner.WithdrawJoinRequestAsync(r, q, ct);
 		public Task RemoveMemberAsync(Guid r, Guid u, CancellationToken ct = default) => inner.RemoveMemberAsync(r, u, ct);
 		public Task DeleteRideAsync(Guid r, CancellationToken ct = default) => inner.DeleteRideAsync(r, ct);
 		public Task<IReadOnlyList<DLR.Core.Contracts.Rides.RideRoute>> ListRideRoutesAsync(Guid r, CancellationToken ct = default) => inner.ListRideRoutesAsync(r, ct);

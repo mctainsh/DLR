@@ -49,6 +49,23 @@ public interface IRideClient
 	/// <param name="isPrivate">Whether they are now private.</param>
 	Task MemberPrivacyChanged(Guid rideId, Guid memberId, bool isPrivate);
 
+	/// <summary>
+	/// Somebody is now on the ride (§5.2, §5.3).
+	/// <para>
+	/// The whole member row rather than a nudge to refetch, unlike <see cref="RideRoutesChanged"/>:
+	/// a member is a name, a role and three flags, and the screens that draw the list would
+	/// otherwise all answer one join with one GET each.
+	/// </para>
+	/// <para>
+	/// <strong>The new member does not receive their own.</strong> They join over REST and only
+	/// then open the ride, so they are not in this group when it is sent — and they do not need to
+	/// be, because the snapshot they load a moment later already has them in it (§5.3).
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="member">Who joined, as the member list draws them.</param>
+	Task MemberJoined(Guid rideId, RideMemberSummary member);
+
 	/// <summary>The ride moved through the §5.1 lifecycle.</summary>
 	/// <param name="state">Where it is now.</param>
 	Task RideStateChanged(RideStateDto state);
@@ -64,6 +81,53 @@ public interface IRideClient
 	/// </summary>
 	/// <param name="rideId">Which ride's routes changed.</param>
 	Task RideRoutesChanged(Guid rideId);
+
+	/// <summary>
+	/// Somebody asked to join, on a ride the recipient may decide about (§5.2).
+	/// <para>
+	/// <strong>Sent to the deciders' group, never to the ride's.</strong> The payload carries the
+	/// asker's handle and whatever they wrote, and a pending requester is somebody the organiser
+	/// has not yet agreed to have on the ride — putting that in front of all fifty members would
+	/// publish a request that may be about to be declined. The group is exactly the set
+	/// <c>RideController.CanDecideAsync</c> would let call the list endpoint, so this tells nobody
+	/// anything they could not already fetch.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride. Carried, because a client holds one session per ride.</param>
+	/// <param name="request">Who is asking, and what they said.</param>
+	Task JoinRequestReceived(Guid rideId, JoinRequestSummary request);
+
+	/// <summary>
+	/// A waiting request was admitted or declined (§5.2).
+	/// <para>
+	/// The deciders' group again, and for a different reason from the message above: this one is
+	/// what keeps the waiting count honest across an organiser's own devices, and on the device
+	/// that made the decision. <strong>It is not how the asker finds out.</strong> They are not in
+	/// either group — a pending requester is not a member and has never joined the ride's hub
+	/// group — so their answer is the e-mail <c>RideNotifications</c> sends and the state their
+	/// next load reads back.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="result">The decision, and which request it was about.</param>
+	Task JoinRequestDecided(Guid rideId, JoinResult result);
+
+	/// <summary>
+	/// Somebody took their own request back before it was answered (§5.2).
+	/// <para>
+	/// Its own message rather than a <see cref="JoinRequestDecided"/> with a false in it, even
+	/// though the two move the waiting count the same way. Nobody decided anything here, and a
+	/// client — or a later reader of this contract — that has to know a decline and a withdrawal
+	/// apart would have no way to tell them apart from that payload.
+	/// </para>
+	/// <para>
+	/// The deciders' group, like the other two: it exists so an organiser's badge stops counting a
+	/// request that is not there any more, and the list behind that badge is theirs alone.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="requestId">The request that no longer exists.</param>
+	Task JoinRequestWithdrawn(Guid rideId, Guid requestId);
 
 	/// <summary>Somebody placed a marker (§16.6).</summary>
 	/// <param name="marker">The marker.</param>
@@ -169,11 +233,17 @@ public sealed class RideHub(
 		// Membership, not a join *request*. A pending requester has a row in
 		// group_ride_join_request and none in group_ride_member, and checking the wrong one would
 		// admit exactly the people the organiser has not yet decided about (§5.2).
-		bool isMember = await database
+		//
+		// The role comes back with it rather than in a second query: the answer to "are they in?"
+		// and the answer to "may they decide who else is?" are the same row, and reading it once
+		// is what stops the two drifting apart on a connect.
+		GroupRideRole? role = await database
 			.Set<GroupRideMember>()
-			.AnyAsync(member => member.GroupRideId == rideId && member.UserId == userId);
+			.Where(member => member.GroupRideId == rideId && member.UserId == userId)
+			.Select(member => (GroupRideRole?)member.Role)
+			.SingleOrDefaultAsync();
 
-		if (!isMember)
+		if (role is null)
 		{
 			// The same answer a ride that does not exist gets, for the same reason the join-code
 			// path gives one (§5.2): a ride id is shareable, and a distinguishable refusal turns
@@ -182,12 +252,28 @@ public sealed class RideHub(
 		}
 
 		await Groups.AddToGroupAsync(Context.ConnectionId, Group(rideId));
+
+		// A second group for the people who decide who is on the ride (§5.2), so that a join
+		// request can be announced live without being announced to the fifty people it is not
+		// about. Mirrors RideController.CanDecideAsync exactly — if that ever admits a fourth
+		// role, this has to move with it or the badge stops arriving for somebody who can act.
+		if (role is GroupRideRole.Owner or GroupRideRole.Leader)
+		{
+			await Groups.AddToGroupAsync(Context.ConnectionId, DecidersGroup(rideId));
+		}
 	}
 
 	/// <summary>Unsubscribes.</summary>
 	/// <param name="rideId">Which ride.</param>
-	public Task LeaveRide(Guid rideId) =>
-		Groups.RemoveFromGroupAsync(Context.ConnectionId, Group(rideId));
+	public async Task LeaveRide(Guid rideId)
+	{
+		await Groups.RemoveFromGroupAsync(Context.ConnectionId, Group(rideId));
+
+		// Unconditional, unlike the join. Removing a connection from a group it was never in is a
+		// no-op, and asking the database what role this member holds on the way *out* would be a
+		// query whose answer can only cost us a leaked subscription if it has changed since.
+		await Groups.RemoveFromGroupAsync(Context.ConnectionId, DecidersGroup(rideId));
+	}
 
 	/// <summary>
 	/// Subscribes to a shared route's thread (§6.2).
@@ -286,6 +372,19 @@ public sealed class RideHub(
 	public static string Group(Guid rideId) => $"ride:{rideId}";
 
 	/// <summary>
+	/// The SignalR group name for the people who decide who is on a ride — its organiser and its
+	/// leaders (§5.2).
+	/// <para>
+	/// A subset of <see cref="Group"/>'s members, and a separate group rather than a filter on
+	/// receipt, because the filtering has to happen before the payload leaves the server: a client
+	/// told to ignore a message has still been sent it.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <returns>The group name.</returns>
+	public static string DecidersGroup(Guid rideId) => $"ride-deciders:{rideId}";
+
+	/// <summary>
 	/// The SignalR group name for a shared route's thread.
 	/// <para>
 	/// Prefixed differently from a ride's, and that is load-bearing rather than tidy: both are
@@ -300,6 +399,46 @@ public sealed class RideHub(
 	private Guid CallerId() =>
 		(Context.User?.UserId())
 		?? throw new HubException("Not signed in.");
+}
+
+/// <summary>
+/// Telling a ride that its membership grew (§5.2, §5.3).
+/// <para>
+/// An extension rather than a method on the hub, on <see cref="RidePrivacyBroadcast"/>'s
+/// pattern: the send happens from the REST endpoint that wrote the row, and the hub class is
+/// where the group names and the message contract live.
+/// </para>
+/// </summary>
+public static class RideMembershipBroadcast
+{
+	/// <summary>
+	/// Sends <see cref="IRideClient.MemberJoined"/> to everybody already on the ride.
+	/// <para>
+	/// <strong>Swallowing, deliberately.</strong> The membership row is committed before this is
+	/// called, so a hub that cannot deliver must not turn somebody's successful join into a 500
+	/// for them (§7.12). The cost of a lost message is a member list that is one row short until
+	/// its next load — §5.3's rule, again: the snapshot is authoritative and this is the delta.
+	/// </para>
+	/// </summary>
+	/// <param name="hub">The connections.</param>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="member">Who joined.</param>
+	/// <param name="logger">Where a failed announcement is recorded.</param>
+	public static async Task AnnounceJoinedAsync(
+		this IHubContext<RideHub, IRideClient> hub,
+		Guid rideId,
+		RideMemberSummary member,
+		ILogger logger)
+	{
+		try
+		{
+			await hub.Clients.Group(RideHub.Group(rideId)).MemberJoined(rideId, member);
+		}
+		catch (Exception exception)
+		{
+			logger.LogError(exception, "Could not announce a new member of {RideId}.", rideId);
+		}
+	}
 }
 
 /// <summary>

@@ -87,13 +87,19 @@ public sealed class MapLibreInterop : IMapInterop
 	}
 
 	/// <inheritdoc />
-	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default) =>
+	public ValueTask SetCameraAsync(MapCamera camera, TimeSpan animation = default, CancellationToken cancellationToken = default) =>
 		Call("setCamera", cancellationToken, new
 		{
 			latitude = camera.Latitude,
 			longitude = camera.Longitude,
 			zoomLevel = camera.ZoomLevel,
 			headingDeg = camera.HeadingDeg,
+
+			// Milliseconds because that is what the base map counts an animation in, and clamped at
+			// zero so a caller that worked out a negative gap — a fix that arrived late — gets the
+			// jump rather than an argument MapLibre would read as "no duration given" and replace
+			// with its own default of 500 ms.
+			durationMs = animation > TimeSpan.Zero ? animation.TotalMilliseconds : 0,
 		});
 
 	/// <inheritdoc />

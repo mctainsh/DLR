@@ -55,7 +55,7 @@ public sealed class UninitialisedMapInterop : IMapInterop
 		throw new NotImplementedException(SsrGuard);
 
 	/// <inheritdoc />
-	public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default) =>
+	public ValueTask SetCameraAsync(MapCamera camera, TimeSpan animation = default, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(SsrGuard);
 
 	/// <inheritdoc />

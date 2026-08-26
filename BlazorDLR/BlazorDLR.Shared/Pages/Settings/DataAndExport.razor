@@ -2,7 +2,7 @@
 @attribute [Authorize]
 @using DLR.Core.Contracts.Account
 @inject IApiClient Api
-@inject IJSRuntime JS
+@inject IFileSaver FileSaver
 @inject NavigationManager Nav
 @inject AuthState Auth
 
@@ -123,21 +123,22 @@
 				return;
 			}
 
-			// Stream to bytes, then hand to the browser via a data URL. The response is a
-			// Content-Disposition attachment on the server side; on a Blazor WASM host the
-			// browser has already made the request, so we route through JS to build a link
-			// and click it. Works in both hosts because a MAUI WebView is a Chromium/WebKit
-			// that responds to a synthetic anchor click the same as a desktop browser.
+			// Stream to bytes, then hand the file to the host. The response carries a
+			// Content-Disposition attachment, but the browser is not the one that made the
+			// request — the app is — so somebody has to save it. That is not the same job on
+			// every host (an anchor click does nothing inside a WebView), which is what
+			// IFileSaver is for.
 			byte[] bytes = await response.Content.ReadAsByteArrayAsync();
-			string base64 = Convert.ToBase64String(bytes);
-			string fileName = ($"dlr-export-{Auth.UserName ?? "me"}.zip").Replace('/', '-');
+			string fileName = $"dlr-export-{Auth.UserName ?? "me"}.zip";
 
-			await JS.InvokeVoidAsync("eval",
-				"(function(){var a=document.createElement('a');" +
-				$"a.href='data:application/zip;base64,{base64}';" +
-				$"a.download='{fileName}';document.body.appendChild(a);a.click();a.remove();}})();");
+			FileSaveResult saved = await FileSaver.SaveAsync(fileName, "application/zip", bytes);
 
-			_exportStatus = "Download started.";
+			_exportStatus = saved.Status switch
+			{
+				FileSaveStatus.Saved => saved.Detail ?? "Download started.",
+				FileSaveStatus.Cancelled => null,
+				_ => $"Export failed: {saved.Detail ?? "this device has nowhere to put the file."}",
+			};
 		}
 		catch (Exception exception)
 		{

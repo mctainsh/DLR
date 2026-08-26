@@ -212,6 +212,19 @@ public interface IApiClient
 	/// <summary><c>DELETE /api/v1/group-rides/{id}/members/me</c> — leave the ride.</summary>
 	Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Takes back a join request the caller made and nobody has answered (§5.2).
+	/// <para>
+	/// The counterpart to <see cref="LeaveRideAsync"/> for somebody who never got in. Idempotent:
+	/// a request that has already been answered or already withdrawn succeeds quietly, because the
+	/// caller asked for it to be gone and it is.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which adventure they asked about.</param>
+	/// <param name="requestId">Their pending request.</param>
+	/// <param name="cancellationToken">Cancels the call.</param>
+	Task WithdrawJoinRequestAsync(Guid rideId, Guid requestId, CancellationToken cancellationToken = default);
+
 	/// <summary><c>DELETE /api/v1/group-rides/{id}/members/{userId}</c> — organiser removes a member.</summary>
 	Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default);
 

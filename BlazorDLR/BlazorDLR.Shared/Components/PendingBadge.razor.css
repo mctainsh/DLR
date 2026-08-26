@@ -1,0 +1,42 @@
+/*
+	The unread-mail dot (see PendingBadge.razor for why it is a component, and for why placing
+	it is the caller's job rather than this file's).
+
+	Scoped rather than a plain style block: the live map draws two of these inside a menu that
+	is already one of the largest DOMs in the app, and a copy of these rules per badge is a cost
+	that grows with the screen.
+
+	em throughout, not px. This is worn by a line of menu text and by a 48 px map control, and
+	"a circle a bit taller than the text it sits on" is the same rule at both sizes.
+*/
+.count-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+
+	/*
+		A circle, not a lozenge. min-width and height are the same number so a single digit — which
+		is what nearly every one of these carries — comes out round; the padding is only there so
+		that "12" and "99+" grow sideways instead of overflowing or shrinking the type.
+
+		Tight on purpose. A badge is read as a shape first and a number second, and one padded out
+		to the width of a word stops reading as a dot at all.
+	*/
+	min-width: 1.5em;
+	height: 1.5em;
+	padding: 0 0.25em;
+	box-sizing: border-box;
+
+	border-radius: 999px;
+	background: #dc2626;
+	color: #fff;
+
+	font-size: 0.7rem;
+	font-weight: 700;
+	line-height: 1;
+
+	/* The count is a number and never wraps, whatever the row it lands in is doing. */
+	flex: 0 0 auto;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}

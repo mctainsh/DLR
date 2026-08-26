@@ -1,0 +1,45 @@
+@*
+	The unread-mail dot: a small red circle carrying a number, sat on the thing it counts.
+
+	Its own component because it is drawn for one number in more than one place — the info
+	page's Join requests button, the live map's hamburger, and that menu's own Join requests
+	item — and a circle whose size and colour were typed out three times is a circle that ends
+	up three slightly different sizes.
+
+	It draws the pill and nothing else. **Where it sits is the caller's business**: in a line of
+	text it is an inline item, on the corner of a 48 px map control it is pinned and hanging
+	over the edge, and those are facts about those two screens rather than about a badge. The
+	one that hangs on a corner also has to restate the colours, because it is over a map — see
+	GroupRideLive's `.chrome > button.hamburger .count-badge`.
+
+	Absent at zero rather than drawn as "0". A badge is a claim that something is waiting; one
+	that says nothing is waiting is a permanent decoration a reader learns to stop seeing.
+
+	The number is read out as words, not as a bare digit. A screen reader meeting "3" beside
+	"Join requests" has no way to say whether that is a count, a position or a shortcut key,
+	so the visible glyph is hidden from it and Label is what it gets instead.
+*@
+
+@if (Count > 0)
+{
+	<span class="count-badge" role="status" aria-label="@Label">
+		<span aria-hidden="true">@Text</span>
+	</span>
+}
+
+@code {
+	/// <summary>How many are waiting. Nothing is drawn at zero or below.</summary>
+	[Parameter] public int Count { get; set; }
+
+	/// <summary>What the number is, for a screen reader: "join requests", "unread messages".</summary>
+	[Parameter] public string Noun { get; set; } = "waiting";
+
+	/// <summary>
+	/// Past 99 the badge stops counting and starts saying "a lot". Three digits inside a circle
+	/// this size is unreadable at arm's length, and the difference between 100 and 140 waiting
+	/// changes nothing about what the reader does next.
+	/// </summary>
+	private string Text => Count > 99 ? "99+" : Count.ToString();
+
+	private string Label => $"{Count} {Noun}";
+}

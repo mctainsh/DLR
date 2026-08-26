@@ -146,7 +146,7 @@ public sealed class RideMapForwardTests : BunitContext
 			await _init.Task;
 		}
 
-		public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default)
+		public ValueTask SetCameraAsync(MapCamera camera, TimeSpan animation = default, CancellationToken cancellationToken = default)
 		{
 			Cameras.Add(camera);
 			return ValueTask.CompletedTask;
@@ -514,7 +514,7 @@ public sealed class RideMapForwardTests : BunitContext
 			CancellationToken cancellationToken = default) =>
 			_inner.FitBoundsAsync(bounds, paddingPx, maxZoomLevel, cancellationToken);
 
-		public ValueTask SetCameraAsync(MapCamera camera, CancellationToken cancellationToken = default) => _inner.SetCameraAsync(camera, cancellationToken);
+		public ValueTask SetCameraAsync(MapCamera camera, TimeSpan animation = default, CancellationToken cancellationToken = default) => _inner.SetCameraAsync(camera, animation, cancellationToken);
 		public ValueTask SetSourceAsync(MapSource source, CancellationToken cancellationToken = default) => _inner.SetSourceAsync(source, cancellationToken);
 		public ValueTask DisposeAsync(CancellationToken cancellationToken = default) => _inner.DisposeAsync(cancellationToken);
 	}

@@ -71,6 +71,7 @@ try
 	builder.Services.AddScoped<TrackStore>();
 	builder.Services.Configure<RideJoinOptions>(builder.Configuration.GetSection(RideJoinOptions.Section));
 	builder.Services.AddScoped<RideNotifications>();
+	builder.Services.AddScoped<RideMembers>();
 	builder.Services.AddScoped<PositionStore>();
 
 	// The cache is a singleton because it *is* the live state; the writer is scoped because it
@@ -189,6 +190,8 @@ try
 	builder.Services.AddSingleton<BlazorDLR.Shared.State.NotificationRouting>();
 	builder.Services.AddScoped<BlazorDLR.Shared.State.CommentNotifier>();
 	builder.Services.AddScoped<IMediaPicker, NoopMediaPicker>();
+	// No rider and no click during the prerender; the interactive host binds the real saver.
+	builder.Services.AddScoped<IFileSaver, UnavailableFileSaver>();
 	// Transient to match the interactive hosts: one interop per <RideMap>. Stateless here, but a
 	// lifetime that differs between the prerender and the client it hands off to is a trap.
 	builder.Services.AddTransient<IMapInterop, UninitialisedMapInterop>();

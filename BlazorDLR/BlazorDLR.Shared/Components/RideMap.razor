@@ -628,8 +628,18 @@ else if (_tileError is not null)
 		_ = InvokeAsync(() => OnMapClicked.InvokeAsync(click));
 	}
 
-	/// <summary>Move the base map's camera. The overlay re-registers via the next viewport event.</summary>
-	public ValueTask SetCameraAsync(MapCamera camera) => Map.SetCameraAsync(camera);
+	/// <summary>
+	/// Move the base map's camera. The overlay re-registers via the next viewport event.
+	/// <para>
+	/// <paramref name="animation"/> is passed straight through — see
+	/// <see cref="IMapInterop.SetCameraAsync"/> for when a camera should glide rather than jump.
+	/// Zero, the default, is the jump every caller had before the option existed.
+	/// </para>
+	/// </summary>
+	/// <param name="camera">Where the map should be looking.</param>
+	/// <param name="animation">How long to take getting there; zero puts it there at once.</param>
+	public ValueTask SetCameraAsync(MapCamera camera, TimeSpan animation = default) =>
+		Map.SetCameraAsync(camera, animation);
 
 	public async ValueTask DisposeAsync()
 	{

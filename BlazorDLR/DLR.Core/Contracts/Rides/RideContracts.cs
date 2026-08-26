@@ -210,15 +210,57 @@ public sealed record RideSummary(
 	string? JoinCode);
 
 /// <summary>
+/// An adventure the caller has asked to join and has not been let into yet (§5.2).
+/// <para>
+/// <strong>Deliberately not a <see cref="RideSummary"/>.</strong> Somebody waiting on an
+/// approval is not a member, and the summary carries two things that are a member's: the join
+/// code, which is the credential for getting somebody else in, and the member count. Reusing
+/// the type would have made handing those to a stranger a one-line mistake; a separate record
+/// makes it a structural impossibility.
+/// </para>
+/// <para>
+/// The name is here, and it is the one thing this does disclose to a non-member. It has to be:
+/// the alternative is a list that tells a rider they are waiting on something without saying
+/// what. They already hold a valid join code for it — that is what §5.2 treats as permission to
+/// ask about a ride at all — and the organiser is looking at their handle either way.
+/// </para>
+/// </summary>
+/// <param name="RideId">Which adventure. Not openable until admitted — the detail endpoint
+/// answers a non-member the same 404 a stranger gets.</param>
+/// <param name="RequestId">The pending request itself.</param>
+/// <param name="Name">What the adventure is called.</param>
+/// <param name="StartUtc">When it starts.</param>
+/// <param name="State">
+/// Where it is in the lifecycle. Carried because the answer a rider most wants from this list
+/// is often "did it go without me?" — a request still pending against a ride that has already
+/// finished is a different disappointment from one nobody has got to yet.
+/// </param>
+/// <param name="RequestedUtc">When they asked.</param>
+public sealed record WaitingRide(
+	Guid RideId,
+	Guid RequestId,
+	string Name,
+	DateTimeOffset StartUtc,
+	RideStateDto State,
+	DateTimeOffset RequestedUtc);
+
+/// <summary>
 /// The caller's rides, split by role (§5.2). Split on the wire rather than reconstructed on the
 /// client so a member of one ride and the organiser of another gets two lists rather than one
 /// list plus a filter.
 /// </summary>
 /// <param name="Organised">Rides the caller created.</param>
 /// <param name="Joined">Rides the caller was admitted to.</param>
+/// <param name="Waiting">
+/// Adventures the caller has asked to join and is still waiting on. A third list rather than a
+/// flag on the second, for the reason the first two are split: these are not rides the caller is
+/// on, and nothing that works on a joined ride — opening it, its map, its thread — works on one
+/// of these.
+/// </param>
 public sealed record MyRides(
 	IReadOnlyList<RideSummary> Organised,
-	IReadOnlyList<RideSummary> Joined);
+	IReadOnlyList<RideSummary> Joined,
+	IReadOnlyList<WaitingRide> Waiting);
 
 /// <summary>A request waiting on the organiser (§5.2).</summary>
 /// <param name="Id">Which request.</param>

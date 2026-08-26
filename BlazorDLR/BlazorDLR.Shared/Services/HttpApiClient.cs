@@ -340,6 +340,14 @@ public sealed class HttpApiClient : IApiClient
 	}
 
 	/// <inheritdoc />
+	public async Task WithdrawJoinRequestAsync(Guid rideId, Guid requestId, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.DeleteAsync(
+			$"/api/v1/group-rides/{rideId}/join-requests/{requestId}", cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
+	/// <inheritdoc />
 	public async Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default)
 	{
 		using HttpResponseMessage response = await _http.DeleteAsync(

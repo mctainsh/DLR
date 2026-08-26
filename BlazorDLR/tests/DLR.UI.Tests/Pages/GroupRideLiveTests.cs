@@ -796,4 +796,111 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 		component.FindAll(".sharing-off").ShouldBeEmpty();
 	}
+
+	/// <summary>A request waiting on the organiser (§5.2).</summary>
+	private static JoinRequestSummary Waiting(string userName) =>
+		new(Guid.NewGuid(), Guid.NewGuid(), userName, null, FixedInstant);
+
+	[Fact]
+	public void Organiser_SeesTheWaitingCount_WithTheMenuStillClosed()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		api.JoinRequestsResult = [Waiting("DaveSmith"), Waiting("JanePark")];
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.Find("button.hamburger .count-badge").TextContent.Trim().ShouldBe("2",
+				"the whole point of putting it out here: an organiser riding a route has no reason "
+				+ "to open this menu on the off-chance, so the count has to reach them unopened."),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".menu").ShouldBeEmpty("the badge is not a reason to open the menu by itself.");
+	}
+
+	[Fact]
+	public void WithNobodyWaiting_TheHamburgerIsBare()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		api.JoinRequestsResult = [];
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		// A dot over the map is a claim that something needs doing. One that is always there is
+		// one nobody reads.
+		component.FindAll("button.hamburger .count-badge").ShouldBeEmpty();
+	}
+
+	[Fact]
+	public void AMember_NeverCarriesTheBadge()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: false);
+
+		// Set anyway: a member must not draw a count even if something answered the call, because
+		// admitting people is not theirs to do.
+		api.JoinRequestsResult = [Waiting("DaveSmith")];
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.FindAll(".count-badge").ShouldBeEmpty();
+		api.Calls.ShouldNotContain(nameof(IApiClient.ListJoinRequestsAsync));
+	}
+
+	[Fact]
+	public async Task TheMenu_LeadsToTheListTheBadgeIsCounting()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		api.JoinRequestsResult = [Waiting("DaveSmith")];
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger .count-badge").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await OpenMenuAsync(component);
+
+		// Without this row the trail the badge started ends at Info, and a corner dot whose only
+		// answer is "look around" is a dot people learn to ignore.
+		await component.InvokeAsync(() => component.FindAll(".menu button")
+			.First(button => button.TextContent.Contains("Accept join requests", StringComparison.Ordinal))
+			.Click());
+
+		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
+			.ShouldEndWith($"/group-rides/{rideId}/requests");
+	}
+
+	[Fact]
+	public async Task TheMenu_CarriesNoRequestsRow_WhenNobodyIsWaiting()
+	{
+		(FakeApiClient api, _, Guid rideId) = WireServices(isOrganiser: true);
+
+		api.JoinRequestsResult = [];
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		await OpenMenuAsync(component);
+
+		// Every other item in here is a permanent part of the screen; this one is an errand, and
+		// an organiser with nothing pending should not read past it for the whole of a ride.
+		component.FindAll(".menu button")
+			.Any(button => button.TextContent.Contains("Accept join requests", StringComparison.Ordinal))
+			.ShouldBeFalse();
+	}
 }

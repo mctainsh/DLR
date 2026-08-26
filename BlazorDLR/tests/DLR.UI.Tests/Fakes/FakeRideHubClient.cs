@@ -27,6 +27,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<Guid>? RoutesChanged;
 	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
 	public event Action<Guid, JoinResult>? JoinRequestDecided;
+	public event Action<Guid, Guid>? JoinRequestWithdrawn;
 	public event Action<Guid, MarkerDto>? MarkerAdded;
 	public event Action<Guid, MarkerDto>? MarkerUpdated;
 	public event Action<Guid, Guid>? MarkerRemoved;
@@ -140,6 +141,10 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public void RaisePermissionsChanged(Guid rideId, RidePermissions permissions) => PermissionsChanged?.Invoke(rideId, permissions);
 	public void RaiseRoutesChanged(Guid rideId) => RoutesChanged?.Invoke(rideId);
 	public void RaiseMemberJoined(Guid rideId, RideMemberSummary member) => MemberJoined?.Invoke(rideId, member);
+
+	/// <summary>The asker took their own request back (§5.2).</summary>
+	public void RaiseJoinRequestWithdrawn(Guid rideId, Guid requestId) =>
+		JoinRequestWithdrawn?.Invoke(rideId, requestId);
 	public void RaiseMemberLeft(Guid rideId, Guid userId) => MemberLeft?.Invoke(rideId, userId);
 	public void RaiseMemberSharingChanged(Guid rideId, Guid userId, bool sharing) => MemberSharingChanged?.Invoke(rideId, userId, sharing);
 	public void RaiseMemberPrivacyChanged(Guid rideId, Guid userId, bool isPrivate) => MemberPrivacyChanged?.Invoke(rideId, userId, isPrivate);
