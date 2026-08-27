@@ -27,7 +27,6 @@ namespace DLR.Server.Tests.Rides;
 /// could attach one could put any of their own tracks on somebody else's ride.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class RideRouteTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

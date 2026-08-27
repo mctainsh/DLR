@@ -20,7 +20,6 @@ namespace DLR.Server.Tests.Harness;
 /// test would say so.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class ContainerTests(PostgresFixture postgres)
 {
 	/// <summary>

@@ -11,7 +11,6 @@ namespace DLR.Server.Tests.Harness;
 /// things working and on nothing else external, so they get assertions of their own
 /// rather than being assumed by the first feature test that needs them.
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class TestHarnessTests(PostgresFixture postgres)
 {
 	[Fact]

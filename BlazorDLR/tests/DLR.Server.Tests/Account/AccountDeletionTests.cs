@@ -30,7 +30,6 @@ namespace DLR.Server.Tests.Account;
 /// leaves the photographs behind — a privacy failure that presents as a storage bill.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class AccountDeletionTests(PostgresFixture postgres)
 {
 	private const string MeUrl = "/api/v1/me";

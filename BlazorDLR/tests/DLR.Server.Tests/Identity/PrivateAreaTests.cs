@@ -18,7 +18,6 @@ namespace DLR.Server.Tests.Identity;
 /// token, and nobody else by any route.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class PrivateAreaTests(PostgresFixture postgres)
 {
 	private const string AreaUrl = "/api/v1/me/private-area";

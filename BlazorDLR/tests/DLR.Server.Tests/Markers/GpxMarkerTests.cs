@@ -22,7 +22,6 @@ namespace DLR.Server.Tests.Markers;
 /// nothing in the model could hold one, and markers are exactly what they are.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class GpxMarkerTests(PostgresFixture postgres)
 {
 	private const string ImportUrl = "/api/v1/tracks/import";

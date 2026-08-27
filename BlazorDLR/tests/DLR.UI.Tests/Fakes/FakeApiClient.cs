@@ -854,8 +854,29 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>Set to make the REST publish fail too, which is the case the UI has to state.</summary>
 	public ApiException? PublishPositionException { get; set; }
 
+	/// <summary>
+	/// Set to make the REST publish never answer. Paired with the hub's <c>PublishHangs</c>, this
+	/// is a link that has gone quiet without closing — the case that used to stop the fix pump
+	/// dead for the length of HttpClient's 100-second default.
+	/// </summary>
+	public bool PublishPositionHangs { get; set; }
+
+	/// <summary>How many REST position publishes have been started, hung and failed ones included.</summary>
+	public int PublishPositionAttempts { get; private set; }
+
 	public Task<PublishResult> PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default)
 	{
+		PublishPositionAttempts++;
+
+		if (PublishPositionHangs)
+		{
+			return Task.Delay(Timeout.Infinite, cancellationToken).ContinueWith(
+				_ => new PublishResult(Array.Empty<Guid>()),
+				cancellationToken,
+				TaskContinuationOptions.ExecuteSynchronously,
+				TaskScheduler.Default);
+		}
+
 		if (PublishPositionException is not null)
 		{
 			return Task.FromException<PublishResult>(PublishPositionException);

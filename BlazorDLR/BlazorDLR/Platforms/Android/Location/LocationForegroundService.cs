@@ -32,6 +32,15 @@ namespace BlazorDLR.Platforms.Android.Location;
 /// watching again on the last profile" rather than as a fresh command.
 /// </para>
 /// <para>
+/// <strong>A partial wake lock, held for the life of the receiver.</strong> A foreground service
+/// keeps the <em>process</em> alive; it does not keep the CPU awake. With the phone in a mount and
+/// the screen off, the device still suspends between fixes, and what suspends with it is the
+/// publish — which is how a ride ends up with a pin that has not moved for minutes. The manifest
+/// has always declared <c>WAKE_LOCK</c> and a comment claiming the service held one; it did not,
+/// and now it does. The notification is what bounds it: the lock cannot outlive a service the rider
+/// can see and stop.
+/// </para>
+/// <para>
 /// <strong>The fixes leave through a channel, not an event.</strong> The consumer is an
 /// <c>IAsyncEnumerable</c> on the shared side (<see cref="ILocationProvider.WatchAsync"/>), and a
 /// bounded channel that drops the oldest is the honest backpressure policy for positions: if the
@@ -65,10 +74,25 @@ public sealed class LocationForegroundService : Service
 	private const int NotificationId = 4301;
 
 	/// <summary>
-	/// How many fixes may queue for a slow consumer. Small on purpose — see the channel note in
-	/// the type's remarks. Ten is a few seconds of Precise.
+	/// The tag Android attributes the wake lock to, in <c>dumpsys power</c> and in the battery
+	/// breakdown. Package-prefixed, which is the platform's convention and what makes it possible
+	/// to tell whose lock it is in a bug report.
 	/// </summary>
-	private const int FixBufferSize = 10;
+	private const string WakeLockTag = "dlr:location";
+
+	/// <summary>
+	/// How many fixes may queue for a consumer that is behind — see the channel note in the type's
+	/// remarks.
+	/// <para>
+	/// This was ten, chosen when the consumer awaited a network round trip per fix and being far
+	/// behind was the normal condition. It no longer is: the publish moved off that loop into
+	/// <c>PositionOutbox</c>, so the consumer now only records and gates, and it drains this in
+	/// microseconds. What the buffer is for now is the other direction — Play Services coalesces
+	/// fixes while the device dozes and hands them over in a batch, and every one of them is a
+	/// point the rider's own track wants (§15.1). Ten threw most of a doze batch away.
+	/// </para>
+	/// </summary>
+	private const int FixBufferSize = 64;
 
 	private static readonly Channel<LocationFix> Fixes = Channel.CreateBounded<LocationFix>(
 		new BoundedChannelOptions(FixBufferSize)
@@ -79,6 +103,7 @@ public sealed class LocationForegroundService : Service
 		});
 
 	private ILocationEngine? _engine;
+	private PowerManager.WakeLock? _wakeLock;
 	private AccuracyProfile _profile = AccuracyProfile.Balanced;
 
 	/// <summary>
@@ -235,6 +260,10 @@ public sealed class LocationForegroundService : Service
 			_engine = null;
 		}
 
+		// Before the engine, so there is no window in which a fix arrives with the CPU free to
+		// suspend under it. Idempotent — a re-tune keeps the lock it already holds.
+		AcquireWakeLock();
+
 		_engine = LocationEngineFactory.Create(this, Publish);
 		_engine.Start(_profile);
 		IsRunning = true;
@@ -250,6 +279,92 @@ public sealed class LocationForegroundService : Service
 		_engine?.Stop();
 		_engine = null;
 		IsRunning = false;
+
+		// Last, and unconditionally. A wake lock that outlives the receiver is a flat battery with
+		// nothing on screen to explain it — the one failure here worse than the one it fixes.
+		ReleaseWakeLock();
+	}
+
+	/// <summary>
+	/// Takes a partial wake lock, so the CPU keeps running between fixes with the screen off.
+	/// <para>
+	/// A foreground service is a promise about the <em>process</em>, not about the CPU: the device
+	/// still suspends, and the publish suspends with it. That is what a phone in a mount was doing
+	/// when riders saw a pin freeze for minutes and then jump.
+	/// </para>
+	/// <para>
+	/// <c>SetReferenceCounted(false)</c> so a re-tune or a sticky restart cannot leave a count this
+	/// service can never unwind. Failing to get one is recorded rather than thrown: the ride still
+	/// works, it is just back to being at the mercy of Doze, and that is worth knowing later.
+	/// </para>
+	/// </summary>
+	private void AcquireWakeLock()
+	{
+		if (_wakeLock is not null)
+			return;
+
+		try
+		{
+			PowerManager? power = (PowerManager?)GetSystemService(PowerService);
+
+			_wakeLock = power?.NewWakeLock(WakeLockFlags.Partial, WakeLockTag);
+
+			if (_wakeLock is null)
+			{
+				DiagnosticLog.Write("GPS service: no PowerManager — the CPU may sleep between fixes.");
+				return;
+			}
+
+			_wakeLock.SetReferenceCounted(false);
+			_wakeLock.Acquire();
+
+			DiagnosticLog.Write("GPS service: partial wake lock held for the receiver.");
+		}
+		catch (Exception exception)
+		{
+			DiagnosticLog.WriteError("taking the location wake lock", exception);
+
+			// Given back before the reference is dropped. Acquire() may well have succeeded and a
+			// later line thrown — and a partial wake lock with nothing left holding a reference to
+			// it is held until the process dies. That is the failure ReleaseWakeLock calls the
+			// worse one: a flat battery with nothing on screen to explain it.
+			try
+			{
+				if (_wakeLock is { IsHeld: true })
+					_wakeLock.Release();
+			}
+			catch (Exception release)
+			{
+				DiagnosticLog.WriteError("releasing a wake lock that could not be taken", release);
+			}
+
+			_wakeLock?.Dispose();
+			_wakeLock = null;
+		}
+	}
+
+	/// <summary>Gives the wake lock back. Safe to call when none was taken.</summary>
+	private void ReleaseWakeLock()
+	{
+		if (_wakeLock is null)
+			return;
+
+		try
+		{
+			if (_wakeLock.IsHeld)
+				_wakeLock.Release();
+
+			DiagnosticLog.Write("GPS service: wake lock released.");
+		}
+		catch (Exception exception)
+		{
+			DiagnosticLog.WriteError("releasing the location wake lock", exception);
+		}
+		finally
+		{
+			_wakeLock.Dispose();
+			_wakeLock = null;
+		}
 	}
 
 	private static void Publish(LocationFix fix) => Fixes.Writer.TryWrite(fix);

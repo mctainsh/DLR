@@ -17,7 +17,6 @@ namespace DLR.Server.Tests.Identity;
 /// The IP ladder, the rate-limit table and the forwarded headers everything else rests on
 /// (§7.8).
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class AbuseTests(PostgresFixture postgres)
 {
 	private const string RegisterUrl = "/api/v1/auth/register";

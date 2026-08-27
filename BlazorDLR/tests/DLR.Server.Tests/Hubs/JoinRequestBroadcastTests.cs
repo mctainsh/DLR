@@ -28,7 +28,6 @@ namespace DLR.Server.Tests.Hubs;
 /// matter most here are the two negative ones.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class JoinRequestBroadcastTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

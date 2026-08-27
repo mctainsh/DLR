@@ -207,10 +207,10 @@ public sealed class NeighbourListTests
 	[InlineData(0, "level")]
 	[InlineData(12, "level")]
 	[InlineData(-12, "level")]
-	[InlineData(340, "340 m ahead")]
-	[InlineData(-340, "340 m back")]
-	[InlineData(1_250, "1.3 km ahead")]
-	[InlineData(-1_250, "1.3 km back")]
+	[InlineData(340, "+ 340 m")]
+	[InlineData(-340, "- 340 m")]
+	[InlineData(1_250, "+ 1.3 km")]
+	[InlineData(-1_250, "- 1.3 km")]
 	public void AGapIsReadAsWords_NotAsASign(double metres, string expected) =>
 		NeighbourList.FormatRelative(metres).ShouldBe(expected,
 			"the row order already says which way; a minus sign at 0.8 rem through a visor does not.");

@@ -11,10 +11,38 @@
 	-->
 	<PropertyGroup>
 		<IsPackable>false</IsPackable>
+
+		<!--
+			Test projects are executables because xunit.v3 links its runner into them; the fixture
+			library is not. Stated once here rather than in each .csproj, so a fifth test project
+			runs by default instead of failing the xunit build check with no clue why.
+		-->
+		<OutputType Condition="'$(MSBuildProjectName)' != 'DLR.TestSupport'">Exe</OutputType>
+
+		<!--
+			xUnit1051 wants TestContext.Current.CancellationToken passed to every call that takes
+			one — around two and a half thousand of them here. It is a rule about tests that would
+			otherwise hang past their timeout, and this suite has no such await: the fake clock
+			means nothing waits on real time, and the few genuine waits already carry their own
+			deadline. Taking the advice would put a token on every line to say nothing new.
+		-->
+		<NoWarn>$(NoWarn);xUnit1051</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="xunit" Version="2.9.3" />
+		<!--
+			xunit.v3 links a runner into the assembly and so demands an executable; DLR.TestSupport
+			is a library of fixtures rather than a test project, and takes the extensibility half of
+			the package instead: IAsyncLifetime and the fixture interfaces, no runner. The OutputType
+			above is the other half of the same fact, which is why both are keyed the same way.
+
+			Keyed on the project name, not IsTestProject: this file is imported before the body of
+			the .csproj that sets it, so the property is not there yet to be read.
+		-->
+		<PackageReference Include="xunit.v3" Version="4.0.0"
+			Condition="'$(MSBuildProjectName)' != 'DLR.TestSupport'" />
+		<PackageReference Include="xunit.v3.extensibility.core" Version="4.0.0"
+			Condition="'$(MSBuildProjectName)' == 'DLR.TestSupport'" />
 		<PackageReference Include="Shouldly" Version="4.3.0" />
 		<PackageReference Include="NSubstitute" Version="6.0.0" />
 	</ItemGroup>

@@ -6,6 +6,7 @@ using DLR.Server.Positions;
 using DLR.TestSupport.Database;
 using DLR.TestSupport.Email;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -53,6 +54,41 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 		["RateLimits:ForgotPerHourPerEmail"] = "10000",
 		["RateLimits:ForgotPerHourPerAddress"] = "10000",
 		["RateLimits:RefreshPerMinutePerDevice"] = "10000",
+	};
+
+	/// <summary>
+	/// Where the work factor is read from. Private: it is this class talking to itself, and a
+	/// <c>Testing:</c> key on the application's own configuration surface is not something a
+	/// caller should have to know about — <see cref="ShippedPasswordCost"/> is the way in.
+	/// </summary>
+	private const string PasswordHasherIterationsKey = "Testing:PasswordHasherIterations";
+
+	/// <summary>
+	/// The work factor tests run at, unless one asks for the shipped number.
+	/// <para>
+	/// Password hashing is deliberately slow, and the shipped hundred thousand iterations cost
+	/// about forty milliseconds a hash. The suite registers and signs in hundreds of times, so
+	/// that is most of a minute spent proving PBKDF2 still works — which it is not the job of
+	/// a group-ride test to establish. Lowered rather than replaced: the same hasher on the
+	/// same code path, so <see cref="DLR.Server.Identity.DummyPasswordVerifier"/> still matches
+	/// it and every §7.4 assertion still means what it says. The shipped number is asserted
+	/// where it belongs, by <c>PasswordWorkFactorTests</c>.
+	/// </para>
+	/// </summary>
+	public const int CheapPasswordHasherIterations = 10_000;
+
+	/// <summary>
+	/// What the application actually ships — the framework default, which §7 never overrides.
+	/// </summary>
+	public static int ShippedPasswordHasherIterations => new PasswordHasherOptions().IterationCount;
+
+	/// <summary>
+	/// <c>settings:</c> overrides that put the shipped work factor back, for a test whose subject
+	/// is what hashing costs rather than what it protects.
+	/// </summary>
+	public static Dictionary<string, string?> ShippedPasswordCost => new()
+	{
+		[PasswordHasherIterationsKey] = ShippedPasswordHasherIterations.ToString(),
 	};
 
 	/// <summary>
@@ -110,9 +146,16 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	public string ConnectionString => _connectionString;
 
 	/// <summary>
-	/// Creates a fresh database, starts the server against it and applies every migration.
+	/// Creates a fresh migrated database and points a server at it.
+	/// <para>
+	/// No migration step here: <see cref="PostgresFixture.CreateDatabaseAsync"/> hands back a copy
+	/// of an already-migrated template, <c>__EFMigrationsHistory</c> and all. Running the migrator
+	/// over it as well would resolve a context and round-trip the history table once per test only
+	/// to find nothing pending — which is the cost the template exists to remove. <see cref="Restart"/>
+	/// has always skipped it for the same reason.
+	/// </para>
 	/// </summary>
-	/// <param name="postgres">The collection's container.</param>
+	/// <param name="postgres">The assembly's container.</param>
 	/// <param name="startingAt">Where the fake clock starts; defaults to <see cref="DefaultStart"/>.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
 	/// <param name="settings">Configuration overrides — the §7.8 thresholds, mostly.</param>
@@ -124,11 +167,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	{
 		string connectionString = await postgres.CreateDatabaseAsync(cancellationToken);
 
-		DlrWebApplicationFactory factory = new(connectionString, startingAt ?? DefaultStart, settings);
-
-		await factory.MigrateAsync(cancellationToken);
-
-		return factory;
+		return new DlrWebApplicationFactory(connectionString, startingAt ?? DefaultStart, settings);
 	}
 
 	/// <summary>
@@ -239,8 +278,16 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 			.AddInMemoryCollection(NoMaintenanceTimer)
 			.AddInMemoryCollection(_overrides));
 
-		builder.ConfigureServices(services =>
+		builder.ConfigureServices((context, services) =>
 		{
+			// The work factor, lowered for every test that is not about it — see
+			// PasswordHasherIterationsKey.
+			int iterations = context.Configuration.GetValue(
+				PasswordHasherIterationsKey,
+				CheapPasswordHasherIterations);
+
+			services.Configure<PasswordHasherOptions>(options => options.IterationCount = iterations);
+
 			// Replace rather than add: a second registration would leave the real clock
 			// resolvable, and the one that wins would depend on registration order.
 			services.RemoveAll<TimeProvider>();
@@ -253,13 +300,5 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 		});
 
 		builder.ConfigureLogging(logging => logging.Services.AddSingleton<ILoggerProvider>(Logs));
-	}
-
-	private async Task MigrateAsync(CancellationToken cancellationToken)
-	{
-		using IServiceScope scope = Services.CreateScope();
-		DlrDbContext database = scope.ServiceProvider.GetRequiredService<DlrDbContext>();
-
-		await database.Database.MigrateAsync(cancellationToken);
 	}
 }

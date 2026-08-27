@@ -15,7 +15,6 @@ namespace DLR.Server.Tests.Tracks;
 /// <summary>
 /// Uploading, listing and reading a track (§6.2, §6.3, §9.1).
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class TrackUploadTests(PostgresFixture postgres)
 {
 	private const string TracksUrl = "/api/v1/tracks";

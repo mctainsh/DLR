@@ -21,7 +21,6 @@ namespace DLR.Server.Tests.Maintenance;
 /// first one.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class CleanupTests(PostgresFixture postgres)
 {
 	/// <summary>The settings that make a run actually delete. Nothing in the suite gets them by default.</summary>

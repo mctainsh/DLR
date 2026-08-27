@@ -15,7 +15,6 @@ namespace DLR.Server.Tests.Identity;
 /// Confirmation, reset and change — and the two lifespans that cannot come from one setting
 /// (§7.7, §7.12).
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class EmailAndPasswordTests(PostgresFixture postgres)
 {
 	private const string SetEmailUrl = "/api/v1/auth/email";

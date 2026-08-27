@@ -22,7 +22,6 @@ namespace DLR.Server.Tests.Hubs;
 /// this file is about that one check.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class RideHubTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

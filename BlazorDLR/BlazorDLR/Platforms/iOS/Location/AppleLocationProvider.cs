@@ -41,10 +41,16 @@ namespace BlazorDLR.Platforms.Apple.Location;
 public sealed class AppleLocationProvider : ILocationProvider
 {
 	/// <summary>
-	/// How many fixes may queue for a slow consumer, dropping the oldest — the newest fix is the
-	/// one worth keeping. Matches the Android service's buffer.
+	/// How many fixes may queue for a consumer that is behind, dropping the oldest — the newest fix
+	/// is the one worth keeping. Matches the Android service's buffer.
+	/// <para>
+	/// This was ten, chosen when the consumer awaited a network round trip per fix. The publish has
+	/// since moved off that loop into <c>PositionOutbox</c>, so the consumer only records and gates
+	/// and drains this immediately. What the buffer is for now is a batch delivered at once after
+	/// the phone has been asleep, every fix of which the rider's own track wants (§15.1).
+	/// </para>
 	/// </summary>
-	private const int FixBufferSize = 10;
+	private const int FixBufferSize = 64;
 
 	/// <summary>
 	/// Core Location's <c>kCLDistanceFilterNone</c>: report every fix, however small the movement.

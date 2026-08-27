@@ -18,7 +18,6 @@ namespace DLR.Server.Tests.Tracks;
 /// <c>POST /tracks/import</c> (§15.3, §6.3). The reader and the hostile corpus are SRV-14's;
 /// this is the HTTP layer over them, and the part a stranger's file actually reaches.
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class TrackImportTests(PostgresFixture postgres)
 {
 	private const string ImportUrl = "/api/v1/tracks/import";

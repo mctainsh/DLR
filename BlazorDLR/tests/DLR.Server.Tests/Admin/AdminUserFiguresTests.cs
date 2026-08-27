@@ -20,7 +20,6 @@ namespace DLR.Server.Tests.Admin;
 /// made and another did not.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class AdminUserFiguresTests(PostgresFixture postgres)
 {
 	private const string UsersUrl = "/api/v1/admin/users";

@@ -26,7 +26,6 @@ namespace DLR.Server.Tests.Hubs;
 /// the decline that must announce nothing.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class MemberJoinedBroadcastTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

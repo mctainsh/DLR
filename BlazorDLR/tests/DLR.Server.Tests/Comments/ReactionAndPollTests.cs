@@ -23,7 +23,6 @@ namespace DLR.Server.Tests.Comments;
 /// test here. <c>Poll_IsPinnableAndReactableLikeAnyComment</c> is the assertion that says so.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class ReactionAndPollTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

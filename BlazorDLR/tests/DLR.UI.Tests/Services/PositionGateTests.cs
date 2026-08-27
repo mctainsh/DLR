@@ -69,6 +69,7 @@ public sealed class PositionGateTests
 		PositionGate gate = new(AccuracyProfile.Balanced);
 
 		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+		gate.Confirm(Fix());
 
 		gate.Evaluate(Fix(secondsIn: 1)).ShouldBe(
 			new PositionGateDecision(false, PositionGateReason.TooSoonAndTooClose));
@@ -82,6 +83,8 @@ public sealed class PositionGateTests
 		PositionGate gate = new(AccuracyProfile.Balanced);
 
 		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+		gate.Confirm(Fix());
+
 		gate.Evaluate(Fix(secondsIn: 30)).Publish.ShouldBeTrue();
 	}
 
@@ -93,6 +96,8 @@ public sealed class PositionGateTests
 		PositionGate gate = new(AccuracyProfile.Balanced);
 
 		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+		gate.Confirm(Fix());
+
 		gate.Evaluate(Fix(latitude: NorthOf(30), secondsIn: 1)).Publish.ShouldBeTrue();
 	}
 
@@ -104,6 +109,7 @@ public sealed class PositionGateTests
 		PositionGate gate = new(AccuracyProfile.Balanced);
 
 		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+		gate.Confirm(Fix());
 
 		gate.Evaluate(Fix(latitude: NorthOf(5_000), secondsIn: 1)).ShouldBe(
 			new PositionGateDecision(false, PositionGateReason.ImplausibleSpeed));
@@ -117,6 +123,8 @@ public sealed class PositionGateTests
 		PositionGate gate = new(AccuracyProfile.Precise);
 
 		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+		gate.Confirm(Fix());
+
 		gate.Evaluate(Fix(latitude: NorthOf(40), secondsIn: 1)).Publish.ShouldBeTrue();
 	}
 
@@ -128,6 +136,7 @@ public sealed class PositionGateTests
 		PositionGate gate = new(AccuracyProfile.Balanced);
 
 		gate.Evaluate(Fix(secondsIn: 10)).Publish.ShouldBeTrue();
+		gate.Confirm(Fix(secondsIn: 10));
 
 		gate.Evaluate(Fix(secondsIn: 4)).ShouldBe(
 			new PositionGateDecision(false, PositionGateReason.OutOfOrder));
@@ -147,6 +156,94 @@ public sealed class PositionGateTests
 	}
 
 	[Fact]
+	public void ApprovingAFix_DoesNotMoveTheCadenceOn_UntilItLands()
+	{
+		// The reported symptom was a pin that stopped for a minute or more after a link came back.
+		// Half of it was here: the gate advanced the moment it said yes, so a fix that then failed
+		// to send still spent the profile's whole interval — the rider's link recovered and the app
+		// sat on its hands for another 30 seconds before it would even try again.
+		PositionGate gate = new(AccuracyProfile.Balanced);
+
+		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+
+		// Nothing confirmed, so nothing to measure against: the very next fix is offered again
+		// rather than being refused as too soon.
+		gate.LastAccepted.ShouldBeNull();
+		gate.Evaluate(Fix(secondsIn: 1)).Publish.ShouldBeTrue();
+
+		// And once one lands, the ordinary cadence resumes.
+		gate.Confirm(Fix(secondsIn: 1));
+		gate.Evaluate(Fix(secondsIn: 2)).ShouldBe(
+			new PositionGateDecision(false, PositionGateReason.TooSoonAndTooClose));
+	}
+
+	[Fact]
+	public void ConfirmingAnOlderFix_DoesNotWalkTheReferenceBackwards()
+	{
+		// Two sends can overlap when one is retried across a slow link. The later one confirming
+		// first must not be undone by the earlier one arriving behind it.
+		PositionGate gate = new(AccuracyProfile.Balanced);
+
+		gate.Confirm(Fix(secondsIn: 10));
+		gate.Confirm(Fix(secondsIn: 4));
+
+		gate.LastAccepted!.RecordedUtc.ShouldBe(Start.AddSeconds(10));
+	}
+
+	[Fact]
+	public void AReferencePointThatIsItselfWrong_DoesNotSilenceARiderForever()
+	{
+		// The other half of the reported symptom, and the nastier half. A refused fix does not
+		// become the new reference — that is what makes the speed rule work — so a reference that
+		// is *wrong* refuses everything measured against it. The only way out used to be the rider
+		// travelling far enough for the arithmetic to fall back under 90 m/s, which for a 20 km
+		// error is 222 seconds of a pin that has stopped moving on every other rider's map.
+		PositionGate gate = new(AccuracyProfile.Balanced);
+
+		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+		gate.Confirm(Fix());
+
+		// Three fixes 20 km away, one second apart, all agreeing with each other. Each is refused:
+		// one bad fix is exactly the case the rule exists for, and caution is the right answer
+		// until they have had a chance to disagree.
+		for (int second = 1; second <= PositionGate.MaxConsecutiveImplausible; second++)
+		{
+			gate.Evaluate(Fix(latitude: NorthOf(20_000), secondsIn: second)).ShouldBe(
+				new PositionGateDecision(false, PositionGateReason.ImplausibleSpeed),
+				$"fix {second} of {PositionGate.MaxConsecutiveImplausible} is still one the receiver may be wrong about.");
+		}
+
+		// The next one is the gate concluding that the fault is its own reference point.
+		gate.Evaluate(Fix(latitude: NorthOf(20_000), secondsIn: PositionGate.MaxConsecutiveImplausible + 1))
+			.Publish.ShouldBeTrue("three fixes that agree with each other and not with the reference are the reference being stale.");
+	}
+
+	[Fact]
+	public void AFixThatAgreesWithTheReference_ClearsTheRunBehindIt()
+	{
+		// The escape is for a *consecutive* run. A single receiver glitch between two good fixes
+		// must not accumulate towards it, or a long ride would eventually let a real jump through.
+		PositionGate gate = new(AccuracyProfile.Balanced);
+
+		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+		gate.Confirm(Fix());
+
+		gate.Evaluate(Fix(latitude: NorthOf(20_000), secondsIn: 1)).Reason
+			.ShouldBe(PositionGateReason.ImplausibleSpeed);
+
+		// A fix back where the rider actually is, which the reference agrees with.
+		gate.Evaluate(Fix(latitude: NorthOf(20), secondsIn: 2)).Publish.ShouldBeTrue();
+		gate.Confirm(Fix(latitude: NorthOf(20), secondsIn: 2));
+
+		// So the run starts again from nothing rather than from one.
+		for (int second = 3; second < 3 + PositionGate.MaxConsecutiveImplausible; second++)
+		{
+			gate.Evaluate(Fix(latitude: NorthOf(20_000), secondsIn: second)).Reason
+				.ShouldBe(PositionGateReason.ImplausibleSpeed);
+		}
+	}
+
+	[Fact]
 	public void Reset_LetsARideResumeSomewhereElse()
 	{
 		// Stopped sharing in one city, started again in another. Without the reset the first fix of
@@ -155,6 +252,7 @@ public sealed class PositionGateTests
 		PositionGate gate = new(AccuracyProfile.Balanced);
 
 		gate.Evaluate(Fix()).Publish.ShouldBeTrue();
+		gate.Confirm(Fix());
 		gate.Reset();
 
 		gate.LastAccepted.ShouldBeNull();

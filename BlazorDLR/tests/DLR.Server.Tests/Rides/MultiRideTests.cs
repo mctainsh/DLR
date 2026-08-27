@@ -20,7 +20,6 @@ namespace DLR.Server.Tests.Rides;
 /// client that can get it wrong in the direction that leaks.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class MultiRideTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

@@ -16,7 +16,6 @@ namespace DLR.Server.Tests.Admin;
 /// they are checking is that <em>nothing else</em> opens the door.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class AdminAccessTests(PostgresFixture postgres)
 {
 	private const string UsersUrl = "/api/v1/admin/users";

@@ -24,7 +24,6 @@ namespace DLR.Server.Tests.Rides;
 /// from home in the dark. The wind-down fixes that, and four rules stop it becoming a loophole.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class WindDownTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

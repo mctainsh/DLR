@@ -19,7 +19,6 @@ namespace DLR.Server.Tests.Rides;
 /// in the database is precisely what a rider turning sharing off is asking you not to do (§10.1).
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class SharingTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

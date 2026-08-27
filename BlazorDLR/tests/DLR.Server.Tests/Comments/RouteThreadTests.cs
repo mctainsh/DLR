@@ -30,7 +30,6 @@ namespace DLR.Server.Tests.Comments;
 /// obviously right and is obviously wrong the first time somebody drains an outbox twice.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class RouteThreadTests(PostgresFixture postgres)
 {
 	private const string TracksUrl = "/api/v1/tracks";

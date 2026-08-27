@@ -21,7 +21,6 @@ namespace DLR.Server.Tests.Tracks;
 /// an average is the one thing on this feature that can be quietly, plausibly wrong.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class TrackRatingTests(PostgresFixture postgres)
 {
 	private const string TracksUrl = "/api/v1/tracks";

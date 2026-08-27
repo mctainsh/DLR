@@ -24,7 +24,6 @@ namespace DLR.Server.Tests.Tracks;
 /// below therefore prove the pair once against each source rather than twice against one.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 {
 	private const string TracksUrl = "/api/v1/tracks";

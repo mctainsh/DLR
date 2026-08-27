@@ -194,7 +194,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 			{
 				string panel = component.Find(".live-neighbours").TextContent;
 				panel.ShouldContain("Bob");
-				panel.ShouldContain("ahead", Case.Insensitive);
+				panel.ShouldContain("+", Case.Insensitive);
 			},
 			timeout: TimeSpan.FromSeconds(3));
 	}
@@ -258,7 +258,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, metresEast: 1_000);
 
 		component.WaitForAssertion(
-			() => component.Find(".live-neighbours").TextContent.ShouldContain("1.5 km ahead"),
+			() => component.Find(".live-neighbours").TextContent.ShouldContain("+ 1.5 km"),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 

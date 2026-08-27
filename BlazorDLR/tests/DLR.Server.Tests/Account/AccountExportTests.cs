@@ -22,7 +22,6 @@ namespace DLR.Server.Tests.Account;
 /// is shaped.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class AccountExportTests(PostgresFixture postgres)
 {
 	private const string ExportUrl = "/api/v1/me/export";

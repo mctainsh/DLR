@@ -22,7 +22,6 @@ namespace DLR.Server.Tests.Rides;
 /// who set it.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class PermissionTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

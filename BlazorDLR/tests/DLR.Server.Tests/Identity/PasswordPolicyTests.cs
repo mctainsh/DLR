@@ -23,7 +23,6 @@ namespace DLR.Server.Tests.Identity;
 /// the registration path.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class PasswordPolicyTests(PostgresFixture postgres)
 {
 	[Theory]

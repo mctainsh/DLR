@@ -20,7 +20,6 @@ namespace DLR.Server.Tests.Rides;
 /// could read a mailbox.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class RideJoinTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

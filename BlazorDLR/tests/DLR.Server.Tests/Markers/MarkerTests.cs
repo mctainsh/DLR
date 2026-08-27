@@ -21,7 +21,6 @@ namespace DLR.Server.Tests.Markers;
 /// privacy-first app quietly starts retaining locations.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class MarkerTests(PostgresFixture postgres)
 {
 	private const string MarkersUrl = "/api/v1/markers";

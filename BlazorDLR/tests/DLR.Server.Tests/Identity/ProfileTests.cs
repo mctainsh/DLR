@@ -13,7 +13,6 @@ namespace DLR.Server.Tests.Identity;
 /// The three optional fields, their three switches, and the rules that keep the switches
 /// meaning what they say (§7.3).
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class ProfileTests(PostgresFixture postgres)
 {
 	private const string ProfileUrl = "/api/v1/me/profile";

@@ -18,7 +18,6 @@ namespace DLR.Server.Tests.Identity;
 /// phone that was sold, lost, or handed on.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class SessionTests(PostgresFixture postgres)
 {
 	private const string SessionsUrl = "/api/v1/auth/sessions";

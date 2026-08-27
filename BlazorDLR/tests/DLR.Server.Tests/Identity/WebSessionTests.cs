@@ -20,7 +20,6 @@ namespace DLR.Server.Tests.Identity;
 /// browser is frequently a shared computer.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class WebSessionTests(PostgresFixture postgres)
 {
 	private const string LoginUrl = "/api/v1/auth/web/login";

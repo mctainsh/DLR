@@ -19,7 +19,6 @@ namespace DLR.Server.Tests.Positions;
 /// The parts of §5.5 that only a real PostgreSQL can answer: the upsert's <c>WHERE</c> guard, and
 /// what comes back into the cache after a restart.
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class PositionPersistenceTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

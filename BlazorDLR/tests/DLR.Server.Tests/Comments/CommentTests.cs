@@ -23,7 +23,6 @@ namespace DLR.Server.Tests.Comments;
 /// operating vehicles (§17.1).
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class CommentTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

@@ -29,7 +29,6 @@ namespace DLR.Server.Tests.Rides;
 /// because attaching a track to an adventure was never a transfer of it (§5.4).
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class RideDeleteTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

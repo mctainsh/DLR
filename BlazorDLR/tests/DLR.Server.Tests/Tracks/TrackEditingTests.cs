@@ -15,7 +15,6 @@ namespace DLR.Server.Tests.Tracks;
 /// <summary>
 /// Editing, versioning and undo (§15.4, §15.5, §15.6).
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class TrackEditingTests(PostgresFixture postgres)
 {
 	private const string TracksUrl = "/api/v1/tracks";

@@ -29,9 +29,16 @@ namespace BlazorDLR.Shared.Services;
 /// everyone waiting for them, and a pure min-time rule sends the same point over and over.
 /// </para>
 /// <para>
-/// <strong>Stateful but pure.</strong> It holds the last fix it accepted, and nothing else — no
-/// clock, no I/O, no platform. The caller supplies the fix and the fix carries its own time, so
-/// the whole of §4.2's filter is exercised in tests by feeding it a sequence.
+/// <strong>Stateful but pure.</strong> It holds the last fix that <em>reached the ride</em>, and
+/// nothing else — no clock, no I/O, no platform. The caller supplies the fix and the fix carries
+/// its own time, so the whole of §4.2's filter is exercised in tests by feeding it a sequence.
+/// </para>
+/// <para>
+/// <strong>Two calls, not one.</strong> <see cref="Evaluate"/> says whether a fix is worth sending;
+/// <see cref="Confirm"/> says that one arrived. Splitting them is what stops a failed send from
+/// costing a rider the profile's whole interval, and it is why the speed rule needs
+/// <see cref="MaxConsecutiveImplausible"/> — a reference point that is never confirmed, or that is
+/// simply wrong, must not be able to silence a rider indefinitely.
 /// </para>
 /// </summary>
 public sealed class PositionGate
@@ -44,13 +51,50 @@ public sealed class PositionGate
 	public const double MaxSpeedMps = 90;
 
 	/// <summary>
+	/// How many fixes in a row may be refused as <see cref="PositionGateReason.ImplausibleSpeed"/>
+	/// before the gate concludes the fault is its own reference point and starts again.
+	/// <para>
+	/// The rule is asymmetric on purpose and it had to be taught this. A refused fix does not
+	/// become the new reference — that is what makes the rule work at all — so a reference that is
+	/// itself wrong refuses <em>everything</em> measured against it, and the only way out was for
+	/// the rider to travel far enough that the arithmetic fell back under
+	/// <see cref="MaxSpeedMps"/>. For a 20 km error that is 222 seconds of a pin that has stopped
+	/// moving, on every other rider's map, with nothing in the app able to say why.
+	/// </para>
+	/// <para>
+	/// Three refusals, so the <em>fourth</em> such fix is the one that goes: one bad fix is the case
+	/// the rule exists for, and a run that survives three more chances to disagree with itself is
+	/// not a receiver correcting itself — it is the reference being stale. The count is of fixes
+	/// refused, which is why the escape is one past it rather than on it. At the Balanced cadence
+	/// that is about eight seconds of caution instead of nearly four minutes of silence.
+	/// </para>
+	/// </summary>
+	public const int MaxConsecutiveImplausible = 3;
+
+	/// <summary>
 	/// Below this a fix cannot be speed-checked usefully: two fixes a few milliseconds apart make
 	/// the arithmetic divide by something close to zero, and every fix would look like a teleport.
 	/// </summary>
 	private static readonly TimeSpan MinSpeedCheckInterval = TimeSpan.FromMilliseconds(250);
 
+	/// <summary>
+	/// Guards the reference point. Held briefly and uncontended in the ordinary case, but the two
+	/// callers really are two threads since the publish moved off the pump (see
+	/// <see cref="Confirm"/>): the fix loop evaluates and the sender confirms.
+	/// </summary>
+	private readonly object _gate = new();
+
 	private readonly AccuracyProfile _profile;
 	private LocationFix? _lastAccepted;
+
+	/// <summary>
+	/// The last fix this gate <em>approved</em>, whether or not it ever reached the ride. Only the
+	/// speed rule reads it, and only because <see cref="_lastAccepted"/> can stay null for a whole
+	/// outage — see <see cref="Evaluate"/>.
+	/// </summary>
+	private LocationFix? _lastApproved;
+
+	private int _implausibleRun;
 
 	/// <summary>Creates a gate for one accuracy profile (§4.2).</summary>
 	/// <param name="profile">The rider's chosen profile. A change of profile is a new gate.</param>
@@ -59,7 +103,10 @@ public sealed class PositionGate
 	/// <summary>Which profile this gate enforces.</summary>
 	public AccuracyProfile Profile => _profile;
 
-	/// <summary>The last fix this gate let through, or <c>null</c> before the first one.</summary>
+	/// <summary>
+	/// The last fix that actually reached the ride, or <c>null</c> before the first one — see
+	/// <see cref="Confirm"/> for why it is that and not the last one this gate approved.
+	/// </summary>
 	public LocationFix? LastAccepted => _lastAccepted;
 
 	/// <summary>
@@ -67,6 +114,10 @@ public sealed class PositionGate
 	/// <para>
 	/// The reason is returned rather than logged because the UI says it out loud: a rider who can
 	/// see "waiting for a better fix" reads a slow map as the sky rather than as a broken app.
+	/// </para>
+	/// <para>
+	/// <strong>Approving a fix is not the same as sending it.</strong> This moves no state that a
+	/// later fix is measured against; <see cref="Confirm"/> does, and only for a fix that arrived.
 	/// </para>
 	/// </summary>
 	/// <param name="fix">The fix as the platform reported it.</param>
@@ -86,38 +137,142 @@ public sealed class PositionGate
 			return PositionGateDecision.Rejected(PositionGateReason.TooInaccurate);
 		}
 
-		if (_lastAccepted is not { } previous)
+		// The two rules above answer from the fix alone, so they neither confirm nor impeach the
+		// reference point and deliberately leave the run below where it stands.
+		lock (_gate)
 		{
-			// The first usable fix always goes: a rider who has just turned sharing on wants to
-			// appear on the map now, not at the end of the first interval.
-			return Accept(fix);
+			// Speed sanity is measured against the freshest fix this gate has any evidence for —
+			// approved or confirmed — and the two are not the same thing.
+			//
+			// Confirm only runs on a send that succeeded, so on a link that is down _lastAccepted
+			// stays null for the whole outage. Checking the speed rule against that alone meant a
+			// rider with no uplink had no reference at all: every fix took the first-fix branch
+			// below, unchecked, and the first cell-tower jump of the day was published the moment
+			// the link came back. The cadence rules still measure from the confirmed fix, which is
+			// the whole point of the split — a failed send must cost a retry, not an interval.
+			if (Newest(_lastApproved, _lastAccepted) is { } reference)
+			{
+				TimeSpan since = fix.RecordedUtc - reference.RecordedUtc;
+
+				double jumpedM = Distance.BetweenM(
+					new TrackPoint(reference.Latitude, reference.Longitude),
+					new TrackPoint(fix.Latitude, fix.Longitude));
+
+				if (since >= MinSpeedCheckInterval && jumpedM / since.TotalSeconds > MaxSpeedMps)
+				{
+					if (++_implausibleRun <= MaxConsecutiveImplausible)
+					{
+						return PositionGateDecision.Rejected(PositionGateReason.ImplausibleSpeed);
+					}
+
+					// Enough fixes in a row have now disagreed with the reference that the reference
+					// is the thing more likely to be wrong — see MaxConsecutiveImplausible. Both
+					// references are forgotten, so this fix is judged as a first fix and the next one
+					// is judged against it.
+					_implausibleRun = 0;
+					_lastAccepted = null;
+
+					return Approve(fix);
+				}
+			}
+
+			// A fix that got this far agrees with the reference, whatever happens to it below.
+			_implausibleRun = 0;
+
+			if (_lastAccepted is not { } previous)
+			{
+				// The first usable fix always goes: a rider who has just turned sharing on wants to
+				// appear on the map now, not at the end of the first interval. Also the retry path —
+				// nothing has been confirmed yet, so no cadence has started to wait out.
+				return Approve(fix);
+			}
+
+			TimeSpan elapsed = fix.RecordedUtc - previous.RecordedUtc;
+
+			if (elapsed < TimeSpan.Zero)
+			{
+				// A fix stamped before one already accepted — a platform replaying a cached point, or
+				// a clock correction landing mid-ride. Publishing it would move every other rider's
+				// map backwards.
+				return PositionGateDecision.Rejected(PositionGateReason.OutOfOrder);
+			}
+
+			double movedM = Distance.BetweenM(
+				new TrackPoint(previous.Latitude, previous.Longitude),
+				new TrackPoint(fix.Latitude, fix.Longitude));
+
+			if (elapsed >= MinInterval(_profile) || movedM >= MinDistanceM(_profile))
+			{
+				return Approve(fix);
+			}
+
+			return PositionGateDecision.Rejected(PositionGateReason.TooSoonAndTooClose);
+		}
+	}
+
+	/// <summary>
+	/// Records that this gate approved a fix, and says so. Call under <see cref="_gate"/>.
+	/// <para>
+	/// Never walks backwards: an approved fix older than one already held would make the speed rule
+	/// measure from the past and read ordinary riding as a teleport.
+	/// </para>
+	/// </summary>
+	/// <param name="fix">The fix being approved.</param>
+	private PositionGateDecision Approve(LocationFix fix)
+	{
+		if (_lastApproved is not { } approved || fix.RecordedUtc > approved.RecordedUtc)
+		{
+			_lastApproved = fix;
 		}
 
-		TimeSpan elapsed = fix.RecordedUtc - previous.RecordedUtc;
+		return PositionGateDecision.Accepted;
+	}
 
-		if (elapsed < TimeSpan.Zero)
+	/// <summary>The later of two fixes, either of which may be absent.</summary>
+	private static LocationFix? Newest(LocationFix? first, LocationFix? second)
+	{
+		if (first is not { } left)
 		{
-			// A fix stamped before one already accepted — a platform replaying a cached point, or
-			// a clock correction landing mid-ride. Publishing it would move every other rider's
-			// map backwards.
-			return PositionGateDecision.Rejected(PositionGateReason.OutOfOrder);
+			return second;
 		}
 
-		double movedM = Distance.BetweenM(
-			new TrackPoint(previous.Latitude, previous.Longitude),
-			new TrackPoint(fix.Latitude, fix.Longitude));
-
-		if (elapsed >= MinSpeedCheckInterval && movedM / elapsed.TotalSeconds > MaxSpeedMps)
+		if (second is not { } right)
 		{
-			return PositionGateDecision.Rejected(PositionGateReason.ImplausibleSpeed);
+			return first;
 		}
 
-		if (elapsed >= MinInterval(_profile) || movedM >= MinDistanceM(_profile))
-		{
-			return Accept(fix);
-		}
+		return left.RecordedUtc >= right.RecordedUtc ? left : right;
+	}
 
-		return PositionGateDecision.Rejected(PositionGateReason.TooSoonAndTooClose);
+	/// <summary>
+	/// Records that a fix this gate approved actually reached the ride, making it what every later
+	/// fix is measured against.
+	/// <para>
+	/// <strong>Delivery, not approval, is what moves the cadence on.</strong> The gate used to
+	/// advance the moment it said yes, which meant a fix that then failed to send still spent the
+	/// profile's whole interval: a rider whose link had just come back waited out another 30
+	/// seconds — or a full minute on Eco — before the app would even try again, while the ride
+	/// looked at a pin that was minutes old. Measuring from the last fix that landed makes a
+	/// failed send cost a retry rather than an interval.
+	/// </para>
+	/// <para>
+	/// Anything not newer than what is already held is ignored, so a send that overtakes another
+	/// cannot walk the reference backwards.
+	/// </para>
+	/// </summary>
+	/// <param name="fix">The fix that reached the server.</param>
+	public void Confirm(LocationFix fix)
+	{
+		lock (_gate)
+		{
+			if (_lastAccepted is { } previous && fix.RecordedUtc <= previous.RecordedUtc)
+			{
+				return;
+			}
+
+			_lastAccepted = fix;
+			_implausibleRun = 0;
+		}
 	}
 
 	/// <summary>
@@ -128,12 +283,14 @@ public sealed class PositionGate
 	/// and the gap between the two is exactly when the app is not watching.
 	/// </para>
 	/// </summary>
-	public void Reset() => _lastAccepted = null;
-
-	private PositionGateDecision Accept(LocationFix fix)
+	public void Reset()
 	{
-		_lastAccepted = fix;
-		return PositionGateDecision.Accepted;
+		lock (_gate)
+		{
+			_lastAccepted = null;
+			_lastApproved = null;
+			_implausibleRun = 0;
+		}
 	}
 
 	/// <summary>

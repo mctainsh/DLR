@@ -24,7 +24,6 @@ namespace DLR.Server.Tests.Tracks;
 /// either of those untrue.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class TrackSharingTests(PostgresFixture postgres)
 {
 	private const string TracksUrl = "/api/v1/tracks";

@@ -29,7 +29,6 @@ namespace DLR.Server.Tests.Maintenance;
 /// things that are all deleted on a timer with nobody watching.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class NightlySweepTests(PostgresFixture postgres)
 {
 	private static Dictionary<string, string?> Live => new()

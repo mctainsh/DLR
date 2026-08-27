@@ -100,15 +100,30 @@ If a rule genuinely needs to change, edit the rule in the same PR and say why �
 - `DLR.Core.Tests` — pure-logic, no I/O.
 - `DLR.Server.Tests` — integration via `WebApplicationFactory<Program>` in
   `DLR.TestSupport/Hosting/DlrWebApplicationFactory.cs`, one throwaway PostgreSQL DB per test on a
-  shared Testcontainers instance (`DatabaseCollection`, `PostgresFixture`). Time is
+  shared Testcontainers instance (`PostgresFixture`, wired as an assembly fixture in
+  `DatabaseFixture.cs`). Time is
   `FakeTimeProvider` anchored to `2026-01-01 UTC`. Email is `CollectingEmailSender`. Rate limits
   are relaxed and the nightly maintenance timer is off unless a test asks for them.
   `factory.FlushPositionsAsync()` / `FlushReactionsAsync()` / `RunMaintenanceAsync()` drive the
   background services synchronously — never sleep or advance the clock to trigger a `PeriodicTimer`.
+  Test classes run **in parallel** (capped in `tests/DLR.Server.Tests/xunit.runner.json`), so a new
+  test may share the container — never the database — with whatever else is running. Nothing may
+  depend on a fixed port, a shared directory or being the only test in flight.
+  The schema is applied once to a template database and copied per test, so adding a migration
+  costs the suite one replay rather than five hundred.
+  Password hashing runs at `DlrWebApplicationFactory.CheapPasswordHasherIterations`; a test about
+  what hashing *costs* asks for `ShippedPasswordHasherIterations` through `settings:`.
 - `DLR.UI.Tests` — bUnit against `BlazorDLR.Shared`. No simulator, emulator or browser.
 - `DLR.Architecture.Tests` — reflection + source-text rules described above.
 - `DLR.TestSupport` — the only project allowed to read the real clock; `IsTestProject=false`.
   Assertions are **Shouldly** (not FluentAssertions — licence decision, §14.6.3); mocking is **NSubstitute**.
+
+The runner is **xunit.v3** on **Microsoft.Testing.Platform**. The .NET 10 SDK no longer hosts
+xunit.v3 under VSTest, so `"test": { "runner": "Microsoft.Testing.Platform" }` in the parent
+`global.json` is what keeps `dotnet test` working — remove it and every test project fails to run
+rather than fails a test. The test projects are therefore `OutputType=Exe` (the runner links in),
+and `DLR.TestSupport` takes `xunit.v3.extensibility.core` instead, because it is a fixture library
+rather than a test assembly.
 
 ## Style enforced by build
 

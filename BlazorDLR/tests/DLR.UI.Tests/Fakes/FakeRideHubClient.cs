@@ -102,8 +102,29 @@ public sealed class FakeRideHubClient : IRideHubClient
 	/// <summary>Set to make the hub refuse a publish — the reconnecting case the REST path covers.</summary>
 	public Exception? PublishException { get; set; }
 
+	/// <summary>
+	/// Set to make a publish never answer — a socket that has gone quiet without closing, which
+	/// is what a cell radio does at speed and what <c>LocationBroadcastState.SendTimeout</c> is
+	/// for. The send completes only when the caller's own token cancels it.
+	/// </summary>
+	public bool PublishHangs { get; set; }
+
+	/// <summary>
+	/// How many position publishes have been *started* here, including ones that hung or threw.
+	/// A test that needs a send to be in flight before it moves the clock waits on this — the
+	/// deadline is armed immediately before the call, so an attempt observed is a timer running.
+	/// </summary>
+	public int PublishAttempts { get; private set; }
+
 	public Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default)
 	{
+		PublishAttempts++;
+
+		if (PublishHangs)
+		{
+			return Task.Delay(Timeout.Infinite, cancellationToken);
+		}
+
 		if (PublishException is not null)
 		{
 			return Task.FromException(PublishException);

@@ -15,7 +15,6 @@ namespace DLR.Server.Tests.Api;
 /// disk answers HTTP too, right up until PostgreSQL cannot write (§9.1).
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class HealthTests(PostgresFixture postgres)
 {
 	private const string HealthUrl = "/healthz";

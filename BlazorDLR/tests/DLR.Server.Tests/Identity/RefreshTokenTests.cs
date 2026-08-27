@@ -19,7 +19,6 @@ namespace DLR.Server.Tests.Identity;
 /// wrong.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class RefreshTokenTests(PostgresFixture postgres)
 {
 	private const string TokenUrl = "/api/v1/auth/token";

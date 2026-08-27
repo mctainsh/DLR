@@ -19,7 +19,6 @@ namespace DLR.Server.Tests.Identity;
 /// for a stranger's pin to be mistaken for someone you know.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class RegistrationTests(PostgresFixture postgres)
 {
 	[Fact]

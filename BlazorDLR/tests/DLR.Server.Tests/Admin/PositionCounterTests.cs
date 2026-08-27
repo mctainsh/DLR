@@ -20,7 +20,6 @@ namespace DLR.Server.Tests.Admin;
 /// rather than a flushed row, and that it survives the sweep that deletes what it counted.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class PositionCounterTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

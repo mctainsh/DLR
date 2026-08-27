@@ -27,7 +27,6 @@ namespace DLR.Server.Tests.Photos;
 /// is worth nothing.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class PhotoTests(PostgresFixture postgres)
 {
 	private const string PhotosUrl = "/api/v1/photos";

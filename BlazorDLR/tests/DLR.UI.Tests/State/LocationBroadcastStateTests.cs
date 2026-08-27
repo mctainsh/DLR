@@ -106,7 +106,14 @@ public sealed class LocationBroadcastStateTests
 
 		harness.Provider.Emit(Fix());
 
-		await harness.UntilAsync(() => harness.Hub.Published.Count == 1, "the first fix to reach the hub");
+		// Waited on the status rather than on the count: the fake records the send before the
+		// sender has finished reacting to it, and LastPublishedUtc below is set on the far side
+		// of that.
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Broadcasting,
+			"the first fix to reach the hub");
+
+		harness.Hub.Published.Count.ShouldBe(1);
 
 		PositionUpdate published = harness.Hub.Published[0];
 		published.Lat.ShouldBe(PositionScale.FromDegrees(Latitude));
@@ -378,7 +385,13 @@ public sealed class LocationBroadcastStateTests
 		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
 
 		harness.Provider.Emit(Fix());
-		await harness.UntilAsync(() => harness.Hub.Published.Count == 1, "the first fix");
+
+		// Waited on Broadcasting, not on the count: the gate measures from the last fix that
+		// *landed* (PositionGate.Confirm), so a second fix emitted before the first was
+		// confirmed would rightly be treated as a first fix and published.
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Broadcasting,
+			"the first fix");
 
 		harness.Provider.Emit(Fix(secondsIn: 1));
 
@@ -436,6 +449,117 @@ public sealed class LocationBroadcastStateTests
 
 		harness.Broadcast.Describe().ShouldContain("not reaching the adventure",
 			customMessage: "a traveller who believes they are on the map when they are not is the failure this exists to prevent.");
+	}
+
+	[Fact]
+	public async Task ASendThatNeverAnswers_DoesNotStopTheDeviceKnowingWhereItIs()
+	{
+		// The reported bug, in the smallest form that reproduces it. Publishing used to be awaited
+		// inline in the fix loop, so a socket that had gone quiet without closing stopped
+		// everything behind it: the rider's own mark, the recorder, and every fix waiting. On a
+		// cell radio at speed that is minutes, and riders saw exactly that — a pin frozen for over
+		// a minute and three kilometres, then a jump, then normal movement.
+		Harness harness = new Harness().Build();
+		harness.Hub.PublishHangs = true;
+		harness.Api.PublishPositionHangs = true;
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+		await harness.UntilAsync(() => harness.Broadcast.OwnFix is not null, "the first fix");
+
+		// Both transports are still hanging. The loop that reads fixes has to have carried on
+		// regardless — this is the assertion the old code could not make.
+		const double MovedLatitude = Latitude + 0.01;
+		harness.Provider.Emit(Fix(latitude: MovedLatitude, secondsIn: 2));
+
+		await harness.UntilAsync(
+			() => harness.Broadcast.OwnFix?.Latitude == MovedLatitude,
+			"the rider's own mark to keep moving while a send is stuck");
+	}
+
+	[Fact]
+	public async Task ASendThatNeverAnswers_IsGivenUpOn_AndSaidOutLoud()
+	{
+		// Neither transport bounds itself usefully — a hub invoke waits for the server's completion
+		// message and HttpClient's default is 100 seconds — so the deadline is this app's, and it
+		// is driven off TimeProvider so this test does not have to wait out eight real ones.
+		Harness harness = new Harness().Build();
+		harness.Hub.PublishHangs = true;
+		harness.Api.PublishPositionHangs = true;
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+
+		// Each deadline is armed immediately before its send, and the REST one is not armed until
+		// the hub's has expired — so each is waited for and then run out in turn. Advancing blind
+		// would race the sender and leave a timer that starts after the clock has already moved.
+		await harness.UntilAsync(() => harness.Hub.PublishAttempts == 1, "the hub send to be in flight");
+		harness.Clock.Advance(LocationBroadcastState.SendTimeout);
+
+		await harness.UntilAsync(
+			() => harness.Api.PublishPositionAttempts == 1,
+			"the REST fallback to take over from the abandoned hub send");
+		harness.Clock.Advance(LocationBroadcastState.SendTimeout);
+
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Failed,
+			"the broadcaster to give up on a link that has gone quiet");
+
+		harness.Broadcast.Detail.ShouldNotBeNull();
+		harness.Broadcast.Detail!.ShouldContain("no answer",
+			customMessage: "a rider owed the reason their pin stopped moving is owed this one.");
+	}
+
+	[Fact]
+	public async Task WhileASendIsStuck_ThePositionWaitingBehindIt_IsTheNewestOne()
+	{
+		// The other half of the stall, and the half that made it take minutes to unwind rather
+		// than seconds. The queue behind a hung send used to be worked through in order, spending
+		// a round trip each on positions the ride had already been overtaken by — so recovery
+		// published a trail of history before it reached where the rider actually was.
+		Harness harness = new Harness().Build();
+		harness.Hub.PublishHangs = true;
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+
+		// Waited on the attempt, not on OwnFix: the point of the test is that the fixes below are
+		// read while a send is genuinely stuck, which needs the send to have started.
+		await harness.UntilAsync(() => harness.Hub.PublishAttempts == 1, "the first send to get stuck");
+
+		// Three more while the first is stuck in the hub, each far enough past the profile's min
+		// distance to be worth publishing — and each a step a motorcycle could actually have made.
+		// A hundred metres in two seconds is about 200 km/h; the 0.01° steps this used to take were
+		// 1.1 km in two seconds, which §4.2's speed rule refuses as bad data, and rightly.
+		harness.Provider.Emit(Fix(latitude: Latitude + 0.001, secondsIn: 2));
+		harness.Provider.Emit(Fix(latitude: Latitude + 0.002, secondsIn: 4));
+		harness.Provider.Emit(Fix(latitude: Latitude + 0.003, secondsIn: 6));
+
+		await harness.UntilAsync(
+			() => harness.Broadcast.OwnFix?.RecordedUtc == Start.AddSeconds(6),
+			"all four fixes to be read");
+
+		// The link comes back: the stuck send is abandoned at its deadline and the next one goes.
+		harness.Hub.PublishHangs = false;
+		harness.Clock.Advance(LocationBroadcastState.SendTimeout);
+
+		// Waited on a position actually landing, not on the status. Status reaches Broadcasting for
+		// whichever send got through first, so waiting on it would let this assert against the
+		// stale fix on a machine where the fallback happened to win the race.
+		await harness.UntilAsync(
+			() => harness.Api.PublishedPositions.Count + harness.Hub.Published.Count == 1,
+			"the fix that got through to be published");
+
+		PositionUpdate landed = harness.Api.PublishedPositions.Concat(harness.Hub.Published).Last();
+
+		landed.RecordedUtc.ShouldBe(Start.AddSeconds(6),
+			"the sender picks up where the rider is, not where they were three fixes ago.");
 	}
 
 	[Fact]

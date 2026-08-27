@@ -26,7 +26,6 @@ namespace DLR.Server.Tests.Positions;
 /// reason a pin can be missing).
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class PositionPrivacyTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

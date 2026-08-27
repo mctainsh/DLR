@@ -19,7 +19,6 @@ namespace DLR.Server.Tests.Identity;
 /// both directions — anybody signed in can read it, and nobody at all can set somebody else's.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class AvatarTests(PostgresFixture postgres)
 {
 	private const string AvatarUrl = "/api/v1/me/avatar";

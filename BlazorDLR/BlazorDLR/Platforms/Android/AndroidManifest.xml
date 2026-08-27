@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:versionCode="28" android:versionName="8.0.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:versionCode="29" android:versionName="8.0.0">
     <!--
         networkSecurityConfig: cleartext HTTP for loopback and nothing else. The app's own
         map-pack server runs on 127.0.0.1 so MapLibre can range-read a downloaded PMTiles
@@ -47,8 +47,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
-        Kept while a ride is recording so a dozing CPU still wakes for fixes. Not held by the
-        app directly — the foreground service's own lifetime is what holds it.
+        Kept while a ride is recording so a dozing CPU still wakes for fixes, and taken
+        directly: LocationForegroundService acquires a PARTIAL_WAKE_LOCK when the receiver
+        starts and gives it back when the receiver stops. This comment used to claim the
+        foreground service held one on the app's behalf. It does not — a foreground
+        service keeps the process alive, not the CPU awake — and the difference was a
+        phone in a mount whose fixes stopped reaching the ride while the screen was off.
     -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

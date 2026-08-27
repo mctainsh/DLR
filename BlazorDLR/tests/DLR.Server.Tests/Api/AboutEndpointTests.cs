@@ -14,7 +14,6 @@ namespace DLR.Server.Tests.Api;
 /// marketing page if the deployed build is ahead of it — so the server has to be able to
 /// say exactly which commit it is.
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class AboutEndpointTests(PostgresFixture postgres)
 {
 	private const string AboutUrl = "/api/v1/about";

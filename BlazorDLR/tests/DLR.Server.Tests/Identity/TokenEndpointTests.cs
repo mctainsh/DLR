@@ -19,7 +19,6 @@ namespace DLR.Server.Tests.Identity;
 /// <summary>
 /// The password grant and the fifteen-minute access token (§7.4).
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class TokenEndpointTests(PostgresFixture postgres)
 {
 	private const string TokenUrl = "/api/v1/auth/token";
@@ -201,7 +200,13 @@ public sealed class TokenEndpointTests(PostgresFixture postgres)
 	[Fact]
 	public async Task Login_UnknownUsername_ResponseTimingMatchesKnownUsername()
 	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		// At the shipped work factor, not the cheap one the rest of the suite runs at. This is
+		// the one test whose subject *is* what hashing costs, and measuring the two paths
+		// against each other is only worth doing at the cost the two paths will really have.
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(
+			postgres,
+			settings: DlrWebApplicationFactory.ShippedPasswordCost);
+
 		using HttpClient client = app.CreateClient();
 
 		// A fresh account per sample. Nine wrong passwords against one account would trip

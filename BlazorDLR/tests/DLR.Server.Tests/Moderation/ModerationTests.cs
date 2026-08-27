@@ -23,7 +23,6 @@ namespace DLR.Server.Tests.Moderation;
 /// mechanism optional at review.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class ModerationTests(PostgresFixture postgres)
 {
 	private const string RidesUrl = "/api/v1/group-rides";

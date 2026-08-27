@@ -21,7 +21,6 @@ namespace DLR.Server.Tests.Identity;
 /// would undo all three, quietly.
 /// </para>
 /// </summary>
-[Collection(DatabaseCollection.Name)]
 public sealed class UsernameImmutabilityTests(PostgresFixture postgres)
 {
 	/// <summary>

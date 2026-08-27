@@ -221,7 +221,7 @@ public static class NeighbourList
 		}
 
 		return metres > 0
-			? $"{MemberRoster.FormatDistance(magnitude)} ahead"
-			: $"{MemberRoster.FormatDistance(magnitude)} back";
+			? $"+ {MemberRoster.FormatDistance(magnitude)}"
+			: $"- {MemberRoster.FormatDistance(magnitude)}";
 	}
 }

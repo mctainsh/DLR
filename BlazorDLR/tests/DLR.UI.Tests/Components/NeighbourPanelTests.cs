@@ -50,8 +50,8 @@ public sealed class NeighbourPanelTests : BunitContext
 
 		string text = component.Find(".live-neighbours").TextContent;
 
-		text.ShouldContain("900 m ahead");
-		text.ShouldContain("400 m back");
+		text.ShouldContain("+ 900 m");
+		text.ShouldContain("- 400 m");
 	}
 
 	/// <summary>
@@ -96,7 +96,7 @@ public sealed class NeighbourPanelTests : BunitContext
 				Row("Me", 0, isSelf: true),
 			]));
 
-		component.Find(".live-neighbours .stale").TextContent.Trim().ShouldBe("600 m ahead");
+		component.Find(".live-neighbours .stale").TextContent.Trim().ShouldBe("+ 600 m");
 		component.Find(".live-neighbours .stale").GetAttribute("title").ShouldNotBeNullOrWhiteSpace(
 			"colour is the first thing to go through a visor, so the state is available as text too.");
 	}

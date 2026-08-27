@@ -63,6 +63,23 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// </summary>
 	public static readonly TimeSpan PrivacyRepeat = TimeSpan.FromMinutes(1);
 
+	/// <summary>
+	/// How long one send — hub or REST — may take before it is abandoned (§4.2, §5.7).
+	/// <para>
+	/// Neither transport bounds itself anywhere near usefully. A hub invoke waits for the server's
+	/// completion message and a cell radio that has gone quiet without closing the socket will not
+	/// produce one; the shared <c>HttpClient</c> carries .NET's 100-second default. Riders reported
+	/// the result as a pin that stopped for minutes, jumped twenty kilometres and then behaved
+	/// normally, and that is exactly the shape of a stalled send.
+	/// </para>
+	/// <para>
+	/// Eight seconds, which is comfortably longer than a slow round trip on a bad link and
+	/// comfortably shorter than the interval at which giving up costs anything: the next fix is
+	/// seconds away and is worth strictly more than the one being waited on.
+	/// </para>
+	/// </summary>
+	public static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(8);
+
 	private readonly ILocationProvider _provider;
 	private readonly IRideHubClient _hub;
 	private readonly IApiClient _api;
@@ -79,6 +96,24 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// is what the settings screen shows a rider who wants to know why their GPS is on.
 	/// </summary>
 	private readonly HashSet<Guid> _reasons = [];
+
+	/// <summary>
+	/// Guards <see cref="Status"/>, <see cref="Detail"/> and <see cref="LastPublishedUtc"/>, which
+	/// the fix pump and the sender both write since the publish moved off the pump.
+	/// </summary>
+	private readonly object _statusGate = new();
+
+	/// <summary>
+	/// True while the rider's own fixes say they are inside their private area, so a send that was
+	/// already in flight cannot report them back onto the map (§10.1). See <see cref="Set"/>.
+	/// </summary>
+	private bool _suppressed;
+
+	/// <summary>
+	/// Set once the status must not move again — a failure the app cannot recover from without a
+	/// restart, which a later routine update would otherwise paper over. Cleared on the next start.
+	/// </summary>
+	private bool _statusLatched;
 
 	private CancellationTokenSource? _running;
 	private Task? _pump;
@@ -179,7 +214,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// standing in it. What it cost was the whole map going dead at the moment a rider is most
 	/// likely to be reading it: no mark of their own, nothing for the camera to follow and no
 	/// heading to turn the map by, from the driveway to the edge of the circle. §10.1 is a rule
-	/// about publishing and it is enforced where publishing happens, in <c>HandleAsync</c>.
+	/// about publishing and it is enforced where publishing is decided, in <c>Handle</c>.
 	/// </para>
 	/// <para>
 	/// There is deliberately no second "but not this one" property beside it. The pair that used to
@@ -405,6 +440,15 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		// next run has said nothing yet, so the first fix inside the circle states it again.
 		_announcedPrivate = null;
 
+		// Both belong to the run that is ending. A latch left standing would make every status this
+		// object ever showed again a lie, and a suppression left standing would hold the next run's
+		// first fix off the map until the rider happened to leave their circle.
+		lock (_statusGate)
+		{
+			_statusLatched = false;
+			_suppressed = false;
+		}
+
 		if (running is null)
 		{
 			Set(LocationBroadcastStatus.Off);
@@ -444,11 +488,16 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	}
 
 	/// <summary>
-	/// Watches the platform and publishes what survives the gates. Runs until cancelled, and every
-	/// failure inside it is stated rather than thrown: this task has no caller to catch it, and a
-	/// broadcast that dies silently is the worst of the failure modes — the rider believes they are
-	/// on the map.
+	/// Watches the platform and hands what survives the gates to the sender. Runs until cancelled,
+	/// and every failure inside it is stated rather than thrown: this task has no caller to catch
+	/// it, and a broadcast that dies silently is the worst of the failure modes — the rider believes
+	/// they are on the map.
 	/// </summary>
+	/// <remarks>
+	/// <strong>Two tasks, not one.</strong> This one only ever touches the platform and the device;
+	/// <see cref="SendLoopAsync"/> is the only thing here that talks to a server, and they meet at a
+	/// <see cref="PositionOutbox"/>. That split is what stops a slow network from stopping the GPS.
+	/// </remarks>
 	private async Task PumpAsync(AccuracyProfile profile, CancellationToken cancellationToken)
 	{
 		try
@@ -476,38 +525,39 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			// is a restart, not a value this loop re-reads.
 			PositionGate gate = new(profile);
 
-			Set(LocationBroadcastStatus.WaitingForFix);
+			// The mailbox and the one task that empties it. Nothing below this line waits on a
+			// socket: the loop reads a fix, records it, gates it, posts it and goes back for the
+			// next one, and the sender does the waiting on its own thread.
+			//
+			// This used to be one loop that did both, and the cost was not theoretical. A send
+			// that hung — a black-holed cell socket at speed is the ordinary case, not the
+			// exceptional one — stopped the rider's own mark, the recorder and every fix behind
+			// it, for as long as the slowest timeout on the path. See PositionOutbox.
+			using PositionOutbox outbox = new();
 
-			await foreach (LocationFix fix in _provider.WatchAsync(profile, cancellationToken))
+			Task sender = Task.Run(
+				() => SendLoopAsync(gate, outbox, cancellationToken),
+				CancellationToken.None);
+
+			try
 			{
-				OwnFix = fix;
+				// Inside the try, because Set raises Changed and a subscriber may throw. Outside it,
+				// that exception skipped the finally below: the outbox was never completed, the
+				// sender was orphaned, and `using` then disposed the semaphore underneath it.
+				Set(LocationBroadcastStatus.WaitingForFix);
 
-				// The recorder sees the fix first, and sees all of them (§15.1).
-				//
-				// Not an oversight of the §10.1 ordering below — a different question. Publishing
-				// a fix hands somebody's position to a server and to every other rider on the ride,
-				// and that is the thing the private area exists to stop. Recording keeps it in the
-				// same store on the same phone that the private area itself lives in, and it does
-				// not leave until the rider presses save on the Location screen — where the choice
-				// about their private area is offered again, and defaults to cutting it out.
-				//
-				// Upstream of the §4.2 gate for a plainer reason: that gate is a battery decision
-				// about uplink, and a rider on Eco who asked for a 5 m track should get one.
-				await _recording.OfferAsync(fix, cancellationToken);
+				await PumpFixesAsync(gate, outbox, profile, cancellationToken);
+			}
+			finally
+			{
+				// The receiver has stopped, so nothing more will be posted. Closing the outbox is
+				// what ends the sender's loop, and awaiting it is what extends StopAsync's promise
+				// — everything released before it returns — to cover the socket as well as the
+				// platform watch.
+				outbox.Complete();
 
-				await HandleAsync(gate, fix, cancellationToken);
-
-				// Every fix moves this rider's own dot (see OwnFix), whether or not it was
-				// published, whether or not the private area suppressed it, and whether or not the
-				// status moved with it — so the UI is told about all of them, not only the ones
-				// that changed a status. Without this a rider on a
-				// steadily broadcasting phone watched a dot that never moved: Set() is a no-op when
-				// nothing changed, which is exactly the steady state of a working receiver.
-				//
-				// Set() may already have raised on a transition. Those are rare enough that one
-				// extra render on the change is cheaper than threading a "did it raise" flag back
-				// out of every branch below.
-				Raise();
+				try { await sender; }
+				catch (OperationCanceledException) { /* the way a cancelled sender ends */ }
 			}
 		}
 		catch (OperationCanceledException)
@@ -521,13 +571,68 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	}
 
 	/// <summary>
-	/// Puts one fix through the two gates and publishes what survives them. Split out of the pump's
-	/// loop so the loop's own <c>Raise</c> runs on every fix, whichever branch this took.
+	/// The receiver's loop: every fix the platform produces, recorded, gated and posted.
+	/// <para>
+	/// Split from <see cref="PumpAsync"/> so the outbox and its sender can be torn down in one
+	/// <c>finally</c> around the whole of it, whichever way the enumeration ends.
+	/// </para>
 	/// </summary>
 	/// <param name="gate">The §4.2 filter for the profile this watch is running at.</param>
+	/// <param name="outbox">Where an accepted fix is handed over.</param>
+	/// <param name="profile">The profile the platform was asked for.</param>
+	/// <param name="cancellationToken">Stops the receiver.</param>
+	private async Task PumpFixesAsync(
+		PositionGate gate,
+		PositionOutbox outbox,
+		AccuracyProfile profile,
+		CancellationToken cancellationToken)
+	{
+		await foreach (LocationFix fix in _provider.WatchAsync(profile, cancellationToken))
+		{
+			OwnFix = fix;
+
+			// The recorder sees the fix first, and sees all of them (§15.1).
+			//
+			// Not an oversight of the §10.1 ordering below — a different question. Publishing
+			// a fix hands somebody's position to a server and to every other rider on the ride,
+			// and that is the thing the private area exists to stop. Recording keeps it in the
+			// same store on the same phone that the private area itself lives in, and it does
+			// not leave until the rider presses save on the Location screen — where the choice
+			// about their private area is offered again, and defaults to cutting it out.
+			//
+			// Upstream of the §4.2 gate for a plainer reason: that gate is a battery decision
+			// about uplink, and a rider on Eco who asked for a 5 m track should get one.
+			await _recording.OfferAsync(fix, cancellationToken);
+
+			Handle(gate, outbox, fix);
+
+			// Every fix moves this rider's own dot (see OwnFix), whether or not it was
+			// published, whether or not the private area suppressed it, and whether or not the
+			// status moved with it — so the UI is told about all of them, not only the ones
+			// that changed a status. Without this a rider on a
+			// steadily broadcasting phone watched a dot that never moved: Set() is a no-op when
+			// nothing changed, which is exactly the steady state of a working receiver.
+			//
+			// Set() may already have raised on a transition. Those are rare enough that one
+			// extra render on the change is cheaper than threading a "did it raise" flag back
+			// out of every branch below.
+			Raise();
+		}
+	}
+
+	/// <summary>
+	/// Puts one fix through the two gates and hands what survives them to the outbox. Split out of
+	/// the pump's loop so the loop's own <c>Raise</c> runs on every fix, whichever branch this took.
+	/// <para>
+	/// Synchronous, and that is the point of it. Everything here is a decision — is this fix inside
+	/// the circle, is it worth the uplink — and none of it touches the network. What used to be
+	/// awaited from this method is now a <see cref="PositionOutbox.Post"/> that returns at once.
+	/// </para>
+	/// </summary>
+	/// <param name="gate">The §4.2 filter for the profile this watch is running at.</param>
+	/// <param name="outbox">Where a fix worth sending is handed over.</param>
 	/// <param name="fix">The fix the platform just produced.</param>
-	/// <param name="cancellationToken">Stops the publish.</param>
-	private async Task HandleAsync(PositionGate gate, LocationFix fix, CancellationToken cancellationToken)
+	private void Handle(PositionGate gate, PositionOutbox outbox, LocationFix fix)
 	{
 		// §10.1, and first on this path. Not filtered, not queued, not retried — the fix is
 		// dropped here and never reaches the hub.
@@ -538,6 +643,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		// about what other people can see rather than a blindfold on the person wearing it.
 		if (_privateAreas.HidesLocation(fix))
 		{
+			_suppressed = true;
 			Set(LocationBroadcastStatus.Suppressed);
 
 			// IsInsideArea, not the gate that was just consulted. The gate suppresses while this
@@ -546,11 +652,15 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			// actually hold, that actually contains this fix, is a fact worth stating.
 			if (_privateAreas.IsInsideArea(fix))
 			{
-				await AnnouncePrivacyAsync(isPrivate: true, cancellationToken);
+				AnnouncePrivacy(outbox, isPrivate: true);
 			}
 
 			return;
 		}
+
+		// Out of the circle: the fix that proves it is what lifts the suppression latch, so a send
+		// still in flight from before the crossing can report success again.
+		_suppressed = false;
 
 		// Out of the circle, said explicitly rather than left to the publish below to imply. The
 		// publish is not guaranteed to happen — the §4.2 gate refuses fixes that are too inaccurate
@@ -558,7 +668,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		// refused for a while — so relying on it would leave somebody labelled "private" on a map they
 		// are visibly moving across. The server clears the flag on a published fix as well, which is
 		// the belt to this pair of braces.
-		await AnnouncePrivacyAsync(isPrivate: false, cancellationToken);
+		AnnouncePrivacy(outbox, isPrivate: false);
 
 		PositionGateDecision decision = gate.Evaluate(fix);
 		LastGateReason = decision.Reason;
@@ -576,19 +686,24 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			return;
 		}
 
-		await PublishAsync(fix, cancellationToken);
+		// Handed over, not sent. Whatever is already waiting for the sender is replaced: a position
+		// this one supersedes is worth nothing to a ride, and sending it first is what used to make
+		// a stall take minutes to unwind rather than seconds. See PositionOutbox.
+		outbox.Post(fix);
 	}
 
 	/// <summary>
-	/// Tells the ride that this rider has entered or left their own private area (§10.1).
+	/// Decides whether the ride needs telling that the rider crossed the edge of their own circle,
+	/// and posts the crossing when it does (§10.1).
 	/// <para>
-	/// <strong>Once per crossing, not once per fix.</strong> Fixes arrive about once a second and the
-	/// answer changes twice a ride; a message per fix would be a message per second saying what the
-	/// server already knows. <see cref="_announcedPrivate"/> is what makes it a transition.
+	/// <strong>Stated rather than implied, and repeated while it stays true.</strong> A fix inside
+	/// the circle is dropped, so "no fixes are arriving" is what the server would otherwise have to
+	/// infer — and it cannot tell that from a tunnel, a flat battery, or an app that was killed. One
+	/// bit, sent deliberately, is the difference between a member list that says "at home, hidden"
+	/// and one that says nothing while a pin sits outside somebody's house.
 	/// </para>
 	/// <para>
-	/// <strong>Except that "private" is repeated on a slow timer.</strong> This is the one message
-	/// whose loss is expensive: a fix is replaced by the next one a second later, while this is sent
+	/// The <em>private</em> direction is repeated every <see cref="PrivacyRepeat"/> because it is sent
 	/// once, at the kerb, and if it goes missing the rider is a pin parked outside their house for
 	/// the rest of the ride. A server restart or a hub reconnect in that moment is exactly the case
 	/// the repeat covers, and the cost of it is one small message a minute while somebody is at home.
@@ -596,14 +711,14 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// clears the flag server-side.
 	/// </para>
 	/// <para>
-	/// Hub first and REST second, on <see cref="PublishAsync"/>'s reasoning — with the two failure
-	/// modes swapped in importance. A failed send is swallowed rather than shown: it is retried by
-	/// the repeat above, and the fix it would have accompanied was not sent either way.
+	/// The decision is recorded before the crossing is posted, not after. A send that fails must not
+	/// leave this loop trying again on the next fix a second later — the repeat window is the retry,
+	/// and it is deliberately slower than the fixes are.
 	/// </para>
 	/// </summary>
+	/// <param name="outbox">Where the crossing is handed over.</param>
 	/// <param name="isPrivate">Which way the rider crossed the edge.</param>
-	/// <param name="cancellationToken">Abandons the send.</param>
-	private async Task AnnouncePrivacyAsync(bool isPrivate, CancellationToken cancellationToken)
+	private void AnnouncePrivacy(PositionOutbox outbox, bool isPrivate)
 	{
 		DateTimeOffset now = _clock.GetUtcNow();
 
@@ -612,47 +727,75 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			return;
 		}
 
-		// Set before the send, not after. A send that throws must not leave this loop trying again
-		// on the next fix a second later — the repeat window is the retry, and it is deliberately
-		// slower than the fixes are.
 		_announcedPrivate = isPrivate;
 		_announcedUtc = now;
 
-		PositionPrivacyUpdate update = new(isPrivate);
+		outbox.PostPrivacy(isPrivate);
+	}
 
+	/// <summary>
+	/// The one task that talks to the network, draining <paramref name="outbox"/> until the receiver
+	/// stops (§4.2, §5.7).
+	/// <para>
+	/// Everything slow lives here, alone, so that when it is slow nothing else is. It ends when the
+	/// outbox is completed and drained — <see cref="PositionOutbox.TakeAsync"/> answers an empty
+	/// batch — or when the watch is cancelled.
+	/// </para>
+	/// <para>
+	/// The crossing goes before the position when both are waiting. Coming out of the circle that is
+	/// the natural pair, and going in there is no position to send: <see cref="PositionOutbox"/>
+	/// drops it.
+	/// </para>
+	/// </summary>
+	/// <param name="gate">The §4.2 filter, told which fix actually landed.</param>
+	/// <param name="outbox">The mailbox the pump posts into.</param>
+	/// <param name="cancellationToken">Stops the sender.</param>
+	private async Task SendLoopAsync(
+		PositionGate gate,
+		PositionOutbox outbox,
+		CancellationToken cancellationToken)
+	{
 		try
 		{
-			if (!_hub.IsConnected)
+			while (await outbox.TakeAsync(cancellationToken) is { IsEmpty: false } batch)
 			{
-				await _hub.ConnectAsync(cancellationToken);
+				try
+				{
+					if (batch.Privacy is { } isPrivate)
+					{
+						await SendPrivacyAsync(isPrivate, cancellationToken);
+					}
+
+					if (batch.Fix is { } fix)
+					{
+						await SendPositionAsync(gate, outbox, fix, cancellationToken);
+					}
+				}
+				catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+				{
+					throw;
+				}
+				catch (Exception exception)
+				{
+					// One turn came apart in a way the send paths did not expect. It must not end
+					// the loop: the pump goes on posting into an outbox nobody drains, and because
+					// the rider's own mark keeps moving there is no symptom on this device at all —
+					// the rider is simply off the ride's map until they restart the app. Report the
+					// turn and go back for the next batch, which is paced by the pump anyway.
+					Set(LocationBroadcastStatus.Failed, exception.Message);
+				}
 			}
-
-			await _hub.PublishPrivacyAsync(update, cancellationToken);
-			return;
 		}
 		catch (OperationCanceledException)
 		{
-			throw;
+			// Stopping. Not a failure, and it must not leave an error on screen.
 		}
-		catch
+		catch (Exception exception)
 		{
-			// Falls through to REST, exactly as a fix does.
-		}
-
-		try
-		{
-			await _api.SetPositionPrivacyAsync(update, cancellationToken);
-		}
-		catch (OperationCanceledException)
-		{
-			throw;
-		}
-		catch
-		{
-			// Both paths refused. Not surfaced: the rider's own screen is unaffected either way, the
-			// position that would have gone with this was suppressed on the device regardless, and the
-			// repeat above will say it again shortly. Turning this into a red status would report a
-			// privacy failure for something that leaked nothing.
+			// The outbox itself came apart, so there is no loop left to continue. Latched, because
+			// the pump is still running and its refused-fix branch would otherwise overwrite this
+			// with "waiting for a GPS fix" — which is the one explanation guaranteed to be wrong.
+			Set(LocationBroadcastStatus.Failed, exception.Message, terminal: true);
 		}
 	}
 
@@ -666,52 +809,196 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// the one that failed.
 	/// </para>
 	/// </summary>
-	private async Task PublishAsync(LocationFix fix, CancellationToken cancellationToken)
+	/// <param name="gate">Told that this fix landed, so the cadence measures from what arrived.</param>
+	/// <param name="fix">The fix to send.</param>
+	/// <param name="cancellationToken">Stops the sender.</param>
+	private async Task SendPositionAsync(
+		PositionGate gate,
+		PositionOutbox outbox,
+		LocationFix fix,
+		CancellationToken cancellationToken)
 	{
 		PositionUpdate update = ToUpdate(fix);
 
-		try
-		{
-			if (!_hub.IsConnected)
-			{
-				await _hub.ConnectAsync(cancellationToken);
-			}
+		SendResult result = await TrySendAsync(
+			token => _hub.PublishPositionAsync(update, token),
+			token => _api.PublishPositionAsync(update, token),
+			// Between the two transports, the newest fix wins — the same rule the outbox itself
+			// runs on. Without this, one turn could spend a hub deadline and then a REST deadline
+			// publishing a position already superseded by one sitting in the slot.
+			() => outbox.HasFixWaiting,
+			cancellationToken);
 
-			await _hub.PublishPositionAsync(update, cancellationToken);
-			Published();
+		if (result.Outcome is SendOutcome.Superseded)
+		{
+			// Abandoned in favour of the fix already waiting, which the next turn sends. Not
+			// confirmed — nothing reached the ride — so the cadence still measures from the last
+			// fix that did, and not reported either: this is the outbox working, not a failure.
 			return;
 		}
-		catch (OperationCanceledException)
+
+		if (result.Failure is { } failure)
 		{
-			throw;
-		}
-		catch
-		{
-			// Falls through to the REST path. Deliberately not stated yet — one failed hub send
-			// with a successful fallback is not something to put in front of a rider.
+			// Both paths refused. The receiver is fine and the ride is fine; what is broken is the
+			// link, and saying so is what stops a rider believing they are on the map.
+			Set(LocationBroadcastStatus.Failed, failure);
+			return;
 		}
 
+		// Only now, and this is the point of Confirm: the profile's interval measures from the last
+		// fix that *reached* the ride, so a run of failed sends is retried at the receiver's cadence
+		// rather than waiting out a whole interval for each one.
+		gate.Confirm(fix);
+
+		Published();
+	}
+
+	/// <summary>Sends one private-area crossing, hub first and REST second (§10.1).</summary>
+	/// <param name="isPrivate">Which way the rider crossed the edge.</param>
+	/// <param name="cancellationToken">Stops the sender.</param>
+	private async Task SendPrivacyAsync(bool isPrivate, CancellationToken cancellationToken)
+	{
+		PositionPrivacyUpdate update = new(isPrivate);
+
+		// The failure is swallowed rather than shown. The rider's own screen is unaffected either
+		// way, the position that would have gone with this was suppressed on the device regardless,
+		// and the repeat in AnnouncePrivacy will say it again shortly. Turning this into a red
+		// status would report a privacy failure for something that leaked nothing.
+		await TrySendAsync(
+			token => _hub.PublishPrivacyAsync(update, token),
+			token => _api.SetPositionPrivacyAsync(update, token),
+			// Nothing supersedes a crossing: it is sent once, at the edge of the circle, and
+			// abandoning it would leave a rider hidden — or exposed — for the rest of the ride.
+			superseded: null,
+			cancellationToken);
+	}
+
+	/// <summary>
+	/// Runs a send down the hub and then, if that refuses, down REST — each under its own
+	/// <see cref="SendTimeout"/>.
+	/// </summary>
+	/// <param name="viaHub">The send over the realtime connection.</param>
+	/// <param name="viaRest">The same send as a request.</param>
+	/// <param name="superseded">
+	/// Asked before the fallback: when it answers true, the payload is stale and the REST leg is
+	/// abandoned rather than spent on it. <c>null</c> for a send nothing can supersede.
+	/// </param>
+	/// <param name="cancellationToken">Stops the sender. Cancellation from here is not a failure.</param>
+	/// <returns>Whether one of the two got through, was abandoned, or why the second one did not.</returns>
+	private async Task<SendResult> TrySendAsync(
+		Func<CancellationToken, Task> viaHub,
+		Func<CancellationToken, Task> viaRest,
+		Func<bool>? superseded,
+		CancellationToken cancellationToken)
+	{
+		string? hubFailure = await TryLegAsync(
+			async token =>
+			{
+				if (!_hub.IsConnected)
+				{
+					await _hub.ConnectAsync(token);
+				}
+
+				await viaHub(token);
+			},
+			cancellationToken);
+
+		if (hubFailure is null)
+		{
+			return new SendResult(SendOutcome.Sent, null);
+		}
+
+		if (superseded?.Invoke() == true)
+		{
+			return new SendResult(SendOutcome.Superseded, null);
+		}
+
+		// Falls through to the REST path. The hub's failure is deliberately not carried out of
+		// here — one failed hub send with a successful fallback is not something to put in front
+		// of a rider.
+		string? restFailure = await TryLegAsync(viaRest, cancellationToken);
+
+		return restFailure is null
+			? new SendResult(SendOutcome.Sent, null)
+			: new SendResult(SendOutcome.Failed, restFailure);
+	}
+
+	/// <summary>
+	/// Runs one transport under <see cref="SendTimeout"/> and reports whether it got through.
+	/// <para>
+	/// The two legs share this so the rule that matters — the watch stopping is not a send failing,
+	/// and must propagate rather than be reported — has one copy rather than two that have to stay
+	/// identical.
+	/// </para>
+	/// </summary>
+	/// <param name="send">The transport.</param>
+	/// <param name="cancellationToken">Stops the sender.</param>
+	/// <returns><c>null</c> when it got through, or why it did not.</returns>
+	private async Task<string?> TryLegAsync(
+		Func<CancellationToken, Task> send,
+		CancellationToken cancellationToken)
+	{
 		try
 		{
-			await _api.PublishPositionAsync(update, cancellationToken);
-			Published();
+			await WithTimeoutAsync(send, cancellationToken);
+			return null;
 		}
-		catch (OperationCanceledException)
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
 			throw;
 		}
 		catch (Exception exception)
 		{
-			// Both paths refused. The receiver is fine and the ride is fine; what is broken is the
-			// link, and saying so is what stops a rider believing they are on the map.
-			Set(LocationBroadcastStatus.Failed, exception.Message);
+			return exception.Message;
+		}
+	}
+
+	/// <summary>
+	/// Runs one send with a deadline on it.
+	/// <para>
+	/// Neither transport bounds itself usefully: a hub invoke waits for the server's completion
+	/// message, and the shared <c>HttpClient</c> carries .NET's 100-second default. On a link that
+	/// has gone quiet without closing — a cell radio at speed, which is most of a ride — that is
+	/// minutes of a rider being off the map, and before the outbox it was minutes of the fix pump
+	/// being stopped dead with it. A position nobody can deliver inside <see cref="SendTimeout"/>
+	/// has already been replaced by a better one.
+	/// </para>
+	/// <para>
+	/// The deadline comes from <see cref="TimeProvider"/> rather than <c>CancelAfter</c>'s ambient
+	/// timer, so a test can drive a send that never answers without waiting out real seconds.
+	/// </para>
+	/// </summary>
+	/// <param name="send">The send, which must honour the token it is handed.</param>
+	/// <param name="cancellationToken">Stops the sender.</param>
+	private async Task WithTimeoutAsync(
+		Func<CancellationToken, Task> send,
+		CancellationToken cancellationToken)
+	{
+		using CancellationTokenSource deadline = new(SendTimeout, _clock);
+		using CancellationTokenSource linked =
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
+
+		try
+		{
+			await send(linked.Token);
+		}
+		catch (OperationCanceledException)
+			when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+		{
+			// Translated, so the caller's "was this us stopping?" test stays a test about the
+			// watch's own token, and so Detail says something a rider can act on.
+			throw new TimeoutException(
+				$"no answer from the server within {SendTimeout.TotalSeconds:0} seconds");
 		}
 	}
 
 	private void Published()
 	{
-		LastPublishedUtc = _clock.GetUtcNow();
-		Detail = null;
+		lock (_statusGate)
+		{
+			LastPublishedUtc = _clock.GetUtcNow();
+		}
+
 		Set(LocationBroadcastStatus.Broadcasting);
 	}
 
@@ -768,23 +1055,54 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		}
 	}
 
-	private void Set(LocationBroadcastStatus status, string? detail = null)
+	/// <summary>
+	/// Moves the status, from either thread.
+	/// <para>
+	/// Locked because the pump and the sender are genuinely two threads since the publish moved off
+	/// the pump, and the read-compare-write below is not safe between them. The lock covers the
+	/// decision only — <see cref="Raise"/> runs outside it, because subscriber code re-entering
+	/// this would deadlock and a UI handler is exactly the kind of code that would.
+	/// </para>
+	/// </summary>
+	/// <param name="status">Where to move to.</param>
+	/// <param name="detail">What to say alongside it, if anything.</param>
+	/// <param name="terminal">
+	/// Latches the status so nothing later can move it: for a failure the app cannot recover from
+	/// without a restart, where a subsequent routine update would overwrite the only true
+	/// explanation with a misleading one.
+	/// </param>
+	private void Set(LocationBroadcastStatus status, string? detail = null, bool terminal = false)
 	{
-		if (Status == status && Detail == detail)
+		lock (_statusGate)
 		{
-			return;
+			if (_statusLatched || (Status == status && Detail == detail))
+			{
+				return;
+			}
+
+			// Suppression is a fact about where the rider is, not a status one send can move. A
+			// position taken before the rider crossed into their circle can land after they have —
+			// and left to win, it would say "Sharing your location." while §10.1 suppresses, then
+			// stand for the rest of the ride, because a rider indoors at home stops producing the
+			// fixes that would correct it. Only leaving the circle clears this.
+			if (_suppressed && status is LocationBroadcastStatus.Broadcasting)
+			{
+				return;
+			}
+
+			// Every GPS transition in the app passes through here — starting, stopping, a permission
+			// refused, a receiver the platform took away. Logged at the choke point rather than at the
+			// callers so a path added later cannot forget, and with the reason count because "stopped"
+			// means something different when it is the last ride letting go than when it is a failure.
+			DiagnosticLog.Write(
+				$"GPS: {Status} -> {status}{(detail is null ? "" : $" ({detail})")}, " +
+				$"{_reasons.Count} ride(s) sharing.");
+
+			Status = status;
+			Detail = detail;
+			_statusLatched = terminal;
 		}
 
-		// Every GPS transition in the app passes through here — starting, stopping, a permission
-		// refused, a receiver the platform took away. Logged at the choke point rather than at the
-		// callers so a path added later cannot forget, and with the reason count because "stopped"
-		// means something different when it is the last ride letting go than when it is a failure.
-		DiagnosticLog.Write(
-			$"GPS: {Status} -> {status}{(detail is null ? "" : $" ({detail})")}, " +
-			$"{_reasons.Count} ride(s) sharing.");
-
-		Status = status;
-		Detail = detail;
 		Raise();
 	}
 
@@ -842,6 +1160,24 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		Changed = null;
 	}
 }
+
+/// <summary>How one hub-then-REST send ended.</summary>
+internal enum SendOutcome
+{
+	/// <summary>One of the two transports carried it.</summary>
+	Sent = 0,
+
+	/// <summary>Abandoned between the two: a newer fix was already waiting.</summary>
+	Superseded = 1,
+
+	/// <summary>Both transports refused.</summary>
+	Failed = 2,
+}
+
+/// <summary>One send's result.</summary>
+/// <param name="Outcome">How it ended.</param>
+/// <param name="Failure">Why the last transport refused, when it did.</param>
+internal readonly record struct SendResult(SendOutcome Outcome, string? Failure);
 
 /// <summary>Where the device's broadcast has got to (§4.3, §5.7).</summary>
 public enum LocationBroadcastStatus

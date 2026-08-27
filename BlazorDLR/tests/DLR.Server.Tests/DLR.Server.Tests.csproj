@@ -5,16 +5,21 @@
 		<RootNamespace>DLR.Server.Tests</RootNamespace>
 	</PropertyGroup>
 
+	<!--
+		Test classes run in parallel (§10.4). Each still gets its own throwaway database, so the cap
+		is about how hard one PostgreSQL container is asked to work, not correctness: eight servers
+		at MaxPoolSize 5 is forty connections against the container's three hundred.
+
+		Eight rather than a core count. Measured on a 32-core machine the suite takes 1m50s at
+		eight threads, 1m44s at twelve and 1m49s at twenty-four — the container is the limit well
+		before the CPU is, so the extra threads buy noise and spend it on contention that the
+		timing-sensitive tests in §7.8 have to survive.
+	-->
 	<ItemGroup>
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
-		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		<PackageReference Include="coverlet.collector" Version="10.0.1">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
+		<Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<!-- Drives the §5.3 hub against TestServer, including its WebSocket handshake. -->
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.11" />
 	</ItemGroup>
