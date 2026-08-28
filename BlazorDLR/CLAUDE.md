@@ -143,6 +143,15 @@ if (blah)
 }
 ``` 
 
+### Comments
+Comment sparingly, on the non-obvious *why* — an invariant, a workaround, a reason a rule exists.
+No comment that restates the code, names the method or heads an obvious block.
+
+More than one line is fine when the reason needs it, but about three is the ceiling. Never an essay:
+no block that argues for the feature, justifies its place on the screen or narrates the rider's
+experience. That belongs in `Documentation/` behind a `§` reference. Leave existing comments alone
+unless the code under them changes.
+
 ## AGPL provenance
 
 The parent `Directory.Build.targets` appends `.dirty` to `SourceRevisionId` when git reports

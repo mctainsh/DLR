@@ -1,4 +1,4 @@
-@using BlazorDLR.Shared.Services
+﻿@using BlazorDLR.Shared.Services
 @using DLR.Core.Contracts.Rides
 @using DLR.Core.Display
 @using DLR.Core.Tracks
@@ -19,10 +19,8 @@
 	for the four states live — see that file for why they are not in here. This component is
 	layout: a name wearing that rider's marker colour, a state glyph and four figures.
 
-	NeighbourPanel, the other list of live riders, keeps the swatch-and-name this one dropped, and
-	that is not an oversight to tidy up. It sits over the map at 0.8rem with the tiles showing
-	through it; a bordered pill per row at that size, on top of a satellite tile, reads as clutter
-	where a plain square reads as a colour.
+	NeighbourPanel, the other list of live riders, draws the same pill at its own smaller size, so
+	the two lists and the map all name a rider the same way.
 
 	**One state per reason, never a shared grey row** (§5.6, §10.1):
 

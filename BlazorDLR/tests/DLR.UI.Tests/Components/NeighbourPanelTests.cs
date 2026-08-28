@@ -1,6 +1,7 @@
-using BlazorDLR.Shared.Components;
+﻿using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
 using Bunit;
+using DLR.Core.Display;
 
 namespace DLR.UI.Tests.Components;
 
@@ -55,9 +56,9 @@ public sealed class NeighbourPanelTests : BunitContext
 	}
 
 	/// <summary>
-	/// The swatch is the only wordless thing on the row, and its job is to be the same colour as the
-	/// rider's pin on the map (§16.3). The two naming the same person differently is worse than the
-	/// panel carrying no colour at all.
+	/// The name is drawn wearing the colour that rider's pin is drawn in (§16.3), ink and all. The
+	/// panel and the map naming the same person differently is worse than the panel carrying no
+	/// colour at all.
 	/// </summary>
 	[Fact]
 	public void EachRowCarriesTheColourThatRidersPinIsDrawnIn()
@@ -65,9 +66,10 @@ public sealed class NeighbourPanelTests : BunitContext
 		IRenderedComponent<NeighbourPanel> component = Render<NeighbourPanel>(parameters => parameters
 			.Add(p => p.Rows, [Row("Orange", 300, colour: "#ff8800"), Row("Me", 0, isSelf: true)]));
 
-		component.Find(".live-neighbours li .swatch").GetAttribute("style")
-			.ShouldNotBeNull()
-			.ShouldContain("#ff8800");
+		string style = component.Find(".live-neighbours li .name").GetAttribute("style").ShouldNotBeNull();
+
+		style.ShouldContain("#ff8800");
+		style.ShouldContain(MarkerColours.ForegroundFor("#ff8800"));
 	}
 
 	[Fact]

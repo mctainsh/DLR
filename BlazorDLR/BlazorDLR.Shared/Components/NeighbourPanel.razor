@@ -1,3 +1,5 @@
+﻿@using DLR.Core.Display
+
 @*
 	Who is just up the road and just behind, over the live map (§5.4).
 
@@ -20,10 +22,11 @@
 	the back finds themselves at the bottom — the shape of it answers "am I ahead or behind"
 	before a single number has been read. NeighbourList is what settles that; this is layout.
 
-	**The swatch is never the whole of an answer.** It matches the rider's pin on the map
-	(§16.3), which is what makes the panel and the map name the same person the same way — but
-	colour through a visor in daylight is the first thing to go, so the name is beside it in
-	words and the gap is in words too.
+	**The name wears the colour, rather than a square beside it.** The same pill the members
+	list and the map label draw (§16.3): the rider picks the background, MarkerColours derives
+	the ink. One thing carrying both the colour and the words beats a swatch that has to be
+	matched to a name by eye — and colour through a visor in daylight is the first thing to go,
+	so the words are what survive.
 *@
 
 @if (Rows.Count > 0)
@@ -33,9 +36,8 @@
 			@foreach (NeighbourRow row in Rows)
 			{
 				<li class="@(row.IsSelf ? "self" : null)">
-					<span class="swatch" style="background: @row.Colour" aria-hidden="true"></span>
 					<RiderAvatar UserName="@row.UserName" />
-					<span class="name">@row.UserName</span>
+					<span class="name" style="background: @row.Colour; color: @MarkerColours.ForegroundFor(row.Colour);">@row.UserName</span>
 					<span class="gap">
 						@if (row.IsSelf)
 						{
@@ -77,16 +79,18 @@
 
 <style>
 	/*
-		Down the left edge, vertically centred.
+		The bottom-left corner.
 
 		Absolute inside the live page's .page-full rather than fixed, so it lands inside the
 		content area on both rail placements without restating the rail's geometry — the same
 		arrangement .chrome uses on the opposite edge.
 
-		The left edge is the one that is free. The top-right carries the hamburger and the two
-		camera-mode buttons, the top-left the base map's compass, the bottom the placing strip
-		and the mode toast. Centring vertically keeps a five-row panel clear of the compass above it and of
-		the strips below, at every phone height, without any of them having to know it is here.
+		Down here rather than vertically centred, because the middle of the map is the part the
+		rider is actually reading — their own pin and the road ahead of it — and a panel across
+		it is the thing they came for, covered. The corners are what is free: the top-right
+		carries the hamburger and the camera buttons, the top-left the base map's compass, and
+		the bottom centre the placing strip and the mode toast, both of which are transient and
+		sit above this on z-index when they are up.
 
 		--dlr-safe-left and not env(safe-area-inset-left): iOS reports a side inset on BOTH edges
 		in landscape whichever edge the cutout is on, and the raw value would float this a
@@ -94,9 +98,8 @@
 	*/
 	.live-neighbours {
 		position: absolute;
-		top: 50%;
+		bottom: max(var(--dlr-map-control-inset), env(safe-area-inset-bottom));
 		left: max(var(--dlr-map-control-inset), var(--dlr-safe-left));
-		transform: translateY(-50%);
 		/* Under the menu backdrop (19) and the strips (18), over the map. Nothing here is
 		   interactive, so being covered costs the rider nothing. */
 		z-index: 16;
@@ -146,22 +149,20 @@
 		padding-left: calc(0.5rem - 3px);
 	}
 
-	/* The colour their pin is drawn in (§16.3). Bordered, so a rider whose colour is close to
-	   the tiles underneath still has a square rather than a smudge. */
-	.live-neighbours .swatch {
-		flex: 0 0 auto;
-		width: 0.85rem;
-		height: 0.85rem;
-		border: 1px solid #000000a0;
-		border-radius: 3px;
-	}
-
+	/* The map's rider tag, in HTML: their colour behind the name and the contrasting ink on top
+	   and around it (§16.3). The border is in the ink rather than a fixed grey, for the one
+	   colour that needs it — white over a bright tile is a name floating with no tag at all. */
 	.live-neighbours .name {
 		flex: 1 1 auto;
 		min-width: 0;
+		padding: 0.05rem 0.45rem;
+		border: 1px solid;
+		border-radius: 999px;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		/* The pill carries the name now; the panel-wide shadow would only smear its ink. */
+		text-shadow: none;
 	}
 
 	/* Tabular figures: the numbers change every few seconds, and a column that reflowed as
