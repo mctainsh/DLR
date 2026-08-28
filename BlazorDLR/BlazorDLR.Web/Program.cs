@@ -25,7 +25,12 @@ using Microsoft.EntityFrameworkCore;
 WebApplication? app = null;
 try
 {
-	var builder = WebApplication.CreateBuilder(args);
+	// Settings are read once, at startup. The default host loads appsettings.json, the environment
+	// overlay and user secrets with reloadOnChange:true, so an edit re-binds a running process; the
+	// switch turns that off. It goes ahead of the caller's arguments because it has to be a
+	// key=value the host reads before it loads the files, and because a valueless argument after it
+	// (`--migrate`) would otherwise swallow it as its value.
+	var builder = WebApplication.CreateBuilder(["--hostBuilder:reloadConfigOnChange=false", .. args]);
 
 	// In every environment, not just Development, which is where the default puts it.
 	//

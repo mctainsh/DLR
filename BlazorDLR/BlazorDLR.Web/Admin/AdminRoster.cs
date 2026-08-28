@@ -16,12 +16,12 @@ namespace DLR.Server.Admin;
 /// <strong>Read per request, never baked into a token.</strong> A claim would be simpler to check
 /// and would take effect an hour late: an account removed from the roster would stay an
 /// administrator until its access token expired, which is the wrong way round for the one
-/// permission worth revoking in a hurry. <see cref="IOptionsMonitor{T}"/> picks up an edited
-/// <c>appsettings.json</c> without a restart, for the same reason.
+/// permission worth revoking in a hurry. The roster itself is read once at startup, like every
+/// other server setting, so an edited <c>appsettings.json</c> takes effect at the next restart.
 /// </para>
 /// </summary>
-/// <param name="options">The configured roster, re-read whenever the file changes.</param>
-public sealed class AdminRoster(IOptionsMonitor<AdminOptions> options)
+/// <param name="options">The configured roster, as read at startup.</param>
+public sealed class AdminRoster(IOptions<AdminOptions> options)
 {
 	/// <summary>
 	/// Whether this username is on the roster.
@@ -43,7 +43,7 @@ public sealed class AdminRoster(IOptionsMonitor<AdminOptions> options)
 	/// normalised in one place and the two cannot answer differently.
 	/// </remarks>
 	public IReadOnlySet<string> Everyone() =>
-		options.CurrentValue.Users
+		options.Value.Users
 			.Where(entry => !string.IsNullOrWhiteSpace(entry))
 			.Select(entry => entry.Trim())
 			.ToHashSet(StringComparer.OrdinalIgnoreCase);

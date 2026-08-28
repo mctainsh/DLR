@@ -2,7 +2,6 @@ using DLR.Server.Diagnostics;
 using DLR.Server.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging.Configuration;
-using Microsoft.Extensions.Options;
 
 namespace DLR.Server.Admin;
 
@@ -40,21 +39,14 @@ public static class AdminRegistration
 		services.Configure<AdminOptions>(options =>
 			options.Users = configuration.GetSection(AdminOptions.Section).Get<string[]>() ?? []);
 
-		// The change token the action-based Configure above does *not* register. Without it
-		// IOptionsMonitor computes the roster once and freezes it, so an edited appsettings.json
-		// would take effect at the next restart — the very delay a claim was rejected for.
-		// Configure<T>(IConfiguration) registers this for free; Configure<T>(Action<T>) does not.
-		services.AddSingleton<IOptionsChangeTokenSource<AdminOptions>>(
-			new ConfigurationChangeTokenSource<AdminOptions>(configuration));
-
 		services.Configure<FileLogOptions>(configuration.GetSection(FileLogOptions.Section));
 
 		services.AddSingleton<AdminRoster>();
 		services.AddSingleton<ServerLogReader>();
 
 		// A handler rather than RequireAssertion, because the assertion would have to close over a
-		// roster built before the container exists — and would then hold the roster it was built
-		// with, defeating the reload the roster goes to some trouble to support.
+		// roster built before the container exists, rather than resolving the one the rest of the
+		// server answers from.
 		services.AddSingleton<IAuthorizationHandler, AdminHandler>();
 
 		services.AddAuthorizationBuilder()
