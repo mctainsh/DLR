@@ -304,7 +304,7 @@
 			bUnit assertion, and is painted nowhere at all. It shipped that way once. Nothing else
 			on this page collides; this one word does.
 		*@
-		@if (_toast is { } toast)
+		@if (_toasts?.Text is { } toast)
 		{
 			<div class="mode-toast @(_placingMarker ? "raised" : null)" role="status" aria-live="polite">@toast</div>
 		}
@@ -663,12 +663,6 @@
 	private static readonly TimeSpan SaveInterval = TimeSpan.FromSeconds(5);
 
 	/// <summary>
-	/// How long a mode change stays on screen. Long enough to be read at a glance by somebody who
-	/// is also riding a bike, short enough that it is gone before it becomes furniture.
-	/// </summary>
-	private static readonly TimeSpan ToastDuration = TimeSpan.FromSeconds(3.5);
-
-	/// <summary>
 	/// How fast this rider has to be going before their heading is allowed to turn the map, in
 	/// metres per second — about 5 km/h, a walk.
 	/// <para>
@@ -824,20 +818,10 @@
 	private double? _aimedBearing;
 
 	/// <summary>
-	/// What the map is telling the rider it has just started or stopped doing, or null when there
-	/// is nothing to say. Cleared by <see cref="_toastTimer"/>.
+	/// What the map is telling the rider it has just started or stopped doing. See the markup for
+	/// why the two automatic modes are the only things on this screen that get one.
 	/// </summary>
-	private string? _toast;
-
-	/// <summary>
-	/// Takes the toast back off the screen. One timer, restarted per message: a second toast
-	/// replaces the first rather than queueing behind it, because the newer one is by definition
-	/// the truer description of what the map is doing now.
-	/// </summary>
-	private ITimer? _toastTimer;
-
-	/// <summary>How many toasts this page has shown. Only ever compared for equality — see <see cref="ShowToast"/>.</summary>
-	private int _toastSequence;
+	private Toast? _toasts;
 
 	/// <summary>The view last written to the device store, so an unchanged one is not written twice.</summary>
 	private LiveMapView? _savedView;
@@ -1335,6 +1319,12 @@
 		_broadcast = Services.GetService<LocationBroadcastState>();
 		_privateAreas = Services.GetService<PrivateAreaState>();
 
+		_toasts = new Toast(Clock, work => _ = InvokeAsync(() =>
+		{
+			work();
+			StateHasChanged();
+		}));
+
 		// RideSession has taken a nullable broadcaster from the start — see its constructor.
 		_session = new RideSession(Api, Hub, Auth, _broadcast, Cache);
 		_session.Changed += OnSessionChanged;
@@ -1545,7 +1535,7 @@
 		// Armed on one ride, spent on another is a marker on the wrong ride.
 		_placingMarker = false;
 		// "Following off — you moved the map" is about a map that is no longer on screen.
-		_toast = null;
+		_toasts!.Clear();
 		// One ride's riders and one ride's gaps. The load below refills it; leaving the old ride's
 		// names on the edge of the new ride's map for the length of a round trip would be worse than
 		// an empty edge, because every one of them is a claim about where somebody is right now.
@@ -1707,7 +1697,7 @@
 			// The map is left at whatever bearing it is on. The rider pressed "stop following",
 			// not "north up" — straightening the map would be a second thing they did not ask for,
 			// and the base map's own compass is a permanent control for exactly that.
-			ShowToast($"{NameStopped(wasFollowing: true, wasHeadingUp)}.");
+			_toasts!.Show($"{NameStopped(wasFollowing: true, wasHeadingUp)}.");
 		}
 		else
 		{
@@ -1717,7 +1707,7 @@
 			// when the rider has not moved since.
 			_followedTo = null;
 
-			ShowToast("Following you — the map stays centred as you travel.");
+			_toasts!.Show("Following you — the map stays centred as you travel.");
 		}
 
 		// Not glided: switching following on brings a rider back from wherever they had panned to,
@@ -1837,7 +1827,7 @@
 		// One sentence for what is now one action, rather than two toasts racing each other for
 		// the same slot. It names both halves because both are true and the rider only asked for
 		// one of them.
-		ShowToast(_headingUp
+		_toasts!.Show(_headingUp
 			? "Heading up — the map turns as you travel, centred on you."
 			: "North up.");
 
@@ -1912,7 +1902,7 @@
 		{
 			(bool wasFollowing, bool wasHeadingUp) = StopFollowing();
 
-			ShowToast($"{NameStopped(wasFollowing, wasHeadingUp)} — you moved the map.");
+			_toasts!.Show($"{NameStopped(wasFollowing, wasHeadingUp)} — you moved the map.");
 			changed = true;
 		}
 
@@ -1924,7 +1914,7 @@
 			// Names the mode that stopped, not the one that did not start. "North up is off" was
 			// the first wording and it says the opposite of what happened: the map is no longer
 			// being turned for the rider, which if anything is north-up coming back.
-			ShowToast("Heading up off — you turned the map yourself.");
+			_toasts!.Show("Heading up off — you turned the map yourself.");
 		}
 
 		if (!changed)
@@ -1938,42 +1928,6 @@
 		// the viewport report that accompanies this gesture is throttled, and a rider who pans and
 		// then closes the app inside the window would otherwise find the mode back on.
 		await RememberViewAsync(now: true);
-	}
-
-	/// <summary>
-	/// Puts a sentence over the map for <see cref="ToastDuration"/>. See the markup for why the
-	/// two automatic modes are the only things on this screen that get one.
-	/// <para>
-	/// The timer is restarted rather than queued: two mode changes in quick succession are one
-	/// rider changing their mind, and the second message is the true one.
-	/// </para>
-	/// </summary>
-	/// <param name="message">What the map has just started or stopped doing.</param>
-	private void ShowToast(string message)
-	{
-		_toast = message;
-
-		// Counted rather than compared against the message text: a rider who turns following off,
-		// on and off again inside the window sees the same words twice, and an equality check would
-		// let the first timer take the second one's toast off the screen early.
-		int shown = ++_toastSequence;
-
-		_toastTimer?.Dispose();
-		_toastTimer = Clock.CreateTimer(
-			_ => _ = InvokeAsync(() =>
-			{
-				// A later toast owns the slot now, and its own timer will clear it.
-				if (_toastSequence != shown)
-				{
-					return;
-				}
-
-				_toast = null;
-				StateHasChanged();
-			}),
-			state: null,
-			dueTime: ToastDuration,
-			period: Timeout.InfiniteTimeSpan);
 	}
 
 	private void CloseMarkers()
@@ -2479,7 +2433,7 @@
 
 		if (wasFollowing || wasHeadingUp)
 		{
-			ShowToast($"{NameStopped(wasFollowing, wasHeadingUp)} — showing you that marker.");
+			_toasts!.Show($"{NameStopped(wasFollowing, wasHeadingUp)} — showing you that marker.");
 		}
 
 		double zoom = Math.Max(_mapViewport?.ZoomLevel ?? FocusZoom, FocusZoom);
@@ -2699,8 +2653,7 @@
 
 		// Before anything that can await: its callback renders, and a render after this page has
 		// gone is an ObjectDisposedException out of a timer nobody is holding.
-		_toastTimer?.Dispose();
-		_toastTimer = null;
+		_toasts?.Dispose();
 		if (_privateAreas is { } areas)
 		{
 			areas.Changed -= OnPrivateAreaChanged;
@@ -3061,7 +3014,7 @@
 		part a rider being followed is looking at — clear.
 
 		Not dismissible, and not a control of any kind. It states what just happened and then goes;
-		a close button would be a 48 px target for something that removes itself in three seconds,
+		a close button would be a 48 px target for something that removes itself in a few seconds,
 		and a rider taking a hand off the bars to press it is exactly the wrong trade.
 
 		The class is `mode-toast` because Bootstrap owns `.toast` and hides it with

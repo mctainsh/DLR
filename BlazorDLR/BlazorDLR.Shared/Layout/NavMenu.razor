@@ -144,8 +144,9 @@
 	{
 		if (firstRender)
 		{
-			await CurrentRide.LoadAsync();
-			await Unread.LoadAsync();
+			// Two keys in the same store and neither needs the other's answer, so they overlap
+			// rather than queue — on the web each one is its own JS interop round trip.
+			await Task.WhenAll(CurrentRide.LoadAsync(), Unread.LoadAsync());
 		}
 	}
 

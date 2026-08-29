@@ -223,7 +223,7 @@ public sealed class GpsRailButtonTests : BunitContext
 	public void TheMessageGoesByItself()
 	{
 		// It states what just happened and then leaves. A close button would be a 48 px target for
-		// something that removes itself in three seconds, pressed by a rider taking a hand off the
+		// something that removes itself in a few seconds, pressed by a rider taking a hand off the
 		// bars — which is exactly the wrong trade.
 		Wire();
 
@@ -234,7 +234,9 @@ public sealed class GpsRailButtonTests : BunitContext
 			() => component.FindAll(".gps-toast").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		_clock.Advance(TimeSpan.FromSeconds(4));
+		// Past the shared duration rather than a number of its own, so retuning it cannot leave this
+		// test asserting that a toast still on screen has gone.
+		_clock.Advance(Toast.Duration + TimeSpan.FromSeconds(1));
 
 		component.WaitForAssertion(
 			() => component.FindAll(".gps-toast").ShouldBeEmpty(),

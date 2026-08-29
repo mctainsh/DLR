@@ -153,14 +153,9 @@
 									· @ride.State
 								</span>
 							</a>
-							@* aria-hidden: aria-current on the link above already says "current". *@
 							@if (IsCurrent(ride.Id))
 							{
-								<span class="current-badge" aria-hidden="true"
-									  title="The adventure this device is on — the rail's globe leads here">
-									<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
-									Current
-								</span>
+								@CurrentBadge
 							}
 							@if (!string.IsNullOrEmpty(ride.JoinCode))
 							{
@@ -205,14 +200,9 @@
 									· @ride.State
 								</span>
 							</a>
-							@* aria-hidden: aria-current on the link above already says "current". *@
 							@if (IsCurrent(ride.Id))
 							{
-								<span class="current-badge" aria-hidden="true"
-									  title="The adventure this device is on — the rail's globe leads here">
-									<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
-									Current
-								</span>
+								@CurrentBadge
 							}
 							@if (!string.IsNullOrEmpty(ride.JoinCode))
 							{
@@ -276,6 +266,18 @@
 	/// globe leads back to (§18.6).
 	/// </summary>
 	private bool IsCurrent(Guid rideId) => CurrentRide.RideId == rideId;
+
+	/// <summary>
+	/// The marker on whichever row the rail's globe leads to. One fragment for both lists — the
+	/// organised rows and the joined ones draw the same badge, and two copies of it drift.
+	/// <para>aria-hidden, because <c>aria-current</c> on the row's own link already says it.</para>
+	/// </summary>
+	private static readonly RenderFragment CurrentBadge =
+		@<span class="current-badge" aria-hidden="true"
+			   title="The adventure this device is on — the rail's globe leads here">
+			<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
+			Current
+		</span>;
 
 	/// <summary>
 	/// Reads the remembered ride after first render, for the same reason <c>NavMenu</c> does: the

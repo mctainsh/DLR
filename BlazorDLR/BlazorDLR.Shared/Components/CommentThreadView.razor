@@ -266,13 +266,16 @@
 		// Clears whatever card was already showing for this thread (§17.6) — the rider is now
 		// looking at the conversation it was pointing at. It suppresses nothing: posts that land
 		// while this is on screen still raise a notification.
+		// The rail's badge, which is the same "you have read this" the card withdrawal is — said on
+		// the one screen the rider is looking at rather than on the lock screen (§17.6). Started
+		// rather than awaited: it is a device read and a device write, and the comments the rider
+		// tapped through for are not owed a round trip to storage before they are asked for.
+		Task marked = Task.CompletedTask;
+
 		if (RideId is { } notifyRide)
 		{
 			Notifier.ThreadOpened(notifyRide);
-
-			// And the rail's badge, which is the same "you have read this" the card withdrawal is —
-			// said on the one screen the rider is looking at rather than on the lock screen (§17.6).
-			await Unread.OpenedAsync(notifyRide);
+			marked = Unread.OpenedAsync(notifyRide);
 		}
 		else if (TrackId is { } notifyTrack) Notifier.TrackThreadOpened(notifyTrack);
 
@@ -283,6 +286,8 @@
 		}
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
 		catch (Exception exception) { _error = exception.Message; }
+
+		await marked;
 
 		try
 		{

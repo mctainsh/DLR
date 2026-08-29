@@ -129,7 +129,7 @@ public sealed class CommentNotifier : IDisposable
 	{
 		// Fire-and-forget: there is no caller waiting, and a failure leaves a stale card that the
 		// next post replaces anyway.
-		Forget(_notifications.CancelAsync(tag));
+		_notifications.CancelAsync(tag).Forget();
 
 		if (!_notifications.IsSupported)
 			return;
@@ -144,7 +144,7 @@ public sealed class CommentNotifier : IDisposable
 		//
 		// Idempotent by contract (INotificationService.EnsurePermissionAsync) — neither platform
 		// shows a second prompt, so a rider who already answered sees nothing here.
-		Forget(_notifications.EnsurePermissionAsync());
+		_notifications.EnsurePermissionAsync().Forget();
 	}
 
 	/// <summary>
@@ -254,7 +254,7 @@ public sealed class CommentNotifier : IDisposable
 		if (_disposed || !_notifications.IsSupported || !ShouldNotify(comment))
 			return;
 
-		Forget(RaiseAsync(Compose(comment)));
+		RaiseAsync(Compose(comment)).Forget();
 	}
 
 	/// <summary>
@@ -268,21 +268,6 @@ public sealed class CommentNotifier : IDisposable
 		if (await _notifications.EnsurePermissionAsync())
 			await _notifications.ShowAsync(notification);
 	}
-
-	/// <summary>
-	/// Abandons a task that nobody is waiting for, without leaving an unobserved exception behind.
-	/// <para>
-	/// Every caller here is a hub callback or a page lifecycle method, neither of which has anywhere
-	/// to report a failed notification — and a notification that did not appear must never be a
-	/// reason a post fails to arrive in the thread, which is the part that matters.
-	/// </para>
-	/// </summary>
-	private static void Forget(Task task) =>
-		task.ContinueWith(
-			static faulted => _ = faulted.Exception,
-			CancellationToken.None,
-			TaskContinuationOptions.OnlyOnFaulted,
-			TaskScheduler.Default);
 
 	/// <inheritdoc />
 	public void Dispose()

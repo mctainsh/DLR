@@ -61,11 +61,7 @@
 	/// </summary>
 	private bool _routedByNotification;
 
-	/// <summary>
-	/// The adventure this launch is waiting to reopen once the cold-launch bounce through Welcome
-	/// lands on Home, or <c>null</c> when there is nothing waiting. See
-	/// <see cref="ReopenLastAdventureAsync"/>.
-	/// </summary>
+	/// <summary>The adventure held until the cold-launch bounce through Welcome lands on Home.</summary>
 	private string? _pendingAdventure;
 
 	/// <summary>
@@ -155,17 +151,9 @@
 	}
 
 	/// <summary>
-	/// Runs one rung of the launch ladder, and writes down a failure rather than taking the rungs
-	/// below it down as well.
-	/// <para>
-	/// <strong>The sequence used to be unguarded, and that is a launch that loses everything after
-	/// the first stumble.</strong> The session restore reaches the network, and not every failure
-	/// there is one <c>AuthState</c> catches — a refresh that times out throws
-	/// <see cref="TaskCanceledException"/>, which is not an <see cref="HttpRequestException"/>. An
-	/// escape from that step took the introduction, the adventure and the GPS with it, silently,
-	/// leaving a rider on the home screen with a ride still running and nothing in the log to say
-	/// why. Each rung is independent, so each one is allowed to fail on its own.
-	/// </para>
+	/// Runs one rung of the launch ladder on its own, so a failure in it does not take the rungs
+	/// below it down as well — not every failure in the session restore is one <c>AuthState</c>
+	/// catches, and a refresh that times out throws <see cref="TaskCanceledException"/>.
 	/// </summary>
 	/// <param name="rung">What is being attempted, for the log.</param>
 	/// <param name="step">The rung.</param>
@@ -182,26 +170,13 @@
 	}
 
 	/// <summary>
-	/// Puts the rider back on the adventure they were on, with the GPS running again if the server
-	/// still has them sharing with it (<see cref="LaunchRestore"/>).
+	/// Puts the rider back on the adventure they were on (<see cref="LaunchRestore"/>), which only
+	/// Home is a landing for — a notification or an invitation aimed this launch somewhere already.
 	/// <para>
-	/// <strong>Only onto a screen nobody else has claimed.</strong> A tapped notification, a shared
-	/// invitation and the introduction are all launches with a destination already, and a rider who
-	/// asked for one screen must not be moved off it by a ride they left running. Home is the
-	/// landing that means "wherever I was".
-	/// </para>
-	/// <para>
-	/// <strong>Except that a cold launch is not on Home yet.</strong> Home is <c>[Authorize]</c> and
-	/// the session is restored asynchronously, so the router has already bounced an authenticated
-	/// rider to Welcome by the time this runs, and Welcome sends them home again the moment the
-	/// session lands. Reading the URL at this instant therefore says "/welcome" on the launch this
-	/// was written for. So that one hop is waited out in <see cref="OnLocationChanged"/> rather than
-	/// mistaken for a screen the rider chose.
-	/// </para>
-	/// <para>
-	/// The receiver comes up either way — that half is not a navigation, and it is owed to a rider
-	/// the server still has on the map whatever screen they came back to. Neither half happens on a
-	/// host with no GPS behind it; <see cref="LaunchRestore"/> is where that is decided.
+	/// The one non-obvious part: on the launch this exists for, Home is <c>[Authorize]</c> and the
+	/// session is still restoring, so the router has already bounced to Welcome and the URL here
+	/// says <c>/welcome</c>. That hop is waited out in <see cref="OnLocationChanged"/> rather than
+	/// mistaken for a screen the rider chose. The receiver comes up either way.
 	/// </para>
 	/// </summary>
 	private async Task ReopenLastAdventureAsync()

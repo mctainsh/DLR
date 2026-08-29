@@ -386,19 +386,12 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	public async Task<string?> SuspendAsync()
 	{
 		Guid[] rides = [.. _reasons];
-		string? failure = null;
 
-		foreach (Guid ride in rides)
-		{
-			try
-			{
-				await _api.SetSharingAsync(ride, new SetSharingRequest(false));
-			}
-			catch (Exception exception)
-			{
-				failure ??= exception.Message;
-			}
-		}
+		// Together rather than in turn: every flag is cleared whatever the others answer, so there
+		// is nothing for the second ride's round trip to wait on. ResumeAsync below is the opposite
+		// case and stays sequential — see its remarks.
+		string?[] failures = await Task.WhenAll(rides.Select(StopSharingOnServerAsync));
+		string? failure = Array.Find(failures, refusal => refusal is not null);
 
 		_suspended.Clear();
 		_suspended.UnionWith(rides);
@@ -406,6 +399,20 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 
 		await StopAsync();
 		return failure;
+	}
+
+	/// <summary>Clears one ride's flag, answering with the refusal rather than throwing it.</summary>
+	private async Task<string?> StopSharingOnServerAsync(Guid rideId)
+	{
+		try
+		{
+			await _api.SetSharingAsync(rideId, new SetSharingRequest(false));
+			return null;
+		}
+		catch (Exception exception)
+		{
+			return exception.Message;
+		}
 	}
 
 	/// <summary>
@@ -435,6 +442,9 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <returns>The server’s refusal, or <c>null</c> when the receiver was asked to start.</returns>
 	public async Task<string?> ResumeAsync(IReadOnlyList<Guid> rides)
 	{
+		// In turn, unlike SuspendAsync: stopping at the first refusal is what keeps this from
+		// turning a flag on for a ride whose receiver is then refused, which shows a rider as
+		// sharing while nothing is being sent.
 		foreach (Guid ride in rides)
 		{
 			try

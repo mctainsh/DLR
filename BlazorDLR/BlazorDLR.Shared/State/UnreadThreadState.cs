@@ -8,21 +8,11 @@ namespace BlazorDLR.Shared.State;
 /// How many posts have landed in an adventure's thread since the rider last had it open — the
 /// number in the red bubble on the rail's speech bubbles (§17.6, §18.6).
 /// <para>
-/// <strong>Counted on the device, not asked of the server.</strong> There is no read marker in the
-/// schema and no endpoint that answers "how many since"; what there is, is the post itself arriving
-/// on the hub the ride screens already hold (§5.3). So this counts what it is told about, which is
-/// the same reach <see cref="CommentNotifier"/> has and the same trade §17.6 already makes: it
-/// works while the app is running, which during a ride is when the thread is worth a badge.
-/// </para>
-/// <para>
-/// <strong>The count survives a restart</strong>, through <see cref="IDeviceSettings"/> like every
-/// other device-local value. A badge that reset to nothing every launch would quietly lose the two
-/// posts a rider was about to read — and a phone the OS reclaimed mid-ride is exactly the case the
-/// rail exists for (see <see cref="CurrentRideState"/>).
-/// </para>
-/// <para>
-/// A rider's own post is not unread, and neither is one that lands while the thread is on screen.
-/// Those are the only two questions asked; everything else that arrives is counted.
+/// Counted from the hub rather than asked of the server, because there is no read marker in the
+/// schema and no endpoint that answers "how many since" — so this counts only what it is told
+/// about while the app is running, the same reach <see cref="CommentNotifier"/> has. Persisted
+/// through <see cref="IDeviceSettings"/>, so a phone the OS reclaimed mid-ride does not come back
+/// having quietly lost the posts the rider was about to read.
 /// </para>
 /// </summary>
 public sealed class UnreadThreadState : IDisposable
@@ -56,6 +46,15 @@ public sealed class UnreadThreadState : IDisposable
 	private Guid? _open;
 	private bool _loaded;
 	private bool _disposed;
+
+	/// <summary>The device read, held so a second caller joins it — see <see cref="LoadAsync"/>.</summary>
+	private Task? _reading;
+
+	/// <summary>Guards the two below, which the hub's callbacks and the write's own loop both touch.</summary>
+	private readonly Lock _saveGate = new();
+
+	private bool _saving;
+	private bool _unsaved;
 
 	/// <summary>Starts counting posts as they arrive.</summary>
 	/// <param name="hub">Where posts arrive (§5.3).</param>
@@ -93,14 +92,22 @@ public sealed class UnreadThreadState : IDisposable
 	/// </para>
 	/// </summary>
 	/// <param name="cancellationToken">Cancels the read.</param>
-	public async Task LoadAsync(CancellationToken cancellationToken = default)
+	public Task LoadAsync(CancellationToken cancellationToken = default)
 	{
+		// A second caller joins the read rather than being told it has already happened, the same
+		// way CurrentRideState does: OpenedAsync below runs ahead of the rail on a notification
+		// launch, and "already loading" would let it clear a count the store had not yet returned.
 		if (_loaded)
-			return;
+			return _reading ?? Task.CompletedTask;
 
 		// Set before the read so a rail that renders twice does not start two round trips.
 		_loaded = true;
 
+		return _reading = ReadAsync(cancellationToken);
+	}
+
+	private async Task ReadAsync(CancellationToken cancellationToken)
+	{
 		// Posts that landed before the rail got round to reading the store. Their own write was
 		// held back — see OnCommentPosted — because writing what is in memory before knowing what
 		// is on the device is how the count stored yesterday gets overwritten by the one post that
@@ -175,7 +182,62 @@ public sealed class UnreadThreadState : IDisposable
 		// Only once the device has been read: a write before that would replace counts this
 		// instance has not seen yet. LoadAsync persists the merge instead.
 		if (_loaded)
-			Forget(SaveAsync(CancellationToken.None).AsTask());
+			SaveSoon();
+	}
+
+	/// <summary>
+	/// Persists the counts, folding a burst of posts into one write.
+	/// <para>
+	/// A busy thread delivers posts faster than a device store round trip, and every one of them
+	/// used to be its own <see cref="IDeviceSettings.SetAsync"/> — of which only the last one's
+	/// value ever mattered. So a write already running is marked to run again rather than joined by
+	/// a second, and the badge on screen never waits for either: it moves on <see cref="Changed"/>.
+	/// </para>
+	/// </summary>
+	private void SaveSoon()
+	{
+		lock (_saveGate)
+		{
+			_unsaved = true;
+
+			if (_saving)
+				return;
+
+			_saving = true;
+		}
+
+		FlushAsync().Forget();
+	}
+
+	private async Task FlushAsync()
+	{
+		try
+		{
+			while (true)
+			{
+				lock (_saveGate)
+				{
+					if (!_unsaved)
+					{
+						_saving = false;
+						return;
+					}
+
+					_unsaved = false;
+				}
+
+				await SaveAsync(CancellationToken.None);
+			}
+		}
+		catch
+		{
+			lock (_saveGate)
+			{
+				_saving = false;
+			}
+
+			throw;
+		}
 	}
 
 	private Entry? Find(Guid rideId) => _entries.Find(entry => entry.RideId == rideId);
@@ -241,18 +303,6 @@ public sealed class UnreadThreadState : IDisposable
 
 		return entries;
 	}
-
-	/// <summary>
-	/// Abandons a device write nobody is waiting for, without leaving an unobserved exception
-	/// behind. The caller is a hub callback, which has nowhere to report one — and a count that
-	/// failed to persist must never be a reason a post fails to arrive in the thread.
-	/// </summary>
-	private static void Forget(Task task) =>
-		task.ContinueWith(
-			static faulted => _ = faulted.Exception,
-			CancellationToken.None,
-			TaskContinuationOptions.OnlyOnFaulted,
-			TaskScheduler.Default);
 
 	/// <inheritdoc />
 	public void Dispose()
