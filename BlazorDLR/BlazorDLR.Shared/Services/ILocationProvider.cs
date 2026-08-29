@@ -3,8 +3,8 @@ namespace BlazorDLR.Shared.Services;
 /// <summary>
 /// The GPS seam (§4.3, §18.2). <strong>Mobile only.</strong>
 /// <para>
-/// A foreground service on Android and <c>CLLocationManager</c> on iOS, with the accuracy
-/// profiles from §4.2. Both are implemented in <c>BlazorDLR/Platforms/</c>;
+/// A foreground service on Android and <c>CLLocationManager</c> on iOS, asked for a receiver that
+/// can serve the rider's <see cref="LocationUpdateRate"/>. Both are in <c>BlazorDLR/Platforms/</c>;
 /// <see cref="Platform.NoopLocationProvider"/> covers the Windows and macOS MAUI heads.
 /// </para>
 /// <para>
@@ -27,21 +27,18 @@ public interface ILocationProvider
 	/// <summary>Ask for the permissions this platform needs before <see cref="WatchAsync"/> can be called.</summary>
 	Task<LocationPermissionState> EnsurePermissionsAsync(CancellationToken cancellationToken = default);
 
-	/// <summary>Fixes as they arrive. Bounded by the profile the caller passes in.</summary>
-	IAsyncEnumerable<LocationFix> WatchAsync(AccuracyProfile profile, CancellationToken cancellationToken = default);
-}
-
-/// <summary>The three accuracy profiles from §4.2.</summary>
-public enum AccuracyProfile
-{
-	/// <summary>60 s / 50 m — touring.</summary>
-	Eco = 0,
-
-	/// <summary>30 s / 10 m — the default.</summary>
-	Balanced = 1,
-
-	/// <summary>10 s / 5 m — twisty roads, track days.</summary>
-	Precise = 2,
+	/// <summary>
+	/// Fixes as they arrive.
+	/// <para>
+	/// The rate shapes what is <em>asked</em> of the receiver and nothing more: this stream is not
+	/// filtered by it. Every fix the platform produces is handed over, because the recorder (§15.1)
+	/// wants all of them at its own interval and <see cref="PositionGate"/> is the one place the
+	/// publish rules are enforced.
+	/// </para>
+	/// </summary>
+	/// <param name="rate">The rider's publish rate, which the platform request is derived from.</param>
+	/// <param name="cancellationToken">Stops the watch and releases the receiver.</param>
+	IAsyncEnumerable<LocationFix> WatchAsync(LocationUpdateRate rate, CancellationToken cancellationToken = default);
 }
 
 /// <summary>What the platform said when asked for GPS permission.</summary>

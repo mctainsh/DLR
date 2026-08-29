@@ -123,7 +123,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		// never emits a fix, so this only has to resolve — turning sharing on is what would start
 		// it, and LocationBroadcastStateTests is where that path is exercised.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
-		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 

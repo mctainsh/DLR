@@ -25,22 +25,26 @@ public sealed class MapBridge
 	private readonly Action<MapClick> _forwardClick;
 	private readonly Action<string> _forwardError;
 	private readonly Action<MapGesture> _forwardGesture;
+	private readonly Action<MapCoverage> _forwardCoverage;
 
 	/// <summary>Creates a bridge that forwards to a host interop's events.</summary>
 	/// <param name="forwardViewport">Raises <see cref="IMapInterop.ViewportChanged"/>.</param>
 	/// <param name="forwardClick">Raises <see cref="IMapInterop.Clicked"/>.</param>
 	/// <param name="forwardError">Raises <see cref="IMapInterop.ErrorOccurred"/>.</param>
 	/// <param name="forwardGesture">Raises <see cref="IMapInterop.Gestured"/>.</param>
+	/// <param name="forwardCoverage">Raises <see cref="IMapInterop.CoverageChanged"/>.</param>
 	public MapBridge(
 		Action<MapViewport> forwardViewport,
 		Action<MapClick> forwardClick,
 		Action<string> forwardError,
-		Action<MapGesture> forwardGesture)
+		Action<MapGesture> forwardGesture,
+		Action<MapCoverage> forwardCoverage)
 	{
 		_forwardViewport = forwardViewport;
 		_forwardClick = forwardClick;
 		_forwardError = forwardError;
 		_forwardGesture = forwardGesture;
+		_forwardCoverage = forwardCoverage;
 	}
 
 	/// <summary>Called by the base-map module whenever the view moves.</summary>
@@ -65,6 +69,14 @@ public sealed class MapBridge
 	/// <param name="message">What MapLibre said.</param>
 	[JSInvokable]
 	public void OnMapError(string message) => _forwardError(message);
+
+	/// <summary>
+	/// Called when the base map settles on a view whose coverage differs from the last one it
+	/// reported — see <see cref="IMapInterop.CoverageChanged"/>.
+	/// </summary>
+	/// <param name="coverage">What the map can draw where it is now looking.</param>
+	[JSInvokable]
+	public void OnMapCoverage(MapCoverage coverage) => _forwardCoverage(coverage);
 
 	/// <summary>
 	/// Called when the rider moved the map with their own hand — see <see cref="IMapInterop.Gestured"/>

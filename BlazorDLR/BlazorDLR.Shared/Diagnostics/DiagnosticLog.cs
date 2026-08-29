@@ -70,7 +70,22 @@ public static class DiagnosticLog
 	private static readonly ConcurrentQueue<LogLine> Lines = new();
 	private static readonly Lock FileGate = new();
 
+	/// <summary>Guards the replaceable tail line, which both sinks and every reader share.</summary>
+	private static readonly Lock TransientGate = new();
+
 	private static string? _filePath;
+
+	/// <summary>
+	/// The replaceable line standing at the tail, or null when the last thing written was an
+	/// ordinary one. Held outside <see cref="Lines"/> because a queue cannot replace its own end.
+	/// </summary>
+	private static LogLine? _transient;
+
+	/// <summary>
+	/// Where that line begins in the file, so the next one can be written over it, or -1 when
+	/// there is nothing there to overwrite.
+	/// </summary>
+	private static long _transientStart = -1;
 
 	/// <summary>
 	/// Raised after every write, so an open viewer follows along without polling. Subscribers are
@@ -132,17 +147,67 @@ public static class DiagnosticLog
 	public static void Write(string message)
 	{
 		LogLine line = new(Clock.GetUtcNow(), message ?? string.Empty);
-		Lines.Enqueue(line);
 
-		// Trim after enqueueing rather than before, so a burst from several threads converges on
-		// the cap instead of racing to make room and then all writing.
+		lock (TransientGate)
+		{
+			// A replaceable line is only ever replaced by another of its own kind. Anything else
+			// being said settles it where it stands — see WriteTransient — which is what makes
+			// the totals in the log the ones each stretch of activity actually ended on.
+			if (_transient is { } settled)
+			{
+				Lines.Enqueue(settled);
+				_transient = null;
+			}
+
+			Lines.Enqueue(line);
+		}
+
+		Trim();
+		AppendToFile(line, replacing: false);
+		Changed?.Invoke();
+	}
+
+	/// <summary>
+	/// Appends a line the <em>next</em> such line overwrites: a running total rather than an event.
+	/// <para>
+	/// For a counter that moves every couple of seconds for the length of a ride. Through
+	/// <see cref="Write"/> it would be thousands of lines saying almost nothing; left out
+	/// altogether it is the question a log cannot answer — how many fixes the receiver produced,
+	/// and how many of them reached the ride. Replacing rather than appending keeps the current
+	/// answer at the tail and costs one line.
+	/// </para>
+	/// <para>
+	/// The line survives permanently once anything else is written after it, so what a finished log
+	/// holds is the totals as they stood at each thing that happened.
+	/// </para>
+	/// </summary>
+	/// <param name="message">The totals as they now stand.</param>
+	public static void WriteTransient(string message)
+	{
+		LogLine line = new(Clock.GetUtcNow(), message ?? string.Empty);
+
+		lock (TransientGate)
+		{
+			_transient = line;
+		}
+
+		AppendToFile(line, replacing: true);
+		Changed?.Invoke();
+	}
+
+	/// <summary>
+	/// Drops the oldest lines once the ring is over <see cref="Capacity"/>.
+	/// </summary>
+	/// <remarks>
+	/// After enqueueing rather than before, so a burst from several threads converges on the cap
+	/// instead of racing to make room and then all writing.
+	/// </remarks>
+	private static void Trim()
+	{
 		while (Lines.Count > Capacity && Lines.TryDequeue(out _))
 		{
 			// Dropping the oldest is the whole of it.
 		}
-
-		AppendToFile(line);
-		Changed?.Invoke();
 	}
 
 	/// <summary>
@@ -269,18 +334,29 @@ public static class DiagnosticLog
 		}
 	}
 
-	/// <summary>Everything held in memory, oldest first.</summary>
+	/// <summary>Everything held in memory, oldest first, the replaceable tail line last.</summary>
 	/// <returns>A snapshot that will not change underneath a render.</returns>
-	public static IReadOnlyList<LogLine> Snapshot() => Lines.ToArray();
+	public static IReadOnlyList<LogLine> Snapshot()
+	{
+		lock (TransientGate)
+		{
+			return _transient is { } pending ? [.. Lines, pending] : Lines.ToArray();
+		}
+	}
 
 	/// <summary>Empties the ring, so the next attempt at reproducing something starts clean.</summary>
 	/// <remarks>Leaves the file alone: that is the copy worth keeping precisely because nothing
 	/// in the UI can throw it away by accident.</remarks>
 	public static void Clear()
 	{
-		while (Lines.TryDequeue(out _))
+		lock (TransientGate)
 		{
-			// Nothing to do per line.
+			while (Lines.TryDequeue(out _))
+			{
+				// Nothing to do per line.
+			}
+
+			_transient = null;
 		}
 
 		Changed?.Invoke();
@@ -336,6 +412,8 @@ public static class DiagnosticLog
 		{
 			lock (FileGate)
 			{
+				_transientStart = -1;
+
 				if (File.Exists(path))
 					File.Move(path, path + PreviousSuffix, overwrite: true);
 			}
@@ -355,7 +433,14 @@ public static class DiagnosticLog
 	/// this <em>is</em> the reporting.
 	/// </para>
 	/// </summary>
-	private static void AppendToFile(LogLine line)
+	/// <param name="line">The line to write.</param>
+	/// <param name="replacing">
+	/// Whether this line overwrites the replaceable one already at the end of the file
+	/// (<see cref="WriteTransient"/>) rather than following it. The file is truncated back to
+	/// where that line began, which is why the offset is tracked rather than recomputed: the
+	/// rendered length is not the byte length once a message carries a stack trace.
+	/// </param>
+	private static void AppendToFile(LogLine line, bool replacing)
 	{
 		if (_filePath is not { } path)
 			return;
@@ -364,16 +449,40 @@ public static class DiagnosticLog
 		{
 			lock (FileGate)
 			{
+				long length = new FileInfo(path) is { Exists: true } info ? info.Length : 0;
+
 				// This run's file starts again rather than being moved over the previous run's
 				// copy, which is what this used to do. That copy is the one the Log screen's
 				// "Previous run" view reads, and a single long ride must not be able to overwrite
 				// the launch somebody is trying to diagnose. Losing the early part of a run that
 				// has already written two megabytes is the cheaper half of that trade.
-				if (new FileInfo(path) is { Exists: true, Length: > MaxFileBytes })
+				if (length > MaxFileBytes)
+				{
 					File.WriteAllText(
 						path,
 						$"===== Rolled past {MaxFileBytes} bytes; earlier lines of this run are gone ====={Environment.NewLine}",
 						Encoding.UTF8);
+
+					_transientStart = -1;
+					length = new FileInfo(path).Length;
+				}
+
+				if (!replacing)
+				{
+					_transientStart = -1;
+				}
+				else if (_transientStart >= 0 && _transientStart <= length)
+				{
+					// Cut the previous totals off the end rather than writing another set beside
+					// them. The bound is belt and braces: an external truncation between two of
+					// these would otherwise have this lengthen the file with nulls.
+					using FileStream file = new(path, FileMode.Open, FileAccess.Write, FileShare.Read);
+					file.SetLength(_transientStart);
+				}
+				else
+				{
+					_transientStart = length;
+				}
 
 				File.AppendAllText(path, line + Environment.NewLine, Encoding.UTF8);
 			}

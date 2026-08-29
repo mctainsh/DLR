@@ -1,5 +1,6 @@
 @page "/settings/location"
 @attribute [Authorize]
+@using System.Globalization
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
@@ -44,8 +45,8 @@
 		<p class="note">
 			Location is a phone feature (§18.6). A browser has no GPS the app can trust to keep
 			running with the screen off, so there is nothing here for this device to configure —
-			the accuracy profile, the recording interval and the private area all belong to the
-			phone that produces the fixes, and are set in the app on that phone.
+			the update rate, the recording interval and the private area all belong to the phone
+			that produces the fixes, and are set in the app on that phone.
 		</p>
 
 		<p class="note">
@@ -98,44 +99,99 @@
 			}
 		</div>
 
-		<div class="panel">
-			<h2>Accuracy</h2>
+		@*
+			Three numbers rather than the Eco / Balanced / Precise radios this replaced. Those were
+			three fixed pairs of exactly these settings with the third hidden altogether, and the
+			names were doing the work the numbers should have: the commonest question about this
+			screen was "so how often does it actually send?", and it could not be answered from the
+			screen. Each control below says what it does and the summary says what they do together.
+		*@
+		<div class="panel update-rate">
+			<h2>Location update rate</h2>
 
 			<p class="note">
-				How often your position is <em>sent</em> to the group adventures you are sharing with. This
-				is the battery setting — it does not change how much detail your own recorded track
-				keeps, which is the interval below.
+				How often your position is <em>sent</em> to the group adventures you are sharing with.
+				This is the battery setting — it does not change how much detail your own recorded
+				track keeps, which is the interval further down.
 			</p>
 
-			@*
-			Three radios rather than a slider: they are not points on a continuum, they are
-			three answers to "what are you doing today", and the copy under each is what
-			makes the choice possible without reading the design document.
-		*@
-			@foreach (AccuracyProfile profile in Profiles)
-			{
-				<label class="profile @(Gps.Profile == profile ? "chosen" : null)">
-					<input type="radio" name="gps-profile" value="@profile"
-						   checked="@(Gps.Profile == profile)"
-						   @onchange="() => ChooseAsync(profile)" />
-					<span class="what">
-						<strong>@Name(profile)</strong>
-						<em>@Cadence(profile)</em>
-						<span class="why">@Why(profile)</span>
+			<label class="rate">
+				<span class="what">
+					<strong>Update distance</strong>
+					<span class="why">Travel this far and your new position goes.</span>
+				</span>
+				<select value="@Rate.DistanceM" @onchange="OnDistanceChanged">
+					@foreach (double distance in LocationUpdateRate.Distances)
+					{
+						<option value="@distance" selected="@(Rate.DistanceM == distance)">@($"{distance:0} m")</option>
+					}
+				</select>
+			</label>
+
+			<label class="rate">
+				<span class="what">
+					<strong>Maximum update time</strong>
+					<span class="why">
+						Go this long without sending anything and your current position goes anyway —
+						so a stop does not leave you as a pin that quietly ages.
 					</span>
-				</label>
-			}
+				</span>
+				<select value="@Rate.Maximum.TotalSeconds" @onchange="OnMaximumChanged">
+					@*
+						Only the ones above the minimum. The rule is enforced in LocationUpdateRate
+						either way, but an option that silently becomes a different option when you
+						pick it is worse than one that was never offered.
+					*@
+					@foreach (TimeSpan maximum in LocationUpdateRate.Maximums.Where(candidate => candidate > Rate.Minimum))
+					{
+						<option value="@maximum.TotalSeconds" selected="@(Rate.Maximum == maximum)">
+							@LocationUpdateRate.Describe(maximum)
+						</option>
+					}
+				</select>
+			</label>
+
+			<label class="rate">
+				<span class="what">
+					<strong>Minimum update time</strong>
+					<span class="why">
+						Never send more often than this, however fast you are going. Travel the
+						update distance inside it and the position waits — what goes when the wait is
+						over is where you are then, not where you were when it came due.
+					</span>
+				</span>
+				<select value="@Rate.Minimum.TotalSeconds" @onchange="OnMinimumChanged">
+					@foreach (TimeSpan minimum in LocationUpdateRate.Minimums)
+					{
+						<option value="@minimum.TotalSeconds" selected="@(Rate.Minimum == minimum)">
+							@LocationUpdateRate.Describe(minimum)
+						</option>
+					}
+				</select>
+			</label>
+
+			@*
+				One sentence per rule, each on its own source line: the rendered markup keeps the
+				line breaks, and a summary split across them reads as three fragments to anything
+				matching on it — a test included.
+			*@
+			<p class="hint">
+				Sending @($"{Rate.DistanceM:0} m") after you move.
+				At most @LocationUpdateRate.Describe(Rate.Maximum) between one position and the next.
+				Never two closer together than @LocationUpdateRate.Describe(Rate.Minimum).
+			</p>
 
 			<p class="hint">
-				A change takes effect immediately — if the GPS is running, it restarts on the new
-				profile.
+				The maximum has to stay longer than the minimum — raise the minimum past it and the
+				maximum moves up with it. A change takes effect immediately: if the GPS is running,
+				it restarts on the new setting.
 			</p>
 		</div>
 
 		@*
-		Track recording (§15.1). Separate panel from the accuracy profile above and separate
-		wording, because riders conflate the two and they cost different things: one spends
-		uplink and other people's redraws, and one spends a few hundred kilobytes on this phone.
+		Track recording (§15.1). Separate panel from the update rate above and separate wording,
+		because riders conflate the two and they cost different things: one spends uplink and
+		other people's redraws, and one spends a few hundred kilobytes on this phone.
 	*@
 		<div class="panel recording">
 			<h2>Recording your adventures</h2>
@@ -176,8 +232,8 @@
 			<p class="hint">
 				@Recording.IntervalM.ToString("0") m — about @PointsPerKm points a kilometre. Smaller
 				draws a roundabout as a roundabout; larger keeps a long tour to a sensible size. It
-				cannot be finer than the GPS is reporting, so on <strong>Eco</strong> a 5 m setting
-				will still produce a coarse track.
+				cannot be finer than the GPS is reporting, so a long minimum update time above will
+				still produce a coarse track however small this is set.
 			</p>
 
 			<h3>Track in progress</h3>
@@ -277,7 +333,7 @@
 		save".
 	*@
 		<div class="panel private-area">
-			<h2>Home private area</h2>
+			<h2>Private / Home area</h2>
 
 			<p class="note">
 				Pick a point and a radius around somewhere you would rather not be watched - your
@@ -408,12 +464,8 @@
 </div>
 
 @code {
-	/// <summary>The three §4.2 profiles, in the order the screen offers them: cheapest first.</summary>
-	private static readonly AccuracyProfile[] Profiles =
-		[AccuracyProfile.Eco, AccuracyProfile.Balanced, AccuracyProfile.Precise];
-
 	private LocationBroadcastState? _broadcast;
-	private GpsProfileState? _gps;
+	private LocationUpdateRateState? _gps;
 	private TrackRecordingState? _recording;
 	private PrivateAreaState? _privateAreas;
 
@@ -429,7 +481,10 @@
 	// builds that half of the markup.
 	private LocationBroadcastState Broadcast => _broadcast!;
 
-	private GpsProfileState Gps => _gps!;
+	private LocationUpdateRateState Gps => _gps!;
+
+	/// <summary>The rate the three controls read and write.</summary>
+	private LocationUpdateRate Rate => Gps.Rate;
 
 	private TrackRecordingState Recording => _recording!;
 
@@ -438,7 +493,7 @@
 	protected override void OnInitialized()
 	{
 		_broadcast = Services.GetService<LocationBroadcastState>();
-		_gps = Services.GetService<GpsProfileState>();
+		_gps = Services.GetService<LocationUpdateRateState>();
 		_recording = Services.GetService<TrackRecordingState>();
 		_privateAreas = Services.GetService<PrivateAreaState>();
 
@@ -493,30 +548,33 @@
 		StateHasChanged();
 	}
 
-	private Task ChooseAsync(AccuracyProfile profile) => Gps.SetAsync(profile);
+	private Task OnDistanceChanged(ChangeEventArgs args) =>
+		Read(args) is { } metres ? Gps.SetAsync(Rate.WithDistance(metres)) : Task.CompletedTask;
+
+	private Task OnMaximumChanged(ChangeEventArgs args) =>
+		Read(args) is { } seconds
+			? Gps.SetAsync(Rate.WithMaximum(TimeSpan.FromSeconds(seconds)))
+			: Task.CompletedTask;
+
+	/// <summary>
+	/// Moves the floor, and the ceiling with it when it has to — see
+	/// <see cref="LocationUpdateRate.WithMinimum" />.
+	/// </summary>
+	private Task OnMinimumChanged(ChangeEventArgs args) =>
+		Read(args) is { } seconds
+			? Gps.SetAsync(Rate.WithMinimum(TimeSpan.FromSeconds(seconds)))
+			: Task.CompletedTask;
+
+	/// <summary>
+	/// The number behind a select. Invariant, not the current culture: these are option values this
+	/// component wrote itself, and <c>InvariantGlobalization</c> is on for the whole solution.
+	/// </summary>
+	private static double? Read(ChangeEventArgs args) =>
+		double.TryParse(args.Value?.ToString(), CultureInfo.InvariantCulture, out double value)
+			? value
+			: null;
 
 	private void OnChanged() => _ = InvokeAsync(StateHasChanged);
-
-	private static string Name(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco => "Eco",
-		AccuracyProfile.Precise => "Precise",
-		_ => "Balanced",
-	};
-
-	/// <summary>The numbers, said plainly — this is what the profile actually does.</summary>
-	private static string Cadence(AccuracyProfile profile) =>
-		$"every {PositionGate.MinInterval(profile).TotalSeconds:0} s, or every {PositionGate.MinDistanceM(profile):0} m";
-
-	private static string Why(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco =>
-			"Touring. The kindest to your battery, and enough for a group that is staying together.",
-		AccuracyProfile.Precise =>
-			"Twisty roads and track days. Every corner, and the shortest battery life.",
-		_ =>
-			"The default, and the right answer for almost every adventure.",
-	};
 
 	// -- Track recording (§15.1) --------------------------------------------------------------
 
@@ -836,41 +894,40 @@
 			color: var(--dlr-error);
 		}
 
-	/* The whole row is the control — a radio's own hit area is a few millimetres, and this
-		   screen is read in a car park with gloves on. */
-	.location-settings .profile {
+	/* The whole row is the control, label included — a select's own hit area is the box alone,
+		   and this screen is read in a car park with gloves on. The label wraps under its select on
+		   a narrow phone rather than squeezing both onto one line. */
+	.location-settings .rate {
 		display: flex;
-		align-items: flex-start;
-		gap: 0.75rem;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem 0.75rem;
 		min-height: 48px;
 		padding: 0.6rem 0.5rem;
-		border-radius: 6px;
 		cursor: pointer;
 	}
 
-		.location-settings .profile + .profile {
+		.location-settings .rate + .rate {
 			border-top: 1px solid var(--dlr-border);
 		}
 
-		.location-settings .profile.chosen {
-			background: var(--dlr-accent-soft);
-		}
-
-		.location-settings .profile .what {
+		.location-settings .rate .what {
 			display: flex;
 			flex-direction: column;
 			gap: 0.15rem;
+			flex: 1 1 12rem;
 		}
 
-		.location-settings .profile em {
-			font-size: 0.85rem;
-			color: var(--dlr-fg-muted);
-			font-style: normal;
-		}
-
-		.location-settings .profile .why {
+		.location-settings .rate .why {
 			font-size: 0.85rem;
 			opacity: 0.8;
+		}
+
+		.location-settings .rate select {
+			min-height: 44px;
+			min-width: 6.5rem;
+			padding: 0 0.5rem;
 		}
 
 	/* Five buttons rather than a drop-down: the whole set is readable at a glance, and each is a

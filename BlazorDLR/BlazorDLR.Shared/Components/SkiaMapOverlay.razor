@@ -68,7 +68,14 @@
 	/// </summary>
 	[Parameter] public IReadOnlyList<RouteOverlay>? Routes { get; set; }
 
-	/// <summary>Markers to draw. Ordered by ascending latitude so higher pins draw over lower.</summary>
+	/// <summary>
+	/// Markers to draw. Ordered by ascending latitude so higher pins draw over lower.
+	/// <para>
+	/// Handed over, not lent: the frame is rasterised on a pool thread, so a caller that keeps
+	/// writing into the dictionary it passed takes the paint down with "Collection was modified".
+	/// Publish a new one per change instead.
+	/// </para>
+	/// </summary>
 	[Parameter] public IReadOnlyDictionary<Guid, MapMarker>? Markers { get; set; }
 
 	/// <summary>

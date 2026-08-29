@@ -83,6 +83,13 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	private const int AcceptRetryDelayMs = 50;
 
 	/// <summary>
+	/// How long a health probe is given to complete before the listener behind it is written off.
+	/// Generous for a loopback round trip that normally costs under a millisecond, because the
+	/// cost of being wrong is a rebind the rider did not need.
+	/// </summary>
+	private const int ProbeTimeoutMs = 1500;
+
+	/// <summary>
 	/// The shortest gap between two lines about requests this server refused. A source that cannot
 	/// be read fails per tile, so an unthrottled line would push the rest of the log out of the
 	/// ring — see <see cref="ThrottledLog"/>, which counts what it swallows.
@@ -105,14 +112,24 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	/// </summary>
 	private readonly string _token = Base64Url(RandomNumberGenerator.GetBytes(16));
 
-	private TcpListener? _listener;
+	/// <summary>
+	/// The listener currently accepting, read from the accept loop's thread as well as this one —
+	/// which is why it is <c>volatile</c>. Identity matters: a loop unwinding from a listener that
+	/// has already been replaced must not condemn its replacement.
+	/// </summary>
+	private volatile TcpListener? _listener;
+
 	private Uri? _baseUri;
 	private bool _disposed;
 
+	/// <summary>How many URLs have been handed out. Only its uniqueness matters — see ResolveAsync.</summary>
+	private int _resolves;
+
 	/// <summary>
 	/// Set when the accept loop gives up on a listener that is not shutting down — see
-	/// <see cref="MaxConsecutiveAcceptFailures"/>. It is what turns a dead port into a rebind on
-	/// the next <see cref="ResolveAsync"/> rather than into a URL nothing answers.
+	/// <see cref="MaxConsecutiveAcceptFailures"/> — or when one fails the probe in
+	/// <see cref="AnswersAsync"/>. It is what turns a dead port into a rebind on the next
+	/// <see cref="ResolveAsync"/> rather than into a URL nothing answers.
 	/// <para>
 	/// <strong>This is the failure that produced "Load failed" on a map that had been working.</strong>
 	/// The loop used to return on any <see cref="SocketException"/>, so one aborted connection —
@@ -156,7 +173,21 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 		Uri? baseUri = await EnsureListeningAsync(cancellationToken);
 
-		return baseUri is null ? null : new Uri(baseUri, $"{_token}/{packId}.pmtiles");
+		if (baseUri is null)
+		{
+			return null;
+		}
+
+		// The query is ignored here (see PackIdFrom) and exists for the reader on the other side.
+		// pmtiles.js keys its archive cache on the URL and stores the pending header read in it
+		// before knowing whether it resolves — nothing removes a rejected one, so once a read of
+		// this archive has failed at the network layer, every later read of the same URL is served
+		// that same rejection for the life of the page. A rebind onto the same port would come back
+		// to a working socket and a map that still could not read it, which is why re-resolving has
+		// to produce an address the reader has never seen.
+		string nonce = Interlocked.Increment(ref _resolves).ToString(CultureInfo.InvariantCulture);
+
+		return new Uri(baseUri, $"{_token}/{packId}.pmtiles?r={nonce}");
 	}
 
 	/// <summary>
@@ -174,39 +205,59 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	/// Binds the listener and starts accepting, once. Concurrent callers — several maps opening at
 	/// the same moment — wait on one start rather than racing to bind two ports.
 	/// <para>
-	/// Also the recovery path: a listener the accept loop gave up on is replaced here rather than
-	/// leaving the app with no offline map until it is restarted. The new port is a new URL, which
-	/// is why <see cref="IMapPackServer.ResolveAsync"/> is documented as something to ask for each
-	/// time rather than to store.
+	/// Also the recovery path: a listener the accept loop gave up on, or one that no longer answers,
+	/// is replaced here rather than leaving the app with no offline map until it is restarted. The
+	/// new port is a new URL, which is why <see cref="IMapPackServer.ResolveAsync"/> is documented
+	/// as something to ask for each time rather than to store.
+	/// </para>
+	/// <para>
+	/// <strong>An existing listener is proven rather than assumed</strong>, which is why there is no
+	/// fast path around the gate. See <see cref="AnswersAsync"/> — a socket that has died quietly
+	/// looks identical from here to one that is working.
 	/// </para>
 	/// </summary>
 	private async ValueTask<Uri?> EnsureListeningAsync(CancellationToken cancellationToken)
 	{
-		if (Live is { } already)
-		{
-			return already;
-		}
-
-		await _startGate.WaitAsync(cancellationToken);
 		try
 		{
-			if (Live is { } raced)
-			{
-				return raced;
-			}
+			await _startGate.WaitAsync(cancellationToken);
+		}
+		catch (ObjectDisposedException)
+		{
+			// The app is closing under a map that is still opening. Nothing to serve, and nothing
+			// worth throwing at a page that is going away.
+			return null;
+		}
 
+		try
+		{
 			if (_disposed)
 			{
 				return null;
 			}
 
+			if (Live is { } existing)
+			{
+				if (await AnswersAsync(existing, cancellationToken))
+				{
+					return existing;
+				}
+
+				DiagnosticLog.Write(
+					$"Map pack server: {existing} accepted no probe within " +
+					$"{ProbeTimeoutMs.ToString(CultureInfo.InvariantCulture)} ms — the listener has gone quiet " +
+					"without ever failing an accept. Binding again.");
+
+				_listenerFailed = true;
+			}
+
 			int previousPort = 0;
 
+			// Reached only for a listener that has been written off — a healthy one returned above —
+			// and both paths that write one off have already said so in the log.
 			if (_listener is { } stopped)
 			{
 				previousPort = _baseUri?.Port ?? 0;
-
-				DiagnosticLog.Write($"Map pack server: {_baseUri} stopped accepting; binding again.");
 
 				try { stopped.Stop(); } catch (SocketException) { /* already down */ }
 
@@ -245,7 +296,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 		}
 		finally
 		{
-			_startGate.Release();
+			try { _startGate.Release(); } catch (ObjectDisposedException) { /* disposed while binding */ }
 		}
 	}
 
@@ -286,6 +337,59 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	}
 
 	/// <summary>
+	/// Whether the listener behind <paramref name="baseUri"/> still answers, proven by a real
+	/// request rather than inferred from the absence of an exception.
+	/// <para>
+	/// <strong>This is the failure the accept loop cannot see.</strong> A listening socket the OS
+	/// tears down under a suspended app does not always fail an accept — often
+	/// <c>AcceptTcpClientAsync</c> simply never completes again. Nothing throws, so nothing is
+	/// counted and <see cref="Live"/> goes on handing out a dead port: a phone left overnight on a
+	/// ride screen fails every tile with <c>TypeError: Load failed</c>, re-resolving and switching
+	/// source both return the same address, and only a restart brings the map back.
+	/// </para>
+	/// <para>
+	/// <c>OPTIONS</c> is answered before the path is looked up, so the probe proves the socket
+	/// without opening an archive or logging a refusal. Any status line will do.
+	/// </para>
+	/// </summary>
+	private async Task<bool> AnswersAsync(Uri baseUri, CancellationToken cancellationToken)
+	{
+		using CancellationTokenSource attempt =
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopping.Token);
+
+		attempt.CancelAfter(ProbeTimeoutMs);
+
+		try
+		{
+			using TcpClient client = new();
+			await client.ConnectAsync(IPAddress.Loopback, baseUri.Port, attempt.Token);
+
+			await using NetworkStream stream = client.GetStream();
+
+			byte[] request = Encoding.ASCII.GetBytes(
+				$"OPTIONS /{_token}/probe HTTP/1.1\r\nHost: 127.0.0.1:{baseUri.Port.ToString(CultureInfo.InvariantCulture)}\r\n" +
+				"Connection: close\r\n\r\n");
+
+			await stream.WriteAsync(request, attempt.Token);
+
+			byte[] reply = new byte[8];
+			int read = await stream.ReadAtLeastAsync(reply, reply.Length, throwOnEndOfStream: false, attempt.Token);
+
+			return read == reply.Length && Encoding.ASCII.GetString(reply).StartsWith("HTTP/1.", StringComparison.Ordinal);
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			// The caller gave up, not the server. Rebinding on the strength of that would replace a
+			// working listener every time a map page was closed while it was opening.
+			throw;
+		}
+		catch (Exception exception) when (exception is SocketException or IOException or OperationCanceledException or ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>
 	/// Accepts until the server is disposed, or until the listener stops being one.
 	/// <para>
 	/// <strong>A failed accept is not the end of the loop.</strong> It used to be, and that is the
@@ -321,6 +425,15 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 				if (cancellationToken.IsCancellationRequested || _disposed)
 				{
 					// Ordinary shutdown. Nothing to say and nothing to recover.
+					return;
+				}
+
+				if (!ReferenceEquals(_listener, listener))
+				{
+					// This loop's listener has already been replaced, and the exception is almost
+					// certainly the Stop() that replaced it. Writing off from here would condemn the
+					// fresh listener the next resolve just bound, and the two would take turns
+					// replacing each other for the rest of the run.
 					return;
 				}
 

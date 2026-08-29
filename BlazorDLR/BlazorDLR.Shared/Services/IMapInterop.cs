@@ -76,6 +76,23 @@ public interface IMapInterop
 	/// </summary>
 	event Action<string>? ErrorOccurred;
 
+	/// <summary>
+	/// Fired when the answer to "does the ground on screen have tiles behind it" changes. The
+	/// canonical account of this failure; every other site refers back here.
+	/// <para>
+	/// <strong>Only an offline pack ever answers no.</strong> A pack holds one region and declares
+	/// its box, so MapLibre declines to request outside it — no error is raised, the map simply
+	/// draws coarse land and water with nothing on them. That is the failure this event exists for,
+	/// because it is the one that looks like success. An online source is asked for the world, and
+	/// a tile it refuses arrives as <see cref="ErrorOccurred"/> instead.
+	/// </para>
+	/// <para>
+	/// Raised on the settled view and only when the answer changes: a banner appearing and
+	/// vanishing through a pan is worse than the silence it replaced.
+	/// </para>
+	/// </summary>
+	event Action<MapCoverage>? CoverageChanged;
+
 	/// <summary>Attach the map to the DOM element the shared component owns.</summary>
 	ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default);
 
@@ -247,6 +264,17 @@ public enum MapGesture
 /// <param name="Latitude">Decimal degrees.</param>
 /// <param name="Longitude">Decimal degrees.</param>
 public readonly record struct MapClick(double Latitude, double Longitude);
+
+/// <summary>
+/// Whether the tiles under the map reach the ground it is looking at — see
+/// <see cref="IMapInterop.CoverageChanged"/>.
+/// </summary>
+/// <param name="HasTiles">Whether anything on screen is inside what the source holds.</param>
+/// <param name="ZoomLevel">
+/// The zoom it was taken at. Part of the answer rather than context: "there is nothing here" is
+/// only true of where the map is now.
+/// </param>
+public readonly record struct MapCoverage(bool HasTiles, double ZoomLevel);
 
 /// <summary>A camera position (§4.5).</summary>
 /// <param name="Latitude">Decimal degrees.</param>

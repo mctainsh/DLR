@@ -1,3 +1,4 @@
+@using System.Globalization
 @using BlazorDLR.Shared.Diagnostics
 @using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
@@ -69,7 +70,7 @@
 					point of the screen, so a rider has to be told rather than left reading an
 					empty map as "nobody is moving" (§5.3, §16.3).
 				*@
-				<div class="dlr-map-overlay-error" role="alert">
+				<div class="dlr-map-banner dlr-map-overlay-error" role="alert">
 					<strong>Map markers unavailable</strong>
 					<p>The base map is working, but pins, tracks and traveller positions cannot be drawn on this device.</p>
 					@*
@@ -85,6 +86,18 @@
 				</div>
 			</ErrorContent>
 		</LoggingErrorBoundary>
+	}
+
+	@*
+		The map is working and drawing empty ground — see IMapInterop.CoverageChanged. It goes on
+		the map rather than under it because the empty map is the evidence.
+	*@
+	@if (ShowNoTilesWarning)
+	{
+		<div class="dlr-map-banner dlr-map-no-tiles" role="status">
+			<strong>No offline tiles in this area at zoom @TileZoomText</strong>
+			<p>The downloaded pack does not reach here. Pan back, or choose another map in Settings → Maps.</p>
+		</div>
 	}
 </div>
 
@@ -307,10 +320,31 @@ else if (_tileError is not null)
 	/// <summary>How often a continuing failure repeats itself in the log. See <see cref="OnMapError"/>.</summary>
 	private const int MapErrorLogEvery = 50;
 
-	/// <summary>Whether the one re-resolve <see cref="RetryOfflineSourceAsync"/> allows has been spent.</summary>
-	private bool _retriedSource;
+	/// <summary>
+	/// When <see cref="RetryOfflineSourceAsync"/> last re-resolved, on the monotonic tick count, or
+	/// zero for never.
+	/// <para>
+	/// A cooldown rather than the once-per-component flag this used to be. The thing it recovers
+	/// from — the loopback listener going quiet while the phone suspends the app — can happen more
+	/// than once on a ride left running overnight, and a single spent retry left the rider with a
+	/// dead map for the rest of the run.
+	/// </para>
+	/// </summary>
+	private long _retriedSourceTicks;
+
+	/// <summary>
+	/// The shortest gap between two re-resolves. Long enough that a pack which is genuinely
+	/// unreadable restyles the map twice a minute rather than once per failed tile.
+	/// </summary>
+	private const long SourceRetryCooldownMs = 30_000;
 
 	private MapViewport? _viewport;
+
+	/// <summary>
+	/// What the base map last said about tile coverage, or null before it has said anything — not
+	/// the same as "covered", which is why this is nullable rather than a bool.
+	/// </summary>
+	private MapCoverage? _coverage;
 
 	protected override void OnInitialized()
 	{
@@ -318,6 +352,7 @@ else if (_tileError is not null)
 		Map.Clicked += OnMapClick;
 		Map.ErrorOccurred += OnMapError;
 		Map.Gestured += OnMapGesture;
+		Map.CoverageChanged += OnCoverageChanged;
 
 		// The tile source is a device setting (§4.5) and it is scoped, so the settings screen and
 		// this map are looking at the same instance. Subscribing means a change made while a map is
@@ -465,7 +500,17 @@ else if (_tileError is not null)
 		// the replacement failing too. The retry is reset with it, for the same reason: it is spent
 		// against a source, not against the component.
 		_tileError = null;
-		_retriedSource = false;
+		_retriedSourceTicks = 0;
+
+		// Different tiles, different coverage, and no verdict on the new ones yet. Held to null
+		// rather than to true so the banner cannot survive into a source it was never about — the
+		// module forgets its own last answer on the same call.
+		_coverage = null;
+
+		// The device setting reaches here through MapSourceState's event rather than through a
+		// parameter, so nothing re-renders on its own — and both banners cleared above are on
+		// screen until something does.
+		StateHasChanged();
 
 		try { await Map.SetSourceAsync(wanted); }
 		catch (Exception exception)
@@ -571,19 +616,27 @@ else if (_tileError is not null)
 	/// stopped — which is a fix the rider does not have to be told about.
 	/// </para>
 	/// <para>
-	/// <strong>Once.</strong> A pack that is genuinely unreadable would otherwise restyle the map
-	/// on every failed tile, forever. The banner is what a second failure gets, because at that
-	/// point the rider does need to know.
+	/// <strong>Not more than once every <see cref="SourceRetryCooldownMs"/>.</strong> A pack that is
+	/// genuinely unreadable would otherwise restyle the map on every failed tile, forever. The
+	/// banner is what a failure inside the cooldown gets, because at that point the rider does need
+	/// to know.
 	/// </para>
 	/// </summary>
 	private async Task RetryOfflineSourceAsync()
 	{
-		if (_retriedSource || _error is not null || _appliedSource is not { Kind: MapSourceKind.Offline } offline)
+		if (_error is not null || _appliedSource is not { Kind: MapSourceKind.Offline } offline)
 		{
 			return;
 		}
 
-		_retriedSource = true;
+		long now = Environment.TickCount64;
+
+		if (_retriedSourceTicks != 0 && now - _retriedSourceTicks < SourceRetryCooldownMs)
+		{
+			return;
+		}
+
+		_retriedSourceTicks = now;
 
 		DiagnosticLog.Write($"Re-resolving offline pack '{offline.PackId}' after the base map could not read it.");
 
@@ -601,6 +654,33 @@ else if (_tileError is not null)
 			DiagnosticLog.WriteError($"re-resolving offline pack '{offline.PackId}'", exception);
 		}
 	}
+
+	/// <summary>
+	/// The base map settled somewhere with different coverage (see
+	/// <see cref="IMapInterop.CoverageChanged"/>). Not logged: riding off the edge of a downloaded
+	/// region is a thing riders do, not a fault.
+	/// </summary>
+	private void OnCoverageChanged(MapCoverage coverage)
+	{
+		_coverage = coverage;
+
+		// Arrives on whichever thread the JS interop callback landed on, like every other one here.
+		_ = InvokeAsync(StateHasChanged);
+	}
+
+	/// <summary>
+	/// Whether to tell the rider the map has nothing under it here. Silent while either error
+	/// banner is up: two explanations for one grey screen is worse than either alone.
+	/// </summary>
+	private bool ShowNoTilesWarning =>
+		_coverage is { HasTiles: false } && _error is null && _tileError is null;
+
+	/// <summary>
+	/// The zoom in the warning, floored — tiles are requested at the whole number below the zoom
+	/// the map draws at, and that is the number a pack states its range in.
+	/// </summary>
+	private string TileZoomText =>
+		Math.Floor(_coverage?.ZoomLevel ?? 0).ToString("0", CultureInfo.InvariantCulture);
 
 	/// <summary>
 	/// The rider moved the map with their own hand. Forwarded unfiltered — which gestures matter
@@ -647,6 +727,7 @@ else if (_tileError is not null)
 		Map.Clicked -= OnMapClick;
 		Map.ErrorOccurred -= OnMapError;
 		Map.Gestured -= OnMapGesture;
+		Map.CoverageChanged -= OnCoverageChanged;
 		MapSources.Changed -= OnMapSourceChanged;
 		if (_initialised)
 		{
@@ -753,13 +834,11 @@ else if (_tileError is not null)
 	.dlr-map-error p { margin: 0; }
 	.dlr-map-error-detail { margin-top: 0.35rem; opacity: 0.75; font-size: 0.8rem; overflow-wrap: anywhere; }
 
-	/* Sits over the base map rather than under it: the map still works, and the point is
-	   that what is *missing* from it is not obvious by looking. */
-	.dlr-map-overlay-error {
+	/* The two banners that sit over the base map rather than under it: the map still works, and
+	   the point is that what is *missing* from it is not obvious by looking. One look, two
+	   placements — the palette lived in three near-identical copies before. */
+	.dlr-map-banner {
 		position: absolute;
-		left: 0.5rem;
-		right: 0.5rem;
-		bottom: 0.5rem;
 		z-index: 2;
 		padding: 0.6rem 0.85rem;
 		background: #fff3cd;
@@ -768,7 +847,29 @@ else if (_tileError is not null)
 		border-radius: 4px;
 		font-size: 0.85rem;
 	}
-	.dlr-map-overlay-error strong { display: block; margin-bottom: 0.2rem; }
-	.dlr-map-overlay-error p { margin: 0; }
+	.dlr-map-banner strong { display: block; margin-bottom: 0.2rem; }
+	.dlr-map-banner p { margin: 0; }
+
+	.dlr-map-overlay-error {
+		left: 0.5rem;
+		right: 0.5rem;
+		bottom: 0.5rem;
+	}
 	.dlr-map-overlay-error-detail { margin-top: 0.35rem; opacity: 0.75; font-size: 0.78rem; }
+
+	/* At the top and centred, which is what keeps it off the two top corners — the compass owns
+	   one and the live ride's hamburger owns the other, and a message that covers a control is a
+	   message that eats a tap. `pointer-events: none` because the map under it is what the rider
+	   is trying to use. */
+	.dlr-map-no-tiles {
+		top: var(--dlr-map-control-top);
+		left: 50%;
+		transform: translateX(-50%);
+		width: max-content;
+		max-width: min(24rem, calc(100% - 2rem - 2 * var(--dlr-map-control-size)));
+		padding: 0.5rem 0.75rem;
+		text-align: center;
+		pointer-events: none;
+	}
+	.dlr-map-no-tiles p { font-size: 0.78rem; opacity: 0.85; }
 </style>

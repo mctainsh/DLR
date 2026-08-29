@@ -16,7 +16,7 @@ namespace BlazorDLR.Shared.State;
 /// <para>
 /// <strong>Fed before the publish gates, not after.</strong> <see cref="LocationBroadcastState"/>
 /// offers every raw fix here and then decides separately whether to broadcast it. A recorder
-/// downstream of the §4.2 gate would give a rider on Eco a track sampled every 50 m however fine
+/// downstream of the §4.2 gate would give a rider publishing every 50 m a track that coarse however fine
 /// an interval they had chosen, and a recorder downstream of the §10.1 gate could never offer the
 /// choice this screen offers.
 /// </para>
@@ -154,7 +154,7 @@ public sealed class TrackRecordingState
 		}
 
 		// Set before the reads so two callers do not start two round trips, on
-		// GpsProfileState's reasoning — nothing here fails closed, so an in-flight read costs at
+		// LocationUpdateRateState's reasoning — nothing here fails closed, so an in-flight read costs at
 		// worst a first fix landing on the shipped defaults.
 		_loaded = true;
 

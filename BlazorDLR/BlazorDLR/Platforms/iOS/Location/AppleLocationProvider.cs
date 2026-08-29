@@ -160,10 +160,10 @@ public sealed class AppleLocationProvider : ILocationProvider
 	/// assertion — and the blue pill that goes with it — lasts exactly as long as the enumeration.
 	/// </para>
 	/// </summary>
-	/// <param name="profile">The accuracy profile (§4.2).</param>
+	/// <param name="rate">The rider's update rate (§4.2).</param>
 	/// <param name="cancellationToken">Stops the receiver.</param>
 	public async IAsyncEnumerable<LocationFix> WatchAsync(
-		AccuracyProfile profile,
+		LocationUpdateRate rate,
 		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		Channel<LocationFix> fixes = Channel.CreateBounded<LocationFix>(
@@ -199,8 +199,8 @@ public sealed class AppleLocationProvider : ILocationProvider
 		{
 			CLLocationManager created = EnsureManager();
 
-			created.DesiredAccuracy = DesiredAccuracy(profile);
-			created.DistanceFilter = DistanceFilter(profile);
+			created.DesiredAccuracy = DesiredAccuracy(rate);
+			created.DistanceFilter = DistanceFilter(rate);
 			created.ActivityType = CLActivityType.OtherNavigation;
 			created.PausesLocationUpdatesAutomatically = false;
 
@@ -265,32 +265,30 @@ public sealed class AppleLocationProvider : ILocationProvider
 	}
 
 	/// <summary>
-	/// What each profile asks Core Location for (§4.2).
+	/// What the rider's rate asks Core Location for (§4.2). Only the update distance is a
+	/// statement about precision; the two times are about how often, which is the filter's job.
 	/// <para>
-	/// <c>Best</c> rather than <c>BestForNavigation</c> even on Precise: the navigation tier turns
-	/// on extra sensor fusion intended for turn-by-turn in a car with the screen on and external
-	/// power, and its battery cost on a phone in a mount for six hours is not what a rider is
-	/// asking for when they choose a tighter cadence.
+	/// <c>Best</c> rather than <c>BestForNavigation</c> even at the finest step: the navigation
+	/// tier turns on extra sensor fusion intended for turn-by-turn in a car with the screen on and
+	/// external power, and its battery cost on a phone in a mount for six hours is not what a rider
+	/// is asking for when they choose a tighter step.
 	/// </para>
 	/// </summary>
-	private static double DesiredAccuracy(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco => CLLocation.AccuracyNearestTenMeters,
-		AccuracyProfile.Precise => CLLocation.AccuracyBest,
-		_ => CLLocation.AccuracyNearestTenMeters,
-	};
+	/// <param name="rate">The rider's rate.</param>
+	private static double DesiredAccuracy(LocationUpdateRate rate) =>
+		rate.DistanceM <= 5 ? CLLocation.AccuracyBest : CLLocation.AccuracyNearestTenMeters;
 
 	/// <summary>
-	/// The smallest movement iOS reports, in metres. Deliberately below the publish distance the
-	/// gate enforces — the receiver has to see the rider stop, and a filter set at the publish
-	/// distance would hide exactly that.
+	/// The smallest movement iOS reports, in metres: a fifth of the rider's update distance,
+	/// capped at ten, and off altogether when that fifth is under a metre.
+	/// <para>
+	/// Deliberately below the publish distance the gate enforces — the receiver has to see the
+	/// rider stop, and a filter set at the publish distance would hide exactly that.
+	/// </para>
 	/// </summary>
-	private static double DistanceFilter(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco => 10,
-		AccuracyProfile.Precise => NoDistanceFilter,
-		_ => 5,
-	};
+	/// <param name="rate">The rider's rate.</param>
+	private static double DistanceFilter(LocationUpdateRate rate) =>
+		rate.DistanceM / 5 < 1 ? NoDistanceFilter : Math.Min(rate.DistanceM / 5, 10);
 
 	/// <summary>
 	/// Maps a Core Location fix, keeping "iOS did not say" distinct from zero (§8).

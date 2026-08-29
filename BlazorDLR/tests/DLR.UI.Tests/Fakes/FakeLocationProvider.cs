@@ -43,8 +43,8 @@ public sealed class FakeLocationProvider : ILocationProvider
 	/// </summary>
 	public int WatchCount => Volatile.Read(ref _watchCount);
 
-	/// <summary>The profile the last watch was started with (§4.2).</summary>
-	public AccuracyProfile? LastProfile { get; private set; }
+	/// <summary>The rate the last watch was started with (§4.2).</summary>
+	public LocationUpdateRate? LastRate { get; private set; }
 
 	/// <summary>Whether the receiver was released — the foreground service taken down.</summary>
 	public bool Stopped => Volatile.Read(ref _stopped);
@@ -59,11 +59,11 @@ public sealed class FakeLocationProvider : ILocationProvider
 
 	/// <inheritdoc />
 	public async IAsyncEnumerable<LocationFix> WatchAsync(
-		AccuracyProfile profile,
+		LocationUpdateRate rate,
 		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		Interlocked.Increment(ref _watchCount);
-		LastProfile = profile;
+		LastRate = rate;
 		Volatile.Write(ref _recording, true);
 		Volatile.Write(ref _stopped, false);
 

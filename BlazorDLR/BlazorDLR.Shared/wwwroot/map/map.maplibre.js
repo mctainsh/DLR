@@ -430,6 +430,51 @@ function addWorldUnderlay(style, sourceName, archiveUrl) {
     style.layers = [style.layers[0], ...clones, ...style.layers.slice(1)];
 }
 
+// -- Offline coverage ------------------------------------------------------------------------
+//
+// A pack covers one region, and MapLibre knows its box — so panning off the edge raises no
+// error, it just stops asking, and the world underlay leaves ground with no roads on it. That is
+// a failure that looks like success, so it is computed here and reported to C# (§13 Q26).
+
+// The pack's source in a style this module built — read off the document rather than out of
+// `map.getStyle()`, which serialises and deep-clones all 68 layers every time it is asked.
+// Never the world underlay: that is this module's own clone over the same archive.
+function packSourceNameOf(style) {
+    const sources = style?.sources ?? {};
+
+    return Object.keys(sources).find(name =>
+        name !== WORLD_SOURCE && String(sources[name]?.url ?? "").startsWith("pmtiles://")) ?? null;
+}
+
+// Coverage for what is on screen, or null while it cannot be known — the archive's header
+// arrives a round trip after the style, and answering "no tiles" in that gap would flash the
+// warning on every map that opens on a pack.
+function readCoverage(map, source, packSourceName) {
+    const zoomLevel = map.getZoom() ?? 0;
+
+    // Only a pack is box-limited. An online source is asked for the world, and a tile it refuses
+    // arrives as an error instead.
+    if (source?.kind !== "offline" || !packSourceName) return { hasTiles: true, zoomLevel };
+
+    const pack = map.getSource(packSourceName);
+    const box = pack?.bounds;
+    const view = map.getBounds();
+
+    if (!Array.isArray(box) || box.length !== 4 || !view) return null;
+
+    // Intersection, not "is the centre inside it": a rider whose ride runs off the edge is
+    // looking at the half that is covered, and a banner over a map with roads on it is worse
+    // than saying nothing.
+    const overlaps = view.getWest() <= box[2] && view.getEast() >= box[0]
+        && view.getSouth() <= box[3] && view.getNorth() >= box[1];
+
+    // The floor only. Past the archive's deepest zoom MapLibre stretches the last tile it has;
+    // below its shallowest there is no tile to stretch, the world underlay's z0 included.
+    const deepEnough = Math.floor(zoomLevel) >= (pack.minzoom ?? 0);
+
+    return { hasTiles: overlaps && deepEnough, zoomLevel };
+}
+
 // A source in one line, for a log somebody reads days later. Every field that decides whether the
 // map can draw, and no field that does not — the token inside an archive URL is taken out by
 // `redactPackUrl` rather than being trusted to a log file a rider may send on.
@@ -499,6 +544,9 @@ export async function createMap(hostElement, options, callbacks) {
     }
 
     const initialStyle = await styleFor(options.source);
+
+    // Which source in that style is the archive, resolved once per style rather than per report.
+    let packSourceName = packSourceNameOf(initialStyle);
 
     // What the map is currently drawing with, kept because the error handler below is the one
     // place that needs it and the style document no longer says: MapLibre reports a failed source
@@ -624,6 +672,33 @@ export async function createMap(hostElement, options, callbacks) {
     map.on("rotateend", reporter.stopTracking);
     map.on("zoomstart", reporter.startTracking);
     map.on("zoomend", reporter.stopTracking);
+
+    // Whether the ground on screen has tiles behind it, told to C# when the answer changes.
+    // Only an offline pack ever answers no; RideMap.razor is where a rider is told.
+    //
+    // Beside the viewport reporter rather than part of it: the overlay needs every frame of a
+    // pan, and this needs the settled view only.
+    let lastCoverageKey = null;
+
+    const reportCoverage = () => {
+        const coverage = readCoverage(map, currentSource, packSourceName);
+
+        // Null is "cannot say yet", not "no tiles".
+        if (!coverage) return;
+
+        // The zoom is in the sentence a rider reads, so a gap at a new zoom is a new answer —
+        // while a covered map says nothing, and its zoom is not worth an interop call.
+        const key = coverage.hasTiles ? "covered" : `gap@${Math.floor(coverage.zoomLevel)}`;
+
+        if (key === lastCoverageKey) return;
+
+        lastCoverageKey = key;
+        dispatch(callbacks?.onMapCoverage, "OnMapCoverage", coverage);
+    };
+
+    // `idle` is the settle event for every cause at once — a drag, a fling, an easeTo, tiles
+    // finishing, a style swap. Answering mid-gesture would flicker the banner through a pan.
+    map.on("idle", reportCoverage);
 
     // Everything the base map could not do, said out loud (§4.5).
     //
@@ -814,7 +889,14 @@ export async function createMap(hostElement, options, callbacks) {
 
             currentSource = source ?? DEFAULT_SOURCE;
 
-            map.setStyle(await styleFor(source), { diff: false });
+            const restyled = await styleFor(source);
+
+            // A new source is a new question: the old pack's last answer must not dedupe the
+            // first one about this pack. C# clears its side on the same event.
+            packSourceName = packSourceNameOf(restyled);
+            lastCoverageKey = null;
+
+            map.setStyle(restyled, { diff: false });
 
             // The style carries the attribution, so the control re-reads it on load. Report once
             // the new tiles are in so the overlay is not left registered against a frame from a

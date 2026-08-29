@@ -37,7 +37,7 @@ public sealed class LocationBroadcastStateTests
 
 		public PrivateAreaState PrivateAreas { get; private set; } = default!;
 
-		public GpsProfileState Profile { get; private set; } = default!;
+		public LocationUpdateRateState Rate { get; private set; } = default!;
 
 		public TrackRecordingState Recording { get; private set; } = default!;
 
@@ -58,10 +58,10 @@ public sealed class LocationBroadcastStateTests
 			}
 
 			PrivateAreas = new PrivateAreaState(Settings, Api);
-			Profile = new GpsProfileState(Settings);
+			Rate = new LocationUpdateRateState(Settings);
 			Recording = new TrackRecordingState(Settings, Api, PrivateAreas);
 			Broadcast = new LocationBroadcastState(
-				Provider, Hub, Api, PrivateAreas, Profile, Recording, Settings, Confirm, Clock);
+				Provider, Hub, Api, PrivateAreas, Rate, Recording, Settings, Confirm, Clock);
 			return this;
 		}
 
@@ -82,6 +82,14 @@ public sealed class LocationBroadcastStateTests
 
 	private static LocationFix Fix(double latitude = Latitude, double longitude = Longitude, int secondsIn = 0) =>
 		new(latitude, longitude, 5, 12.5, 90, Start.AddSeconds(secondsIn));
+
+	/// <summary>A tighter rate than the default, for the tests about choosing one.</summary>
+	private static readonly LocationUpdateRate Precise =
+		new(5, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+
+	/// <summary>And a coarser one.</summary>
+	private static readonly LocationUpdateRate Touring =
+		new(100, TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(30));
 
 	[Fact]
 	public void OnAHostWithNoReceiver_ItIsInertRatherThanBroken()
@@ -396,7 +404,7 @@ public sealed class LocationBroadcastStateTests
 		harness.Provider.Emit(Fix(secondsIn: 1));
 
 		await harness.UntilAsync(
-			() => harness.Broadcast.LastGateReason == PositionGateReason.TooSoonAndTooClose,
+			() => harness.Broadcast.LastGateReason == PositionGateReason.HeldByMinimum,
 			"the gate to refuse the second fix");
 
 		harness.Hub.Published.Count.ShouldBe(1);
@@ -620,32 +628,32 @@ public sealed class LocationBroadcastStateTests
 	}
 
 	[Fact]
-	public async Task TheReceiverRunsAtTheProfileTheRiderChose()
+	public async Task TheReceiverRunsAtTheRateTheRiderChose()
 	{
 		Harness harness = new Harness().Build();
-		await harness.Profile.SetAsync(AccuracyProfile.Precise);
+		await harness.Rate.SetAsync(Precise);
 
 		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
 
 		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
-		harness.Provider.LastProfile.ShouldBe(AccuracyProfile.Precise);
+		harness.Provider.LastRate.ShouldBe(Precise);
 	}
 
 	[Fact]
-	public async Task ChangingTheProfileMidRide_RestartsTheReceiverOnIt()
+	public async Task ChangingTheRateMidRide_RestartsTheReceiverOnIt()
 	{
-		// The cadence is fixed when the platform request is made, so a change is a restart rather
-		// than a reinterpretation.
+		// The platform request is made when the watch starts, so a change is a restart rather than
+		// a reinterpretation.
 		Harness harness = new Harness().Build();
 
 		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
 		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the first receiver");
 
-		await harness.Profile.SetAsync(AccuracyProfile.Eco);
+		await harness.Rate.SetAsync(Touring);
 
 		await harness.UntilAsync(
-			() => harness.Provider.WatchCount == 2 && harness.Provider.LastProfile == AccuracyProfile.Eco,
-			"the receiver to restart on the new profile");
+			() => harness.Provider.WatchCount == 2 && harness.Provider.LastRate == Touring,
+			"the receiver to restart on the new rate");
 	}
 
 	[Fact]
@@ -723,6 +731,155 @@ public sealed class LocationBroadcastStateTests
 
 		harness.Confirm.Current.ShouldBeNull("the device has already been told.");
 		await harness.UntilAsync(() => harness.Provider.WatchCount == 2, "the receiver to start again");
+	}
+
+	[Fact]
+	public async Task AParkedPhone_KeepsReachingTheRide_WithoutTheReceiverSayingAnything()
+	{
+		// The bug this exists for. Android's fused request carries a minimum displacement, so a
+		// phone that has not moved is told nothing at all — and every publishing rule in the app
+		// runs on a fix arriving. A rider parked at the start of a ride sent two positions in
+		// twenty-five minutes and the screen said "Sharing your location" throughout.
+		Harness harness = new Harness().Build();
+		using LogCapture capture = new();
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Broadcasting,
+			"the first fix to reach the hub");
+
+		// Nothing else is emitted for the rest of this test: the receiver has gone quiet, which is
+		// what a stationary phone looks like from up here.
+		TimeSpan interval = LocationUpdateRate.Default.Maximum;
+		harness.Clock.Advance(interval);
+
+		await harness.UntilAsync(
+			() => harness.Hub.Published.Count == 2,
+			"the parked phone to restate where it is");
+
+		PositionUpdate restated = harness.Hub.Published[1];
+		restated.Lat.ShouldBe(PositionScale.FromDegrees(Latitude));
+		restated.Lon.ShouldBe(PositionScale.FromDegrees(Longitude));
+		restated.RecordedUtc.ShouldBe(
+			Start + interval,
+			"a restatement carries the moment it is made: the cache drops anything not newer than "
+			+ "what it holds, so the receiver's original stamp would be a no-op on the server.");
+
+		harness.Broadcast.LastPublishedUtc.ShouldBe(Start + interval);
+
+		// The totals reach the log too — the line that would have made this diagnosable from the
+		// rider's own log rather than by inference from what the status did not say.
+		capture.Text.ShouldContain("GPS totals:");
+	}
+
+	[Fact]
+	public async Task AKeepalive_IsNotWhatTheNextRealFix_IsMeasuredAgainst()
+	{
+		// A restatement is stamped with the moment it was sent, and a platform stamp trails
+		// wall-clock. Confirmed into the gate, it would make the next genuine fix look like a fix
+		// from the past — refused as out of order, for a whole interval, every interval.
+		Harness harness = new Harness().Build();
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Broadcasting,
+			"the first fix to reach the hub");
+
+		TimeSpan interval = LocationUpdateRate.Default.Maximum;
+		harness.Clock.Advance(interval);
+		await harness.UntilAsync(() => harness.Hub.Published.Count == 2, "the restatement");
+
+		// The receiver comes back with a fix stamped a second before the restatement was sent —
+		// the ordinary case, not a contrived one.
+		harness.Provider.Emit(Fix(latitude: Latitude + 0.001, secondsIn: (int)interval.TotalSeconds - 1));
+
+		await harness.UntilAsync(() => harness.Hub.Published.Count == 3, "the real fix behind it");
+
+		harness.Hub.Published[2].Lat.ShouldBe(PositionScale.FromDegrees(Latitude + 0.001));
+		harness.Broadcast.LastGateReason.ShouldBe(
+			PositionGateReason.Accepted,
+			"the restatement must not have become the reference the receiver is judged against.");
+	}
+
+	[Fact]
+	public async Task ARefusedFix_DoesNotOverwrite_AReportedFailure()
+	{
+		// A refusal is proof the receiver is alive and proof of nothing else. It used to be allowed
+		// to move any status at all, so the reason a rider's pin had stopped — named by the
+		// transport that refused it — was replaced two seconds later by "waiting for a GPS fix",
+		// which is a fault in the sky rather than in the network.
+		Harness harness = new Harness().Build();
+		harness.Hub.PublishException = new InvalidOperationException("hub refused");
+		harness.Api.PublishPositionException = new ApiException(new ApiError(
+			System.Net.HttpStatusCode.ServiceUnavailable, "The server is not answering.", []));
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Failed,
+			"the broadcaster to report both transports refusing");
+
+		// A fix under a tin roof: worse accuracy than Balanced allows, so §4.2 refuses it on the
+		// fix alone. This is the ordinary sequel to a link failure rather than a contrived one, and
+		// it is the refusal that used to relabel the whole thing.
+		harness.Provider.Emit(new LocationFix(Latitude, Longitude, 100, null, null, Start.AddSeconds(2)));
+		await harness.UntilAsync(
+			() => harness.Broadcast.LastGateReason == PositionGateReason.TooInaccurate,
+			"the second fix to be refused by the gate");
+
+		harness.Broadcast.Status.ShouldBe(
+			LocationBroadcastStatus.Failed,
+			"the link is still the thing that is broken, and it is still what the rider is owed.");
+	}
+
+	[Fact]
+	public async Task WhenNothingReachesTheRide_TheStatusStopsSayingItIs()
+	{
+		// The backstop. "Broadcasting" is set by a send that landed and used to be set by nothing
+		// else and cleared by nothing at all, so any path that stopped delivering without
+		// reporting a failure left the one sentence a rider reads permanently wrong.
+		Harness harness = new Harness().Build();
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Provider.Emit(Fix());
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Broadcasting,
+			"the first fix to reach the hub");
+
+		// Both transports go quiet without refusing anything, which is what a black-holed cell
+		// socket does. Sends are then abandoned as superseded rather than failed — the one outcome
+		// that reports nothing — so nothing after this lands and nothing says so.
+		harness.Hub.PublishHangs = true;
+		harness.Api.PublishPositionHangs = true;
+
+		TimeSpan interval = LocationUpdateRate.Default.Maximum;
+		harness.Provider.Emit(Fix(latitude: Latitude + 0.001, secondsIn: (int)interval.TotalSeconds));
+		await harness.UntilAsync(() => harness.Hub.PublishAttempts == 2, "the second send to get stuck");
+
+		// Parked in the slot behind the stuck send, so every keepalive tick from here finds a fix
+		// already waiting and leaves it alone.
+		harness.Provider.Emit(Fix(latitude: Latitude + 0.002, secondsIn: (int)interval.TotalSeconds * 2));
+
+		harness.Clock.Advance(LocationBroadcastState.StaleAfter(LocationUpdateRate.Default) + interval);
+
+		await harness.UntilAsync(
+			() => harness.Broadcast.Status == LocationBroadcastStatus.Stale,
+			"the status to stop claiming the rider is on the map");
+
+		harness.Broadcast.Describe().ShouldContain(
+			"nothing has reached the adventure",
+			customMessage: "the sentence a rider reads has to be the one that is true.");
 	}
 
 	[Fact]

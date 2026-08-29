@@ -5,7 +5,12 @@ namespace BlazorDLR.Shared.Services;
 /// </summary>
 /// <param name="Fix">The newest position waiting to go, or <c>null</c> if none is.</param>
 /// <param name="Privacy">The private-area crossing waiting to go, or <c>null</c> if none is.</param>
-public readonly record struct OutboxBatch(LocationFix? Fix, bool? Privacy)
+/// <param name="Keepalive">
+/// Whether <paramref name="Fix"/> is the last good fix restated rather than one the receiver has
+/// just produced. The sender needs to know: a keepalive must not become what the §4.2 gate
+/// measures the next real fix against.
+/// </param>
+public readonly record struct OutboxBatch(LocationFix? Fix, bool? Privacy, bool Keepalive = false)
 {
 	/// <summary>Nothing to send — what a drained and closed outbox answers.</summary>
 	public bool IsEmpty => Fix is null && Privacy is null;
@@ -42,6 +47,7 @@ public sealed class PositionOutbox : IDisposable
 
 	private LocationFix? _fix;
 	private bool? _privacy;
+	private bool _fixIsKeepalive;
 
 	/// <summary>Whether a permit is already outstanding, so one post cannot leak several.</summary>
 	private bool _signalled;
@@ -56,7 +62,11 @@ public sealed class PositionOutbox : IDisposable
 	/// </para>
 	/// </summary>
 	/// <param name="fix">The fix the §4.2 gate let through.</param>
-	public void Post(LocationFix fix)
+	/// <param name="keepalive">
+	/// True when this is the last good fix being restated because the receiver has gone quiet,
+	/// rather than one it has just produced. Carried through to the sender on the batch.
+	/// </param>
+	public void Post(LocationFix fix, bool keepalive = false)
 	{
 		bool wake;
 
@@ -66,6 +76,7 @@ public sealed class PositionOutbox : IDisposable
 				return;
 
 			_fix = fix;
+			_fixIsKeepalive = keepalive;
 			wake = !_signalled;
 			_signalled = true;
 		}
@@ -94,7 +105,10 @@ public sealed class PositionOutbox : IDisposable
 			// fix had already gone by the time the crossing was noticed; a slot has to say it.
 			// The direction matters: coming out, a queued fix is exactly what should follow.
 			if (isPrivate)
+			{
 				_fix = null;
+				_fixIsKeepalive = false;
+			}
 
 			wake = !_signalled;
 			_signalled = true;
@@ -165,10 +179,11 @@ public sealed class PositionOutbox : IDisposable
 		{
 			lock (_gate)
 			{
-				OutboxBatch batch = new(_fix, _privacy);
+				OutboxBatch batch = new(_fix, _privacy, _fixIsKeepalive);
 
 				_fix = null;
 				_privacy = null;
+				_fixIsKeepalive = false;
 
 				if (!batch.IsEmpty)
 					return batch;

@@ -118,7 +118,7 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 		// receiver at all, which is what makes this rider's own pin the device's business and
 		// Alice's the ride's.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
-		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 

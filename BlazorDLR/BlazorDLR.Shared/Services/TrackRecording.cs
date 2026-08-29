@@ -10,9 +10,9 @@ namespace BlazorDLR.Shared.Services;
 /// <strong>Separate from <see cref="PositionGate"/>, and deliberately.</strong> That gate decides
 /// what is worth <em>publishing</em> — it spends a rider's uplink and every other rider's redraw,
 /// so it is tuned as a battery decision. This decides what is worth <em>keeping</em>, which costs
-/// nothing but device storage and is the rider's own record of where they went. A rider on Eco who
-/// wants a 5 m track should get one; the two settings answer different questions and are not
-/// derived from each other.
+/// nothing but device storage and is the rider's own record of where they went. A rider publishing
+/// every 50 m who wants a 5 m track should get one; the two settings answer different questions
+/// and are not derived from each other.
 /// </para>
 /// <para>
 /// Pure and static: the interval rules, the encoding and the private-area filter all take what
@@ -24,7 +24,7 @@ public static class TrackRecording
 {
 	/// <summary>
 	/// The intervals the Location screen offers, in metres. Five choices rather than a slider, for
-	/// the same reason the accuracy profiles are three radios: they are answers to "how much detail
+	/// the same reason the update rate is three controls: they are answers to "how much detail
 	/// do you want a corner drawn in", not points on a continuum anybody can feel.
 	/// </summary>
 	public static readonly IReadOnlyList<double> IntervalsM = [5, 10, 50, 100, 500];

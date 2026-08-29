@@ -105,7 +105,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		// mark and the follow camera both come off the device's fix before the ride has one
 		// (§4.3, §5.3), which is a behaviour of this page rather than of the broadcaster.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
-		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 

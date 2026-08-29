@@ -137,6 +137,13 @@ public sealed class RideMapForwardTests : BunitContext
 			remove { /* symmetric no-op. */ }
 		}
 
+		/// <summary>Nor does it ever settle on ground whose tiles it could report on.</summary>
+		public event Action<MapCoverage>? CoverageChanged
+		{
+			add { /* no view, so no verdict about one. */ }
+			remove { /* symmetric no-op. */ }
+		}
+
 		public void CompleteInit() => _init.TrySetResult();
 
 		public async ValueTask InitAsync(Microsoft.AspNetCore.Components.ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
@@ -493,6 +500,12 @@ public sealed class RideMapForwardTests : BunitContext
 		{
 			add => _inner.Gestured += value;
 			remove => _inner.Gestured -= value;
+		}
+
+		public event Action<MapCoverage>? CoverageChanged
+		{
+			add => _inner.CoverageChanged += value;
+			remove => _inner.CoverageChanged -= value;
 		}
 
 		public event Action<string>? ErrorOccurred

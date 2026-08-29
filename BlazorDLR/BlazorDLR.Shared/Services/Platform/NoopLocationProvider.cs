@@ -30,7 +30,7 @@ public sealed class NoopLocationProvider : ILocationProvider
 
 	/// <inheritdoc />
 	public async IAsyncEnumerable<LocationFix> WatchAsync(
-		AccuracyProfile profile,
+		LocationUpdateRate rate,
 		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		// Yield nothing rather than throw — a component that resolves this and immediately

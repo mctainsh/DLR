@@ -55,7 +55,7 @@ public sealed class LocationSettingsTests : PageTestContext
 		Services.AddSingleton<IRideHubClient>(new FakeRideHubClient());
 		Services.AddSingleton<ConfirmService>();
 		Services.AddSingleton<PrivateAreaState>();
-		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 	}
@@ -328,19 +328,45 @@ public sealed class LocationSettingsTests : PageTestContext
 	// ---------- Accuracy (§4.2) ----------
 
 	[Fact]
-	public void Accuracy_PrintsTheRatesTheGateActuallyEnforces()
+	public void UpdateRate_OffersEveryValue_AndSaysWhatTheThreeDoTogether()
 	{
-		// The screen is the only place these numbers are stated to a rider, so it prints them
-		// from PositionGate rather than repeating them — a copy that drifted would be a lie about
+		// The screen is the only place these numbers are stated to a rider, so it prints them from
+		// LocationUpdateRate rather than repeating them — a copy that drifted would be a lie about
 		// the rider's own battery.
 		Wire();
 
 		IRenderedComponent<Location> component = RenderPage();
+
+		component.FindAll(".update-rate select").Count.ShouldBe(3);
+
 		string markup = component.Markup;
 
-		markup.ShouldContain("every 60 s, or every 50 m");
-		markup.ShouldContain("every 30 s, or every 10 m");
-		markup.ShouldContain("every 10 s, or every 5 m");
+		foreach (double distance in LocationUpdateRate.Distances)
+		{
+			markup.ShouldContain($"{distance:0} m", customMessage: $"{distance:0} m is on offer and is not printed.");
+		}
+
+		// The summary, which is what the three controls exist to produce.
+		markup.ShouldContain("Sending 25 m after you move.");
+		markup.ShouldContain("At most 60 s between one position and the next.");
+		markup.ShouldContain("Never two closer together than 5 s.");
+	}
+
+	[Fact]
+	public async Task UpdateRate_RaisingTheMinimumPastTheMaximum_TakesTheMaximumUpWithIt()
+	{
+		// The one rule between the three, exercised through the screen rather than only the type:
+		// a control that appears to do nothing when a rider uses it is the failure this prevents.
+		Wire();
+
+		IRenderedComponent<Location> component = RenderPage();
+
+		await component.InvokeAsync(() => component.FindAll(".update-rate select")[2].Change("60"));
+
+		LocationUpdateRateState rate = Resolve<LocationUpdateRateState>();
+
+		rate.Rate.Minimum.ShouldBe(TimeSpan.FromSeconds(60));
+		rate.Rate.Maximum.ShouldBe(TimeSpan.FromSeconds(120));
 	}
 
 	// ---------- The private area (§10.1, §18.6) ----------

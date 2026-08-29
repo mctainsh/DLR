@@ -194,8 +194,8 @@ public static class MauiProgram
 		// nowhere near the thread.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CommentNotifier>();
 
-		// The accuracy profile this device records at (§4.2), in MAUI Preferences.
-		builder.Services.AddScoped<BlazorDLR.Shared.State.GpsProfileState>();
+		// The update rate this device publishes at (§4.2), in MAUI Preferences.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.LocationUpdateRateState>();
 
 		// The rider's own track (§15.1). This is the host that actually records one: the pump
 		// below offers it every fix, and the Location screen is where it is saved or thrown away.

@@ -115,7 +115,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		// The GPS seam (§4.3). This page measures the panel from the device's own reading, so unlike
 		// most page suites this one has to drive a real receiver.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
-		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 

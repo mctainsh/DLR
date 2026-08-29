@@ -53,12 +53,28 @@ public sealed class FakeMapInterop : IMapInterop
 	public event Action<MapGesture>? Gestured;
 
 	/// <summary>
+	/// The base map settling on ground its tiles do or do not cover. Raised by
+	/// <see cref="RaiseCoverage"/>.
+	/// </summary>
+	public event Action<MapCoverage>? CoverageChanged;
+
+	/// <summary>
 	/// Stands in for the rider dragging or turning the base map. The real module tells these apart
 	/// from its own camera moves by MapLibre's <c>originalEvent</c>; a bUnit test has no MapLibre,
 	/// so it says which gesture happened directly.
 	/// </summary>
 	/// <param name="gesture">What the rider did.</param>
 	public void RaiseGesture(MapGesture gesture) => Gestured?.Invoke(gesture);
+
+	/// <summary>
+	/// Stands in for the base map working out that the source under it does not reach where the
+	/// map is looking — a rider panning off the edge of an offline pack. The real module reads the
+	/// archive's own box out of the PMTiles header; a bUnit test says the answer directly.
+	/// </summary>
+	/// <param name="hasTiles">Whether anything on screen has tiles behind it.</param>
+	/// <param name="zoomLevel">The zoom the answer was taken at.</param>
+	public void RaiseCoverage(bool hasTiles, double zoomLevel) =>
+		CoverageChanged?.Invoke(new MapCoverage(hasTiles, zoomLevel));
 
 	/// <summary>
 	/// Stands in for MapLibre reporting a problem it did not throw for — a tile source it cannot

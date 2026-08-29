@@ -13,20 +13,24 @@ namespace BlazorDLR.Shared.Services;
 /// costs every other member of the ride a redraw, and puts a pin somewhere nobody is.
 /// </para>
 /// <para>
-/// Four rules, in the order §4.2 states them:
+/// Five rules. The first two throw a fix out on its own merits; the last three are the rider's
+/// <see cref="LocationUpdateRate"/>, said in the order they are asked:
 /// <list type="number">
-///   <item><strong>Accuracy gate</strong> — a fix whose own reported accuracy is worse than the
-///     profile allows says "I am somewhere in this circle", and past a point the circle is bigger
-///     than the thing being drawn.</item>
+///   <item><strong>Accuracy</strong> — a fix whose own reported accuracy is worse than
+///     <see cref="MaxAccuracyM"/> says "I am somewhere in this circle", and past a point the
+///     circle is bigger than the thing being drawn.</item>
 ///   <item><strong>Speed sanity</strong> — a jump implying more than <see cref="MaxSpeedMps"/>
 ///     from the last accepted fix did not happen on a motorcycle, so it is a bad fix rather than
 ///     a fast one.</item>
-///   <item><strong>Min interval</strong> — the profile's cadence, which is the battery budget.</item>
-///   <item><strong>Min distance</strong> — a rider who has not moved has nothing to say.</item>
+///   <item><strong>Minimum</strong> — nothing goes inside the rider's floor, whatever else is
+///     true. A fix that has travelled the distance is <em>held</em> here rather than dropped:
+///     the receiver keeps producing better ones, and the first one past the floor is what goes.</item>
+///   <item><strong>Maximum</strong> — nothing sent for that long and this one goes, moved or not.</item>
+///   <item><strong>Distance</strong> — travelled far enough, so there is something new to say.</item>
 /// </list>
-/// The last two are an <em>or</em>, not an <em>and</em>: either enough time or enough ground is
-/// reason to send. A pure min-distance rule leaves a rider stopped at a junction looking stale to
-/// everyone waiting for them, and a pure min-time rule sends the same point over and over.
+/// The last two are an <em>or</em>: either enough ground or enough time is reason to send. A pure
+/// distance rule leaves a rider stopped at a junction looking stale to everyone waiting for them,
+/// and a pure time rule sends the same point over and over.
 /// </para>
 /// <para>
 /// <strong>Stateful but pure.</strong> It holds the last fix that <em>reached the ride</em>, and
@@ -84,7 +88,7 @@ public sealed class PositionGate
 	/// </summary>
 	private readonly object _gate = new();
 
-	private readonly AccuracyProfile _profile;
+	private readonly LocationUpdateRate _rate;
 	private LocationFix? _lastAccepted;
 
 	/// <summary>
@@ -96,18 +100,43 @@ public sealed class PositionGate
 
 	private int _implausibleRun;
 
-	/// <summary>Creates a gate for one accuracy profile (§4.2).</summary>
-	/// <param name="profile">The rider's chosen profile. A change of profile is a new gate.</param>
-	public PositionGate(AccuracyProfile profile) => _profile = profile;
+	/// <summary>Creates a gate for one update rate (§4.2).</summary>
+	/// <param name="rate">The rider's chosen rate. A change of rate is a new gate.</param>
+	public PositionGate(LocationUpdateRate rate) => _rate = rate;
 
-	/// <summary>Which profile this gate enforces.</summary>
-	public AccuracyProfile Profile => _profile;
+	/// <summary>Which rate this gate enforces.</summary>
+	public LocationUpdateRate Rate => _rate;
+
+	/// <summary>
+	/// The worst reported accuracy a fix may carry and still be published, for this gate's rate.
+	/// </summary>
+	public double MaxAccuracyM => MaxAccuracyFor(_rate.DistanceM);
 
 	/// <summary>
 	/// The last fix that actually reached the ride, or <c>null</c> before the first one — see
 	/// <see cref="Confirm"/> for why it is that and not the last one this gate approved.
 	/// </summary>
 	public LocationFix? LastAccepted => _lastAccepted;
+
+	/// <summary>
+	/// The last fix this gate was willing to publish, whether or not it ever landed — what the
+	/// keepalive restates when the receiver stops producing fixes at all.
+	/// <para>
+	/// Deliberately not <see cref="LastAccepted"/>: on a link that has been down since the watch
+	/// started nothing has ever landed, and that is precisely the run where a rider most needs the
+	/// retry.
+	/// </para>
+	/// </summary>
+	public LocationFix? LastApproved
+	{
+		get
+		{
+			lock (_gate)
+			{
+				return _lastApproved;
+			}
+		}
+	}
 
 	/// <summary>
 	/// Whether this fix should be published, and why not when it should not.
@@ -132,7 +161,7 @@ public sealed class PositionGate
 			return PositionGateDecision.Rejected(PositionGateReason.NotACoordinate);
 		}
 
-		if (fix.AccuracyM is { } accuracy && accuracy > MaxAccuracyM(_profile))
+		if (fix.AccuracyM is { } accuracy && accuracy > MaxAccuracyM)
 		{
 			return PositionGateDecision.Rejected(PositionGateReason.TooInaccurate);
 		}
@@ -197,16 +226,30 @@ public sealed class PositionGate
 				return PositionGateDecision.Rejected(PositionGateReason.OutOfOrder);
 			}
 
-			double movedM = Distance.BetweenM(
-				new TrackPoint(previous.Latitude, previous.Longitude),
-				new TrackPoint(fix.Latitude, fix.Longitude));
+			if (elapsed < _rate.Minimum)
+			{
+				// The floor, and it is checked before the other two on purpose: it outranks them.
+				// Nothing is remembered about this fix, because nothing needs to be — the receiver
+				// goes on producing better ones, and the first that clears the floor is measured
+				// against the same reference and carries the same news, only fresher.
+				return PositionGateDecision.Rejected(PositionGateReason.HeldByMinimum);
+			}
 
-			if (elapsed >= MinInterval(_profile) || movedM >= MinDistanceM(_profile))
+			if (elapsed >= _rate.Maximum)
 			{
 				return Approve(fix);
 			}
 
-			return PositionGateDecision.Rejected(PositionGateReason.TooSoonAndTooClose);
+			double movedM = Distance.BetweenM(
+				new TrackPoint(previous.Latitude, previous.Longitude),
+				new TrackPoint(fix.Latitude, fix.Longitude));
+
+			if (movedM >= _rate.DistanceM)
+			{
+				return Approve(fix);
+			}
+
+			return PositionGateDecision.Rejected(PositionGateReason.NothingNewToSay);
 		}
 	}
 
@@ -251,7 +294,7 @@ public sealed class PositionGate
 	/// <strong>Delivery, not approval, is what moves the cadence on.</strong> The gate used to
 	/// advance the moment it said yes, which meant a fix that then failed to send still spent the
 	/// profile's whole interval: a rider whose link had just come back waited out another 30
-	/// seconds — or a full minute on Eco — before the app would even try again, while the ride
+	/// seconds — or a full minute on a coarse rate — before the app would even try again, while the ride
 	/// looked at a pin that was minutes old. Measuring from the last fix that landed makes a
 	/// failed send cost a retry rather than an interval.
 	/// </para>
@@ -294,48 +337,23 @@ public sealed class PositionGate
 	}
 
 	/// <summary>
-	/// How often a fix may be published, per profile (§4.2).
+	/// The worst reported accuracy a fix may carry and still be published, for an update distance.
 	/// <para>
-	/// These are <em>publish</em> rates, not capture rates. The platform still delivers fixes at
-	/// its own cadence and the recorder (§15.1) still keeps them at whatever interval the rider
-	/// chose on the Location screen — this gate decides only what costs uplink and costs every
-	/// other rider on the ride a redraw.
+	/// §4.2 leaves this to implementation, and it is not something the rider is asked: it is a
+	/// question about whether a fix is worth drawing at all, not about how often to draw one. Four
+	/// times the update distance, clamped to [30 m, 50 m] — it has to stay well above a consumer
+	/// GPS's good-day error (5–10 m) or a cold start would never produce a publishable fix, and
+	/// well below the point where the error circle is larger than the gaps §5.4 reports.
+	/// </para>
+	/// <para>
+	/// The upper clamp is what stops a 500 m update distance widening this to 2 km. A fix with an
+	/// error circle that size is a cell-tower fix, and drawing one on a group ride's map puts a
+	/// rider two suburbs from where they are — asking for coarse <em>updates</em> is not asking to
+	/// be drawn in the wrong place.
 	/// </para>
 	/// </summary>
-	/// <param name="profile">The rider's profile.</param>
-	public static TimeSpan MinInterval(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco => TimeSpan.FromSeconds(60),
-		AccuracyProfile.Precise => TimeSpan.FromSeconds(10),
-		_ => TimeSpan.FromSeconds(30),
-	};
-
-	/// <summary>How far a rider must have moved to be worth publishing early, per profile (§4.2).</summary>
-	/// <param name="profile">The rider's profile.</param>
-	public static double MinDistanceM(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco => 50,
-		AccuracyProfile.Precise => 5,
-		_ => 10,
-	};
-
-	/// <summary>
-	/// The worst reported accuracy a fix may carry and still be published.
-	/// <para>
-	/// §4.2 fixes the cadence and the distance per profile and leaves this to implementation. Four
-	/// times the profile's min distance, clamped to [30 m, 100 m]: it has to stay well above a
-	/// consumer GPS's good-day error (5–10 m) or a cold start would never produce a publishable
-	/// fix, and well below the point where the error circle is larger than the gaps §5.4 reports.
-	/// </para>
-	/// <para>
-	/// The upper clamp is what stops Eco's 50 m step widening the accuracy gate to 200 m. A fix
-	/// with a 200 m error circle is a cell-tower fix, and drawing one on a group ride's map puts a
-	/// rider two suburbs from where they are — the profile is a battery decision and must not
-	/// quietly become a "publish anything" decision.
-	/// </para>
-	/// </summary>
-	/// <param name="profile">The rider's profile.</param>
-	public static double MaxAccuracyM(AccuracyProfile profile) => Math.Clamp(MinDistanceM(profile) * 4, 30, 100);
+	/// <param name="distanceM">The rider's update distance.</param>
+	public static double MaxAccuracyFor(double distanceM) => Math.Clamp(distanceM * 4, 30, 50);
 }
 
 /// <summary>Why <see cref="PositionGate"/> refused a fix, or that it did not.</summary>
@@ -356,8 +374,18 @@ public enum PositionGateReason
 	/// <summary>Too far from the last fix, too fast — bad data rather than speed.</summary>
 	ImplausibleSpeed = 4,
 
-	/// <summary>Inside the profile's interval and inside its distance: nothing new to say.</summary>
-	TooSoonAndTooClose = 5,
+	/// <summary>
+	/// Inside the update distance and inside the maximum: the rider has not moved far enough to be
+	/// worth saying, and the ride has not been waiting long enough to be told anyway.
+	/// </summary>
+	NothingNewToSay = 5,
+
+	/// <summary>
+	/// Inside the rider's minimum update time. Distinct from <see cref="NothingNewToSay"/> because
+	/// it is the one refusal that says nothing about the fix: it may be carrying a mile of new
+	/// road, and it is refused because the last send is too recent.
+	/// </summary>
+	HeldByMinimum = 6,
 }
 
 /// <summary>One gate decision.</summary>

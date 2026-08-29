@@ -99,7 +99,7 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 		await _settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1");
 
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
-		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 

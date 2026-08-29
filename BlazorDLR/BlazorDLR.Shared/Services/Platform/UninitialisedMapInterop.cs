@@ -51,6 +51,13 @@ public sealed class UninitialisedMapInterop : IMapInterop
 	}
 
 	/// <inheritdoc />
+	public event Action<MapCoverage>? CoverageChanged
+	{
+		add { /* a map that never draws never reports what it could not draw. */ }
+		remove { /* symmetric no-op. */ }
+	}
+
+	/// <inheritdoc />
 	public ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default) =>
 		throw new NotImplementedException(SsrGuard);
 

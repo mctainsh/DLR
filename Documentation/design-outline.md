@@ -375,10 +375,13 @@ Web/DLR.sln
 ```
 GPS fix → filter → buffer (in-memory) → SQLite append → batch upload
           ▲
-          └─ accuracy gate, speed sanity, min-distance/min-time gate
+          └─ accuracy gate, speed sanity, update-rate gate
 ```
 
-- **Accuracy profiles:** `Eco` (10 s / 25 m), `Balanced` (5 s / 10 m), `Precise` (1 s / 5 m). Precise for twisty roads / track days; Eco for touring.
+- **Update rate — three numbers the rider sets, not a named profile.** *Update distance* (5 / 10 / 25 / 50 / 100 / 500 m, default 25): travel this far and the new position goes. *Maximum update time* (10 / 30 / 60 / 120 s, 5 / 10 min, default 60 s): nothing sent for this long and the current position goes anyway. *Minimum update time* (2 / 5 / 10 / 30 / 60 s, default 5 s): never two sends closer together than this — a distance trigger inside the window is held, and what goes when it lifts is the latest fix, not the one that came due. The maximum is always greater than the minimum, enforced in the type.
+- The three replaced `Eco` / `Balanced` / `Precise`, which were fixed pairs of the first two with the third hidden. A stored profile name still decodes to the matching rate, so an existing choice survives the upgrade.
+- The **accuracy gate** is not a rider setting: it is four times the update distance, clamped to 30–50 m. Asking for coarse updates is not asking to be drawn in the wrong place.
+- The platform receiver is asked for something finer than the wire carries — half the minimum (capped at 5 s) and a fifth of the update distance (capped at 10 m) — so the OS's own filters can never be what decides when a rider is seen. A parked phone whose receiver goes quiet is covered by the maximum, which the device restates on a timer.
 - Points appended to SQLite in transactions of ~20 so a crash loses seconds, not the ride.
 - Track simplification (Ramer–Douglas–Peucker) applied **only** to the copy sent to the server for display; the raw track is preserved locally and uploaded in full on Wi-Fi.
 

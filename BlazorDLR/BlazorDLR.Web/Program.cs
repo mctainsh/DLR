@@ -233,7 +233,7 @@ try
 
 	// No GPS on this host, and nothing standing in for one (§18.6).
 	//
-	// ILocationProvider, GpsProfileState, TrackRecordingState, PrivateAreaState and
+	// ILocationProvider, LocationUpdateRateState, TrackRecordingState, PrivateAreaState and
 	// LocationBroadcastState are all absent here and on the WASM client, deliberately. A browser has
 	// no continuous background GPS the app can trust, so every one of them was a stub answering "not
 	// supported" to screens that then had to say so — five registrations, a no-op provider and a

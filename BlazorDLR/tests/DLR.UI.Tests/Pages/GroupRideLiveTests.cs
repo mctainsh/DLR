@@ -89,7 +89,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		// never emits a fix, so this only has to resolve — turning sharing on is what would start
 		// it, and LocationBroadcastStateTests is where that path is exercised.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
-		Services.AddSingleton<GpsProfileState>();
+		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<LocationBroadcastState>();
 
@@ -584,6 +584,46 @@ public sealed class GroupRideLiveTests : PageTestContext
 			() => component.FindComponent<RideMap>().Instance.Markers!.Values
 				.ShouldNotContain(marker => marker.Kind == MarkerKind.Rider,
 					"a pin left where somebody stopped is the thing the private area exists to prevent."),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Every rebuild hands the map a new dictionary rather than emptying the one it is drawing.
+	/// <para>
+	/// The overlay rasterises on a pool thread, so the layer it was given is being enumerated while
+	/// the next batch of fixes arrives on the renderer's. Clearing it there took the frame — and the
+	/// rider's whole overlay — down with "Collection was modified", which on a ride is a map that
+	/// stops drawing pins and does not start again.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task EachRebuildOfTheMapLayer_PublishesAFreshDictionary()
+	{
+		Guid riderId = Guid.NewGuid();
+		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices();
+
+		api.RideResult = api.RideResult! with
+		{
+			Members = [new RideMemberSummary(riderId, "DaveSmith", "Rider", FixedInstant, true, true)],
+		};
+
+		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(
+			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		IReadOnlyDictionary<Guid, MapMarker>? first = component.FindComponent<RideMap>().Instance.Markers;
+
+		await component.InvokeAsync(() => hub.RaisePositionsUpdated(new PositionBatch(rideId,
+		[
+			new PositionFix(riderId, -33_868_000, 151_209_000, SpeedMps: 0, HeadingDeg: null, FixedInstant),
+		])));
+
+		component.WaitForAssertion(
+			() => component.FindComponent<RideMap>().Instance.Markers!.ShouldNotBeSameAs(first,
+				"the layer the overlay is mid-frame on must never be the one a rebuild writes into."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 

@@ -143,17 +143,17 @@ public sealed class AndroidLocationProvider : ILocationProvider
 	/// notification down.
 	/// </para>
 	/// </summary>
-	/// <param name="profile">The accuracy profile (§4.2).</param>
+	/// <param name="rate">The rider's update rate (§4.2).</param>
 	/// <param name="cancellationToken">Stops the receiver.</param>
 	public async IAsyncEnumerable<LocationFix> WatchAsync(
-		AccuracyProfile profile,
+		LocationUpdateRate rate,
 		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		Context context = Application.Context;
 
-		DiagnosticLog.Write($"GPS: asking the OS to start the foreground service at {profile}.");
+		DiagnosticLog.Write($"GPS: asking the OS to start the foreground service — {rate}.");
 
-		LocationForegroundService.Start(context, profile);
+		LocationForegroundService.Start(context, rate);
 
 		// The gap between the service starting and the first fix arriving is the one a rider feels
 		// — a map with no dot on it — and it is the gap nothing else measures. One line, on the

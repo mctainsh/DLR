@@ -29,7 +29,7 @@ namespace BlazorDLR.Platforms.Android.Location;
 /// <para>
 /// <strong>START_STICKY.</strong> A ride outlives memory pressure. If the OS kills this service it
 /// is restarted with a null intent, and <see cref="OnStartCommand"/> treats that as "start
-/// watching again on the last profile" rather than as a fresh command.
+/// watching again at the last rate" rather than as a fresh command.
 /// </para>
 /// <para>
 /// <strong>A partial wake lock, held for the life of the receiver.</strong> A foreground service
@@ -56,14 +56,14 @@ namespace BlazorDLR.Platforms.Android.Location;
 	ForegroundServiceType = ForegroundService.TypeLocation)]
 public sealed class LocationForegroundService : Service
 {
-	/// <summary>Starts (or re-tunes) the receiver. Carries the profile as an int extra.</summary>
+	/// <summary>Starts (or re-tunes) the receiver. Carries the rate as an encoded string extra.</summary>
 	public const string ActionStart = "au.com.securehub.dlr.location.START";
 
 	/// <summary>Stops the receiver and takes the notification down with it.</summary>
 	public const string ActionStop = "au.com.securehub.dlr.location.STOP";
 
-	/// <summary>The extra carrying <see cref="AccuracyProfile"/> as an int.</summary>
-	public const string ExtraProfile = "profile";
+	/// <summary>The extra carrying the encoded <see cref="LocationUpdateRate"/>.</summary>
+	public const string ExtraRate = "rate";
 
 	/// <summary>
 	/// The notification channel. Low importance: it must be present and permanent, and it must
@@ -104,7 +104,7 @@ public sealed class LocationForegroundService : Service
 
 	private ILocationEngine? _engine;
 	private PowerManager.WakeLock? _wakeLock;
-	private AccuracyProfile _profile = AccuracyProfile.Balanced;
+	private LocationUpdateRate _rate = LocationUpdateRate.Default;
 
 	/// <summary>
 	/// The stream the shared provider reads. Static because the OS owns the service instance's
@@ -141,11 +141,11 @@ public sealed class LocationForegroundService : Service
 			return StartCommandResult.NotSticky;
 		}
 
-		// A null intent is the OS restarting us after a kill (START_STICKY). The profile from the
+		// A null intent is the OS restarting us after a kill (START_STICKY). The rate from the
 		// last start is what to resume on, which is why it is a field rather than a local.
-		if (intent?.HasExtra(ExtraProfile) == true)
+		if (intent?.HasExtra(ExtraRate) == true)
 		{
-			_profile = (AccuracyProfile)intent.GetIntExtra(ExtraProfile, (int)AccuracyProfile.Balanced);
+			_rate = LocationUpdateRate.Decode(intent.GetStringExtra(ExtraRate));
 		}
 
 		// Before anything else that can throw: Android 14 gives a service five seconds to call
@@ -155,7 +155,7 @@ public sealed class LocationForegroundService : Service
 		{
 			StartForeground(NotificationId, BuildNotification());
 
-			DiagnosticLog.Write($"GPS service: in the foreground at {_profile}; notification posted.");
+			DiagnosticLog.Write($"GPS service: in the foreground — {_rate}; notification posted.");
 		}
 		catch (Exception exception)
 		{
@@ -209,7 +209,7 @@ public sealed class LocationForegroundService : Service
 	}
 
 	/// <summary>
-	/// Asks the OS to start the service, or to re-tune a running one to a new profile.
+	/// Asks the OS to start the service, or to re-tune a running one to a new rate.
 	/// <para>
 	/// <c>StartForegroundService</c> on Oreo and later: a plain <c>StartService</c> from a
 	/// backgrounded app is refused outright, and the app is backgrounded the moment the rider puts
@@ -217,14 +217,14 @@ public sealed class LocationForegroundService : Service
 	/// </para>
 	/// </summary>
 	/// <param name="context">Any context; the application context is used.</param>
-	/// <param name="profile">The accuracy profile to run at (§4.2).</param>
-	public static void Start(Context context, AccuracyProfile profile)
+	/// <param name="rate">The update rate to run at (§4.2).</param>
+	public static void Start(Context context, LocationUpdateRate rate)
 	{
 		Context app = context.ApplicationContext ?? context;
 
 		Intent intent = new(app, typeof(LocationForegroundService));
 		intent.SetAction(ActionStart);
-		intent.PutExtra(ExtraProfile, (int)profile);
+		intent.PutExtra(ExtraRate, rate.Encode());
 
 		if (OperatingSystem.IsAndroidVersionAtLeast(26))
 		{
@@ -255,7 +255,7 @@ public sealed class LocationForegroundService : Service
 	{
 		if (_engine is not null)
 		{
-			// A re-tune rather than a start: the rider changed profile mid-ride.
+			// A re-tune rather than a start: the rider changed the rate mid-ride.
 			_engine.Stop();
 			_engine = null;
 		}
@@ -265,10 +265,10 @@ public sealed class LocationForegroundService : Service
 		AcquireWakeLock();
 
 		_engine = LocationEngineFactory.Create(this, Publish);
-		_engine.Start(_profile);
+		_engine.Start(_rate);
 		IsRunning = true;
 
-		DiagnosticLog.Write($"GPS service: {_engine.GetType().Name} watching at {_profile}.");
+		DiagnosticLog.Write($"GPS service: {_engine.GetType().Name} watching — {_rate}.");
 	}
 
 	private void StopWatching()
@@ -461,9 +461,9 @@ public sealed class LocationForegroundService : Service
 /// <summary>What the service drives, whichever location API is available on the device.</summary>
 internal interface ILocationEngine
 {
-	/// <summary>Begins delivering fixes at the profile's cadence.</summary>
-	/// <param name="profile">The accuracy profile (§4.2).</param>
-	void Start(AccuracyProfile profile);
+	/// <summary>Begins delivering fixes at the rate's cadence.</summary>
+	/// <param name="rate">The rider's update rate (§4.2).</param>
+	void Start(LocationUpdateRate rate);
 
 	/// <summary>Stops delivering, releasing whatever the platform was holding.</summary>
 	void Stop();
@@ -474,7 +474,7 @@ internal interface ILocationEngine
 /// <para>
 /// §4.3 specifies the <strong>fused location provider</strong>, and that is the right default: it
 /// blends GNSS, Wi-Fi, cell and the motion sensors, which is what keeps a fix alive in a street of
-/// tall buildings and what makes the "balanced" profile cost what it claims to.
+/// tall buildings and what makes a high-accuracy request cost what it claims to.
 /// </para>
 /// <para>
 /// It is not, however, universally present. Play Services is absent on Huawei's recent phones, on
@@ -521,7 +521,7 @@ internal sealed class PlatformLocationEngine : Java.Lang.Object, ILocationEngine
 		_publish = publish;
 	}
 
-	public void Start(AccuracyProfile profile)
+	public void Start(LocationUpdateRate rate)
 	{
 		_manager = (LocationManager?)_context.GetSystemService(Context.LocationService);
 
@@ -548,8 +548,8 @@ internal sealed class PlatformLocationEngine : Java.Lang.Object, ILocationEngine
 
 		_manager.RequestLocationUpdates(
 			provider,
-			(long)AndroidLocationRequestSpec.Interval(profile).TotalMilliseconds,
-			(float)AndroidLocationRequestSpec.MinDistanceM(profile),
+			(long)AndroidLocationRequestSpec.Interval(rate).TotalMilliseconds,
+			(float)AndroidLocationRequestSpec.MinDistanceM(rate),
 			this);
 	}
 
@@ -573,34 +573,44 @@ internal sealed class PlatformLocationEngine : Java.Lang.Object, ILocationEngine
 }
 
 /// <summary>
-/// The cadence and precision each profile asks the platform for (§4.2).
+/// What the rider's <see cref="LocationUpdateRate"/> asks the platform for (§4.2).
 /// <para>
 /// Deliberately <em>not</em> the same numbers <c>PositionGate</c> enforces. This is what the
 /// receiver is asked to produce; the gate is what survives the trip to the server. Asking the
-/// platform for exactly the publish cadence would leave nothing to filter and no way to notice a
-/// rider stopping between two intervals — so the receiver runs a little faster than the wire, and
-/// the gate spends the difference.
+/// platform for exactly the publish rate would leave nothing to filter and no way to notice a
+/// rider stopping between two sends — so the receiver runs a little ahead of the wire, and the
+/// gate spends the difference.
 /// </para>
 /// </summary>
 internal static class AndroidLocationRequestSpec
 {
-	/// <summary>How often the receiver is asked for a fix.</summary>
-	/// <param name="profile">The rider's profile.</param>
-	public static TimeSpan Interval(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco => TimeSpan.FromSeconds(5),
-		AccuracyProfile.Precise => TimeSpan.FromSeconds(1),
-		_ => TimeSpan.FromSeconds(2),
-	};
+	/// <summary>
+	/// How often the receiver is asked for a fix: half the rider's minimum, so the fix that goes
+	/// when the floor lifts is at most half a period stale.
+	/// <para>
+	/// Capped at five seconds whatever the floor, because this stream feeds the recorder (§15.1)
+	/// as well as the publisher, and the recorder's interval is the rider's <em>other</em> setting.
+	/// A rider on a 60 s publish floor asking for a 25 m track is not asking for a track drawn at
+	/// motorway speed in 800 m steps.
+	/// </para>
+	/// </summary>
+	/// <param name="rate">The rider's rate.</param>
+	public static TimeSpan Interval(LocationUpdateRate rate) =>
+		TimeSpan.FromSeconds(Math.Clamp(rate.Minimum.TotalSeconds / 2, 1, 5));
 
-	/// <summary>The smallest movement the receiver reports, in metres.</summary>
-	/// <param name="profile">The rider's profile.</param>
-	public static double MinDistanceM(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco => 10,
-		AccuracyProfile.Precise => 0,
-		_ => 5,
-	};
+	/// <summary>
+	/// The smallest movement the receiver reports: a fifth of the rider's update distance, and
+	/// never more than ten metres.
+	/// <para>
+	/// Kept well under the distance the gate is enforcing, and that is the whole point. A filter
+	/// set at the publish distance would make the <em>receiver</em> the thing deciding when to
+	/// send, and a phone that has not moved would be told nothing at all — which is exactly how a
+	/// parked rider came to send two positions in twenty-five minutes.
+	/// </para>
+	/// </summary>
+	/// <param name="rate">The rider's rate.</param>
+	public static double MinDistanceM(LocationUpdateRate rate) =>
+		Math.Clamp(rate.DistanceM / 5, 1, 10);
 }
 
 /// <summary>Turns an Android fix into the shared one.</summary>

@@ -80,11 +80,33 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// </summary>
 	public static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(8);
 
+	/// <summary>
+	/// How long the ride may hear nothing before the status stops claiming the rider is on its map
+	/// (§4.3): twice the rider's own maximum, and never under a minute.
+	/// <para>
+	/// <strong>Because "broadcasting" used to be permanent.</strong> It is set by
+	/// <see cref="Published"/> and by nothing else, and nothing ever took it back: a receiver that
+	/// stopped delivering fixes left the pump with no work to do, so not even the refused-fix branch
+	/// in <see cref="Handle"/> ran, and the screen went on saying "Sharing your location" for as
+	/// long as the app was open. A rider parked at a servo read that for twenty-three minutes while
+	/// nothing had left the phone since the first minute.
+	/// </para>
+	/// <para>
+	/// Twice the maximum rather than a fixed span, because the maximum is what the rider was
+	/// promised: one missed send is a bad minute of signal, two in a row is worth saying. The floor
+	/// stops a 10 s maximum turning this into a status that flickers on every tunnel.
+	/// </para>
+	/// </summary>
+	/// <param name="rate">The rate this watch is running at.</param>
+	/// <returns>The silence this watch treats as stale.</returns>
+	public static TimeSpan StaleAfter(LocationUpdateRate rate) =>
+		rate.Maximum * 2 < TimeSpan.FromMinutes(1) ? TimeSpan.FromMinutes(1) : rate.Maximum * 2;
+
 	private readonly ILocationProvider _provider;
 	private readonly IRideHubClient _hub;
 	private readonly IApiClient _api;
 	private readonly PrivateAreaState _privateAreas;
-	private readonly GpsProfileState _profile;
+	private readonly LocationUpdateRateState _rate;
 	private readonly TrackRecordingState _recording;
 	private readonly IDeviceSettings _settings;
 	private readonly ConfirmService _confirm;
@@ -120,6 +142,13 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	private bool _disposed;
 
 	/// <summary>
+	/// The current watch's totals for the log (§4.3). A field rather than a parameter threaded
+	/// through the three loops that touch it, and replaced for each watch so the numbers a rider
+	/// reads belong to the run they are asking about.
+	/// </summary>
+	private BroadcastCounters _counters = new();
+
+	/// <summary>
 	/// What the server was last told about this rider's private area, or <c>null</c> when it has not
 	/// been told anything this run (§10.1).
 	/// <para>
@@ -140,7 +169,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <param name="hub">The realtime channel a fix goes out on (§5.7).</param>
 	/// <param name="api">The REST fallback for a fix the hub could not carry.</param>
 	/// <param name="privateAreas">The §10.1 gate. Consulted before anything else touches a fix.</param>
-	/// <param name="profile">The rider's accuracy profile (§4.2).</param>
+	/// <param name="rate">The rider's chosen update rate (§4.2).</param>
 	/// <param name="recording">The rider's own track (§15.1). Fed before either publish gate.</param>
 	/// <param name="settings">Where the disclosure acknowledgement is remembered.</param>
 	/// <param name="confirm">The app's one dialog, used for the disclosure below.</param>
@@ -150,7 +179,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		IRideHubClient hub,
 		IApiClient api,
 		PrivateAreaState privateAreas,
-		GpsProfileState profile,
+		LocationUpdateRateState rate,
 		TrackRecordingState recording,
 		IDeviceSettings settings,
 		ConfirmService confirm,
@@ -160,15 +189,15 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		_hub = hub;
 		_api = api;
 		_privateAreas = privateAreas;
-		_profile = profile;
+		_rate = rate;
 		_recording = recording;
 		_settings = settings;
 		_confirm = confirm;
 		_clock = clock;
 
-		// A change of profile changes the cadence the platform was asked for, which is fixed when
+		// A change of rate changes what the platform was asked for, which is fixed when
 		// the watch is started — so the watch is restarted rather than reinterpreted.
-		_profile.Changed += OnProfileChanged;
+		_rate.Changed += OnRateChanged;
 	}
 
 	/// <summary>Fired whenever anything below it moved. The UI re-renders off this and nothing else.</summary>
@@ -257,6 +286,9 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		LocationBroadcastStatus.Starting => "Starting the GPS…",
 		LocationBroadcastStatus.WaitingForFix => "Waiting for a GPS fix…",
 		LocationBroadcastStatus.Broadcasting => "Sharing your location.",
+		LocationBroadcastStatus.Stale => Detail is { Length: > 0 } age
+			? $"Sharing is on, but nothing has reached the adventure for {age}."
+			: "Sharing is on, but nothing has reached the adventure.",
 		LocationBroadcastStatus.Suppressed => "Inside your private area — nothing is being sent.",
 		LocationBroadcastStatus.PermissionNeeded => "This app needs permission to use your location.",
 		LocationBroadcastStatus.PermissionBlocked =>
@@ -334,7 +366,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		// Both reads happen HERE, before the pump exists, and that ordering is load-bearing.
 		//
 		// Each of these states raises Changed when it first resolves, and this object listens to
-		// the profile's — a change of cadence restarts the watch. Reading them from inside the pump
+		// the rate's — a change of cadence restarts the watch. Reading them from inside the pump
 		// therefore had the pump's own first act cancel the pump: LoadAsync fired Changed, the
 		// handler saw a running pump and restarted it, and the receiver never got as far as being
 		// switched on. It failed as a watch that silently never started, which is the hardest
@@ -347,7 +379,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		// more rather than less — it is a request, not a preference lookup, and the pump must not
 		// be the thing waiting on it.
 		await _privateAreas.LoadAsync();
-		await _profile.LoadAsync();
+		await _rate.LoadAsync();
 
 		// Here for the same reason as the two above: the recorder's switch and interval are read
 		// off the device, and reading them from inside the pump would race the first fix.
@@ -366,9 +398,9 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		CancellationTokenSource cts = new();
 		_running = cts;
 
-		AccuracyProfile profile = _profile.Profile;
+		LocationUpdateRate rate = _rate.Rate;
 
-		_pump = Task.Run(() => PumpAsync(profile, cts.Token), CancellationToken.None);
+		_pump = Task.Run(() => PumpAsync(rate, cts.Token), CancellationToken.None);
 	}
 
 	/// <summary>
@@ -474,7 +506,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		//
 		// No segment break is forced here: a stop and start inside TrackRecording.SegmentGap is
 		// one ride with a pause in it, and anything longer breaks on the time gap by itself. A
-		// break forced on every stop would split a track each time the rider changed profile.
+		// break forced on every stop would split a track each time the rider changed the rate.
 		await _recording.FlushAsync();
 
 		LastPublishedUtc = null;
@@ -498,7 +530,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <see cref="SendLoopAsync"/> is the only thing here that talks to a server, and they meet at a
 	/// <see cref="PositionOutbox"/>. That split is what stops a slow network from stopping the GPS.
 	/// </remarks>
-	private async Task PumpAsync(AccuracyProfile profile, CancellationToken cancellationToken)
+	private async Task PumpAsync(LocationUpdateRate rate, CancellationToken cancellationToken)
 	{
 		try
 		{
@@ -520,10 +552,14 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 				return;
 			}
 
-			// The profile is passed in rather than read here: it is fixed for the life of one
-			// watch — the platform's cadence is set when the request is made — and a change of it
-			// is a restart, not a value this loop re-reads.
-			PositionGate gate = new(profile);
+			// The rate is passed in rather than read here: it is fixed for the life of one watch —
+			// the platform's request is made when the watch starts — and a change of it is a
+			// restart, not a value this loop re-reads.
+			PositionGate gate = new(rate);
+
+			// This watch's own totals. See BroadcastCounters for why a working broadcast needed
+			// counting rather than more log lines.
+			_counters = new BroadcastCounters();
 
 			// The mailbox and the one task that empties it. Nothing below this line waits on a
 			// socket: the loop reads a fix, records it, gates it, posts it and goes back for the
@@ -539,6 +575,13 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 				() => SendLoopAsync(gate, outbox, cancellationToken),
 				CancellationToken.None);
 
+			// The third loop, and the only one with a clock in it. The other two are driven by the
+			// platform, and a platform that says nothing drives nothing — which is the whole of the
+			// bug this exists for. See KeepaliveLoopAsync.
+			Task keepalive = Task.Run(
+				() => KeepaliveLoopAsync(gate, outbox, rate, cancellationToken),
+				CancellationToken.None);
+
 			try
 			{
 				// Inside the try, because Set raises Changed and a subscriber may throw. Outside it,
@@ -546,7 +589,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 				// sender was orphaned, and `using` then disposed the semaphore underneath it.
 				Set(LocationBroadcastStatus.WaitingForFix);
 
-				await PumpFixesAsync(gate, outbox, profile, cancellationToken);
+				await PumpFixesAsync(gate, outbox, rate, cancellationToken);
 			}
 			finally
 			{
@@ -555,6 +598,11 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 				// — everything released before it returns — to cover the socket as well as the
 				// platform watch.
 				outbox.Complete();
+
+				// The keepalive first: it is a producer, and awaiting the sender while something
+				// could still post into a completed outbox is the ordering that leaks a fix.
+				try { await keepalive; }
+				catch (OperationCanceledException) { /* the way a cancelled keepalive ends */ }
 
 				try { await sender; }
 				catch (OperationCanceledException) { /* the way a cancelled sender ends */ }
@@ -577,19 +625,20 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <c>finally</c> around the whole of it, whichever way the enumeration ends.
 	/// </para>
 	/// </summary>
-	/// <param name="gate">The §4.2 filter for the profile this watch is running at.</param>
+	/// <param name="gate">The §4.2 filter for the rate this watch is running at.</param>
 	/// <param name="outbox">Where an accepted fix is handed over.</param>
-	/// <param name="profile">The profile the platform was asked for.</param>
+	/// <param name="rate">The rate the platform request was derived from.</param>
 	/// <param name="cancellationToken">Stops the receiver.</param>
 	private async Task PumpFixesAsync(
 		PositionGate gate,
 		PositionOutbox outbox,
-		AccuracyProfile profile,
+		LocationUpdateRate rate,
 		CancellationToken cancellationToken)
 	{
-		await foreach (LocationFix fix in _provider.WatchAsync(profile, cancellationToken))
+		await foreach (LocationFix fix in _provider.WatchAsync(rate, cancellationToken))
 		{
 			OwnFix = fix;
+			_counters.Fix();
 
 			// The recorder sees the fix first, and sees all of them (§15.1).
 			//
@@ -601,10 +650,12 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			// about their private area is offered again, and defaults to cutting it out.
 			//
 			// Upstream of the §4.2 gate for a plainer reason: that gate is a battery decision
-			// about uplink, and a rider on Eco who asked for a 5 m track should get one.
+			// about uplink, and a rider publishing every 50 m who asked for a 5 m track should get one.
 			await _recording.OfferAsync(fix, cancellationToken);
 
 			Handle(gate, outbox, fix);
+
+			Report();
 
 			// Every fix moves this rider's own dot (see OwnFix), whether or not it was
 			// published, whether or not the private area suppressed it, and whether or not the
@@ -629,7 +680,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// awaited from this method is now a <see cref="PositionOutbox.Post"/> that returns at once.
 	/// </para>
 	/// </summary>
-	/// <param name="gate">The §4.2 filter for the profile this watch is running at.</param>
+	/// <param name="gate">The §4.2 filter for the rate this watch is running at.</param>
 	/// <param name="outbox">Where a fix worth sending is handed over.</param>
 	/// <param name="fix">The fix the platform just produced.</param>
 	private void Handle(PositionGate gate, PositionOutbox outbox, LocationFix fix)
@@ -644,6 +695,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		if (_privateAreas.HidesLocation(fix))
 		{
 			_suppressed = true;
+			_counters.Hidden();
 			Set(LocationBroadcastStatus.Suppressed);
 
 			// IsInsideArea, not the gate that was just consulted. The gate suppresses while this
@@ -675,14 +727,29 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 
 		if (!decision.Publish)
 		{
-			// A refused fix is still proof the receiver is alive, so the status follows the reason
-			// rather than staying on whatever it was: a rider stationary at a junction reads "on
-			// the map" and not "waiting".
-			Set(decision.Reason == PositionGateReason.TooInaccurate
-				? LocationBroadcastStatus.WaitingForFix
-				: Status == LocationBroadcastStatus.Broadcasting
-					? LocationBroadcastStatus.Broadcasting
-					: LocationBroadcastStatus.WaitingForFix);
+			_counters.Refused(decision.Reason);
+
+			// A refused fix is proof the receiver is alive, and it is proof of nothing else. So it
+			// may move a status that is about the receiver, and must not touch one that is not:
+			// this used to overwrite a failed send — which names the transport that refused — with
+			// "waiting for a GPS fix" on the very next fix, two seconds later, sending a rider to
+			// hunt the sky for a fault in the network.
+			//
+			// Broadcasting and Stale are then kept rather than restated, so a rider stationary at a
+			// junction reads "on the map" and not "waiting", and so a silence already four minutes
+			// old is not relabelled as a receiver problem.
+			if (Status is LocationBroadcastStatus.Starting
+				or LocationBroadcastStatus.WaitingForFix
+				or LocationBroadcastStatus.Broadcasting
+				or LocationBroadcastStatus.Stale)
+			{
+				Set(decision.Reason == PositionGateReason.TooInaccurate
+					? LocationBroadcastStatus.WaitingForFix
+					: Status is LocationBroadcastStatus.Broadcasting or LocationBroadcastStatus.Stale
+						? Status
+						: LocationBroadcastStatus.WaitingForFix);
+			}
+
 			return;
 		}
 
@@ -768,7 +835,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 
 					if (batch.Fix is { } fix)
 					{
-						await SendPositionAsync(gate, outbox, fix, cancellationToken);
+						await SendPositionAsync(gate, outbox, fix, batch.Keepalive, cancellationToken);
 					}
 				}
 				catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -800,6 +867,128 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	}
 
 	/// <summary>
+	/// Restates the last good fix on the profile's cadence when the receiver has gone quiet, and
+	/// stops the status claiming the rider is on the map when nothing is (§4.2, §4.3).
+	/// <para>
+	/// <strong>Why a clock is needed at all.</strong> Everything else here is driven by the
+	/// platform: the pump runs on a fix arriving, and <see cref="PositionGate"/>'s cadence rule is
+	/// only ever consulted when one does. On Android that is not the same as "every two seconds" —
+	/// the fused request carries a minimum displacement (<c>AndroidLocationRequestSpec</c>), so a
+	/// phone that has not moved is told <em>nothing at all</em>, and a parked rider's position
+	/// simply stopped being published. The report that found this had two fixes reach the ride in
+	/// twenty-five minutes while the screen said "Sharing your location" throughout.
+	/// </para>
+	/// <para>
+	/// <strong>The stamp is the send time, and that is the deliberate part.</strong>
+	/// <c>RiderPositionCache.Upsert</c> drops anything not newer than what it holds, so restating a
+	/// fix under its original stamp is a no-op on the server and would buy nothing. Re-stamping is
+	/// also what the platform is actually saying: a min-displacement receiver that reports nothing
+	/// is reporting <em>unchanged</em>, not <em>unknown</em>. The cost is that a phone whose GPS has
+	/// genuinely died while its data link lives on keeps asserting a position it can no longer see —
+	/// which is why the fix is not confirmed into the gate and why the ride's own staleness rules
+	/// still stand behind this.
+	/// </para>
+	/// </summary>
+	/// <param name="gate">Holds the last fix worth publishing.</param>
+	/// <param name="outbox">Where the restatement is handed over.</param>
+	/// <param name="rate">The rider's rate. Its maximum is this loop's whole remit.</param>
+	/// <param name="cancellationToken">Stops the loop.</param>
+	private async Task KeepaliveLoopAsync(
+		PositionGate gate,
+		PositionOutbox outbox,
+		LocationUpdateRate rate,
+		CancellationToken cancellationToken)
+	{
+		try
+		{
+			// From TimeProvider rather than the ambient timer (§10.4), so a test drives a parked
+			// phone through an hour without waiting out one.
+			using PeriodicTimer timer = new(rate.Maximum, _clock);
+
+			while (await timer.WaitForNextTickAsync(cancellationToken))
+			{
+				Restate(gate, outbox, rate);
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			// Stopping. Not a failure, and it must not leave an error on screen.
+		}
+		catch (Exception exception)
+		{
+			Set(LocationBroadcastStatus.Failed, exception.Message);
+		}
+	}
+
+	/// <summary>One turn of the keepalive: restate if it is owed, and then tell the truth about it.</summary>
+	/// <param name="gate">Holds the last fix worth publishing.</param>
+	/// <param name="outbox">Where the restatement is handed over.</param>
+	/// <param name="rate">The rider's rate.</param>
+	private void Restate(PositionGate gate, PositionOutbox outbox, LocationUpdateRate rate)
+	{
+		// §10.1 first, exactly as on the fix path. Restating a fix from before the kerb would put a
+		// rider back on the map from their own driveway — the one thing the private area stops.
+		if (_suppressed)
+			return;
+
+		DateTimeOffset now = _clock.GetUtcNow();
+
+		// Something reached the ride inside the maximum, so the pump is doing its job and this loop
+		// has nothing to add. The ordinary case on a moving motorcycle.
+		if (LastPublishedUtc is { } landed && now - landed < rate.Maximum)
+			return;
+
+		// Nothing is posted over a fix already waiting: replacing a newer position with an older one
+		// under a fresh stamp would be the outbox's latest-wins rule run backwards.
+		if (!outbox.HasFixWaiting && gate.LastApproved is { } last)
+		{
+			_counters.Keepalive();
+			outbox.Post(last with { RecordedUtc = now }, keepalive: true);
+		}
+
+		GoneStale(now, rate);
+		Report();
+	}
+
+	/// <summary>
+	/// Moves the status off <see cref="LocationBroadcastStatus.Broadcasting"/> once nothing has
+	/// reached the ride for <see cref="StaleAfter"/>.
+	/// </summary>
+	/// <remarks>
+	/// Only from Broadcasting or from itself. A permission state, a
+	/// <see cref="LocationBroadcastStatus.Failed"/> carrying the transport's own words, or a
+	/// suppression all say something more specific than this does, and none of them should be
+	/// overwritten by a timer.
+	/// </remarks>
+	/// <param name="now">The instant this turn is reasoning about.</param>
+	/// <param name="rate">The rider's rate, which sets how long a silence has to be.</param>
+	private void GoneStale(DateTimeOffset now, LocationUpdateRate rate)
+	{
+		if (Status is not (LocationBroadcastStatus.Broadcasting or LocationBroadcastStatus.Stale))
+			return;
+
+		if (LastPublishedUtc is not { } landed || now - landed < StaleAfter(rate))
+			return;
+
+		// The age is the detail rather than the sentence, so Describe() owns the wording and Set's
+		// no-op-when-unchanged check still fires each time the age moves on.
+		Set(LocationBroadcastStatus.Stale, BroadcastCounters.Since(now - landed));
+	}
+
+	/// <summary>States this watch's totals in the log, replacing the last such line (§4.3).</summary>
+	private void Report()
+	{
+		DateTimeOffset? landed;
+
+		lock (_statusGate)
+		{
+			landed = LastPublishedUtc;
+		}
+
+		_counters.Report(landed is { } at ? _clock.GetUtcNow() - at : null);
+	}
+
+	/// <summary>
 	/// Sends one fix, hub first and REST second.
 	/// <para>
 	/// The hub is the channel §5.7 is designed around — one open connection, no request overhead
@@ -810,15 +999,23 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// </para>
 	/// </summary>
 	/// <param name="gate">Told that this fix landed, so the cadence measures from what arrived.</param>
+	/// <param name="outbox">Asked whether a newer fix has already superseded this one.</param>
 	/// <param name="fix">The fix to send.</param>
+	/// <param name="keepalive">
+	/// Whether this is the last good fix restated rather than one the receiver produced. It is sent
+	/// identically and it is <em>not</em> confirmed into the gate — see below.
+	/// </param>
 	/// <param name="cancellationToken">Stops the sender.</param>
 	private async Task SendPositionAsync(
 		PositionGate gate,
 		PositionOutbox outbox,
 		LocationFix fix,
+		bool keepalive,
 		CancellationToken cancellationToken)
 	{
 		PositionUpdate update = ToUpdate(fix);
+
+		_counters.Send();
 
 		SendResult result = await TrySendAsync(
 			token => _hub.PublishPositionAsync(update, token),
@@ -834,6 +1031,8 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			// Abandoned in favour of the fix already waiting, which the next turn sends. Not
 			// confirmed — nothing reached the ride — so the cadence still measures from the last
 			// fix that did, and not reported either: this is the outbox working, not a failure.
+			_counters.Superseded();
+			Report();
 			return;
 		}
 
@@ -841,16 +1040,29 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		{
 			// Both paths refused. The receiver is fine and the ride is fine; what is broken is the
 			// link, and saying so is what stops a rider believing they are on the map.
+			_counters.Failed();
 			Set(LocationBroadcastStatus.Failed, failure);
+			Report();
 			return;
 		}
 
-		// Only now, and this is the point of Confirm: the profile's interval measures from the last
-		// fix that *reached* the ride, so a run of failed sends is retried at the receiver's cadence
-		// rather than waiting out a whole interval for each one.
-		gate.Confirm(fix);
+		_counters.Landed();
+
+		if (!keepalive)
+		{
+			// Only now, and this is the point of Confirm: the profile's interval measures from the
+			// last fix that *reached* the ride, so a run of failed sends is retried at the
+			// receiver's cadence rather than waiting out a whole interval for each one.
+			//
+			// A keepalive is deliberately not confirmed. It carries a send-time stamp rather than a
+			// receiver's (see Restate), and making that the reference would measure the next real
+			// fix against a time no receiver reported — a platform stamp trailing wall-clock by a
+			// second would then be refused as out of order, for a whole interval, every interval.
+			gate.Confirm(fix);
+		}
 
 		Published();
+		Report();
 	}
 
 	/// <summary>Sends one private-area crossing, hub first and REST second (§10.1).</summary>
@@ -1028,7 +1240,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 			? (short)Math.Clamp(Math.Round(number, MidpointRounding.AwayFromZero), short.MinValue, short.MaxValue)
 			: null;
 
-	private void OnProfileChanged()
+	private void OnRateChanged()
 	{
 		if (_pump is not { IsCompleted: false })
 		{
@@ -1122,7 +1334,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		}
 
 		_disposed = true;
-		_profile.Changed -= OnProfileChanged;
+		_rate.Changed -= OnRateChanged;
 		_reasons.Clear();
 
 		await StopAsync();
@@ -1149,7 +1361,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		}
 
 		_disposed = true;
-		_profile.Changed -= OnProfileChanged;
+		_rate.Changed -= OnRateChanged;
 		_reasons.Clear();
 
 		_running?.Cancel();
@@ -1208,4 +1420,16 @@ public enum LocationBroadcastStatus
 
 	/// <summary>The receiver is fine; the fixes are not getting through.</summary>
 	Failed = 8,
+
+	/// <summary>
+	/// Sharing is on and the receiver is running, but nothing has reached the ride for
+	/// <see cref="LocationBroadcastState.StaleAfter"/> (§4.3).
+	/// <para>
+	/// Its own state rather than a variant of <see cref="Broadcasting"/>, because the two are
+	/// different answers to the only question the rider is asking. Not
+	/// <see cref="Failed"/> either: nothing has refused anything — the phone simply has nothing new
+	/// to say, which on a parked bike under a tin roof is the ordinary case rather than a fault.
+	/// </para>
+	/// </summary>
+	Stale = 9,
 }

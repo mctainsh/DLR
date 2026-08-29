@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Reflection;
 using BlazorDLR.Shared.Services.Platform;
 using DLR.UI.Tests.Fakes;
 
@@ -238,6 +239,22 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 	}
 
 	[Fact]
+	public async Task EachResolveHandsBackAUrlTheReaderHasNotSeen()
+	{
+		Uri first = await UrlAsync();
+		Uri second = await UrlAsync();
+
+		second.ShouldNotBe(first,
+			"pmtiles.js caches a failed header read against the archive URL and never evicts it, so a " +
+			"re-resolve onto the same address is served the old rejection however healthy the server is.");
+
+		using HttpResponseMessage response = await GetAsync(second, "bytes=4-6");
+
+		response.StatusCode.ShouldBe(HttpStatusCode.PartialContent, "and the fresh URL must still serve the pack.");
+		(await response.Content.ReadAsByteArrayAsync()).ShouldBe(new byte[] { 4, 5, 6 });
+	}
+
+	[Fact]
 	public async Task AHostThatHoldsNoArchives_ServesNothing()
 	{
 		// The browser hosts' shape (§18.6), asserted through the same class so the two cannot drift.
@@ -278,6 +295,63 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 		response.StatusCode.ShouldBe(HttpStatusCode.PartialContent,
 			"a burst of aborted connections must leave the server accepting.");
 		(await response.Content.ReadAsByteArrayAsync()).ShouldBe(new byte[] { 4, 5, 6 });
+	}
+
+	[Fact]
+	public async Task AListenerThatDiedWithoutFailingAnAccept_IsReplacedOnTheNextResolve()
+	{
+		// The overnight failure, reproduced. iOS tears the listening socket down under a suspended
+		// app and AcceptTcpClientAsync does not throw — it simply never completes again. Nothing is
+		// counted, so the server carries on handing out a port nothing answers: the log says the
+		// pack "is being served from port 51277", every tile fails with the WebView's bare
+		// "TypeError: Load failed", and re-resolving returns the identical dead URL. Switching to
+		// OSM and back is no help either, and only restarting the app brings the map back.
+		//
+		// Stopping the listener is the only way to kill the socket from a test, and stopping it does
+		// raise the accept failure the phone never gets — so that verdict is waited for and then put
+		// back, which leaves exactly the state the phone was in.
+		Uri dead = await UrlAsync();
+
+		await SilenceTheListenerAsync();
+
+		Uri fresh = await UrlAsync();
+
+		using HttpResponseMessage response = await GetAsync(fresh, "bytes=4-6");
+
+		response.StatusCode.ShouldBe(HttpStatusCode.PartialContent,
+			"a resolve must prove the listener still answers rather than assume it, or a rider whose " +
+			$"phone slept on {dead} never gets their offline map back without restarting the app.");
+		(await response.Content.ReadAsByteArrayAsync()).ShouldBe(new byte[] { 4, 5, 6 });
+	}
+
+	/// <summary>
+	/// Leaves <see cref="_server"/> believing it is listening on a port whose socket has gone — the
+	/// one state that is invisible from inside the server, and the reason a resolve now probes.
+	/// <para>
+	/// Reaching for the private fields is the point rather than a shortcut: what is being set up is
+	/// an internal inconsistency the public surface has no way to produce, and asserting the fields
+	/// are there is what makes a rename break this test rather than quietly neuter it.
+	/// </para>
+	/// </summary>
+	private async Task SilenceTheListenerAsync()
+	{
+		FieldInfo listenerField = typeof(LoopbackMapPackServer)
+			.GetField("_listener", BindingFlags.Instance | BindingFlags.NonPublic)
+			.ShouldNotBeNull("the server must still hold its listener in _listener.");
+
+		FieldInfo failedField = typeof(LoopbackMapPackServer)
+			.GetField("_listenerFailed", BindingFlags.Instance | BindingFlags.NonPublic)
+			.ShouldNotBeNull("the server must still record a written-off listener in _listenerFailed.");
+
+		listenerField.GetValue(_server).ShouldBeOfType<TcpListener>().Stop();
+
+		// The accept loop notices this one, which a suspended phone's does not.
+		for (int attempt = 0; attempt < 100 && !(bool)failedField.GetValue(_server)!; attempt++)
+		{
+			await Task.Delay(20);
+		}
+
+		failedField.SetValue(_server, false);
 	}
 
 	[Fact]

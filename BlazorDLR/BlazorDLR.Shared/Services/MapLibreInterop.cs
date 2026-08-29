@@ -63,6 +63,9 @@ public sealed class MapLibreInterop : IMapInterop
 	public event Action<MapGesture>? Gestured;
 
 	/// <inheritdoc />
+	public event Action<MapCoverage>? CoverageChanged;
+
+	/// <inheritdoc />
 	public async ValueTask InitAsync(ElementReference host, MapOptions options, CancellationToken cancellationToken = default)
 	{
 		_module ??= await _js.InvokeAsync<IJSObjectReference>("import", cancellationToken, ModulePath);
@@ -70,7 +73,8 @@ public sealed class MapLibreInterop : IMapInterop
 			v => ViewportChanged?.Invoke(v),
 			c => Clicked?.Invoke(c),
 			m => ErrorOccurred?.Invoke(m),
-			g => Gestured?.Invoke(g)));
+			g => Gestured?.Invoke(g),
+			coverage => CoverageChanged?.Invoke(coverage)));
 
 		_source = options.EffectiveSource;
 
@@ -83,7 +87,14 @@ public sealed class MapLibreInterop : IMapInterop
 			showUserLocation = options.ShowUserLocation,
 			allowRotation = options.AllowRotation,
 			source = await DescribeAsync(_source, cancellationToken),
-		}, new { onViewportChanged = _bridge, onMapClicked = _bridge, onMapError = _bridge, onMapGesture = _bridge });
+		}, new
+		{
+			onViewportChanged = _bridge,
+			onMapClicked = _bridge,
+			onMapError = _bridge,
+			onMapGesture = _bridge,
+			onMapCoverage = _bridge,
+		});
 	}
 
 	/// <inheritdoc />

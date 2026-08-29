@@ -55,7 +55,7 @@ public sealed class PlatformBindingTests
 		// WatchAsync yields nothing rather than throw — a UI awaiting the first fix
 		// simply never gets one, which is the accurate answer on a host without GPS.
 		int fixes = 0;
-		await foreach (LocationFix _ in provider.WatchAsync(AccuracyProfile.Balanced))
+		await foreach (LocationFix _ in provider.WatchAsync(LocationUpdateRate.Default))
 		{
 			fixes++;
 			break;

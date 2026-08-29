@@ -16,7 +16,7 @@ namespace DLR.UI.Tests.Pages;
 /// The shared screens on a host that registers no GPS at all — which is both browsers (§18.6).
 /// <para>
 /// This is the arrangement rather than a corner of it: the web hosts register no
-/// <c>ILocationProvider</c>, no <c>GpsProfileState</c>, no <c>TrackRecordingState</c>, no
+/// <c>ILocationProvider</c>, no <c>LocationUpdateRateState</c>, no <c>TrackRecordingState</c>, no
 /// <c>PrivateAreaState</c> and no <c>LocationBroadcastState</c>. Every screen below resolves the
 /// broadcaster with <c>GetService</c> and renders its no-receiver branch when it comes back null,
 /// and that is what these tests hold in place — a screen that went back to <c>@inject</c> would
@@ -85,7 +85,7 @@ public sealed class HostWithoutGpsTests : PageTestContext
 			InitException = new InvalidOperationException("No base map in bUnit."),
 		});
 
-		// And that is the whole list. No ILocationProvider, no GpsProfileState, no
+		// And that is the whole list. No ILocationProvider, no LocationUpdateRateState, no
 		// TrackRecordingState, no PrivateAreaState, no LocationBroadcastState.
 
 		Services.AddRealAuthorizationPipeline();
@@ -98,7 +98,7 @@ public sealed class HostWithoutGpsTests : PageTestContext
 	{
 		Services.GetService<ILocationProvider>().ShouldBeNull();
 		Services.GetService<LocationBroadcastState>().ShouldBeNull();
-		Services.GetService<GpsProfileState>().ShouldBeNull();
+		Services.GetService<LocationUpdateRateState>().ShouldBeNull();
 		Services.GetService<TrackRecordingState>().ShouldBeNull();
 		Services.GetService<PrivateAreaState>().ShouldBeNull();
 	}

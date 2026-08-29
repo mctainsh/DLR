@@ -745,7 +745,13 @@
 	private RideSession _session = default!;
 	private MapCamera _camera = DefaultCamera;
 	private MapViewport? _mapViewport;
-	private readonly Dictionary<Guid, MapMarker> _markerLayer = new();
+	/// <summary>
+	/// The pins as the overlay reads them. Replaced whole on every rebuild rather than cleared and
+	/// refilled: the overlay rasterises on a pool thread, so clearing the dictionary it was midway
+	/// through enumerating killed the frame with "Collection was modified" — a live ride's own pin
+	/// moving is enough to hit it (§16.3).
+	/// </summary>
+	private IReadOnlyDictionary<Guid, MapMarker> _markerLayer = new Dictionary<Guid, MapMarker>();
 
 	/// <summary>
 	/// How long a rider's pin outlives the fix behind it on this device (§5.3, §18.6). Chosen on
@@ -2505,7 +2511,9 @@
 		_routeLayer = [.. _session.Routes.Select((route, index) =>
 			new RouteOverlay(route.EncodedPolyline, RoutePalette.At(index), route.TrackId))];
 
-		_markerLayer.Clear();
+		// Built aside and published at the end — see _markerLayer for why the overlay must never be
+		// handed a dictionary this method is still filling.
+		Dictionary<Guid, MapMarker> markers = new(_markerLayer.Count);
 
 		// One reading for the whole rebuild, so two riders whose fixes are the same age cannot land
 		// on opposite sides of the cut-off because the clock moved between them.
@@ -2554,7 +2562,7 @@
 			// somebody is and the member list says who and how they are drawn.
 			RideMemberSummary? member = _session.Member(position.UserId);
 
-			_markerLayer[position.UserId] = new MapMarker(
+			markers[position.UserId] = new MapMarker(
 				Id: position.UserId,
 				Latitude: PositionScale.ToDegrees(position.Lat),
 				Longitude: PositionScale.ToDegrees(position.Lon),
@@ -2567,7 +2575,7 @@
 		}
 		foreach (MarkerDto marker in _session.Markers.Values)
 		{
-			_markerLayer[marker.Id] = new MapMarker(
+			markers[marker.Id] = new MapMarker(
 				Id: marker.Id,
 				Latitude: PositionScale.ToDegrees(marker.Lat),
 				Longitude: PositionScale.ToDegrees(marker.Lon),
@@ -2581,8 +2589,10 @@
 			// Last, so it is added after the authored markers as well as the riders. The overlay
 			// draws in dictionary order and this is the mark whose position the rider is reading
 			// the map to find.
-			_markerLayer[self.Id] = self;
+			markers[self.Id] = self;
 		}
+
+		_markerLayer = markers;
 
 		// Same inputs, a different projection of them: the pins say where everybody is and the panel
 		// says how far up the road that is. Here rather than on its own event, because the two things

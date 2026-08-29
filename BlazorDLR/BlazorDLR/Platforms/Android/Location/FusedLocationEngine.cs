@@ -15,7 +15,7 @@ namespace BlazorDLR.Platforms.Android.Location;
 /// The reason it is the default rather than <c>LocationManager</c> is not accuracy in the open —
 /// raw GNSS is fine there. It is everywhere else: a street of tall buildings, a tunnel exit, the
 /// first thirty seconds after the phone comes out of a pocket. Fused keeps producing a usable fix
-/// through all three, and it does the duty-cycling that makes the Eco profile actually cost less
+/// through all three, and it does the duty-cycling that makes a coarse update rate actually cost less
 /// battery rather than merely reporting less often.
 /// </para>
 /// <para>
@@ -65,20 +65,20 @@ internal sealed class FusedLocationEngine : ILocationEngine
 	}
 
 	/// <inheritdoc />
-	public void Start(AccuracyProfile profile)
+	public void Start(LocationUpdateRate rate)
 	{
 		_client = LocationServices.GetFusedLocationProviderClient(_context);
 		_callback = new FixCallback(_publish);
 
-		long intervalMs = (long)AndroidLocationRequestSpec.Interval(profile).TotalMilliseconds;
+		long intervalMs = (long)AndroidLocationRequestSpec.Interval(rate).TotalMilliseconds;
 
 		LocationRequest request = new LocationRequest.Builder(intervalMs)
-			.SetPriority(Priority(profile))
+			.SetPriority(Priority(rate))
 			// The floor on how often a fix may arrive. Half the interval: fused will hand over a
 			// fix produced for another app at no extra battery cost, and on a motorcycle a fix
 			// that arrives early is worth having.
 			.SetMinUpdateIntervalMillis(Math.Max(500, intervalMs / 2))
-			.SetMinUpdateDistanceMeters((float)AndroidLocationRequestSpec.MinDistanceM(profile))
+			.SetMinUpdateDistanceMeters((float)AndroidLocationRequestSpec.MinDistanceM(rate))
 			// False on purpose: true makes the first callback wait for a fix that meets the
 			// requested accuracy, which at a cold start under cloud can be tens of seconds of the
 			// rider looking at a map with no pin on it. A rough first fix, filtered by
@@ -86,13 +86,12 @@ internal sealed class FusedLocationEngine : ILocationEngine
 			.SetWaitForAccurateLocation(false)
 			.Build();
 
-		// What was actually asked for, in the platform's own units. The profile names above are
-		// this app's words; these are the numbers Play Services was given, and when a ride reports
-		// fixes at the wrong cadence this line says whether the request or the receiver is at
-		// fault.
+		// What was actually asked for, in the platform's own units. The rate above is the rider's
+		// words; these are the numbers Play Services was given, and when a ride reports fixes at
+		// the wrong cadence this line says whether the request or the receiver is at fault.
 		DiagnosticLog.Write(
-			$"GPS: fused request — every {intervalMs} ms, priority {Priority(profile)}, " +
-			$"min move {AndroidLocationRequestSpec.MinDistanceM(profile)} m.");
+			$"GPS: fused request — every {intervalMs} ms, priority {Priority(rate)}, " +
+			$"min move {AndroidLocationRequestSpec.MinDistanceM(rate)} m.");
 
 		// Looper.MainLooper rather than the calling thread: the service's OnStartCommand thread
 		// has no looper of its own, and RequestLocationUpdates needs one to post callbacks to.
@@ -113,18 +112,18 @@ internal sealed class FusedLocationEngine : ILocationEngine
 	}
 
 	/// <summary>
-	/// The battery/accuracy trade each profile asks Play Services for.
+	/// The battery/accuracy trade this rate asks Play Services for.
 	/// <para>
-	/// Eco is <em>balanced power</em> rather than <em>low power</em>: low power is the block-level
-	/// tier, roughly a kilometre, which cannot place a rider on a road at all. Eco is meant to be
-	/// a touring cadence, not a different kind of answer.
+	/// A coarse update distance gets <em>balanced power</em> rather than <em>low power</em>: low
+	/// power is the block-level tier, roughly a kilometre, which cannot place a rider on a road at
+	/// all. Asking for 50 m updates is a touring cadence, not a different kind of answer.
 	/// </para>
 	/// </summary>
-	private static int Priority(AccuracyProfile profile) => profile switch
-	{
-		AccuracyProfile.Eco => global::Android.Gms.Location.Priority.PriorityBalancedPowerAccuracy,
-		_ => global::Android.Gms.Location.Priority.PriorityHighAccuracy,
-	};
+	/// <param name="rate">The rider's rate. Only the distance is a statement about precision.</param>
+	private static int Priority(LocationUpdateRate rate) =>
+		rate.DistanceM >= 50
+			? global::Android.Gms.Location.Priority.PriorityBalancedPowerAccuracy
+			: global::Android.Gms.Location.Priority.PriorityHighAccuracy;
 
 	/// <summary>
 	/// Play Services hands fixes back through this. A batch may carry more than one — the API

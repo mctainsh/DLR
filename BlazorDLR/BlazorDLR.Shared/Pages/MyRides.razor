@@ -381,7 +381,9 @@
 				// so the recorder is never left running behind a search box.
 				using CancellationTokenSource cancellation = new(TimeSpan.FromSeconds(30));
 
-				await foreach (LocationFix fix in provider.WatchAsync(AccuracyProfile.Balanced, cancellation.Token))
+				// The default rate rather than the rider's own: this is one fix for a search box,
+				// and nothing about it is published, so the publish rules have no bearing on it.
+				await foreach (LocationFix fix in provider.WatchAsync(LocationUpdateRate.Default, cancellation.Token))
 				{
 					SetAnchor(fix.Latitude, fix.Longitude, "my location");
 					return;
