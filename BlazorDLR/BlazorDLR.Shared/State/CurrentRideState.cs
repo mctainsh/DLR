@@ -63,6 +63,10 @@ public sealed class CurrentRideState
 	private bool _loaded;
 	private bool _written;
 
+	/// <summary>The device read, held so a second caller on the same render joins it rather than
+	/// being told it has already happened. Null until <see cref="LoadAsync"/> starts one.</summary>
+	private Task? _reading;
+
 	/// <summary>Creates the state over a host's device store.</summary>
 	/// <param name="settings">Where the ride id is persisted, so it outlives the process.</param>
 	public CurrentRideState(IDeviceSettings settings) => _settings = settings;
@@ -114,21 +118,35 @@ public sealed class CurrentRideState
 	/// Reads the persisted ride. Idempotent — the rail calls it on first render and nobody else has
 	/// to coordinate with that.
 	/// <para>
+	/// <strong>A second caller waits for the first one's read.</strong> The rail and
+	/// <see cref="LaunchRestore"/> both ask on first render, and returning "already loaded" to the
+	/// second while the store had not answered yet handed it <see cref="RideId"/> <c>null</c> — a
+	/// launch that concluded this device had never opened an adventure while the answer was still
+	/// in flight. So the read is held and awaited rather than the flag being the whole story.
+	/// </para>
+	/// <para>
 	/// Callers must run this <em>after</em> first render on the web: the browser store is reached
 	/// through JS interop, which is not available during the prerender pass.
 	/// </para>
 	/// </summary>
 	/// <param name="cancellationToken">Cancels the read.</param>
-	public async Task LoadAsync(CancellationToken cancellationToken = default)
+	public Task LoadAsync(CancellationToken cancellationToken = default)
 	{
 		if (_loaded)
 		{
-			return;
+			// Either the read below is still running — join it — or SetAsync/ClearAsync has since
+			// decided the answer, which is newer than anything a store could say.
+			return _reading ?? Task.CompletedTask;
 		}
 
 		// Set before the read so a rail that renders twice does not start two round trips.
 		_loaded = true;
 
+		return _reading = ReadAsync(cancellationToken);
+	}
+
+	private async Task ReadAsync(CancellationToken cancellationToken)
+	{
 		Guid? stored = Guid.TryParse(await _settings.GetAsync(StorageKey, cancellationToken), out Guid parsed)
 			&& parsed != Guid.Empty
 				? parsed

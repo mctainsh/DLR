@@ -132,6 +132,110 @@ public sealed class GroupRidesLandingTests : PageTestContext
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
+	// -- The current adventure (§18.6) --------------------------------------------------------
+
+	private static IReadOnlyList<AngleSharp.Dom.IElement> CurrentRows(IRenderedComponent<GroupRides> component) =>
+		[.. component.FindAll("li.ride.current")];
+
+	/// <summary>
+	/// The row the rail's globe leads to is marked, and it is the only one. Before this the list
+	/// gave a rider no way to tell which of several adventures the app was actually on — the globe
+	/// says "the ride you are on" from every other screen and said nothing here.
+	/// </summary>
+	[Fact]
+	public async Task CurrentAdventure_IsTheOnlyBadgedRow()
+	{
+		Guid joined = Guid.NewGuid();
+		FakeApiClient api = WireServices();
+		api.MyRidesResult = OneOfEach(Guid.NewGuid(), joined);
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		await current.SetAsync(joined);
+
+		IRenderedComponent<GroupRides> component = Render<GroupRides>();
+
+		component.WaitForAssertion(() =>
+		{
+			CurrentRows(component).Count.ShouldBe(1,
+				"a device is on one adventure, so one row carries the badge.");
+			CurrentRows(component)[0].TextContent.ShouldContain("Somebody else's",
+				customMessage: "§18.6: the badge belongs to the ride the globe leads to, not to whichever row is first.");
+			CurrentRows(component)[0].InnerHtml.ShouldContain("fa-globe",
+				customMessage: "the same glyph the rail's item carries, so the two read as one thing.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The badge is decoration; <c>aria-current</c> is what says it out loud. A screen reader
+	/// hearing eight identical "open this adventure" links needs the one it is already on named.
+	/// </summary>
+	[Fact]
+	public async Task CurrentAdventure_IsAnnouncedByAriaCurrent()
+	{
+		Guid joined = Guid.NewGuid();
+		FakeApiClient api = WireServices();
+		api.MyRidesResult = OneOfEach(Guid.NewGuid(), joined);
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		await current.SetAsync(joined);
+
+		IRenderedComponent<GroupRides> component = Render<GroupRides>();
+
+		component.WaitForAssertion(() =>
+		{
+			component.FindAll("a.ride-link[aria-current]").Count.ShouldBe(1,
+				"exactly one link is the current one; the attribute is absent from the rest.");
+			component.Find("li.ride.current a.ride-link").GetAttribute("aria-current").ShouldBe("true");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>A device that has not opened an adventure has no row to mark, and marks none.</summary>
+	[Fact]
+	public void NoCurrentAdventure_BadgesNothing()
+	{
+		FakeApiClient api = WireServices();
+		api.MyRidesResult = OneOfEach(Guid.NewGuid(), Guid.NewGuid());
+
+		IRenderedComponent<GroupRides> component = Render<GroupRides>();
+
+		component.WaitForAssertion(() =>
+		{
+			component.Markup.ShouldContain("Mine to run", customMessage: "the list itself still renders.");
+			CurrentRows(component).ShouldBeEmpty(
+				"§18.6: nothing stored means the globe points at this list, so no row is the one it leads to.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// The badge follows the state rather than the load. Opening another adventure writes through
+	/// the same scoped <see cref="CurrentRideState"/>, and this list is often still mounted behind it.
+	/// </summary>
+	[Fact]
+	public async Task CurrentAdventure_Moves_WithoutReloadingTheList()
+	{
+		Guid organised = Guid.NewGuid();
+		Guid joined = Guid.NewGuid();
+		FakeApiClient api = WireServices();
+		api.MyRidesResult = OneOfEach(organised, joined);
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		await current.SetAsync(joined);
+
+		IRenderedComponent<GroupRides> component = Render<GroupRides>();
+
+		component.WaitForAssertion(
+			() => CurrentRows(component)[0].TextContent.ShouldContain("Somebody else's"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => current.SetAsync(organised));
+
+		component.WaitForAssertion(() =>
+		{
+			CurrentRows(component).Count.ShouldBe(1);
+			CurrentRows(component)[0].TextContent.ShouldContain("Mine to run");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
 	// -- Deleting an adventure (§5.2) ---------------------------------------------------------
 
 	/// <summary>

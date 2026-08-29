@@ -52,10 +52,10 @@ public sealed class GroupRideInfoTests : PageTestContext
 				IsOrganiser: isOrganiser,
 				JoinCode: "AB3K9Z",
 				Permissions: new RidePermissions(),
-				Members: members ?? new[]
-				{
+				Members: members ??
+				[
 					new RideMemberSummary(Guid.NewGuid(), "Me", "Rider", FixedInstant, sharing, sharing),
-				}),
+				]),
 		};
 
 		FakeRideHubClient hub = new();
@@ -858,7 +858,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		api.LeaveRideException = new ApiException(new ApiError(
 			StatusCode: System.Net.HttpStatusCode.Conflict,
 			Title: "The organiser cannot leave",
-			Messages: Array.Empty<string>()));
+			Messages: []));
 
 		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
 		await current.SetAsync(rideId);

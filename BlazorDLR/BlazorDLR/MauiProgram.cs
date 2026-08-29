@@ -264,10 +264,22 @@ public static class MauiProgram
 		// with the ride still running, and the globe is what puts the rider back on it.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
+		// The unread count worn on that rail's thread item (§17.6), in MAUI Preferences. This is the
+		// host it matters on: the badge is what a rider glances at between corners to know whether
+		// the group has said anything, and it has to still be there after the OS reclaims the app.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.UnreadThreadState>();
+
 		// Whether this device has been shown the introduction (§18.6), in MAUI Preferences. This is
 		// the host it was written for: a phone is where the app is met for the first time, and the
 		// deck is what stands between "installed" and "what is this".
 		builder.Services.AddScoped<BlazorDLR.Shared.State.IntroTourState>();
+
+		// Puts the adventure and the GPS back the way the app left them (§5.7, §18.6). The host it
+		// was written for, and on Android and iOS the only host it acts on: an app the OS reclaims
+		// mid-ride leaves the sharing flag standing on the server and the receiver dead, and this
+		// closes that gap without the rider noticing it was open. The Windows and macOS heads take
+		// NoopLocationProvider, so this reads them as the browsers and restores nothing.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.LaunchRestore>();
 
 		// The one confirm modal for every destructive action in the app (§18.6).
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();

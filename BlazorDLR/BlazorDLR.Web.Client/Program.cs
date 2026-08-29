@@ -166,9 +166,18 @@ internal class Program
 		// reloaded tab still knows which ride this browser is on.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
+		// The unread count on the rail's thread item (§17.6), kept in localStorage so a reloaded
+		// tab does not lose what the rider had not read yet.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.UnreadThreadState>();
+
 		// Whether this browser has been shown the introduction (§18.6), kept in localStorage so a
 		// reloaded tab is not shown it a second time.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.IntroTourState>();
+
+		// Puts the adventure and the GPS back the way the last launch left them (§5.7, §18.6).
+		// MainLayout injects it, so it has to resolve here, and it restores nothing in a browser:
+		// a reloaded tab lost no receiver, because this host never had one to lose.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.LaunchRestore>();
 
 		// No GPS on this host, and nothing standing in for one (§18.6).
 		//

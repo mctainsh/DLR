@@ -110,6 +110,110 @@
 	line-height: 1;
 }
 
+/*
+	The thread's unread count, worn on the speech bubbles the way one is worn on an app icon
+	(§17.6). PendingBadge draws the circle; this only says where it sits.
+
+	It hangs off THE GLYPH, not off the item. The item is a full-width row in the left rail and
+	an equal share of the bar along the bottom, so a count pinned to its corner would sit a
+	finger's width from the icon at one width and against it at the other. The glyph is 20 px
+	wherever the rail is.
+
+	px, not em: the offsets have to hold against a fixed-size icon rather than against whatever
+	type size the badge inherited — same reason as the live map's hamburger.
+*/
+.rail ::deep .rail-glyph {
+	position: relative;
+	display: inline-flex;
+}
+
+.rail ::deep .rail-glyph .count-badge {
+	position: absolute;
+	top: -7px;
+	left: 11px;
+
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	font-size: 10px;
+
+	/* Ring in the rail's own colour, so a count over the lit background of the active item
+	   reads as a hole punched in the rail rather than as a sticker on it. */
+	border: 2px solid var(--dlr-rail);
+}
+
+/*
+	The GPS switch (GpsRailButton) — the one thing on the rail that does something rather than
+	going somewhere, so it is a <button> and arrives with browser chrome the rail-item rules
+	above cannot see past.
+
+	`margin-top: auto` is what puts it at the FOOT of the left rail: a column packs from the top
+	and one auto margin eats the remaining height. The bar along the bottom sets it back to 0 and
+	gets the far right for nothing, the switch being the last child of a row.
+
+	The tone is colour ONLY. Every status already has its own glyph (see GpsRailButton), because
+	amber against green is the pair a red-green rider cannot separate and this is read through a
+	visor in daylight — the shape is what they go by and the colour only grades it.
+*/
+.rail ::deep .gps-switch {
+	background: none;
+	border: 0;
+	padding: 0;
+	font: inherit;
+	cursor: pointer;
+	margin-top: auto;
+}
+
+.rail ::deep .gps-switch:disabled {
+	cursor: default;
+	opacity: 0.55;
+}
+
+.rail ::deep .gps-switch.gps-idle   { color: var(--dlr-fg-quiet); }
+.rail ::deep .gps-switch.gps-warn   { color: var(--dlr-warn); }
+.rail ::deep .gps-switch.gps-live   { color: var(--dlr-good); }
+.rail ::deep .gps-switch.gps-hidden { color: var(--dlr-accent); }
+.rail ::deep .gps-switch.gps-bad    { color: var(--dlr-error); }
+
+/* A receiver that is actually reaching the adventure breathes. Third channel after shape and
+   colour, and the only one of the three a rider catches out of the corner of an eye. */
+.rail ::deep .gps-switch.gps-live i {
+	animation: gps-pulse 2s ease-in-out infinite;
+}
+
+@keyframes gps-pulse {
+	50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rail ::deep .gps-switch.gps-live i { animation: none; }
+}
+
+/*
+	What the switch just did, beside the rail rather than over the middle of the page — it is the
+	rail's own message, and the rail is what the rider just touched.
+
+	`fixed`, not `absolute`: the rail is sticky at one width and fixed at the other, so an
+	absolutely positioned child would be measured against a different box either side of the
+	breakpoint. And `pointer-events: none`, because it stands over the page for three seconds
+	with nothing on it to press.
+*/
+.rail ::deep .gps-toast {
+	position: fixed;
+	left: calc(var(--dlr-rail-width) + var(--dlr-safe-left) + 0.75rem);
+	bottom: max(0.75rem, env(safe-area-inset-bottom));
+	z-index: 30;
+	max-width: min(24rem, calc(100vw - var(--dlr-rail-width) - 2rem));
+	padding: 0.55rem 1rem;
+	background: var(--dlr-surface);
+	color: var(--dlr-fg);
+	border: 1px solid var(--dlr-border);
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+	font-size: 0.9rem;
+	pointer-events: none;
+}
+
 .main {
 	flex: 1;
 	min-width: 0;         /* stop a wide child forcing the whole layout to scroll horizontally */
@@ -174,6 +278,22 @@
 	.rail ::deep .rail-item {
 		flex: 1 1 0;
 		min-width: 0;
+	}
+
+	/* The row packs from the left and the switch is the last child, so it is at the far right
+	   already; the column's auto margin would only push it off the top of the bar. */
+	.rail ::deep .gps-switch {
+		margin-top: 0;
+	}
+
+	/* Above the bar, and the full width of it: there is no rail beside the page down here to
+	   tuck a message against. */
+	.rail ::deep .gps-toast {
+		left: max(0.75rem, var(--dlr-safe-left));
+		right: max(0.75rem, var(--dlr-safe-right));
+		bottom: calc(var(--dlr-rail-height) + env(safe-area-inset-bottom) + 0.5rem);
+		max-width: none;
+		text-align: center;
 	}
 
 	.content {

@@ -1,5 +1,6 @@
 ﻿@using BlazorDLR.Shared.State
 @inject CurrentRideState CurrentRide
+@inject UnreadThreadState Unread
 @implements IDisposable
 
 @*
@@ -31,7 +32,9 @@
 
 	  - the globe is "the ride you are on",
 	  - the people are "who is on it", the live rider list, and
-	  - the speech bubbles are the adventure thread (§17).
+	  - the speech bubbles are the adventure thread (§17), which is the one item that carries a
+		count: posts that have landed since the rider last had the thread open, in the red bubble
+		every phone already means "somebody said something" by (UnreadThreadState, §17.6).
 
 	All three routes read group-rides/{what}/{id} — the verb before the id — because
 	NavLink lights up on a prefix match: with the id first, the globe's href was a prefix
@@ -45,6 +48,10 @@
 	repeatedly, with a phone in a bar mount and gloves on, is the map, the question of
 	where everybody else has got to, and what the group is saying — and a rail is five
 	destinations wide.
+
+	After the five, and separated from them: GpsRailButton, the state of the receiver and
+	the switch for it. Last so that it is the bottom of the left rail and the far right of
+	the bottom bar — the corner a thumb reaches without leaving the bars.
 *@
 
 <AuthorizeView>
@@ -59,11 +66,22 @@
 			<i class="fa fa-fw fa-users" aria-hidden="true"></i>
 		</NavLink>
 		<NavLink class="rail-item" href="@CurrentRide.ThreadHref" title="@ThreadName" aria-label="@ThreadName">
-			<i class="fa fa-fw fa-comments" aria-hidden="true"></i>
+			@* The badge hangs off the glyph, not off the item: the item is a full-width row in the
+			   left rail and an equal share of the bottom bar, so a count pinned to its corner would
+			   be a finger's width from the icon at one width and touching it at the other.
+
+			   aria-hidden over both, because ThreadName above already carries the number — an
+			   anchor's aria-label is the whole of what a screen reader reads for the link, so a
+			   count left to announce itself in here would be announced by neither. *@
+			<span class="rail-glyph" aria-hidden="true">
+				<i class="fa fa-fw fa-comments" aria-hidden="true"></i>
+				<PendingBadge Count="UnreadCount" Noun="unread messages" />
+			</span>
 		</NavLink>
 		<NavLink class="rail-item" href="settings" title="Settings" aria-label="Settings">
 			<i class="fa fa-fw fa-gear" aria-hidden="true"></i>
 		</NavLink>
+		<GpsRailButton />
 	</Authorized>
 	<NotAuthorized>
 		<NavLink class="rail-item" href="welcome" title="Welcome" aria-label="Welcome">
@@ -90,31 +108,52 @@
 	/// <summary>
 	/// And again for the thread, which shares those same two destinations. Nothing on this device
 	/// means no adventure to talk about, so it leads where the other two do.
+	/// <para>
+	/// The unread count is said out loud here rather than left to the badge, because this is the
+	/// anchor's <c>aria-label</c> and a link's accessible name replaces whatever is inside it — a
+	/// red circle nobody can hear is a notification only half the riders get (§17.6).
+	/// </para>
 	/// </summary>
-	private string ThreadName => CurrentRide.RideId is null ? "Pick a group adventure" : "Adventure thread";
+	private string ThreadName =>
+		CurrentRide.RideId is null ? "Pick a group adventure"
+		: UnreadCount > 0 ? $"Adventure thread, {UnreadCount} unread"
+		: "Adventure thread";
+
+	/// <summary>How many posts the current adventure's thread is holding unread (§17.6).</summary>
+	private int UnreadCount => Unread.CountFor(CurrentRide.RideId);
 
 	protected override void OnInitialized()
 	{
 		// Subscribed synchronously, before the read below: opening a ride writes through the same
 		// scoped state, and the rail has to follow that without waiting for a navigation of its own.
 		CurrentRide.Changed += OnCurrentRideChanged;
+
+		// The other half of the same badge: the ride it counts for comes from the state above, and
+		// the count itself moves whenever a post lands on the hub.
+		Unread.Changed += OnCurrentRideChanged;
 	}
 
 	/// <summary>
-	/// Reads the remembered ride after first render, for the same reason MainLayout reads the
-	/// theme there: the device store is behind JS interop on the web, which does not exist during
-	/// the prerender pass. Until it resolves the globe points at the list, which is where a device
-	/// with nothing stored is sent anyway.
+	/// Reads the remembered ride and the unread counts after first render, for the same reason
+	/// MainLayout reads the theme there: the device store is behind JS interop on the web, which
+	/// does not exist during the prerender pass. Until it resolves the globe points at the list,
+	/// which is where a device with nothing stored is sent anyway, and the badge is absent — which
+	/// is what a rail with nothing to say looks like.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
 		if (firstRender)
 		{
 			await CurrentRide.LoadAsync();
+			await Unread.LoadAsync();
 		}
 	}
 
 	private void OnCurrentRideChanged() => _ = InvokeAsync(StateHasChanged);
 
-	public void Dispose() => CurrentRide.Changed -= OnCurrentRideChanged;
+	public void Dispose()
+	{
+		CurrentRide.Changed -= OnCurrentRideChanged;
+		Unread.Changed -= OnCurrentRideChanged;
+	}
 }

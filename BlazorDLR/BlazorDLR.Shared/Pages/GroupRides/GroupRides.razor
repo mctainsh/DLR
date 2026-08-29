@@ -7,10 +7,11 @@
 @inject ConfirmService Confirm
 @* §ClockRules: never DateTime.Now — the wait below is measured against the injected clock. *@
 @inject TimeProvider Clock
-@* Leaving takes the rail's globe with it when it was pointing at this ride (§18.6), and the
-   device's own copy of it (§4.4) — a ride nobody is on must not still open from a cache. *@
+@* Which row the rail's globe leads to (§18.6), and the state leaving has to clear — along with
+   the device's own copy (§4.4), since a ride nobody is on must not still open from a cache. *@
 @inject CurrentRideState CurrentRide
 @inject RideSnapshotCache Cache
+@implements IDisposable
 
 <PageTitle>Group adventures — Dumb Luck Routes</PageTitle>
 
@@ -25,6 +26,10 @@
 	The third list is the odd one out and is meant to be: an adventure the rider has asked to
 	join and not been let into is not theirs yet. Its rows do not open, they carry no join code,
 	and the section is absent entirely when nobody is waiting on anything.
+
+	One row across the first two lists may be badged Current: the adventure this device is on,
+	which is where the rail's globe leads from anywhere in the app (§18.6). Often there is none —
+	a rider who has not opened one yet, or who has left the one they had.
 *@
 
 <div class="page page-medium">
@@ -138,8 +143,9 @@
 				<ul class="ride-list">
 					@foreach (RideSummary ride in _rides.Organised)
 					{
-						<li class="ride">
-							<a class="ride-link" href="/group-rides/live/@ride.Id">
+						<li class="ride @(IsCurrent(ride.Id) ? "current" : null)">
+							<a class="ride-link" href="/group-rides/live/@ride.Id"
+							   aria-current="@(IsCurrent(ride.Id) ? "true" : null)">
 								<h2>@ride.Name</h2>
 								<span class="meta">
 									@ride.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")
@@ -147,6 +153,15 @@
 									· @ride.State
 								</span>
 							</a>
+							@* aria-hidden: aria-current on the link above already says "current". *@
+							@if (IsCurrent(ride.Id))
+							{
+								<span class="current-badge" aria-hidden="true"
+									  title="The adventure this device is on — the rail's globe leads here">
+									<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
+									Current
+								</span>
+							}
 							@if (!string.IsNullOrEmpty(ride.JoinCode))
 							{
 								<span class="join-code" title="Join code — share with people you invite">
@@ -180,8 +195,9 @@
 				<ul class="ride-list">
 					@foreach (RideSummary ride in _rides.Joined)
 					{
-						<li class="ride">
-							<a class="ride-link" href="/group-rides/live/@ride.Id">
+						<li class="ride @(IsCurrent(ride.Id) ? "current" : null)">
+							<a class="ride-link" href="/group-rides/live/@ride.Id"
+							   aria-current="@(IsCurrent(ride.Id) ? "true" : null)">
 								<h2>@ride.Name</h2>
 								<span class="meta">
 									@ride.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")
@@ -189,6 +205,15 @@
 									· @ride.State
 								</span>
 							</a>
+							@* aria-hidden: aria-current on the link above already says "current". *@
+							@if (IsCurrent(ride.Id))
+							{
+								<span class="current-badge" aria-hidden="true"
+									  title="The adventure this device is on — the rail's globe leads here">
+									<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
+									Current
+								</span>
+							}
 							@if (!string.IsNullOrEmpty(ride.JoinCode))
 							{
 								<span class="join-code" title="Join code — share with people you invite">
@@ -237,7 +262,35 @@
 	// rider who is somehow on one list and waiting on the other still only ever locks one row.
 	private Guid? _leaving;
 
-	protected override async Task OnInitializedAsync() => await LoadAsync();
+	protected override async Task OnInitializedAsync()
+	{
+		// Subscribed before the fetch: the rail writes through the same scoped state, and leaving a
+		// ride below clears it, so the badge has to follow both without a navigation of its own.
+		CurrentRide.Changed += OnCurrentRideChanged;
+
+		await LoadAsync();
+	}
+
+	/// <summary>
+	/// Whether <paramref name="rideId"/> is the adventure this device is on — the one the rail's
+	/// globe leads back to (§18.6).
+	/// </summary>
+	private bool IsCurrent(Guid rideId) => CurrentRide.RideId == rideId;
+
+	/// <summary>
+	/// Reads the remembered ride after first render, for the same reason <c>NavMenu</c> does: the
+	/// device store is behind JS interop on the web, which does not exist during the prerender pass.
+	/// Until it resolves no row is badged, which is what a device with nothing stored looks like.
+	/// </summary>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+			await CurrentRide.LoadAsync();
+	}
+
+	private void OnCurrentRideChanged() => _ = InvokeAsync(StateHasChanged);
+
+	public void Dispose() => CurrentRide.Changed -= OnCurrentRideChanged;
 
 	/// <summary>
 	/// How long ago a request was made, in the words a rider would use.
@@ -450,6 +503,28 @@
 		min-height: 44px;
 		padding: 0 0.6rem;
 		font-size: 1rem;
+	}
+
+	/*
+		The row the rail's globe leads to (§18.6). An edge and a tint as well as the badge: the badge
+		is on the right of a row whose name is on the left, and a list is scanned down its left.
+	*/
+	.ride.current {
+		background: var(--dlr-accent-soft);
+		box-shadow: inset 3px 0 0 var(--dlr-accent);
+	}
+
+	.ride .current-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		flex: 0 0 auto;
+		padding: 0.25rem 0.6rem;
+		border-radius: 999px;
+		background: var(--dlr-accent);
+		color: var(--dlr-accent-fg);
+		font-size: 0.8rem;
+		white-space: nowrap;
 	}
 
 	/*

@@ -729,8 +729,17 @@ public sealed class FakeApiClient : IApiClient
 	}
 	public List<(Guid RideId, SetSharingRequest Request)> SetSharingRequests { get; } = new();
 
+	/// <summary>Set to make <see cref="SetSharingAsync"/> throw — the phone that went into a tunnel
+	/// between the rider pressing the rail’s GPS switch and the request landing.</summary>
+	public ApiException? SetSharingException { get; set; }
+
 	public Task SetSharingAsync(Guid rideId, SetSharingRequest request, CancellationToken cancellationToken = default)
 	{
+		if (SetSharingException is not null)
+		{
+			return Task.FromException(SetSharingException);
+		}
+
 		Record(nameof(SetSharingAsync));
 		SetSharingRequests.Add((rideId, request));
 		return Task.CompletedTask;

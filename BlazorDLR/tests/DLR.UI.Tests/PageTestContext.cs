@@ -73,6 +73,16 @@ public abstract class PageTestContext : BunitContext
 		Services.AddSingleton<NotificationRouting>();
 		Services.AddScoped<CommentNotifier>();
 
+		// The count on the rail's thread item, cleared by the same "you have read this" the notifier
+		// withdraws its card on (§17.6). Page-wide for the same reason: NavMenu injects it, and
+		// CommentThreadView tells it when a thread comes on screen.
+		Services.AddScoped<UnreadThreadState>();
+
+		// The launch hook MainLayout runs after first render (§18.6). Page-wide because the layout
+		// injects it, so every routable page has one above it. Harmless by default: the fake API
+		// client and an empty device store between them answer "no adventure to go back to".
+		Services.AddScoped<LaunchRestore>();
+
 		// Username to profile photograph (§7.3). Page-wide in the same sense as the notifier above:
 		// nearly every page draws somebody's name, and RiderAvatar sits beside each one. Registered
 		// here so a page test exercises the real DI graph — the component itself resolves this with

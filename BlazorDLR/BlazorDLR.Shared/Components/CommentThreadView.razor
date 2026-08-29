@@ -1,4 +1,4 @@
-@using BlazorDLR.Shared.Services
+﻿@using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
 @using DLR.Core.Contracts.Comments
 @using DLR.Core.Contracts.Moderation
@@ -8,6 +8,7 @@
 @inject AuthState Auth
 @inject ConfirmService Confirm
 @inject CommentNotifier Notifier
+@inject UnreadThreadState Unread
 @implements IAsyncDisposable
 
 @*
@@ -241,6 +242,10 @@
 			return;
 		}
 
+		// The thread on screen is being swapped for another, so the one leaving starts counting its
+		// posts as unread again.
+		if (_shownRide is { } leaving) Unread.Closed(leaving);
+
 		_attempted = true;
 		_shownRide = RideId;
 		_shownTrack = TrackId;
@@ -261,7 +266,14 @@
 		// Clears whatever card was already showing for this thread (§17.6) — the rider is now
 		// looking at the conversation it was pointing at. It suppresses nothing: posts that land
 		// while this is on screen still raise a notification.
-		if (RideId is { } notifyRide) Notifier.ThreadOpened(notifyRide);
+		if (RideId is { } notifyRide)
+		{
+			Notifier.ThreadOpened(notifyRide);
+
+			// And the rail's badge, which is the same "you have read this" the card withdrawal is —
+			// said on the one screen the rider is looking at rather than on the lock screen (§17.6).
+			await Unread.OpenedAsync(notifyRide);
+		}
 		else if (TrackId is { } notifyTrack) Notifier.TrackThreadOpened(notifyTrack);
 
 		try
@@ -728,6 +740,11 @@
 		Hub.ReactionsUpdated -= OnReactionsUpdated;
 		Hub.PollUpdated -= OnPollUpdated;
 
+		// The thread is off screen, so posts to it are unread again (§17.6). Not the same question
+		// as the hub group below: a rider on the live map is still receiving this conversation, and
+		// that is exactly when the rail's badge has something to say.
+		if (_shownRide is { } left) Unread.Closed(left);
+
 		// The ride's group is left by the ride pages, which use it for positions as well; the
 		// route's belongs to this component alone, so leaving it here is the only place it can
 		// happen. Nothing to tell the notifier: opening a thread did not silence anything, so
@@ -741,16 +758,20 @@
 <style>
 	.thread .pinned { margin: 0; padding: 0.5rem; background: #eff6ff20; border: 1px solid #FF0; border-radius: 6px; }
 
-	.thread .comment { margin: 0.75rem 0; padding: 0.5rem; background: #334; border: 1px solid #e5e7eb; border-radius: 6px; }
+	.thread .comment { margin: 0.75rem 0; padding: 0.5rem; background: #334; border: 1px solid transparent; border-radius: 6px; }
 	.thread .comment.pinned { border-color: #bfdbfe; }
-	.thread .comment header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; }
+	.thread .comment header {
+		display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+		margin: -0.5rem -0.5rem 0.5rem; padding: 0.35rem 0.5rem;
+		background: #0003; border-radius: 6px 6px 0 0;
+	}
 	.thread .comment .posted { font-size: 0.85rem; opacity: 0.7; }
 	.thread .comment .body { margin: 0.25rem 0; white-space: pre-wrap; word-wrap: break-word; }
 	.thread .comment .photo { max-width: 100%; margin-top: 0.5rem; border-radius: 4px; }
 	.thread .empty { font-style: italic; opacity: 0.7; margin: 1rem 0; }
 	.thread .reaction {
 		display: inline-flex; align-items: center; gap: 0.25rem;
-		padding: 0.15rem 0.5rem; font-size: 0.8rem; background: #fff2; border: 1px solid #e5e7eb;
+		padding: 0.15rem 0.5rem; font-size: 0.8rem; background: #fff2; border: 1px solid transparent;
 		border-radius: 12px; cursor: pointer;
 	}
 	.thread .reaction .icon { font-size: 1rem; line-height: 1; }

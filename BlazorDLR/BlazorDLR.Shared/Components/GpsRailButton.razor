@@ -1,0 +1,217 @@
+@inject IServiceProvider Services
+@inject CurrentRideState CurrentRide
+@inject TimeProvider Clock
+@implements IDisposable
+
+@*
+	The rail's last item: what the GPS is doing, and the one tap that turns it off and on
+	(§4.3, §5.6, §18.6).
+
+	A `<button>`, not a `NavLink` — it is the only thing on the rail that does something
+	rather than going somewhere, which is also why the rail's five destinations are still
+	five when it is on screen. MainLayout.razor.css styles it beside them; see the note at
+	the top of that file for why every rail rule lives there and not in a stylesheet here.
+
+	**Shape and colour, never colour alone.** Ten states share one 20 px glyph, read
+	through a visor in daylight by somebody wearing gloves, and a fair number of riders
+	cannot tell the amber apart from the green at all. So each status gets its own icon and
+	the colour only grades it: grey idle, amber working, green live, blue deliberately
+	hidden, red broken. Either half read on its own says which state this is.
+
+	**It resolves the broadcaster rather than injecting it.** LocationBroadcastState is
+	registered on the MAUI host and on neither browser (§18.6), so on the web this draws
+	nothing at all — a rail item that permanently said "this device has no GPS" would be a
+	permanent tap target for a permanent non-answer.
+*@
+
+@if (_broadcast is { } broadcast)
+{
+	<button type="button"
+			class="rail-item gps-switch @Tone"
+			title="@Label"
+			aria-label="@Label"
+			aria-pressed="@(broadcast.IsRequested ? "true" : "false")"
+			disabled="@(_busy || !broadcast.IsSupported)"
+			@onclick="ToggleAsync">
+		<i class="fa fa-fw @Glyph" aria-hidden="true"></i>
+	</button>
+
+	@if (_toast is { } toast)
+	{
+		@* Says what the tap did, then goes. The button's own icon is the standing answer, so
+		   this only has to cover the moment the rider is looking away from it — and a
+		   dismiss button for something that removes itself in three seconds would be a tap
+		   target for nothing. *@
+		<div class="gps-toast" role="status" aria-live="polite">@toast</div>
+	}
+}
+
+@code {
+	/// <summary>How long a message stands. Long enough to read at a set of lights, short enough
+	/// not to be sitting over the map at the next one.</summary>
+	private static readonly TimeSpan ToastDuration = TimeSpan.FromSeconds(3);
+
+	/// <summary>The receiver, or <c>null</c> on a host that has none (§18.6).</summary>
+	private LocationBroadcastState? _broadcast;
+
+	/// <summary>What the last tap did, or <c>null</c> when there is nothing to say.</summary>
+	private string? _toast;
+
+	/// <summary>Takes it back off. One timer, restarted per message — see <see cref="ShowToast"/>.</summary>
+	private ITimer? _toastTimer;
+
+	/// <summary>How many messages this switch has shown. Only ever compared for equality.</summary>
+	private int _toastSequence;
+
+	/// <summary>True while a tap is still talking to the server, so a second one cannot race it.</summary>
+	private bool _busy;
+
+	protected override void OnInitialized()
+	{
+		_broadcast = Services.GetService<LocationBroadcastState>();
+
+		if (_broadcast is not null)
+		{
+			_broadcast.Changed += OnChanged;
+		}
+	}
+
+	/// <summary>
+	/// The glyph for each status. One shape each, deliberately — see the markup.
+	/// </summary>
+	private string Glyph => _broadcast!.Status switch
+	{
+		LocationBroadcastStatus.Starting => "fa-hourglass-half",
+		LocationBroadcastStatus.WaitingForFix => "fa-satellite-dish",
+		LocationBroadcastStatus.Broadcasting => "fa-location-crosshairs",
+		LocationBroadcastStatus.Stale => "fa-clock",
+		LocationBroadcastStatus.Suppressed => "fa-house-lock",
+		LocationBroadcastStatus.PermissionNeeded => "fa-triangle-exclamation",
+		LocationBroadcastStatus.PermissionBlocked => "fa-ban",
+		LocationBroadcastStatus.NotSupported => "fa-slash",
+		LocationBroadcastStatus.Failed => "fa-circle-exclamation",
+		_ => "fa-circle-minus",
+	};
+
+	/// <summary>
+	/// The colour grade behind the glyph. Severity, not identity: several statuses share a tone
+	/// and none of them shares a shape.
+	/// </summary>
+	private string Tone => _broadcast!.Status switch
+	{
+		LocationBroadcastStatus.Broadcasting => "gps-live",
+		LocationBroadcastStatus.Starting
+			or LocationBroadcastStatus.WaitingForFix
+			or LocationBroadcastStatus.Stale
+			or LocationBroadcastStatus.PermissionNeeded => "gps-warn",
+		LocationBroadcastStatus.Suppressed => "gps-hidden",
+		LocationBroadcastStatus.PermissionBlocked or LocationBroadcastStatus.Failed => "gps-bad",
+		_ => "gps-idle",
+	};
+
+	/// <summary>
+	/// The whole of what this control announces. A glyph has no accessible name and there is no
+	/// caption beside it, so the state and what the tap will do both have to be said here —
+	/// <see cref="LocationBroadcastState.Describe"/> is the same sentence the settings screen and
+	/// the ride's menu use, so the three cannot drift.
+	/// </summary>
+	private string Label
+	{
+		get
+		{
+			LocationBroadcastState broadcast = _broadcast!;
+			string state = broadcast.Describe();
+
+			if (!broadcast.IsSupported)
+				return state;
+
+			return broadcast.IsRequested
+				? $"{state} Tap to turn your location off."
+				: $"{state} Tap to turn your location on.";
+		}
+	}
+
+	/// <summary>
+	/// Turns the device's broadcast off, or back on for whatever it was last turned off for
+	/// (§5.6). The state owns both halves — including the sharing flag on the server, which is
+	/// what stops a rider's last pin standing on everybody else's map after they go dark.
+	/// </summary>
+	private async Task ToggleAsync()
+	{
+		if (_broadcast is not { } broadcast || _busy)
+			return;
+
+		_busy = true;
+		try
+		{
+			if (broadcast.IsRequested)
+			{
+				string? failure = await broadcast.SuspendAsync();
+				ShowToast(failure is null
+					? "Location off — you are not being shared."
+					: $"Location off on this phone, but the adventure was not told: {failure}");
+				return;
+			}
+
+			IReadOnlyList<Guid> targets = broadcast.ResumeTargets(CurrentRide.RideId);
+			if (targets.Count == 0)
+			{
+				// Nothing suspended and no adventure open on this device. There is no such thing as
+				// broadcasting to nobody, so this says what is missing rather than pretending.
+				ShowToast("Open a group adventure first — there is nothing to share with.");
+				return;
+			}
+
+			string? refusal = await broadcast.ResumeAsync(targets);
+			ShowToast(refusal is null
+				? "Location on — you are being shared."
+				: $"Could not turn your location on: {refusal}");
+		}
+		finally
+		{
+			_busy = false;
+		}
+	}
+
+	/// <summary>
+	/// Puts a sentence beside the rail for <see cref="ToastDuration"/>.
+	/// <para>
+	/// The timer is restarted rather than queued, and the sequence is counted rather than the text
+	/// compared: a rider who taps off, on and off again inside the window sees the same words
+	/// twice, and an equality check would let the first timer clear the third one's message early.
+	/// </para>
+	/// </summary>
+	private void ShowToast(string message)
+	{
+		_toast = message;
+
+		int shown = ++_toastSequence;
+
+		_toastTimer?.Dispose();
+		_toastTimer = Clock.CreateTimer(
+			_ => _ = InvokeAsync(() =>
+			{
+				// A later message owns the slot now, and its own timer will clear it.
+				if (_toastSequence != shown)
+					return;
+
+				_toast = null;
+				StateHasChanged();
+			}),
+			state: null,
+			dueTime: ToastDuration,
+			period: Timeout.InfiniteTimeSpan);
+	}
+
+	private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+	public void Dispose()
+	{
+		if (_broadcast is not null)
+		{
+			_broadcast.Changed -= OnChanged;
+		}
+
+		_toastTimer?.Dispose();
+	}
+}

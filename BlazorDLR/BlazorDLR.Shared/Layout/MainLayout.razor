@@ -7,6 +7,7 @@
 @inject NotificationRouting Routing
 @inject NavigationManager Nav
 @inject IntroTourState Tour
+@inject LaunchRestore Restore
 @implements IDisposable
 
 @*
@@ -59,6 +60,13 @@
 	/// <c>OnInitialized</c> and read once, by <see cref="ShowIntroductionIfFirstRunAsync"/>.
 	/// </summary>
 	private bool _routedByNotification;
+
+	/// <summary>
+	/// The adventure this launch is waiting to reopen once the cold-launch bounce through Welcome
+	/// lands on Home, or <c>null</c> when there is nothing waiting. See
+	/// <see cref="ReopenLastAdventureAsync"/>.
+	/// </summary>
+	private string? _pendingAdventure;
 
 	/// <summary>
 	/// Subscribing here is what gives <see cref="CommentNotifier"/> a lifetime (§17.6).
@@ -132,13 +140,104 @@
 			// After first render, because the mobile store is the Keychain and the web's is behind
 			// JS interop, neither of which exists during the prerender pass.
 			// AuthState.RestoreAsync is idempotent, so a second render costs nothing.
-			await Auth.RestoreAsync();
+			await StepAsync("session", () => Auth.RestoreAsync());
+			DiagnosticLog.Write($"Startup: session is {(Auth.UserId is { } who ? who.ToString() : "anonymous")}.");
 
 			// After the session, because a rider who is already signed in on this device has run
 			// the app before and the introduction has nothing to tell them — the read below is the
 			// one that decides, and putting it first would race the restore for the navigation.
-			await ShowIntroductionIfFirstRunAsync();
+			await StepAsync("introduction", ShowIntroductionIfFirstRunAsync);
+
+			// And last, because it is the weakest claim on the screen of the three: a launch the
+			// introduction or a notification has already aimed somewhere keeps that destination.
+			await StepAsync("adventure", ReopenLastAdventureAsync);
 		}
+	}
+
+	/// <summary>
+	/// Runs one rung of the launch ladder, and writes down a failure rather than taking the rungs
+	/// below it down as well.
+	/// <para>
+	/// <strong>The sequence used to be unguarded, and that is a launch that loses everything after
+	/// the first stumble.</strong> The session restore reaches the network, and not every failure
+	/// there is one <c>AuthState</c> catches — a refresh that times out throws
+	/// <see cref="TaskCanceledException"/>, which is not an <see cref="HttpRequestException"/>. An
+	/// escape from that step took the introduction, the adventure and the GPS with it, silently,
+	/// leaving a rider on the home screen with a ride still running and nothing in the log to say
+	/// why. Each rung is independent, so each one is allowed to fail on its own.
+	/// </para>
+	/// </summary>
+	/// <param name="rung">What is being attempted, for the log.</param>
+	/// <param name="step">The rung.</param>
+	private static async Task StepAsync(string rung, Func<Task> step)
+	{
+		try
+		{
+			await step();
+		}
+		catch (Exception failure)
+		{
+			DiagnosticLog.Write($"Startup: the {rung} step failed: {failure.GetType().Name}: {failure.Message}");
+		}
+	}
+
+	/// <summary>
+	/// Puts the rider back on the adventure they were on, with the GPS running again if the server
+	/// still has them sharing with it (<see cref="LaunchRestore"/>).
+	/// <para>
+	/// <strong>Only onto a screen nobody else has claimed.</strong> A tapped notification, a shared
+	/// invitation and the introduction are all launches with a destination already, and a rider who
+	/// asked for one screen must not be moved off it by a ride they left running. Home is the
+	/// landing that means "wherever I was".
+	/// </para>
+	/// <para>
+	/// <strong>Except that a cold launch is not on Home yet.</strong> Home is <c>[Authorize]</c> and
+	/// the session is restored asynchronously, so the router has already bounced an authenticated
+	/// rider to Welcome by the time this runs, and Welcome sends them home again the moment the
+	/// session lands. Reading the URL at this instant therefore says "/welcome" on the launch this
+	/// was written for. So that one hop is waited out in <see cref="OnLocationChanged"/> rather than
+	/// mistaken for a screen the rider chose.
+	/// </para>
+	/// <para>
+	/// The receiver comes up either way — that half is not a navigation, and it is owed to a rider
+	/// the server still has on the map whatever screen they came back to. Neither half happens on a
+	/// host with no GPS behind it; <see cref="LaunchRestore"/> is where that is decided.
+	/// </para>
+	/// </summary>
+	private async Task ReopenLastAdventureAsync()
+	{
+		if (await Restore.RestoreAsync() is not { } adventure)
+			return;
+
+		if (_routedByNotification)
+			return;
+
+		string here = Path(Nav.Uri);
+
+		if (here is "/")
+		{
+			ReopenNow(adventure);
+			return;
+		}
+
+		if (here.StartsWith("/welcome", StringComparison.OrdinalIgnoreCase))
+		{
+			// Mid-bounce. Held rather than followed from here: navigating out of Welcome now would
+			// be overtaken by its own "you are signed in, go home", which is already queued.
+			DiagnosticLog.Write($"Startup: holding {adventure} until the sign-in bounce lands.");
+			_pendingAdventure = adventure;
+		}
+		else
+		{
+			DiagnosticLog.Write($"Startup: launched on {here}, so {adventure} is not reopened.");
+		}
+	}
+
+	/// <summary>Travels to the adventure the launch is putting the rider back on.</summary>
+	private void ReopenNow(string adventure)
+	{
+		DiagnosticLog.Write($"Startup: reopening the adventure this device was on ({adventure}).");
+		Nav.NavigateTo(adventure);
 	}
 
 	/// <summary>
@@ -192,8 +291,24 @@
 		Nav.LocationChanged -= OnLocationChanged;
 	}
 
-	private void OnLocationChanged(object? sender, LocationChangedEventArgs args) =>
+	private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+	{
 		DiagnosticLog.Write($"Page: {Path(args.Location)}{(args.IsNavigationIntercepted ? " (link)" : "")}.");
+
+		if (_pendingAdventure is not { } adventure)
+			return;
+
+		// One shot either way: the bounce lands on Home and the adventure opens, or the rider went
+		// somewhere of their own accord and the launch has lost its claim on the screen.
+		_pendingAdventure = null;
+
+		if (Path(args.Location) is "/")
+		{
+			// Deferred out of the event: this is raised from inside a navigation, and starting the
+			// next one underneath it re-enters the router.
+			_ = InvokeAsync(() => ReopenNow(adventure));
+		}
+	}
 
 	/// <summary>
 	/// The route without the scheme and host — which on the phone is a WebView's own invented

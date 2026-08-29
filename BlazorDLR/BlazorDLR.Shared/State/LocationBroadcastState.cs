@@ -120,6 +120,14 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	private readonly HashSet<Guid> _reasons = [];
 
 	/// <summary>
+	/// The rides <see cref="SuspendAsync"/> took the reasons from, so the same switch can put
+	/// them back (§5.6). Only the rider stopping the receiver themselves fills this: a ride that
+	/// ended, or one they left, drops its reason rather than parking it here to be resurrected.
+	/// </summary>
+	private readonly HashSet<Guid> _suspended = [];
+
+
+	/// <summary>
 	/// Guards <see cref="Status"/>, <see cref="Detail"/> and <see cref="LastPublishedUtc"/>, which
 	/// the fix pump and the sender both write since the publish moved off the pump.
 	/// </summary>
@@ -223,6 +231,13 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	public IReadOnlyCollection<Guid> Rides => _reasons;
 
 	/// <summary>
+	/// Whether the rider turned this device’s broadcast off themselves, rather than it never having
+	/// been asked for. What tells the rail’s switch it has something to turn back on.
+	/// </summary>
+	public bool IsSuspended => _suspended.Count > 0;
+
+
+	/// <summary>
 	/// Where this device believes it is — the last fix the platform produced, published or not,
 	/// including one refused by the §4.2 gate or suppressed by the private area — or <c>null</c>
 	/// when the receiver is off or has not produced one yet.
@@ -280,9 +295,9 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// </summary>
 	public string Describe() => Status switch
 	{
-		LocationBroadcastStatus.Off => IsSupported
-			? "Not sharing your location."
-			: "This device does not share its location.",
+		LocationBroadcastStatus.Off => !IsSupported ? "This device does not share its location."
+			: IsSuspended ? "You turned your location off on this phone."
+			: "Not sharing your location.",
 		LocationBroadcastStatus.Starting => "Starting the GPS…",
 		LocationBroadcastStatus.WaitingForFix => "Waiting for a GPS fix…",
 		LocationBroadcastStatus.Broadcasting => "Sharing your location.",
@@ -311,6 +326,9 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <param name="rideId">The ride this rider has consented to share with (§5.6).</param>
 	public Task ShareWithAsync(Guid rideId)
 	{
+		// Turned on by the ride’s own switch, so the rail’s switch no longer owes it a resume.
+		_suspended.Remove(rideId);
+
 		if (_disposed || !_reasons.Add(rideId))
 		{
 			return Task.CompletedTask;
@@ -327,6 +345,9 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <param name="rideId">The ride whose sharing was turned off, or that was left.</param>
 	public Task StopSharingAsync(Guid rideId)
 	{
+		// Ended, left or removed — whatever this was, it is not a ride the switch may resume.
+		_suspended.Remove(rideId);
+
 		if (!_reasons.Remove(rideId) || _reasons.Count > 0)
 		{
 			Raise();
@@ -343,7 +364,94 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	public Task StopAllAsync()
 	{
 		_reasons.Clear();
+		_suspended.Clear();
 		return StopAsync();
+	}
+
+	/// <summary>
+	/// Turns the whole device’s broadcast off on the rider’s say-so, and remembers what it turned
+	/// off so the same tap can put it back (§5.6).
+	/// <para>
+	/// <strong>The flag on the server goes first.</strong> Same ordering, and the same reason, as
+	/// <c>RideSession.SetSharingAsync</c>: a receiver stopped while the flag still stands leaves this
+	/// rider’s last position on everybody else’s map with nothing arriving to move it, which is worse
+	/// than not being on it at all.
+	/// </para>
+	/// <para>
+	/// The receiver stops whether or not the server took the flag. The rider asked for the GPS off,
+	/// and a request that failed is not a reason to go on transmitting — the caller says so instead.
+	/// </para>
+	/// </summary>
+	/// <returns>The first refusal from the server, or <c>null</c> when every ride was updated.</returns>
+	public async Task<string?> SuspendAsync()
+	{
+		Guid[] rides = [.. _reasons];
+		string? failure = null;
+
+		foreach (Guid ride in rides)
+		{
+			try
+			{
+				await _api.SetSharingAsync(ride, new SetSharingRequest(false));
+			}
+			catch (Exception exception)
+			{
+				failure ??= exception.Message;
+			}
+		}
+
+		_suspended.Clear();
+		_suspended.UnionWith(rides);
+		_reasons.Clear();
+
+		await StopAsync();
+		return failure;
+	}
+
+	/// <summary>
+	/// Which rides one tap of the switch would turn back on — what <see cref="SuspendAsync"/> last
+	/// took away, or the adventure this device is on when it has taken nothing away.
+	/// <para>
+	/// The fallback is what makes the switch usable on a phone that has just been opened: the
+	/// suspended set does not survive a restart, and a rider looking at their adventure means that
+	/// adventure when they turn the GPS on.
+	/// </para>
+	/// </summary>
+	/// <param name="currentRideId">The ride this device last opened, or <c>null</c> if there is none.</param>
+	public IReadOnlyList<Guid> ResumeTargets(Guid? currentRideId) =>
+		_suspended.Count > 0 ? [.. _suspended]
+		: currentRideId is { } ride ? [ride]
+		: [];
+
+	/// <summary>
+	/// Puts sharing back on for those rides and starts the receiver.
+	/// <para>
+	/// The server first again, and here a refusal <em>does</em> stop the receiver coming up: a phone
+	/// publishing into a ride whose flag is off spends a foreground service and a GPS on fixes the
+	/// server drops, while telling the rider they are being seen.
+	/// </para>
+	/// </summary>
+	/// <param name="rides">What <see cref="ResumeTargets"/> answered.</param>
+	/// <returns>The server’s refusal, or <c>null</c> when the receiver was asked to start.</returns>
+	public async Task<string?> ResumeAsync(IReadOnlyList<Guid> rides)
+	{
+		foreach (Guid ride in rides)
+		{
+			try
+			{
+				await _api.SetSharingAsync(ride, new SetSharingRequest(true));
+			}
+			catch (Exception exception)
+			{
+				return exception.Message;
+			}
+		}
+
+		_suspended.Clear();
+		_reasons.UnionWith(rides);
+
+		await EnsureRunningAsync();
+		return null;
 	}
 
 	private async Task EnsureRunningAsync()

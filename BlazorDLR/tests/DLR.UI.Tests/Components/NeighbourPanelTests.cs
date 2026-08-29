@@ -1,4 +1,4 @@
-﻿using BlazorDLR.Shared.Components;
+using BlazorDLR.Shared.Components;
 using BlazorDLR.Shared.Services;
 using Bunit;
 using DLR.Core.Display;

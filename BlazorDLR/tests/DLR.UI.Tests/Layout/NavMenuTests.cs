@@ -3,6 +3,7 @@ using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
+using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.UI.Tests.Fakes;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -23,6 +24,7 @@ public sealed class NavMenuTests : BunitContext
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
 	private readonly InMemoryDeviceSettings _settings = new();
+	private readonly FakeRideHubClient _hub = new();
 
 	private AuthState WireAuth()
 	{
@@ -41,6 +43,11 @@ public sealed class NavMenuTests : BunitContext
 		// as everywhere else in these tests.
 		Services.AddSingleton<IDeviceSettings>(_settings);
 		Services.AddSingleton<CurrentRideState>();
+
+		// The thread item's unread count (§17.6), which the rail draws from posts arriving on the
+		// hub — so a nav rendered without one would not compile a badge at all.
+		Services.AddSingleton<IRideHubClient>(_hub);
+		Services.AddSingleton<UnreadThreadState>();
 
 		this.CascadeAuthenticationState(auth);
 		return auth;
@@ -276,6 +283,118 @@ public sealed class NavMenuTests : BunitContext
 			AngleSharp.Dom.IElement thread = Thread(component);
 			thread.GetAttribute("href").ShouldBe($"group-rides/thread/{rideId}");
 			thread.GetAttribute("aria-label").ShouldBe("Adventure thread");
+			thread.QuerySelector(".count-badge").ShouldBeNull(
+				"a badge is a claim that something is waiting; one on a thread nobody has posted to "
+				+ "is a permanent decoration the rider learns to stop seeing.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
+
+	[Fact]
+	public async Task Thread_WhenAPostArrives_WearsTheCount_AndSaysItInTheName()
+	{
+		// The rail is on screen and the thread is not — a rider on the live map, which is where
+		// they are for most of a ride. Nothing else on any screen says the group is talking.
+		Guid rideId = Guid.NewGuid();
+		await _settings.SetAsync(CurrentRideState.StorageKey, rideId.ToString("N"));
+
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+		component.WaitForAssertion(() => Thread(component).GetAttribute("href").ShouldBe($"group-rides/thread/{rideId}"));
+
+		_hub.RaiseCommentPosted(Post(rideId, Guid.NewGuid()));
+		_hub.RaiseCommentPosted(Post(rideId, Guid.NewGuid()));
+
+		component.WaitForAssertion(() =>
+		{
+			AngleSharp.Dom.IElement thread = Thread(component);
+			thread.QuerySelector(".count-badge").ShouldNotBeNull().TextContent.Trim().ShouldBe("2");
+
+			// The rail is glyph-only, so the anchor's name is the whole of what a screen reader
+			// gets — and a link's name replaces anything inside it, badge included.
+			thread.GetAttribute("aria-label").ShouldBe("Adventure thread, 2 unread");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Thread_DoesNotCountTheRidersOwnPosts()
+	{
+		// Every post a rider makes comes straight back down the hub they published it on, so
+		// without the author check the badge would count their own half of the conversation.
+		Guid rideId = Guid.NewGuid();
+		await _settings.SetAsync(CurrentRideState.StorageKey, rideId.ToString("N"));
+
+		AuthState auth = await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+		component.WaitForAssertion(() => Thread(component).GetAttribute("href").ShouldBe($"group-rides/thread/{rideId}"));
+
+		_hub.RaiseCommentPosted(Post(rideId, auth.UserId!.Value));
+
+		component.WaitForAssertion(
+			() => Thread(component).QuerySelector(".count-badge").ShouldBeNull(),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Thread_AfterARestart_StillWearsWhatWasNotRead()
+	{
+		// The case the counts are persisted for: a phone the OS reclaimed mid-ride relaunches on
+		// the home screen, and the two posts the rider had not read are still two posts.
+		Guid rideId = Guid.NewGuid();
+		await _settings.SetAsync(CurrentRideState.StorageKey, rideId.ToString("N"));
+		await _settings.SetAsync(UnreadThreadState.StorageKey, $"1|{rideId:N}:2");
+
+		await SignInAsync();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(
+			() => Thread(component).QuerySelector(".count-badge").ShouldNotBeNull().TextContent.Trim().ShouldBe("2"),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task Rail_PutsTheGpsSwitchAfterEveryDestination()
+	{
+		// Order is the whole of the placement rule: last child is the foot of the left rail and the
+		// far right of the bar along the bottom, which is the corner a thumb reaches without leaving
+		// the bars. Nothing in the CSS moves it — see MainLayout.razor.css.
+		await SignInAsync();
+		Services.AddSingleton<ILocationProvider>(new FakeLocationProvider());
+		Services.AddSingleton<ConfirmService>();
+		Services.AddSingleton<PrivateAreaState>();
+		Services.AddSingleton<LocationUpdateRateState>();
+		Services.AddSingleton<TrackRecordingState>();
+		Services.AddSingleton<LocationBroadcastState>();
+
+		IRenderedComponent<NavMenu> component = Render<NavMenu>();
+
+		component.WaitForAssertion(
+			() =>
+			{
+				AngleSharp.Dom.IElement[] items = component.FindAll(".rail-item").ToArray();
+				items.Length.ShouldBe(6, "the five destinations, and the switch after them.");
+				items[^1].ClassList.ShouldContain("gps-switch");
+				items[^1].TagName.ShouldBe("BUTTON",
+					"it does something rather than going somewhere — which is also why the rail still has five links.");
+			},
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	private static CommentDto Post(Guid rideId, Guid authorId) =>
+		new(
+			Id: Guid.NewGuid(),
+			GroupRideId: rideId,
+			TrackId: null,
+			AuthorId: authorId,
+			AuthorUserName: "SarahJones",
+			Kind: CommentKindDto.Text,
+			Body: "Fuel at the servo in 8 km.",
+			PhotoId: null,
+			IsPinned: false,
+			CreatedUtc: FixedInstant,
+			PostedUtc: FixedInstant,
+			EditedUtc: null,
+			AuthoredEarlier: false);
 }

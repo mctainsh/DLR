@@ -69,6 +69,36 @@ public sealed class CurrentRideStateTests
 	}
 
 	[Fact]
+	public async Task ASecondCallerOnTheSameRender_WaitsForTheReadRatherThanBeingToldItHappened()
+	{
+		// The rail and the launch restore both ask on first render (§18.6). The rail gets there
+		// first and the store has not answered yet; the second caller used to be told "already
+		// loaded" and read a null ride id out of it, which is a relaunch that decides this device
+		// has never opened an adventure while the answer is still in flight.
+		ControllableSettings settings = new();
+		Guid rideId = Guid.NewGuid();
+
+		await new CurrentRideState(settings).SetAsync(rideId);
+
+		CurrentRideState state = new(settings);
+		settings.Gate = new TaskCompletionSource();
+
+		Task first = state.LoadAsync();
+		Task second = state.LoadAsync();
+
+		first.IsCompleted.ShouldBeFalse("the store has not answered yet.");
+		second.IsCompleted.ShouldBeFalse("and neither caller may run on ahead of it.");
+
+		settings.Gate.SetResult();
+		await Task.WhenAll(first, second);
+
+		state.RideId.ShouldBe(rideId,
+			"§18.6: both callers must see the ride the device was holding, whichever of them asked first.");
+
+		settings.Reads.ShouldBe(1, "and one render must not cost two round trips to the device.");
+	}
+
+	[Fact]
 	public async Task ARideOpenedOnOneRun_IsThereOnTheNext()
 	{
 		// Two states over one store is what a restart looks like from here: the app that wrote it

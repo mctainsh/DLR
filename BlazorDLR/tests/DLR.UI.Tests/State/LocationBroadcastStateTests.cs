@@ -894,4 +894,133 @@ public sealed class LocationBroadcastStateTests
 		update.SpeedMps.ShouldBeNull("the platform did not say, which is not the same as zero (§8).");
 		update.HeadingDeg.ShouldBeNull();
 	}
+
+	// ---------- The rail’s switch (§5.6, §18.6) ----------
+
+	[Fact]
+	public async Task Suspending_ClearsTheFlagOnTheServer_AsWellAsStoppingTheReceiver()
+	{
+		// The half that is easy to forget. A receiver stopped while the flag still stands leaves
+		// this rider’s last pin on everybody else’s map with nothing arriving to move it — stopped,
+		// a few streets from wherever they went dark, which is worse than not being on it at all.
+		Harness harness = new Harness().Build();
+		Guid ride = Guid.NewGuid();
+
+		await harness.Broadcast.ShareWithAsync(ride);
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		string? failure = await harness.Broadcast.SuspendAsync();
+
+		failure.ShouldBeNull();
+		harness.Api.SetSharingRequests.ShouldContain((ride, new SetSharingRequest(false)));
+		harness.Broadcast.Status.ShouldBe(LocationBroadcastStatus.Off);
+		harness.Broadcast.IsRequested.ShouldBeFalse();
+		harness.Broadcast.IsSuspended.ShouldBeTrue(
+			"the switch has to remember what it turned off, or the same tap cannot turn it back on.");
+	}
+
+	[Fact]
+	public async Task Resuming_PutsBackExactlyWhatTheSwitchTookAway()
+	{
+		Harness harness = new Harness().Build();
+		Guid ride = Guid.NewGuid();
+
+		await harness.Broadcast.ShareWithAsync(ride);
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+		await harness.Broadcast.SuspendAsync();
+
+		// No current ride passed, deliberately: what was suspended wins over wherever the device
+		// happens to be pointing, or a rider sharing with two adventures comes back on one.
+		IReadOnlyList<Guid> targets = harness.Broadcast.ResumeTargets(currentRideId: null);
+		targets.ShouldBe([ride]);
+
+		(await harness.Broadcast.ResumeAsync(targets)).ShouldBeNull();
+
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 2, "the receiver to come back");
+		harness.Api.SetSharingRequests.ShouldContain((ride, new SetSharingRequest(true)));
+		harness.Broadcast.IsSuspended.ShouldBeFalse();
+	}
+
+	[Fact]
+	public void WithNothingSuspended_TheSwitchOffersTheAdventureThisDeviceIsOn()
+	{
+		// The relaunch case, which is most of them: the suspended set lives for as long as the app
+		// does, and a rider looking at their adventure means that one when they turn the GPS on.
+		Harness harness = new Harness().Build();
+		Guid current = Guid.NewGuid();
+
+		harness.Broadcast.ResumeTargets(current).ShouldBe([current]);
+		harness.Broadcast.ResumeTargets(currentRideId: null).ShouldBeEmpty(
+			"there is no such thing as broadcasting to nobody — the caller has to be able to say so.");
+	}
+
+	[Fact]
+	public async Task AServerThatRefusesTheFlag_LeavesTheReceiverOff()
+	{
+		// A phone publishing into a ride whose flag is off spends a foreground service and a GPS on
+		// fixes the server drops, while the app tells the rider they are being seen.
+		Harness harness = new Harness().Build();
+		Guid ride = Guid.NewGuid();
+		harness.Api.SetSharingException = new ApiException(
+			new ApiError(System.Net.HttpStatusCode.ServiceUnavailable, "The adventure could not be reached.", []));
+
+		string? refusal = await harness.Broadcast.ResumeAsync([ride]);
+
+		refusal.ShouldBe("The adventure could not be reached.");
+		harness.Provider.WatchCount.ShouldBe(0);
+		harness.Broadcast.IsRequested.ShouldBeFalse();
+	}
+
+	[Fact]
+	public async Task ARefusalOnTheWayOut_StopsTheReceiverAnyway_AndSaysWhy()
+	{
+		// The opposite trade to the test above. The rider asked for the GPS off; a request that did
+		// not land is not a reason to go on transmitting. The caller reports it instead.
+		Harness harness = new Harness().Build();
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		harness.Api.SetSharingException = new ApiException(
+			new ApiError(System.Net.HttpStatusCode.ServiceUnavailable, "No network.", []));
+
+		(await harness.Broadcast.SuspendAsync()).ShouldBe("No network.");
+
+		harness.Broadcast.Status.ShouldBe(LocationBroadcastStatus.Off);
+		harness.Provider.Stopped.ShouldBeTrue();
+	}
+
+	[Fact]
+	public async Task ARideThatGoesAway_IsNotSomethingTheSwitchBringsBack()
+	{
+		// Ended, left or removed. Resurrecting one of those would put a rider back on a map they
+		// are not on, from a control that says nothing about which adventure it means.
+		Harness harness = new Harness().Build();
+		Guid ride = Guid.NewGuid();
+
+		await harness.Broadcast.ShareWithAsync(ride);
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+
+		await harness.Broadcast.SuspendAsync();
+		await harness.Broadcast.StopSharingAsync(ride);
+
+		harness.Broadcast.IsSuspended.ShouldBeFalse();
+		harness.Broadcast.ResumeTargets(currentRideId: null).ShouldBeEmpty();
+	}
+
+	[Fact]
+	public async Task TheTwoOffs_DoNotReadTheSame()
+	{
+		// "Nothing is asking" and "you turned it off" are different answers to the only question a
+		// rider is asking of the switch, and the second one is the one they can undo.
+		Harness harness = new Harness().Build();
+
+		harness.Broadcast.Describe().ShouldBe("Not sharing your location.");
+
+		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
+		await harness.UntilAsync(() => harness.Provider.WatchCount == 1, "the receiver to start");
+		await harness.Broadcast.SuspendAsync();
+
+		harness.Broadcast.Describe().ShouldBe("You turned your location off on this phone.");
+	}
 }

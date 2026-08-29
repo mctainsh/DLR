@@ -40,6 +40,7 @@
     --dlr-error:         #f87171;
     --dlr-error-bg:      #451818;
     --dlr-error-border:  #7f1d1d; /* the destructive button's edge — reads as red against #451818 */
+    --dlr-warn:          #fbbf24; /* "working on it" — a GPS warming up, a fix going stale */
     --dlr-warn-bg:       #422006;
     --dlr-good:          #4ade80;
 
