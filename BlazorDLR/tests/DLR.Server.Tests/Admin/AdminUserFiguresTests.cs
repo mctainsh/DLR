@@ -127,6 +127,30 @@ public sealed class AdminUserFiguresTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
+	/// An underscore is a legal username character (§7.2), so it has to reach <c>ILIKE</c> as text.
+	/// Unescaped it is a wildcard, and this search returns every account on the server.
+	/// </summary>
+	[Fact]
+	public async Task TheSearch_TreatsAWildcardAsACharacter()
+	{
+		await using DlrWebApplicationFactory app =
+			await DlrWebApplicationFactory.CreateAsync(postgres, settings: AdminRosterSettings.Roster("TheAdmin"));
+
+		using HttpClient client = app.CreateClient();
+
+		TokenResponse session = await client.RegisterAsync("TheAdmin");
+		await app.CreateClient().RegisterAsync("Dave_Smith");
+		await app.CreateClient().RegisterAsync("SarahJones");
+
+		using HttpClient authed = app.CreateClient().Authenticated(session);
+
+		IReadOnlyList<AdminUserRow> matched =
+			(await authed.GetFromJsonAsync<List<AdminUserRow>>($"{UsersUrl}?search=_"))!;
+
+		matched.Select(row => row.UserName).ShouldBe(["Dave_Smith"]);
+	}
+
+	/// <summary>
 	/// The email address is on this screen on purpose — it is how somebody is reached when
 	/// something has gone wrong — but nothing else off the account row may travel with it.
 	/// </summary>

@@ -20,7 +20,7 @@ internal static class SourceTree
 	private const string RulebookProject = "tests/DLR.Architecture.Tests/";
 
 	/// <summary>
-	/// Where server-side C# lives after the migration into the BlazorDLR solution. The
+	/// Every project holding hand-written C#, host shells included. The
 	/// architecture rules were written against a <c>src/</c> tree; keeping the "src/"
 	/// prefix synonymous with those directories lets the rules keep their existing
 	/// <see cref="Under"/> calls unchanged.
@@ -28,6 +28,8 @@ internal static class SourceTree
 	private static readonly (string Prefix, string Directory)[] TopLevels =
 	[
 		("src/BlazorDLR.Web/", "BlazorDLR.Web"),
+		("src/BlazorDLR.Web.Client/", "BlazorDLR.Web.Client"),
+		("src/BlazorDLR/", "BlazorDLR"),
 		("src/BlazorDLR.Shared/", "BlazorDLR.Shared"),
 		("src/DLR.Core/", "DLR.Core"),
 		("src/DLR.Server.Migrations/", "DLR.Server.Migrations"),

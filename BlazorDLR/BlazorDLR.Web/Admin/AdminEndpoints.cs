@@ -80,11 +80,11 @@ public sealed class AdminController : ControllerBase
 
 		if (!string.IsNullOrWhiteSpace(search))
 		{
-			string pattern = $"%{search.Trim()}%";
+			string pattern = $"%{Escape(search.Trim())}%";
 
 			// ILIKE through EF.Functions rather than ToLower().Contains(), which cannot use an
 			// index and would table-scan every account on every keystroke.
-			accounts = accounts.Where(user => EF.Functions.ILike(user.UserName!, pattern));
+			accounts = accounts.Where(user => EF.Functions.ILike(user.UserName!, pattern, EscapeCharacter));
 		}
 
 		var rows = await accounts
@@ -250,4 +250,18 @@ public sealed class AdminController : ControllerBase
 			WindowStartUtc: windowStart,
 			MeterStartedUtc: meter.StartedUtc));
 	}
+
+	/// <summary>The backslash, as the escape character handed to <c>ILIKE</c>.</summary>
+	private const string EscapeCharacter = "\\";
+
+	/// <summary>
+	/// Escapes what an administrator typed so <c>%</c> and <c>_</c> are the characters they typed
+	/// rather than wildcards. Without this, a search for <c>_</c> matches every one-character
+	/// username and one for <c>%</c> matches every account there is.
+	/// </summary>
+	/// <param name="value">The trimmed search text.</param>
+	private static string Escape(string value) => value
+		.Replace("\\", "\\\\", StringComparison.Ordinal)
+		.Replace("%", "\\%", StringComparison.Ordinal)
+		.Replace("_", "\\_", StringComparison.Ordinal);
 }
