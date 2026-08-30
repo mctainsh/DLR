@@ -188,7 +188,21 @@ public sealed class RideRouteController : ControllerBase
 		[FromServices] DlrDbContext database,
 		[FromServices] IHubContext<RideHub, IRideClient> hub)
 	{
-		if (await AuthoriseWriteAsync(database, id) is { } refusal)
+		if (User.UserId() is not { } userId)
+		{
+			return Unauthorized();
+		}
+
+		// The track's owner may always withdraw their own line — whatever their role here, and
+		// whether or not they are still on the adventure. §19.2's rule about un-sharing a route
+		// is the same one: what happens to your own row is your call. Without it the §15.4 guard
+		// on editing is a permanent lock, because a leader who attached a track and later left
+		// could neither detach it nor act on the advice to.
+		bool ownsTrack = await database
+			.Set<Track>()
+			.AnyAsync(row => row.Id == trackId && row.OwnerId == userId);
+
+		if (!ownsTrack && await AuthoriseWriteAsync(database, id) is { } refusal)
 		{
 			return refusal;
 		}

@@ -307,6 +307,85 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 		orphans.ShouldBe(0);
 	}
 
+	/// <summary>
+	/// The lock v0.32 would otherwise have created. §15.4 refuses to edit or delete a track that is
+	/// any adventure's route, and the way through is to detach it — so a track owner who is not the
+	/// organiser has to be able to, or the advice is unactionable and their own track is held for
+	/// ever. Same rule as §19.2's un-sharing: what happens to your own row is your call.
+	/// </summary>
+	[Fact]
+	public async Task Detach_ByTheTracksOwner_IsAllowedWithoutBeingTheOrganiser()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient member = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser);
+
+		await JoinAsync(app, member, ride.Id);
+
+		// The member's own track, attached while they were a leader — the only way it gets on.
+		TrackSummary track = await UploadAsync(member, "Sam's loop", points: 30);
+
+		await app.WithDatabaseAsync(async database =>
+			await database
+				.Set<GroupRideMember>()
+				.Where(row => row.GroupRideId == ride.Id && row.User!.UserName == "SamJones")
+				.ExecuteUpdateAsync(row => row.SetProperty(m => m.Role, GroupRideRole.Leader)));
+
+		await AttachAsync(member, ride.Id, track.Id);
+
+		// Demoted back to a rider, which is where the old lifecycle used to save them: the ride
+		// would finish and release the guard. Nothing does that now.
+		await app.WithDatabaseAsync(async database =>
+			await database
+				.Set<GroupRideMember>()
+				.Where(row => row.GroupRideId == ride.Id && row.User!.UserName == "SamJones")
+				.ExecuteUpdateAsync(row => row.SetProperty(m => m.Role, GroupRideRole.Rider)));
+
+		using (HttpResponseMessage detached = await member.DeleteAsync(
+			$"{RidesUrl}/{ride.Id}/routes/{track.Id}"))
+		{
+			detached.StatusCode.ShouldBe(HttpStatusCode.NoContent, await detached.Content.ReadAsStringAsync());
+		}
+
+		(await ListAsync(organiser, ride.Id)).ShouldBeEmpty();
+
+		// And the point of the whole thing: their track is theirs to delete again.
+		using HttpResponseMessage deleted = await member.DeleteAsync($"{TracksUrl}/{track.Id}");
+
+		deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent, await deleted.Content.ReadAsStringAsync());
+	}
+
+	/// <summary>
+	/// The other half: owning the track is what widens the rule, not being in the adventure. A
+	/// member detaching somebody else's route is still the organiser's decision (§5.4).
+	/// </summary>
+	[Fact]
+	public async Task Detach_ByAMemberWhoDoesNotOwnTheTrack_IsRefused()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+		using HttpClient member = await SignedInAsync(app, "SamJones");
+
+		RideDetail ride = await CreateRideAsync(organiser);
+
+		await JoinAsync(app, member, ride.Id);
+
+		TrackSummary track = await UploadAsync(organiser, "The organiser's loop", points: 30);
+
+		await AttachAsync(organiser, ride.Id, track.Id);
+
+		using HttpResponseMessage refused = await member.DeleteAsync(
+			$"{RidesUrl}/{ride.Id}/routes/{track.Id}");
+
+		refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await refused.Content.ReadAsStringAsync());
+
+		(await ListAsync(organiser, ride.Id)).Length.ShouldBe(1);
+	}
+
 	private static async Task<RideRoute[]> ListAsync(HttpClient client, Guid rideId)
 	{
 		using HttpResponseMessage response = await client.GetAsync($"{RidesUrl}/{rideId}/routes");

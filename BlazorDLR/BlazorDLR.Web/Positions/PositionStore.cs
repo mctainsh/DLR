@@ -206,6 +206,63 @@ public sealed class PositionStore(
 		return deleted;
 	}
 
+	/// <summary>
+	/// Deletes positions belonging to a rider who is not sharing with that adventure — including
+	/// one who is no longer a member of it at all (§10.1, §7.11).
+	/// </summary>
+	/// <returns>How many rows went. <strong>Any number but zero is a defect having fired.</strong></returns>
+	/// <remarks>
+	/// A position is only ever written for a member whose <c>ShareLocation</c> is set — the filter
+	/// is on the write, in <see cref="PublishAsync"/> — so a row that fails that test is not a
+	/// stale row, it is a row that should not exist. §13 Q29 is the way it happens: a flush that
+	/// snapshotted its batch before a concurrent delete completes its write afterwards and puts
+	/// the row back. This is the backstop, not the fix; the fix is a tombstone the flush filters
+	/// against, or a membership join in the upsert.
+	/// <para>
+	/// <c>rider_position</c> has <strong>no foreign key to <c>group_ride_member</c></strong>
+	/// (§5.6), so a member row going away cascades nothing and the second arm below is reachable
+	/// on its own.
+	/// </para>
+	/// </remarks>
+	public async Task<int> ClearOrphanedAsync()
+	{
+		List<OrphanedPosition> orphans = await OrphanedQuery()
+			.AsNoTracking()
+			.Select(position => new OrphanedPosition(position.GroupRideId, position.UserId))
+			.ToListAsync();
+
+		if (orphans.Count == 0)
+		{
+			return 0;
+		}
+
+		int deleted = await OrphanedQuery().ExecuteDeleteAsync();
+
+		// Materialised rather than swept by age like ClearIdleAsync, because this set is expected
+		// to be empty: paying for the keys is what lets the cache be evicted precisely.
+		foreach (OrphanedPosition orphan in orphans)
+		{
+			cache.Remove(orphan.RideId, orphan.UserId);
+		}
+
+		return deleted;
+	}
+
+	/// <summary>Counts what <see cref="ClearOrphanedAsync"/> would take, for a dry run.</summary>
+	public Task<int> CountOrphanedAsync() => OrphanedQuery().CountAsync();
+
+	private IQueryable<RiderPosition> OrphanedQuery() =>
+		database
+			.Set<RiderPosition>()
+			.Where(position => !database
+				.Set<GroupRideMember>()
+				.Any(member => member.GroupRideId == position.GroupRideId
+					&& member.UserId == position.UserId
+					&& member.ShareLocation));
+
+	/// <summary>One orphaned row's cache key.</summary>
+	private sealed record OrphanedPosition(Guid RideId, Guid UserId);
+
 	/// <summary>Counts what <see cref="ClearIdleAsync"/> would take, for a dry run (§7.11).</summary>
 	/// <param name="floor">The oldest fix worth keeping.</param>
 	public Task<int> CountIdleAsync(DateTimeOffset floor) =>

@@ -1413,20 +1413,51 @@ own `ArchivedUtc` column, its own sweep and a test that the sweep runs — which
 replaces never had.
 **Refs:** §5.1, §5.6, §5.7, §7.3, §7.11, §10.1, §17.6
 
+### SRV-37 — The not-sharing position sweep, and the track that could not be unlocked ✅
+**Status:** `PositionStore.ClearOrphanedAsync` / `CountOrphanedAsync` and a second nightly sweep
+reporting `MaintenanceReport.OrphanedPositionsDeleted`; the route detach endpoint now also admits
+the track's own owner. 5 tests.
+**First red test:** `NightlySweep_DeletesAPositionForARiderWhoIsNotSharing`
+**Then:** `NightlySweep_DeletesAPositionLeftBehindByAMembershipThatIsGone`,
+`NightlySweep_DryRun_CountsOrphanedPositionsAndDeletesNothing`,
+`Detach_ByTheTracksOwner_IsAllowedWithoutBeingTheOrganiser`,
+`Detach_ByAMemberWhoDoesNotOwnTheTrack_IsRefused`
+**Why, and it is a correction to SRV-36.** The sweep SRV-36 removed did more than reclaim rows for
+finished adventures: it was §13 Q29's backstop, catching a position the flush/delete race had
+resurrected once the ride ended. The fourteen-day idle rule that replaced it would not have caught
+one for a fortnight, so SRV-36 quietly lengthened the exposure on the one thing §10.1 promises does
+not exist. This states the invariant directly instead — a position may not exist for a rider who is
+not sharing — which is stronger than what was lost, because it does not wait for the adventure to
+finish.
+**Watch out — this sweep counts a defect, not housekeeping.** Its own number and its own line in
+the report, deliberately: added into `PositionsDeleted` it would be one more bit of nightly noise,
+and the whole value is that a non-zero count means the race fired. Nothing else in the product
+would ever tell you.
+**Watch out — the second arm is reachable on its own.** `rider_position` has no foreign key to
+`group_ride_member` (§5.6), so a member row going away leaves the position behind with no flag to
+test. The predicate is "no member row with `ShareLocation` set", which covers both.
+**Watch out — §15.4's edit guard became a permanent lock.** With no lifecycle, "this track is an
+adventure's route" never expires, and detaching needed Owner or Leader. A leader who attached their
+own track and was later demoted or left could neither edit nor delete their own track, and the
+refusal told them to do the one thing they could not. The track's owner may now always withdraw
+their own line — §19.2's rule about un-sharing your own row, applied to an attachment.
+**Refs:** §5.6, §7.11, §10.1, §13 Q29, §15.4, §19.2
+
 ---
 
 ## The server list is complete — and three things are owed before real riders
 
-Every task SRV-01 … SRV-36 is marked. 514 server tests green, `dotnet format --verify-no-changes` clean,
+Every task SRV-01 … SRV-37 is marked. 519 server tests green, `dotnet format --verify-no-changes` clean,
 architecture tests green, licence gate exit 0, and the image builds and reports healthy. What is
 *not* done is deliberately listed here rather than left to be discovered:
 
 - **§13 Q29, the flush/delete race (SRV-22).** A flush already in flight can re-insert a position
   row a concurrent delete has just removed. One round trip wide, so rare rather than impossible —
-  but what it leaves behind is exactly the position at rest §10.1 forbids, and the nightly sweep is
-  the only backstop. **Close it before live sharing is on for anyone real.** It needs a tombstone
-  the flush filters against, or a membership join in the upsert; neither ordering of delete-and-evict
-  closes it.
+  but what it leaves behind is exactly the position at rest §10.1 forbids. **Close it before live
+  sharing is on for anyone real.** It needs a tombstone the flush filters against, or a membership
+  join in the upsert; neither ordering of delete-and-evict closes it. SRV-37's not-sharing sweep is
+  a backstop with a number on it, not a fix: it bounds the exposure to a day and makes the race
+  visible in the nightly report, which is the first time anybody would know it had happened.
 - **The restore drill (SRV-35).** A backup nobody has restored is a hope. The commands are in
   `deploy/README.md`; B2's restore egress is free up to three times the stored volume, so it costs
   nothing but the hour.

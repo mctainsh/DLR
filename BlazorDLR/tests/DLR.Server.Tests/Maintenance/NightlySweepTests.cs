@@ -499,6 +499,107 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 			return ride.Id;
 		});
 
+	/// <summary>
+	/// §10.1's invariant, swept: a position may not exist for a rider who is not sharing with that
+	/// adventure. Not housekeeping — a row that fails this test is §13 Q29's flush/delete race
+	/// having fired, and until v0.32 the ride-state sweep caught it when the adventure ended.
+	/// </summary>
+	[Fact]
+	public async Task NightlySweep_DeletesAPositionForARiderWhoIsNotSharing()
+	{
+		await using DlrWebApplicationFactory app =
+			await DlrWebApplicationFactory.CreateAsync(postgres, settings: Live);
+
+		Guid riderId = await AccountAsync(app, "DaveSmith");
+
+		Guid sharing = await RideAsync(app, riderId);
+		Guid stopped = await RideAsync(app, riderId);
+
+		await app.WithDatabaseAsync(async database =>
+		{
+			// Fresh, so the idle sweep is not what takes it — this is the other rule.
+			database.Add(Position(sharing, riderId, app.Clock.GetUtcNow()));
+			database.Add(Position(stopped, riderId, app.Clock.GetUtcNow()));
+
+			await database
+				.Set<GroupRideMember>()
+				.Where(member => member.GroupRideId == stopped)
+				.ExecuteUpdateAsync(row => row.SetProperty(member => member.ShareLocation, false));
+
+			await database.SaveChangesAsync();
+		});
+
+		MaintenanceReport report = await app.RunMaintenanceAsync();
+
+		report.OrphanedPositionsDeleted.ShouldBe(1);
+		report.PositionsDeleted.ShouldBe(0, "the row is fresh — it is wrong, not stale");
+
+		(await PositionCountAsync(app, stopped)).ShouldBe(0);
+		(await PositionCountAsync(app, sharing)).ShouldBe(1, "a rider who is sharing keeps their pin");
+	}
+
+	/// <summary>
+	/// <c>rider_position</c> has no foreign key to <c>group_ride_member</c> (§5.6), so a member row
+	/// going away cascades nothing and leaves the position behind on its own.
+	/// </summary>
+	[Fact]
+	public async Task NightlySweep_DeletesAPositionLeftBehindByAMembershipThatIsGone()
+	{
+		await using DlrWebApplicationFactory app =
+			await DlrWebApplicationFactory.CreateAsync(postgres, settings: Live);
+
+		Guid riderId = await AccountAsync(app, "DaveSmith");
+
+		Guid rideId = await RideAsync(app, riderId);
+
+		await app.WithDatabaseAsync(async database =>
+		{
+			database.Add(Position(rideId, riderId, app.Clock.GetUtcNow()));
+
+			await database.SaveChangesAsync();
+
+			await database
+				.Set<GroupRideMember>()
+				.Where(member => member.GroupRideId == rideId)
+				.ExecuteDeleteAsync();
+		});
+
+		MaintenanceReport report = await app.RunMaintenanceAsync();
+
+		report.OrphanedPositionsDeleted.ShouldBe(1);
+
+		(await PositionCountAsync(app, rideId)).ShouldBe(0);
+	}
+
+	[Fact]
+	public async Task NightlySweep_DryRun_CountsOrphanedPositionsAndDeletesNothing()
+	{
+		await using DlrWebApplicationFactory app =
+			await DlrWebApplicationFactory.CreateAsync(postgres, settings: DryRun);
+
+		Guid riderId = await AccountAsync(app, "DaveSmith");
+
+		Guid rideId = await RideAsync(app, riderId);
+
+		await app.WithDatabaseAsync(async database =>
+		{
+			database.Add(Position(rideId, riderId, app.Clock.GetUtcNow()));
+
+			await database
+				.Set<GroupRideMember>()
+				.Where(member => member.GroupRideId == rideId)
+				.ExecuteUpdateAsync(row => row.SetProperty(member => member.ShareLocation, false));
+
+			await database.SaveChangesAsync();
+		});
+
+		MaintenanceReport report = await app.RunMaintenanceAsync();
+
+		report.OrphanedPositionsDeleted.ShouldBe(1);
+
+		(await PositionCountAsync(app, rideId)).ShouldBe(1, "and changes nothing");
+	}
+
 	private static Task<bool> SharingAsync(DlrWebApplicationFactory app, Guid rideId, Guid userId) =>
 		app.WithDatabaseAsync(database => database
 			.Set<GroupRideMember>()

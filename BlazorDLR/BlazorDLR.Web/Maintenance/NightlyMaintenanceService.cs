@@ -129,6 +129,11 @@ public sealed class NightlyMaintenanceService(
 				() => DeleteIdlePositionsAsync(scope, settings, now),
 				0),
 
+			OrphanedPositionsDeleted = await SweepAsync(
+				"orphaned positions",
+				() => DeleteOrphanedPositionsAsync(scope, settings),
+				0),
+
 			RefreshTokensDeleted = await SweepAsync(
 				"refresh tokens",
 				() => DeleteDeadTokensAsync(database, settings, now, cancellationToken),
@@ -158,7 +163,8 @@ public sealed class NightlyMaintenanceService(
 		logger.LogInformation(
 			"Nightly maintenance finished: {Deleted} accounts deleted, {Warned} warned, " +
 			"{Ips} addresses cleared, {Positions} positions, {Tokens} refresh tokens, " +
-			"{Revisions} revisions, {Reports} reports, {Blobs} blobs, {Logs} log files.",
+			"{Revisions} revisions, {Reports} reports, {Blobs} blobs, {Logs} log files. " +
+			"{Orphans} positions belonged to a rider who was not sharing.",
 			report.AccountsDeleted,
 			report.AccountsWarned,
 			report.RegistrationIpsCleared,
@@ -167,7 +173,8 @@ public sealed class NightlyMaintenanceService(
 			report.RevisionsPurged,
 			report.ReportsPurged,
 			report.OrphanBlobsDeleted,
-			report.LogFilesDeleted);
+			report.LogFilesDeleted,
+			report.OrphanedPositionsDeleted);
 
 		await SweepAsync("run alert", () => AlertAsync(scope, settings, report, now), false);
 
@@ -210,6 +217,7 @@ public sealed class NightlyMaintenanceService(
 				Accounts warned:         {report.AccountsWarned}
 				Registration IPs nulled: {report.RegistrationIpsCleared}
 				Positions removed:       {report.PositionsDeleted}
+				Not-sharing positions:   {report.OrphanedPositionsDeleted}
 				Refresh tokens removed:  {report.RefreshTokensDeleted}
 				Track revisions purged:  {report.RevisionsPurged}
 				Reports purged:          {report.ReportsPurged}
@@ -434,6 +442,25 @@ public sealed class NightlyMaintenanceService(
 		DateOnly cutoff = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-logging.RetainDays);
 
 		return scope.ServiceProvider.GetRequiredService<ServerLogReader>().Prune(cutoff, settings.DryRun);
+	}
+
+	/// <summary>
+	/// The backstop for a position whose rider is not sharing with that adventure (§10.1).
+	/// </summary>
+	/// <remarks>
+	/// Its own sweep and its own number rather than folded into the idle one, because they are
+	/// different facts: the idle count is housekeeping, and this one is a defect having fired.
+	/// A report that added them together would hide the second inside the first.
+	/// </remarks>
+	private static async Task<int> DeleteOrphanedPositionsAsync(
+		AsyncServiceScope scope,
+		MaintenanceOptions settings)
+	{
+		PositionStore positions = scope.ServiceProvider.GetRequiredService<PositionStore>();
+
+		return settings.DryRun
+			? await positions.CountOrphanedAsync()
+			: await positions.ClearOrphanedAsync();
 	}
 
 	/// <summary>
