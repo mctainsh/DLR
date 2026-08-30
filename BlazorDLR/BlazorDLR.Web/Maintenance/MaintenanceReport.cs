@@ -32,19 +32,6 @@ public sealed record MaintenanceReport
 	/// <summary>How many <c>created_by_ip</c> values were cleared (§7.8).</summary>
 	public int RegistrationIpsCleared { get; init; }
 
-	/// <summary>Positions removed for having no fix in <c>Ride:PositionIdleDays</c> (§5.6).</summary>
-	public int PositionsDeleted { get; init; }
-
-	/// <summary>
-	/// Positions removed for belonging to a rider who is not sharing with that adventure (§10.1).
-	/// <para>
-	/// <strong>Expected to be zero, and worth an eyebrow when it is not.</strong> Unlike every
-	/// other number here it does not count housekeeping — it counts §13 Q29's flush/delete race
-	/// actually firing, which is a position at rest that §10.1 says cannot exist.
-	/// </para>
-	/// </summary>
-	public int OrphanedPositionsDeleted { get; init; }
-
 	/// <summary>Expired or long-revoked refresh tokens removed (§7.13).</summary>
 	public int RefreshTokensDeleted { get; init; }
 

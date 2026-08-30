@@ -13,7 +13,7 @@ public sealed class RiderPositionCacheTests
 	private static readonly DateTimeOffset Noon = new(2026, 3, 14, 12, 0, 0, TimeSpan.Zero);
 
 	[Fact]
-	public void Upsert_NewRider_AddsEntryMarkedDirty()
+	public void Upsert_NewRider_AddsTheEntry()
 	{
 		RiderPositionCache cache = New();
 
@@ -22,9 +22,8 @@ public sealed class RiderPositionCacheTests
 		PositionEntry held = cache.ForRide(Ride)[Rider];
 
 		held.RecordedUtc.ShouldBe(Noon);
-		held.IsDirty.ShouldBeTrue("nothing has written it yet");
 
-		cache.Dirty().ShouldHaveSingleItem().UserId.ShouldBe(Rider);
+		cache.ForRide(Ride).Keys.ShouldHaveSingleItem().ShouldBe(Rider);
 	}
 
 	/// <summary>
@@ -85,26 +84,6 @@ public sealed class RiderPositionCacheTests
 	}
 
 	[Fact]
-	public void MarkClean_AfterANewerFixArrived_LeavesItDirty()
-	{
-		RiderPositionCache cache = New();
-
-		PositionEntry first = Entry(Noon);
-
-		cache.Upsert(Ride, Rider, first);
-
-		DirtyPosition written = cache.Dirty().ShouldHaveSingleItem();
-
-		// The write is in flight, and the rider moves.
-		cache.Upsert(Ride, Rider, Entry(Noon.AddSeconds(5), lat: 700));
-
-		cache.MarkClean(written);
-
-		cache.Dirty().ShouldHaveSingleItem()
-			.Entry.Lat.ShouldBe(700, "the newer fix must not be dropped by the older one's receipt");
-	}
-
-	[Fact]
 	public void Remove_DropsOneRiderAndLeavesTheRest()
 	{
 		RiderPositionCache cache = New();
@@ -123,32 +102,8 @@ public sealed class RiderPositionCacheTests
 		cache.ForRide(Ride).ShouldBeEmpty();
 	}
 
-	/// <summary>
-	/// The §5.5 gate. Kestrel can begin serving before custom hosted services have run, so a read
-	/// really can arrive against a half-warm cache — and would answer "nobody is on this adventure"
-	/// with total confidence.
-	/// </summary>
-	[Fact]
-	public async Task Reads_BlockUntilRehydrationComplete()
-	{
-		RiderPositionCache cache = New();
-
-		Task ready = cache.ReadyAsync();
-
-		ready.IsCompleted.ShouldBeFalse("nothing has rehydrated it yet");
-
-		cache.MarkReady();
-
-		await ready.WaitAsync(TimeSpan.FromSeconds(5));
-
-		ready.IsCompletedSuccessfully.ShouldBeTrue();
-
-		// Idempotent: a rehydrator that runs twice, or fails and is retried, must not throw.
-		Should.NotThrow(cache.MarkReady);
-	}
-
 	private static RiderPositionCache New() => new();
 
 	private static PositionEntry Entry(DateTimeOffset at, int lat = 1) =>
-		new(lat, 2, null, null, null, at, IsDirty: true);
+		new(lat, 2, null, null, null, at);
 }

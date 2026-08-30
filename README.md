@@ -45,11 +45,11 @@ switch is the whole of the control**: leaving and being removed also stop it, an
 included — can turn it on for somebody else. A position nothing has updated for fourteen days is
 swept, which is housekeeping for a phone that has gone away, not a limit on one that has not.
 
-**2. Measured location is deleted; authored content is kept.**
-Live positions are one row per rider per ride, overwritten in place, with no history table
-anywhere — and they are deleted the moment their rider stops sharing. Markers and comments survive,
-because a person deliberately wrote them. Keeping that line sharp is what lets the privacy claim
-stay short.
+**2. Measured location is never written down; authored content is kept.**
+A live position is held in the server's memory and nowhere else — no table, no history, nothing in
+a backup, and gone on restart as well as when its rider stops sharing. Markers and comments are
+written to disk, because a person deliberately wrote them. Keeping that line sharp is what lets the
+privacy claim stay short.
 
 **3. If a rule matters, a test enforces it — not a convention.**
 Whether the shared UI library can reference MAUI, whether a photo still carries EXIF GPS, whether

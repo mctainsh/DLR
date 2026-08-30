@@ -2,8 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
-using DLR.Server.Data.Positions;
 using DLR.Server.Data.Rides;
+using DLR.Server.Positions;
 using DLR.TestSupport.Database;
 using DLR.TestSupport.Hosting;
 using DLR.TestSupport.Identity;
@@ -45,8 +45,6 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 		await PublishAsync(rider, -33.86, 151.20);
 
 		// Flushed first, so the delete has a row to prove it removes rather than one it never wrote.
-		await app.FlushPositionsAsync();
-
 		(await Snapshot(organiser, ride.Id)).ShouldHaveSingleItem();
 
 		using HttpResponseMessage response = await rider.PostAsJsonAsync(PrivacyUrl, new PositionPrivacyUpdate(true));
@@ -55,7 +53,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 		(await Snapshot(organiser, ride.Id)).ShouldBeEmpty(
 			"a pin left where the rider stopped is what the private area exists to prevent.");
 
-		(await app.WithDatabaseAsync(database => database.Set<RiderPosition>().CountAsync())).ShouldBe(0,
+		app.PositionCount().ShouldBe(0,
 			"the delete does not wait for a flush — the row is what a rider is asking you not to keep.");
 
 		RideDetail seen = (await organiser.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{ride.Id}"))!;
@@ -141,6 +139,42 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 		IReadOnlyList<RiderPositionDto> left = await Snapshot(organiser, ride.Id);
 
 		left.ShouldHaveSingleItem().UserName.ShouldBe("DaveSmith");
+	}
+
+	/// <summary>
+	/// The whole trade v0.33 made, asserted so nobody can quietly undo it (§5.5, §10.1).
+	/// <para>
+	/// A position lives in <c>RiderPositionCache</c> and nowhere else, so a restart forgets every
+	/// pin — and there is nothing on disk for a backup, a restore or an operator with a database
+	/// client to find. This test fails the moment somebody reintroduces a write.
+	/// </para>
+	/// </summary>
+	[Fact]
+	public async Task ARestart_ForgetsEveryPin_AndNothingIsLeftOnDisk()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
+
+		RideDetail ride = await CreateRideAsync(organiser);
+
+		await ShareAsync(organiser, ride.Id);
+		await PublishAsync(organiser, -33.86, 151.20);
+
+		app.PositionCount(ride.Id).ShouldBe(1, "the fix is on the map the moment it lands");
+
+		// Every table this schema has, and none of them is holding a coordinate. A rider_position
+		// table would fail here rather than in some later reading of the privacy policy.
+		(await app.WithDatabaseAsync(database => Task.FromResult(
+			database.Model.GetEntityTypes().Any(entity =>
+				entity.GetTableName() == "rider_position"))))
+			.ShouldBeFalse("§10.1: a live position never touches disk, so there is no table for one");
+
+		// What a restart looks like from the cache's point of view: a new one, with nothing in it.
+		RiderPositionCache restarted = new();
+
+		restarted.ForRide(ride.Id).ShouldBeEmpty(
+			"§5.5: a restart starts blank, and the rider's next push is what puts them back");
 	}
 
 	private static async Task<IReadOnlyList<RiderPositionDto>> Snapshot(HttpClient client, Guid rideId) =>

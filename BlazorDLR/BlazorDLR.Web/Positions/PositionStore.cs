@@ -1,6 +1,5 @@
 using DLR.Core.Contracts.Rides;
 using DLR.Server.Data;
-using DLR.Server.Data.Positions;
 using DLR.Server.Data.Rides;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,21 +28,20 @@ public sealed record PositionPublication(IReadOnlyList<Guid> RideIds, bool LeftP
 /// <summary>
 /// Reading, writing and — the part that matters — <em>deleting</em> live positions (§5.5, §5.6).
 /// <para>
-/// Every route that ends a rider's participation funnels through <see cref="StopSharingAsync"/>:
+/// Every route that ends a rider's participation funnels through <see cref="StopSharing"/>:
 /// turning the switch off, leaving, and being removed by the organiser. They are three different
 /// user actions with one identical obligation, and giving each its own delete is how one of them
 /// eventually stops doing it.
 /// </para>
 /// <para>
-/// Writes land in <see cref="RiderPositionCache"/> and reach PostgreSQL on the next flush (§5.5).
-/// <strong>Deletes do not wait for a flush.</strong> A rider who turns sharing off has asked for
-/// the row to be gone, and "gone in up to ten seconds" is not what they asked for — so the delete
-/// hits the database first and the cache second, and a fix that raced in between is dropped by the
-/// cache eviction rather than resurrected by it.
+/// A position lives in <see cref="RiderPositionCache"/> and nowhere else (§5.5), so a delete here
+/// is immediate and total — there is no write behind it to outrun, and nothing left on disk to
+/// reclaim later. The database this still holds is for <em>membership</em>: which rides a fix may
+/// land in, and what the riders in one are called.
 /// </para>
 /// </summary>
-/// <param name="database">The one context.</param>
-/// <param name="cache">The write-behind cache.</param>
+/// <param name="database">The one context — read for membership and names, never for positions.</param>
+/// <param name="cache">Where every live position is.</param>
 /// <param name="privacy">Who is inside their own private area right now (§10.1).</param>
 public sealed class PositionStore(
 	DlrDbContext database,
@@ -72,7 +70,7 @@ public sealed class PositionStore(
 		// while their pin moves is the one that reads as a broken app.
 		bool leftPrivateArea = privacy.Set(userId, isPrivate: false);
 
-		PositionEntry entry = PositionEntry.From(update, isDirty: true);
+		PositionEntry entry = PositionEntry.From(update);
 
 		foreach (Guid rideId in rideIds)
 		{
@@ -100,10 +98,10 @@ public sealed class PositionStore(
 	/// re-stating what the server already believes must not put a message on every connection.
 	/// </returns>
 	/// <remarks>
-	/// Going private <strong>deletes</strong>, on <see cref="StopSharingAsync"/>'s reasoning and for
-	/// a sharper reason. Ceasing to update would leave the last fix before the driveway sitting in
-	/// the database and on every other rider's map — a pin that has stopped moving a few streets from
-	/// somebody's house is a better clue to where they live than most of what this feature withholds.
+	/// Going private <strong>deletes</strong>, on <see cref="StopSharing"/>'s reasoning and for a
+	/// sharper reason. Ceasing to update would leave the last fix before the driveway on every
+	/// other rider's map — a pin that has stopped moving a few streets from somebody's house is a
+	/// better clue to where they live than most of what this feature withholds.
 	/// <para>
 	/// The sharing flag is untouched: this is a place, not a decision about the ride, and the rider
 	/// goes back on the map by riding out of the circle rather than by finding a switch.
@@ -122,11 +120,6 @@ public sealed class PositionStore(
 			// is nothing to restore, because nothing was kept.
 			return await SharedRideIdsAsync(userId);
 		}
-
-		await database
-			.Set<RiderPosition>()
-			.Where(position => position.UserId == userId)
-			.ExecuteDeleteAsync();
 
 		// The union of "rides the cache had them in" and "rides they are sharing with". The two can
 		// disagree, and both halves matter: the first is where a stale pin would otherwise be left,
@@ -156,143 +149,36 @@ public sealed class PositionStore(
 	/// <param name="rideId">Which ride.</param>
 	/// <param name="userId">Which rider.</param>
 	/// <remarks>
-	/// Ceasing to update the row would leave a last-known position at rest in the database, which
-	/// is precisely what a rider turning sharing off is asking you not to keep (§10.1). The delete
-	/// is the feature; the flag is bookkeeping.
+	/// Ceasing to update the entry would leave a last-known position at rest, which is precisely
+	/// what a rider turning sharing off is asking you not to keep (§10.1). The delete is the
+	/// feature; the flag is bookkeeping.
 	/// </remarks>
-	public async Task StopSharingAsync(Guid rideId, Guid userId)
-	{
-		await database
-			.Set<RiderPosition>()
-			.Where(position => position.GroupRideId == rideId && position.UserId == userId)
-			.ExecuteDeleteAsync();
-
-		cache.Remove(rideId, userId);
-	}
-
-	/// <summary>
-	/// Deletes every position with no fix since <paramref name="floor"/>, and switches those
-	/// riders' sharing off (§5.6, §7.11).
-	/// </summary>
-	/// <param name="floor">The oldest fix worth keeping.</param>
-	/// <returns>How many rows went.</returns>
-	/// <remarks>
-	/// The fourth route that ends a rider's participation, and it lives here with the other three
-	/// for the reason this type exists. It is set-based rather than a loop over
-	/// <see cref="StopSharingAsync"/> because it is a backstop over the whole table, but the
-	/// obligation is the same one and is stated once.
-	/// </remarks>
-	public async Task<int> ClearIdleAsync(DateTimeOffset floor)
-	{
-		await database
-			.Set<GroupRideMember>()
-			.Where(member => member.ShareLocation && database
-				.Set<RiderPosition>()
-				.Any(position => position.GroupRideId == member.GroupRideId
-					&& position.UserId == member.UserId
-					&& position.RecordedUtc < floor))
-			.ExecuteUpdateAsync(row => row.SetProperty(member => member.ShareLocation, false));
-
-		int deleted = await database
-			.Set<RiderPosition>()
-			.Where(position => position.RecordedUtc < floor)
-			.ExecuteDeleteAsync();
-
-		// The eviction is what stops a flush already in flight writing the row straight back —
-		// the flush reads the cache and never the sharing flag, so clearing the flag first would
-		// not have prevented it. Same delete-then-evict pair as StopSharingAsync.
-		cache.RemoveOlderThan(floor);
-
-		return deleted;
-	}
-
-	/// <summary>
-	/// Deletes positions belonging to a rider who is not sharing with that adventure — including
-	/// one who is no longer a member of it at all (§10.1, §7.11).
-	/// </summary>
-	/// <returns>How many rows went. <strong>Any number but zero is a defect having fired.</strong></returns>
-	/// <remarks>
-	/// A position is only ever written for a member whose <c>ShareLocation</c> is set — the filter
-	/// is on the write, in <see cref="PublishAsync"/> — so a row that fails that test is not a
-	/// stale row, it is a row that should not exist. §13 Q29 is the way it happens: a flush that
-	/// snapshotted its batch before a concurrent delete completes its write afterwards and puts
-	/// the row back. This is the backstop, not the fix; the fix is a tombstone the flush filters
-	/// against, or a membership join in the upsert.
-	/// <para>
-	/// <c>rider_position</c> has <strong>no foreign key to <c>group_ride_member</c></strong>
-	/// (§5.6), so a member row going away cascades nothing and the second arm below is reachable
-	/// on its own.
-	/// </para>
-	/// </remarks>
-	public async Task<int> ClearOrphanedAsync()
-	{
-		List<OrphanedPosition> orphans = await OrphanedQuery()
-			.AsNoTracking()
-			.Select(position => new OrphanedPosition(position.GroupRideId, position.UserId))
-			.ToListAsync();
-
-		if (orphans.Count == 0)
-		{
-			return 0;
-		}
-
-		int deleted = await OrphanedQuery().ExecuteDeleteAsync();
-
-		// Materialised rather than swept by age like ClearIdleAsync, because this set is expected
-		// to be empty: paying for the keys is what lets the cache be evicted precisely.
-		foreach (OrphanedPosition orphan in orphans)
-		{
-			cache.Remove(orphan.RideId, orphan.UserId);
-		}
-
-		return deleted;
-	}
-
-	/// <summary>Counts what <see cref="ClearOrphanedAsync"/> would take, for a dry run.</summary>
-	public Task<int> CountOrphanedAsync() => OrphanedQuery().CountAsync();
-
-	private IQueryable<RiderPosition> OrphanedQuery() =>
-		database
-			.Set<RiderPosition>()
-			.Where(position => !database
-				.Set<GroupRideMember>()
-				.Any(member => member.GroupRideId == position.GroupRideId
-					&& member.UserId == position.UserId
-					&& member.ShareLocation));
-
-	/// <summary>One orphaned row's cache key.</summary>
-	private sealed record OrphanedPosition(Guid RideId, Guid UserId);
-
-	/// <summary>Counts what <see cref="ClearIdleAsync"/> would take, for a dry run (§7.11).</summary>
-	/// <param name="floor">The oldest fix worth keeping.</param>
-	public Task<int> CountIdleAsync(DateTimeOffset floor) =>
-		database
-			.Set<RiderPosition>()
-			.CountAsync(position => position.RecordedUtc < floor);
+	public void StopSharing(Guid rideId, Guid userId) => cache.Remove(rideId, userId);
 
 	/// <summary>Deletes every position in an adventure — what deleting one takes with it (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
-	public async Task ClearRideAsync(Guid rideId)
-	{
-		await database
-			.Set<RiderPosition>()
-			.Where(position => position.GroupRideId == rideId)
-			.ExecuteDeleteAsync();
+	public void ClearRide(Guid rideId) => cache.RemoveRide(rideId);
 
-		cache.RemoveRide(rideId);
-	}
+	/// <summary>
+	/// Forgets every position with no fix since <paramref name="floor"/> (§7.11).
+	/// </summary>
+	/// <param name="floor">The oldest fix worth keeping.</param>
+	/// <remarks>
+	/// A memory bound rather than a retention rule — nothing is retained. A rider whose phone went
+	/// quiet holds an entry nothing else reclaims, and this is what stops a year of them
+	/// accumulating in a process that has been up that long.
+	/// </remarks>
+	public void ClearIdle(DateTimeOffset floor) => cache.RemoveOlderThan(floor);
 
 	/// <summary>The snapshot a reconnecting client fetches instead of replaying history (§5.3).</summary>
 	/// <param name="rideId">Which ride.</param>
 	/// <returns>Everyone currently sharing, with a position.</returns>
 	/// <remarks>
-	/// Served from the cache, and gated on <see cref="RiderPositionCache.ReadyAsync"/> so that no
-	/// client can observe a half-warm cache and conclude the ride is empty.
+	/// Served from the cache, which is the only place a position is (§5.5). There is nothing to
+	/// wait for: an empty answer means the ride is empty, not that a warm-up is still running.
 	/// </remarks>
 	public async Task<IReadOnlyList<RiderPositionDto>> SnapshotAsync(Guid rideId)
 	{
-		await cache.ReadyAsync();
-
 		IReadOnlyDictionary<Guid, PositionEntry> held = cache.ForRide(rideId);
 
 		if (held.Count == 0)
@@ -327,10 +213,5 @@ public sealed class PositionStore(
 	/// <summary>Who has a position, for the member list's <em>no signal</em> state (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
 	/// <returns>The riders currently located.</returns>
-	public async Task<IReadOnlySet<Guid>> LocatedAsync(Guid rideId)
-	{
-		await cache.ReadyAsync();
-
-		return cache.ForRide(rideId).Keys.ToHashSet();
-	}
+	public IReadOnlySet<Guid> Located(Guid rideId) => cache.RiderIds(rideId).ToHashSet();
 }

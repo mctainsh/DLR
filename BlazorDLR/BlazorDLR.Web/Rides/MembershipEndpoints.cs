@@ -37,7 +37,7 @@ public static class MembershipEndpoints
 /// Consent, leaving and removal — the three ways a rider stops broadcasting (§5.6).
 /// <para>
 /// They are grouped deliberately. Each one has the same obligation attached to it, and every one
-/// of them discharges it by calling <see cref="PositionStore.StopSharingAsync"/> rather than by
+/// of them discharges it by calling <see cref="PositionStore.StopSharing"/> rather than by
 /// writing its own delete.
 /// </para>
 /// </summary>
@@ -138,12 +138,12 @@ public sealed class MembershipController : ControllerBase
 		{
 			// The delete is the feature. Stopping the broadcast alone would leave a last-known
 			// position at rest, which is exactly what the rider just asked you not to keep.
-			await positions.StopSharingAsync(id, userId);
+			positions.StopSharing(id, userId);
 		}
 
 		await database.SaveChangesAsync();
 
-		bool hasPosition = request.Share && await HasPositionAsync(database, id, userId);
+		bool hasPosition = request.Share && positions.Located(id).Contains(userId);
 
 		return Ok(new SharingState(request.Share, hasPosition));
 	}
@@ -178,7 +178,7 @@ public sealed class MembershipController : ControllerBase
 					"decide who is in it.");
 		}
 
-		await positions.StopSharingAsync(id, userId);
+		positions.StopSharing(id, userId);
 
 		database.Remove(member);
 
@@ -229,7 +229,7 @@ public sealed class MembershipController : ControllerBase
 				detail: "Delete the adventure instead.");
 		}
 
-		await positions.StopSharingAsync(id, userId);
+		positions.StopSharing(id, userId);
 
 		database.Remove(member);
 
@@ -240,8 +240,4 @@ public sealed class MembershipController : ControllerBase
 		return NoContent();
 	}
 
-	private static Task<bool> HasPositionAsync(DlrDbContext database, Guid rideId, Guid userId) =>
-		database
-			.Set<Data.Positions.RiderPosition>()
-			.AnyAsync(position => position.GroupRideId == rideId && position.UserId == userId);
 }

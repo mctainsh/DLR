@@ -95,9 +95,8 @@ try
 	// cache's reason — it is live state — and deliberately never on the write path: the flush drains
 	// it, so a fix arriving never waits on a counter.
 	builder.Services.AddSingleton<PositionActivityMeter>();
-	builder.Services.AddScoped<IPositionWriter, PositionWriter>();
-	builder.Services.AddSingletonHostedService<PositionFlushService>();
-	builder.Services.AddSingletonHostedService<PositionCacheRehydrator>();
+	builder.Services.AddScoped<IPositionCounter, PositionCounter>();
+	builder.Services.AddSingletonHostedService<PositionCounterFlushService>();
 
 	builder.Services.AddSignalR();
 	builder.Services.AddSingletonHostedService<RideBroadcastService>();

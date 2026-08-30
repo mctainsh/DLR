@@ -4,7 +4,6 @@ using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
 using DLR.Core.Contracts.Tracks;
 using DLR.Core.Tracks;
-using DLR.Server.Data.Positions;
 using DLR.Server.Data.Rides;
 using DLR.Server.Data.Tracks;
 using DLR.TestSupport.Database;
@@ -87,15 +86,13 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 		await ShareAsync(organiser, ride.Id, share: true);
 		await PublishAsync(organiser, -33.86, 151.20);
 
-		await app.FlushPositionsAsync();
-
-		(await CountPositionsAsync(app)).ShouldBe(1, "there is something to take");
+		CountPositions(app).ShouldBe(1, "there is something to take");
 
 		using HttpResponseMessage deleted = await organiser.DeleteAsync($"{RidesUrl}/{ride.Id}");
 
 		deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent, await deleted.Content.ReadAsStringAsync());
 
-		(await CountPositionsAsync(app))
+		CountPositions(app)
 			.ShouldBe(0, "nobody consented to being findable in an adventure that no longer exists");
 	}
 
@@ -179,8 +176,7 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 
 	// -- Helpers ------------------------------------------------------------------------------
 
-	private static Task<int> CountPositionsAsync(DlrWebApplicationFactory app) =>
-		app.WithDatabaseAsync(database => database.Set<RiderPosition>().CountAsync());
+	private static int CountPositions(DlrWebApplicationFactory app) => app.PositionCount();
 
 	private static async Task<RideDetail> CreateRideAsync(HttpClient organiser, string name = "Saturday hills")
 	{

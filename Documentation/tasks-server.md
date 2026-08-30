@@ -1392,7 +1392,7 @@ pages.
 writes.** `PositionFlushService` reads `RiderPositionCache.Dirty()` and never looks at
 `ShareLocation`, so a flush in flight puts the row back whichever statement ran first; dropping the
 cache entry is what stops it. The sweep is therefore `PositionStore.ClearIdleAsync`, beside the
-three per-rider paths, ending in the same delete-then-evict pair `StopSharingAsync` uses — the job
+three per-rider paths, ending in the same delete-then-evict pair `StopSharing` uses — the job
 calls it rather than restating it.
 **Watch out — `GroupRideLive.razor`'s consent trigger is the one place a deleted state test changes
 a *privacy* behaviour rather than a cosmetic one.** It read `!Sharing && Ride.State == Open`, and
@@ -1443,21 +1443,51 @@ refusal told them to do the one thing they could not. The track's owner may now 
 their own line — §19.2's rule about un-sharing your own row, applied to an attachment.
 **Refs:** §5.6, §7.11, §10.1, §13 Q29, §15.4, §19.2
 
+### SRV-38 — A live position never touches disk ✅
+**Status:** `rider_position` dropped (migration `RemoveRiderPositions`); `PositionFlushService`,
+`PositionCacheRehydrator`, `PositionWriter`, `Ride:StalenessMinutes`, `RiderPositionCache.ReadyAsync`
+/ `MarkReady` / `Dirty` / `MarkClean`, `PositionEntry.IsDirty` and both nightly position sweeps all
+deleted. `RiderPositionCache` is the only store there is. 506 server tests green.
+**First red test:** `ARestart_ForgetsEveryPin_AndNothingIsLeftOnDisk`
+**Then:** the `PositionCounterFlushTests` set, rewritten from `PositionFlushTests`.
+**Why.** The table bought one thing — a warm map across a restart — and §5.5's own sizing says the
+cache "self-corrects on each rider's next 5 s push". So the durability path was paying a table, two
+hosted services, a hand-written upsert, a readiness gate, two config options and two nightly sweeps
+for about **five seconds** of warm map. It also closed §13 Q29 by deletion: with no flush there is
+nothing to resurrect a deleted row, and that was the one item this list said to close before live
+sharing was on for anyone real.
+**Watch out — `PositionFlushService` had two jobs and only one was positions.** It also drains
+`PositionActivityMeter` into `asp_net_users.positions_recorded`, a lifetime counter that survives
+the ride and feeds the admin screen. It narrows to `PositionCounterFlushService` rather than going;
+`IPositionWriter`/`PositionWriter` become `IPositionCounter`/`PositionCounter`, still the one place
+SQL is hand-written but now for one statement. Deleting the service outright would have silently
+stopped every rider's fix count.
+**Watch out — `AdminUserRow.PositionsHeld` was computed inside a translated query.** It cannot
+become an inline cache read; it comes out of the `Select` over users and is filled after
+materialisation, which also removes a correlated subquery per row.
+**Watch out — Q29's documented second fix would not have worked.** "A membership join in the
+upsert" covers sharing-off, leaving and removal, but `SetPrivateAsync` deliberately leaves
+`ShareLocation` set (§10.1) — so it would have missed a rider inside their own private area, which
+is the sharpest of the three exposures. Recorded because the fix was written down in §13 for two
+versions and looked complete.
+**Watch out — `FlushPositionsAsync` changed meaning, not just name.** It used to mean "make the
+position durable" and now means "bank the counter", so all 15 call sites needed reading rather than
+renaming: most wanted a row to exist before asserting it was deleted, which the cache does
+immediately. It is `FlushPositionCountsAsync`, and `app.PositionCount()` is the replacement for the
+table counts.
+**Not done:** §9.2's step (2), per-ride affinity, is now the first scale-out step that works rather
+than a refinement — a second instance without it shows half the riders half the map. Written down
+in §9.2; not needed until there is a second instance.
+**Refs:** §5.5, §5.6, §7.11, §9.2, §10.1, §13 Q29, §14.6
+
 ---
 
-## The server list is complete — and three things are owed before real riders
+## The server list is complete — and two things are owed before real riders
 
-Every task SRV-01 … SRV-37 is marked. 519 server tests green, `dotnet format --verify-no-changes` clean,
+Every task SRV-01 … SRV-38 is marked. 506 server tests green, `dotnet format --verify-no-changes` clean,
 architecture tests green, licence gate exit 0, and the image builds and reports healthy. What is
 *not* done is deliberately listed here rather than left to be discovered:
 
-- **§13 Q29, the flush/delete race (SRV-22).** A flush already in flight can re-insert a position
-  row a concurrent delete has just removed. One round trip wide, so rare rather than impossible —
-  but what it leaves behind is exactly the position at rest §10.1 forbids. **Close it before live
-  sharing is on for anyone real.** It needs a tombstone the flush filters against, or a membership
-  join in the upsert; neither ordering of delete-and-evict closes it. SRV-37's not-sharing sweep is
-  a backstop with a number on it, not a fix: it bounds the exposure to a day and makes the race
-  visible in the nightly report, which is the first time anybody would know it had happened.
 - **The restore drill (SRV-35).** A backup nobody has restored is a hope. The commands are in
   `deploy/README.md`; B2's restore egress is free up to three times the stored volume, so it costs
   nothing but the hour.

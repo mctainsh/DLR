@@ -630,9 +630,9 @@ public sealed class RideController : ControllerBase
 			return NotFound();
 		}
 
-		// Before the row goes, because the cascade clears the table and not the §5.5 cache in
-		// front of it — a fix left in memory would keep answering for a ride that no longer exists.
-		await positions.ClearRideAsync(id);
+		// The cascade reaches every table this ride owns and no further; positions are not in one
+		// (§5.5), so a fix left in memory would keep answering for a ride that no longer exists.
+		positions.ClearRide(id);
 
 		// Members, join requests, routes, markers, comments and their reactions and polls all
 		// reach group_ride through ON DELETE CASCADE, so this one statement is the whole delete.
@@ -672,10 +672,8 @@ public sealed class RideController : ControllerBase
 		bool isOrganiser = ride.OwnerId == callerId;
 
 		// Who actually has a fix. Kept apart from the sharing flag because "not sharing" and
-		// "no signal" mean different things to somebody waiting at a junction (§5.6). Read from
-		// the cache, not the table: a rider who published four seconds ago has not been flushed
-		// yet, and showing them as no-signal would be wrong for as long as the flush period.
-		IReadOnlySet<Guid> located = await positions.LocatedAsync(rideId);
+		// "no signal" mean different things to somebody waiting at a junction (§5.6).
+		IReadOnlySet<Guid> located = positions.Located(rideId);
 
 		// The third reason a member can have no pin (§10.1). Read here rather than inferred from the
 		// empty position, because "at home and has said so" is a different fact from "in a tunnel" and

@@ -492,9 +492,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 			published.StatusCode.ShouldBe(HttpStatusCode.OK, await published.Content.ReadAsStringAsync());
 		}
 
-		await app.FlushPositionsAsync();
-
-		(await PositionRowsAsync(app, ride.Id)).ShouldBe(1, "there is something to delete");
+		PositionRows(app, ride.Id).ShouldBe(1, "there is something to delete");
 
 		using (HttpResponseMessage stopped = await organiser.PutAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/sharing/me",
@@ -503,7 +501,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 			stopped.StatusCode.ShouldBe(HttpStatusCode.OK, await stopped.Content.ReadAsStringAsync());
 		}
 
-		(await PositionRowsAsync(app, ride.Id)).ShouldBe(0, "measured data goes with the consent (§5.6)");
+		PositionRows(app, ride.Id).ShouldBe(0, "measured data goes with the consent (§5.6)");
 
 		// The thread is kept and stays open — the best photos land after everybody gets home.
 		CommentPage page = await ThreadAsync(organiser, ride.Id);
@@ -705,9 +703,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 		return (await response.Content.ReadFromJsonAsync<PhotoUploaded>())!;
 	}
 
-	private static async Task<int> PositionRowsAsync(DlrWebApplicationFactory app, Guid rideId) =>
-		await app.WithDatabaseAsync(database =>
-			database.Set<Data.Positions.RiderPosition>().CountAsync(row => row.GroupRideId == rideId));
+	private static int PositionRows(DlrWebApplicationFactory app, Guid rideId) => app.PositionCount(rideId);
 
 	private static async Task<RideDetail> CreateRideAsync(HttpClient organiser)
 	{

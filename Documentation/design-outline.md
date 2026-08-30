@@ -1,6 +1,6 @@
 # Dumb Luck Rides — Design Outline
 
-> **Status:** Draft **v0.32** — architecture outline; Milestone A of `tasks-server.md` is built.
+> **Status:** Draft **v0.33** — architecture outline; Milestone A of `tasks-server.md` is built.
 > **Assumption:** "Mani" = **.NET MAUI**. Target framework `net10.0-android` / `net10.0-ios`.
 > **UI:** one shared Razor component library, hosted by **MAUI Blazor Hybrid** on mobile and **Blazor WebAssembly** on the web (§18).
 
@@ -216,6 +216,14 @@
 | 0.32 | **`Ride:MaxConcurrentLiveRidesPerUser` deleted** (§5.7) | It was enforced only at the start transition, so it had no enforcement point left. §5.7 already anticipated this: *"if that turns out to matter, the place to fix it is the publish fan-out, not the start transition"* |
 | 0.32 | **Profile sharing lasts as long as co-membership** (§7.3, §10.1) | It ended at `Completed`, and there is no `Completed`. Leaving, being removed and deletion all still end it, which is the rule that was doing the work anyway |
 | 0.32 | **§17.6's thirty-day read-only thread is gone with the `Archived` state that carried it** (§17.6, §19) | The state was never assigned by anything, so the thread has never actually gone read-only — the guards existed, the sweep did not. Removing the enum makes that visible rather than causing it. If read-only-after-N-days is still wanted it comes back as its own `ArchivedUtc` column and its own sweep, not as a side effect |
+| **0.33** | **A live position is held in memory and nowhere else** (§5.5, §10.1). The `rider_position` table, the 10 s write-behind and the startup rehydrator are all deleted; `RiderPositionCache` is the only place a fix ever exists | The table was buying one thing — a warm map across a restart — and §5.5's own sizing says what that is worth: the cache "self-corrects on each rider's next 5 s push". So the durability path was paying a table, a background service, a hosted rehydrator, a readiness gate, two config options, two nightly sweeps and a hand-written SQL statement for **about five seconds** of warm map |
+| 0.33 | **§13 Q29 is closed by deletion, not by a fix** (§5.5) | The flush/delete race needed either a tombstone set the flush filters against or a membership join in the upsert — both new machinery in the hot write path. With no flush there is nothing to resurrect a deleted row. It was the one item `tasks-server.md` said to close before live sharing was on for anyone real |
+| 0.33 | **v0.1's original claim is true again: positions are never persisted** (§10.1) | v0.2 corrected that claim because the flush made it false, and that correction is the precedent this document cites for every later one. A live location now never touches disk, never enters a nightly backup and cannot survive a restore — so §10.1's "what is stored, exactly" gets *shorter*, which is the first time a privacy claim in this project has |
+| 0.33 | **The cost, accepted deliberately: a restart forgets every pin** (§5.5) | An actively sharing rider is back within about five seconds. The real loss is narrower — a rider whose phone has gone quiet is absent until they push again, where a rehydrate would have shown a fix up to 15 minutes old — and `PinExpiry` was already hiding that pin from the map from five minutes (§18.6) |
+| 0.33 | **`PositionFlushService` narrows rather than going, and is renamed `PositionCounterFlushService`** (§14.6) | It had two jobs and only one was positions: it also drains `PositionActivityMeter` into `asp_net_users.positions_recorded`, which is a statistic about an account rather than a place a person was, and has to survive. `IPositionWriter`/`PositionWriter` become `IPositionCounter`/`PositionCounter` — still the one place SQL is hand-written, now for one statement |
+| 0.33 | **`Ride:PositionIdleDays` stops being a retention rule and becomes a memory bound** (§7.11) | Nothing is retained, so there is nothing to retain *for*. The nightly job evicts cache entries older than the window so a long-lived process cannot accumulate a year of forgotten pins — and it reports no number, because an operator has nothing to act on |
+| 0.33 | **`Ride:StalenessMinutes`, `ReadyAsync()` and `MarkReady()` are deleted** (§5.5) | All three existed because rehydration was asynchronous and a request could arrive against a half-warm cache. Nothing warms, so the cache is ready at construction — which also deletes the defect class SRV-22 paid for once, *"the gate must open on the failure path too"* |
+| 0.33 | **Scale-out gets harder, and that is written down rather than discovered** (§9) | The table was a shared truth two processes could both read. §9's path is vertical → per-ride affinity → `LISTEN/NOTIFY`, and affinity keeps a ride on one process, so this stays compatible with the plan — but "just add a second container" is no longer even partly true |
 
 ---
 
@@ -266,8 +274,8 @@ A **User** records **or imports** **Tracks**. A **GroupRide** has a planned **Ro
         │  Minimal APIs   │  SignalR RideHub         │
         │  Static-SSR public pages + WASM host       │
         │  Identity + JWT (§7)                       │
-        │  RiderPositionCache  (in-memory, dirty-    │
-        │    tracked, write-behind every 10 s)       │
+        │  RiderPositionCache  (in-memory only —     │
+        │    a fix never reaches the database, §5.5) │
         │  NightlyMaintenanceService (§7.11)         │
         └───────────────┬────────────────────────────┘
                         ▼
@@ -276,8 +284,6 @@ A **User** records **or imports** **Tracks**. A **GroupRide** has a planned **Ro
         │   • domain tables (EF Core)                │
         │   • asp_net_* — username-based user store  │
         │   • refresh_token — rotating, revocable    │
-        │   • rider_position — last known only,      │
-        │     one row per (ride, rider), no history  │
         │  Blob volume — track blobs + photos (§9.1) │
         └────────────────────────────────────────────┘
 ```
@@ -341,8 +347,8 @@ Web/DLR.sln
 │  │   ├─ Maintenance/       NightlyMaintenanceService (§7.11, §15.6)
 │  │   ├─ Tracks/            GpxImportEndpoint, TrackEditService, BlobStore (§15)
 │  │   ├─ Photos/            the ONLY image decode path — re-encode + strip (§16.4)
-│  │   └─ Positions/         RiderPositionCache, PositionFlushService,
-│  │                         PositionCacheRehydrator, PositionWriter (§5.5)
+│  │   └─ Positions/         RiderPositionCache (§5.5),
+│  │                         PositionCounterFlushService, PositionCounter (§14.6)
 │  └─ DLR.Server.Migrations/ DlrDbContext, entity configurations, EF Core migrations.
 │                            Persistence lives with the migrations that describe it —
 │                            as two projects it is a reference cycle (v0.20)
@@ -796,7 +802,7 @@ public class RideHub : Hub<IRideClient>               // client → server
 **Fan-out strategy — batch, don't relay.** Naïvely relaying every fix is O(n²) messages. Instead:
 
 - Clients push their position every **5 s** while Live — throttled server-side, extra pushes dropped. **One push covers every ride the rider is live in** (§5.7); the server decides which of them it lands in, by that ride's own consent flag.
-- Server holds last-known positions in `RiderPositionCache` — an in-memory **write-behind cache**, flushed to PostgreSQL every 10 s (§5.5).
+- Server holds last-known positions in `RiderPositionCache` — **in memory and nowhere else** (§5.5). Nothing is written, so nothing has to be deleted later.
 - A single hosted `RideBroadcastService` ticks every **5 s per active ride** and sends **one batch** containing all members' latest positions to that ride's SignalR group.
 - Result: `1 message × n members` per tick, not `n × n`. Payload is a compact array of `[memberId, lat, lon, speed, heading, ts]` with lat/lon as integers scaled 1e-5 (~1 m).
 
@@ -814,81 +820,64 @@ public class RideHub : Hub<IRideClient>               // client → server
 - Off-route warning (distance from planned polyline > threshold).
 - SOS / "I've stopped" flag — genuinely useful on remote rides.
 
-### 5.5 Position durability — in-memory cache, 10 s write-behind
+### 5.5 Where a live position lives — memory, and nowhere else
 
-The server keeps live positions in memory for fan-out speed, and writes **only the last known position per rider** to PostgreSQL every 10 s so that a restarted process rehydrates a warm cache instead of showing a blank map until every rider's next push.
+**A fix reaches `RiderPositionCache` and stops there.** There is no `rider_position` table, no
+write-behind in front of it and no rehydration behind it. This is what lets §10.1 say a live
+location never touches disk, never enters a nightly backup and cannot survive a restore — and it is
+what closed §13 Q29, which had no fix that was not new machinery in the hot write path.
 
-**Two independent cadences.** These are easy to conflate and must not be:
+**The cost, stated plainly: a restart forgets every pin.** An actively sharing rider is back within
+about five seconds, because that is their push cadence — the same five seconds the old rehydrator
+existed to cover. The real loss is narrower and worth naming: a rider whose phone has gone quiet,
+in a tunnel or flat, is simply absent until they push again, where a rehydrate would have shown a
+fix up to fifteen minutes old. `PinExpiry` (§18.6) was already hiding that pin from the map from
+five minutes, so for most settings it was going to be hidden anyway.
+
+**What the durability path used to cost, for comparison**, and why the trade was one-sided: a table,
+a hosted `PositionFlushService`, a hosted `PositionCacheRehydrator`, an `UNNEST` upsert,
+`Ride:StalenessMinutes`, a `ReadyAsync()` gate with its own defect class *(SRV-22: "the gate must
+open on the failure path too")*, and two nightly sweeps — for five seconds of warm map.
+
+**Two independent cadences.** Still two, and still easy to conflate — but the second one changed
+meaning in v0.33. The broadcast is *network fan-out*; the flush is *accounting*, not durability.
 
 | Timer | Period | Purpose | Config key |
 |---|---|---|---|
 | `RideBroadcastService` | 5 s | Network fan-out to SignalR groups | `Ride:BroadcastSeconds` |
-| `PositionFlushService` | 10 s | Durability / cache rehydration | `Ride:FlushSeconds` |
+| `PositionCounterFlushService` | 10 s | Banks each rider's **fix count** into their lifetime total (§14.6) | `Ride:FlushSeconds` |
 
 **Collaborators** (all in `DLR.Server/Positions/`):
 
 | Type | Responsibility |
 |---|---|
-| `RiderPositionCache` | `ConcurrentDictionary<Guid rideId, ConcurrentDictionary<Guid userId, PositionEntry>>`. `Upsert` rejects an older `RecordedUtc` and sets `IsDirty`. Exposes `ReadyAsync()`. |
-| `PositionFlushService` | `BackgroundService` on `PeriodicTimer(FlushSeconds, TimeProvider)`. Drains dirty entries → one upsert. Also flushes on `StopAsync`. |
-| `PositionCacheRehydrator` | Loads every position fresher than `Ride:StalenessMinutes` into the cache exactly once at startup, gated by `Lazy<Task>`. |
-| `PositionWriter` | Raw-Npgsql upsert and delete statements. The one place SQL is hand-written. |
+| `RiderPositionCache` | `ConcurrentDictionary<Guid rideId, ConcurrentDictionary<Guid userId, PositionEntry>>`. `Upsert` rejects an older `RecordedUtc`. The only store there is. |
+| `PositionCounterFlushService` | `BackgroundService` on `PeriodicTimer(FlushSeconds, TimeProvider)`. Drains `PositionActivityMeter` → one `UPDATE`. Also drains on `StopAsync`, because the counts have no second copy. |
+| `PositionCounter` | The lifetime counter's `UPDATE … FROM UNNEST`. The one place SQL is hand-written, now for one statement (§14.6). |
 
-**Schema** (EF Core migration, snake_case via `UseSnakeCaseNamingConvention`):
+**Why the counter still persists when the position does not.** They are different kinds of fact.
+`asp_net_users.positions_recorded` is *how many fixes an account has ever sent* — a statistic about
+a person's use of the app. A position is *where that person was*. §10.1 is a promise about the
+second; the first is not a location and never was.
 
-```sql
-CREATE TABLE rider_position (
-	group_ride_id	uuid		NOT NULL REFERENCES group_ride(id) ON DELETE CASCADE,
-	user_id			uuid		NOT NULL REFERENCES asp_net_users(id),
-	lat				integer		NOT NULL,	-- 1e-5 deg, ~1 m
-	lon				integer		NOT NULL,
-	speed_mps		smallint	NULL,
-	heading_deg		smallint	NULL,
-	accuracy_m		smallint	NULL,
-	recorded_utc	timestamptz	NOT NULL,
-	PRIMARY KEY (group_ride_id, user_id)
-);
-
-CREATE INDEX ix_rider_position_recorded ON rider_position (recorded_utc);
-```
-
-lat/lon are stored as scaled `integer` — same representation as the wire format in §5.3, no float drift, roughly half the row width. **There is no history table.** The row is overwritten in place, and the composite primary key makes "one row per rider per ride" a database invariant rather than a convention.
-
-**Flush statement** — one round trip regardless of rider count, via array parameters:
-
-```sql
-INSERT INTO rider_position
-	(group_ride_id, user_id, lat, lon, speed_mps, heading_deg, accuracy_m, recorded_utc)
-SELECT * FROM UNNEST (
-	@rideIds, @userIds, @lats, @lons, @speeds, @headings, @accuracies, @times)
-ON CONFLICT (group_ride_id, user_id) DO UPDATE SET
-	lat				= excluded.lat,
-	lon				= excluded.lon,
-	speed_mps		= excluded.speed_mps,
-	heading_deg		= excluded.heading_deg,
-	accuracy_m		= excluded.accuracy_m,
-	recorded_utc	= excluded.recorded_utc
-WHERE excluded.recorded_utc > rider_position.recorded_utc;
-```
-
-The `WHERE` guard is load-bearing: it makes the flush **idempotent** and stops an out-of-order or retried batch from regressing a newer row.
-
-**Rehydration rules** — all three matter; each one omitted is a defect:
-
-1. **Freshness gate:** only rows with `recorded_utc > now - Ride:StalenessMinutes` (default 15). A stale point must not reappear on the map as if it were current. Since v0.32 this is the *whole* filter — there is no adventure state for a second arm to test (§5.1).
-2. **Loaded entries are marked clean.** Otherwise startup immediately schedules a pointless write of everything it just read.
-3. **Reads await `ReadyAsync()`.** Hub reads and `GET /positions` block until rehydration completes, so no client can observe a half-warm cache. The gate lives *inside the cache* rather than relying on hosted-service ordering, because Kestrel's `GenericWebHostService` can start serving before custom hosted services have run. The rehydrator also kicks the task off eagerly so the cache is warm before the first request arrives. **The gate must open on the failure path too** *(SRV-22)* — `MarkReady()` belongs in a `finally`. A rehydration that throws and leaves it shut does not degrade to a blank map; it hangs every read for the life of the process.
-
-**Deletes do not go through the write-behind** *(SRV-22)*. Publishing is cache-first and reaches PostgreSQL on the next tick; `StopSharingAsync` and `ClearRideAsync` delete from the database directly and evict the cache. "Gone within ten seconds" is not what a rider turning sharing off asked for (§5.6).
-
-> **Known gap — a flush in flight can resurrect a deleted row.** A flush that has already snapshotted its batch, and completes its write *after* a concurrent delete, puts that rider's position back. The window is one round trip and needs a delete to land inside it, so it is rare — but it is rare, not impossible, and what it leaves behind is exactly the position at rest §10.1 says must not exist. Neither ordering of *delete-then-evict* and *evict-then-delete* closes it; the fix is a tombstone the flush filters its batch against immediately before writing, or a membership join in the upsert. **The §7.11 nightly sweep is the current backstop, which means the exposure is up to a day.** That was briefly untrue: v0.32 replaced the ride-state sweep — which caught a resurrected row when the adventure ended — with a fourteen-day idle rule that would not have caught it for a fortnight. The backstop is now explicit rather than incidental, and stronger than the one it replaced: the nightly job deletes any position whose rider is not sharing with that adventure, which is the invariant itself (§5.6's publish filter is on the write, so such a row can only be an error). It reports its own count, so the race stops being invisible. Worth closing properly all the same — see §13 Q16.
+**`Upsert` still rejects an older `RecordedUtc`.** The guard used to be in the SQL, where it kept a
+retried batch from regressing a newer row; it is now in the cache, where it keeps an out-of-order
+arrival from doing the same. A rider whose pin jumps backwards is worse than one whose pin is a
+moment stale.
 
 **Lifecycle and cleanup**
-- Member sets `ShareLocation = false`, or leaves, or is removed by the organiser: delete that member's row immediately — stopping the broadcast is not sufficient (§10.1).
-- Adventure deletion is covered by `ON DELETE CASCADE`, plus an explicit `ClearRideAsync` first, because the cascade clears the table and not the cache in front of it.
-- **Nightly idle sweep** — any row with no fix for `Ride:PositionIdleDays` (default 14) is deleted and that member's `ShareLocation` cleared (§7.11). Since v0.32 this is the only unconditional reclamation there is, and it exists because *End* used to be (§5.6).
+- Member sets `ShareLocation = false`, or leaves, or is removed by the organiser: evict that
+  member's entry immediately — stopping the broadcast is not sufficient (§10.1).
+- A rider entering their own private area: evict them from **every** ride at once (§10.1).
+- Deleting an adventure evicts the whole ride. There is no cascade to rely on, because there is no
+  row for one to reach.
+- **Nightly eviction by age** — entries with no fix for `Ride:PositionIdleDays` (default 14) are
+  dropped (§7.11). A *memory bound*, not a retention rule: nothing is retained, so what this stops
+  is a long-lived process accumulating a year of forgotten pins. It reports no number, because
+  there is nothing on disk and nothing an operator can act on.
 
-**Cost of the trade-off, stated plainly:** a hard process kill loses up to 10 s of movement. On restart the cache rehydrates slightly stale and self-corrects on each rider's next 5 s push, so the worst observable symptom is a pin that lags for a few seconds. A graceful shutdown loses nothing. At 500 concurrent riders the flush is ~50 rows/s in a single statement — negligible on the €4 VPS (§9).
+**Sizing.** At 500 concurrent riders the cache holds 500 entries of a handful of fields each —
+tens of kilobytes, on a VPS with gigabytes (§9). The write-behind's ~50 rows/s is now zero.
 
 ### 5.6 Consent to share, and what makes it stop
 
@@ -928,14 +917,13 @@ Unchanged from §5.5 and worth restating because it is the load-bearing part: se
 Through v0.31 the organiser pressed *End* and chose between stopping everybody's sharing at once
 and a bounded two-hour wind-down in which riders stopped themselves. Both are gone with the
 lifecycle (§5.1). What went with them is worth naming precisely, because it was the only one of
-its kind: **the guaranteed death of a `rider_position` row.** A rider who taps *Share*, rides home
-and forgets the switch was caught by the end of the adventure whether or not their phone was awake.
+its kind: **the guaranteed death of a stored position.** A rider who taps *Share*, rides home and
+forgets the switch was caught by the end of the adventure whether or not their phone was awake.
 
 Nothing else in the system deletes that row, so something had to replace it.
 
 **The replacement is a fourteen-day idle sweep**, in the nightly job that already exists (§7.11).
-Any `rider_position` whose `recorded_utc` is older than `Ride:PositionIdleDays` — default **14** —
-is deleted and that member's `ShareLocation` cleared. Server-side and unconditional: it does not
+Any cache entry whose fix is older than `Ride:PositionIdleDays` — default **14** — is evicted. Server-side and unconditional: it does not
 depend on any client being awake, which is the property the wind-down cap had and the only part of
 it worth keeping. A fortnight rather than a few hours because it is not trying to be a stop button;
 a rider on a three-day trip with intermittent signal must not be quietly unsubscribed.
@@ -947,11 +935,10 @@ on is sharing until they turn it off; the sweep only catches the case where they
 anyway. The one place it is written down for users is the retention table in the privacy policy,
 as the outer bound on a row nobody is updating.
 
-**The eviction is what makes the delete stick, not the order of the two writes.** A flush already
-in flight reads `RiderPositionCache` and never consults `ShareLocation`, so clearing the flag first
-would not stop it putting the row back — dropping the cache entry is what does. The sweep therefore
-lives on `PositionStore` beside the three per-rider paths and ends with the same delete-then-evict
-pair `StopSharingAsync` uses, rather than restating the obligation in the maintenance job.
+**Since v0.33 the eviction is the whole of it.** There is no row and no flush, so "delete the
+position" and "evict the cache entry" are the same act, and every path in §5.6 is one call on
+`PositionStore` into `RiderPositionCache`. The ordering worry this paragraph used to carry — which
+of the two writes went first — went with the second write.
 
 **Deleting the adventure is what finishes one**, and it is no longer refused while people are on
 the road. That refusal existed because *End* was the gentler verb for that moment; with no *End* it
@@ -965,7 +952,7 @@ surface rather than one half of it.
 
 *(SRV-21 makes that structural rather than checked: the route is `PUT /group-rides/{id}/sharing/**me**`, and there is no user-id form of it. An endpoint that could express "set another rider's sharing" would need a guard, and a guard is a thing that can be removed by someone who does not know why it is there. The route cannot be relaxed by accident.)*
 
-**Four routes carry the delete obligation, not one** *(SRV-21, SRV-36)*. Turning the switch off, leaving, being removed, and the nightly idle sweep must all delete the position row, and `rider_position` has **no foreign key to `group_ride_member`** — so removing a member cascades nothing and the explicit delete is the only thing doing the work. All four live on `PositionStore`, because four copies of an obligation is how one of them eventually stops meeting it. The sweep is set-based rather than a loop over `StopSharingAsync` — it is a backstop over the whole table — but it is a method on the same type, not a second implementation in the job that calls it.
+**Five routes carry the delete obligation, not one** *(SRV-21, SRV-36, SRV-38)*. Turning the switch off, leaving, being removed, entering a private area, and the nightly eviction by age must all drop the position, and none of them can lean on a foreign key — there is no row for one to reach. All five live on `PositionStore`, because five copies of an obligation is how one of them eventually stops meeting it.
 
 #### Which means §1's headline claim needed correcting, again
 
@@ -986,7 +973,7 @@ each corrected once already.
 
 A rider can be a member of any number of rides, and more than one of them can be `Live` simultaneously. A weekend away with a big organised event running inside a small group of mates is the ordinary case, not a corner one.
 
-Most of the storage design already supports this without change, which is worth noticing before adding anything: `RiderPositionCache` is keyed ride-first (§5.5), `rider_position` has primary key `(group_ride_id, user_id)`, and `GroupRideMember` is unique per pair. Multi-ride was never excluded by the data model; it was only ever excluded by assumptions in the client.
+Most of the design already supports this without change, which is worth noticing before adding anything: `RiderPositionCache` is keyed ride-first (§5.5) and `GroupRideMember` is unique per pair. Multi-ride was never excluded by the data model; it was only ever excluded by assumptions in the client.
 
 **One publish, many fan-outs.** The client sends its position **once** per 5 s tick, not once per ride. The server writes it into every ride where that rider is a member **and** `ShareLocation` is true for *that* ride:
 
@@ -996,7 +983,7 @@ Task PublishPosition(PositionUpdate update);   // no rideId — see below
 
 Two reasons the update carries no ride id. First, cost: publishing per ride multiplies the rider's uplink and battery by the number of rides they are in, for data the server can trivially copy. Second, correctness: the rider's own consent is per ride (§5.6), so the *server* must be the thing that applies it — a client deciding which rides to publish to is a client that can get it wrong in the direction that leaks.
 
-**Consent is filtered on the write, not on the read.** A rider sharing with ride A and not ride B has no row in B at all. Broadcasting to B and having its members' apps hide the pin would leave the position in the cache, in the flush, and in the batch on the wire — three places it has no business being.
+**Consent is filtered on the write, not on the read.** A rider sharing with ride A and not ride B is held in B not at all. Broadcasting to B and having its members' apps hide the pin would leave the position in the cache, in the flush, and in the batch on the wire — three places it has no business being.
 
 **On the client, one ride is *focused*.** The map, the stats and the car head all render the focused ride; the others run in the background contributing nothing but their own inbound batches. `IRideSessionState` (§4.6) therefore grows a little:
 
@@ -1109,7 +1096,7 @@ Permissions_Changed_IsBroadcastAndRecordedInTheThread
 | Track storage | Compressed blobs (encoded polyline / protobuf, gzip) on the **blob volume** behind `IBlobStore` (§9.1) | Track points are write-once, read-whole — a row per point is a mistake. Editing rewrites the blob whole (§15.5); it never mutates points in place. The interface keeps S3-compatible storage a registration change if the disk ever argues |
 | Migrations | EF Core migrations applied on startup behind a flag | No extra deploy tooling |
 
-**Two data-access idioms, on purpose.** EF Core owns all domain work; the 10 s position flush uses raw Npgsql. Change tracking is wasted effort on a hot loop, and the `ON CONFLICT … WHERE excluded.recorded_utc > …` guard has no first-class EF expression — attempting it in EF ends in raw SQL anyway, just less honestly. The hand-written SQL is confined to `PositionWriter`.
+**Two data-access idioms, on purpose.** EF Core owns all domain work; the lifetime counter's drain uses raw Npgsql (§14.6). Change tracking is wasted effort on a hot loop, and the `ON CONFLICT … WHERE excluded.recorded_utc > …` guard has no first-class EF expression — attempting it in EF ends in raw SQL anyway, just less honestly. The hand-written SQL is confined to `PositionWriter`.
 
 > **The Blazor Server note that used to sit here is resolved rather than answered.** Through v0.15 this warned that Blazor Server holds a live websocket per browser tab, pinning the web tier to one instance, and suggested converting the authed pages to WASM if that ever became a problem. **v0.16 did exactly that, for a different reason** — sharing one component set with the mobile app (§18) — and the hosting benefit comes along free: no circuits, no sticky sessions, and a bundle Caddy can serve and cache like any other static file (§9.1, §9.2).
 
@@ -1579,8 +1566,7 @@ The comparison is **strict**. An account last active exactly 180 days ago is *at
 
 | Sweep | Reference |
 |---|---|
-| `rider_position` rows with no fix for `Ride:PositionIdleDays` (default **14**) — the row deleted and that member's `ShareLocation` cleared | §5.5, §5.6 |
-| `rider_position` rows whose rider is **not sharing** with that adventure, or is no longer a member of it — counted separately, because a non-zero number is a defect having fired rather than housekeeping | §10.1, §13 Q29 |
+| Cache entries with no fix for `Ride:PositionIdleDays` (default **14**) — evicted from memory, and **not counted in the report**, because there is nothing on disk to reclaim and nothing an operator can act on | §5.5, §7.11 |
 | `refresh_token` rows expired or revoked > 30 days, and `deleted_account_token` on the same horizon | §7.13 |
 | Null `created_by_ip` on users older than 30 days | §7.8 |
 | `TrackRevision` originals past their undo window — **the blob as well as the row** | §15.6 |
@@ -2046,7 +2032,7 @@ When it does change — before the web app is publicly announced, because OSM's 
 
 ### 9.2 Scale-out path (no Redis)
 
-**Single-instance is a design constraint, not a preference.** The in-memory `RiderPositionCache`, SignalR's in-process group tracking, and the in-memory rate limiter (§7.8) all assume one process. Postgres covers position durability (§5.5), refresh-token state and the registration ladder (§7.13), so the storage tier scales; only fan-out and the conventional rate limits are pinned. The ladder deliberately counts database rows precisely so that it keeps working across restarts and would keep working across instances. The ladder, in order:
+**Single-instance is a design constraint, not a preference, and v0.33 tightened it.** The in-memory `RiderPositionCache`, SignalR's in-process group tracking, and the in-memory rate limiter (§7.8) all assume one process. Postgres covers refresh-token state and the registration ladder (§7.13), so the storage tier scales — but it no longer covers positions at all (§5.5), which used to be a shared truth two processes could both have read. **Step (2) below is now the first step that works rather than a refinement of step (1):** a second instance without affinity does not degrade, it shows half the riders half the map. The trade was made deliberately (§10.1) and the cost is recorded here rather than left to be discovered. The ladder deliberately counts database rows precisely so that it keeps working across restarts and would keep working across instances. The ladder, in order:
 
 1. **Vertical scale.** One VPS core handles thousands of concurrent websockets. Measure before assuming otherwise — a load test with simulated riders belongs in Phase 3.
 2. **Per-ride affinity.** A group ride is a natural shard: no message ever crosses ride boundaries. Consistent-hash `rideId` to an instance and route at the proxy. No shared backplane required, and the cache stays in-process.
@@ -2064,9 +2050,9 @@ Live location is shared **only** within a group adventure, **only** with its adm
 
 *Corrected in v0.32, and this is the third version of the sentence: v0.14 said sharing ended with the ride, v0.15 added the wind-down, and v0.32 removed the end it was measured from. Same discipline as the v0.2 correction below — a privacy statement that describes an earlier version of the code is worse than no statement, because people rely on it. Note what the sentence deliberately does **not** claim: an end the rider did not choose. The fourteen-day idle sweep (§5.6, §7.11) is a garbage collector for rows nothing is updating and must never be sold as a limit on somebody still riding.*
 
-**What is stored, precisely** *(corrected in v0.2 — v0.1 claimed positions were never persisted, which the 10 s flush makes false)*:
+**What is stored, precisely** *(corrected in v0.2, and corrected back in v0.33 — v0.1 claimed positions were never persisted, the 10 s flush made that false, and deleting the flush makes it true again)*:
 
-> Exactly **one row per rider per adventure**, overwritten in place. **No location history is ever stored** — there is no positions table to accumulate, no trail, no replay. A row is **deleted when the rider stops sharing, leaves, is removed, or the adventure is deleted** (§5.6), and as a backstop when nothing has updated it for fourteen days (§7.11). Recorded tracks are a separate, opt-in artefact.
+> **A live position is never written down.** It is held in the server's memory for as long as the rider is sharing, and it is gone when they stop, when they leave, when they are removed, when the adventure is deleted, or when the server restarts (§5.6). There is no positions table, no trail, no replay, and nothing for a nightly backup or a restore to carry. Recorded tracks are a separate, opt-in artefact — those the rider asked to keep.
 
 **Measured location is deleted; authored content is kept.** Markers (§16) are locations too, and the ride thread (§17) is a record of who said what to whom — both survive the ride precisely because a person chose to write them. The distinction is worth naming so the promise above stays exact: the app deletes what it *observed* about where you were, and keeps what you *wrote down* about where something is. A marker is visible to whoever its parent is visible to — a track's audience, or a ride's admitted members — and no wider.
 
@@ -2092,7 +2078,7 @@ This is a stronger statement than v0.4's email gate. Confirming an email only ev
   - **No other rider can see it, by construction.** There is no route that answers with somebody else's area — `/api/v1/me/private-area` has no user id in it — `SharedProfile` has no field for one, and nothing published to a ride carries it. This is the guarantee the feature actually rests on, and it is enforced by the shape of the API rather than by a switch.
   - **The server can see it, and that is said out loud.** *(changed in v0.28 — this reverses v0.13.)* The centre is a precise statement of where somebody lives, and it is now a column on `asp_net_users`, in the nightly backups (§9) and in the account export (§6.3). The device-only version was strictly better on this axis and strictly worse on the one that matters more: it was wiped in silence by app updates, reinstalls and new handsets, leaving riders broadcasting from their doorstep believing they were not. Losing the setting fails open; storing it fails closed. The Location screen states both halves in the same paragraph — where it is kept, and who else can read it — rather than only the flattering one.
   - **Suppression, not obfuscation.** No jittered or edge-snapped point is published in place of the real one; several such points would bound the true centre, which is the one number this protects.
-  - **The rider comes off the map, and the stored row is deleted with them** *(corrected in v0.31 — the sentence above this list always said this and the code did not do it)*. Entering the circle sends one bit and no coordinate; the server deletes that rider's position in every adventure they are sharing with — immediately, not on the next flush — and tells those adventures. Merely ceasing to publish left the last fix before the driveway sitting in the database and on every co-rider's map for the rest of the ride, which is a **sharper** disclosure than most of what the feature withholds: a marker that has stopped moving a few streets from a house is a good guess at the house. The member list still shows them, labelled *private*, and the four route figures are absent rather than dashed — there is no position to derive them from.
+  - **The rider comes off the map, and their held position goes with them** *(corrected in v0.31 — the sentence above this list always said this and the code did not do it)*. Entering the circle sends one bit and no coordinate; the server drops that rider's position in every adventure they are sharing with, and tells those adventures. Merely ceasing to publish left the last fix before the driveway sitting in the database and on every co-rider's map for the rest of the ride, which is a **sharper** disclosure than most of what the feature withholds: a marker that has stopped moving a few streets from a house is a good guess at the house. The member list still shows them, labelled *private*, and the four route figures are absent rather than dashed — there is no position to derive them from.
   - **It suppresses *publishing*, and nothing else** *(corrected in v0.28)*. The rider's own map keeps drawing them, follow-me keeps following and heading-up keeps turning while they are inside the circle; the recorder keeps the points too, on the same phone, and the choice about them is offered again at save time (§15.1). This is a rule about what other people can see, and the earlier reading of it — blanking the owner's own screen — protected nobody: the only person it hid the house from was the one standing in it, at the moment they were most likely to be looking at the map.
   - **The gate is closed until there is an answer.** "The account has no area", "this device has not been told yet" and "we could not ask" are three states, not two, and only the first is safe to publish from. The device store caches the account's answer — including an explicit *none* — so a phone with no signal enforces yesterday's circle; a phone that has never been told suppresses everything, which costs nothing real, because publishing needs the same network the read just failed on.
 - **Trimming a track in the web editor is the destructive counterpart** (§15.5): the removed points are gone from the stored track, from exports, and from every share link. Two caveats are stated in the UI rather than buried here, because a user trimming their house off a ride is making a privacy decision and deserves the truth about it:
@@ -2138,7 +2124,7 @@ This is a stronger statement than v0.4's email gate. Confirming an email only ev
 
 **Two decisions that make the timing-heavy parts testable at all:**
 
-- **`TimeProvider` everywhere; never `DateTime.UtcNow`.** The 10 s flush, the 5 s broadcast, the staleness window, access-token expiry, lockout duration, the refresh grace window, the 24 h/1 h token lifespans, the 1-hour last-active throttle, the 24-hour registration ladder and the **180-day inactivity sweep** are all verified by *advancing a fake clock* — no `Task.Delay`, no flaky sleeps, and no test that would otherwise take six months. Construct timers as `new PeriodicTimer(period, timeProvider)` (available on `net10.0`).
+- **`TimeProvider` everywhere; never `DateTime.UtcNow`.** The 10 s counter drain, the 5 s broadcast, access-token expiry, lockout duration, the refresh grace window, the 24 h/1 h token lifespans, the 1-hour last-active throttle, the 24-hour registration ladder and the **180-day inactivity sweep** are all verified by *advancing a fake clock* — no `Task.Delay`, no flaky sleeps, and no test that would otherwise take six months. Construct timers as `new PeriodicTimer(period, timeProvider)` (available on `net10.0`).
 - **SignalR against `TestServer`** needs `Server.CreateHandler()` wired into the `HubConnection`'s `HttpMessageHandlerFactory`, otherwise negotiation fails silently and the test hangs rather than failing usefully.
 
 **Position cache** test list:
@@ -2178,7 +2164,7 @@ MemberStopsSharing_DeletesPersistedRow
 - **No `#if` platform symbols inside `DLR.UI` components** (§18.2). Conditional compilation in a shared library is two libraries wearing one name.
 - ~~`Microsoft.Maui.Controls.Maps` is referenced only under `DLR.App/Maps/Native/`~~ — **the assertion is now that it is referenced nowhere at all** (§18.3). The rule earned its keep: because the reference lived in exactly one folder, deleting it in v0.16 was a contained change.
 - No `DateTime.Now` / `DateTime.UtcNow` outside `DLR.TestSupport`.
-- No raw SQL outside `DLR.Server/Positions/PositionWriter`, `DLR.Server/Identity/` and `DLR.Server/Maintenance/`.
+- No raw SQL outside `DLR.Server/Positions/PositionCounter`, `DLR.Server/Identity/` and `DLR.Server/Maintenance/`.
 - **Exactly one GPX parser and one stats implementation, both in `DLR.Core/Tracks/`** — no second codec in `DLR.Server` or `DLR.App` (§15.7).
 - **No `XmlDocument`, and no `XmlReaderSettings` with `DtdProcessing` other than `Prohibit`**, anywhere in the solution (§15.3). This is a one-line test that closes an XXE hole permanently.
 - **Image decoding happens only in `DLR.Server/Photos/`** (§16.4) — one ingest path, so metadata stripping cannot be bypassed by a second one.
@@ -2191,7 +2177,7 @@ MemberStopsSharing_DeletesPersistedRow
 
 **GPX replay harness** — a `FakeLocationProvider` driven from `.gpx` files, built in Phase 0 as a first-class fixture. It shares the §15.7 codec, so the harness and the import feature are exercised by each other's tests. It makes the recording pipeline testable in the simulator without going for a ride, and it pays for itself the first afternoon.
 
-**Where coverage matters:** high on `DLR.Core` (pure logic), the flush/rehydrate path, every auth branch, and **every clause of the deletion predicate** (§7.11) — that is destructive code operating on a timer, so each `NOT EXISTS` gets its own test.
+**Where coverage matters:** high on `DLR.Core` (pure logic), the consent and delete paths, every auth branch, and **every clause of the deletion predicate** (§7.11) — that is destructive code operating on a timer, so each `NOT EXISTS` gets its own test.
 
 ### 10.5 Code style — tabs
 
@@ -2289,7 +2275,7 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 | MAUI maturity on background/long-running work | Medium | Keep platform code thin behind `ILocationProvider`; be ready to write real Java/Swift interop |
 | Websocket churn in poor coverage | Medium | Aggressive reconnect + snapshot-on-reconnect; never assume ordered delivery |
 | Two token lifespans collapse into one | Low–Med | `TokenLifespan` is global; separate provider plus `ResetPassword_LifespanIsIndependentOfConfirmationLifespan` (§7.7) |
-| 10 s flush becomes a write hot spot | Low–Med | Single `UNNEST` upsert — one round trip regardless of rider count; verified by the Phase 3 load test |
+| ~~10 s flush becomes a write hot spot~~ | — | **Retired in v0.33**: positions are never written, so the only thing on the timer is one `UNNEST` counter update. Verified by the Phase 3 load test |
 | Single VPS holds live ride state and all session state | Medium | Positions are recoverable-by-design; refresh tokens and accounts are in Postgres and covered by the nightly backup — which is now the only record of an email-less account |
 | Map tile bandwidth cost | Low *(re-assessed in v0.18 and again in v0.19)* | Not ours to pay for now — Apple serves the phone, OSM serves the web (§4.5). Returns when self-hosted PMTiles does, and even then the VPS's 20 TB/month covers it many times over (§9.1) |
 | **The VPS disk fills** | **Medium** | New in v0.18, and nastier than it sounds: a full disk stops **Postgres writing**, not just uploads. Tiles, blobs and the database share 40 GB. Per-account quotas (§13 Q13), a disk-usage alert next to the maintenance alert, and a Hetzner volume as the one-command escape (§9.1). The failure mode is silent until it is total |
@@ -2344,7 +2330,7 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 26. **When does the web leave OSM tiles?** *(new in v0.19)* — "to begin with" needs a trigger, not a hope. `tile.openstreetmap.org` is donated infrastructure whose policy does not cover a public launch (§4.5), so the honest answer is *before the web app is announced to anyone outside the test group*, with self-hosted PMTiles (§9.1) as the destination. The open part is only whether that is worth doing earlier, since it also unlocks the offline map option.
 27. **Do riders actually miss offline maps?** *(new in v0.19, reopened in v0.24)* — no longer blocked on an SDK: MapLibre reads a local PMTiles archive, so the cost is a few GB on the phone and the packaging around it, not a third renderer (§4.5). Still worth answering with real riders in a real dead zone rather than in advance, because it decides whether the §13 Q26 archive gets a phone-side download or stays server-only.
 28. **Should CarPlay use native MapKit instead of Mapsui?** *(new in v0.19, weakened by v0.24)* — the argument was that Apple Maps was already the phone's provider, so a native `MKMapView` inside the `CPWindow` was the natural pairing. That pairing is gone: the phone is on MapLibre, so native MapKit on CarPlay would now be a *second* Apple dependency rather than a consistent one, on top of Mapsui for Android Auto. Weaker than when it was asked; revisit only if CarPlay quality becomes the thing being judged.
-29. **Closing the flush-versus-delete race** *(new in SRV-22)* — a write-behind flush already in flight can re-insert a position row that a concurrent delete has just removed (§5.5). One round trip wide, and it needs a delete to land inside it, but what it leaves behind is the position at rest §10.1 forbids, and with the §7.11 nightly sweep as the only backstop the exposure is up to a day. Two candidate fixes, neither expensive: a tombstone set the flush filters its batch against immediately before writing, or a join to `group_ride_member` in the upsert so the statement itself cannot write a row for a rider who has stopped sharing. The second is self-maintaining and costs the hot path a join; the first is cheaper and needs its tombstones expired somewhere. **Worth closing before live sharing is switched on for anyone real.**
+29. ~~**Closing the flush-versus-delete race**~~ — **resolved (v0.33), by deletion.** A write-behind flush already in flight could re-insert a position row a concurrent delete had just removed (§5.5), which is the position at rest §10.1 forbids. Both candidate fixes — a tombstone set the flush filtered against, or a join to `group_ride_member` in the upsert — were new machinery in the hot write path, and the second turned out to be **incomplete**: `SetPrivateAsync` deliberately leaves `ShareLocation` set (§10.1), so a membership join would not have covered a rider inside their own private area, which is the sharpest exposure of the three. There is now no flush and no row, so there is nothing to resurrect.
 
 ---
 
@@ -2885,7 +2871,7 @@ An exclusive arc rather than two tables: the payload, the validation, the photo 
 
 | Field | Type | Required | Rules |
 |---|---|---|---|
-| **Point** | lat/lon, scaled `integer` 1e-5 | ✅ | Same representation as `rider_position` (§5.5) — one coordinate encoding in the database, no float drift |
+| **Point** | lat/lon, scaled `integer` 1e-5 | ✅ | Same representation as a cached position (§5.5) — one coordinate encoding in the database, no float drift |
 | **Direction** | `smallint` degrees, 0–359, true north | ❌ | **Nullable, and null is not zero.** Zero is due north, a perfectly good bearing. A fuel stop has no direction; a *"blind crest, hazard on the right"* marker does |
 | **Icon** | `varchar(32)` key from a curated set | ✅ | See below. Never a user-supplied image |
 | **Title** | `varchar(40)` | ✅ | Rendered on the map beside the icon, so length is a rendering constraint, not a database one — 40 characters is about what fits before a label starts covering the road it refers to |

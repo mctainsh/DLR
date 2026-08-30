@@ -46,7 +46,7 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 			await PublishAsync(rider, -33.86, 151.22);
 			await PublishAsync(rider, -33.87, 151.23);
 
-			await app.FlushPositionsAsync();
+			await app.FlushPositionCountsAsync();
 
 			long counted = await app.WithDatabaseAsync(database =>
 				database.Set<AppUser>()
@@ -56,13 +56,10 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 
 			counted.ShouldBe(3);
 
-			// And one row, which is the thing that makes the counter necessary rather than
-			// redundant — the two numbers are deliberately different.
-			int stored = await app.WithDatabaseAsync(database =>
-				database.Set<DLR.Server.Data.Positions.RiderPosition>()
-					.CountAsync(position => position.UserId == riderId));
-
-			stored.ShouldBe(1);
+			// And one position held, which is the thing that makes the counter necessary rather
+			// than redundant — the two numbers are deliberately different, and since v0.33 they
+			// do not even live in the same place.
+			app.PositionCount().ShouldBe(1);
 		}
 	}
 
@@ -89,19 +86,15 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 			await PublishAsync(rider, -33.85, 151.21);
 			await PublishAsync(rider, -33.86, 151.22);
 
-			await app.FlushPositionsAsync();
+			await app.FlushPositionCountsAsync();
 		}
 
-		// The positions go idle, and the nightly sweep takes them (§5.6).
+		// The positions go idle, and the nightly eviction forgets them (§7.11).
 		app.Clock.Advance(TimeSpan.FromDays(15));
 
 		await app.RunMaintenanceAsync();
 
-		int remaining = await app.WithDatabaseAsync(database =>
-			database.Set<DLR.Server.Data.Positions.RiderPosition>()
-				.CountAsync(position => position.UserId == riderId));
-
-		remaining.ShouldBe(0, "the sweep is what makes the counter necessary.");
+		app.PositionCount().ShouldBe(0, "the eviction is what makes the counter necessary.");
 
 		// And the administration screen still knows the rider was out there.
 		using HttpClient admin = await SignedInAsync(app, "TheAdmin");
@@ -149,7 +142,7 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 
 			await PublishAsync(rider, -33.85, 151.21);
 
-			await app.FlushPositionsAsync();
+			await app.FlushPositionCountsAsync();
 
 			long counted = await app.WithDatabaseAsync(database =>
 				database.Set<AppUser>()
@@ -159,11 +152,8 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 
 			counted.ShouldBe(1, "one fix left the phone, whatever it landed in.");
 
-			int stored = await app.WithDatabaseAsync(database =>
-				database.Set<DLR.Server.Data.Positions.RiderPosition>()
-					.CountAsync(position => position.UserId == riderId));
-
-			stored.ShouldBe(2, "and it is on both maps, which is why the row count is not the answer.");
+			app.PositionCount().ShouldBe(2,
+				"and it is on both maps, which is why the held count is not the answer.");
 		}
 	}
 

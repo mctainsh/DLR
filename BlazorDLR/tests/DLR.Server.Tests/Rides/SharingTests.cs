@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
-using DLR.Server.Data.Positions;
 using DLR.Server.Data.Rides;
 using DLR.TestSupport.Database;
 using DLR.TestSupport.Hosting;
@@ -74,8 +73,6 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		await PublishAsync(watcher, At(-33.87, 151.21));
 
-		await app.FlushPositionsAsync();
-
 		List<RiderPositionDto> visible =
 			(await watcher.GetFromJsonAsync<List<RiderPositionDto>>($"{RidesUrl}/{ride.Id}/positions"))!;
 
@@ -83,17 +80,14 @@ public sealed class SharingTests(PostgresFixture postgres)
 			"DaveSmith",
 			"a pillion or a support-van driver has every reason to watch without broadcasting");
 
-		// And nothing of the watcher's was stored anywhere.
-		int stored = await app.WithDatabaseAsync(database =>
-			database.Set<RiderPosition>().CountAsync());
-
-		stored.ShouldBe(1);
+		// And nothing of the watcher's is held anywhere.
+		app.PositionCount().ShouldBe(1);
 	}
 
 	/// <summary>
-	/// Consent is filtered on the <strong>write</strong> (§5.7). A rider not sharing has no row at
-	/// all — not a hidden pin. Broadcasting anyway and asking recipients to hide it would leave the
-	/// position in the database, in the fan-out and on the wire.
+	/// Consent is filtered on the <strong>write</strong> (§5.7). A rider not sharing is held
+	/// nowhere at all — not as a hidden pin. Broadcasting anyway and asking recipients to hide it
+	/// would leave the position in the cache and on the wire.
 	/// </summary>
 	[Fact]
 	public async Task Publish_ByNonSharingMember_IsRejectedAndStoresNothing()
@@ -111,10 +105,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		result.RideIds.ShouldBeEmpty("no adventure consented, so the fix lands nowhere");
 
-		int stored = await app.WithDatabaseAsync(database =>
-			database.Set<RiderPosition>().CountAsync());
-
-		stored.ShouldBe(0);
+		app.PositionCount().ShouldBe(0);
 	}
 
 	/// <summary>
@@ -135,16 +126,14 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		// Flushed first, so what the delete below has to remove is a genuinely persisted row
 		// rather than a cache entry that had never reached the database anyway.
-		await app.FlushPositionsAsync();
-
-		(await CountPositionsAsync(app)).ShouldBe(1, "so the delete below has something to prove");
+		CountPositions(app).ShouldBe(1, "so the delete below has something to prove");
 
 		SharingState off = await ShareAsync(organiser, ride.Id, share: false);
 
 		off.Sharing.ShouldBeFalse();
 		off.HasPosition.ShouldBeFalse();
 
-		(await CountPositionsAsync(app)).ShouldBe(
+		CountPositions(app).ShouldBe(
 			0,
 			"stopping the broadcast alone would leave a last-known position at rest — exactly " +
 			"what turning sharing off is asking you not to keep");
@@ -209,15 +198,13 @@ public sealed class SharingTests(PostgresFixture postgres)
 		await ShareAsync(rider, ride.Id, share: true);
 		await PublishAsync(rider, At(-33.86, 151.20));
 
-		await app.FlushPositionsAsync();
-
-		(await CountPositionsAsync(app)).ShouldBe(1);
+		CountPositions(app).ShouldBe(1);
 
 		using HttpResponseMessage left = await rider.DeleteAsync($"{RidesUrl}/{ride.Id}/members/me");
 
 		left.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-		(await CountPositionsAsync(app)).ShouldBe(0);
+		CountPositions(app).ShouldBe(0);
 
 		(await rider.GetAsync($"{RidesUrl}/{ride.Id}")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
 	}
@@ -237,8 +224,6 @@ public sealed class SharingTests(PostgresFixture postgres)
 		await ShareAsync(rider, ride.Id, share: true);
 		await PublishAsync(rider, At(-33.86, 151.20));
 
-		await app.FlushPositionsAsync();
-
 		Guid riderId = (await organiser.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{ride.Id}"))!
 			.Members.Single(member => member.UserName == "SamJones").UserId;
 
@@ -247,7 +232,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		removed.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-		(await CountPositionsAsync(app)).ShouldBe(0);
+		CountPositions(app).ShouldBe(0);
 	}
 
 	/// <summary>
@@ -269,8 +254,6 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		await PublishAsync(organiser, At(-33.86, 151.20) with { RecordedUtc = now });
 		await PublishAsync(organiser, At(-33.99, 151.99) with { RecordedUtc = now.AddSeconds(-30) });
-
-		await app.FlushPositionsAsync();
 
 		RiderPositionDto stored =
 			(await organiser.GetFromJsonAsync<List<RiderPositionDto>>($"{RidesUrl}/{ride.Id}/positions"))!
@@ -436,8 +419,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 			.Select(user => user.Id)
 			.SingleAsync());
 
-	private static Task<int> CountPositionsAsync(DlrWebApplicationFactory app) =>
-		app.WithDatabaseAsync(database => database.Set<RiderPosition>().CountAsync());
+	private static int CountPositions(DlrWebApplicationFactory app) => app.PositionCount();
 
 	private static async Task<RideDetail> CreateRideAsync(HttpClient organiser)
 	{

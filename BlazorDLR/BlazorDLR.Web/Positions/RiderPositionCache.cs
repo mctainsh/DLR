@@ -10,60 +10,43 @@ namespace DLR.Server.Positions;
 /// <param name="HeadingDeg">Degrees from north, when known.</param>
 /// <param name="AccuracyM">Reported accuracy in metres, when known.</param>
 /// <param name="RecordedUtc">When the device took the fix.</param>
-/// <param name="IsDirty">Whether it still needs writing to PostgreSQL.</param>
 public sealed record PositionEntry(
 	int Lat,
 	int Lon,
 	short? SpeedMps,
 	short? HeadingDeg,
 	short? AccuracyM,
-	DateTimeOffset RecordedUtc,
-	bool IsDirty)
+	DateTimeOffset RecordedUtc)
 {
 	/// <summary>Builds an entry from a published fix.</summary>
 	/// <param name="update">The fix.</param>
-	/// <param name="isDirty">Whether it needs writing.</param>
 	/// <returns>The entry.</returns>
-	public static PositionEntry From(PositionUpdate update, bool isDirty) => new(
+	public static PositionEntry From(PositionUpdate update) => new(
 		update.Lat,
 		update.Lon,
 		update.SpeedMps,
 		update.HeadingDeg,
 		update.AccuracyM,
-		update.RecordedUtc,
-		isDirty);
+		update.RecordedUtc);
 }
 
 /// <summary>
-/// Live positions in memory, written behind to PostgreSQL every 10 s (§5.5).
+/// <strong>The only place a live position ever exists</strong> (§5.5, §10.1).
 /// <para>
-/// The cache is the read path for fan-out; the database is durability, so that a restarted process
-/// rehydrates a warm cache instead of showing a blank map until every rider's next push. A hard
-/// process kill therefore loses up to 10 s of movement, which on restart shows as a pin that lags
-/// for a few seconds and self-corrects.
+/// There is no <c>rider_position</c> table behind this and no write-behind in front of it. A fix
+/// reaches memory and stops there, which is what lets §10.1 say a live location never touches
+/// disk, never enters a backup and cannot survive a restore.
+/// </para>
+/// <para>
+/// <strong>The cost, stated plainly:</strong> a restart loses every pin. Each rider's next push is
+/// about five seconds away and puts theirs back, so what a restart actually costs is a few seconds
+/// of empty map for riders who are moving, and the rest of the ride for one whose phone has gone
+/// quiet — which <c>PinExpiry</c> was hiding from the map anyway (§5.3, §18.6).
 /// </para>
 /// </summary>
 public sealed class RiderPositionCache
 {
 	private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, PositionEntry>> rides = new();
-
-	private readonly TaskCompletionSource ready =
-		new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-	/// <summary>
-	/// Completes when startup rehydration has finished (§5.5).
-	/// <para>
-	/// <strong>The gate lives inside the cache</strong> rather than relying on hosted-service
-	/// ordering, because Kestrel's <c>GenericWebHostService</c> can begin serving requests before
-	/// custom hosted services have run — so a hub read or a snapshot request can genuinely arrive
-	/// against a half-warm cache, and would answer "nobody is on this ride" with total confidence.
-	/// </para>
-	/// </summary>
-	/// <returns>A task that completes once the cache is warm.</returns>
-	public Task ReadyAsync() => ready.Task;
-
-	/// <summary>Marks rehydration finished. Idempotent, so a retried rehydrator cannot deadlock.</summary>
-	public void MarkReady() => ready.TrySetResult();
 
 	/// <summary>
 	/// Records a fix, unless an equal or newer one is already held.
@@ -139,9 +122,8 @@ public sealed class RiderPositionCache
 	/// <summary>Forgets every entry older than <paramref name="floor"/> (§5.6).</summary>
 	/// <param name="floor">The oldest fix worth keeping.</param>
 	/// <remarks>
-	/// A sweep rather than a loop over keys the caller read out of the database, on
-	/// <see cref="RemoveRider"/>'s reasoning: the cache is the authority on what it holds, and the
-	/// direction the disagreement must not go is a position left behind for a row that is gone.
+	/// A sweep rather than a loop over keys a caller believes are stale, on
+	/// <see cref="RemoveRider"/>'s reasoning: the cache is the authority on what it holds.
 	/// </remarks>
 	public void RemoveOlderThan(DateTimeOffset floor)
 	{
@@ -154,32 +136,6 @@ public sealed class RiderPositionCache
 					Remove(ride.Key, rider.Key);
 				}
 			}
-		}
-	}
-
-	/// <summary>Every dirty entry, as the flush wants them (§5.5).</summary>
-	/// <returns>The rows needing a write.</returns>
-	public IReadOnlyList<DirtyPosition> Dirty() =>
-	[
-		.. rides.SelectMany(ride => ride.Value
-			.Where(rider => rider.Value.IsDirty)
-			.Select(rider => new DirtyPosition(ride.Key, rider.Key, rider.Value))),
-	];
-
-	/// <summary>
-	/// Marks an entry clean, unless it changed while the write was in flight.
-	/// </summary>
-	/// <param name="position">What was written.</param>
-	/// <remarks>
-	/// Compared by value: if a newer fix arrived during the round trip, the entry is a different
-	/// object and stays dirty, so the next flush picks it up rather than the newer position being
-	/// silently dropped.
-	/// </remarks>
-	public void MarkClean(DirtyPosition position)
-	{
-		if (rides.TryGetValue(position.RideId, out ConcurrentDictionary<Guid, PositionEntry>? ride))
-		{
-			ride.TryUpdate(position.UserId, position.Entry with { IsDirty = false }, position.Entry);
 		}
 	}
 
@@ -210,13 +166,7 @@ public sealed class RiderPositionCache
 		.. rides.Where(ride => ride.Value.TryRemove(userId, out _)).Select(ride => ride.Key),
 	];
 
-	/// <summary>Drops a whole ride — the default ending, and cancellation (§5.6).</summary>
+	/// <summary>Drops a whole ride — what deleting an adventure takes with it (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
 	public void RemoveRide(Guid rideId) => rides.TryRemove(rideId, out _);
 }
-
-/// <summary>An entry waiting to be written (§5.5).</summary>
-/// <param name="RideId">Which ride.</param>
-/// <param name="UserId">Which rider.</param>
-/// <param name="Entry">The position.</param>
-public sealed record DirtyPosition(Guid RideId, Guid UserId, PositionEntry Entry);

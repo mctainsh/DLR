@@ -4,7 +4,6 @@ using DLR.Server.Data.Comments;
 using DLR.Server.Data.Identity;
 using DLR.Server.Data.Markers;
 using DLR.Server.Data.Photos;
-using DLR.Server.Data.Positions;
 using DLR.Server.Data.Rides;
 using DLR.Server.Data.Tracks;
 using DLR.Server.Diagnostics;
@@ -69,6 +68,7 @@ public sealed class AdminController : ControllerBase
 	public async Task<ActionResult<IReadOnlyList<AdminUserRow>>> Users(
 		[FromServices] DlrDbContext database,
 		[FromServices] AdminRoster roster,
+		[FromServices] RiderPositionCache cache,
 		[FromQuery] string? search,
 		[FromQuery] int skip,
 		[FromQuery] int take,
@@ -107,7 +107,6 @@ public sealed class AdminController : ControllerBase
 				Photos = database.Set<Photo>().Count(photo => photo.OwnerId == user.Id),
 				Markers = database.Set<Marker>().Count(marker => marker.CreatedByUserId == user.Id),
 				Devices = database.Set<Device>().Count(device => device.UserId == user.Id),
-				Held = database.Set<RiderPosition>().Count(position => position.UserId == user.Id),
 				Seconds = database
 					.Set<Track>()
 					.Where(track => track.OwnerId == user.Id)
@@ -118,6 +117,19 @@ public sealed class AdminController : ControllerBase
 		// Read once for the page rather than per row: the roster is an options-monitor lookup and a
 		// scan, and a 200-row page would otherwise repeat both 200 times to answer one bool column.
 		IReadOnlySet<string> admins = roster.Everyone();
+
+		// From the cache, because that is the only place a position is (§5.5) — and read once for
+		// the page for the same reason the roster above is: a correlated count per row would be a
+		// scan each, to answer one column.
+		Dictionary<Guid, int> held = [];
+
+		foreach (Guid rideId in cache.RideIds())
+		{
+			foreach (Guid riderId in cache.RiderIds(rideId))
+			{
+				held[riderId] = held.GetValueOrDefault(riderId) + 1;
+			}
+		}
 
 		// Projected by hand, and it has to be: ApiSurfaceRules forbids an AppUser reaching a
 		// response factory, because the password hash and the security stamp travel with it.
@@ -130,7 +142,7 @@ public sealed class AdminController : ControllerBase
 				CreatedUtc: row.CreatedUtc,
 				LastActiveUtc: row.LastActiveUtc,
 				PositionsRecorded: row.PositionsRecorded,
-				PositionsHeld: row.Held,
+				PositionsHeld: held.GetValueOrDefault(row.Id),
 				Adventures: row.Adventures,
 				Routes: row.Routes,
 				Posts: row.Posts,

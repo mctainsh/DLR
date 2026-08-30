@@ -421,16 +421,13 @@ public sealed class MarkerTests(PostgresFixture postgres)
 
 		await CreateAsync(organiser, Request(ride.Id));
 
-		await app.FlushPositionsAsync();
-
 		using HttpResponseMessage stopped = await organiser.PutAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/sharing/me",
 			new SetSharingRequest(false));
 
 		stopped.StatusCode.ShouldBe(HttpStatusCode.OK, await stopped.Content.ReadAsStringAsync());
 
-		(await app.WithDatabaseAsync(database =>
-			database.Set<Data.Positions.RiderPosition>().CountAsync())).ShouldBe(0);
+		app.PositionCount().ShouldBe(0);
 
 		(await app.WithDatabaseAsync(database => database.Set<Marker>().CountAsync())).ShouldBe(
 			1,

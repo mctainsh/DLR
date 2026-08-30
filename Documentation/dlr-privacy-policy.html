@@ -381,15 +381,16 @@
 
 	<h3>What is stored, exactly</h3>
 	<p>
-		One row per person per adventure, holding your latest position, and overwritten in place.
-		<strong>There is no location history table. No trail is kept, and no journey can be
-		replayed from what we store.</strong>
+		<strong>Nothing.</strong> Your latest position is held in the server's memory while you are
+		sharing and is never written to disk — so there is no location history table, no trail, no
+		journey that could be replayed, and nothing about where you were in any backup we take.
 	</p>
 	<p>
-		Turning sharing off <strong>deletes</strong> that stored row rather than merely stopping the
-		broadcast — a last-known point sitting in a database is exactly what someone turning sharing
+		Turning sharing off <strong>discards</strong> that position rather than merely stopping the
+		broadcast — a last-known point left sitting anywhere is exactly what someone turning sharing
 		off is asking us not to keep. The same happens when you leave an adventure, when an organiser
-		removes you, and when the adventure is deleted. If you are not sharing with an adventure,
+		removes you, when the adventure is deleted, and whenever our server restarts. If you are not
+		sharing with an adventure,
 		there is no row for you in it at all — hidden or otherwise.
 	</p>
 
@@ -401,18 +402,16 @@
 		in it.
 	</p>
 	<p>
-		Because your switch is the only thing that stops sharing, we also clean up after a position
-		that nothing is updating: if we have had no new position from you in an adventure for
-		<strong>14 days</strong>, we delete the stored row and turn that adventure's sharing switch
-		off. That is housekeeping for a phone that was lost, replaced or switched off — it is
-		<em>not</em> a limit on sharing, and if you are still travelling and still sending positions
-		you are still sharing until you stop.
+		Your position is <strong>never written to disk</strong>. It is held in the server's memory
+		while you are sharing and nowhere else, so it is not in our backups, cannot be restored from
+		one, and is gone the moment the server restarts — as well as when you stop sharing, leave,
+		or are removed.
 	</p>
 
 	<h3>The private area</h3>
 	<p>
 		You can set a circle around home — <strong>Settings → Location</strong>. Inside it, nothing is
-		recorded and nothing is sent: the fix never becomes a stored row and never reaches our
+		recorded and nothing is sent: the fix never leaves your phone and never reaches our
 		servers. Co-members see you as present in the adventure with no position on the map.
 	</p>
 	<p>
@@ -506,7 +505,7 @@
 			<tbody>
 				<tr>
 					<td>Live position</td>
-					<td>Until you stop sharing, leave, are removed, or the adventure is deleted. A position nothing has updated for 14 days is deleted regardless. No history is kept at any point.</td>
+					<td><strong>Never stored.</strong> Held in memory only, while you are sharing. Gone when you stop, leave, are removed, when the adventure is deleted, or when the server restarts. No history is kept at any point.</td>
 				</tr>
 				<tr>
 					<td>Account, tracks, markers, photos and comments</td>

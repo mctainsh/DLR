@@ -209,16 +209,34 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	}
 
 	/// <summary>
-	/// Runs one write-behind flush, synchronously (§5.5).
+	/// How many positions the cache is holding — for one adventure, or every one (§5.5).
+	/// </summary>
+	/// <param name="rideId">Which adventure, or null for the whole cache.</param>
+	/// <remarks>
+	/// The cache is the only place a position is since v0.33, so this is the whole answer rather
+	/// than the in-memory half of one. Synchronous, because there is no round trip left to await.
+	/// </remarks>
+	public int PositionCount(Guid? rideId = null)
+	{
+		RiderPositionCache cache = Services.GetRequiredService<RiderPositionCache>();
+
+		return rideId is { } id
+			? cache.RiderIds(id).Count()
+			: cache.RideIds().Sum(ride => cache.RiderIds(ride).Count());
+	}
+
+	/// <summary>
+	/// Banks the counted fixes, synchronously (§14.6).
 	/// <para>
-	/// Publishing lands in <c>RiderPositionCache</c> and reaches PostgreSQL on the next tick, so a
-	/// test that wants to assert on the <em>persisted</em> row has to get one written first. Doing
-	/// that by advancing the clock and waiting for the timer would make every such test a race;
-	/// driving the flush directly is the same code path with none of the flakiness.
+	/// <strong>Not a position flush — there is no such thing since v0.33.</strong> A published fix
+	/// is in <c>RiderPositionCache</c> the moment the request returns, so a test asserting on a
+	/// position never needs this. What still reaches PostgreSQL on a tick is each rider's lifetime
+	/// count, and driving the drain directly is the same code path with none of the timer's
+	/// flakiness.
 	/// </para>
 	/// </summary>
-	public Task FlushPositionsAsync() =>
-		Services.GetRequiredService<PositionFlushService>().FlushAsync(CancellationToken.None);
+	public Task FlushPositionCountsAsync() =>
+		Services.GetRequiredService<PositionCounterFlushService>().FlushAsync(CancellationToken.None);
 
 	/// <summary>
 	/// Sends the coalesced reaction and poll messages, synchronously (§17.4).

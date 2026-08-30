@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
-using DLR.Server.Data.Positions;
 using DLR.Server.Data.Rides;
 using DLR.TestSupport.Database;
 using DLR.TestSupport.Hosting;
@@ -52,17 +51,8 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 
 		result.RideIds.ShouldBe([sunday.Id]);
 
-		await app.FlushPositionsAsync();
-
-		Guid riderId = await IdOfAsync(app, "SamJones");
-
-		List<Guid> stored = await app.WithDatabaseAsync(database =>
-			database.Set<RiderPosition>()
-				.Where(position => position.UserId == riderId)
-				.Select(position => position.GroupRideId)
-				.ToListAsync());
-
-		stored.ShouldBe([sunday.Id], "no row in B at all — not a hidden one");
+		app.PositionCount(sunday.Id).ShouldBe(1);
+		app.PositionCount(charity.Id).ShouldBe(0, "nothing held in B at all — not a hidden pin");
 
 		// And nothing of theirs is visible to the charity ride's members either.
 		List<RiderPositionDto> seen =
@@ -101,8 +91,6 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 		PublishResult result = await PublishAsync(rider, -33.86, 151.20);
 
 		result.RideIds.Order().ShouldBe(rides.Order());
-
-		await app.FlushPositionsAsync();
 
 		foreach (Guid rideId in rides)
 		{

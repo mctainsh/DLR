@@ -1,7 +1,6 @@
 using DLR.Server.Data;
 using DLR.Server.Data.Identity;
 using DLR.Server.Data.Moderation;
-using DLR.Server.Data.Positions;
 using DLR.Server.Data.Rides;
 using DLR.Server.Data.Tracks;
 using DLR.Server.Diagnostics;
@@ -124,16 +123,6 @@ public sealed class NightlyMaintenanceService(
 				() => ClearRegistrationIpsAsync(database, settings, now, cancellationToken),
 				0),
 
-			PositionsDeleted = await SweepAsync(
-				"idle positions",
-				() => DeleteIdlePositionsAsync(scope, settings, now),
-				0),
-
-			OrphanedPositionsDeleted = await SweepAsync(
-				"orphaned positions",
-				() => DeleteOrphanedPositionsAsync(scope, settings),
-				0),
-
 			RefreshTokensDeleted = await SweepAsync(
 				"refresh tokens",
 				() => DeleteDeadTokensAsync(database, settings, now, cancellationToken),
@@ -162,19 +151,22 @@ public sealed class NightlyMaintenanceService(
 
 		logger.LogInformation(
 			"Nightly maintenance finished: {Deleted} accounts deleted, {Warned} warned, " +
-			"{Ips} addresses cleared, {Positions} positions, {Tokens} refresh tokens, " +
-			"{Revisions} revisions, {Reports} reports, {Blobs} blobs, {Logs} log files. " +
-			"{Orphans} positions belonged to a rider who was not sharing.",
+			"{Ips} addresses cleared, {Tokens} refresh tokens, " +
+			"{Revisions} revisions, {Reports} reports, {Blobs} blobs, {Logs} log files.",
 			report.AccountsDeleted,
 			report.AccountsWarned,
 			report.RegistrationIpsCleared,
-			report.PositionsDeleted,
 			report.RefreshTokensDeleted,
 			report.RevisionsPurged,
 			report.ReportsPurged,
 			report.OrphanBlobsDeleted,
-			report.LogFilesDeleted,
-			report.OrphanedPositionsDeleted);
+			report.LogFilesDeleted);
+
+		// Through SweepAsync like everything else, so a failure here cannot take the run down —
+		// but with no number in the report, the way the alert below has none: positions live in
+		// RiderPositionCache and nowhere else (§5.5), so there is nothing on disk to reclaim and
+		// nothing an operator could act on.
+		await SweepAsync("idle positions", () => EvictIdlePositions(scope, settings, now), false);
 
 		await SweepAsync("run alert", () => AlertAsync(scope, settings, report, now), false);
 
@@ -216,8 +208,6 @@ public sealed class NightlyMaintenanceService(
 				Accounts deleted:        {report.AccountsDeleted}
 				Accounts warned:         {report.AccountsWarned}
 				Registration IPs nulled: {report.RegistrationIpsCleared}
-				Positions removed:       {report.PositionsDeleted}
-				Not-sharing positions:   {report.OrphanedPositionsDeleted}
 				Refresh tokens removed:  {report.RefreshTokensDeleted}
 				Track revisions purged:  {report.RevisionsPurged}
 				Reports purged:          {report.ReportsPurged}
@@ -444,48 +434,6 @@ public sealed class NightlyMaintenanceService(
 		return scope.ServiceProvider.GetRequiredService<ServerLogReader>().Prune(cutoff, settings.DryRun);
 	}
 
-	/// <summary>
-	/// The backstop for a position whose rider is not sharing with that adventure (§10.1).
-	/// </summary>
-	/// <remarks>
-	/// Its own sweep and its own number rather than folded into the idle one, because they are
-	/// different facts: the idle count is housekeeping, and this one is a defect having fired.
-	/// A report that added them together would hide the second inside the first.
-	/// </remarks>
-	private static async Task<int> DeleteOrphanedPositionsAsync(
-		AsyncServiceScope scope,
-		MaintenanceOptions settings)
-	{
-		PositionStore positions = scope.ServiceProvider.GetRequiredService<PositionStore>();
-
-		return settings.DryRun
-			? await positions.CountOrphanedAsync()
-			: await positions.ClearOrphanedAsync();
-	}
-
-	/// <summary>
-	/// The backstop for a position nothing is updating any more (§5.6, §7.11).
-	/// </summary>
-	/// <remarks>
-	/// There is no longer an end-of-adventure that reclaims rows, so this is what stops a phone
-	/// that died mid-ride broadcasting a pin for ever. It is a garbage collector, not a privacy
-	/// guarantee: a rider still sending fixes is still sharing, however long they have been at it.
-	/// </remarks>
-	private static async Task<int> DeleteIdlePositionsAsync(
-		AsyncServiceScope scope,
-		MaintenanceOptions settings,
-		DateTimeOffset now)
-	{
-		RideOptions ride = scope.ServiceProvider.GetRequiredService<IOptions<RideOptions>>().Value;
-		PositionStore positions = scope.ServiceProvider.GetRequiredService<PositionStore>();
-
-		DateTimeOffset floor = now.AddDays(-Math.Max(1, ride.PositionIdleDays));
-
-		return settings.DryRun
-			? await positions.CountIdleAsync(floor)
-			: await positions.ClearIdleAsync(floor);
-	}
-
 	private static async Task<int> DeleteDeadTokensAsync(
 		DlrDbContext database,
 		MaintenanceOptions settings,
@@ -635,6 +583,30 @@ public sealed class NightlyMaintenanceService(
 	/// <summary>
 	/// Runs one sweep, and turns a failure into a logged zero rather than an abandoned night.
 	/// </summary>
+	/// <summary>Forgets cached positions nothing has updated for <c>Ride:PositionIdleDays</c> (§7.11).</summary>
+	/// <remarks>
+	/// A memory bound rather than a retention rule — nothing is retained (§5.5). What it stops is a
+	/// long-lived process accumulating a year of pins for riders whose phones went quiet.
+	/// </remarks>
+	private static Task<bool> EvictIdlePositions(
+		AsyncServiceScope scope,
+		MaintenanceOptions settings,
+		DateTimeOffset now)
+	{
+		if (settings.DryRun)
+		{
+			return Task.FromResult(false);
+		}
+
+		RideOptions ride = scope.ServiceProvider.GetRequiredService<IOptions<RideOptions>>().Value;
+
+		scope.ServiceProvider
+			.GetRequiredService<PositionStore>()
+			.ClearIdle(now.AddDays(-Math.Max(1, ride.PositionIdleDays)));
+
+		return Task.FromResult(true);
+	}
+
 	private async Task<T> SweepAsync<T>(string name, Func<Task<T>> sweep, T onFailure)
 	{
 		try
