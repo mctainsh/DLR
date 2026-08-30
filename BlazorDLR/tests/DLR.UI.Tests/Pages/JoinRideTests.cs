@@ -47,6 +47,7 @@ public sealed class JoinRideTests : PageTestContext
 		Services.AddSingleton<PrivateAreaState>();
 		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
+		Services.AddSingleton<LocationDisclosure>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		return api;

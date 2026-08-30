@@ -54,14 +54,14 @@ public sealed class LocationBroadcastStateTests
 		{
 			if (disclosureAccepted)
 			{
-				Settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1").AsTask().Wait();
+				Settings.SetAsync(LocationDisclosure.StorageKey, "1").AsTask().Wait();
 			}
 
 			PrivateAreas = new PrivateAreaState(Settings, Api);
 			Rate = new LocationUpdateRateState(Settings);
 			Recording = new TrackRecordingState(Settings, Api, PrivateAreas);
 			Broadcast = new LocationBroadcastState(
-				Provider, Hub, Api, PrivateAreas, Rate, Recording, Settings, Confirm, Clock);
+				Provider, Hub, Api, PrivateAreas, Rate, Recording, new LocationDisclosure(Settings, Confirm), Clock);
 			return this;
 		}
 

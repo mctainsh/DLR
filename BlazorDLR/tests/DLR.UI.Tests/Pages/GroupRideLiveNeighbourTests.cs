@@ -109,13 +109,14 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 
 		// Play's background-location disclosure, already answered — without it the receiver stops at
 		// a modal nothing here presses, and this rider never gets a fix of their own.
-		await _settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1");
+		await _settings.SetAsync(LocationDisclosure.StorageKey, "1");
 
 		// The GPS seam (§4.3). This page measures the panel from the device's own reading, so unlike
 		// most page suites this one has to drive a real receiver.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
+		Services.AddSingleton<LocationDisclosure>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		ComponentFactories.Add<BlazorDLR.Shared.Components.RideMap, StubRideMap>();

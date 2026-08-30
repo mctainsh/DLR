@@ -40,7 +40,7 @@ public sealed class GpsRailButtonTests : BunitContext
 	/// </summary>
 	private void Wire()
 	{
-		_settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1").AsTask().Wait();
+		_settings.SetAsync(LocationDisclosure.StorageKey, "1").AsTask().Wait();
 
 		Services.AddSingleton<IApiClient>(_api);
 		Services.AddSingleton<TimeProvider>(_clock);
@@ -52,6 +52,7 @@ public sealed class GpsRailButtonTests : BunitContext
 		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
 		Services.AddSingleton<CurrentRideState>();
+		Services.AddSingleton<LocationDisclosure>();
 		Services.AddSingleton<LocationBroadcastState>();
 	}
 

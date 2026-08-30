@@ -94,7 +94,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		// receiver stops at a modal nothing here answers, and every test below that expects a fix
 		// would be waiting on a dialog rather than on the GPS. Its own path is
 		// LocationBroadcastStateTests' subject.
-		await _settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1");
+		await _settings.SetAsync(LocationDisclosure.StorageKey, "1");
 
 		// Opening a ride is what the nav rail's globe remembers (§18.6), so the page writes here.
 		Services.AddSingleton<CurrentRideState>();
@@ -105,6 +105,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
+		Services.AddSingleton<LocationDisclosure>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		ComponentFactories.Add<RideMap, StubRideMap>();

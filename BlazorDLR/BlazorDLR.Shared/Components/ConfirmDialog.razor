@@ -19,7 +19,12 @@
 			 aria-labelledby="confirm-title" aria-describedby="confirm-message"
 			 @onclick:stopPropagation="true">
 			<h2 id="confirm-title">@request.Title</h2>
-			<p id="confirm-message">@request.Message</p>
+			<div id="confirm-message">
+				@foreach (string paragraph in Paragraphs(request.Message))
+				{
+					<p>@paragraph</p>
+				}
+			</div>
 			<div class="confirm-actions">
 				<button type="button" class="confirm-cancel" @onclick="Cancel">@request.CancelText</button>
 				<button type="button" class="confirm-confirm @(request.Danger ? "danger" : "primary")"
@@ -52,6 +57,14 @@
 		_wasOpen = open;
 	}
 
+	/// <summary>
+	/// One paragraph per line of the message. Play's location disclosure is four of them and a
+	/// single &lt;p&gt; ran them into a wall of text nobody reads — which is most of what
+	/// <em>prominent</em> means (§4.3).
+	/// </summary>
+	private static IEnumerable<string> Paragraphs(string message) =>
+		message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 	private void Ok() => Confirm.Respond(true);
 	private void Cancel() => Confirm.Respond(false);
 
@@ -79,10 +92,17 @@
 		padding: 1.25rem 1.25rem 1rem;
 		min-width: min(24rem, 100%);
 		max-width: 32rem;
+		/* The body scrolls, the buttons do not. A long dialog on a short phone used to push its
+		   own accept button off the bottom of the screen, and the longest one in the app is the
+		   one a store reviewer has to be able to accept (§4.3). */
+		display: flex; flex-direction: column;
+		max-height: calc(100dvh - 2rem);
 	}
 	.confirm-dialog h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
-	.confirm-dialog p { margin: 0 0 1.25rem; line-height: 1.4; }
-	.confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+	#confirm-message { margin: 0 0 1.25rem; overflow-y: auto; }
+	#confirm-message p { margin: 0 0 0.75rem; line-height: 1.4; }
+	#confirm-message p:last-child { margin-bottom: 0; }
+	.confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; flex: none; }
 	.confirm-actions button {
 		padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;
 		font: inherit; border: 1px solid transparent;

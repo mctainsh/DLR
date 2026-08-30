@@ -118,18 +118,35 @@ merit. Play requires **all** of the following, and checks them against a video:
    the person granting permission, the feature working, and the ongoing notification while the app
    is backgrounded. Record it from a clean install.
 3. **Prominent in-app disclosure.** Before the system permission dialog, the app must state — in
-   its own UI — that it collects location "to enable *feature*, even when the app is closed or not
-   in use", with an explicit accept/deny.
+   its own UI — what it collects, **every** use it puts it to, and that it does so "even when the
+   app is closed or not in use", with an explicit accept/deny.
 
-   > **Implemented** in `LocationBroadcastState.DiscloseAsync` — shown once per device, before the
-   > platform permission request, on every route that can start the receiver (the join-time consent
-   > prompt and the info page's sharing switch both pass through it). It carries Play's required
-   > "even when the app is closed or not in use" wording with an explicit *I agree* / *Cancel*.
-   > **Record the video against this dialog**, and keep its wording intact if the copy is revised.
-   > **The copy was revised** when the app moved from "ride" to "adventure" — the title now reads
-   > *"Share your location while you travel?"*. Play's required clause survives verbatim in the
-   > body, but any existing declaration video shows a dialog that no longer exists: **re-record it
-   > before the next submission**.
+   > **Implemented** in `BlazorDLR.Shared/State/LocationDisclosure.cs` — the copy, the key it is
+   > remembered under and the ask, in one type, in front of every route to a fix: the broadcaster
+   > (which the join-time consent prompt, the info page's sharing switch and the launch restore all
+   > enter through) and the *Use my location* button on **My routes**.
+   >
+   > **8.0.0.28 was rejected here**, with *"the in-app Prominent Disclosure does not disclose the
+   > usage of accessed or collected Location data"*. Two holes, both closed:
+   >
+   > - The copy named live sharing and never mentioned that the same fixes are written into a
+   >   **recorded track** (§15.1). One of the two uses of the collected data was undisclosed.
+   > - **My routes → Use my location** called `EnsurePermissionsAsync` directly. That climbs the
+   >   whole Android ladder, background rung included, so a traveller who had never shared anything
+   >   could reach the system location dialog with nothing said first.
+   >
+   > The disclosure now opens *"Dumb Luck Routes collects location data — your precise position — to
+   > show you to the other members of the group adventures you turn sharing on for, and to record
+   > the track of where you went, even when the app is closed or not in use."* **That sentence is
+   > the requirement. Leave it alone; revise the paragraphs after it freely.** The buttons are
+   > *I agree* / *No thanks*.
+   >
+   > The storage key is suffixed (`dlr.location-disclosure.2`) and **the suffix moves whenever the
+   > disclosure gains a use** — a device that accepted copy which never mentioned recording has not
+   > agreed to what this one says, so it is asked again.
+   >
+   > **Re-record the declaration video against this dialog before the next submission.** Any
+   > existing one shows a dialog that no longer exists.
 
 4. **Foreground service type declaration** (App content → Foreground service types → Location).
    Describe the user-visible feature and link the same video. Required since Android 14.
@@ -270,7 +287,9 @@ submitting, because a reviewer following a path that does not exist is worse tha
 >    appear as coloured markers with their names and their distance along the route.
 > 3. The nav rail's **Live members** shows the same people as a sortable list.
 > 4. Hamburger menu (top of the map) **→ Info → My sharing**. Turning that switch on shows our own
->    disclosure dialog ("Share your location while you travel?") *before* the iOS permission prompt.
+>    disclosure dialog ("Dumb Luck Routes collects location data") *before* the iOS permission
+>    prompt. It names both things a fix is used for — showing you to the other members, and
+>    recording your own track — and is shown once per device.
 > 5. Hamburger menu **→ Adventure thread** for comments, and **→ Add marker** to attach a photo or note
 >    to a point on the route.
 >

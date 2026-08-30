@@ -17,8 +17,11 @@ An **adventure** is what a group does together; the people on it are **traveller
 cyclists, kayakers and walkers alike.
 
 **The app's own screens now match**: *Group adventures*, *Live members*, *Adventure thread*,
-*Blocked travellers*, *My adventures*, and a location disclosure that asks *"Share your location
-while you travel?"*. Screen names quoted in this file and in the review notes are the real ones.
+*Blocked travellers*, *My adventures*. Screen names quoted in this file and in the review notes are
+the real ones. The location disclosure is the one screen that is not written to that brief — it
+states the collection outright (*"Dumb Luck Routes collects location data"*) because Play read the
+question it used to ask as a feature prompt rather than a disclosure, and rejected 8.0.0.28 over
+it.
 What deliberately still says *ride* is listed at the end.
 
 ---
@@ -166,8 +169,9 @@ None of it is user-visible, and each would cost something real to change:
 | OpenAPI summaries (`.WithSummary("Ends the ride.")`) | Developer-facing API documentation, not app text. Worth a sweep one day; nothing rides on it |
 | Config keys `Ride:*`, `Rides:*`, the JWT issuer `dumb-luck-rides` | Renaming the issuer invalidates every live token; renaming the keys breaks deployed configuration |
 
-One line that changed and carries a store obligation: the location disclosure
-(`BlazorDLR.Shared/State/LocationBroadcastState.cs`) now reads *"Share your location while you
-travel?"*. Play's required *"even when the app is closed or not in use"* clause is intact in the
-body — but **the background-location declaration video must be re-recorded against the new
-dialog** before the next Play submission.
+One line that changed and carries a store obligation: the location disclosure now lives in
+`BlazorDLR.Shared/State/LocationDisclosure.cs`, is headed *"Dumb Luck Routes collects location
+data"*, and names both uses of a fix — showing you to the other members, and recording your track —
+inside Play's required *"even when the app is closed or not in use"* sentence. Naming only the first
+is what 8.0.0.28 was rejected for. **The background-location declaration video must be re-recorded
+against this dialog** before the next Play submission; see `store-release.md`.

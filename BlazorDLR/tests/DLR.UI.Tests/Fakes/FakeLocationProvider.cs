@@ -20,6 +20,7 @@ public sealed class FakeLocationProvider : ILocationProvider
 
 	// Written on the pump's thread, read on the test's — see WatchCount.
 	private int _watchCount;
+	private int _permissionAsks;
 	private bool _recording;
 	private bool _stopped;
 
@@ -31,6 +32,13 @@ public sealed class FakeLocationProvider : ILocationProvider
 
 	/// <summary>What <see cref="EnsurePermissionsAsync"/> answers. Granted unless a test says otherwise.</summary>
 	public LocationPermissionState Permission { get; set; } = LocationPermissionState.Granted;
+
+	/// <summary>
+	/// How many times the platform ladder has been climbed. On Android the first rung of it is the
+	/// system location dialog, so a test asserting this is still zero is asserting that Play's
+	/// prominent disclosure came first (§4.3).
+	/// </summary>
+	public int PermissionAsks => Volatile.Read(ref _permissionAsks);
 
 	/// <summary>
 	/// How many times a watch has been started — the receiver's lifetime, counted.
@@ -50,8 +58,11 @@ public sealed class FakeLocationProvider : ILocationProvider
 	public bool Stopped => Volatile.Read(ref _stopped);
 
 	/// <inheritdoc />
-	public Task<LocationPermissionState> EnsurePermissionsAsync(CancellationToken cancellationToken = default) =>
-		Task.FromResult(Permission);
+	public Task<LocationPermissionState> EnsurePermissionsAsync(CancellationToken cancellationToken = default)
+	{
+		Interlocked.Increment(ref _permissionAsks);
+		return Task.FromResult(Permission);
+	}
 
 	/// <summary>Hands a fix to whoever is watching.</summary>
 	/// <param name="fix">The fix to deliver.</param>

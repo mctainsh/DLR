@@ -94,11 +94,12 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 		// Play's background-location disclosure, already accepted on this device. Without it the
 		// receiver stops at a modal nothing here answers, and "no GPS signal" would be a test
 		// waiting on a dialog.
-		await _settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1");
+		await _settings.SetAsync(LocationDisclosure.StorageKey, "1");
 
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
+		Services.AddSingleton<LocationDisclosure>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		ComponentFactories.Add<RideMap, StubRideMap>();

@@ -46,13 +46,6 @@ namespace BlazorDLR.Shared.State;
 public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 {
 	/// <summary>
-	/// Marks that this device has been shown the background-location disclosure and accepted it.
-	/// Device-local: it is a statement made to the person holding the phone, and a new phone has
-	/// not been told anything.
-	/// </summary>
-	public const string DisclosureStorageKey = "dlr.location-disclosure";
-
-	/// <summary>
 	/// How often "this rider is private" is restated while it stays true (§10.1).
 	/// <para>
 	/// Long, because it is insurance rather than a heartbeat: the one thing it covers is the server
@@ -108,8 +101,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	private readonly PrivateAreaState _privateAreas;
 	private readonly LocationUpdateRateState _rate;
 	private readonly TrackRecordingState _recording;
-	private readonly IDeviceSettings _settings;
-	private readonly ConfirmService _confirm;
+	private readonly LocationDisclosure _disclosure;
 	private readonly TimeProvider _clock;
 
 	/// <summary>
@@ -179,8 +171,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// <param name="privateAreas">The §10.1 gate. Consulted before anything else touches a fix.</param>
 	/// <param name="rate">The rider's chosen update rate (§4.2).</param>
 	/// <param name="recording">The rider's own track (§15.1). Fed before either publish gate.</param>
-	/// <param name="settings">Where the disclosure acknowledgement is remembered.</param>
-	/// <param name="confirm">The app's one dialog, used for the disclosure below.</param>
+	/// <param name="disclosure">Play's prominent disclosure (§4.3). Answered before anything starts.</param>
 	/// <param name="clock">Never the ambient clock (§10.4) — this stamps "last published".</param>
 	public LocationBroadcastState(
 		ILocationProvider provider,
@@ -189,8 +180,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		PrivateAreaState privateAreas,
 		LocationUpdateRateState rate,
 		TrackRecordingState recording,
-		IDeviceSettings settings,
-		ConfirmService confirm,
+		LocationDisclosure disclosure,
 		TimeProvider clock)
 	{
 		_provider = provider;
@@ -199,8 +189,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		_privateAreas = privateAreas;
 		_rate = rate;
 		_recording = recording;
-		_settings = settings;
-		_confirm = confirm;
+		_disclosure = disclosure;
 		_clock = clock;
 
 		// A change of rate changes what the platform was asked for, which is fixed when
@@ -503,7 +492,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		// off the device, and reading them from inside the pump would race the first fix.
 		await _recording.LoadAsync();
 
-		if (!await DiscloseAsync())
+		if (!await _disclosure.AcceptedAsync())
 		{
 			// The rider read what the app is about to do and said no. Nothing starts, and the
 			// status says why — the sharing flag on the server is still theirs to turn off.
@@ -519,61 +508,6 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 		LocationUpdateRate rate = _rate.Rate;
 
 		_pump = Task.Run(() => PumpAsync(rate, cts.Token), CancellationToken.None);
-	}
-
-	/// <summary>
-	/// Google Play's <em>prominent disclosure</em>, shown once per device before the platform's own
-	/// permission dialog is ever reached.
-	/// <para>
-	/// <strong>This is a store requirement with a specific shape, not a nicety.</strong> Play's
-	/// background-location policy requires the app's own UI to say that it collects location "to
-	/// enable [feature], even when the app is closed or not in use", with an explicit accept and
-	/// deny, <em>before</em> the runtime permission request — and it is checked against a video at
-	/// review. An app that goes straight to the system dialog is rejected however good its
-	/// in-context copy is elsewhere. See Documentation/store-release.md.
-	/// </para>
-	/// <para>
-	/// <strong>Here, rather than on the consent prompt.</strong> Turning sharing on has more than
-	/// one route into it — the join-time prompt on the live map and the switch on the ride's info
-	/// page — and a disclosure that only one of them shows is a disclosure the reviewer will find
-	/// the way around. This is the single choke point every route passes through.
-	/// </para>
-	/// <para>
-	/// Asked once per device and remembered. Repeating it every ride would train riders to dismiss
-	/// it, which is the opposite of what a disclosure is for.
-	/// </para>
-	/// </summary>
-	/// <returns>True when the rider accepted, or had already accepted on this device.</returns>
-	private async Task<bool> DiscloseAsync()
-	{
-		if (await _settings.GetAsync(DisclosureStorageKey) == "1")
-		{
-			return true;
-		}
-
-		bool accepted = await _confirm.AskAsync(
-			"Share your location while you travel?",
-			// The first sentence is Play's required form, near enough verbatim: what is collected,
-			// what it enables, and "even when the app is closed or not in use". Revise the rest
-			// freely; leave that clause alone.
-			"Dumb Luck Routes collects location data to show you to the other people on the group "
-			+ "adventures you turn sharing on for, even when the app is closed or not in use — so the "
-			+ "group can still see you with your phone in a mount or a pocket and the screen off.\n\n"
-			// "Off until you turn it on" was true until joining on a phone started turning it on
-			// (JoinRide.ShareByDefaultAsync). A disclosure that describes a default the app no
-			// longer has is the one sentence on this screen a reviewer can catch it out on, so it
-			// now says what actually happens — and says where the rider sees it and undoes it.
-			+ "Sharing is per adventure. It starts on for an adventure you join on this phone, the map "
-			+ "says so in red whenever it is off, and you can turn it off at any time. Nothing is ever "
-			+ "sent from inside the private area you can set around home.",
-			confirmText: "I agree");
-
-		if (accepted)
-		{
-			await _settings.SetAsync(DisclosureStorageKey, "1");
-		}
-
-		return accepted;
 	}
 
 	private async Task StopAsync()

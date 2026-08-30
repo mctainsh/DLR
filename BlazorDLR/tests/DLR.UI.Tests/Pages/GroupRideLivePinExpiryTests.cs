@@ -119,6 +119,7 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
+		Services.AddSingleton<LocationDisclosure>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		ComponentFactories.Add<RideMap, StubRideMap>();

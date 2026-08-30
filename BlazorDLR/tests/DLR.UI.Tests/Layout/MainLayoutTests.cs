@@ -93,8 +93,7 @@ public sealed class MainLayoutTests : BunitContext
 			privateAreas,
 			new LocationUpdateRateState(settings),
 			new TrackRecordingState(settings, api, privateAreas),
-			settings,
-			confirm,
+			new LocationDisclosure(settings, confirm),
 			clock));
 
 		return (api, auth, settings);
@@ -113,7 +112,7 @@ public sealed class MainLayoutTests : BunitContext
 
 		// Disclosed already, so the receiver coming up does not put Play's background-location
 		// modal over the layout.
-		await settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1");
+		await settings.SetAsync(LocationDisclosure.StorageKey, "1");
 
 		api.RideResult = new RideDetail(
 			Ride, "Saturday hills", null, FixedInstant, JoinPolicyDto.Approval, 50, 2,

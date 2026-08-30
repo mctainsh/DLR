@@ -366,6 +366,7 @@ public sealed class NavMenuTests : BunitContext
 		Services.AddSingleton<PrivateAreaState>();
 		Services.AddSingleton<LocationUpdateRateState>();
 		Services.AddSingleton<TrackRecordingState>();
+		Services.AddSingleton<LocationDisclosure>();
 		Services.AddSingleton<LocationBroadcastState>();
 
 		IRenderedComponent<NavMenu> component = Render<NavMenu>();

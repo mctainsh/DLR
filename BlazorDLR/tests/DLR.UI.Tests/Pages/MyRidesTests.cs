@@ -1,5 +1,7 @@
 using BlazorDLR.Shared.Pages;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Platform;
+using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Tracks;
 using DLR.UI.Tests.Fakes;
@@ -305,6 +307,49 @@ public sealed class MyRidesTests : PageTestContext
 			component.FindAll("button").Any(button => button.TextContent.Contains("Retry", StringComparison.Ordinal))
 				.ShouldBeTrue();
 		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void UseMyLocation_ShowsPlaysDisclosureBeforeItTouchesThePlatform()
+	{
+		// The route Play found in 8.0.0.28. One fix for a search box still climbs the whole Android
+		// permission ladder — background rung included — so the app's own words have to come first
+		// here as much as they do in front of a broadcast (§4.3).
+		WireServices();
+
+		FakeLocationProvider gps = new();
+		Services.AddSingleton<ILocationProvider>(gps);
+
+		// Over the scoped store AddRideMapServices binds, so the disclosure below can be a
+		// singleton — the shape every other suite that wires a receiver uses.
+		Services.AddSingleton<IDeviceSettings>(new InMemoryDeviceSettings());
+		Services.AddSingleton<ConfirmService>();
+		Services.AddSingleton<LocationDisclosure>();
+
+		IRenderedComponent<MyRides> component = RenderSharedTab();
+
+		component.WaitForAssertion(
+			() => component.FindAll("button").Any(button => button.TextContent.Contains("Use my location", StringComparison.Ordinal))
+				.ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component
+			.FindAll("button")
+			.First(button => button.TextContent.Contains("Use my location", StringComparison.Ordinal))
+			.Click();
+
+		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
+
+		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
+
+		confirm.Current!.Message.ShouldContain("collects location data");
+		gps.PermissionAsks.ShouldBe(0, "the system dialog may not be reached before the disclosure is answered.");
+
+		confirm.Respond(true);
+
+		component.WaitForAssertion(
+			() => gps.PermissionAsks.ShouldBe(1, "agreeing lets the platform be asked, which is the point of asking."),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>

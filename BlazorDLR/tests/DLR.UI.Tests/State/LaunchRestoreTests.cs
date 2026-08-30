@@ -79,7 +79,7 @@ public sealed class LaunchRestoreTests
 			{
 				// Already disclosed, so the receiver coming up does not put Play's background-location
 				// modal in front of a test that is about the launch rather than about the modal.
-				await Settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1");
+				await Settings.SetAsync(LocationDisclosure.StorageKey, "1");
 
 				PrivateAreaState privateAreas = new(Settings, Api);
 
@@ -90,8 +90,7 @@ public sealed class LaunchRestoreTests
 					privateAreas,
 					new LocationUpdateRateState(Settings),
 					new TrackRecordingState(Settings, Api, privateAreas),
-					Settings,
-					new ConfirmService(),
+					new LocationDisclosure(Settings, new ConfirmService()),
 					Clock);
 			}
 

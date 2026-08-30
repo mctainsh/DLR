@@ -201,6 +201,11 @@ public static class MauiProgram
 		// below offers it every fix, and the Location screen is where it is saved or thrown away.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.TrackRecordingState>();
 
+		// Play's prominent disclosure (§4.3), in front of every route to a fix — the broadcaster
+		// below and the "use my location" button on My routes both pass through it. Only this host
+		// registers it, because only this host has a receiver to disclose (§18.6).
+		builder.Services.AddScoped<BlazorDLR.Shared.State.LocationDisclosure>();
+
 		// The one place a fix travels from the receiver to the ride (§5.7). Scoped, like every
 		// other state the UI binds to: the ride screens turn it on and off, and it holds the
 		// device's set of reasons to be broadcasting.
