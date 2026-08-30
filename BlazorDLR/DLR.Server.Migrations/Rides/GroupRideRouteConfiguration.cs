@@ -44,8 +44,8 @@ public sealed class GroupRideRouteConfiguration : IEntityTypeConfiguration<Group
 			.HasIndex(route => new { route.GroupRideId, route.Position })
 			.HasDatabaseName("ix_group_ride_route_ride_position");
 
-		// "Is this track the route of a live ride" — the §15.4 precondition on editing, asked of
-		// the track rather than of the ride.
+		// "Is this track any adventure's route" — the §15.4 precondition on editing, asked of the
+		// track rather than of the ride.
 		builder
 			.HasIndex(route => route.TrackId)
 			.HasDatabaseName("ix_group_ride_route_track");

@@ -32,7 +32,6 @@ public sealed class RidePermissionsPageTests : PageTestContext
 				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
-				State: RideStateDto.Open,
 				JoinPolicy: JoinPolicyDto.Approval,
 				MemberCap: 50,
 				MemberCount: 1,

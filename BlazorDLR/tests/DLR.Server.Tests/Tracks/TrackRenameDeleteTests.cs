@@ -310,11 +310,11 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The §15.4 precondition an edit meets, and a delete meets it for a stronger reason: an edit
-	/// moves the line a ride in progress is measured against, and a delete takes it away — the
+	/// moves the line an adventure is measured against, and a delete takes it away — the
 	/// attachment cascades and every rider's place in §5.4's gap list goes with it, mid-ride.
 	/// </summary>
 	[Fact]
-	public async Task Delete_TrackOfALiveRide_IsRefused()
+	public async Task Delete_TrackOfAnAdventuresRoute_IsRefused()
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
@@ -330,14 +330,9 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 			attached.StatusCode.ShouldBe(HttpStatusCode.Created, await attached.Content.ReadAsStringAsync());
 		}
 
-		using (HttpResponseMessage started = await organiser.PostAsync($"{RidesUrl}/{ride.Id}/start", content: null))
-		{
-			started.StatusCode.ShouldBe(HttpStatusCode.NoContent, await started.Content.ReadAsStringAsync());
-		}
-
 		using HttpResponseMessage refused = await organiser.DeleteAsync($"{TracksUrl}/{track.Id}");
 
-		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, "an adventure in progress is travelling this line");
+		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, "an adventure is travelling this line");
 
 		(await app.WithDatabaseAsync(database => database.Set<Track>().CountAsync())).ShouldBe(1);
 
@@ -347,12 +342,11 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 		renamed.Name.ShouldBe("Saturday loop — long option");
 
-		// Once the ride has ended the delete goes through, and the attachment goes with it.
-		using (HttpResponseMessage ended = await organiser.PostAsJsonAsync(
-			$"{RidesUrl}/{ride.Id}/ending",
-			new EndRideRequest(RideEndingDto.Immediate)))
+		// Detaching is the way through, and then the delete goes.
+		using (HttpResponseMessage detached = await organiser.DeleteAsync(
+			$"{RidesUrl}/{ride.Id}/routes/{track.Id}"))
 		{
-			ended.StatusCode.ShouldBe(HttpStatusCode.NoContent, await ended.Content.ReadAsStringAsync());
+			detached.StatusCode.ShouldBe(HttpStatusCode.NoContent, await detached.Content.ReadAsStringAsync());
 		}
 
 		using HttpResponseMessage allowed = await organiser.DeleteAsync($"{TracksUrl}/{track.Id}");

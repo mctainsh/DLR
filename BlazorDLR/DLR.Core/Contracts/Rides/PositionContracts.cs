@@ -146,22 +146,3 @@ public sealed record SetSharingRequest(bool Share);
 /// distinguishable rather than collapsing into one grey pin (§5.6).
 /// </param>
 public sealed record SharingState(bool Sharing, bool HasPosition);
-
-/// <summary>How a ride is being ended (§5.6).</summary>
-public enum RideEndingDto
-{
-	/// <summary>
-	/// The default. The live channel closes and every position row is deleted, immediately.
-	/// </summary>
-	Immediate = 0,
-
-	/// <summary>
-	/// A bounded wind-down: members who were sharing keep sharing until they stop or the window
-	/// expires. Implemented in SRV-25.
-	/// </summary>
-	WindDown = 1,
-}
-
-/// <summary><c>POST /api/v1/group-rides/{id}/ending</c> (§5.6).</summary>
-/// <param name="Ending">Which of the two endings the organiser chose.</param>
-public sealed record EndRideRequest(RideEndingDto Ending = RideEndingDto.Immediate);

@@ -102,7 +102,6 @@ public sealed class RideController : ControllerBase
 			Name = request.Name.Trim(),
 			Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
 			StartUtc = request.StartUtc,
-			State = GroupRideState.Open,
 			JoinPolicy = request.JoinPolicy == JoinPolicyDto.Open ? JoinPolicy.Open : JoinPolicy.Approval,
 			MemberCap = request.MemberCap is > 0 and <= 500 ? request.MemberCap.Value : GroupRide.DefaultMemberCap,
 			CreatedUtc = clock.GetUtcNow(),
@@ -176,7 +175,7 @@ public sealed class RideController : ControllerBase
 				.Include(row => row.Members)
 				.SingleOrDefaultAsync(row => row.JoinCode == code);
 
-		if (ride is null || ride.State is GroupRideState.Cancelled or GroupRideState.Archived)
+		if (ride is null)
 		{
 			// Counting *failures*, not attempts (§14.5). A rider who joins ten rides in a
 			// minute is using the product; a client trying ten codes a minute is enumerating
@@ -330,7 +329,6 @@ public sealed class RideController : ControllerBase
 				member.Ride!.Id,
 				member.Ride.Name,
 				member.Ride.StartUtc,
-				member.Ride.State,
 				IsOrganiser = member.Role == GroupRideRole.Owner,
 				MemberCount = member.Ride.Members.Count,
 				member.Ride.JoinCode,
@@ -346,7 +344,6 @@ public sealed class RideController : ControllerBase
 				row.Id,
 				row.Name,
 				row.StartUtc,
-				(RideStateDto)row.State,
 				row.IsOrganiser,
 				row.MemberCount,
 
@@ -365,9 +362,6 @@ public sealed class RideController : ControllerBase
 		//
 		// Projected to WaitingRide and not to RideSummary, and that is the whole point of the type:
 		// the join code and the member count are a member's, and this caller is not one yet.
-		// Projected to an anonymous type and mapped afterwards, exactly as the query above is. The
-		// enum cast is why: GroupRideState and RideStateDto are two different types, and Npgsql has
-		// no translation for a cast between them — done inline it compiles and then 500s at runtime.
 		var asked = await database
 			.Set<GroupRideJoinRequest>()
 			.AsNoTracking()
@@ -379,7 +373,6 @@ public sealed class RideController : ControllerBase
 				RequestId = row.Id,
 				row.Ride!.Name,
 				row.Ride.StartUtc,
-				row.Ride.State,
 				row.RequestedUtc,
 			})
 			.ToListAsync();
@@ -389,7 +382,6 @@ public sealed class RideController : ControllerBase
 			row.RequestId,
 			row.Name,
 			row.StartUtc,
-			(RideStateDto)row.State,
 			row.RequestedUtc))];
 
 		return Ok(new MyRides(organised, joined, waiting));
@@ -638,18 +630,6 @@ public sealed class RideController : ControllerBase
 			return NotFound();
 		}
 
-		// The one refusal. Deleting a ride in progress takes the map out from under everybody
-		// still on the road — §5.6 already gives the organiser the verb for that moment, and it
-		// is End, which stops the sharing without destroying the day's thread and markers.
-		if (ride.State is GroupRideState.Live)
-		{
-			return Problem(
-				statusCode: StatusCodes.Status409Conflict,
-				title: "This adventure is in progress",
-				detail: "End the adventure first. Deleting one that is running would blank the map "
-					+ "for every rider still out there.");
-		}
-
 		// Before the row goes, because the cascade clears the table and not the §5.5 cache in
 		// front of it — a fix left in memory would keep answering for a ride that no longer exists.
 		await positions.ClearRideAsync(id);
@@ -707,7 +687,6 @@ public sealed class RideController : ControllerBase
 			ride.Name,
 			ride.Description,
 			ride.StartUtc,
-			(RideStateDto)ride.State,
 			ride.JoinPolicy == JoinPolicy.Open ? JoinPolicyDto.Open : JoinPolicyDto.Approval,
 			ride.MemberCap,
 			ride.Members.Count,

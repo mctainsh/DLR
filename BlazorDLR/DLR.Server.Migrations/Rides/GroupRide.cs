@@ -2,28 +2,6 @@ using DLR.Server.Data.Identity;
 
 namespace DLR.Server.Data.Rides;
 
-/// <summary>Where a ride is in its lifecycle (§5.1).</summary>
-public enum GroupRideState
-{
-	/// <summary>Not yet published.</summary>
-	Draft = 0,
-
-	/// <summary>Joinable, route visible, no live positions. The planning thread is already active.</summary>
-	Open = 1,
-
-	/// <summary>Members publish positions and the server fans out to this ride only.</summary>
-	Live = 2,
-
-	/// <summary>Finished. Positions are gone or winding down (§5.6); the thread is kept.</summary>
-	Completed = 3,
-
-	/// <summary>Thirty days on, the thread becomes read-only (§17.6).</summary>
-	Archived = 4,
-
-	/// <summary>Called off.</summary>
-	Cancelled = 5,
-}
-
 /// <summary>
 /// How a valid code gets somebody in (§5.2).
 /// <para>
@@ -84,9 +62,6 @@ public sealed class GroupRide
 	/// <summary>When it is planned to start.</summary>
 	public DateTimeOffset StartUtc { get; set; }
 
-	/// <summary>Where it is in the §5.1 lifecycle.</summary>
-	public GroupRideState State { get; set; }
-
 	/// <summary>
 	/// The six-character code, stored normalised (§5.2). Unique across live rides so a typed
 	/// code resolves to exactly one.
@@ -142,26 +117,6 @@ public sealed class GroupRide
 
 	/// <summary>When the ride was created.</summary>
 	public DateTimeOffset CreatedUtc { get; set; }
-
-	/// <summary>
-	/// When the organiser ended it, if they have. The clock the §17.6 thirty-day archival and the
-	/// §5.6 wind-down both run from.
-	/// </summary>
-	public DateTimeOffset? EndedUtc { get; set; }
-
-	/// <summary>
-	/// When a post-ride sharing wind-down expires, if one was granted (§5.6).
-	/// <para>
-	/// <strong>Capped and un-extendable.</strong> A window that can be renewed is an indefinite
-	/// window with extra steps, and indefinite is precisely what §1 promises this app never does.
-	/// Set once when the ride ends; the sweep clears it and never moves it forward.
-	/// </para>
-	/// <para>
-	/// Null means no wind-down — either the ride is still running, or it ended the default way and
-	/// every position went with it.
-	/// </para>
-	/// </summary>
-	public DateTimeOffset? SharingEndsUtc { get; set; }
 
 	/// <summary>The organiser's account, for cascade deletion.</summary>
 	public AppUser? Owner { get; set; }

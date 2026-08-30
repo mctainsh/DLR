@@ -92,11 +92,8 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 			await app.FlushPositionsAsync();
 		}
 
-		// The ride ends, and the nightly sweep takes every position with it (§5.5).
-		await app.WithDatabaseAsync(async database =>
-			await database.Set<GroupRide>()
-				.Where(row => row.Id == rideId)
-				.ExecuteUpdateAsync(row => row.SetProperty(x => x.State, GroupRideState.Completed)));
+		// The positions go idle, and the nightly sweep takes them (§5.6).
+		app.Clock.Advance(TimeSpan.FromDays(15));
 
 		await app.RunMaintenanceAsync();
 
@@ -134,7 +131,7 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 			// A second live ride the same rider shares with.
 			using HttpClient organiser = await SignedInAsync(app, $"Org{Guid.NewGuid():N}"[..12]);
 
-			RideDetail second = await CreateLiveRideAsync(app, organiser);
+			RideDetail second = await CreateRideAsync(organiser);
 
 			await app.WithDatabaseAsync(async database =>
 			{
@@ -177,7 +174,7 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 	{
 		using HttpClient organiser = await SignedInAsync(app, $"Dave{Guid.NewGuid():N}"[..14]);
 
-		RideDetail ride = await CreateLiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		using HttpClient registrar = app.CreateClient();
 
@@ -200,9 +197,7 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 		return (ride.Id, app.CreateClient().Authenticated(session), session.User.Id);
 	}
 
-	private static async Task<RideDetail> CreateLiveRideAsync(
-		DlrWebApplicationFactory app,
-		HttpClient organiser)
+	private static async Task<RideDetail> CreateRideAsync(HttpClient organiser)
 	{
 		using HttpResponseMessage response = await organiser.PostAsJsonAsync(
 			RidesUrl,
@@ -211,14 +206,7 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 				DlrWebApplicationFactory.DefaultStart.AddDays(3),
 				JoinPolicy: JoinPolicyDto.Open));
 
-		RideDetail ride = (await response.Content.ReadFromJsonAsync<RideDetail>())!;
-
-		await app.WithDatabaseAsync(async database =>
-			await database.Set<GroupRide>()
-				.Where(row => row.Id == ride.Id)
-				.ExecuteUpdateAsync(row => row.SetProperty(x => x.State, GroupRideState.Live)));
-
-		return ride;
+		return (await response.Content.ReadFromJsonAsync<RideDetail>())!;
 	}
 
 	private static async Task PublishAsync(HttpClient client, double lat, double lon) =>

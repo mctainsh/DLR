@@ -43,16 +43,12 @@ public sealed record PositionEntry(
 /// for a few seconds and self-corrects.
 /// </para>
 /// </summary>
-/// <param name="clock">The project clock; nothing here reads an ambient one (§10.4).</param>
-public sealed class RiderPositionCache(TimeProvider clock)
+public sealed class RiderPositionCache
 {
 	private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, PositionEntry>> rides = new();
 
 	private readonly TaskCompletionSource ready =
 		new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-	/// <summary>Unused for now; the wind-down sweep in SRV-25 reads it.</summary>
-	public TimeProvider Clock { get; } = clock;
 
 	/// <summary>
 	/// Completes when startup rehydration has finished (§5.5).
@@ -139,6 +135,27 @@ public sealed class RiderPositionCache(TimeProvider clock)
 		rides.TryGetValue(rideId, out ConcurrentDictionary<Guid, PositionEntry>? ride)
 			? ride.Keys
 			: [];
+
+	/// <summary>Forgets every entry older than <paramref name="floor"/> (§5.6).</summary>
+	/// <param name="floor">The oldest fix worth keeping.</param>
+	/// <remarks>
+	/// A sweep rather than a loop over keys the caller read out of the database, on
+	/// <see cref="RemoveRider"/>'s reasoning: the cache is the authority on what it holds, and the
+	/// direction the disagreement must not go is a position left behind for a row that is gone.
+	/// </remarks>
+	public void RemoveOlderThan(DateTimeOffset floor)
+	{
+		foreach (KeyValuePair<Guid, ConcurrentDictionary<Guid, PositionEntry>> ride in rides)
+		{
+			foreach (KeyValuePair<Guid, PositionEntry> rider in ride.Value)
+			{
+				if (rider.Value.RecordedUtc < floor)
+				{
+					Remove(ride.Key, rider.Key);
+				}
+			}
+		}
+	}
 
 	/// <summary>Every dirty entry, as the flush wants them (§5.5).</summary>
 	/// <returns>The rows needing a write.</returns>

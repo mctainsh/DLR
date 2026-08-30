@@ -37,7 +37,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 		using (organiserClient)
 		{
-			RideDetail ride = await LiveRideAsync(app, organiserClient);
+			RideDetail ride = await CreateRideAsync(organiserClient);
 
 			await using HubConnection connection = await HubClient.ConnectAsync(app, outsider);
 
@@ -72,7 +72,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 		using (organiserClient)
 		using (waitingClient)
 		{
-			RideDetail ride = await LiveRideAsync(app, organiserClient, JoinPolicyDto.Approval);
+			RideDetail ride = await CreateRideAsync(organiserClient, JoinPolicyDto.Approval);
 
 			using HttpResponseMessage asked = await waitingClient.PostAsJsonAsync(
 				$"{RidesUrl}/join",
@@ -115,7 +115,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 		using (organiserClient)
 		{
-			RideDetail ride = await LiveRideAsync(app, organiserClient);
+			RideDetail ride = await CreateRideAsync(organiserClient);
 
 			await ShareAsync(organiserClient, ride.Id);
 
@@ -192,7 +192,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 		using (organiserClient)
 		using (riderClient)
 		{
-			RideDetail ride = await LiveRideAsync(app, organiserClient);
+			RideDetail ride = await CreateRideAsync(organiserClient);
 
 			await JoinAsync(riderClient, ride.JoinCode!);
 
@@ -237,8 +237,8 @@ public sealed class RideHubTests(PostgresFixture postgres)
 		using (organiserClient)
 		using (otherClient)
 		{
-			RideDetail mine = await LiveRideAsync(app, otherClient);
-			RideDetail theirs = await LiveRideAsync(app, organiserClient);
+			RideDetail mine = await CreateRideAsync(otherClient);
+			RideDetail theirs = await CreateRideAsync(organiserClient);
 
 			await ShareAsync(organiserClient, theirs.Id);
 
@@ -295,8 +295,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 		response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 	}
 
-	private static async Task<RideDetail> LiveRideAsync(
-		DlrWebApplicationFactory app,
+	private static async Task<RideDetail> CreateRideAsync(
 		HttpClient organiser,
 		JoinPolicyDto policy = JoinPolicyDto.Open)
 	{
@@ -310,11 +309,6 @@ public sealed class RideHubTests(PostgresFixture postgres)
 		response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
 
 		RideDetail ride = (await response.Content.ReadFromJsonAsync<RideDetail>())!;
-
-		await app.WithDatabaseAsync(async database =>
-			await database.Set<GroupRide>()
-				.Where(row => row.Id == ride.Id)
-				.ExecuteUpdateAsync(row => row.SetProperty(x => x.State, GroupRideState.Live)));
 
 		return ride;
 	}

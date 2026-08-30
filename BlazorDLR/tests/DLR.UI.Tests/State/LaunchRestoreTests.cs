@@ -15,9 +15,8 @@ namespace DLR.UI.Tests.State;
 /// The case underneath all of these is the same one: the app went away mid-ride — the battery, the
 /// OS reclaiming it, a WebView reload — and came back with the sharing flag still standing on the
 /// server and no receiver running behind it. So what is worth asserting is which launches are put
-/// back and which are left alone: an adventure that is underway against one that finished, a server
-/// that says the ride is gone against a phone that could not ask, and a phone at all against a
-/// browser tab that lost nothing by being reloaded.
+/// back and which are left alone: a server that says the ride is gone against a phone that could
+/// not ask, and a phone at all against a browser tab that lost nothing by being reloaded.
 /// </para>
 /// </summary>
 public sealed class LaunchRestoreTests
@@ -102,13 +101,12 @@ public sealed class LaunchRestoreTests
 		}
 	}
 
-	private static RideDetail Adventure(RideStateDto state, bool sharing) =>
+	private static RideDetail Adventure(bool sharing) =>
 		new(
 			Ride,
 			"Saturday hills",
 			null,
 			Start,
-			state,
 			JoinPolicyDto.Approval,
 			50,
 			2,
@@ -133,7 +131,7 @@ public sealed class LaunchRestoreTests
 	public async Task InABrowser_NothingIsRestored()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride, withReceiver: false);
-		harness.Api.RideResult = Adventure(RideStateDto.Live, sharing: true);
+		harness.Api.RideResult = Adventure(sharing: true);
 
 		(await harness.Restore.RestoreAsync()).ShouldBeNull(
 			"§18.6: a reloaded tab lost no receiver, because this host never had one — so there is "
@@ -147,7 +145,7 @@ public sealed class LaunchRestoreTests
 	public async Task OnADeviceWithNoGps_NothingIsRestored()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride, gpsSupported: false);
-		harness.Api.RideResult = Adventure(RideStateDto.Live, sharing: true);
+		harness.Api.RideResult = Adventure(sharing: true);
 
 		(await harness.Restore.RestoreAsync()).ShouldBeNull(
 			"§18.6: the Windows and macOS heads take NoopLocationProvider, so they are the browsers "
@@ -158,66 +156,31 @@ public sealed class LaunchRestoreTests
 	public async Task SignedOut_NothingIsRestored()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride, signedIn: false);
-		harness.Api.RideResult = Adventure(RideStateDto.Live, sharing: true);
+		harness.Api.RideResult = Adventure(sharing: true);
 
 		(await harness.Restore.RestoreAsync()).ShouldBeNull(
 			"§7.9: a launch with no session has nobody to restore — the rider signs in first.");
 	}
 
 	[Fact]
-	public async Task LiveAdventure_IsReopened()
+	public async Task TheLastAdventure_IsReopened()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride);
-		harness.Api.RideResult = Adventure(RideStateDto.Live, sharing: true);
+		harness.Api.RideResult = Adventure(sharing: true);
 
 		(await harness.Restore.RestoreAsync()).ShouldBe($"group-rides/live/{Ride}",
-			"§18.6: an adventure that is still live is the screen the rider was on when the app went away.");
+			"§18.6: the last adventure is the screen the rider was on when the app went away.");
 	}
 
 	[Fact]
-	public async Task LiveAdventureWithSharingOff_IsStillReopened()
+	public async Task TheLastAdventure_WithSharingOff_IsStillReopened()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride);
-		harness.Api.RideResult = Adventure(RideStateDto.Live, sharing: false);
+		harness.Api.RideResult = Adventure(sharing: false);
 
 		(await harness.Restore.RestoreAsync()).ShouldBe($"group-rides/live/{Ride}",
 			"§5.6: a rider with their own GPS off is still on the ride, and the map of everybody else "
 			+ "is the whole reason they have the app open.");
-	}
-
-	[Fact]
-	public async Task AdventureThatHasFinished_IsLeftAlone()
-	{
-		Harness harness = await new Harness().BuildAsync(Ride);
-		harness.Api.RideResult = Adventure(RideStateDto.Completed, sharing: false);
-
-		(await harness.Restore.RestoreAsync()).ShouldBeNull(
-			"§5.6: a ride that ended is on the rail's globe to look at, not a screen to be reopened "
-			+ "on top of the rider at every launch for the rest of the app's life.");
-
-		harness.CurrentRide.RideId.ShouldBe(Ride,
-			"§18.6: and it is still the adventure the globe leads back to — finished is not gone.");
-	}
-
-	[Fact]
-	public async Task AdventureInItsWindDown_IsReopened()
-	{
-		Harness harness = await new Harness().BuildAsync(Ride);
-		harness.Api.RideResult = Adventure(RideStateDto.Completed, sharing: true);
-
-		(await harness.Restore.RestoreAsync()).ShouldBe($"group-rides/live/{Ride}",
-			"§5.6: the sweep clears the flag when the window shuts, so a completed ride this rider "
-			+ "is still sharing with is one whose wind-down is open.");
-	}
-
-	[Fact]
-	public async Task AdventureThatHasNotStarted_IsLeftAlone()
-	{
-		Harness harness = await new Harness().BuildAsync(Ride);
-		harness.Api.RideResult = Adventure(RideStateDto.Open, sharing: true);
-
-		(await harness.Restore.RestoreAsync()).ShouldBeNull(
-			"§5.1: an Open ride carries no positions, so there is no live map to put anybody back on.");
 	}
 
 	[Fact]
@@ -251,7 +214,7 @@ public sealed class LaunchRestoreTests
 	public async Task StillSharing_TheReceiverIsStarted()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride);
-		harness.Api.RideResult = Adventure(RideStateDto.Live, sharing: true);
+		harness.Api.RideResult = Adventure(sharing: true);
 
 		await harness.Restore.RestoreAsync();
 
@@ -266,7 +229,7 @@ public sealed class LaunchRestoreTests
 	public async Task SharingTurnedOff_TheReceiverStaysDown()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride);
-		harness.Api.RideResult = Adventure(RideStateDto.Live, sharing: false);
+		harness.Api.RideResult = Adventure(sharing: false);
 
 		await harness.Restore.RestoreAsync();
 
@@ -279,7 +242,7 @@ public sealed class LaunchRestoreTests
 	public async Task RunsOncePerLaunch()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride);
-		harness.Api.RideResult = Adventure(RideStateDto.Live, sharing: true);
+		harness.Api.RideResult = Adventure(sharing: true);
 
 		(await harness.Restore.RestoreAsync()).ShouldNotBeNull();
 

@@ -75,18 +75,13 @@ public sealed class ProfileController : ControllerBase
 			return Ok(SharedProfile.Empty);
 		}
 
-		// "Currently", and the ride must not have ended. Profile sharing deliberately does *not*
-		// follow the position wind-down (§5.6): that window exists so people can watch each other
-		// get home, and there is no equivalent reason to keep a phone number visible for two more
-		// hours.
+		// Co-membership is the whole rule (§7.3). Leaving, being removed and the adventure being
+		// deleted all end it; there is no longer a "finished" adventure for it to survive into.
 		bool sharesActiveRide = viewerId != id
 			&& await database
 				.Set<GroupRideMember>()
 				.AnyAsync(mine =>
 					mine.UserId == viewerId
-					&& mine.Ride!.State != GroupRideState.Completed
-					&& mine.Ride.State != GroupRideState.Archived
-					&& mine.Ride.State != GroupRideState.Cancelled
 					&& database.Set<GroupRideMember>().Any(theirs =>
 						theirs.GroupRideId == mine.GroupRideId && theirs.UserId == id));
 

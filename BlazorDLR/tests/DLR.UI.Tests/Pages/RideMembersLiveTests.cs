@@ -34,7 +34,6 @@ public sealed class RideMembersLiveTests : PageTestContext
 	private const double BaseLon = 151.211;
 
 	private (FakeApiClient api, FakeRideHubClient hub, Guid rideId) WireServices(
-		RideStateDto state = RideStateDto.Live,
 		IReadOnlyList<RideMemberSummary>? members = null)
 	{
 		Guid rideId = Guid.NewGuid();
@@ -45,7 +44,6 @@ public sealed class RideMembersLiveTests : PageTestContext
 				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
-				State: state,
 				JoinPolicy: JoinPolicyDto.Open,
 				MemberCap: 50,
 				MemberCount: members?.Count ?? 1,

@@ -45,8 +45,9 @@ rather than left to guess.
   organiser never admitted.
 - Anything that lets one account read, modify or delete another account's tracks, markers or
   comments.
-- Stored data that should have been deleted: a position surviving a rider turning sharing off, a
-  wind-down that does not expire, an account deletion that leaves blobs behind.
+- Stored data that should have been deleted: a position surviving a rider turning sharing off or
+  being removed, an idle position the nightly sweep never reclaims, an account deletion that leaves
+  blobs behind.
 
 **Out of scope:**
 

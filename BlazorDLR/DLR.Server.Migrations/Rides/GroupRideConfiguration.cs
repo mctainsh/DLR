@@ -17,7 +17,6 @@ public sealed class GroupRideConfiguration : IEntityTypeConfiguration<GroupRide>
 		builder.Property(ride => ride.Description).HasMaxLength(2_000);
 		builder.Property(ride => ride.JoinCode).HasMaxLength(16).IsRequired();
 
-		builder.Property(ride => ride.State).HasConversion<string>().HasMaxLength(20);
 		builder.Property(ride => ride.JoinPolicy).HasConversion<string>().HasMaxLength(20);
 
 		// The §5.8 defaults are on the column as well as on the property. The property default

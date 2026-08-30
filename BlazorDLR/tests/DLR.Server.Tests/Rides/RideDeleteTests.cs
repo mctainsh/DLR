@@ -73,56 +73,23 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The refusal that matters. Deleting an adventure in progress blanks the map for everybody
-	/// still on the road, and §5.6 already has the verb for that moment.
+	/// Delete is the only way to finish an adventure, so it has to take the live positions with
+	/// it rather than leaving them for the nightly sweep a fortnight later.
 	/// </summary>
 	[Fact]
-	public async Task Delete_WhileLive_IsRefused_AndChangesNothing()
+	public async Task Delete_WhileSomebodyIsSharing_TakesTheirPositions()
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 
 		RideDetail ride = await CreateRideAsync(organiser);
-		await StartAsync(organiser, ride.Id);
-
-		using HttpResponseMessage refused = await organiser.DeleteAsync($"{RidesUrl}/{ride.Id}");
-
-		string body = await refused.Content.ReadAsStringAsync();
-
-		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, body);
-		body.ShouldContain("in progress", customMessage: "the organiser is told to end it first, in words");
-
-		(await app.WithDatabaseAsync(database => database.Set<GroupRide>().CountAsync(row => row.Id == ride.Id)))
-			.ShouldBe(1, "a refused delete deletes nothing");
-	}
-
-	/// <summary>
-	/// Ended, not running — so it deletes, and the positions the wind-down was still holding go
-	/// with it. The §5.5 cache in front of the table is cleared on the same path, which is the
-	/// half a foreign key cannot reach.
-	/// </summary>
-	[Fact]
-	public async Task Delete_AfterAWindDown_TakesTheHeldPositions()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
-
-		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-
-		RideDetail ride = await CreateRideAsync(organiser);
-		await StartAsync(organiser, ride.Id);
 		await ShareAsync(organiser, ride.Id, share: true);
 		await PublishAsync(organiser, -33.86, 151.20);
 
-		using HttpResponseMessage ended = await organiser.PostAsJsonAsync(
-			$"{RidesUrl}/{ride.Id}/ending",
-			new EndRideRequest(RideEndingDto.WindDown));
-
-		ended.StatusCode.ShouldBe(HttpStatusCode.NoContent, await ended.Content.ReadAsStringAsync());
-
 		await app.FlushPositionsAsync();
 
-		(await CountPositionsAsync(app)).ShouldBe(1, "a wind-down is holding it, which is the point of one");
+		(await CountPositionsAsync(app)).ShouldBe(1, "there is something to take");
 
 		using HttpResponseMessage deleted = await organiser.DeleteAsync($"{RidesUrl}/{ride.Id}");
 
@@ -130,12 +97,6 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 
 		(await CountPositionsAsync(app))
 			.ShouldBe(0, "nobody consented to being findable in an adventure that no longer exists");
-
-		// Through the API rather than the table: the snapshot is served from the cache, so this
-		// is the assertion that the delete cleared what a foreign key never could have.
-		using HttpResponseMessage snapshot = await organiser.GetAsync($"{RidesUrl}/{ride.Id}/positions");
-
-		snapshot.StatusCode.ShouldBe(HttpStatusCode.NotFound, await snapshot.Content.ReadAsStringAsync());
 	}
 
 	/// <summary>
@@ -233,14 +194,6 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 		response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
 
 		return (await response.Content.ReadFromJsonAsync<RideDetail>())!;
-	}
-
-	private static async Task StartAsync(HttpClient organiser, Guid rideId)
-	{
-		using HttpResponseMessage response =
-			await organiser.PostAsync($"{RidesUrl}/{rideId}/start", content: null);
-
-		response.StatusCode.ShouldBe(HttpStatusCode.NoContent, await response.Content.ReadAsStringAsync());
 	}
 
 	private static async Task ShareAsync(HttpClient client, Guid rideId, bool share)

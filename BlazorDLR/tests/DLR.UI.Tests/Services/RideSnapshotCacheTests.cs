@@ -26,7 +26,6 @@ public sealed class RideSnapshotCacheTests
 		"Old Pacific Highway",
 		"Meet at the servo",
 		FixedInstant,
-		RideStateDto.Live,
 		JoinPolicyDto.Approval,
 		50,
 		1,
@@ -71,7 +70,6 @@ public sealed class RideSnapshotCacheTests
 
 		// The roster — "officers" — with everything the map labels and colours a pin from.
 		read.Ride.Name.ShouldBe("Old Pacific Highway");
-		read.Ride.State.ShouldBe(RideStateDto.Live);
 		read.Ride.Members.Count.ShouldBe(1);
 		read.Ride.Members[0].UserName.ShouldBe("DaveSmith");
 		read.Ride.Members[0].Role.ShouldBe("Leader");

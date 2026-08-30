@@ -192,7 +192,7 @@
 		<h2>The short version</h2>
 		<ul>
 			<li>Your live location is shared <strong>only</strong> inside a group adventure you joined, <strong>only</strong> with the members of that adventure, and <strong>only</strong> if you turned sharing on. The answer starts at <em>no</em>.</li>
-			<li>Location sharing does continue in the background, with the screen off. It stops when you turn it off, leave the adventure, or the adventure ends — plus at most a two-hour wind-down if the organiser allowed one.</li>
+			<li>Location sharing does continue in the background, with the screen off. It stops when you turn it off, leave the adventure, or an organiser removes you. Nobody else can turn it on for you.</li>
 			<li>We keep <strong>no location history</strong>. One row per person per adventure, overwritten in place, deleted when sharing stops.</li>
 			<li>You can set a <strong>private area</strong> around home. It never leaves your phone, and nothing inside it is recorded or sent.</li>
 			<li>An account is a username and a password. Email, phone number and display name are optional.</li>
@@ -372,8 +372,8 @@
 		app shows its own explanation and asks you to agree or cancel.
 	</p>
 	<p>
-		Background collection stops when you turn sharing off, leave the adventure, sign out, revoke
-		the device, or the adventure ends. On Android an ongoing notification is shown the whole time
+		Background collection stops when you turn sharing off, leave the adventure, sign out, or
+		revoke the device. On Android an ongoing notification is shown the whole time
 		sharing is active; on iOS the system's blue location indicator is left on. If you grant only
 		"While Using the App", the app still works — updates stop when it is backgrounded and resume
 		when you return to it.
@@ -389,16 +389,24 @@
 		Turning sharing off <strong>deletes</strong> that stored row rather than merely stopping the
 		broadcast — a last-known point sitting in a database is exactly what someone turning sharing
 		off is asking us not to keep. The same happens when you leave an adventure, when an organiser
-		removes you, and when the adventure ends. If you are not sharing with an adventure, there is
-		no row for you in it at all — hidden or otherwise.
+		removes you, and when the adventure is deleted. If you are not sharing with an adventure,
+		there is no row for you in it at all — hidden or otherwise.
 	</p>
 
-	<h3>The wind-down</h3>
+	<h3>Who controls it</h3>
 	<p>
-		When an adventure ends, an organiser may allow a short wind-down so people can watch each
-		other get home. It is <strong>capped at two hours, cannot be extended, and is enforced by the
-		server</strong>, not by the app. You can end your own sharing at any point during it. An
-		organiser can stop sharing for everyone; an organiser can never switch your sharing back on.
+		<strong>You do, and only you.</strong> Turning sharing on and off is your switch and nobody
+		else's — an organiser can remove you from an adventure, which deletes your position along
+		with your membership, but an organiser can never switch your sharing on or off while you are
+		in it.
+	</p>
+	<p>
+		Because your switch is the only thing that stops sharing, we also clean up after a position
+		that nothing is updating: if we have had no new position from you in an adventure for
+		<strong>14 days</strong>, we delete the stored row and turn that adventure's sharing switch
+		off. That is housekeeping for a phone that was lost, replaced or switched off — it is
+		<em>not</em> a limit on sharing, and if you are still travelling and still sending positions
+		you are still sharing until you stop.
 	</p>
 
 	<h3>The private area</h3>
@@ -422,7 +430,7 @@
 	</p>
 	<ul>
 		<li><strong>Photo metadata is destroyed on upload.</strong> Every image is re-encoded on our server with no metadata written at all — EXIF, GPS coordinates, camera and device identifiers, and colour profiles are gone from the stored file. This happens before the photo is visible to anyone.</li>
-		<li><strong>Measured location is deleted; what you wrote is kept.</strong> Markers and comments survive after an adventure ends, because you deliberately wrote them. You can delete your own content, and deleting your account removes it.</li>
+		<li><strong>Measured location is deleted; what you wrote is kept.</strong> Your position is deleted the moment you stop sharing; markers and comments stay, because you deliberately wrote them. You can delete your own content, and deleting your account removes it. Deleting an adventure removes its thread and markers along with it.</li>
 		<li><strong>Reporting.</strong> Objectionable content can be reported with the flag control on a comment. Reports reach the organiser and us, and we act on them. Report anything urgent directly to spam@securehub.com.au.</li>
 		<li><strong>Blocking.</strong> An organiser can decline and block a join request; blocked accounts are listed and can be unblocked at <strong>Settings → Blocked riders</strong>.</li>
 	</ul>
@@ -498,7 +506,7 @@
 			<tbody>
 				<tr>
 					<td>Live position</td>
-					<td>Until you stop sharing, leave, are removed, or the adventure ends — plus at most a two-hour wind-down if the organiser allowed one. Then deleted. No history is kept at any point.</td>
+					<td>Until you stop sharing, leave, are removed, or the adventure is deleted. A position nothing has updated for 14 days is deleted regardless. No history is kept at any point.</td>
 				</tr>
 				<tr>
 					<td>Account, tracks, markers, photos and comments</td>

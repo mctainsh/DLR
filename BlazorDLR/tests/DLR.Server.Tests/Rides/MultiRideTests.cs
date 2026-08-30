@@ -37,8 +37,8 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 
-		RideDetail sunday = await LiveRideAsync(app, organiser);
-		RideDetail charity = await LiveRideAsync(app, organiser);
+		RideDetail sunday = await CreateRideAsync(organiser);
+		RideDetail charity = await CreateRideAsync(organiser);
 
 		await JoinAsync(rider, sunday.JoinCode!);
 		await JoinAsync(rider, charity.JoinCode!);
@@ -88,7 +88,7 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 
 		for (int index = 0; index < 3; index++)
 		{
-			RideDetail ride = await LiveRideAsync(app, organiser);
+			RideDetail ride = await CreateRideAsync(organiser);
 
 			await JoinAsync(rider, ride.JoinCode!);
 			await ShareAsync(rider, ride.Id, share: true);
@@ -116,104 +116,11 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 		}
 	}
 
-	/// <summary>
-	/// Unbounded means a rider can be broadcast into fifty groups at once (§5.7). Enforced when a
-	/// ride goes <c>Live</c> rather than at join: being a <em>member</em> of many rides is fine.
-	/// </summary>
-	[Fact]
-	public async Task LiveRideCap_ExceedingMaxConcurrent_IsRejectedAtRideStart()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(
-			postgres,
-			settings: new Dictionary<string, string?>
-			{
-				["Ride:MaxConcurrentLiveRidesPerUser"] = "2",
-			});
-
-		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-
-		for (int index = 0; index < 2; index++)
-		{
-			RideDetail allowed = await CreateRideAsync(organiser);
-
-			using HttpResponseMessage started = await StartAsync(organiser, allowed.Id);
-
-			started.StatusCode.ShouldBe(HttpStatusCode.NoContent, $"adventure {index + 1} is inside the cap");
-		}
-
-		RideDetail third = await CreateRideAsync(organiser);
-
-		using HttpResponseMessage refused = await StartAsync(organiser, third.Id);
-
-		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-
-		(await refused.Content.ReadAsStringAsync()).ShouldContain("already live in 2");
-
-		// The ride is untouched — a refused start must not leave it half-started.
-		RideDetail after = (await organiser.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{third.Id}"))!;
-
-		after.State.ShouldBe(RideStateDto.Open);
-	}
-
-	/// <summary>
-	/// Membership is not the thing being capped. Joining a sixth ride while five are live is
-	/// ordinary, and only <em>starting</em> another one is refused.
-	/// </summary>
-	[Fact]
-	public async Task LiveRideCap_DoesNotStopJoiningMoreRides()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(
-			postgres,
-			settings: new Dictionary<string, string?>
-			{
-				["Ride:MaxConcurrentLiveRidesPerUser"] = "1",
-			});
-
-		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-		using HttpClient rider = await SignedInAsync(app, "SamJones");
-
-		for (int index = 0; index < 3; index++)
-		{
-			RideDetail ride = await LiveRideAsync(app, organiser);
-
-			await JoinAsync(rider, ride.JoinCode!);
-			await ShareAsync(rider, ride.Id, share: true);
-		}
-
-		// Three live rides, all joined, all sharing — none of it blocked by the cap.
-		(await PublishAsync(rider, -33.86, 151.20)).RideIds.Count.ShouldBe(3);
-	}
-
-	/// <summary>
-	/// A ride that is not <c>Live</c> takes no positions, whatever the consent flag says. The
-	/// lifecycle is the outer gate and consent is the inner one.
-	/// </summary>
-	[Fact]
-	public async Task Publish_RideNotYetLive_StoresNothing()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
-
-		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-
-		RideDetail ride = await CreateRideAsync(organiser);
-
-		await ShareAsync(organiser, ride.Id, share: true);
-
-		(await PublishAsync(organiser, -33.86, 151.20)).RideIds.ShouldBeEmpty();
-
-		await StartAsync(organiser, ride.Id);
-
-		(await PublishAsync(organiser, -33.86, 151.20)).RideIds.ShouldBe([ride.Id]);
-	}
-
 	private static Task<Guid> IdOfAsync(DlrWebApplicationFactory app, string userName) =>
 		app.WithDatabaseAsync(database => database.Users
 			.Where(user => user.UserName == userName)
 			.Select(user => user.Id)
 			.SingleAsync());
-
-	private static Task<HttpResponseMessage> StartAsync(HttpClient organiser, Guid rideId) =>
-		organiser.PostAsync($"{RidesUrl}/{rideId}/start", content: null);
 
 	private static async Task<PublishResult> PublishAsync(HttpClient client, double lat, double lon)
 	{
@@ -258,28 +165,6 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 		response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
 
 		return (await response.Content.ReadFromJsonAsync<RideDetail>())!;
-	}
-
-	/// <summary>Created and started through the real endpoint, so the cap is genuinely in play.</summary>
-	private static async Task<RideDetail> LiveRideAsync(
-		DlrWebApplicationFactory app,
-		HttpClient organiser)
-	{
-		RideDetail ride = await CreateRideAsync(organiser);
-
-		using HttpResponseMessage started = await StartAsync(organiser, ride.Id);
-
-		if (started.StatusCode != HttpStatusCode.NoContent)
-		{
-			// The organiser's own cap got in the way of building the fixture. Set the state
-			// directly so the test can be about the thing it is named for.
-			await app.WithDatabaseAsync(async database =>
-				await database.Set<GroupRide>()
-					.Where(row => row.Id == ride.Id)
-					.ExecuteUpdateAsync(row => row.SetProperty(x => x.State, GroupRideState.Live)));
-		}
-
-		return ride;
 	}
 
 	private static async Task<HttpClient> SignedInAsync(DlrWebApplicationFactory app, string userName)

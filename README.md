@@ -40,14 +40,16 @@ Stated plainly, because these are decisions rather than gaps:
 **1. Consent is per ride, defaults to off, and is revocable at any second.**
 You are asked when you join. Dismissing the prompt is a *no*. Turning sharing off deletes the
 stored position rather than merely stopping the broadcast — a last-known point at rest in a
-database is exactly what someone turning sharing off is asking you not to keep. When a ride ends,
-the organiser can stop everyone immediately (the default) or grant a **capped, unextendable,
-server-enforced wind-down** so people can watch each other get home. Never open-ended.
+database is exactly what someone turning sharing off is asking you not to keep. **The rider's own
+switch is the whole of the control**: leaving and being removed also stop it, and nobody — organiser
+included — can turn it on for somebody else. A position nothing has updated for fourteen days is
+swept, which is housekeeping for a phone that has gone away, not a limit on one that has not.
 
 **2. Measured location is deleted; authored content is kept.**
 Live positions are one row per rider per ride, overwritten in place, with no history table
-anywhere — and they are deleted when the ride ends. Markers and comments survive, because a person
-deliberately wrote them. Keeping that line sharp is what lets the privacy claim stay short.
+anywhere — and they are deleted the moment their rider stops sharing. Markers and comments survive,
+because a person deliberately wrote them. Keeping that line sharp is what lets the privacy claim
+stay short.
 
 **3. If a rule matters, a test enforces it — not a convention.**
 Whether the shared UI library can reference MAUI, whether a photo still carries EXIF GPS, whether

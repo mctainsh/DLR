@@ -82,9 +82,6 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <summary>A member left, or was removed.</summary>
 	event Action<Guid, Guid>? MemberLeft;
 
-	/// <summary>The ride's lifecycle changed (§5.1).</summary>
-	event Action<Guid, RideStateDto>? RideStateChanged;
-
 	/// <summary>
 	/// A route was attached to or detached from the ride (§5.4).
 	/// <para>
@@ -136,9 +133,6 @@ public interface IRideHubClient : IAsyncDisposable
 
 	/// <summary>The organiser's content switches changed (§5.8).</summary>
 	event Action<Guid, RidePermissions>? PermissionsChanged;
-
-	/// <summary>The organiser opened a wind-down (§5.6).</summary>
-	event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
 
 	/// <summary>A member turned sharing on or off (§5.6).</summary>
 	event Action<Guid, Guid, bool>? MemberSharingChanged;

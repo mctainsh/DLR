@@ -25,6 +25,24 @@ public static class RideRouteEndpoints
 
 	/// <summary>Route name for detaching one.</summary>
 	public const string RemoveRouteName = "RemoveRideRoute";
+
+	/// <summary>Whether any adventure is using this track as a planned route (§15.4).</summary>
+	/// <param name="database">The one context.</param>
+	/// <param name="trackId">Which track.</param>
+	/// <param name="cancellationToken">Abandons the read.</param>
+	/// <remarks>
+	/// Asked of the attachment table rather than of the ride, because a track may be attached to
+	/// several adventures at once — a club running the same loop on two days — and one is enough.
+	/// Lives here rather than in <c>Tracks</c> because the fact belongs to the attachment; both
+	/// the edit guard and the delete guard read it.
+	/// </remarks>
+	internal static Task<bool> IsTrackAttachedAsync(
+		DlrDbContext database,
+		Guid trackId,
+		CancellationToken cancellationToken = default) =>
+		database
+			.Set<GroupRideRoute>()
+			.AnyAsync(route => route.TrackId == trackId, cancellationToken);
 }
 
 /// <summary>
@@ -197,8 +215,8 @@ public sealed class RideRouteController : ControllerBase
 	}
 
 	/// <summary>
-	/// The owner-or-leader check, and the ride-state one behind it. Returns null when the caller
-	/// may write, and the response to send when they may not.
+	/// The owner-or-leader check. Returns null when the caller may write, and the response to
+	/// send when they may not.
 	/// </summary>
 	private async Task<IActionResult?> AuthoriseWriteAsync(DlrDbContext database, Guid rideId)
 	{
@@ -209,12 +227,11 @@ public sealed class RideRouteController : ControllerBase
 
 		GroupRideMember? membership = await database
 			.Set<GroupRideMember>()
-			.Include(member => member.Ride)
 			.SingleOrDefaultAsync(member => member.GroupRideId == rideId && member.UserId == userId);
 
 		// 404 for somebody not in the ride at all, the same way every other ride route answers: a
 		// ride id is shareable, so a distinguishable refusal is an oracle for who is in which ride.
-		if (membership?.Ride is null)
+		if (membership is null)
 		{
 			return NotFound();
 		}
@@ -225,18 +242,6 @@ public sealed class RideRouteController : ControllerBase
 				statusCode: StatusCodes.Status403Forbidden,
 				title: "Not yours to set",
 				detail: "The organiser decides which routes an adventure has.");
-		}
-
-		// Draft, Open and Live all accept a change. A ride that has finished does not: its routes
-		// are part of what happened, and §5.4's gap list is the only thing that reads them while
-		// Live — adding an option mid-ride is a normal thing for an organiser to do, and it moves
-		// nobody, because the oldest attachment stays the line riders are projected against.
-		if (membership.Ride.State is not (GroupRideState.Draft or GroupRideState.Open or GroupRideState.Live))
-		{
-			return Problem(
-				statusCode: StatusCodes.Status409Conflict,
-				title: "This adventure has ended",
-				detail: "The routes of a finished adventure are part of the record of it.");
 		}
 
 		return null;

@@ -396,19 +396,17 @@ public sealed class MarkerTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Positions are measured exhaust and go when the ride ends; markers are the record of what
-	/// happened and stay (§16.6). The contrast is the point.
+	/// Positions are measured exhaust and go the moment consent does; markers are the record of
+	/// what happened and stay (§16.6). The contrast is the point.
 	/// </summary>
 	[Fact]
-	public async Task RideCompleted_DeletesPositionsButKeepsMarkers()
+	public async Task SharingOff_DeletesThePositionButKeepsTheMarkers()
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 
 		RideDetail ride = await CreateRideAsync(organiser);
-
-		await organiser.PostAsync($"{RidesUrl}/{ride.Id}/start", content: null);
 
 		await organiser.PutAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/sharing/me",
@@ -425,11 +423,11 @@ public sealed class MarkerTests(PostgresFixture postgres)
 
 		await app.FlushPositionsAsync();
 
-		using HttpResponseMessage ended = await organiser.PostAsJsonAsync(
-			$"{RidesUrl}/{ride.Id}/ending",
-			new EndRideRequest());
+		using HttpResponseMessage stopped = await organiser.PutAsJsonAsync(
+			$"{RidesUrl}/{ride.Id}/sharing/me",
+			new SetSharingRequest(false));
 
-		ended.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+		stopped.StatusCode.ShouldBe(HttpStatusCode.OK, await stopped.Content.ReadAsStringAsync());
 
 		(await app.WithDatabaseAsync(database =>
 			database.Set<Data.Positions.RiderPosition>().CountAsync())).ShouldBe(0);

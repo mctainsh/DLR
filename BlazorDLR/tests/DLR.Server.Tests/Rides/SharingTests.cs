@@ -32,7 +32,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		// Joining, and then doing nothing at all — which is what dismissing the prompt is.
 		await JoinAsync(rider, ride.JoinCode!);
@@ -64,7 +64,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 		using HttpClient watcher = await SignedInAsync(app, "SamJones");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await JoinAsync(watcher, ride.JoinCode!);
 
@@ -103,7 +103,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await JoinAsync(rider, ride.JoinCode!);
 
@@ -128,7 +128,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await ShareAsync(organiser, ride.Id, share: true);
 		await PublishAsync(organiser, At(-33.86, 151.20));
@@ -166,7 +166,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await JoinAsync(rider, ride.JoinCode!);
 
@@ -203,7 +203,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await JoinAsync(rider, ride.JoinCode!);
 		await ShareAsync(rider, ride.Id, share: true);
@@ -231,7 +231,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await JoinAsync(rider, ride.JoinCode!);
 		await ShareAsync(rider, ride.Id, share: true);
@@ -250,43 +250,6 @@ public sealed class SharingTests(PostgresFixture postgres)
 		(await CountPositionsAsync(app)).ShouldBe(0);
 	}
 
-	/// <summary>The default ending: everything goes, immediately (§5.6).</summary>
-	[Fact]
-	public async Task RideEnd_DefaultChoice_DeletesAllPositionsImmediately()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
-
-		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-		using HttpClient rider = await SignedInAsync(app, "SamJones");
-
-		RideDetail ride = await LiveRideAsync(app, organiser);
-
-		await JoinAsync(rider, ride.JoinCode!);
-
-		foreach (HttpClient client in new[] { organiser, rider })
-		{
-			await ShareAsync(client, ride.Id, share: true);
-			await PublishAsync(client, At(-33.86, 151.20));
-		}
-
-		await app.FlushPositionsAsync();
-
-		(await CountPositionsAsync(app)).ShouldBe(2);
-
-		using HttpResponseMessage ended = await organiser.PostAsJsonAsync(
-			$"{RidesUrl}/{ride.Id}/ending",
-			new EndRideRequest());
-
-		ended.StatusCode.ShouldBe(HttpStatusCode.NoContent);
-
-		(await CountPositionsAsync(app)).ShouldBe(0);
-
-		RideDetail after = (await organiser.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{ride.Id}"))!;
-
-		after.State.ShouldBe(RideStateDto.Completed);
-		after.Members.ShouldAllBe(member => !member.Sharing);
-	}
-
 	/// <summary>
 	/// The §5.5 guard, at the endpoint. A retried or out-of-order fix must not move a rider
 	/// backwards on the map.
@@ -298,7 +261,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await ShareAsync(organiser, ride.Id, share: true);
 
@@ -306,6 +269,8 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		await PublishAsync(organiser, At(-33.86, 151.20) with { RecordedUtc = now });
 		await PublishAsync(organiser, At(-33.99, 151.99) with { RecordedUtc = now.AddSeconds(-30) });
+
+		await app.FlushPositionsAsync();
 
 		RiderPositionDto stored =
 			(await organiser.GetFromJsonAsync<List<RiderPositionDto>>($"{RidesUrl}/{ride.Id}/positions"))!
@@ -331,7 +296,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		Guid riderId = await IdOfAsync(app, "SamJones");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await JoinAsync(rider, ride.JoinCode!);
 
@@ -354,7 +319,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		Guid riderId = await IdOfAsync(app, "SamJones");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await JoinAsync(rider, ride.JoinCode!);
 
@@ -366,37 +331,6 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		after.DisplayName.ShouldBeNull();
 		after.PhoneNumber.ShouldBeNull("sharing is ride-scoped and revokes itself");
-	}
-
-	/// <summary>
-	/// §7.3's other deferred test. Profile sharing ends the moment the ride is Completed and
-	/// deliberately does <em>not</em> follow the position wind-down: that window exists so people
-	/// can watch each other get home, and there is no equivalent reason to keep a phone number
-	/// visible for two more hours.
-	/// </summary>
-	[Fact]
-	public async Task Profile_AfterRideCompletes_SharedFieldsAreNoLongerVisible()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
-
-		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-		using HttpClient rider = await SignedInAsync(app, "SamJones");
-
-		await ShareProfileAsync(rider);
-
-		Guid riderId = await IdOfAsync(app, "SamJones");
-
-		RideDetail ride = await LiveRideAsync(app, organiser);
-
-		await JoinAsync(rider, ride.JoinCode!);
-
-		(await ProfileAsync(organiser, riderId)).PhoneNumber.ShouldBe("0400000000");
-
-		await organiser.PostAsJsonAsync($"{RidesUrl}/{ride.Id}/ending", new EndRideRequest());
-
-		ProfileView after = await ProfileAsync(organiser, riderId);
-
-		after.PhoneNumber.ShouldBeNull("the adventure is over, and so is the audience");
 	}
 
 	/// <summary>
@@ -433,7 +367,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 		using HttpClient outsider = await SignedInAsync(app, "NosyNed");
 
-		RideDetail ride = await LiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await ShareAsync(organiser, ride.Id, share: true);
 		await PublishAsync(organiser, At(-33.86, 151.20));
@@ -505,13 +439,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 	private static Task<int> CountPositionsAsync(DlrWebApplicationFactory app) =>
 		app.WithDatabaseAsync(database => database.Set<RiderPosition>().CountAsync());
 
-	/// <summary>
-	/// A ride in <c>Live</c>, because publishing only lands in live rides (§5.5). Set directly:
-	/// the Draft → Open → Live transitions are SRV-25's endpoint, not this task's.
-	/// </summary>
-	private static async Task<RideDetail> LiveRideAsync(
-		DlrWebApplicationFactory app,
-		HttpClient organiser)
+	private static async Task<RideDetail> CreateRideAsync(HttpClient organiser)
 	{
 		using HttpResponseMessage response = await organiser.PostAsJsonAsync(
 			RidesUrl,
@@ -523,15 +451,6 @@ public sealed class SharingTests(PostgresFixture postgres)
 		response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
 
 		RideDetail ride = (await response.Content.ReadFromJsonAsync<RideDetail>())!;
-
-		await app.WithDatabaseAsync(async database =>
-		{
-			await database.Set<GroupRide>()
-				.Where(row => row.Id == ride.Id)
-				.ExecuteUpdateAsync(row => row.SetProperty(x => x.State, GroupRideState.Live));
-
-			return 0;
-		});
 
 		return ride;
 	}

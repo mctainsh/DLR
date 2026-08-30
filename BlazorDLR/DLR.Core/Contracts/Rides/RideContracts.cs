@@ -10,28 +10,6 @@ public enum JoinPolicyDto
 	Approval = 1,
 }
 
-/// <summary>Where a ride is in its lifecycle (§5.1).</summary>
-public enum RideStateDto
-{
-	/// <summary>Not yet published.</summary>
-	Draft = 0,
-
-	/// <summary>Joinable, no live positions.</summary>
-	Open = 1,
-
-	/// <summary>Positions are flowing.</summary>
-	Live = 2,
-
-	/// <summary>Finished.</summary>
-	Completed = 3,
-
-	/// <summary>Read-only.</summary>
-	Archived = 4,
-
-	/// <summary>Called off.</summary>
-	Cancelled = 5,
-}
-
 /// <summary><c>POST /api/v1/group-rides</c> (§5.2).</summary>
 /// <param name="Name">What the ride is called.</param>
 /// <param name="StartUtc">When it is planned to start.</param>
@@ -93,7 +71,6 @@ public sealed record RideDetail(
 	string Name,
 	string? Description,
 	DateTimeOffset StartUtc,
-	RideStateDto State,
 	JoinPolicyDto JoinPolicy,
 	int MemberCap,
 	int MemberCount,
@@ -204,7 +181,6 @@ public sealed record RideSummary(
 	Guid Id,
 	string Name,
 	DateTimeOffset StartUtc,
-	RideStateDto State,
 	bool IsOrganiser,
 	int MemberCount,
 	string? JoinCode);
@@ -230,18 +206,12 @@ public sealed record RideSummary(
 /// <param name="RequestId">The pending request itself.</param>
 /// <param name="Name">What the adventure is called.</param>
 /// <param name="StartUtc">When it starts.</param>
-/// <param name="State">
-/// Where it is in the lifecycle. Carried because the answer a rider most wants from this list
-/// is often "did it go without me?" — a request still pending against a ride that has already
-/// finished is a different disappointment from one nobody has got to yet.
-/// </param>
 /// <param name="RequestedUtc">When they asked.</param>
 public sealed record WaitingRide(
 	Guid RideId,
 	Guid RequestId,
 	string Name,
 	DateTimeOffset StartUtc,
-	RideStateDto State,
 	DateTimeOffset RequestedUtc);
 
 /// <summary>

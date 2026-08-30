@@ -101,8 +101,6 @@ public sealed class InProcessAboutApiClient : IApiClient
 	/// <inheritdoc />
 	public Task WithdrawJoinRequestAsync(Guid rideId, Guid requestId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task DecideJoinRequestAsync(Guid rideId, Guid requestId, DecideJoinRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
-	public Task StartRideAsync(Guid rideId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
-	public Task EndRideAsync(Guid rideId, EndRideRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task UpdatePermissionsAsync(Guid rideId, RidePermissions permissions, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task SetSharingAsync(Guid rideId, SetSharingRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);

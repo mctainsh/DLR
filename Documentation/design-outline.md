@@ -1,6 +1,6 @@
 # Dumb Luck Rides — Design Outline
 
-> **Status:** Draft **v0.30** — architecture outline; Milestone A of `tasks-server.md` is built.
+> **Status:** Draft **v0.32** — architecture outline; Milestone A of `tasks-server.md` is built.
 > **Assumption:** "Mani" = **.NET MAUI**. Target framework `net10.0-android` / `net10.0-ios`.
 > **UI:** one shared Razor component library, hosted by **MAUI Blazor Hybrid** on mobile and **Blazor WebAssembly** on the web (§18).
 
@@ -207,6 +207,15 @@
 | 0.31 | **Nothing changes on the private rider's own screen** (§10.1, §4.3) — their own mark, their own row and all four of its figures are drawn from this device's receiver | The v0.28 correction, carried to the member list. The circle governs what leaves the phone; every figure on the reader's own row is worked out on the phone, for the person holding it, and there is nobody on that screen to hide the house from |
 | 0.31 | **Who is private is held in memory only — never a column** (§10.1, §5.5). `RiderPrivacyCache` sits beside `RiderPositionCache`, with the same lifetime and for the same reason | It is live presence, and a durable record of when each account was at home would be a weaker copy of the very thing the feature withholds. A restart forgets, and the device says it again — the client re-states *private* on a slow timer, and any published coordinate clears it server-side, because a coordinate arriving is proof the rider is outside their own circle |
 | **0.29** | **The join code is shown to every member, not only the organiser** (§5.2). `RideDetail.JoinCode` and `RideSummary.JoinCode` carry it for anybody in the ride, so *Group adventures* shows the badge on a joined adventure exactly as it does on an organised one | Reported from use: once you have joined, the code is nowhere on any screen, so a rider who wants to bring a friend along has to go back to the organiser for a value they already used. The v0.20 argument was that the code is the ride's whole access control and a member's copy would let them re-share the curated group — but somebody already admitted can name the ride to anybody regardless, so what the rule actually withheld was the ability to invite, not the ability to leak. On an `Approval` ride the organiser still decides every admission and nothing changes; on an `Open` one the trade is deliberate, and the member cap, the member list and *remove member* are what bound it. **The account export still never carries it** (§6.3) — a file nobody thinks of as a sharing surface is a different question from a badge on a screen |
+| **0.32** | **The adventure lifecycle is deleted.** No `Draft`/`Open`/`Live`/`Completed`/`Archived`/`Cancelled`, no *Start*, no *End*, no wind-down (§5.1, §5.6). An adventure is live from the moment it is created until somebody deletes it, and the **only** control over live position sharing is each rider's own per-adventure switch | Five of the six states were never assigned by any code path, and the two that were bought one thing — a moment at which the server deleted everybody's positions — at the cost of an enum on the wire, two columns, two endpoints, a background service, three configuration options, two hub messages and a state test in front of nearly every guard in the product. The organiser pressing *Start* was a step between joining an adventure and using it that answered no question a rider had asked |
+| 0.32 | **`RideStateDto` comes off the wire outright** (§5.3) | No build is in users' hands, so there is no compatibility window to keep and no reason to ship a field hard-coded to one value. Worth recording because it will not be true next time: a shipped client deserialising a response with no `state` gets `default(RideStateDto)`, which is `Draft` — it would have decided the adventure had not started, hidden the sharing panel and refused to bring the GPS up. A silently wrong default rather than a failure |
+| 0.32 | **A fourteen-day idle sweep replaces the guaranteed death of a `rider_position` row** (§5.6, §7.11). The nightly job deletes any position with no fix for `Ride:PositionIdleDays` and clears that member's `ShareLocation` | *End* was the only thing that reclaimed a row unconditionally, and removing it without a replacement means a rider who taps *Share*, rides home and forgets the switch broadcasts for ever — exactly the always-on tracking of friends §1 promises this app is not. It is a **backstop, not a privacy promise**: the phone that died, the app uninstalled, the adventure nobody deletes. A rider still sending fixes is still sharing, and every user-facing sentence now says so |
+| 0.32 | **§1 and §10.1's headline claim corrected again**: sharing ends when *you* turn it off, leave, or are removed — not when the adventure ends (§1, §10.1) | There is no longer an end for it to happen at, and v0.15's own rule applies: a privacy statement that describes an earlier version of the code is worse than none. The fourteen days belongs in the retention table as an outer bound, and nowhere else |
+| 0.32 | **Deleting an adventure is the way to finish one**, and is no longer refused while it is running (§5.1, §5.6) | The refusal existed because *End* was the gentler verb for that moment and this is the destructive one. With no *End* the refusal is a lock on a door with no other way out |
+| 0.32 | **The consent prompt shows once per adventure per device**, remembered in `IDeviceSettings` (§5.6, §18.6) | `Open`-ness was quietly doing half this job — an adventure that had not started was the only one that asked. Deleting the state test without writing the fact down either shows the prompt on every load of an adventure somebody has deliberately declined, or stops asking anybody. Neither is acceptable for a consent gate |
+| 0.32 | **`Ride:MaxConcurrentLiveRidesPerUser` deleted** (§5.7) | It was enforced only at the start transition, so it had no enforcement point left. §5.7 already anticipated this: *"if that turns out to matter, the place to fix it is the publish fan-out, not the start transition"* |
+| 0.32 | **Profile sharing lasts as long as co-membership** (§7.3, §10.1) | It ended at `Completed`, and there is no `Completed`. Leaving, being removed and deletion all still end it, which is the rule that was doing the work anyway |
+| 0.32 | **§17.6's thirty-day read-only thread is gone with the `Archived` state that carried it** (§17.6, §19) | The state was never assigned by anything, so the thread has never actually gone read-only — the guards existed, the sweep did not. Removing the enum makes that visible rather than causing it. If read-only-after-N-days is still wanted it comes back as its own `ArchivedUtc` column and its own sweep, not as a side effect |
 
 ---
 
@@ -221,7 +230,7 @@ A group-ride companion for motorcyclists / cyclists / drivers:
 - **Talk about the ride** — one thread per group ride with text, photos, pinned posts, reactions and polls, which stays quiet while people are actually riding (§17).
 - **Share** completed tracks with other users (and export GPX).
 - **Create group rides** — a time-boxed container that a set of users join. Inside a group ride, members see **each other's live location on a map** and a **shared planned route (GPS track)**.
-- Live sharing is **asked for when you join, off unless you say yes, and revocable at any moment**. It ends when the ride ends — or, if the organiser grants it and you leave it on, within at most two hours afterwards so nobody's map goes dark while they are still riding home (§5.6). Never open-ended. No always-on tracking of friends.
+- Live sharing is **asked for when you join, off unless you say yes, and revocable at any moment**. It stops when you turn it off, leave the adventure, or the organiser removes you — nobody else can turn it on for you (§5.6). No history is kept at any point. No always-on tracking of friends.
 - **You can be in several rides at once**, with a separate sharing decision for each (§5.7).
 
 ### Core entities in one sentence
@@ -333,8 +342,7 @@ Web/DLR.sln
 │  │   ├─ Tracks/            GpxImportEndpoint, TrackEditService, BlobStore (§15)
 │  │   ├─ Photos/            the ONLY image decode path — re-encode + strip (§16.4)
 │  │   └─ Positions/         RiderPositionCache, PositionFlushService,
-│  │                         PositionCacheRehydrator, PositionWriter (§5.5),
-│  │                         SharingWindDownService (§5.6)
+│  │                         PositionCacheRehydrator, PositionWriter (§5.5)
 │  └─ DLR.Server.Migrations/ DlrDbContext, entity configurations, EF Core migrations.
 │                            Persistence lives with the migrations that describe it —
 │                            as two projects it is a reference cycle (v0.20)
@@ -712,16 +720,21 @@ The **Desktop Head Unit** and **CarPlay Simulator** are both free and both manda
 
 ### 5.1 Lifecycle
 
-```
-Draft ──publish──► Open ──start──► Live ──end──► Completed ──30d──► Archived
-                     │                             │
-                     └────────── Cancelled ────────┘
-```
+**There isn't one.** An adventure is live from the moment it is created until somebody deletes
+it: joinable, route visible, thread active, positions flowing for whoever has said yes. The
+organiser never presses *Start*, nobody presses *End*, and the only way to finish one is to
+delete it (§5.6).
 
-- **Open:** joinable, route visible, no live positions. The thread is already active — this is where the planning polls happen (§17.1).
-- **Live:** members publish positions; server fans out to the ride group only. **Thread notifications behave exactly as in any other state** — the quiet-except-pinned rule was removed in v0.26 (§17.6).
-- **Completed:** the organiser chooses between **stopping sharing for everyone immediately** (the default — channel closes, every position row deleted) and a **capped wind-down** in which riders stop themselves (§5.6). Each member's recorded track is offered for attachment to the ride summary. Markers and the thread are kept — they were authored, not measured (§16.1).
-- **Archived** (30 days later): the thread becomes **read-only** (§17.6). Until v0.14 this state existed without meaning anything.
+Through v0.31 there were six states — `Draft`, `Open`, `Live`, `Completed`, `Archived`,
+`Cancelled`. Five of them were never assigned by any code path in the product's life, and the
+one transition that carried weight bought a single thing: a moment at which the server deleted
+everybody's positions. §5.6 says what replaces it. What the states cost, in return, was an enum
+on the wire, two columns, two endpoints, a background service and a state test in front of nearly
+every guard in the product — including several that had been quietly dead since they were written.
+
+The consequence worth naming: **the rider's own switch is now the whole of the control surface.**
+There is no organiser action that turns anybody's sharing on, and none that turns it off but
+removing them from the adventure.
 
 ### 5.2 Joining — the organiser always decides
 
@@ -755,7 +768,6 @@ public interface IRideClient                          // server → client
 	Task PositionsUpdated(PositionBatch batch);
 	Task MemberJoined(MemberDto member);
 	Task MemberLeft(Guid memberId);
-	Task RideStateChanged(RideState state);
 	Task RouteUpdated(RouteRef route);
 	Task JoinRequestReceived(JoinRequestDto request);     // organiser only
 	Task JoinRequestDecided(JoinRequestDecision decision);
@@ -769,7 +781,6 @@ public interface IRideClient                          // server → client
 	Task ReactionsUpdated(Guid id, ReactionCounts counts); // coalesced, §17.4
 	Task PollUpdated(Guid commentId, PollResults results); // coalesced
 	Task RidePermissionsChanged(RidePermissions perms);   // §5.8
-	Task SharingWindDownStarted(DateTime endsUtc);        // §5.6
 	Task MemberSharingChanged(Guid memberId, bool sharing);
 }
 
@@ -813,7 +824,6 @@ The server keeps live positions in memory for fan-out speed, and writes **only t
 |---|---|---|---|
 | `RideBroadcastService` | 5 s | Network fan-out to SignalR groups | `Ride:BroadcastSeconds` |
 | `PositionFlushService` | 10 s | Durability / cache rehydration | `Ride:FlushSeconds` |
-| `SharingWindDownService` | 60 s | Force-stops expired post-ride sharing (§5.6) | `Ride:WindDownSweepSeconds` — the *window length* is the separate `Ride:MaxWindDownMinutes` |
 
 **Collaborators** (all in `DLR.Server/Positions/`):
 
@@ -821,7 +831,7 @@ The server keeps live positions in memory for fan-out speed, and writes **only t
 |---|---|
 | `RiderPositionCache` | `ConcurrentDictionary<Guid rideId, ConcurrentDictionary<Guid userId, PositionEntry>>`. `Upsert` rejects an older `RecordedUtc` and sets `IsDirty`. Exposes `ReadyAsync()`. |
 | `PositionFlushService` | `BackgroundService` on `PeriodicTimer(FlushSeconds, TimeProvider)`. Drains dirty entries → one upsert. Also flushes on `StopAsync`. |
-| `PositionCacheRehydrator` | Loads positions for Live rides — **and rides inside an unexpired wind-down (§5.6)** — into the cache exactly once at startup, gated by `Lazy<Task>`. |
+| `PositionCacheRehydrator` | Loads every position fresher than `Ride:StalenessMinutes` into the cache exactly once at startup, gated by `Lazy<Task>`. |
 | `PositionWriter` | Raw-Npgsql upsert and delete statements. The one place SQL is hand-written. |
 
 **Schema** (EF Core migration, snake_case via `UseSnakeCaseNamingConvention`):
@@ -863,27 +873,24 @@ WHERE excluded.recorded_utc > rider_position.recorded_utc;
 
 The `WHERE` guard is load-bearing: it makes the flush **idempotent** and stops an out-of-order or retried batch from regressing a newer row.
 
-**Rehydration rules** — all four matter; each one omitted is a defect:
+**Rehydration rules** — all three matter; each one omitted is a defect:
 
-1. **Live rides only** — plus rides inside an **unexpired wind-down** (§5.6), which are `Completed` but still legitimately sharing. A restart during a wind-down must not blank the map for the riders it exists to protect, and must not resurrect one that has expired.
-2. **Freshness gate:** only rows with `recorded_utc > now - Ride:StalenessMinutes` (default 15). A stale point must not reappear on the map as if it were current.
-3. **Loaded entries are marked clean.** Otherwise startup immediately schedules a pointless write of everything it just read.
-4. **Reads await `ReadyAsync()`.** Hub reads and `GET /positions` block until rehydration completes, so no client can observe a half-warm cache. The gate lives *inside the cache* rather than relying on hosted-service ordering, because Kestrel's `GenericWebHostService` can start serving before custom hosted services have run. The rehydrator also kicks the task off eagerly so the cache is warm before the first request arrives. **The gate must open on the failure path too** *(SRV-22)* — `MarkReady()` belongs in a `finally`. A rehydration that throws and leaves it shut does not degrade to a blank map; it hangs every read for the life of the process.
+1. **Freshness gate:** only rows with `recorded_utc > now - Ride:StalenessMinutes` (default 15). A stale point must not reappear on the map as if it were current. Since v0.32 this is the *whole* filter — there is no adventure state for a second arm to test (§5.1).
+2. **Loaded entries are marked clean.** Otherwise startup immediately schedules a pointless write of everything it just read.
+3. **Reads await `ReadyAsync()`.** Hub reads and `GET /positions` block until rehydration completes, so no client can observe a half-warm cache. The gate lives *inside the cache* rather than relying on hosted-service ordering, because Kestrel's `GenericWebHostService` can start serving before custom hosted services have run. The rehydrator also kicks the task off eagerly so the cache is warm before the first request arrives. **The gate must open on the failure path too** *(SRV-22)* — `MarkReady()` belongs in a `finally`. A rehydration that throws and leaves it shut does not degrade to a blank map; it hangs every read for the life of the process.
 
 **Deletes do not go through the write-behind** *(SRV-22)*. Publishing is cache-first and reaches PostgreSQL on the next tick; `StopSharingAsync` and `ClearRideAsync` delete from the database directly and evict the cache. "Gone within ten seconds" is not what a rider turning sharing off asked for (§5.6).
 
 > **Known gap — a flush in flight can resurrect a deleted row.** A flush that has already snapshotted its batch, and completes its write *after* a concurrent delete, puts that rider's position back. The window is one round trip and needs a delete to land inside it, so it is rare — but it is rare, not impossible, and what it leaves behind is exactly the position at rest §10.1 says must not exist. Neither ordering of *delete-then-evict* and *evict-then-delete* closes it; the fix is a tombstone the flush filters its batch against immediately before writing, or a membership join in the upsert. **The §7.11 nightly sweep is the current backstop, which means the exposure is up to a day.** Worth closing properly — see §13 Q16.
 
 **Lifecycle and cleanup**
-- Ride → `Completed` with the default ending: delete that ride's rows and evict the ride from the cache. Ride → `Cancelled`: the same, with no choice offered.
-- Ride → `Completed` **with a wind-down** (§5.6): rows survive until each member stops, or until `SharingEndsUtc`, whichever comes first. A `SharingWindDownService` on the same `PeriodicTimer`/`TimeProvider` pattern as the flush sweeps expired windows and deletes unconditionally — **the expiry must not depend on a client being awake to honour it.**
 - Member sets `ShareLocation = false`, or leaves, or is removed by the organiser: delete that member's row immediately — stopping the broadcast is not sufficient (§10.1).
-- Ride deletion is covered by `ON DELETE CASCADE`.
-- Nightly sweep for rows belonging to rides that are neither `Live` nor inside an unexpired wind-down, as a backstop against a missed transition (§7.11).
+- Adventure deletion is covered by `ON DELETE CASCADE`, plus an explicit `ClearRideAsync` first, because the cascade clears the table and not the cache in front of it.
+- **Nightly idle sweep** — any row with no fix for `Ride:PositionIdleDays` (default 14) is deleted and that member's `ShareLocation` cleared (§7.11). Since v0.32 this is the only unconditional reclamation there is, and it exists because *End* used to be (§5.6).
 
 **Cost of the trade-off, stated plainly:** a hard process kill loses up to 10 s of movement. On restart the cache rehydrates slightly stale and self-corrects on each rider's next 5 s push, so the worst observable symptom is a pin that lags for a few seconds. A graceful shutdown loses nothing. At 500 concurrent riders the flush is ~50 rows/s in a single statement — negligible on the €4 VPS (§9).
 
-### 5.6 Consent to share, and what happens when the ride ends
+### 5.6 Consent to share, and what makes it stop
 
 **Joining a ride and agreeing to broadcast your position are two separate decisions**, and the app treats them that way.
 
@@ -892,11 +899,13 @@ The `WHERE` guard is load-bearing: it makes the flush **idempotent** and stops a
 Both join paths (§5.2) end at the same prompt, before the rider is in:
 
 > **Share your location with this ride?**
-> Members of *Saturday Coast Run* will see where you are while the ride is live. You can turn this off at any time. It stops when the ride ends — or, if the organiser lets riders finish getting home, within two hours of that.
+> Members of *Saturday Coast Run* will see where you are. You can turn this off at any time. It stops when you turn it off, leave the adventure, or the organiser removes you.
 >
 > **[ Share ]  [ Not now ]**
 
-*(The second sentence is not padding. Through v0.14 this copy said flatly "it stops when the ride ends", which the wind-down below made untrue — and consent copy that overstates the protection is worse than none.)*
+*(The last sentence names three things and no fourth, and that is the whole of the care in it. It said "it stops when the ride ends" through v0.14, which the wind-down made untrue; it named the wind-down from v0.17, which v0.32 made untrue. There is now no end for sharing to stop at, so the copy promises only what the rider themselves controls. **It must not point at the fourteen-day sweep** (§7.11) — that is a garbage collector for rows nothing is updating, not a limit on somebody who is still riding, and dressing it as one would be the third version of the same mistake.)*
+
+**Shown once per adventure, per device**, remembered through `IDeviceSettings` (§18.6). That fact used to be free: an adventure that had not started was the only one that asked, so `Open`-ness was doing half the job. With no lifecycle the fact has to be written down, because the two ways of not writing it down are *ask on every load of an adventure somebody has deliberately declined* and *never ask anybody*.
 
 - **Dismissing is "not now", and the flag defaults to `false`.** A prompt that treats a swipe-away as consent is not a consent prompt. This matches §7.3's structural default-off for profile fields, for the same reason: an accidental "on" cannot be un-shared.
 - The choice is **per ride**, stored on `GroupRideMember.ShareLocation`. A rider who shares with their regular Sunday group and not with a charity ride full of strangers is expressing something sensible, and one global switch could not express it.
@@ -914,41 +923,64 @@ The control is **visibility, not enforcement**: the member list shows each rider
 
 Unchanged from §5.5 and worth restating because it is the load-bearing part: setting `ShareLocation = false` **deletes the persisted row immediately** and evicts the cache entry. Stopping the broadcast alone would leave a last-known position at rest in the database — precisely what a rider turning sharing off is asking you not to do. Leaving the ride and being removed by the organiser do the same thing.
 
-#### The end of the ride is a choice, not an event
+#### There is no end of the ride
 
-The naive rule — *ride ends, all sharing stops, all positions deleted* — is what §5.5 through v0.14 described, and it has a real failure mode: an organiser who ends the ride at the pub blanks the map while three riders are still an hour from home in the dark.
+Through v0.31 the organiser pressed *End* and chose between stopping everybody's sharing at once
+and a bounded two-hour wind-down in which riders stopped themselves. Both are gone with the
+lifecycle (§5.1). What went with them is worth naming precisely, because it was the only one of
+its kind: **the guaranteed death of a `rider_position` row.** A rider who taps *Share*, rides home
+and forgets the switch was caught by the end of the adventure whether or not their phone was awake.
 
-So **ending a ride asks the organiser one question**:
+Nothing else in the system deletes that row, so something had to replace it.
 
-| Choice | Effect | Default |
-|---|---|---|
-| **Stop sharing for everyone** | Live channel closes, every position row deleted, immediately | ✅ |
-| **Let riders stop themselves** | A bounded **wind-down**: members who were sharing keep sharing until they turn it off, or until the window expires | |
+**The replacement is a fourteen-day idle sweep**, in the nightly job that already exists (§7.11).
+Any `rider_position` whose `recorded_utc` is older than `Ride:PositionIdleDays` — default **14** —
+is deleted and that member's `ShareLocation` cleared. Server-side and unconditional: it does not
+depend on any client being awake, which is the property the wind-down cap had and the only part of
+it worth keeping. A fortnight rather than a few hours because it is not trying to be a stop button;
+a rider on a three-day trip with intermittent signal must not be quietly unsubscribed.
 
-During a wind-down the ride is `Completed` — the thread, markers and summary all behave as §5.1 says — but the live map stays readable **by members**, which is the actual use: the organiser at home wants to see that everyone else got home too.
+**Be exact about what fourteen days is and is not.** It is a backstop against a row nothing else
+reclaims — a phone that died, an app uninstalled, an adventure nobody deletes. It is **not a
+privacy promise, and no user-facing sentence may present it as one.** A rider who leaves the switch
+on is sharing until they turn it off; the sweep only catches the case where they stopped sending
+anyway. The one place it is written down for users is the retention table in the privacy policy,
+as the outer bound on a row nobody is updating.
 
-**Four rules make the wind-down safe rather than a loophole:**
+**The eviction is what makes the delete stick, not the order of the two writes.** A flush already
+in flight reads `RiderPositionCache` and never consults `ShareLocation`, so clearing the flag first
+would not stop it putting the row back — dropping the cache entry is what does. The sweep therefore
+lives on `PositionStore` beside the three per-rider paths and ends with the same delete-then-evict
+pair `StopSharingAsync` uses, rather than restating the obligation in the maintenance job.
 
-1. **It is capped.** `Ride:MaxWindDownMinutes`, default **120**. At the deadline the server force-stops sharing for everyone still on, deletes every position row, and closes the channel. This is server-side and unconditional — it does not depend on any client being awake to honour it.
-2. **It cannot be extended.** No renewal, no "add another hour". A window that can be extended is an indefinite window with extra steps, and indefinite is precisely what §1 promises this app never does.
-3. **Every rider still sharing is told, persistently.** The recording notification (§4.3) — or a standalone one if they are not recording — reads *"Still sharing your location with Saturday Coast Run — stops at 16:40"*, with a one-tap stop. Nobody should discover this by opening the app.
-4. **A rider can stop at any point**, which deletes their row exactly as in the live case, and the organiser can end the wind-down early for everyone.
+**Deleting the adventure is what finishes one**, and it is no longer refused while people are on
+the road. That refusal existed because *End* was the gentler verb for that moment; with no *End* it
+was a lock on a door with no other way out. It takes the thread and the markers with it, which is
+the honest cost and is why it is confirmed.
 
-**A fifth rule, found while building it (SRV-25): the wind-down *continues* consent and never grants it.** The publish filter is `ShareLocation && (Live || unexpired window)`. Written as `(ShareLocation || unexpired window)` instead — a one-parenthesis difference — it puts a rider who deliberately had sharing **off** onto the map the moment the ride ends, which is the exact inverse of the feature's purpose. Everything else about the wind-down still behaves correctly with that mistake in place, so it has its own test.
-
-**`SharingEndsUtc` is computed from the server's clock and `Ride:MaxWindDownMinutes`, never from anything the caller sends** *(SRV-25)*. That is what makes rule 2 a property of the shape rather than a validation rule someone can later relax. Ending early and the default ending are deliberately the same code path — both clear the window, delete every row and switch every member off — and `EndedUtc` is set with `??=`, so stopping a wind-down early does not move the moment the ride ended, which §17.6's archival counts from.
-
-**The organiser cannot switch a rider's sharing back on.** They can end sharing for everybody, and they can grant the wind-down; they can never grant consent on someone's behalf. That asymmetry is the whole point — the organiser controls the *ride*, the rider controls their *location*.
+**The organiser cannot switch a rider's sharing back on**, and since v0.32 they cannot switch it off
+either except by removing them from the adventure. That asymmetry is the whole point — the organiser
+controls the *adventure*, the rider controls their *location* — and it is now the entire control
+surface rather than one half of it.
 
 *(SRV-21 makes that structural rather than checked: the route is `PUT /group-rides/{id}/sharing/**me**`, and there is no user-id form of it. An endpoint that could express "set another rider's sharing" would need a guard, and a guard is a thing that can be removed by someone who does not know why it is there. The route cannot be relaxed by accident.)*
 
-**Four routes carry the delete obligation, not one** *(SRV-21)*. Turning the switch off, leaving, being removed, and the ride ending must all delete the position row, and `rider_position` has **no foreign key to `group_ride_member`** — so removing a member cascades nothing and the explicit delete is the only thing doing the work. They funnel through one `PositionStore`, because four copies of an obligation is how one of them eventually stops meeting it.
+**Four routes carry the delete obligation, not one** *(SRV-21, SRV-36)*. Turning the switch off, leaving, being removed, and the nightly idle sweep must all delete the position row, and `rider_position` has **no foreign key to `group_ride_member`** — so removing a member cascades nothing and the explicit delete is the only thing doing the work. All four live on `PositionStore`, because four copies of an obligation is how one of them eventually stops meeting it. The sweep is set-based rather than a loop over `StopSharingAsync` — it is a backstop over the whole table — but it is a method on the same type, not a second implementation in the job that calls it.
 
-#### Which means §1's headline claim needed correcting
+#### Which means §1's headline claim needed correcting, again
 
-Through v0.14 the product summary said live sharing *"is scoped to the group ride and ends with it"*. With a wind-down that is no longer exactly true, and this document has a rule about that (§10.1, and the v0.2 correction that established it). The accurate claim, now used in both places:
+v0.14 said sharing *"is scoped to the group ride and ends with it"*; v0.15 corrected that to name the
+wind-down. Neither is true now, and this document's rule is that a correction is recorded rather
+than quietly restated (§10.1, and the v0.2 correction that established it). The accurate claim, now
+used in both places:
 
-> Live sharing is scoped to the group ride. It ends when the ride ends, or — if the organiser chooses and you keep it on — within at most two hours afterwards. It is never open-ended, and you can stop it at any moment.
+> Live sharing is scoped to the group adventure, off unless you turn it on, and stops the moment you
+> turn it off, leave, or are removed. Nobody else can turn it on for you, and there is no history —
+> one row per rider, overwritten in place, deleted when you stop.
+
+Note what the claim no longer says: that sharing has an end you did not choose. It does not, and
+pretending otherwise on the strength of the fourteen-day sweep would be the mistake v0.15 and v0.17
+each corrected once already.
 
 ### 5.7 Being in several rides at once
 
@@ -982,7 +1014,7 @@ The car story needs nothing new: §4.6 already specified a second screen for pic
 
 **One recording, several rides.** Recording is a device activity, not a ride activity — a rider records one track and may attach it to each ride's summary afterwards (`GroupRideMember.RecordedTrackId` is per membership, so this already works).
 
-**Bounded**, because unbounded means a rider can be broadcast into fifty groups at once: `Ride:MaxConcurrentLiveRidesPerUser`, default **5**, enforced when a ride goes Live rather than at join. Being a *member* of many rides is fine; being live in many at once is what costs.
+**No longer bounded by a cap.** `Ride:MaxConcurrentLiveRidesPerUser` was enforced at the start transition and nowhere else, so with no transition it has no enforcement point and is deleted (v0.32). This section already anticipated that: *"if that turns out to matter, the place to fix it is the publish fan-out, not the start transition"*. The honest bound now is how many adventures a rider has deliberately turned sharing on for, which is a decision they made rather than a number the server picked.
 
 > **Whose count is checked** *(decided in SRV-24)*: the **organiser performing the transition**, not every member. Counting all members would let one rider who is already in five live rides block a ride for fifty other people — a denial of service dressed as a quota. The cost this cap protects is a rider's own downlink, so the actor-scoped reading is the defensible one. The consequence, stated plainly: a member can still end up in more live rides than the cap by joining rides other people start. If that turns out to matter, the place to fix it is the publish fan-out, not the start transition.
 
@@ -1030,14 +1062,12 @@ Sharing_TurnedOff_DeletesPersistedRowImmediately
 Sharing_TurnedOffMidRide_RemovesPinForOtherMembers
 MemberList_DistinguishesNotSharingFromNoSignal
 
-RideEnd_DefaultChoice_DeletesAllPositionsImmediately
-RideEnd_WindDown_KeepsSharingMembersPublishing
-RideEnd_WindDown_ExpiresServerSideWithoutAnyClient
-RideEnd_WindDown_CannotBeExtended
-RideEnd_WindDown_OrganiserCanEndItEarlyForEveryone
-RideEnd_WindDown_RiderStoppingDeletesOnlyTheirRow
-Rehydrate_RideInUnexpiredWindDown_IsLoaded
-Rehydrate_RideInExpiredWindDown_IsNotLoaded
+SharingOff_DeletesThePositionButKeepsTheThread
+SharingOff_DeletesThePositionButKeepsTheMarkers
+Delete_WhileSomebodyIsSharing_TakesTheirPositions
+NightlySweep_DeletesIdlePositionsAndClearsTheirSharing
+NightlySweep_DryRun_CountsIdlePositionsAndDeletesNothing
+Rehydrate_SkipsPositionsOlderThanStalenessWindow
 Organiser_CannotEnableSharingOnBehalfOfAMember
 
 Publish_MemberOfThreeLiveRides_WritesToAllThree
@@ -1127,9 +1157,7 @@ GET    /api/v1/group-rides/{id}/join-requests  organiser: pending list
 POST   /api/v1/join-requests/{id}/approve      organiser
 POST   /api/v1/join-requests/{id}/decline      organiser, { block? }
 DELETE /api/v1/group-rides/{id}/members/{uid}  organiser: remove a member
-POST   /api/v1/group-rides/{id}/state          start / end / cancel  (owner only)
-                                               end takes { endSharing: Immediate|WindDown } (§5.6)
-POST   /api/v1/group-rides/{id}/end-sharing    owner: stop everyone now, incl. mid-wind-down
+DELETE /api/v1/group-rides/{id}                owner: the only way to finish one (§5.6)
 PUT    /api/v1/group-rides/{id}/permissions    owner/leader: { markers, comments, photos } (§5.8)
 GET    /api/v1/group-rides/{id}/positions      snapshot (awaits cache ready)
 PUT    /api/v1/group-rides/{id}/route          attach/replace planned route
@@ -1243,7 +1271,7 @@ Three optional fields, each with an independent sharing switch that is **off by 
 
 **The map label does not change.** Pins and the position batch always carry the immutable username (§7.2). A shared display name appears in the ride member list *beside* the username, never instead of it. That preserves v0.7's property that a username can be cached and denormalised forever with no invalidation — display names are editable, usernames are not — and it stops a rider labelling themselves `RideLeader` on someone else's map.
 
-**Sharing is ride-scoped and revokes itself.** A shared field is visible to riders who are **currently co-members of a group ride** with the owner, surfacing in that ride's member list. Leaving the ride, being removed by the organiser, or the ride completing all end access — the same lifecycle as live position sharing (§5.5), for the same reason. **One deliberate difference since v0.15: profile sharing ends the moment the ride is `Completed`, and does not follow the position wind-down (§5.6).** The wind-down exists so people can watch each other get home safely; there is no equivalent reason to keep a phone number visible for two more hours. A rider who has never joined a ride has no audience at all, whatever their switches say.
+**Sharing is ride-scoped and revokes itself.** A shared field is visible to riders who are **currently co-members of a group adventure** with the owner, surfacing in that adventure's member list. Leaving, being removed by the organiser, and the adventure being deleted all end access — the same lifecycle as live position sharing (§5.5), for the same reason. Co-membership is now the whole of the rule: v0.15 to v0.31 also ended it the moment the ride was `Completed`, deliberately not following the position wind-down, and neither of those states exists any more (§5.1). A rider who has never joined an adventure has no audience at all, whatever their switches say.
 
 **The phone number is not verified and is not a recovery path.** SMS verification needs a paid provider the €4 budget (§9) does not want, and an SMS reset path would add an account-takeover surface for no benefit. Identity's `PhoneNumber` column is reused, but **`PhoneNumberConfirmed` stays permanently `false` and must never be used as a gate** — a future contributor who sees that column will otherwise assume verification happened somewhere. The field is a convenience for mates on a ride, nothing more; tapping to call a rider mid-ride is the obvious use (§5.4).
 
@@ -1551,7 +1579,7 @@ The comparison is **strict**. An account last active exactly 180 days ago is *at
 
 | Sweep | Reference |
 |---|---|
-| Orphaned `rider_position` rows for rides that are neither Live nor in an unexpired wind-down | §5.5, §5.6 |
+| `rider_position` rows with no fix for `Ride:PositionIdleDays` (default **14**) — the row deleted and that member's `ShareLocation` cleared | §5.5, §5.6 |
 | `refresh_token` rows expired or revoked > 30 days, and `deleted_account_token` on the same horizon | §7.13 |
 | Null `created_by_ip` on users older than 30 days | §7.8 |
 | `TrackRevision` originals past their undo window — **the blob as well as the row** | §15.6 |
@@ -1919,13 +1947,12 @@ PollVote(PollOptionId, UserId)                 -- PK (PollOptionId, UserId)
 ContentReport(Id, TargetKind{Marker,Comment}, TargetId, ReportedByUserId,
               Reason, ContentSnapshot, CreatedUtc, ResolvedUtc?)      -- §17.7
 
-GroupRide(Id, OwnerId, Name, Description, StartUtc, EndUtc?, State,
+GroupRide(Id, OwnerId, Name, Description, StartUtc,
           JoinCode, JoinPolicy{Open,Approval}, MemberCap,
           PlannedRouteTrackId?, MeetPointLat/Lon, CreatedUtc,
-          SharingEndsUtc?,                                               -- §5.6
           AllowMemberMarkers, AllowMemberComments, AllowMemberPhotos)    -- §5.8
-          -- SharingEndsUtc non-null == an unexpired wind-down. The server
-          --   force-stops at that instant; it is never extended (§5.6).
+          -- No State, EndedUtc or SharingEndsUtc since v0.32: an adventure
+          --   is live from creation until it is deleted (§5.1).
           -- The three Allow* flags default true and are toggleable at any
           --   time; turning one off deletes nothing (§5.8).
 GroupRideMember(GroupRideId, UserId, Role{Owner,Leader,Rider,Spectator},
@@ -2032,30 +2059,30 @@ When it does change — before the web app is publicly announced, because OSM's 
 
 ### 10.1 Privacy — the headline feature, stated accurately
 
-Live location is shared **only** within an active group ride, **only** with its admitted members, **only if the rider said yes when they joined** (§5.6), and **stops when the ride ends — or within at most two hours afterwards if the organiser grants a wind-down and the rider leaves it on**.
+Live location is shared **only** within a group adventure, **only** with its admitted members, **only if the rider said yes** (§5.6), and **stops the moment they turn it off, leave, or are removed**.
 
-*The wind-down clause is new in v0.15 and the sentence above was corrected to include it. It is the same discipline as the v0.2 correction below: a privacy statement that describes an earlier version of the code is worse than no statement, because people rely on it.*
+*Corrected in v0.32, and this is the third version of the sentence: v0.14 said sharing ended with the ride, v0.15 added the wind-down, and v0.32 removed the end it was measured from. Same discipline as the v0.2 correction below — a privacy statement that describes an earlier version of the code is worse than no statement, because people rely on it. Note what the sentence deliberately does **not** claim: an end the rider did not choose. The fourteen-day idle sweep (§5.6, §7.11) is a garbage collector for rows nothing is updating and must never be sold as a limit on somebody still riding.*
 
 **What is stored, precisely** *(corrected in v0.2 — v0.1 claimed positions were never persisted, which the 10 s flush makes false)*:
 
-> Exactly **one row per rider per active ride**, overwritten in place. **No location history is ever stored** — there is no positions table to accumulate, no trail, no replay. Rows are **deleted when the ride completes or is cancelled** — or, where the organiser granted a wind-down, when each rider stops or the capped window expires, whichever comes first (§5.6). Recorded tracks are a separate, opt-in artefact.
+> Exactly **one row per rider per adventure**, overwritten in place. **No location history is ever stored** — there is no positions table to accumulate, no trail, no replay. A row is **deleted when the rider stops sharing, leaves, is removed, or the adventure is deleted** (§5.6), and as a backstop when nothing has updated it for fourteen days (§7.11). Recorded tracks are a separate, opt-in artefact.
 
 **Measured location is deleted; authored content is kept.** Markers (§16) are locations too, and the ride thread (§17) is a record of who said what to whom — both survive the ride precisely because a person chose to write them. The distinction is worth naming so the promise above stays exact: the app deletes what it *observed* about where you were, and keeps what you *wrote down* about where something is. A marker is visible to whoever its parent is visible to — a track's audience, or a ride's admitted members — and no wider.
 
 **Who can see a rider's live position** *(rewritten in v0.5 — the confirmed-email gate is gone)*:
 
-> Only members of a ride the **organiser** admitted them to. There are two ways in: the join code, or the organiser pressing *Admit* on a request (§5.2). Since v0.29 any member can pass the code on, so on an `Open` ride the organiser no longer controls both paths by themselves — the cap, the member list and *remove member* are what bound it.
+> Only members of an adventure the **organiser** admitted them to. There are two ways in: the join code, or the organiser pressing *Admit* on a request (§5.2). Since v0.29 any member can pass the code on, so on an open-join adventure the organiser no longer controls both paths by themselves — the cap, the member list and *remove member* are what bound it.
 
 This is a stronger statement than v0.4's email gate. Confirming an email only ever proved that somebody could read a mailbox; it said nothing about whether the organiser wanted them on the ride. The membership check in the hub (§7.6) is what enforces it, which is why that check is tested directly rather than assumed.
 
 - **Consent is asked at join and defaults to off** (§5.6). A rider can be in a ride without sharing, and the member list shows who is and is not — visible rather than enforced.
 - Per-ride `ShareLocation` toggle. Setting it false, or leaving the ride, **deletes the persisted row** — merely stopping the broadcast would leave a last-known point at rest in the database, which is exactly what a user turning sharing off is asking you not to do.
-- **The wind-down is capped, unextendable, force-stopped server-side, and announced by a persistent notification** on every phone still sharing (§5.6). An organiser may end sharing for everyone and may offer the window; they can never switch a rider's sharing back on.
+- **The organiser has no switch over anybody's sharing.** They can remove a member, which deletes that member's row; they can never turn sharing on or off on somebody's behalf (§5.6). Since v0.32 the rider's own toggle is the entire control surface.
 - An organiser can remove a member mid-ride; their position row is deleted immediately.
 - **Several concurrent rides mean several independent consents** (§5.7), and a rider sharing with one ride and not another has no stored position in the second at all — the filter is applied on the write, not on the read.
 - Revoking a device (§7.10) cuts that device's ability to read positions — its next refresh fails.
 - **Minimal collection by default:** a working account is a username and a password hash. Email, phone number and display name are all optional, and all three are **shared with nobody unless the user switches them on** (§7.3).
-- **Shared profile fields are ride-scoped**, visible only to current co-members of a group ride, and access ends the moment the ride completes — **without** the position wind-down's grace period, deliberately (§7.3). There is no profile lookup endpoint and no way to resolve a username to a person's details.
+- **Shared profile fields are adventure-scoped**, visible only to current co-members, and access ends when co-membership does — leaving, being removed, or the adventure being deleted (§7.3). There is no profile lookup endpoint and no way to resolve a username to a person's details.
 - Registration IP is kept 30 days for abuse throttling, then nulled (§7.8).
 - Dormant empty accounts are deleted after 180 days (§7.11) — data minimisation by construction.
 - Public share links are unguessable tokens, revocable, optionally expiring.
@@ -2130,11 +2157,11 @@ Rehydrate_SkipsPositionsOlderThanStalenessWindow
 Rehydrate_LoadedEntriesAreNotDirty
 Reads_BlockUntilRehydrationComplete
 Shutdown_FlushesPendingEntries
-RideCompleted_WithImmediateEnding_DeletesPositionsAndEvictsCache
+SharingOff_DeletesThePositionButKeepsTheThread
 MemberStopsSharing_DeletesPersistedRow
 ```
 
-**Sharing consent, the ride-end wind-down, multi-ride publishing and the organiser's content switches** have their own list in §5.9. The wind-down expiry test is the one that matters most — `RideEnd_WindDown_ExpiresServerSideWithoutAnyClient` is what stops a bounded window becoming an unbounded one the first time a phone goes flat.
+**Sharing consent, the idle sweep, multi-adventure publishing and the organiser's content switches** have their own list in §5.9. `NightlySweep_DeletesIdlePositionsAndClearsTheirSharing` is the one that matters most — it is the only unconditional reclamation left, and it has to work with every phone in the adventure switched off.
 
 **Identity, joining and account lifecycle** have their own list in §7.15 — it is the largest single block of tests in the project, which is appropriate given that the membership check is now the only thing protecting a rider's location.
 
@@ -2211,7 +2238,7 @@ Each phase leads with the first failing test.
 |---|---|---|---|
 | **0 — Spikes** (1–2 wk) | `Replay_KnownGpx_ProducesExpectedDistanceAndAscent` | GPX replay harness; background GPS on both platforms; **`DLR.UI` skeleton rendering in both a `BlazorWebView` and WASM (§18)**; **MapLibre GL JS in the WebView on both phones, 20 pins updating every 5 s — measure battery (§4.5)**; SignalR through Caddy; **verify an `androidx.car.app` .NET binding exists** (§4.6) | A 2-hour ride recorded with the screen off on a real iPhone **and** a real Android, no gaps — plus a written answer on the Android Auto binding, and a battery number for the WebView map against §10.3's 8 %/hour |
 | **1 — Solo** | `Register_UsernameAndPasswordOnly_Succeeds` | Username/password registration, permanent refresh tokens, IP ladder, optional email + confirm/reset, `last_active_utc`. Record, store, list, view, GPX export. Track upload. **GPX import on app and web, with the full hostile-input corpus (§15.3)**. **`DLR.UI` shared components in both hosts; one map module — MapLibre + OSM — on every host, with no credential and no token endpoint (§4.5)**. Web track view. **`LICENSE` + `/api/v1/about` + footer source link, and the CI licence gate** (§14.6) | Install on your own phone and stop using anything else — including a reinstall that signs straight back in without typing a password |
-| **2 — Group rides** | `JoinByCode_ApprovalRide_CreatesPendingRequestOnly` | Both join paths + admit/decline, **join-time sharing consent, per-ride toggle and the ride-end wind-down (§5.6)**, **multi-ride membership and publishing (§5.7)**, **organiser content switches (§5.8)**, planned route, live map, member list, batched fan-out, position cache + 10 s flush (§5.5), hub membership authz. **Web track editor + undo window (§15.5–15.6)**. **Markers with photos (§16)**, rendering fully — MapLibre draws icons, rotation and labels from Phase 1, so v0.13's degraded-pin fallback never has to ship (§18.3). **Ride thread: text, photos, pinning, reactions, and the notification rules — uniform across every ride state since v0.26 (§17.1, §17.6)** | 4 people, 1 real ride, all pins moving; one joined by code, one admitted from a request; kill and restart the server mid-ride and watch the map come back warm. **One rider joins without sharing and stays invisible on the map while still seeing everyone; end the ride with a wind-down and watch it expire on its own with every phone switched off.** **Trim your own house off a real recorded ride, watch the distance change, undo it, then purge the original.** **Drop a hazard marker with a photo mid-ride and have it appear on three other phones; confirm the stored image carries no EXIF GPS** |
+| **2 — Group rides** | `JoinByCode_ApprovalRide_CreatesPendingRequestOnly` | Both join paths + admit/decline, **join-time sharing consent and the per-adventure toggle (§5.6)**, **multi-ride membership and publishing (§5.7)**, **organiser content switches (§5.8)**, planned route, live map, member list, batched fan-out, position cache + 10 s flush (§5.5), hub membership authz. **Web track editor + undo window (§15.5–15.6)**. **Markers with photos (§16)**, rendering fully — MapLibre draws icons, rotation and labels from Phase 1, so v0.13's degraded-pin fallback never has to ship (§18.3). **Ride thread: text, photos, pinning, reactions, and the notification rules — uniform across every ride state since v0.26 (§17.1, §17.6)** | 4 people, 1 real ride, all pins moving; one joined by code, one admitted from a request; kill and restart the server mid-ride and watch the map come back warm. **One rider joins without sharing and stays invisible on the map while still seeing everyone; another turns sharing off mid-ride and watch their pin go from all three other phones at once.** **Trim your own house off a real recorded ride, watch the distance change, undo it, then purge the original.** **Drop a hazard marker with a photo mid-ride and have it appear on three other phones; confirm the stored image carries no EXIF GPS** |
 | **3 — Polish + car** | `Snapshot_GapList_OrdersRidersAlongRoute` | `IRideSessionState` + gap list, **Mapsui renderer** (on the critical path for both the car *and* markers, §16.3), **full marker rendering — icons, rotation, labels**, **Android Auto + CarPlay heads (§4.6)**, inactivity cleanup behind dry-run, ~~push notifications~~ *(shipped early and locally in v0.26 — §17.6 — since it needed no store-side credential)*, **polls (§17.5)**, **report/block moderation (§17.7)**, off-route alerts, ride summaries, load test, **social sign-in + guest riders (§7.16)** | Store submission; a real ride navigated from a head unit; a week of dry-run deletion logs read |
 | **4 — Beyond** | — | Ride photos on the timeline, leader hand-off, public ride discovery, TOTP 2FA, Wear OS / watchOS glances | — |
 
@@ -2232,7 +2259,7 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 | Play Store rejection over background location | High | Prominent disclosure, demo video, and a Data Safety form that declares location **storage** (§10.2) from the first submission |
 | **`ForwardedHeaders` misconfigured** | **High** *(was Medium)* | Now breaks registration outright, not just rate limiting: every signup looks like it comes from Caddy, so the fourth user ever is asked for an email. `Registration_LadderUsesForwardedClientIp` plus a staging check before first public signup (§7.8) |
 | **Automated deletion removes an account it shouldn't** | **High** | Five-clause `NOT EXISTS` conjunction, a test per clause, `DryRun` default-on, a kill switch, per-run batch cap, and alerting on counts (§7.11) |
-| **A wind-down becomes indefinite sharing** | **High** | The whole risk of §5.6, and the reason the window is capped, unextendable, and expired by a server-side sweep that needs no client to cooperate. A persistent notification names the stop time on every phone still sharing, and `RideEnd_WindDown_ExpiresServerSideWithoutAnyClient` is the test that keeps it honest. A flat battery must not leave someone broadcasting |
+| **A forgotten switch becomes indefinite sharing** | **High** | The risk v0.32 inherited when it deleted the adventure's end (§5.6). Nothing but the rider now stops it, so the app's obligation is to keep the fact in front of them: a persistent notification while the receiver runs, a red strip on the live map whenever sharing is off *or* on, and the member list showing every rider's state to the whole group. The fourteen-day sweep is the floor under a phone that has stopped sending, **not** a limit on one that has not |
 | **A rider believes they are not sharing when they are** (or the reverse) | **High** | Consent defaults to off and is asked explicitly at join (§5.6); the ride screen shows the current state rather than hiding it in settings; the member list distinguishes *not sharing* from *no signal*; and several concurrent rides each show their own state (§5.7). Ambiguity here is the failure mode, not a leak in the transport |
 | Per-ride consent applied in the wrong place with several live rides | **High** | Filtered on the **write**, never on the read (§5.7): a rider not sharing with a ride has no row in it at all, so no cache entry, no flush and nothing on the wire. `Publish_SharingInRideAOnly_StoresNoRowForRideB` is the assertion |
 | Hub membership check is now the only barrier to a stranger's location | Medium | Email verification never protected this anyway; organiser consent on both paths (§5.2) plus `Hub_JoinRide_NonMemberIsRejected` and `Hub_JoinRide_PendingRequesterIsRejected` (§7.6) |
@@ -2243,7 +2270,7 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 | Username squatting and impersonation | Medium | The handle is the only visible name and it is permanent, so a desirable name is first-come-forever and the owner cannot rename out of a bad choice either. ASCII-only kills homoglyphs, reserved names are blocked, and report-and-remove is the only remaining lever — removal frees the name (§7.2, §7.11) |
 | A user regrets their permanent username | Low–Med | Confirmation step before account creation (§7.2). The escape hatch is to abandon the account and register again — cheap while it holds nothing, expensive once it holds rides. Accepted deliberately as the price of immutability |
 | **A profile field leaks because one read path forgot a switch** | **High** | Cannot be un-leaked, so the control is structural rather than careful: a single `SharedProfile.For` factory that requires the viewer relationship, an architecture test banning `AppUser` on the wire, omit-when-null so withheld and unrecorded look identical, and a test per field (§7.3) |
-| Shared phone number becomes a harassment vector | Medium | Off by default, ride-scoped, and revoked when the ride ends. The organiser controls who is in the ride at all (§5.2), so the audience is never strangers-at-large. Unverified by design, so it is also never an identity claim |
+| Shared phone number becomes a harassment vector | Medium | Off by default, adventure-scoped, and revoked when co-membership ends — leaving, being removed, or the adventure being deleted. The organiser controls who is in the adventure at all (§5.2), so the audience is never strangers-at-large. Unverified by design, so it is also never an identity claim |
 | **Apple refuses the CarPlay entitlement** | **High** | Request filed in Phase 1 so the wait overlaps other work (§4.6). No engineering mitigation exists — if refused, iOS ships phone-only and the `carplay-driving-task` entitlement is the fallback to investigate. Do not promise CarPlay in store copy until it is granted |
 | **No usable .NET binding for `androidx.car.app`** | **High** | Phase 0 spike answers this before any planning depends on it (§4.6). Fallback is a binding project over the AAR — real work, and the reason it is a spike rather than an assumption |
 | Mapsui is now on the critical path, not optional | Medium | Car support cannot use the native map control at all (§4.6). `IMapRenderer` was designed for exactly this swap, and `MapHostKind` makes an unsupported pairing a startup failure rather than a blank screen |
@@ -2276,7 +2303,7 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 | **A ride thread encourages phone use while riding** | **High** | The product risk in this feature. **v0.26 removed the strongest mitigation against it** — comments push while the ride is `Live` — and **v0.27 removed what was left**: importance is now `High`, so a banner does slide over the live map, and the app no longer holds a notification back even for the thread on screen. One structural mitigation survives, and it is the one the app does not control: the thread never renders on a car head unit (`Car_ThreadIsNotRenderedAtAll`, §4.6). Everything else is the rider's own — Do Not Disturb, a riding or driving focus mode, the per-app and per-channel switches (§17.1, §17.6). This row keeps its **High** rating on purpose and the rating is now doing more work than it was: the risk did not fall, the control left the app entirely, and a rider who has never set up a focus mode is unprotected by design. If real rides show mid-ride reading, the answer is to reinstate the `Live` row of §17.6's table — or the channel's `Default` importance — not to add a warning dialog or an in-app mute |
 | Notification storms from an active thread | Medium | Coalesced reactions (§17.4), no notification per reaction or vote at all, and — since v0.26 replaced the `Live` silence — **one card per adventure**: every post shares a tag, so the newest replaces the last rather than stacking twenty entries a rider has to dismiss at the lights (`EveryPostInOneAdventure_SharesATagSoTheNewestReplacesTheLast`). Beyond that it is the platform's Do Not Disturb. Twelve riders on a wet Sunday generate a lot of chat |
 | Moderation load once the app is public | Medium | Report-and-block with a content snapshot (§17.7), organiser deletion inside their own ride, and audiences bounded by organiser consent (§5.2) so no comment ever reaches strangers-at-large. Proactive scanning is deliberately out of scope and recorded as §13 Q17 |
-| Thread storage grows without bound | Low–Med | Caps per ride, `Archived` making threads read-only (§17.6), and photos already quota'd (§16.4). Text is cheap; the photos attached to it are not |
+| Thread storage grows without bound | Low–Med | Caps per adventure and photos already quota'd (§16.4). Text is cheap; the photos attached to it are not. The `Archived` read-only state that used to be listed here never existed in the code and is gone (v0.32, §17.6) |
 | **UGC rules bite at store review** | Medium | Photos and notes visible to other riders make this a UGC app: Apple and Play require reporting, blocking, and a response commitment (§10.2, §16.5). Cheap to build with the feature, a whole review cycle to add afterwards |
 | Photo storage outgrows the €4 budget | Medium | Photos are an order of magnitude larger than tracks, and they land on the same 40 GB disk as everything else (§9.1). Downscale to 2048 px, thumbnails for callouts, per-account quotas (§13 Q13), and Caddy caching the reads. Uploads go through the VPS deliberately (§16.4) — that cost is accepted to keep metadata stripping non-optional |
 | ~~Marker icons cannot render on the Phase 1 native map~~ | — | **Retired in v0.16**, and closed for good by v0.21: every icon, rotation and label is drawn by `SkiaMapOverlay`, not by a base map (§16.3). v0.13's degradation path now applies only to the car renderer |
@@ -2292,7 +2319,7 @@ Ship Phase 1 to yourself before building anything in Phase 2.
 2. **Voice/audio in-ride?** Intercom-adjacent features are a much bigger project; explicitly in or out.
 3. **Spectator links** — should a non-member watch a live ride via a link? Positions are persisted, so a spectator link is a standing read grant over stored location data. Sharper now that organiser consent is the whole access model: a spectator link is the one way into a ride's data that is *not* a per-person admission, so it needs its own expiry and revocation.
 4. ~~**Anonymous use**~~ — **largely resolved (v0.5):** with email optional and username-only registration, an account is already nearly frictionless. `is_guest` remains in the schema for a device-bound password-less participant in Phase 3 (§7.16).
-5. **Retention** — how long are completed rides, their recorded tracks and their threads kept? (Live positions: deleted at ride end or when the wind-down expires, §5.6. Empty dormant accounts: 180 days, §7.11. Threads go read-only at `Archived` but are never deleted, §17.6 — which makes this the one entity in the product with no retention answer at all.)
+5. **Retention** — how long are adventures, their recorded tracks and their threads kept? (Live positions: deleted when the rider stops, leaves or is removed, and at fourteen days idle as a backstop, §5.6. Empty dormant accounts: 180 days, §7.11. An adventure and its thread live until somebody deletes them, §5.1 — which makes this the one entity in the product with no retention answer at all, and v0.32 sharpened the question by making deletion the only ending there is.)
 6. **New-device email alerts** — every new device, or only a new device in an unusual location? Every-time is simpler and safer; it also trains people to ignore them. Moot for accounts with no address.
 7. ~~**Email provider**~~ — **resolved (v0.4):** Zoho Mail SMTP for Phase 0–1, ZeptoMail before real users (§7.12). Three setup facts to confirm, none of them design decisions: the Zoho **datacentre region** (it sets the SMTP host), whether the plan **includes SMTP access**, and which **`no-reply@` alias** to send as.
 8. **Ride discovery for join requests** *(new in v0.5)* — path 2 in §5.2 needs the rider to reach the ride somehow. v0.5 assumes an organiser-shared link. Should there also be browsable nearby/public rides? That is a much larger surface: discovery plus request spam plus the privacy question of listing rides at all.
@@ -2836,7 +2863,7 @@ Sync_EditedTrack_ReplacesLocalCopyRatherThanMerging
 
 A marker is an **authored point of interest on the map**: a position, an optional direction, an icon, a short title rendered beside that icon, a longer note revealed on tap, and optionally one photo.
 
-Authored is the word that matters. Everything else this app puts on a map is *measured* — a recorded track, a live position — and measured data is governed by the rules in §10.1 that delete it when a ride ends. A marker is something a person deliberately placed and typed, so it lives as long as the thing it is attached to, and it is visible to whoever that thing is visible to. Two different lifecycles, and conflating them is how a "privacy-first" app quietly starts retaining locations.
+Authored is the word that matters. Everything else this app puts on a map is *measured* — a recorded track, a live position — and measured data is governed by the rules in §10.1 that delete it the moment its rider stops sharing. A marker is something a person deliberately placed and typed, so it lives as long as the thing it is attached to, and it is visible to whoever that thing is visible to. Two different lifecycles, and conflating them is how a "privacy-first" app quietly starts retaining locations.
 
 **Markers attach to exactly one of two parents**, because "the ride" means both things in this product and the requirement is served by both:
 
@@ -2970,7 +2997,7 @@ The marker is created immediately with a local file reference, appears on the ma
 | **Track** | The owner | The owner |
 | **Group ride** | **Any admitted member — if `AllowMemberMarkers` is on** (§5.8) | The author, or the organiser |
 
-Any member, not just the organiser, because the useful marker is *"gravel across the whole corner at the 40 km mark"* and the person who found it is whoever hit it first. The organiser keeps control the same way they do everywhere else in §5.2 — they chose who is in the ride, they can delete any marker, they can clear all of them, and since v0.15 they can **switch member marker-adding off entirely** for that ride (§5.8). Markers may be added **before and after the ride as well as during it**; the only state that forbids it is `Archived`, which is read-only for the same reason the thread is (§5.1).
+Any member, not just the organiser, because the useful marker is *"gravel across the whole corner at the 40 km mark"* and the person who found it is whoever hit it first. The organiser keeps control the same way they do everywhere else in §5.2 — they chose who is in the ride, they can delete any marker, they can clear all of them, and since v0.15 they can **switch member marker-adding off entirely** for that ride (§5.8). Markers may be added **before and after the ride as well as during it**, and nothing forbids it — an adventure has no state to be read-only in (§5.1).
 
 Caps, all configuration per §14.5, all enforced server-side:
 
@@ -3004,7 +3031,7 @@ Markers are **not** part of the 5 s position batch. A batch is a continuous tele
 
 **Lifecycle** — and the contrast with positions is the point:
 
-- A ride reaching `Completed` **deletes every position row** (§5.5) and **keeps every marker**. Positions are measured exhaust; markers are the record of what happened. They become part of the ride summary.
+- A rider turning sharing off **deletes their position row** (§5.5) and **keeps every marker they placed**. Positions are measured exhaust; markers are the record of what happened. They become part of the adventure summary.
 - Deleting a track or a ride cascades to its markers, and their photos.
 - Deleting an account deletes its photos from object storage. **`ON DELETE CASCADE` does not reach object storage** — the blob must be deleted explicitly, so the nightly job (§7.11) sweeps for orphaned objects as a backstop. An orphaned blob is a privacy failure that looks like a storage bill.
 - `GET /api/v1/me/export` includes markers and their photos.
@@ -3071,7 +3098,7 @@ Marker_DeleteByOrganiser_Succeeds
 Marker_ExceedingPerRideCap_Returns409
 Marker_Added_IsBroadcastAsItsOwnMessageNotInPositionBatch
 Marker_ReconnectingClient_ReceivesMarkersFromSnapshot
-RideCompleted_DeletesPositionsButKeepsMarkers
+SharingOff_DeletesThePositionButKeepsTheMarkers
 TrackDeleted_CascadesMarkersAndPhotos
 
 Photo_ExifGpsTag_IsAbsentFromStoredImage
@@ -3134,7 +3161,7 @@ The rest of the paragraph was simply accurate. *"Adding a `TrackId` parent later
 | Who reads it | Admitted members only (§5.2) | Any signed-in rider, while the route is `Public` |
 | Who posts | Members, subject to §5.8's switches | Any signed-in rider, subject to §7.8's ladder |
 | Who moderates | Organiser and leaders | The route's owner |
-| Read-only when | The ride is `Archived` (§5.1) | Never — a route has no lifecycle to end |
+| Read-only when | Never — an adventure has no lifecycle to end either, since v0.32 (§5.1) | Never — a route has no lifecycle to end |
 | Disappears when | The ride is deleted | The route is un-shared (posts survive) or deleted (they do not) |
 
 ### 17.2 Comments, and what they carry
@@ -3192,7 +3219,7 @@ A poll is `Comment.Kind = Poll` with a `Poll` record hanging off the same row �
 
 **Votes are attributed and there is no anonymous mode**, because the actual question people ask is *"who's coming on Saturday?"* and an anonymous tally answers a different, less useful one. It also means votes need no separate privacy story: a vote is visible to exactly the audience the ride already has. If a genuinely sensitive poll is ever needed, that is a new feature with its own design, not a checkbox on this one.
 
-Poll results freeze into the ride summary when the ride completes, alongside the markers (§16.6).
+Poll results freeze when the poll closes, and ride into the adventure summary alongside the markers (§16.6).
 
 ### 17.6 Notifications, pinning and lifecycle
 
@@ -3200,14 +3227,13 @@ Poll results freeze into the ride summary when the ride completes, alongside the
 
 **What pushes, and when** — the table that encodes §17.1:
 
-| Ride state | Ordinary comment | Poll created | Pinned post |
-|---|---|---|---|
-| `Draft` / `Open` | Push | Push | Push |
-| **`Live`** | **Push** | **Push** | **Push** |
-| `Completed` | Push | — | Push |
-| `Archived` | Thread is read-only | — | — |
+| Post kind | Notification |
+|---|---|
+| Ordinary comment | Push |
+| Poll created | Push |
+| Pinned post | Push |
 
-The `Live` row **read `Silent` until v0.26** and no longer does: the rule moved from something the app enforced for everyone to something each rider sets for themselves.
+**One row, because there are no adventure states left to have rows for** (v0.32, §5.1). The table used to have five, and the `Live` one **read `Silent` until v0.26**: the rule moved from something the app enforced for everyone to something each rider sets for themselves, and v0.32 removed the axis it varied on.
 
 **There is no mute setting in this app, and that is the decision rather than an omission.** Earlier drafts of this section specified a per-ride mute toggle. It is not built and will not be. Every phone already has Do Not Disturb, a riding or driving focus mode, per-app notification switches, and — on Android — per-channel control that can silence adventure posts while leaving the ride's ongoing location notification alone. An in-app copy of that would be a second, worse control that covers one app, has to be found in a settings screen the rider does not habitually visit, and cannot know that they are currently driving. The platform's version is better on every axis that matters, so the app ships none.
 
@@ -3232,13 +3258,13 @@ Android importance is **`High` as of v0.27** — a heads-up banner as well as a 
 
 **Lifecycle**, following the authored-versus-measured line already drawn in §16.1:
 
-- Ride `Completed` → **positions are deleted (§5.5); the thread is kept and stays open.** The best photos land after everyone gets home.
-- Ride `Archived` (30 days after completion, §5.1) → thread becomes **read-only**. The existing lifecycle already had this state and nothing to say about it; this is what it means.
+- A rider stops sharing → **their position is deleted (§5.5); the thread is untouched.** Measured location and authored content have different lifetimes, and that is the §16.1 line.
+- **Nothing makes a thread read-only.** v0.14 through v0.31 said a thread went read-only thirty days after the ride was `Completed`; nothing in the product ever assigned that state, so the rule never once fired. It went with the enum in v0.32. If read-only-after-N-days is wanted it comes back as its own `ArchivedUtc` column and its own sweep, with a test that it actually runs.
 - A member who leaves, or is removed, **keeps their posts in the thread** — deleting half a conversation makes the other half nonsense — but loses all access to it. An organiser who removed someone for abuse can delete their posts explicitly.
 - **Account deletion removes that account's comments, reactions and votes** (§10.1's hard delete is not negotiable). This leaves gaps in old threads. Accepted, and stated here so it is not discovered as a bug.
 - Deleting the ride cascades everything, including photos out of object storage (§16.6).
 
-**A route's thread has no lifecycle**, because a route has none — there is no `Live`, no `Completed` and no `Archived` for a line on a map to move through, so it is never read-only. The two events that do affect it are in §19.2: un-sharing hides it and keeps the posts, deleting the route cascades them away.
+**Neither thread has a lifecycle**, because neither subject has one — a line on a map never did, and since v0.32 nor does an adventure (§5.1). Neither is ever read-only. The two events that do affect it are in §19.2: un-sharing hides it and keeps the posts, deleting the route cascades them away.
 
 ### 17.7 Moderation, permissions and caps
 
@@ -3388,8 +3414,7 @@ AThreadLeftOpenOnABackgroundedPhone_DoesNotSuppressAnything
 ARiderWhoRefusedThePermission_IsNotNotified                 — a choice, not a fault
 Car_ThreadIsNotRenderedAtAll                                — §4.6
 
-ArchivedRide_ThreadIsReadOnly
-RideCompleted_DeletesPositionsButKeepsThread
+SharingOff_DeletesThePositionButKeepsTheThread
 MemberRemoved_KeepsPostsButRevokesAccess
 BlockedUser_CommentsAreHiddenFromTheBlocker
 AccountDeleted_RemovesCommentsReactionsAndVotes

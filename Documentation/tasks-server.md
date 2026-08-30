@@ -39,7 +39,7 @@ memory of having written the code — it is marked after the suite is green on t
 | **A — Skeleton and guards** ✅ | SRV-01 … SRV-05 | Phase 0 | An empty solution that already enforces its own rules |
 | **B — Identity** ✅ | SRV-06 … SRV-13 | Phase 1 | Register, sign in, never sign in again, recover if you left an address |
 | **C — Tracks** ✅ | SRV-14 … SRV-19 | Phase 1 | Record, upload, import GPX, edit on the web |
-| **D — Group rides** ✅ | SRV-20 … SRV-25 | Phase 2 | Join, consent, live positions, the wind-down |
+| **D — Group rides** ✅ | SRV-20 … SRV-25 | Phase 2 | Join, consent, live positions. **The wind-down was removed again in SRV-36** |
 | **E — Content** ✅ | SRV-26 … SRV-30 | Phase 2 | Markers, photos, the thread, polls |
 | **F — Operations** ✅ | SRV-31 … SRV-35 | Phase 2–3 | Moderation, the nightly job, deployment, backups |
 
@@ -597,9 +597,10 @@ rather than by a permission check, so `Organiser_CannotEnableSharingOnBehalfOfAM
 routing 404 — there is no guard on it that could later be relaxed.
 **Note:** `RideMemberSummary` gained `Sharing` and `HasPosition` as separate fields. *Not sharing*
 and *no signal* mean completely different things to somebody waiting at a junction (§5.6).
-**Note:** ending a ride takes `Immediate | WindDown` and answers **501** to `WindDown` until
+**Note:** ending a ride took `Immediate | WindDown` and answered **501** to `WindDown` until
 SRV-25. Silently ending immediately would break the promise the §5.6 consent copy makes, and
-silently keeping positions would be worse.
+silently keeping positions would be worse. ~~Both endings~~ — **superseded by SRV-36: there is no
+ending.**
 **Deferred to SRV-22:** publishing writes through EF directly. `RiderPositionCache` and the raw
 `UNNEST` upsert go in front of it there; the durability contract does not change.
 **Refs:** §5.6, §7.3, §10.1
@@ -644,9 +645,9 @@ what a rider turning sharing off asked for.
 **Note:** `RideDetail`'s `HasPosition` reads the cache, not the table — a rider who published four
 seconds ago has not been flushed yet, and showing them as *no signal* would be wrong for a whole
 flush period.
-**Deferred to SRV-25:** the rehydrator loads `Live` rides only. The wind-down half of §5.5's rule 1
-needs `SharingEndsUtc`, which SRV-25 adds; until then a `Completed` ride has had its rows deleted
-anyway, so the omission is not observable.
+**Deferred to SRV-25, then deleted by SRV-36:** the rehydrator loaded `Live` rides only, and the
+wind-down half of §5.5's rule 1 needed `SharingEndsUtc`. With no adventure state at all the
+rehydrator's filter is the staleness window and nothing else.
 **⚠ Known gap, not closed by this task — §13 Q29.** A flush already in flight can re-insert a row a
 concurrent delete has just removed. One round trip wide and it needs a delete to land inside it, so
 it is rare rather than impossible — but what it leaves behind is exactly the position at rest §10.1
@@ -711,12 +712,19 @@ members would let one rider who is already in five live rides block a ride for f
 which is a denial of service dressed as a quota. The cost §5.7 is protecting against is a rider's
 own downlink, so the actor-scoped reading is the defensible one — but it does mean a member can
 still end up in more live rides than the cap by joining rides other people start.
-**Note:** `POST /group-rides/{id}/start` is new here. `Publish_RideNotYetLive_StoresNothing` pins
-the outer gate: the lifecycle decides whether a ride takes positions at all, and consent decides
-whose.
+**Superseded by SRV-36.** The cap had exactly one enforcement point — the start transition — so
+deleting the transition left it with none, and `Ride:MaxConcurrentLiveRidesPerUser` went with it.
+The decision above is kept because it is the reasoning anybody re-adding a cap has to answer, and
+§5.7 already names where it would go instead: the publish fan-out.
+**Note:** `POST /group-rides/{id}/start` was new here and is gone in SRV-36.
+`Publish_RideNotYetLive_StoresNothing` pinned an outer gate that no longer exists — consent is now
+the only gate there is.
 **Refs:** §5.7
 
-### SRV-25 — Ride end and the sharing wind-down ✅
+### SRV-25 — Ride end and the sharing wind-down ✅ — **entirely removed by SRV-36**
+
+> Kept as the record of why the wind-down existed and what it cost, not as a description of the
+> code. Nothing below this line is in the product any more. Read SRV-36 for what replaced it.
 **Status:** `GroupRide.SharingEndsUtc` (migration `AddSharingWindDown`), the wind-down arm of
 `EndAsync` on `MembershipEndpoints`, `Positions/SharingWindDownService.cs`; `PositionStore` and
 `PositionCacheRehydrator` both widened to "Live **or** inside an unexpired window".
@@ -1126,7 +1134,7 @@ deployment would run it.
 Registering with an email does not confirm it, and §7.11 says confirmed — the same reason §7.7 will
 not send a reset to an unconfirmed one.
 **Broken deliberately, eight times:** the `Pending` filter, the warned-once stamp, the grace window,
-the thumbnail column, the `user_block` pre-delete, the wind-down arm of the position sweep, the
+the thumbnail column, the `user_block` pre-delete, the position sweep's predicate, the
 tombstone lookup, and the `DryRun` gate on deletion. Each reddened exactly the intended test.
 **Not built, and stated rather than assumed:** the operator's queue for *resolving* reports. This
 sweep purges resolved ones; nothing sets `ResolvedUtc` yet, which SRV-31 already recorded.
@@ -1365,9 +1373,51 @@ join-code rate limit (SRV-20).
 
 ---
 
+### SRV-36 — Delete the adventure lifecycle ✅
+**Status:** `GroupRideState`, `GroupRide.State`, `EndedUtc` and `SharingEndsUtc` deleted (migration
+`RemoveRideLifecycle`); `RideStateDto`, `RideEndingDto` and `EndRideRequest` off the wire;
+`StartAsync` and `EndAsync` gone from `MembershipEndpoints`; `Positions/SharingWindDownService.cs`
+deleted with its registration; `IRideClient.RideStateChanged` and `IRideHubClient`'s
+`RideStateChanged` / `SharingWindDownStarted` gone. `NightlyMaintenanceService.DeleteStalePositionsAsync`
+becomes a call to the new `PositionStore.ClearIdleAsync` / `CountIdleAsync`. 514 server tests green, 1 213 UI, 187 core, 29 architecture.
+**First red test:** `NightlySweep_DeletesIdlePositionsAndClearsTheirSharing`
+**Then:** `NightlySweep_DryRun_CountsIdlePositionsAndDeletesNothing`,
+`SharingOff_DeletesThePositionButKeepsTheThread`,
+`SharingOff_DeletesThePositionButKeepsTheMarkers`,
+`Delete_WhileSomebodyIsSharing_TakesTheirPositions`
+**Then build:** the migration, then the contracts — removing `RideStateDto` breaks the build in
+both client projects deliberately, so nothing is missed — then `RideSession`, then the two ride
+pages.
+**Watch out — it is the cache eviction that makes the delete stick, not the order of the two
+writes.** `PositionFlushService` reads `RiderPositionCache.Dirty()` and never looks at
+`ShareLocation`, so a flush in flight puts the row back whichever statement ran first; dropping the
+cache entry is what stops it. The sweep is therefore `PositionStore.ClearIdleAsync`, beside the
+three per-rider paths, ending in the same delete-then-evict pair `StopSharingAsync` uses — the job
+calls it rather than restating it.
+**Watch out — `GroupRideLive.razor`'s consent trigger is the one place a deleted state test changes
+a *privacy* behaviour rather than a cosmetic one.** It read `!Sharing && Ride.State == Open`, and
+`Open`-ness was quietly carrying "we have not asked about this adventure yet". Delete the test and
+the prompt fires on every load of an adventure somebody has declined; delete the property and leave
+the test and nobody is ever asked again. The fact now lives in `IDeviceSettings` under
+`dlr.consent.asked.{rideId}`.
+**Watch out — five of the six states were never assigned by anything.** `Draft`, `Completed`,
+`Archived` and `Cancelled` had guards reading them and no code path writing them, so §17.6's
+thirty-day read-only thread has never once fired. Removing the enum exposes that; it did not cause
+it. `ThreadAccess.ReadOnly` went with it, along with four dead `if` branches.
+**Watch out — `SharingTests.Publish_OlderFix_DoesNotRegressTheStoredPosition` needed a
+`FlushPositionsAsync`.** It left a dirty position at teardown, and the shutdown flush can run after
+the `LoggerFactory` is disposed — at which point the *logging* of the flush failure becomes the
+test's exception. The race is pre-existing and still open; the test no longer walks into it.
+**Not done:** nothing about §17.6's read-only thread was rebuilt. If it is still wanted it needs its
+own `ArchivedUtc` column, its own sweep and a test that the sweep runs — which is what the state it
+replaces never had.
+**Refs:** §5.1, §5.6, §5.7, §7.3, §7.11, §10.1, §17.6
+
+---
+
 ## The server list is complete — and three things are owed before real riders
 
-Every task SRV-01 … SRV-35 is marked. 429 tests green, `dotnet format --verify-no-changes` clean,
+Every task SRV-01 … SRV-36 is marked. 514 server tests green, `dotnet format --verify-no-changes` clean,
 architecture tests green, licence gate exit 0, and the image builds and reports healthy. What is
 *not* done is deliberately listed here rather than left to be discovered:
 

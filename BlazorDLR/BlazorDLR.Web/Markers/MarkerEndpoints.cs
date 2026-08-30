@@ -363,16 +363,6 @@ public sealed class MarkerController : ControllerBase
 				detail: "Markers on an adventure are placed by the people in it.");
 		}
 
-		// Before and after the ride as well as during it. The only state that forbids it is
-		// Archived, which is read-only for the same reason the thread is (§5.1).
-		if (membership.Ride.State is GroupRideState.Archived)
-		{
-			return Problem(
-				statusCode: StatusCodes.Status409Conflict,
-				title: "Adventure is archived",
-				detail: "An archived adventure is read-only.");
-		}
-
 		// The organiser may have switched member markers off (§5.8). Checked here rather than at
 		// the top, because "you are not in this ride" and "the organiser turned this off" are
 		// different answers and a non-member must get the first one.

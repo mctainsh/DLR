@@ -107,7 +107,7 @@ public sealed class MainLayoutTests : BunitContext
 	/// A launch that has been through the deck already and has an adventure to go back to — the
 	/// arrangement both restore tests below start from, and every launch but the first.
 	/// </summary>
-	private async Task<BunitNavigationManager> LaunchMidRideAsync(RideStateDto state)
+	private async Task<BunitNavigationManager> LaunchMidRideAsync()
 	{
 		(FakeApiClient api, AuthState auth, InMemoryDeviceSettings settings) = WireServices();
 
@@ -116,7 +116,7 @@ public sealed class MainLayoutTests : BunitContext
 		await settings.SetAsync(LocationBroadcastState.DisclosureStorageKey, "1");
 
 		api.RideResult = new RideDetail(
-			Ride, "Saturday hills", null, FixedInstant, state, JoinPolicyDto.Approval, 50, 2,
+			Ride, "Saturday hills", null, FixedInstant, JoinPolicyDto.Approval, 50, 2,
 			IsOrganiser: false, JoinCode: null, new RidePermissions(),
 			[new RideMemberSummary(Rider, "DaveSmith", "Member", FixedInstant, Sharing: true)]);
 
@@ -179,7 +179,7 @@ public sealed class MainLayoutTests : BunitContext
 	[Fact]
 	public async Task LaunchedMidRide_ReopensTheAdventure()
 	{
-		BunitNavigationManager nav = await LaunchMidRideAsync(RideStateDto.Live);
+		BunitNavigationManager nav = await LaunchMidRideAsync();
 
 		IRenderedComponent<MainLayout> component = Render<MainLayout>(parameters => parameters
 			.Add(p => p.Body, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p>routed page</p>"))));
@@ -193,7 +193,7 @@ public sealed class MainLayoutTests : BunitContext
 	[Fact]
 	public async Task LaunchedThroughTheSignInBounce_ReopensTheAdventureWhenItLands()
 	{
-		BunitNavigationManager nav = await LaunchMidRideAsync(RideStateDto.Live);
+		BunitNavigationManager nav = await LaunchMidRideAsync();
 
 		// The cold launch this whole thing exists for: Home is [Authorize] and the session is still
 		// being restored, so the router has already sent the rider to Welcome.
@@ -228,7 +228,7 @@ public sealed class MainLayoutTests : BunitContext
 	[Fact]
 	public async Task LaunchedOntoAScreenOfItsOwn_TheAdventureDoesNotTakeIt()
 	{
-		BunitNavigationManager nav = await LaunchMidRideAsync(RideStateDto.Live);
+		BunitNavigationManager nav = await LaunchMidRideAsync();
 		nav.NavigateTo("settings");
 		string asked = nav.Uri;
 

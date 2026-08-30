@@ -48,11 +48,9 @@ public sealed record SharedProfile
 	/// </summary>
 	/// <param name="owner">Whose profile.</param>
 	/// <param name="viewerSharesActiveRide">
-	/// Whether the viewer is <em>currently</em> a co-member of a group ride with the owner
-	/// (§7.3). Leaving the ride, being removed, or the ride completing all end access — and
-	/// unlike position sharing, profile sharing does not follow the wind-down (§5.6). The
-	/// wind-down exists so people can watch each other get home; there is no equivalent reason
-	/// to keep a phone number visible for two more hours.
+	/// Whether the viewer is <em>currently</em> a co-member of a group adventure with the owner
+	/// (§7.3). Leaving, being removed and the adventure being deleted all end access; there is
+	/// nothing else that does, because co-membership is the whole of the rule.
 	/// </param>
 	public static SharedProfile For(IProfileOwner owner, bool viewerSharesActiveRide) =>
 		!viewerSharesActiveRide

@@ -304,18 +304,6 @@ public sealed class HttpApiClient : IApiClient
 		PostVoidAsync($"/api/v1/group-rides/{rideId}/join-requests/{requestId}", request, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task StartRideAsync(Guid rideId, CancellationToken cancellationToken = default)
-	{
-		using HttpResponseMessage response = await _http.PostAsync(
-			$"/api/v1/group-rides/{rideId}/start", content: null, cancellationToken);
-		await ThrowIfFailedAsync(response, cancellationToken);
-	}
-
-	/// <inheritdoc />
-	public Task EndRideAsync(Guid rideId, EndRideRequest request, CancellationToken cancellationToken = default) =>
-		PostVoidAsync($"/api/v1/group-rides/{rideId}/ending", request, cancellationToken);
-
-	/// <inheritdoc />
 	public async Task UpdatePermissionsAsync(Guid rideId, RidePermissions permissions, CancellationToken cancellationToken = default)
 	{
 		using HttpResponseMessage response = await _http.PutAsJsonAsync(

@@ -32,7 +32,7 @@ public sealed record MaintenanceReport
 	/// <summary>How many <c>created_by_ip</c> values were cleared (§7.8).</summary>
 	public int RegistrationIpsCleared { get; init; }
 
-	/// <summary>Positions removed for rides that are neither Live nor winding down (§5.5).</summary>
+	/// <summary>Positions removed for having no fix in <c>Ride:PositionIdleDays</c> (§5.6).</summary>
 	public int PositionsDeleted { get; init; }
 
 	/// <summary>Expired or long-revoked refresh tokens removed (§7.13).</summary>

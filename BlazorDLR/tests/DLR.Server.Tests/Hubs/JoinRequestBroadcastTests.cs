@@ -310,11 +310,6 @@ public sealed class JoinRequestBroadcastTests(PostgresFixture postgres)
 
 		RideDetail ride = (await response.Content.ReadFromJsonAsync<RideDetail>())!;
 
-		await app.WithDatabaseAsync(async database =>
-			await database.Set<GroupRide>()
-				.Where(row => row.Id == ride.Id)
-				.ExecuteUpdateAsync(row => row.SetProperty(x => x.State, GroupRideState.Live)));
-
 		return ride;
 	}
 

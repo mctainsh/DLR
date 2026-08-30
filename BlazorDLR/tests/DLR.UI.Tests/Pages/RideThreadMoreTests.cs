@@ -21,7 +21,6 @@ public sealed class RideThreadMoreTests : PageTestContext
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 
 	private (FakeApiClient api, FakeRideHubClient hub, Guid rideId) WireServices(
-		RideStateDto state = RideStateDto.Open,
 		RidePermissions? permissions = null,
 		CommentPage? threadPage = null)
 	{
@@ -33,7 +32,6 @@ public sealed class RideThreadMoreTests : PageTestContext
 				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
-				State: state,
 				JoinPolicy: JoinPolicyDto.Approval,
 				MemberCap: 50,
 				MemberCount: 1,
@@ -144,7 +142,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 	[Fact]
 	public void SilentWhileLiveNote_IsGone_WhenStateIsLive()
 	{
-		(_, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+		(_, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<RideThread> component = Render<RideThread>(parameters => parameters
 			.Add(p => p.RideId, rideId));

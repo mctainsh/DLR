@@ -16,9 +16,9 @@
 @implements IAsyncDisposable
 
 @*
-	Everything about a group ride that is not the map (§5.1, §5.4, §5.6, §5.8) — who is
-	on it, how far apart they are, the join code, this rider's sharing switch, and the
-	organiser's lifecycle controls.
+	Everything about a group ride that is not the map (§5.4, §5.6, §5.8) — who is on it,
+	how far apart they are, the join code, this rider's sharing switch, and the organiser's
+	routes, permissions and join requests.
 
 	These used to be a sidebar beside the live map. The map is now the whole screen, so
 	they moved here and the map's hamburger points at them under "Info". The data behind
@@ -33,16 +33,8 @@
 
 <div class="page page-medium ride-info">
 	@* Outside the load branches: the way back to the map has to be there while the ride
-	   is loading and if it fails. The state badge waits, because there is no state to
-	   report until the ride answers. *@
-	<PageNav Title="@Title" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the map">
-		<Actions>
-			@if (_session.Ride is { } loaded)
-			{
-				<span class="state @loaded.State.ToString().ToLowerInvariant()">@loaded.State</span>
-			}
-		</Actions>
-	</PageNav>
+	   is loading and if it fails. *@
+	<PageNav Title="@Title" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the map" />
 
 	@if (_session.Ride is null && _session.Error is null)
 	{
@@ -72,16 +64,6 @@
 						? "Share it with the people you want on the adventure."
 						: "Share it with anybody else who should come along.")
 				</em>
-			</div>
-		}
-
-		@if (_session.WindDownEndsUtc is { } endsUtc)
-		{
-			<div class="wind-down" role="alert">
-				<strong>Sharing wind-down active.</strong>
-				Members who kept sharing on can carry on until they stop — or until
-				<strong>@endsUtc.ToLocalTime().ToString("HH:mm")</strong>, when the server
-				stops it for everyone still on.
 			</div>
 		}
 
@@ -341,7 +323,7 @@
 				fixes it is consent *for* can only come from the phone. Sharing is turned on and
 				off where the GPS is.
 			*@
-			@if (_broadcast is { } broadcast && (ride.State == RideStateDto.Live || ride.State == RideStateDto.Open))
+			@if (_broadcast is { } broadcast)
 			{
 				<div class="sharing">
 					<h3>My sharing</h3>
@@ -363,27 +345,10 @@
 						Saying "sharing is on" and stopping there is how somebody ends up believing
 						they are on a map they are not on.
 					*@
-					@if (_session.SharingPending)
-					{
-						@*
-							Consent is recorded, and the ride has not started — so the server would
-							drop every fix (§5.1) and the receiver is deliberately not running.
-							Stated in place of the receiver's own status, which would otherwise read
-							"Not sharing your location" and flatly contradict the switch above it.
-						*@
-						<p class="gps-state" role="status">
-							<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i>
-							Your position starts going to the group when the organiser starts the
-							adventure. Your phone's GPS stays off until then.
-						</p>
-					}
-					else
-					{
-						<p class="gps-state @(broadcast.NeedsAttention ? "warn" : null)" role="status">
-							<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i>
-							@broadcast.Describe()
-						</p>
-					}
+					<p class="gps-state @(broadcast.NeedsAttention ? "warn" : null)" role="status">
+						<i class="fa fa-fw fa-location-crosshairs" aria-hidden="true"></i>
+						@broadcast.Describe()
+					</p>
 
 					@*
 						Stale counts: the receiver is still on and still holding the foreground
@@ -394,7 +359,7 @@
 					{
 						<p class="hint">
 							Your phone keeps sending while the app is in the background or the screen
-							is off. It stops when you turn this off, leave the adventure, or the adventure ends.
+							is off. It stops when you turn this off or leave the adventure.
 						</p>
 					}
 				</div>
@@ -442,9 +407,9 @@
 						twice, and the two would be free to disagree the moment one of them was
 						fetched and the other was not.
 
-						Not disabled while the ride is busy, unlike the buttons below it: this one
-						navigates and changes nothing, so there is no state for a half-finished
-						call to leave it disagreeing with.
+						Not disabled while the ride is busy: this one navigates and changes
+						nothing, so there is no state for a half-finished call to leave it
+						disagreeing with.
 					*@
 					<button type="button" class="requests" @onclick="GoToRequests">
 						<span>Accept join requests</span>
@@ -452,48 +417,10 @@
 					</button>
 
 					<a href="/group-rides/@RideId/permissions">Content permissions</a>
-
-					@if (ride.State == RideStateDto.Open)
-					{
-						<button type="button" class="primary" @onclick="_session.StartAsync" disabled="@_session.Busy">
-							Start adventure
-						</button>
-					}
-					@if (ride.State == RideStateDto.Live)
-					{
-						<button type="button" class="primary" @onclick="() => _showEndDialog = true"
-								disabled="@_session.Busy">
-							End adventure…
-						</button>
-					}
 				</div>
 			}
 		</div>
 
-		@if (_showEndDialog)
-		{
-			<div class="end-dialog" role="dialog">
-				<div class="end-card">
-					<h2>End @ride.Name?</h2>
-					<p>Choose what happens to everyone's sharing.</p>
-					<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.Immediate)"
-							disabled="@_session.Busy">
-						Stop sharing for everyone now
-					</button>
-					<button type="button" class="primary" @onclick="() => EndRideAsync(RideEndingDto.WindDown)"
-							disabled="@_session.Busy">
-						Let travellers stop themselves (2-hour wind-down)
-					</button>
-					<button type="button" class="cancel" @onclick="() => _showEndDialog = false">
-						Cancel
-					</button>
-					<p class="note">
-						The wind-down is capped, cannot be extended, and force-stops on the
-						server. A traveller who forgets is not tracked forever.
-					</p>
-				</div>
-			</div>
-		}
 	}
 </div>
 
@@ -501,7 +428,6 @@
 	[Parameter] public Guid RideId { get; set; }
 
 	private RideSession _session = default!;
-	private bool _showEndDialog;
 
 	/// <summary>Whether the "add a route" picker is open.</summary>
 	private bool _addingRoute;
@@ -620,7 +546,6 @@
 			return;
 		}
 
-		_showEndDialog = false;
 		CloseRoutePicker();
 
 		// Cleared rather than kept: a different ride is a different set of already-attached
@@ -778,12 +703,6 @@
 	private Task ToggleSharingAsync(ChangeEventArgs args) =>
 		_session.SetSharingAsync(args.Value is bool wants && wants);
 
-	private Task EndRideAsync(RideEndingDto ending)
-	{
-		_showEndDialog = false;
-		return _session.EndAsync(ending);
-	}
-
 	/// <summary>
 	/// Leaves the ride (§5.2), then takes the rider to the list — the page they are on is about a
 	/// ride they are no longer on, and the server would answer 404 to the next thing it asked for.
@@ -843,28 +762,6 @@
 		margin: 0.5rem 0;
 	}
 
-	.ride-info .state {
-		font-size: 0.85rem;
-		padding: 0.2rem 0.6rem;
-		border-radius: 4px;
-		background: #eef1f520;
-	}
-
-		.ride-info .state.open {
-			background: #dbeafe;
-			color: #1e40af;
-		}
-
-		.ride-info .state.live {
-			background: #d1fae5;
-			color: #14532d;
-		}
-
-		.ride-info .state.completed, .ride-info .state.archived {
-			background: #fef3c730;
-			color: #92400e;
-		}
-
 	.ride-info .join-code {
 		margin: 0.75rem 0;
 		padding: 0.5rem 0.75rem;
@@ -886,14 +783,6 @@
 			margin-top: 0.25rem;
 			font-size: 0.85rem;
 		}
-
-	.ride-info .wind-down {
-		margin: 0.75rem 0;
-		padding: 0.75rem 1rem;
-		background: #fef3c730;
-		border: 1px solid #fde68a;
-		border-radius: 4px;
-	}
 
 	/* One column of panels. The sidebar this replaced was 20 rem wide because a map sat
 	   beside it; with the whole column to itself the same panels simply stack. */
@@ -1208,37 +1097,4 @@
 		color: inherit;
 		cursor: pointer;
 	}
-
-	.ride-info .end-dialog {
-		position: fixed;
-		inset: 0;
-		background: rgba(0,0,0,0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-	}
-
-	.ride-info .end-card {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 8px;
-		max-width: 32rem;
-		width: calc(100vw - 2rem);
-	}
-
-		.ride-info .end-card button {
-			display: block;
-			width: 100%;
-			margin-top: 0.5rem;
-			padding: 0.6rem 1rem;
-		}
-
-			.ride-info .end-card button.cancel {
-				background: transparent;
-			}
-
-		.ride-info .end-card .note {
-			margin-top: 0.75rem;
-		}
 </style>

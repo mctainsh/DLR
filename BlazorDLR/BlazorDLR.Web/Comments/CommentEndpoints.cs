@@ -479,11 +479,6 @@ public sealed class CommentController : ControllerBase
 				detail: "Only the author edits a post. Whoever runs the thread deletes it instead.");
 		}
 
-		if (access.ReadOnly)
-		{
-			return RideContentPermissions.AsResult(access.Refusal!);
-		}
-
 		// Measured from when the server received it, not from when the rider claims to have
 		// written it — otherwise a post composed offline four hours ago arrives already
 		// un-editable, which is the opposite of what the window is for.
@@ -562,11 +557,6 @@ public sealed class CommentController : ControllerBase
 					+ "organiser of an adventure, the owner of a route.");
 		}
 
-		if (access.ReadOnly)
-		{
-			return RideContentPermissions.AsResult(access.Refusal!);
-		}
-
 		database.Remove(comment);
 
 		await database.SaveChangesAsync();
@@ -610,11 +600,6 @@ public sealed class CommentController : ControllerBase
 				title: "Not yours to pin",
 				detail: "The noticeboard belongs to the organiser and leaders of an adventure, and to "
 					+ "the owner of a route.");
-		}
-
-		if (access.ReadOnly)
-		{
-			return RideContentPermissions.AsResult(access.Refusal!);
 		}
 
 		if (request.Pinned && !comment.IsPinned)

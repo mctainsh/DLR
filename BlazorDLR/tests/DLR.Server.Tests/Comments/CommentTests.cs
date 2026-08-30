@@ -461,62 +461,11 @@ public sealed class CommentTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The §5.1 lifecycle already had this state and nothing to say about it; this is what it
-	/// means (§17.6).
-	/// </summary>
-	[Fact]
-	public async Task ArchivedRide_ThreadIsReadOnly()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
-
-		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-
-		RideDetail ride = await CreateRideAsync(organiser);
-
-		CommentDto existing = await PostAsync(organiser, ride.Id, "Before the archive");
-
-		// Straight to the table: the thirty-day archival sweep is SRV-32's, and this test is about
-		// what the state means rather than about how a ride reaches it.
-		await SetStateAsync(app, ride.Id, GroupRideState.Archived);
-
-		using (HttpResponseMessage posting = await organiser.PostAsJsonAsync(
-			$"{RidesUrl}/{ride.Id}/comments",
-			new PostCommentRequest(Guid.NewGuid(), "After the archive")))
-		{
-			posting.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-		}
-
-		using (HttpResponseMessage editing = await organiser.PatchAsJsonAsync(
-			$"{CommentsUrl}/{existing.Id}",
-			new EditCommentRequest("Rewritten")))
-		{
-			editing.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-		}
-
-		using (HttpResponseMessage pinning = await organiser.PostAsJsonAsync(
-			$"{CommentsUrl}/{existing.Id}/pin",
-			new PinCommentRequest(true)))
-		{
-			pinning.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-		}
-
-		using (HttpResponseMessage deleting = await organiser.DeleteAsync($"{CommentsUrl}/{existing.Id}"))
-		{
-			deleting.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-		}
-
-		// Read-only, not gone. All four writes refused and the thread still reads.
-		CommentPage page = await ThreadAsync(organiser, ride.Id);
-
-		page.Comments.Single().Body.ShouldBe("Before the archive");
-	}
-
-	/// <summary>
 	/// The authored-versus-measured line §16.1 draws, applied to the thread: positions are exhaust
-	/// and go; posts are the record of what happened and stay (§17.6).
+	/// and go the moment consent does; posts are the record of what happened and stay (§17.6).
 	/// </summary>
 	[Fact]
-	public async Task RideCompleted_DeletesPositionsButKeepsThread()
+	public async Task SharingOff_DeletesThePositionButKeepsTheThread()
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
@@ -525,11 +474,6 @@ public sealed class CommentTests(PostgresFixture postgres)
 		RideDetail ride = await CreateRideAsync(organiser);
 
 		CommentDto posted = await PostAsync(organiser, ride.Id, "Great adventure, photos to follow");
-
-		using (HttpResponseMessage started = await organiser.PostAsync($"{RidesUrl}/{ride.Id}/start", null))
-		{
-			started.StatusCode.ShouldBe(HttpStatusCode.NoContent, await started.Content.ReadAsStringAsync());
-		}
 
 		using (HttpResponseMessage sharing = await organiser.PutAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/sharing/me",
@@ -552,14 +496,14 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 		(await PositionRowsAsync(app, ride.Id)).ShouldBe(1, "there is something to delete");
 
-		using (HttpResponseMessage ended = await organiser.PostAsJsonAsync(
-			$"{RidesUrl}/{ride.Id}/ending",
-			new EndRideRequest(RideEndingDto.Immediate)))
+		using (HttpResponseMessage stopped = await organiser.PutAsJsonAsync(
+			$"{RidesUrl}/{ride.Id}/sharing/me",
+			new SetSharingRequest(false)))
 		{
-			ended.StatusCode.ShouldBe(HttpStatusCode.NoContent, await ended.Content.ReadAsStringAsync());
+			stopped.StatusCode.ShouldBe(HttpStatusCode.OK, await stopped.Content.ReadAsStringAsync());
 		}
 
-		(await PositionRowsAsync(app, ride.Id)).ShouldBe(0, "measured data goes with the adventure (§5.5)");
+		(await PositionRowsAsync(app, ride.Id)).ShouldBe(0, "measured data goes with the consent (§5.6)");
 
 		// The thread is kept and stays open — the best photos land after everybody gets home.
 		CommentPage page = await ThreadAsync(organiser, ride.Id);
@@ -764,16 +708,6 @@ public sealed class CommentTests(PostgresFixture postgres)
 	private static async Task<int> PositionRowsAsync(DlrWebApplicationFactory app, Guid rideId) =>
 		await app.WithDatabaseAsync(database =>
 			database.Set<Data.Positions.RiderPosition>().CountAsync(row => row.GroupRideId == rideId));
-
-	private static Task SetStateAsync(DlrWebApplicationFactory app, Guid rideId, GroupRideState state) =>
-		app.WithDatabaseAsync(async database =>
-		{
-			GroupRide ride = await database.Set<GroupRide>().SingleAsync(row => row.Id == rideId);
-
-			ride.State = state;
-
-			await database.SaveChangesAsync();
-		});
 
 	private static async Task<RideDetail> CreateRideAsync(HttpClient organiser)
 	{

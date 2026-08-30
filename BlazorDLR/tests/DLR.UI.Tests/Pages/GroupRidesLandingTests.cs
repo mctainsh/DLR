@@ -45,8 +45,8 @@ public sealed class GroupRidesLandingTests : PageTestContext
 	}
 
 	private static MyRides OneOfEach(Guid organised, Guid joined) => new(
-		[new RideSummary(organised, "Mine to run", FixedInstant, RideStateDto.Open, IsOrganiser: true, MemberCount: 3, JoinCode: "AB3K9Z")],
-		[new RideSummary(joined, "Somebody else's", FixedInstant, RideStateDto.Open, IsOrganiser: false, MemberCount: 5, JoinCode: "QW7T2M")],
+		[new RideSummary(organised, "Mine to run", FixedInstant, IsOrganiser: true, MemberCount: 3, JoinCode: "AB3K9Z")],
+		[new RideSummary(joined, "Somebody else's", FixedInstant, IsOrganiser: false, MemberCount: 5, JoinCode: "QW7T2M")],
 		[]);
 
 	/// <summary>A request the caller has made and nobody has answered (§5.2).</summary>
@@ -55,7 +55,6 @@ public sealed class GroupRidesLandingTests : PageTestContext
 		RequestId: Guid.NewGuid(),
 		Name: name,
 		StartUtc: FixedInstant.AddDays(3),
-		State: RideStateDto.Open,
 		RequestedUtc: FixedInstant - agoWaited);
 
 	private static IReadOnlyList<AngleSharp.Dom.IElement> TrashButtons(IRenderedComponent<GroupRides> component) =>
@@ -107,7 +106,6 @@ public sealed class GroupRidesLandingTests : PageTestContext
 				Guid.NewGuid(),
 				"Mine to run",
 				FixedInstant,
-				RideStateDto.Open,
 				IsOrganiser: true,
 				MemberCount: 3,
 				JoinCode: "AB3K9Z")],
@@ -115,7 +113,6 @@ public sealed class GroupRidesLandingTests : PageTestContext
 				Guid.NewGuid(),
 				"Somebody else's",
 				FixedInstant,
-				RideStateDto.Open,
 				IsOrganiser: false,
 				MemberCount: 5,
 				JoinCode: "QW7T2M")],
@@ -419,7 +416,7 @@ public sealed class GroupRidesLandingTests : PageTestContext
 		FakeApiClient api = WireServices();
 
 		api.MyRidesResult = new(
-			[new RideSummary(Guid.NewGuid(), "Mine to run", FixedInstant, RideStateDto.Open, IsOrganiser: true, MemberCount: 3, JoinCode: "AB3K9Z")],
+			[new RideSummary(Guid.NewGuid(), "Mine to run", FixedInstant, IsOrganiser: true, MemberCount: 3, JoinCode: "AB3K9Z")],
 			[],
 			[Waiting("Still waiting", TimeSpan.FromMinutes(20))]);
 

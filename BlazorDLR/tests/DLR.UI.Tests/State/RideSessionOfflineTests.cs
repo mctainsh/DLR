@@ -31,7 +31,6 @@ public sealed class RideSessionOfflineTests
 		"Old Pacific Highway",
 		null,
 		FixedInstant,
-		RideStateDto.Live,
 		JoinPolicyDto.Approval,
 		50,
 		1,

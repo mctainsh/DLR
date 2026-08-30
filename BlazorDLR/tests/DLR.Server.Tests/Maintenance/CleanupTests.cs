@@ -502,7 +502,6 @@ public sealed class CleanupTests(PostgresFixture postgres)
 				OwnerId = ownerId,
 				Name = "Sunday",
 				StartUtc = app.Clock.GetUtcNow(),
-				State = GroupRideState.Open,
 				JoinCode = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant(),
 				CreatedUtc = app.Clock.GetUtcNow(),
 			};

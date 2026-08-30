@@ -284,7 +284,7 @@ submitting, because a reviewer following a path that does not exist is worse tha
 > precisely when they are under way.
 >
 > Sharing is off until it is turned on, it is per adventure rather than global, and it stops when
-> the member turns the switch off, leaves, or the adventure ends. The blue background-location
+> the member turns the switch off, leaves, or is removed. The blue background-location
 > indicator is left enabled throughout. Someone who grants only "While Using the App" still has a
 > working app: position updates stop when it is backgrounded and resume on return.
 >
@@ -383,10 +383,10 @@ above the platform seam and nothing below it.
 - [ ] **Android**: permission ladder appears in order — precise location, then background, then
       notifications.
 - [ ] **Android**: the ongoing notification appears when sharing starts and disappears when it
-      stops. It must never outlive the adventure.
+      stops. It must never outlive the sharing switch.
 - [ ] **Android**: fixes continue with the screen off for at least ten minutes.
 - [ ] **Android**: kill the app from the recents list; confirm the service restarts (`START_STICKY`)
-      or that the adventure ends cleanly, and that no orphaned notification remains.
+      or that sharing stops cleanly, and that no orphaned notification remains.
 - [ ] **Android**: a device without Play Services falls back to `LocationManager` and still
       publishes.
 - [ ] **Android**: OEM battery managers (Xiaomi, Huawei, Samsung, OnePlus) — confirm behaviour and

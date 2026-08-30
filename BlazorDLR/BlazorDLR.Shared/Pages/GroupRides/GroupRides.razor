@@ -95,7 +95,6 @@
 								<h2>@waiting.Name</h2>
 								<span class="meta">
 									@waiting.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")
-									· @waiting.State
 								</span>
 								@*
 									How long they have been waiting, which is the thing this list is
@@ -150,7 +149,6 @@
 								<span class="meta">
 									@ride.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")
 									· @ride.MemberCount member@(ride.MemberCount == 1 ? "" : "s")
-									· @ride.State
 								</span>
 							</a>
 							@if (IsCurrent(ride.Id))
@@ -197,7 +195,6 @@
 								<span class="meta">
 									@ride.StartUtc.ToLocalTime().ToString("ddd d MMM yyyy, h:mm tt")
 									· @ride.MemberCount member@(ride.MemberCount == 1 ? "" : "s")
-									· @ride.State
 								</span>
 							</a>
 							@if (IsCurrent(ride.Id))

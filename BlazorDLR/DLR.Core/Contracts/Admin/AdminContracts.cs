@@ -135,7 +135,7 @@ public sealed record AdminLogPage(
 /// Accounts with a live position in the ride cache — the only one of these numbers that is
 /// "active" in the sense of somebody being out on a road at this moment.
 /// </param>
-/// <param name="LiveRides">Group rides currently in the live state.</param>
+/// <param name="RidesSharingNow">Adventures with at least one rider on the map right now.</param>
 /// <param name="PositionsPerMinute">
 /// Fixes accepted in each of the last 24 hours' minutes, oldest first, one entry per minute.
 /// <para>
@@ -154,7 +154,7 @@ public sealed record AdminStats(
 	int ActiveLastWeek,
 	int ActiveLastMonth,
 	int RidersSharingNow,
-	int LiveRides,
+	int RidesSharingNow,
 	IReadOnlyList<int> PositionsPerMinute,
 	DateTimeOffset WindowStartUtc,
 	DateTimeOffset MeterStartedUtc);

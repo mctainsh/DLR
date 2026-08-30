@@ -17,14 +17,10 @@ namespace DLR.UI.Tests.Pages;
 /// same <c>RideSession</c> the live map does, so §5.3's rule is what these tests exercise:
 /// the snapshot is authoritative and the hub is the delta on top.
 /// <list type="bullet">
-///   <item><c>RideStateChanged</c> — an Open ride flipping to Live must show the new state,
-///     unlock the gap list, and stop showing the organiser's "Start adventure" button (that
-///     button lives on the Open branch only).</item>
 ///   <item><c>MemberJoined</c> / <c>MemberLeft</c> — nothing here follows them any more: who is
 ///     on the ride is "Live members" (see <c>RideMembersLiveTests</c>), and this page must
 ///     not grow a second, thinner copy of that list.</item>
-///   <item><c>SharingWindDownStarted</c> — the banner appears with the stated cutoff (§5.6).</item>
-///   <item>The organiser's lifecycle controls: Start (§5.1) and the two-choice End (§5.6).</item>
+///   <item><c>RidePermissionsChanged</c> — the organiser's switches arrive as a delta.</item>
 /// </list>
 /// </summary>
 public sealed class GroupRideInfoTests : PageTestContext
@@ -32,7 +28,6 @@ public sealed class GroupRideInfoTests : PageTestContext
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 
 	private (FakeApiClient api, FakeRideHubClient hub, Guid rideId) WireServices(
-		RideStateDto state = RideStateDto.Open,
 		bool isOrganiser = false,
 		bool sharing = false,
 		IReadOnlyList<RideMemberSummary>? members = null)
@@ -45,7 +40,6 @@ public sealed class GroupRideInfoTests : PageTestContext
 				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
-				State: state,
 				JoinPolicy: JoinPolicyDto.Open,
 				MemberCap: 50,
 				MemberCount: members?.Count ?? 1,
@@ -258,25 +252,6 @@ public sealed class GroupRideInfoTests : PageTestContext
 	}
 
 	[Fact]
-	public async Task RideStateChanged_UpdatesTheStateBadge()
-	{
-		(_, FakeRideHubClient hub, Guid rideId) = WireServices(state: RideStateDto.Open);
-
-		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
-
-		component.WaitForAssertion(() =>
-			component.Find(".state").TextContent.ShouldBe("Open"),
-			timeout: TimeSpan.FromSeconds(3));
-
-		await component.InvokeAsync(() => hub.RaiseRideStateChanged(rideId, RideStateDto.Live));
-
-		component.WaitForAssertion(() =>
-			component.Find(".state").TextContent.ShouldBe("Live",
-				customMessage: "§5.3: the state badge reflects the hub-driven state transition."),
-			timeout: TimeSpan.FromSeconds(3));
-	}
-
-	[Fact]
 	public async Task WhoIsOnTheRide_IsNotOnThisPageAtAll()
 	{
 		// Who is on the ride is its own screen now — "Live members", which says everything
@@ -305,31 +280,6 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.FindAll(".members").ShouldBeEmpty();
 		component.Markup.Contains("AliceNewJoiner", StringComparison.Ordinal).ShouldBeFalse();
-	}
-
-	[Fact]
-	public async Task SharingWindDownStarted_ShowsBannerWithCutoffTime()
-	{
-		(_, FakeRideHubClient hub, Guid rideId) = WireServices(state: RideStateDto.Live);
-
-		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
-
-		component.WaitForAssertion(() =>
-			component.Markup.Contains("Test adventure", StringComparison.Ordinal).ShouldBeTrue(),
-			timeout: TimeSpan.FromSeconds(3));
-
-		// The banner has always previously been absent — the state carried no wind-down.
-		component.Markup.Contains("wind-down active", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
-			"the banner is only present after the SharingWindDownStarted event fires.");
-
-		DateTimeOffset endsUtc = FixedInstant.AddHours(2);
-		await component.InvokeAsync(() => hub.RaiseSharingWindDownStarted(rideId, endsUtc));
-
-		component.WaitForAssertion(() =>
-		{
-			component.Markup.Contains("Sharing wind-down active", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.6: the wind-down banner appears on the SharingWindDownStarted event.");
-		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
@@ -367,92 +317,19 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		// Raise events for a different ride id — none of them must alter this page.
 		Guid otherRide = Guid.NewGuid();
-		await component.InvokeAsync(() => hub.RaiseRideStateChanged(otherRide, RideStateDto.Completed));
+		await component.InvokeAsync(() => hub.RaisePermissionsChanged(otherRide,
+			new RidePermissions(AllowMemberMarkers: false, AllowMemberComments: false, AllowMemberPhotos: false)));
 		await component.InvokeAsync(() => hub.RaiseMemberJoined(otherRide,
 			new RideMemberSummary(Guid.NewGuid(), "InterloperFromOtherRide", "Rider", FixedInstant, false, false)));
 
-		// The ride still says Open and the interloper is not in the member list.
-		component.Markup.Contains("Completed", StringComparison.Ordinal).ShouldBeFalse(
-			"§5.3: events for other adventures must not alter this adventure's state — a shared hub connection is not a shared page.");
-		component.Markup.Contains("InterloperFromOtherRide", StringComparison.Ordinal).ShouldBeFalse();
-	}
-
-	[Fact]
-	public async Task Organiser_ClicksStartRide_CallsStartRideAsync()
-	{
-		(FakeApiClient api, _, Guid rideId) = WireServices(state: RideStateDto.Open, isOrganiser: true);
-
-		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
-
-		component.WaitForAssertion(() =>
-			component.FindAll("button").Any(b => b.TextContent.Contains("Start adventure", StringComparison.Ordinal))
-				.ShouldBeTrue("§5.1: an organiser looking at an Open adventure sees the Start button."),
-			timeout: TimeSpan.FromSeconds(3));
-
-		await component.InvokeAsync(() => component.FindAll("button")
-			.First(b => b.TextContent.Contains("Start adventure", StringComparison.Ordinal))
-			.Click());
-
-		component.WaitForAssertion(() => api.StartedRides.ShouldContain(rideId),
-			timeout: TimeSpan.FromSeconds(3));
-	}
-
-	[Fact]
-	public void StartButton_HiddenForNonOrganiser()
-	{
-		(_, _, Guid rideId) = WireServices(state: RideStateDto.Open, isOrganiser: false);
-
-		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
-
-		component.WaitForAssertion(() =>
-		{
-			component.FindAll("button").Any(b => b.TextContent.Contains("Start adventure", StringComparison.Ordinal))
-				.ShouldBeFalse("§5.1: only the organiser can start — the button must not appear for anyone else.");
-		}, timeout: TimeSpan.FromSeconds(3));
-	}
-
-	[Fact]
-	public async Task Organiser_EndRide_ImmediateChoice_SendsImmediateEnding()
-	{
-		(FakeApiClient api, _, Guid rideId) = WireServices(state: RideStateDto.Live, isOrganiser: true);
-
-		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
-
-		await OpenEndDialogAsync(component);
-
-		await component.InvokeAsync(() => component.FindAll("button.primary")
-			.First(b => b.TextContent.Contains("Stop sharing", StringComparison.Ordinal))
-			.Click());
-
-		component.WaitForAssertion(() => api.LastEndRide.ShouldNotBeNull(),
-			timeout: TimeSpan.FromSeconds(3));
-		api.LastEndRide!.Value.Request.Ending.ShouldBe(RideEndingDto.Immediate,
-			"§5.6: 'Stop sharing for everyone now' sends the Immediate ending — the alternative would leave the wind-down running.");
-	}
-
-	[Fact]
-	public async Task Organiser_EndRide_WindDownChoice_SendsWindDownEnding()
-	{
-		(FakeApiClient api, _, Guid rideId) = WireServices(state: RideStateDto.Live, isOrganiser: true);
-
-		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
-
-		await OpenEndDialogAsync(component);
-
-		await component.InvokeAsync(() => component.FindAll("button")
-			.First(b => b.TextContent.Contains("2-hour wind-down", StringComparison.Ordinal))
-			.Click());
-
-		component.WaitForAssertion(() => api.LastEndRide.ShouldNotBeNull(),
-			timeout: TimeSpan.FromSeconds(3));
-		api.LastEndRide!.Value.Request.Ending.ShouldBe(RideEndingDto.WindDown,
-			"§5.6: the alternative choice explicitly opts into the two-hour wind-down.");
+		component.Markup.Contains("InterloperFromOtherRide", StringComparison.Ordinal).ShouldBeFalse(
+			"§5.3: events for other adventures must not alter this adventure — a shared hub connection is not a shared page.");
 	}
 
 	[Fact]
 	public async Task SharingSwitch_SendsTheRidersChoice()
 	{
-		(FakeApiClient api, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+		(FakeApiClient api, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
@@ -879,22 +756,6 @@ public sealed class GroupRideInfoTests : PageTestContext
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri.ShouldBe(before,
 			"a leave the server refused must leave the traveller exactly where they were.");
 		current.RideId.ShouldBe(rideId, "and still on the adventure they are still on.");
-	}
-
-	private static async Task OpenEndDialogAsync(IRenderedComponent<GroupRideInfo> component)
-	{
-		component.WaitForAssertion(() =>
-			component.FindAll("button").Any(b => b.TextContent.Contains("End adventure…", StringComparison.Ordinal))
-				.ShouldBeTrue(),
-			timeout: TimeSpan.FromSeconds(3));
-
-		await component.InvokeAsync(() => component.FindAll("button")
-			.First(b => b.TextContent.Contains("End adventure…", StringComparison.Ordinal))
-			.Click());
-
-		component.WaitForAssertion(() =>
-			component.FindAll(".end-dialog").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>A request waiting on the organiser (§5.2).</summary>

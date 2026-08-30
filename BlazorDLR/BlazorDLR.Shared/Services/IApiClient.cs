@@ -197,12 +197,6 @@ public interface IApiClient
 	/// <summary><c>POST /api/v1/group-rides/{id}/join-requests/{requestId}</c> — admit or decline.</summary>
 	Task DecideJoinRequestAsync(Guid rideId, Guid requestId, DecideJoinRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/group-rides/{id}/start</c>.</summary>
-	Task StartRideAsync(Guid rideId, CancellationToken cancellationToken = default);
-
-	/// <summary><c>POST /api/v1/group-rides/{id}/ending</c> — end with immediate or wind-down (§5.6).</summary>
-	Task EndRideAsync(Guid rideId, EndRideRequest request, CancellationToken cancellationToken = default);
-
 	/// <summary><c>PUT /api/v1/group-rides/{id}/permissions</c> — the organiser's three content switches (§5.8).</summary>
 	Task UpdatePermissionsAsync(Guid rideId, RidePermissions permissions, CancellationToken cancellationToken = default);
 
@@ -231,10 +225,8 @@ public interface IApiClient
 	/// <summary>
 	/// <c>DELETE /api/v1/group-rides/{id}</c> — the organiser deletes the whole adventure.
 	/// <para>
-	/// Irreversible, and not the same verb as ending one (§5.6): ending stops the sharing and
-	/// keeps the day — the thread, the markers, who was there. This takes all of it. The server
-	/// refuses on a ride that is <see cref="RideStateDto.Live"/>, because deleting one in
-	/// progress would blank the map for everybody still on the road.
+	/// Irreversible, and the only way to finish one. It takes the thread, the markers and every
+	/// stored position with it, and blanks the map for anyone still on the road.
 	/// </para>
 	/// </summary>
 	Task DeleteRideAsync(Guid rideId, CancellationToken cancellationToken = default);

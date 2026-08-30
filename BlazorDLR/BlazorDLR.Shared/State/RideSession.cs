@@ -166,39 +166,8 @@ public sealed class RideSession : IAsyncDisposable
 	/// </summary>
 	public IReadOnlyList<TrackPoint>? RoutePolyline { get; private set; }
 
-	/// <summary>When the organiser's wind-down force-stops sharing, or null when none is open (§5.6).</summary>
-	public DateTimeOffset? WindDownEndsUtc { get; private set; }
-
 	/// <summary>Whether this rider is broadcasting to this ride.</summary>
 	public bool Sharing { get; private set; }
-
-	/// <summary>
-	/// Whether this ride is at a point in its lifecycle where a published fix lands in it at all
-	/// (§5.1).
-	/// <para>
-	/// <strong>The client mirrors the server's rule because the server's rule is silent.</strong>
-	/// <c>PositionStore.PublishAsync</c> writes a fix only into rides that are <c>Live</c> or inside
-	/// an unexpired wind-down; for anything earlier it accepts the publish and drops it. A device
-	/// that broadcasts anyway gets no error, no pin and no explanation — it just runs a foreground
-	/// service and a GPS on a rider's battery for fixes nothing keeps.
-	/// </para>
-	/// <para>
-	/// Only <c>Draft</c> and <c>Open</c> are refused here, which is narrower than the server's test
-	/// and deliberately so: <c>Completed</c> covers the wind-down (§5.6), and
-	/// <see cref="RideDetail"/> carries no end time, so a client that relaunched mid-wind-down
-	/// cannot tell a live one from an expired one. Refusing on that guess would take a rider off
-	/// the map during exactly the window the wind-down exists to protect;
-	/// <see cref="OnRideStateChanged"/> is what stops a ride that ended without one.
-	/// </para>
-	/// </summary>
-	public bool RideCarriesPositions => Ride is { State: not (RideStateDto.Draft or RideStateDto.Open) };
-
-	/// <summary>
-	/// Whether this rider has turned sharing on for a ride that cannot carry positions yet — the
-	/// state the ride screens say out loud rather than leaving a rider to infer it from a pin that
-	/// never appears.
-	/// </summary>
-	public bool SharingPending => Sharing && !RideCarriesPositions;
 
 	/// <summary>Whether this rider runs the ride. False before the snapshot lands.</summary>
 	public bool IsOrganiser => Ride?.IsOrganiser == true;
@@ -284,7 +253,6 @@ public sealed class RideSession : IAsyncDisposable
 		CachedUtc = null;
 		Routes = [];
 		RoutePolyline = null;
-		WindDownEndsUtc = null;
 		Sharing = false;
 		PendingJoinRequests = 0;
 		_positions.Clear();
@@ -525,27 +493,12 @@ public sealed class RideSession : IAsyncDisposable
 			return;
 		}
 
-		if (!RideCarriesPositions)
-		{
-			// Consent stands — the flag is on the server and stays there — but the receiver does
-			// not come up for a ride that has not started. See RideCarriesPositions: everything it
-			// would produce would be dropped, and the rider would be paying a foreground service
-			// and a GPS for it while the app told them they were sharing.
-			//
-			// OnRideStateChanged starts it the moment the organiser starts the ride, so nobody has
-			// to come back and toggle anything.
-			return;
-		}
-
 		_ = broadcast.ShareWithAsync(rideId).ContinueWith(
 			started => Error ??= started.Exception?.GetBaseException().Message,
 			CancellationToken.None,
 			TaskContinuationOptions.OnlyOnFaulted,
 			TaskScheduler.Default);
 	}
-
-	/// <summary>Organiser only: Open → Live (§5.1).</summary>
-	public Task StartAsync() => RunAsync(() => _api.StartRideAsync(_rideId));
 
 	/// <summary>
 	/// Organiser or leader: attaches one of their own tracks as a planned route (§5.4).
@@ -629,10 +582,6 @@ public sealed class RideSession : IAsyncDisposable
 			Raise();
 		}
 	}
-
-	/// <summary>Organiser only: Live → Completed, immediately or on a wind-down (§5.6).</summary>
-	public Task EndAsync(RideEndingDto ending) =>
-		RunAsync(() => _api.EndRideAsync(_rideId, new EndRideRequest(ending)));
 
 	/// <summary>
 	/// Removes a marker. The server broadcasts MarkerRemoved to the ride group and
@@ -727,8 +676,6 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MarkerUpdated += OnMarkerUpserted; // same treatment — upsert
 		_hub.MarkerRemoved += OnMarkerRemoved;
 		_hub.RoutesChanged += OnRoutesChanged;
-		_hub.RideStateChanged += OnRideStateChanged;
-		_hub.SharingWindDownStarted += OnWindDownStarted;
 		_hub.PermissionsChanged += OnPermissionsChanged;
 		_hub.JoinRequestReceived += OnJoinRequestReceived;
 		_hub.JoinRequestDecided += OnJoinRequestDecided;
@@ -746,8 +693,6 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MarkerUpdated -= OnMarkerUpserted;
 		_hub.MarkerRemoved -= OnMarkerRemoved;
 		_hub.RoutesChanged -= OnRoutesChanged;
-		_hub.RideStateChanged -= OnRideStateChanged;
-		_hub.SharingWindDownStarted -= OnWindDownStarted;
 		_hub.PermissionsChanged -= OnPermissionsChanged;
 		_hub.JoinRequestReceived -= OnJoinRequestReceived;
 		_hub.JoinRequestDecided -= OnJoinRequestDecided;
@@ -898,39 +843,6 @@ public sealed class RideSession : IAsyncDisposable
 		Raise();
 	}
 
-	private void OnRideStateChanged(Guid rideId, RideStateDto state)
-	{
-		if (rideId != _rideId || Ride is null) return;
-		Ride = Ride with { State = state };
-
-		// A ride ended immediately (§5.6) is one where the server has already cleared every
-		// member's sharing flag and deleted their positions — so a receiver still running for it
-		// is publishing into a ride that drops the fix, on a rider's battery.
-		//
-		// A wind-down is the opposite case and must not stop: its whole point is that riders who
-		// kept sharing carry on until they stop or the window closes. WindDownEndsUtc is what
-		// tells the two apart, and it is set by the hub event that precedes this one.
-		if (state == RideStateDto.Completed && WindDownEndsUtc is null && Sharing)
-		{
-			Sharing = false;
-			_ = _broadcast?.StopSharingAsync(_rideId);
-		}
-
-		// The other end of the same story: the organiser has started the ride, so a rider whose
-		// consent was already on — and whose receiver StartBroadcast therefore declined to bring up
-		// — is now on a ride that keeps what it is sent. Started here so nobody has to go back to
-		// the switch and toggle it twice to get on a map they already said yes to.
-		//
-		// Ride has been updated to the new state above, so RideCarriesPositions agrees, and
-		// ShareWithAsync is idempotent — a device already broadcasting for this ride does nothing.
-		if (state == RideStateDto.Live && Sharing)
-		{
-			StartBroadcast(_rideId);
-		}
-
-		Raise();
-	}
-
 	private async void OnRoutesChanged(Guid rideId)
 	{
 		if (rideId != _rideId) return;
@@ -970,13 +882,6 @@ public sealed class RideSession : IAsyncDisposable
 			: [.. PolylineCodec
 				.DecodePoints(routes[0].EncodedPolyline)
 				.Select(point => new TrackPoint(point.Latitude, point.Longitude))];
-	}
-
-	private void OnWindDownStarted(Guid rideId, DateTimeOffset endsUtc)
-	{
-		if (rideId != _rideId) return;
-		WindDownEndsUtc = endsUtc;
-		Raise();
 	}
 
 	private void OnPermissionsChanged(Guid rideId, RidePermissions permissions)

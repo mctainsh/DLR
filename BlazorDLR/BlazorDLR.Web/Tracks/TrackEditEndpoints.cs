@@ -95,12 +95,12 @@ public sealed class TrackEditController : ControllerBase
 		// moves every rider's position in §5.4's gap list — nobody rode anywhere, and the list
 		// reorders. Attaching and detaching whole routes stays allowed while Live: adding the long
 		// option mid-ride moves nobody, because the gap list projects against the oldest one.
-		if (await IsRouteOfLiveRideAsync(database, id))
+		if (await Rides.RideRouteEndpoints.IsTrackAttachedAsync(database, id))
 		{
 			return ConflictProblem(
-				"This track is a live adventure's route",
-				"An adventure in progress is using this track as its planned route, and editing the line " +
-				"would move every traveller's place in the gap list. Edit it once the adventure has ended.");
+				"This track is an adventure's route",
+				"An adventure is using this track as its planned route, and editing the line would move " +
+				"every traveller's place in the gap list. Remove it from the adventure first.");
 		}
 
 		TrackGeometry geometry = await ReadAsync(blobs, track.BlobRef);
@@ -182,12 +182,12 @@ public sealed class TrackEditController : ControllerBase
 		// Undo moves the line as surely as the edit did, so it meets the same §15.4 precondition.
 		// Leaving it out would make "wait until the ride has ended" advice that a second button
 		// on the same screen ignores.
-		if (await IsRouteOfLiveRideAsync(database, id))
+		if (await Rides.RideRouteEndpoints.IsTrackAttachedAsync(database, id))
 		{
 			return ConflictProblem(
-				"This track is a live adventure's route",
-				"An adventure in progress is using this track as its planned route. Undo the edit once " +
-				"the adventure has ended.");
+				"This track is an adventure's route",
+				"An adventure is using this track as its planned route. Remove it from the adventure " +
+				"before undoing the edit.");
 		}
 
 		TrackRevision? revision = await database
@@ -325,21 +325,6 @@ public sealed class TrackEditController : ControllerBase
 
 		return TrackBlobCodec.Read(blob);
 	}
-
-	/// <summary>
-	/// Whether this track is the planned route of a ride that is in progress (§15.4).
-	/// <para>
-	/// Asked of the attachment table rather than of the ride, because a track may be attached to
-	/// several rides at once — a club running the same loop on two days — and one of them being
-	/// live is enough.
-	/// </para>
-	/// </summary>
-	private static Task<bool> IsRouteOfLiveRideAsync(DlrDbContext database, Guid trackId) =>
-		database
-			.Set<Data.Rides.GroupRideRoute>()
-			.AnyAsync(route =>
-				route.TrackId == trackId
-				&& route.Ride!.State == Data.Rides.GroupRideState.Live);
 
 	private ObjectResult ConflictProblem(string title, string detail) =>
 		Problem(statusCode: StatusCodes.Status409Conflict, title: title, detail: detail);

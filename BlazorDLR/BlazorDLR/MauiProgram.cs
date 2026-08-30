@@ -268,6 +268,7 @@ public static class MauiProgram
 		// host it matters on: the badge is what a rider glances at between corners to know whether
 		// the group has said anything, and it has to still be there after the OS reclaims the app.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.UnreadThreadState>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.ConsentAskedState>();
 
 		// Whether this device has been shown the introduction (§18.6), in MAUI Preferences. This is
 		// the host it was written for: a phone is where the app is met for the first time, and the

@@ -31,7 +31,6 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 	public event Action<PositionBatch>? PositionsUpdated;
 	public event Action<Guid, RideMemberSummary>? MemberJoined;
 	public event Action<Guid, Guid>? MemberLeft;
-	public event Action<Guid, RideStateDto>? RideStateChanged;
 	public event Action<Guid>? RoutesChanged;
 	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
 	public event Action<Guid, JoinResult>? JoinRequestDecided;
@@ -46,7 +45,6 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 	public event Action<Guid, ReactionCounts>? ReactionsUpdated;
 	public event Action<Guid, PollResults>? PollUpdated;
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
-	public event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
 	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
 	public event Action? ConnectionChanged;

@@ -33,7 +33,6 @@ public sealed class GroupRideLiveTests : PageTestContext
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 
 	private (FakeApiClient api, FakeRideHubClient hub, Guid rideId) WireServices(
-		RideStateDto state = RideStateDto.Open,
 		bool isOrganiser = false,
 		RidePermissions? permissions = null)
 	{
@@ -45,7 +44,6 @@ public sealed class GroupRideLiveTests : PageTestContext
 				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
-				State: state,
 				JoinPolicy: JoinPolicyDto.Open,
 				MemberCap: 50,
 				MemberCount: 1,
@@ -257,7 +255,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	[Fact]
 	public async Task TheMenu_PromisesNoQuietDuringALiveAdventure()
 	{
-		(_, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+		(_, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
@@ -393,7 +391,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	[Fact]
 	public void ConsentPrompt_IsShownWhenNotSharing_AndRideIsOpen()
 	{
-		(_, _, Guid rideId) = WireServices(state: RideStateDto.Open);
+		(_, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
@@ -409,7 +407,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	[Fact]
 	public async Task ConsentShare_CallsSetSharingWithTrue()
 	{
-		(FakeApiClient api, _, Guid rideId) = WireServices(state: RideStateDto.Open);
+		(FakeApiClient api, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
@@ -709,7 +707,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		// The one thing a rider on a bar mount cannot do is tap the screen to wake it: gloves on,
 		// at speed, both hands where they should be. The platform's idle timer measures input, and
 		// reading a map produces none — so without this the map goes black mid-ride.
-		(_, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+		(_, _, Guid rideId) = WireServices();
 		FakeScreenWakeLock wakeLock = WireScreenWakeLock();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
@@ -727,7 +725,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	[Fact]
 	public async Task LeavingTheLiveMap_GivesTheScreenBack()
 	{
-		(_, _, Guid rideId) = WireServices(state: RideStateDto.Live);
+		(_, _, Guid rideId) = WireServices();
 		FakeScreenWakeLock wakeLock = WireScreenWakeLock();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
@@ -777,7 +775,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		// The one state on this screen the rider cannot see for themselves: their own absence.
 		// Every other rider's pin is on the map, the map looks entirely healthy, and the thing
 		// that is wrong is that nobody can see *them* — which they find out when somebody rings.
-		(_, _, Guid rideId) = WireServices(RideStateDto.Live);
+		(_, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
@@ -796,7 +794,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	{
 		// The strip is the state, so it has to go when the state does — a red bar that outlived
 		// the problem would be the fastest way to teach a rider to ignore this one.
-		(FakeApiClient api, _, Guid rideId) = WireServices(RideStateDto.Live);
+		(FakeApiClient api, _, Guid rideId) = WireServices();
 
 		Guid me = Guid.NewGuid();
 		await Services.GetRequiredService<AuthState>().ApplySessionAsync(new TokenResponse(
@@ -809,23 +807,6 @@ public sealed class GroupRideLiveTests : PageTestContext
 		{
 			Members = [new RideMemberSummary(me, "Me", "Rider", FixedInstant, Sharing: true)],
 		};
-
-		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
-			.Add(p => p.RideId, rideId));
-
-		component.WaitForAssertion(
-			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
-
-		component.FindAll(".sharing-off").ShouldBeEmpty();
-	}
-
-	[Fact]
-	public void AFinishedAdventure_RaisesNoSharingWarning()
-	{
-		// Nobody is looking for this rider any more, and there is nothing to turn on: a red strip
-		// here is an alarm about a situation that has stopped existing.
-		(_, _, Guid rideId) = WireServices(RideStateDto.Completed);
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));

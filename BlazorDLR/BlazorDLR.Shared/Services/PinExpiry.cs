@@ -6,8 +6,8 @@ namespace BlazorDLR.Shared.Services;
 /// How long a rider's pin stays on the live map after the last fix behind it (§5.3, §18.6).
 /// <para>
 /// <strong>The problem it answers.</strong> A position sits in the ride's cache until the rider
-/// stops sharing or the wind-down expires (§5.6), and it is rebroadcast every tick whether or not
-/// it has moved. So a phone that went flat, lost signal in a valley or was left in a jacket at the
+/// stops sharing (§5.6), and it is rebroadcast every tick whether or not it has moved. So a phone
+/// that went flat, lost signal in a valley or was left in a jacket at the
 /// café leaves a pin on the map that looks exactly like a rider standing there — and the group
 /// rides back for it. Past some age the honest answer is nothing at all: the map stops claiming to
 /// know where that rider is, and the member list, which says <em>when</em> each fix was taken, is

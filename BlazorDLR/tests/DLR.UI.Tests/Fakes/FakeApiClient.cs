@@ -625,7 +625,7 @@ public sealed class FakeApiClient : IApiClient
 		return RideException is not null
 			? Task.FromException<RideDetail>(RideException)
 			: Task.FromResult(RideResult
-				?? new RideDetail(rideId, "Test adventure", null, SampleInstant, RideStateDto.Open, JoinPolicyDto.Approval, 50, 0, false, null, new RidePermissions(), Array.Empty<RideMemberSummary>()));
+				?? new RideDetail(rideId, "Test adventure", null, SampleInstant, JoinPolicyDto.Approval, 50, 0, false, null, new RidePermissions(), Array.Empty<RideMemberSummary>()));
 	}
 	/// <summary>The last <see cref="CreateRideAsync"/> request the UI sent.</summary>
 	public CreateRideRequest? LastCreateRideRequest { get; private set; }
@@ -649,7 +649,6 @@ public sealed class FakeApiClient : IApiClient
 			Name: request.Name,
 			Description: request.Description,
 			StartUtc: request.StartUtc,
-			State: RideStateDto.Open,
 			JoinPolicy: request.JoinPolicy,
 			MemberCap: 50,
 			MemberCount: 1,
@@ -699,23 +698,6 @@ public sealed class FakeApiClient : IApiClient
 	{
 		Record(nameof(DecideJoinRequestAsync));
 		DecideJoinRequests.Add((rideId, requestId, request));
-		return Task.CompletedTask;
-	}
-	public List<Guid> StartedRides { get; } = new();
-
-	public Task StartRideAsync(Guid rideId, CancellationToken cancellationToken = default)
-	{
-		Record(nameof(StartRideAsync));
-		StartedRides.Add(rideId);
-		return Task.CompletedTask;
-	}
-
-	public (Guid RideId, EndRideRequest Request)? LastEndRide { get; private set; }
-
-	public Task EndRideAsync(Guid rideId, EndRideRequest request, CancellationToken cancellationToken = default)
-	{
-		Record(nameof(EndRideAsync));
-		LastEndRide = (rideId, request);
 		return Task.CompletedTask;
 	}
 	/// <summary>The last permissions payload the UI sent.</summary>
@@ -1109,7 +1091,7 @@ public sealed class FakeApiClient : IApiClient
 		ActiveLastWeek: 0,
 		ActiveLastMonth: 0,
 		RidersSharingNow: 0,
-		LiveRides: 0,
+		RidesSharingNow: 0,
 		PositionsPerMinute: [],
 		WindowStartUtc: default,
 		MeterStartedUtc: default);

@@ -44,10 +44,6 @@ namespace DLR.Server.Comments;
 /// Whether the caller may delete somebody else's post and pin things — the organiser of an
 /// adventure, the owner of a route.
 /// </param>
-/// <param name="ReadOnly">
-/// Whether the thread is closed to writing regardless of who is asking. An archived adventure is;
-/// a route never is, because a route has no lifecycle to end.
-/// </param>
 /// <param name="Refusal">
 /// Why <paramref name="CanPost"/> is false, in words the caller can act on, or null when they may
 /// post. Carried rather than re-derived: the endpoint that refuses is not the code that decided.
@@ -61,13 +57,12 @@ public sealed record ThreadAccess(
 	bool CanPost,
 	bool CanAttachPhoto,
 	bool CanModerate,
-	bool ReadOnly,
 	ProblemDetails? Refusal,
 	ProblemDetails? PhotoRefusal)
 {
 	/// <summary>The answer for a thread the caller may not know exists.</summary>
 	public static readonly ThreadAccess None =
-		new(false, null, null, string.Empty, false, false, false, true, null, null);
+		new(false, null, null, string.Empty, false, false, false, null, null);
 }
 
 /// <summary>
@@ -103,8 +98,6 @@ public static class CommentThreadAccess
 		if (membership?.Ride is not { } ride)
 			return ThreadAccess.None;
 
-		bool archived = ride.State is GroupRideState.Archived;
-
 		bool mayComment = RideContentPermissions.Allows(ride, membership.Role, RideContent.Comment);
 		bool mayPhoto = RideContentPermissions.Allows(ride, membership.Role, RideContent.Photo);
 
@@ -113,16 +106,11 @@ public static class CommentThreadAccess
 			GroupRideId: rideId,
 			TrackId: null,
 			HubGroup: RideHub.Group(rideId),
-			CanPost: mayComment && !archived,
-			CanAttachPhoto: mayPhoto && !archived,
+			CanPost: mayComment,
+			CanAttachPhoto: mayPhoto,
 			CanModerate: membership.Role is GroupRideRole.Owner or GroupRideRole.Leader,
-			ReadOnly: archived,
-			Refusal: archived
-				? Archived
-				: mayComment ? null : RideContentPermissions.Describe(RideContent.Comment),
-			PhotoRefusal: archived
-				? Archived
-				: mayPhoto ? null : RideContentPermissions.Describe(RideContent.Photo));
+			Refusal: mayComment ? null : RideContentPermissions.Describe(RideContent.Comment),
+			PhotoRefusal: mayPhoto ? null : RideContentPermissions.Describe(RideContent.Photo));
 	}
 
 	/// <summary>
@@ -188,7 +176,6 @@ public static class CommentThreadAccess
 			// person who published the thing is the person who has to be able to take an abusive
 			// post off it, and to pin the one worth reading first.
 			CanModerate: mine,
-			ReadOnly: false,
 			Refusal: null,
 			PhotoRefusal: null);
 	}
@@ -231,15 +218,4 @@ public static class CommentThreadAccess
 
 		return access.Exists ? (comment, access) : (null, ThreadAccess.None);
 	}
-
-	/// <summary>
-	/// The one refusal an adventure's thread has that a route's does not. Built once rather than
-	/// per call — a <see cref="ProblemDetails"/> that nothing mutates is a constant with fields.
-	/// </summary>
-	private static ProblemDetails Archived => new()
-	{
-		Status = StatusCodes.Status409Conflict,
-		Title = "Adventure is archived",
-		Detail = "An archived adventure's thread is read-only.",
-	};
 }

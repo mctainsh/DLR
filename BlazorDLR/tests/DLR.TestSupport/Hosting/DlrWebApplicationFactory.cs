@@ -131,8 +131,8 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	}
 
 	/// <summary>
-	/// The server's clock. Advance it to reach a token expiry, a wind-down, a throttle
-	/// window or the 180-day inactivity horizon without waiting for any of them.
+	/// The server's clock. Advance it to reach a token expiry, the position idle sweep, a
+	/// throttle window or the 180-day inactivity horizon without waiting for any of them.
 	/// </summary>
 	public FakeTimeProvider Clock { get; }
 

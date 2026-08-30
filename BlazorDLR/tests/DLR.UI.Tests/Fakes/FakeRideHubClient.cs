@@ -23,7 +23,6 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<PositionBatch>? PositionsUpdated;
 	public event Action<Guid, RideMemberSummary>? MemberJoined;
 	public event Action<Guid, Guid>? MemberLeft;
-	public event Action<Guid, RideStateDto>? RideStateChanged;
 	public event Action<Guid>? RoutesChanged;
 	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
 	public event Action<Guid, JoinResult>? JoinRequestDecided;
@@ -38,7 +37,6 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<Guid, ReactionCounts>? ReactionsUpdated;
 	public event Action<Guid, PollResults>? PollUpdated;
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
-	public event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
 	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
 #pragma warning restore CS0067
@@ -158,7 +156,6 @@ public sealed class FakeRideHubClient : IRideHubClient
 	// listening on the interface has no reason to be able to raise its own events.
 	public void RaiseCommentPosted(CommentDto comment) => CommentPosted?.Invoke(comment);
 	public void RaiseReactionsUpdated(Guid commentId, ReactionCounts counts) => ReactionsUpdated?.Invoke(commentId, counts);
-	public void RaiseRideStateChanged(Guid rideId, RideStateDto state) => RideStateChanged?.Invoke(rideId, state);
 	public void RaisePermissionsChanged(Guid rideId, RidePermissions permissions) => PermissionsChanged?.Invoke(rideId, permissions);
 	public void RaiseRoutesChanged(Guid rideId) => RoutesChanged?.Invoke(rideId);
 	public void RaiseMemberJoined(Guid rideId, RideMemberSummary member) => MemberJoined?.Invoke(rideId, member);
@@ -172,5 +169,4 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public void RaiseMarkerAdded(Guid rideId, MarkerDto marker) => MarkerAdded?.Invoke(rideId, marker);
 	public void RaiseMarkerRemoved(Guid rideId, Guid markerId) => MarkerRemoved?.Invoke(rideId, markerId);
 	public void RaisePositionsUpdated(PositionBatch batch) => PositionsUpdated?.Invoke(batch);
-	public void RaiseSharingWindDownStarted(Guid rideId, DateTimeOffset endsUtc) => SharingWindDownStarted?.Invoke(rideId, endsUtc);
 }

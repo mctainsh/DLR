@@ -7,6 +7,7 @@ using DLR.Server.Data.Tracks;
 using DLR.Server.Diagnostics;
 using DLR.Server.Identity;
 using DLR.Server.Moderation;
+using DLR.Server.Positions;
 using DLR.Server.Tracks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,7 @@ namespace DLR.Server.Maintenance;
 /// The one nightly job, carrying all seven sweeps (§7.11).
 /// <para>
 /// <strong>One service rather than seven.</strong> They have nothing in common as features — a
-/// dormant account, a stale position, an expired undo, a photo nobody points at — and everything in
+/// dormant account, an idle position, an expired undo, a photo nobody points at — and everything in
 /// common as risk: each is destructive, each runs on a timer, and none of them has anybody watching
 /// when it fires. Sharing the job means they share the dry run, the kill switch and the batch cap,
 /// which is the part that actually matters.
@@ -124,8 +125,8 @@ public sealed class NightlyMaintenanceService(
 				0),
 
 			PositionsDeleted = await SweepAsync(
-				"orphaned positions",
-				() => DeleteStalePositionsAsync(database, settings, now, cancellationToken),
+				"idle positions",
+				() => DeleteIdlePositionsAsync(scope, settings, now),
 				0),
 
 			RefreshTokensDeleted = await SweepAsync(
@@ -435,26 +436,27 @@ public sealed class NightlyMaintenanceService(
 		return scope.ServiceProvider.GetRequiredService<ServerLogReader>().Prune(cutoff, settings.DryRun);
 	}
 
-	private static async Task<int> DeleteStalePositionsAsync(
-		DlrDbContext database,
+	/// <summary>
+	/// The backstop for a position nothing is updating any more (§5.6, §7.11).
+	/// </summary>
+	/// <remarks>
+	/// There is no longer an end-of-adventure that reclaims rows, so this is what stops a phone
+	/// that died mid-ride broadcasting a pin for ever. It is a garbage collector, not a privacy
+	/// guarantee: a rider still sending fixes is still sharing, however long they have been at it.
+	/// </remarks>
+	private static async Task<int> DeleteIdlePositionsAsync(
+		AsyncServiceScope scope,
 		MaintenanceOptions settings,
-		DateTimeOffset now,
-		CancellationToken cancellationToken)
+		DateTimeOffset now)
 	{
-		// Live, *or* inside an unexpired wind-down — the same two-armed condition the publish
-		// filter and the rehydrator use (§5.6). Sweeping a winding-down ride would blank the map
-		// for exactly the riders the wind-down exists for.
-		IQueryable<RiderPosition> stale = database
-			.Set<RiderPosition>()
-			.Where(position => !database
-				.Set<GroupRide>()
-				.Any(ride => ride.Id == position.GroupRideId
-					&& (ride.State == GroupRideState.Live
-						|| (ride.SharingEndsUtc != null && ride.SharingEndsUtc > now))));
+		RideOptions ride = scope.ServiceProvider.GetRequiredService<IOptions<RideOptions>>().Value;
+		PositionStore positions = scope.ServiceProvider.GetRequiredService<PositionStore>();
+
+		DateTimeOffset floor = now.AddDays(-Math.Max(1, ride.PositionIdleDays));
 
 		return settings.DryRun
-			? await stale.CountAsync(cancellationToken)
-			: await stale.ExecuteDeleteAsync(cancellationToken);
+			? await positions.CountIdleAsync(floor)
+			: await positions.ClearIdleAsync(floor);
 	}
 
 	private static async Task<int> DeleteDeadTokensAsync(

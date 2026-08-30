@@ -208,15 +208,14 @@ public sealed class AdminController : ControllerBase
 			})
 			.FirstOrDefaultAsync(cancellationToken);
 
-		int liveRides = await database
-			.Set<GroupRide>()
-			.CountAsync(ride => ride.State == GroupRideState.Live, cancellationToken);
-
 		// Distinct riders, not rows: somebody sharing with three adventures is one person out on a
 		// road, and this is the number that answers "is anybody riding right now".
 		HashSet<Guid> sharing = [];
 
-		foreach (Guid rideId in cache.RideIds())
+		// RideIds already drops the rides holding nothing, so its count is the second figure.
+		IReadOnlyList<Guid> rideIds = cache.RideIds();
+
+		foreach (Guid rideId in rideIds)
 		{
 			// RiderIds rather than ForRide: the latter copies every rider's PositionEntry out of the
 			// cache, and this loop wants the keys and throws the values away.
@@ -234,7 +233,7 @@ public sealed class AdminController : ControllerBase
 			ActiveLastWeek: accounts?.Week ?? 0,
 			ActiveLastMonth: accounts?.Month ?? 0,
 			RidersSharingNow: sharing.Count,
-			LiveRides: liveRides,
+			RidesSharingNow: rideIds.Count,
 			PositionsPerMinute: perMinute,
 			WindowStartUtc: windowStart,
 			MeterStartedUtc: meter.StartedUtc));

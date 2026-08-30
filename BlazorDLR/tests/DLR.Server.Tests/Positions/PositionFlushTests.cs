@@ -208,7 +208,7 @@ public sealed class PositionFlushTests
 
 		ServiceProvider provider = services.BuildServiceProvider();
 
-		RiderPositionCache cache = new(clock);
+		RiderPositionCache cache = new();
 
 		PositionFlushService flush = new(
 			cache,

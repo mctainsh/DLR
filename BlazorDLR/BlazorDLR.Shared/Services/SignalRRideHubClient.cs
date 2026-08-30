@@ -68,8 +68,6 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	/// <inheritdoc />
 	public event Action<Guid, Guid>? MemberLeft;
 	/// <inheritdoc />
-	public event Action<Guid, RideStateDto>? RideStateChanged;
-	/// <inheritdoc />
 	public event Action<Guid>? RoutesChanged;
 	/// <inheritdoc />
 	public event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
@@ -99,8 +97,6 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	/// <inheritdoc />
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
 	/// <inheritdoc />
-	public event Action<Guid, DateTimeOffset>? SharingWindDownStarted;
-	/// <inheritdoc />
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
 	/// <inheritdoc />
 	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
@@ -129,7 +125,6 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.On<PositionBatch>("PositionsUpdated", batch => PositionsUpdated?.Invoke(batch));
 		connection.On<Guid, RideMemberSummary>("MemberJoined", (r, m) => MemberJoined?.Invoke(r, m));
 		connection.On<Guid, Guid>("MemberLeft", (r, u) => MemberLeft?.Invoke(r, u));
-		connection.On<Guid, RideStateDto>("RideStateChanged", (r, s) => RideStateChanged?.Invoke(r, s));
 		connection.On<Guid>("RideRoutesChanged", r => RoutesChanged?.Invoke(r));
 		connection.On<Guid, JoinRequestSummary>("JoinRequestReceived", (r, req) => JoinRequestReceived?.Invoke(r, req));
 		connection.On<Guid, JoinResult>("JoinRequestDecided", (r, res) => JoinRequestDecided?.Invoke(r, res));
@@ -144,7 +139,6 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.On<Guid, ReactionCounts>("ReactionsUpdated", (c, counts) => ReactionsUpdated?.Invoke(c, counts));
 		connection.On<Guid, PollResults>("PollUpdated", (c, results) => PollUpdated?.Invoke(c, results));
 		connection.On<Guid, RidePermissions>("RidePermissionsChanged", (r, p) => PermissionsChanged?.Invoke(r, p));
-		connection.On<Guid, DateTimeOffset>("SharingWindDownStarted", (r, ends) => SharingWindDownStarted?.Invoke(r, ends));
 		connection.On<Guid, Guid, bool>("MemberSharingChanged", (r, u, s) => MemberSharingChanged?.Invoke(r, u, s));
 		connection.On<Guid, Guid, bool>("MemberPrivacyChanged", (r, u, p) => MemberPrivacyChanged?.Invoke(r, u, p));
 

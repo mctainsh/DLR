@@ -64,11 +64,6 @@ public sealed class ReactionController : ControllerBase
 			return NotFound();
 		}
 
-		if (access.ReadOnly)
-		{
-			return RideContentPermissions.AsResult(access.Refusal!);
-		}
-
 		CommentReaction? existing = await database
 			.Set<CommentReaction>()
 			.SingleOrDefaultAsync(row => row.CommentId == id && row.UserId == userId, cancellationToken);

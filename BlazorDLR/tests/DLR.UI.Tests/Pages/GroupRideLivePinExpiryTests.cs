@@ -72,7 +72,6 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
-				State: RideStateDto.Live,
 				JoinPolicy: JoinPolicyDto.Open,
 				MemberCap: 50,
 				MemberCount: 2,

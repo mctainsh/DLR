@@ -203,19 +203,13 @@ public static class AccountExportBuilder
 				member.GroupRideId,
 				member.Ride!.Name,
 
-				// Compared, never cast. Role and State are stored through HasConversion<string>,
-				// so an enum-to-int cast inside a translated projection asks PostgreSQL to read
-				// 'Owner' as an integer — the trap SRV-29 paid fifteen failing tests for.
+				// Compared, never cast. Role is stored through HasConversion<string>, so an
+				// enum-to-int cast inside a translated projection asks PostgreSQL to read 'Owner'
+				// as an integer — the trap SRV-29 paid fifteen failing tests for.
 				member.Role == GroupRideRole.Owner ? "Owner"
 					: member.Role == GroupRideRole.Leader ? "Leader"
 					: member.Role == GroupRideRole.Spectator ? "Spectator"
 					: "Rider",
-				member.Ride.State == GroupRideState.Draft ? "Draft"
-					: member.Ride.State == GroupRideState.Open ? "Open"
-					: member.Ride.State == GroupRideState.Live ? "Live"
-					: member.Ride.State == GroupRideState.Completed ? "Completed"
-					: member.Ride.State == GroupRideState.Archived ? "Archived"
-					: "Cancelled",
 				member.Ride.StartUtc,
 				member.JoinedUtc,
 				member.ShareLocation))

@@ -66,10 +66,6 @@ public interface IRideClient
 	/// <param name="member">Who joined, as the member list draws them.</param>
 	Task MemberJoined(Guid rideId, RideMemberSummary member);
 
-	/// <summary>The ride moved through the §5.1 lifecycle.</summary>
-	/// <param name="state">Where it is now.</param>
-	Task RideStateChanged(RideStateDto state);
-
 	/// <summary>
 	/// A planned route was attached to or detached from the ride (§5.4).
 	/// <para>

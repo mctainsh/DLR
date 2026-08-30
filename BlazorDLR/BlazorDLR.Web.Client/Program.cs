@@ -169,6 +169,7 @@ internal class Program
 		// The unread count on the rail's thread item (§17.6), kept in localStorage so a reloaded
 		// tab does not lose what the rider had not read yet.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.UnreadThreadState>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.ConsentAskedState>();
 
 		// Whether this browser has been shown the introduction (§18.6), kept in localStorage so a
 		// reloaded tab is not shown it a second time.

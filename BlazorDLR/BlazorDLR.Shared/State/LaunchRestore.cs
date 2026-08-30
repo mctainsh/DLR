@@ -102,28 +102,19 @@ public sealed class LaunchRestore
 
 		bool sharing = ride.Members.FirstOrDefault(member => member.UserId == _auth.UserId)?.Sharing ?? false;
 
-		bool underway = ride.State is RideStateDto.Live
-			|| (ride.State is RideStateDto.Completed && sharing);
-
-		if (!underway)
-		{
-			DiagnosticLog.Write($"Startup: the last adventure is {ride.State}; nothing to restore.");
-			return null;
-		}
-
 		if (!sharing)
 		{
-			DiagnosticLog.Write("Startup: the last adventure is underway, but sharing is off.");
-		}
-		else
-		{
-			DiagnosticLog.Write("Startup: still sharing with the last adventure; starting the GPS.");
+			DiagnosticLog.Write("Startup: the last adventure is there, but sharing is off.");
 
-			// Not awaited: bringing the receiver up can put the background-location disclosure on
-			// screen and can wait on a platform permission dialog, and the launch is not held
-			// behind either. It reports itself through LocationBroadcastState.
-			_ = _broadcast.ShareWithAsync(rideId);
+			return $"{CurrentRideState.PickRideHref}/live/{rideId}";
 		}
+
+		DiagnosticLog.Write("Startup: still sharing with the last adventure; starting the GPS.");
+
+		// Not awaited: bringing the receiver up can put the background-location disclosure on
+		// screen and can wait on a platform permission dialog, and the launch is not held behind
+		// either. It reports itself through LocationBroadcastState.
+		_ = _broadcast.ShareWithAsync(rideId);
 
 		return $"{CurrentRideState.PickRideHref}/live/{rideId}";
 	}

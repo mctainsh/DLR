@@ -147,7 +147,7 @@ public sealed class RiderPositionCacheTests
 		Should.NotThrow(cache.MarkReady);
 	}
 
-	private static RiderPositionCache New() => new(new FakeTimeProvider(Noon));
+	private static RiderPositionCache New() => new();
 
 	private static PositionEntry Entry(DateTimeOffset at, int lat = 1) =>
 		new(lat, 2, null, null, null, at, IsDirty: true);

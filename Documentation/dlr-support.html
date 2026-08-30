@@ -216,7 +216,7 @@
 			<li>An <strong>adventure</strong> is a group of people travelling together. The people on it are <strong>travellers</strong>; whoever created it is the <strong>organiser</strong>.</li>
 			<li>Join one with a <strong>six-character code</strong> from the organiser: <strong>Group adventures → Join an adventure</strong>.</li>
 			<li>Nobody sees your position until you turn on <strong>Broadcast my location to this adventure</strong>, on that adventure's info page. It starts off, every time, on every adventure.</li>
-			<li>Positions only flow once the organiser has pressed <strong>Start adventure</strong>. Before that your GPS stays off.</li>
+			<li>An adventure is live from the moment it is created — there is nothing for the organiser to start, and nothing to end.</li>
 			<li>Turning sharing off <em>deletes</em> the position the adventure was holding for you — it does not leave a last-known pin behind.</li>
 			<li>Heading somewhere with no signal? <strong>Settings → Maps</strong> → <em>Offline map pack</em>, and download the area before you leave.</li>
 			<li>Stuck? Jump to <a href="#trouble">Fixing common problems</a>.</li>
@@ -364,7 +364,8 @@
 	</p>
 	<p>
 		An organiser cannot leave their own adventure — an adventure nobody organises has nobody to
-		decide who is in it. The way out is <strong>End adventure…</strong>.
+		decide who is in it. The way out is <strong>Delete adventure…</strong>, which takes the
+		thread, the markers and everybody's stored position with it.
 	</p>
 
 	<h2 id="sharing">4. Sharing your location</h2>
@@ -388,16 +389,7 @@
 	<p>
 		Directly under the switch is a line saying what is actually happening — which is a different
 		question from what the switch says. It will tell you if permission was refused, if no fix has
-		arrived yet, if you are standing inside your own private area, or if the adventure has not
-		been started yet.
-	</p>
-
-	<h3>Before the adventure starts</h3>
-	<p>
-		If you switch sharing on before the organiser presses <strong>Start adventure</strong>, the
-		app says: <em>"Your position starts going to the group when the organiser starts the
-		adventure. Your phone's GPS stays off until then."</em> That is normal, and it is why your
-		battery is not being spent while everyone stands in a car park.
+		arrived yet, or if you are standing inside your own private area.
 	</p>
 
 	<h3>Turning it off</h3>
@@ -407,10 +399,15 @@
 		sit on everyone's map exactly where you asked not to be.
 	</p>
 	<p>
-		Sharing also ends automatically when you leave the adventure, when the organiser removes you,
-		and when the adventure ends. If the organiser chose a wind-down, sharing continues for at
-		most two hours after the end so people can watch each other get home — you can stop yours at
-		any point during it, and the cap cannot be extended.
+		Sharing also ends when you leave the adventure, when the organiser removes you, and when the
+		adventure is deleted. Nothing else stops it, and nobody else can start it: your switch is the
+		whole of the control. If you are done travelling, turn it off — the app will not guess.
+	</p>
+	<p>
+		As housekeeping, a position nothing has updated for <strong>14 days</strong> is deleted and
+		that adventure's switch turned off. That is for a phone that was lost, replaced or left in a
+		drawer. It is not a limit on sharing: while your phone is still sending, you are still
+		sharing.
 	</p>
 
 	<h3>With the screen off</h3>
@@ -422,7 +419,7 @@
 	<ul>
 		<li>On <strong>iPhone and iPad</strong>, the blue location indicator stays lit in the status bar for as long as it is running. For it to keep working with the app in the background, location access must be set to <strong>Always</strong> — <em>While Using the App</em> stops the moment you put the phone away, and resumes when you come back to it.</li>
 		<li>On <strong>Android</strong>, a permanent notification is shown the whole time. It cannot be swiped away, and that is deliberate — it is how you can always tell.</li>
-		<li>It stops when you turn sharing off, leave the adventure, or the adventure ends — <em>not</em> when you close the app.</li>
+		<li>It stops when you turn sharing off, leave the adventure, or the adventure is deleted — <em>not</em> when you close the app.</li>
 	</ul>
 
 	<h3>Battery and accuracy</h3>
@@ -616,22 +613,16 @@
 		gone, delete it explicitly.
 	</p>
 
-	<h3>Starting and ending</h3>
+	<h3>Finishing an adventure</h3>
 	<p>
-		<strong>Start adventure</strong> is what makes positions flow. Until you press it, the server
-		drops position updates and everyone's GPS stays off, however many people have switched
-		sharing on.
+		There is nothing to start and nothing to end. An adventure is live from the moment you create
+		it, and the only way to finish one is <strong>Delete adventure…</strong> — which takes the
+		thread, the markers and everybody's stored position with it, and cannot be undone.
 	</p>
 	<p>
-		<strong>End adventure…</strong> asks what should happen to everyone's sharing:
-	</p>
-	<ul>
-		<li><strong>Stop sharing for everyone now</strong> — sharing ends immediately and every stored position is deleted.</li>
-		<li><strong>Let travellers stop themselves (2-hour wind-down)</strong> — sharing continues so people can watch each other get home. The cap is two hours, cannot be extended, and is enforced by the server. Somebody who forgets is not left sharing forever.</li>
-	</ul>
-	<p>
-		You can end sharing for everybody, but you can never switch another traveller's sharing back
-		on.
+		You can never switch another traveller's sharing on or off. Removing somebody from the
+		adventure deletes their stored position along with their membership, and that is the only
+		effect you have on it — everything else is their own switch.
 	</p>
 
 	<h2 id="tracks">10. Tracks: recording, importing, trimming</h2>
@@ -882,11 +873,11 @@
 	<div class="fix">
 		<h3>Everyone's positions are frozen, or nobody has one</h3>
 		<p>
-			Almost always the adventure has not been started. Positions flow only after the organiser
-			presses <strong>Start adventure</strong>.
+			Almost always nobody has turned sharing on — it starts off for everybody, on every
+			adventure, and the member list says who is and is not sharing.
 		</p>
 		<p>
-			If it has started, check <strong>Last fix</strong> in the live member list. A stale time is
+			If they are sharing, check <strong>Last fix</strong> in the live member list. A stale time is
 			the honest answer for somebody in a valley with no signal — their phone is still recording,
 			it simply cannot send. The list will catch up when they get bars.
 		</p>

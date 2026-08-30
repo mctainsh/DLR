@@ -48,7 +48,7 @@ try
 	});
 
 	// TimeProvider is registered from day one. Every timing-dependent rule in the
-	// project — token lifespans, the flush interval, the wind-down sweep, the
+	// project — token lifespans, the flush interval, the nightly sweeps, the
 	// 180-day inactivity horizon — resolves it, so tests advance a fake clock
 	// rather than sleeping. Retrofitting this later is miserable (§10.4).
 	builder.Services.AddSingleton(TimeProvider.System);
@@ -98,8 +98,6 @@ try
 	builder.Services.AddScoped<IPositionWriter, PositionWriter>();
 	builder.Services.AddSingletonHostedService<PositionFlushService>();
 	builder.Services.AddSingletonHostedService<PositionCacheRehydrator>();
-
-	builder.Services.AddSingletonHostedService<SharingWindDownService>();
 
 	builder.Services.AddSignalR();
 	builder.Services.AddSingletonHostedService<RideBroadcastService>();
@@ -229,6 +227,7 @@ try
 	// call — so the prerender draws no badge, which is the honest answer for a render that can see
 	// neither the device store nor a live connection.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.UnreadThreadState>();
+	builder.Services.AddScoped<BlazorDLR.Shared.State.ConsentAskedState>();
 
 	// Whether this device has been shown the introduction (§18.6). MainLayout injects it, so it has to
 	// resolve here or the prerender throws before WASM can boot. The in-memory store answers "never

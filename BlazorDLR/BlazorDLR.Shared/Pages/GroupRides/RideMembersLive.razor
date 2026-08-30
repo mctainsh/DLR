@@ -37,15 +37,8 @@
 
 <div class="page page-medium ride-members">
 	@* Outside the load branches: the way back to the map has to be there while the ride is
-	   loading and if it fails. The state badge waits — there is no state to report yet. *@
-	<PageNav Title="Live members" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the map">
-		<Actions>
-			@if (_session.Ride is { } loaded)
-			{
-				<span class="state @loaded.State.ToString().ToLowerInvariant()">@loaded.State</span>
-			}
-		</Actions>
-	</PageNav>
+	   loading and if it fails. *@
+	<PageNav Title="Live members" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the map" />
 
 	@if (_session.Ride is null && _session.Error is null)
 	{
@@ -305,28 +298,6 @@
 		margin: 0.5rem 0;
 		color: var(--dlr-fg-muted);
 	}
-
-	.ride-members .state {
-		font-size: 0.85rem;
-		padding: 0.2rem 0.6rem;
-		border-radius: 4px;
-		background: #eef1f520;
-	}
-
-		.ride-members .state.open {
-			background: #dbeafe;
-			color: #1e40af;
-		}
-
-		.ride-members .state.live {
-			background: #d1fae5;
-			color: #14532d;
-		}
-
-		.ride-members .state.completed, .ride-members .state.archived {
-			background: #fef3c730;
-			color: #92400e;
-		}
 
 	/* Same weight as the live map's own offline strip: a statement about what the rider is
 	   looking at, not an error. */

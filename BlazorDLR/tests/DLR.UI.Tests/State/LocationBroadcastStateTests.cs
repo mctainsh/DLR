@@ -249,9 +249,9 @@ public sealed class LocationBroadcastStateTests
 	[Fact]
 	public async Task TheDeviceKnowsWhereItIs_WhetherOrNotTheFixWentAnywhere()
 	{
-		// OwnFix is what this rider's own map draws (§4.3). It must not wait on the server: the
-		// ride keeps nothing until it is Live (§5.1) and fans out on a 5 s tick (§5.3), and a phone
-		// with a lock in hand that draws nothing reads as a broken app.
+		// OwnFix is what this rider's own map draws (§4.3). It must not wait on the server, which
+		// fans out on a 5 s tick (§5.3) — a phone with a lock in hand that draws nothing reads as
+		// a broken app.
 		Harness harness = new Harness().Build();
 		harness.Hub.PublishException = new InvalidOperationException("hub reconnecting");
 		harness.Api.PublishPositionException = new ApiException(new ApiError(

@@ -160,7 +160,6 @@ public sealed record ExportedPhoto(
 /// <param name="Id">The ride.</param>
 /// <param name="Name">What it is called.</param>
 /// <param name="Role">Owner, leader, rider or spectator.</param>
-/// <param name="State">Where it is in the §5.1 lifecycle.</param>
 /// <param name="StartUtc">When it was planned to start.</param>
 /// <param name="JoinedUtc">When this account joined.</param>
 /// <param name="ShareLocation">Whether this account consented to broadcast to it (§5.6).</param>
@@ -168,7 +167,6 @@ public sealed record ExportedRide(
 	Guid Id,
 	string Name,
 	string Role,
-	string State,
 	DateTimeOffset StartUtc,
 	DateTimeOffset JoinedUtc,
 	bool ShareLocation);

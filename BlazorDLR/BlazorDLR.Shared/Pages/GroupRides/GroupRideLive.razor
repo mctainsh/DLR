@@ -16,6 +16,7 @@
 @inject RouteStyleState RouteStyles
 @inject IScreenWakeLock ScreenWakeLock
 @inject IDeviceSettings Settings
+@inject ConsentAskedState ConsentAsked
 @inject TimeProvider Clock
 @implements IAsyncDisposable
 
@@ -194,31 +195,7 @@
 					<span>@alerting.Describe()</span>
 				</div>
 			}
-			else if (_session.SharingPending && HasOwnReceiver)
-			{
-				@*
-					Sharing is on and the ride has not started, so nothing this device sends would be
-					kept (§5.1) — and the receiver is not running, so there is nothing to report about
-					it either. Said out loud rather than left as an empty map: the rider has agreed to
-					share, been through the disclosure and the phone's permission prompts, and is owed
-					the reason they are still the only thing not on screen.
-
-					Not styled as an error. Nothing has gone wrong; the ride simply has not started.
-
-					**Only on a host with a receiver.** `Sharing` is the server's flag, not this
-					device's capability: a rider who turned it on from their phone carries it into
-					every host they sign in on, and a browser has no GPS to start (§18.6). Saying
-					"your position starts going to the group" on a laptop promises something that
-					will never happen from this machine — the phone in their pocket is what will do
-					it, and it says so there. Same rule as the sharing panel on GroupRideInfo, which
-					is absent on a browser for the same reason.
-				*@
-				<div class="map-error gps-alert" role="status">
-					<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
-					<span>Sharing is on. Your position starts going to the group when the organiser starts the adventure.</span>
-				</div>
-			}
-			else if (HasOwnReceiver && !_session.Sharing && ride.State is RideStateDto.Open or RideStateDto.Live)
+			else if (HasOwnReceiver && !_session.Sharing)
 			{
 				@*
 					Sharing is off on a device that could be doing it (§5.6).
@@ -239,10 +216,6 @@
 					`HasOwnReceiver`, so this is silent in a browser: a traveller watching from a
 					laptop is not withholding anything, and there is nothing they could do about it
 					if they were (§18.6).
-
-					Open and Live only. Draft is not a ride anybody is on yet, and on a finished one
-					the group has stopped looking — a red strip on either is an alarm about a
-					situation that does not exist.
 				*@
 				<div class="map-error sharing-off error" role="alert">
 					<i class="fa fa-eye-slash" aria-hidden="true"></i>
@@ -384,9 +357,9 @@
 				here than anywhere else on the page since the visual state is a colour swap.
 
 				The label carries the "waiting for a fix" case the menu item used to state in
-				words. Following with nothing to point at is not a fault — a ride that has not
-				started carries no positions (§5.1) — but a lit button over a map that is not
-				moving needs to be able to say which of the two it is.
+				words. Following with nothing to point at is not a fault — a receiver with no
+				lock yet has nothing to point at — but a lit button over a map that is not
+				moving needs to be able to say so.
 			*@
 			<button type="button" class="follow @(_followMe ? "on" : null)"
 					@onclick="ToggleFollowMeAsync"
@@ -594,8 +567,8 @@
 		@if (_showConsent)
 		{
 			<ConsentPrompt RideName="@ride.Name"
-						   OnShare="OnConsentShareAsync"
-						   OnDismiss="OnConsentDismissAsync" />
+						   OnShare="() => CloseConsentAsync(true)"
+						   OnDismiss="() => CloseConsentAsync(false)" />
 		}
 
 		@if (NearbyMarkers is { Count: > 0 } nearby)
@@ -1012,10 +985,10 @@
 	/// to do.
 	/// <para>
 	/// The third case is the one that has to be there. Following with nothing to point at is not a
-	/// fault: a ride that has not started carries no positions (§5.1), and a receiver that has not
-	/// got a lock yet has nothing of its own either. It used to be stated in words beside the menu
-	/// item, and now that the button is the only control it is the button that has to say it — a
-	/// lit control over a map that is not moving otherwise reads as broken.
+	/// fault — a receiver that has not got a lock yet has nothing of its own to point at. It used
+	/// to be stated in words beside the menu item, and now that the button is the only control it
+	/// is the button that has to say it: a lit control over a map that is not moving otherwise
+	/// reads as broken.
 	/// </para>
 	/// </summary>
 	private string FollowLabel => (_followMe, MyPoint) switch
@@ -1116,17 +1089,14 @@
 
 	/// <summary>
 	/// Whether this device is supposed to be putting itself on the map right now: it has a
-	/// receiver, the rider has said yes, and the adventure is at a point where a fix is kept
-	/// (§5.1).
+	/// receiver and the rider has said yes.
 	/// <para>
 	/// The gate in front of every GPS warning below, and it is what keeps them honest. A receiver
 	/// that is off because nobody asked it for anything is the correct resting state — warning
-	/// about it would be an app complaining that the rider has not agreed to be tracked — and one
-	/// that is idle because the organiser has not started yet already has its own strip saying so.
+	/// about it would be an app complaining that the rider has not agreed to be tracked.
 	/// </para>
 	/// </summary>
-	private bool ReceiverShouldBeRunning =>
-		HasOwnReceiver && _session.Sharing && _session.RideCarriesPositions;
+	private bool ReceiverShouldBeRunning => HasOwnReceiver && _session.Sharing;
 
 	/// <summary>
 	/// Nothing is reaching the hub (§5.3) — the warning a phone gets and a browser does not.
@@ -1173,8 +1143,7 @@
 	/// <para>
 	/// <strong>Why a phone refuses the round trip rather than merely preferring the local read.</strong>
 	/// The ride's copy is the same fix after a journey: filtered by <c>PositionGate</c> on the way
-	/// out (§4.2), kept only once the ride is <c>Live</c> (§5.1), and returned on a 5 s fan-out
-	/// tick (§5.3). Every one of those is right for showing the <em>other</em> riders — it is the
+	/// out (§4.2) and returned on a 5 s fan-out tick (§5.3). Every one of those is right for showing the <em>other</em> riders — it is the
 	/// best anyone can know about somebody else — and every one is a reason not to show it back to
 	/// the person whose phone produced it, who has the current answer in their hand. Preferring the
 	/// device and falling back to the server was worse than either: the mark would track properly,
@@ -1565,6 +1534,7 @@
 			// phone has just lost signal in the middle of a ride.
 			_forgotten = true;
 			await CurrentRide.ForgetAsync(RideId);
+			await ConsentAsked.ForgetAsync(RideId);
 		}
 
 		// The ride's routes are in, which is the frame this page prefers. A no-op on the very
@@ -1573,9 +1543,11 @@
 		// second first render to hang it off.
 		await FrameOpeningAsync();
 
-		// Consent prompt: shown once per joined ride that we do not yet share with. §5.6's
-		// rule is dismissing = "not now", which is a no-op — closing the modal simply removes it.
-		if (!_session.Sharing && _session.Ride?.State == RideStateDto.Open)
+		// Asked once per adventure per device (§5.6). The load is one device read for the whole
+		// app rather than one per ride, so this costs nothing after the first.
+		await ConsentAsked.LoadAsync();
+
+		if (!_session.Sharing && !ConsentAsked.WasAsked(RideId))
 		{
 			_showConsent = true;
 		}
@@ -1595,6 +1567,7 @@
 			{
 				_forgotten = true;
 				await CurrentRide.ForgetAsync(RideId);
+				await ConsentAsked.ForgetAsync(RideId);
 			}
 
 			// Every position batch is a chance that this rider moved, and this is the only place
@@ -2635,16 +2608,18 @@
 
 	// -- Consent ------------------------------------------------------------------------------
 
-	private async Task OnConsentShareAsync()
+	/// <summary>Closes the prompt and remembers that it was answered, either way.</summary>
+	/// <param name="share">What the rider chose.</param>
+	private async Task CloseConsentAsync(bool share)
 	{
 		_showConsent = false;
-		await _session.SetSharingAsync(true);
-	}
 
-	private Task OnConsentDismissAsync()
-	{
-		_showConsent = false;
-		return Task.CompletedTask;
+		await ConsentAsked.MarkAskedAsync(RideId);
+
+		if (share)
+		{
+			await _session.SetSharingAsync(true);
+		}
 	}
 
 	public async ValueTask DisposeAsync()
@@ -2899,10 +2874,9 @@
 	}
 
 	/*
-		The two receiver strips that are not one of the permanent warnings: "fixes are not getting
-		through", and "sharing is on, the adventure has not started". Red text on the map's own
-		surface rather than a filled box — the second is not a failure at all, and the first is one
-		the app is already retrying.
+		The receiver strip that is not one of the permanent warnings: "fixes are not getting
+		through". Red text on the map's own surface rather than a filled box, because it is a
+		state the app is already retrying rather than a failure the rider has to act on.
 
 		No `top` any more: the rail above places every strip now, and a leftover offset here would
 		be a rule that looks like it is doing something.

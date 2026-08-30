@@ -63,20 +63,7 @@ public sealed class PositionStore(
 		// in it at all — broadcasting anyway and having the recipients' apps hide the pin would
 		// leave the position in the database, in the fan-out and on the wire, three places it has
 		// no business being.
-		DateTimeOffset now = cache.Clock.GetUtcNow();
-
-		// Live rides, plus rides inside an *unexpired* wind-down (§5.6). The second half is the
-		// whole point of the wind-down: members who were sharing keep sharing until they stop or
-		// the window closes, so the organiser at home can see that everyone else got home too.
-		List<Guid> rideIds = await database
-			.Set<GroupRideMember>()
-			.Where(member =>
-				member.UserId == userId
-				&& member.ShareLocation
-				&& (member.Ride!.State == GroupRideState.Live
-					|| (member.Ride.SharingEndsUtc != null && member.Ride.SharingEndsUtc > now)))
-			.Select(member => member.GroupRideId)
-			.ToListAsync();
+		IReadOnlyList<Guid> rideIds = await SharedRideIdsAsync(userId);
 
 		// A coordinate arriving is proof the rider is outside their circle, so it clears the flag
 		// whether or not the device remembered to say so (§10.1). The device does say so, and this
@@ -156,20 +143,12 @@ public sealed class PositionStore(
 	public IReadOnlySet<Guid> PrivateRiders() => privacy.Everyone();
 
 	/// <summary>The rides a fix from this rider would currently land in (§5.7).</summary>
-	private async Task<IReadOnlyList<Guid>> SharedRideIdsAsync(Guid userId)
-	{
-		DateTimeOffset now = cache.Clock.GetUtcNow();
-
-		return await database
+	private async Task<IReadOnlyList<Guid>> SharedRideIdsAsync(Guid userId) =>
+		await database
 			.Set<GroupRideMember>()
-			.Where(member =>
-				member.UserId == userId
-				&& member.ShareLocation
-				&& (member.Ride!.State == GroupRideState.Live
-					|| (member.Ride.SharingEndsUtc != null && member.Ride.SharingEndsUtc > now)))
+			.Where(member => member.UserId == userId && member.ShareLocation)
 			.Select(member => member.GroupRideId)
 			.ToListAsync();
-	}
 
 	/// <summary>
 	/// Stops a rider sharing with one ride and <strong>deletes the stored position</strong>.
@@ -191,7 +170,50 @@ public sealed class PositionStore(
 		cache.Remove(rideId, userId);
 	}
 
-	/// <summary>Deletes every position in a ride — the default ending, and cancellation (§5.6).</summary>
+	/// <summary>
+	/// Deletes every position with no fix since <paramref name="floor"/>, and switches those
+	/// riders' sharing off (§5.6, §7.11).
+	/// </summary>
+	/// <param name="floor">The oldest fix worth keeping.</param>
+	/// <returns>How many rows went.</returns>
+	/// <remarks>
+	/// The fourth route that ends a rider's participation, and it lives here with the other three
+	/// for the reason this type exists. It is set-based rather than a loop over
+	/// <see cref="StopSharingAsync"/> because it is a backstop over the whole table, but the
+	/// obligation is the same one and is stated once.
+	/// </remarks>
+	public async Task<int> ClearIdleAsync(DateTimeOffset floor)
+	{
+		await database
+			.Set<GroupRideMember>()
+			.Where(member => member.ShareLocation && database
+				.Set<RiderPosition>()
+				.Any(position => position.GroupRideId == member.GroupRideId
+					&& position.UserId == member.UserId
+					&& position.RecordedUtc < floor))
+			.ExecuteUpdateAsync(row => row.SetProperty(member => member.ShareLocation, false));
+
+		int deleted = await database
+			.Set<RiderPosition>()
+			.Where(position => position.RecordedUtc < floor)
+			.ExecuteDeleteAsync();
+
+		// The eviction is what stops a flush already in flight writing the row straight back —
+		// the flush reads the cache and never the sharing flag, so clearing the flag first would
+		// not have prevented it. Same delete-then-evict pair as StopSharingAsync.
+		cache.RemoveOlderThan(floor);
+
+		return deleted;
+	}
+
+	/// <summary>Counts what <see cref="ClearIdleAsync"/> would take, for a dry run (§7.11).</summary>
+	/// <param name="floor">The oldest fix worth keeping.</param>
+	public Task<int> CountIdleAsync(DateTimeOffset floor) =>
+		database
+			.Set<RiderPosition>()
+			.CountAsync(position => position.RecordedUtc < floor);
+
+	/// <summary>Deletes every position in an adventure — what deleting one takes with it (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
 	public async Task ClearRideAsync(Guid rideId)
 	{

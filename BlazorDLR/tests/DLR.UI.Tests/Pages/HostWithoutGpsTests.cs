@@ -50,7 +50,6 @@ public sealed class HostWithoutGpsTests : PageTestContext
 				Name: "Saturday Coast Run",
 				Description: "Up the old road.",
 				StartUtc: FixedInstant,
-				State: RideStateDto.Live,
 				JoinPolicy: JoinPolicyDto.Open,
 				MemberCap: 50,
 				MemberCount: 2,
@@ -212,13 +211,11 @@ public sealed class HostWithoutGpsTests : PageTestContext
 	}
 
 	[Fact]
-	public async Task LiveMap_SaysNothingAboutPendingSharing_OnAHostThatCannotShare()
+	public async Task LiveMap_SaysNothingAboutTheGps_ForASharingRiderOnAHostThatCannotShare()
 	{
 		// `Sharing` is the server's flag, not this device's capability: a rider who turned it on
-		// from their phone carries it into every host they sign in on. On the phone the strip is
-		// owed to them — consent given, receiver deliberately idle until the organiser starts
-		// (§5.1). On a laptop the same sentence promises a broadcast this machine will never make,
-		// and the rider is left waiting for a pin that was always going to come from their pocket.
+		// from their phone carries it into every host they sign in on. A browser has no receiver
+		// to report on, so it says nothing rather than reporting on one that will never run.
 		(FakeApiClient api, _, Guid rideId) = WireBrowser();
 
 		Guid me = Guid.NewGuid();
@@ -228,11 +225,9 @@ public sealed class HostWithoutGpsTests : PageTestContext
 			RefreshToken: "refresh",
 			User: new AuthenticatedUser(me, "Me", HasEmail: true, EmailConfirmed: true)));
 
-		// Open rather than Live, which is the whole of what "pending" means, and this rider's
-		// consent already recorded against it.
+		// Consent already recorded against this adventure, from the phone.
 		api.RideResult = api.RideResult! with
 		{
-			State = RideStateDto.Open,
 			Members = [new RideMemberSummary(me, "Me", "Rider", FixedInstant, Sharing: true)],
 		};
 
@@ -242,11 +237,8 @@ public sealed class HostWithoutGpsTests : PageTestContext
 		component.WaitForAssertion(() =>
 			component.FindAll("button.hamburger").ShouldNotBeEmpty(), timeout: TimeSpan.FromSeconds(3));
 
-		component.FindAll(".gps-alert").ShouldBeEmpty();
-		component.Markup.Contains("Your position starts going to the group", StringComparison.Ordinal)
-			.ShouldBeFalse(
-				"§18.6: a browser has no receiver to start, so it must not tell a traveller that "
-				+ "starting the adventure will put this machine on the map.");
+		component.FindAll(".gps-alert").ShouldBeEmpty(
+			"§18.6: a browser has no receiver, so it has nothing to report about one.");
 	}
 
 	[Fact]

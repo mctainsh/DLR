@@ -67,7 +67,7 @@ public sealed class PositionPersistenceTests(PostgresFixture postgres)
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
 
-		RideDetail ride = await CreateLiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await ShareAsync(organiser, ride.Id);
 		await PublishAsync(organiser, -33.86, 151.20);
@@ -85,28 +85,6 @@ public sealed class PositionPersistenceTests(PostgresFixture postgres)
 			(await after.GetFromJsonAsync<List<RiderPositionDto>>($"{RidesUrl}/{ride.Id}/positions"))!;
 
 		visible.ShouldHaveSingleItem().Lat.ShouldBe(PositionScale.FromDegrees(-33.86));
-	}
-
-	/// <summary>Rule 1: live rides only. A finished ride's pins must not come back (§5.5).</summary>
-	[Fact]
-	public async Task Rehydrate_LoadsLiveRidesOnly()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
-
-		(Guid live, Guid liveRider) = await LiveRideAsync(app);
-		(Guid completed, Guid completedRider) = await LiveRideAsync(app, state: GroupRideState.Completed);
-
-		DateTimeOffset now = DlrWebApplicationFactory.DefaultStart;
-
-		await WriteAsync(app, live, liveRider, lat: 1, at: now);
-		await WriteAsync(app, completed, completedRider, lat: 2, at: now);
-
-		RiderPositionCache cache = await RehydrateAsync(app, now);
-
-		cache.ForRide(live).ShouldHaveSingleItem();
-
-		cache.ForRide(completed).ShouldBeEmpty(
-			"an adventure that has ended is not sharing, and its rows are on their way out anyway");
 	}
 
 	/// <summary>
@@ -162,7 +140,7 @@ public sealed class PositionPersistenceTests(PostgresFixture postgres)
 
 		FakeTimeProvider clock = new(DlrWebApplicationFactory.DefaultStart);
 
-		RiderPositionCache cache = new(clock);
+		RiderPositionCache cache = new();
 
 		ServiceCollection empty = new();
 
@@ -190,7 +168,7 @@ public sealed class PositionPersistenceTests(PostgresFixture postgres)
 	{
 		FakeTimeProvider clock = new(now);
 
-		RiderPositionCache cache = new(clock);
+		RiderPositionCache cache = new();
 
 		PositionCacheRehydrator rehydrator = new(
 			cache,
@@ -221,13 +199,11 @@ public sealed class PositionPersistenceTests(PostgresFixture postgres)
 			CancellationToken.None);
 	}
 
-	private static async Task<(Guid RideId, Guid RiderId)> LiveRideAsync(
-		DlrWebApplicationFactory app,
-		GroupRideState state = GroupRideState.Live)
+	private static async Task<(Guid RideId, Guid RiderId)> LiveRideAsync(DlrWebApplicationFactory app)
 	{
 		using HttpClient organiser = await SignedInAsync(app, $"Dave{Guid.NewGuid():N}"[..16]);
 
-		RideDetail ride = await CreateLiveRideAsync(app, organiser, state);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		Guid ownerId = await app.WithDatabaseAsync(database =>
 			database.Set<GroupRideMember>()
@@ -264,10 +240,7 @@ public sealed class PositionPersistenceTests(PostgresFixture postgres)
 		return session.User.Id;
 	}
 
-	private static async Task<RideDetail> CreateLiveRideAsync(
-		DlrWebApplicationFactory app,
-		HttpClient organiser,
-		GroupRideState state = GroupRideState.Live)
+	private static async Task<RideDetail> CreateRideAsync(HttpClient organiser)
 	{
 		using HttpResponseMessage response = await organiser.PostAsJsonAsync(
 			RidesUrl,
@@ -276,14 +249,7 @@ public sealed class PositionPersistenceTests(PostgresFixture postgres)
 				DlrWebApplicationFactory.DefaultStart.AddDays(3),
 				JoinPolicy: JoinPolicyDto.Open));
 
-		RideDetail ride = (await response.Content.ReadFromJsonAsync<RideDetail>())!;
-
-		await app.WithDatabaseAsync(async database =>
-			await database.Set<GroupRide>()
-				.Where(row => row.Id == ride.Id)
-				.ExecuteUpdateAsync(row => row.SetProperty(x => x.State, state)));
-
-		return ride;
+		return (await response.Content.ReadFromJsonAsync<RideDetail>())!;
 	}
 
 	private static async Task ShareAsync(HttpClient client, Guid rideId) =>

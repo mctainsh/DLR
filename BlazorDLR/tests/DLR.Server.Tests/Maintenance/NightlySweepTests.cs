@@ -36,6 +36,11 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 		["Maintenance:DryRun"] = "false",
 	};
 
+	private static Dictionary<string, string?> DryRun => new()
+	{
+		["Maintenance:DryRun"] = "true",
+	};
+
 	/// <summary>
 	/// §15.6's undo window, enforced (§7.11). The API already refuses to undo past
 	/// <c>PurgeAfterUtc</c> — this is what makes the bytes go, which is the half the rider who
@@ -197,25 +202,26 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// §5.5's backstop, and the one that closes SRV-22's known gap the long way round: a position
-	/// belonging to a ride that is neither Live nor winding down is a position at rest, which is
-	/// exactly what §10.1 says this app does not keep.
+	/// §5.6's backstop. With no end-of-adventure to reclaim rows, a position nothing has updated
+	/// for <c>Ride:PositionIdleDays</c> is a position at rest — exactly what §10.1 says this app
+	/// does not keep. The sharing switch goes with it, or a phone that wakes up a month later
+	/// resumes broadcasting without anybody being asked again.
 	/// </summary>
 	[Fact]
-	public async Task NightlySweep_DeletesPositionsForRidesNoLongerLive()
+	public async Task NightlySweep_DeletesIdlePositionsAndClearsTheirSharing()
 	{
 		await using DlrWebApplicationFactory app =
 			await DlrWebApplicationFactory.CreateAsync(postgres, settings: Live);
 
 		Guid riderId = await AccountAsync(app, "DaveSmith");
 
-		Guid completed = await RideAsync(app, riderId, GroupRideState.Completed);
-		Guid live = await RideAsync(app, riderId, GroupRideState.Live);
+		Guid idle = await RideAsync(app, riderId);
+		Guid current = await RideAsync(app, riderId);
 
 		await app.WithDatabaseAsync(async database =>
 		{
-			database.Add(Position(completed, riderId, app.Clock.GetUtcNow()));
-			database.Add(Position(live, riderId, app.Clock.GetUtcNow()));
+			database.Add(Position(idle, riderId, app.Clock.GetUtcNow().AddDays(-15)));
+			database.Add(Position(current, riderId, app.Clock.GetUtcNow().AddDays(-13)));
 
 			await database.SaveChangesAsync();
 		});
@@ -224,40 +230,39 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 
 		report.PositionsDeleted.ShouldBe(1);
 
-		(await PositionCountAsync(app, completed)).ShouldBe(0);
-		(await PositionCountAsync(app, live)).ShouldBe(1, "the adventure is still running");
+		(await PositionCountAsync(app, idle)).ShouldBe(0);
+		(await PositionCountAsync(app, current)).ShouldBe(1, "inside the window, so it stays");
+
+		(await SharingAsync(app, idle, riderId)).ShouldBeFalse(
+			"§5.6: the flag and the row go together on every delete path.");
+		(await SharingAsync(app, current, riderId)).ShouldBeTrue(
+			"a rider still sending fixes is still sharing.");
 	}
 
-	/// <summary>
-	/// A ride inside an unexpired wind-down is still sharing (§5.6). Sweeping it would blank the
-	/// map for the riders the wind-down exists for — the ones still an hour from home in the dark.
-	/// </summary>
+	/// <summary>A dry run reports what it would take and touches nothing (§7.11).</summary>
 	[Fact]
-	public async Task NightlySweep_KeepsPositionsForARideInAnUnexpiredWindDown()
+	public async Task NightlySweep_DryRun_CountsIdlePositionsAndDeletesNothing()
 	{
 		await using DlrWebApplicationFactory app =
-			await DlrWebApplicationFactory.CreateAsync(postgres, settings: Live);
+			await DlrWebApplicationFactory.CreateAsync(postgres, settings: DryRun);
 
 		Guid riderId = await AccountAsync(app, "DaveSmith");
 
-		Guid windingDown = await RideAsync(app, riderId, GroupRideState.Completed);
+		Guid idle = await RideAsync(app, riderId);
 
 		await app.WithDatabaseAsync(async database =>
 		{
-			GroupRide ride = await database.Set<GroupRide>().SingleAsync(row => row.Id == windingDown);
-
-			ride.EndedUtc = app.Clock.GetUtcNow();
-			ride.SharingEndsUtc = app.Clock.GetUtcNow().AddHours(1);
-
-			database.Add(Position(windingDown, riderId, app.Clock.GetUtcNow()));
+			database.Add(Position(idle, riderId, app.Clock.GetUtcNow().AddDays(-15)));
 
 			await database.SaveChangesAsync();
 		});
 
 		MaintenanceReport report = await app.RunMaintenanceAsync();
 
-		report.PositionsDeleted.ShouldBe(0);
-		(await PositionCountAsync(app, windingDown)).ShouldBe(1);
+		report.PositionsDeleted.ShouldBe(1, "a dry run reports what it would take");
+
+		(await PositionCountAsync(app, idle)).ShouldBe(1);
+		(await SharingAsync(app, idle, riderId)).ShouldBeTrue("and changes nothing");
 	}
 
 	/// <summary>
@@ -465,10 +470,7 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 			return track.Id;
 		});
 
-	private static Task<Guid> RideAsync(
-		DlrWebApplicationFactory app,
-		Guid ownerId,
-		GroupRideState state) =>
+	private static Task<Guid> RideAsync(DlrWebApplicationFactory app, Guid ownerId) =>
 		app.WithDatabaseAsync(async database =>
 		{
 			GroupRide ride = new()
@@ -477,7 +479,6 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 				OwnerId = ownerId,
 				Name = "Sunday",
 				StartUtc = app.Clock.GetUtcNow(),
-				State = state,
 				JoinCode = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant(),
 				CreatedUtc = app.Clock.GetUtcNow(),
 			};
@@ -497,6 +498,13 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 
 			return ride.Id;
 		});
+
+	private static Task<bool> SharingAsync(DlrWebApplicationFactory app, Guid rideId, Guid userId) =>
+		app.WithDatabaseAsync(database => database
+			.Set<GroupRideMember>()
+			.Where(member => member.GroupRideId == rideId && member.UserId == userId)
+			.Select(member => member.ShareLocation)
+			.SingleAsync());
 
 	private static RiderPosition Position(Guid rideId, Guid userId, DateTimeOffset recorded) =>
 		new()

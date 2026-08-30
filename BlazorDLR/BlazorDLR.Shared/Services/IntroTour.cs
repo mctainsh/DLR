@@ -59,7 +59,7 @@ public static class IntroTour
 		new IntroSlide(
 			"fa-mountain-sun",
 			"Welcome to Dumb Luck Routes",
-			"Travel together, know where each other is, and stop knowing the moment the adventure ends. "
+			"Travel together, know where each other is, and stop knowing the moment you turn sharing off. "
 			+ "Here is the whole app in about twenty seconds."),
 
 		new IntroSlide(
@@ -83,7 +83,7 @@ public static class IntroTour
 		new IntroSlide(
 			"fa-user-shield",
 			"You decide who sees you",
-			"Sharing is only ever with the adventure you are on, and it stops when the adventure does. "
+			"Sharing is only ever with the adventure you are on, and it stops the moment you turn it off. "
 			+ "Set a private area around home and your position is never sent from inside it."),
 	];
 }

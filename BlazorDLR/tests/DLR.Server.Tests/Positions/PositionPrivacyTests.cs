@@ -37,7 +37,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-		RideDetail ride = await CreateLiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 		await JoinAsync(rider, ride.JoinCode!);
@@ -75,7 +75,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-		RideDetail ride = await CreateLiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 		await JoinAsync(rider, ride.JoinCode!);
@@ -103,7 +103,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-		RideDetail ride = await CreateLiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		using HttpClient rider = await SignedInAsync(app, "SamJones");
 		await JoinAsync(rider, ride.JoinCode!);
@@ -126,7 +126,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
 		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-		RideDetail ride = await CreateLiveRideAsync(app, organiser);
+		RideDetail ride = await CreateRideAsync(organiser);
 
 		await ShareAsync(organiser, ride.Id);
 		await PublishAsync(organiser, -33.80, 151.10);
@@ -146,7 +146,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 	private static async Task<IReadOnlyList<RiderPositionDto>> Snapshot(HttpClient client, Guid rideId) =>
 		(await client.GetFromJsonAsync<List<RiderPositionDto>>($"{RidesUrl}/{rideId}/positions"))!;
 
-	private static async Task<RideDetail> CreateLiveRideAsync(DlrWebApplicationFactory app, HttpClient organiser)
+	private static async Task<RideDetail> CreateRideAsync(HttpClient organiser)
 	{
 		using HttpResponseMessage response = await organiser.PostAsJsonAsync(
 			RidesUrl,
@@ -155,14 +155,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 				DlrWebApplicationFactory.DefaultStart.AddDays(3),
 				JoinPolicy: JoinPolicyDto.Open));
 
-		RideDetail ride = (await response.Content.ReadFromJsonAsync<RideDetail>())!;
-
-		await app.WithDatabaseAsync(async database =>
-			await database.Set<GroupRide>()
-				.Where(row => row.Id == ride.Id)
-				.ExecuteUpdateAsync(row => row.SetProperty(x => x.State, GroupRideState.Live)));
-
-		return ride;
+		return (await response.Content.ReadFromJsonAsync<RideDetail>())!;
 	}
 
 	private static async Task ShareAsync(HttpClient client, Guid rideId) =>

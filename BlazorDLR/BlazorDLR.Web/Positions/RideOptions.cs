@@ -25,21 +25,15 @@ public sealed class RideOptions
 	/// </summary>
 	public int StalenessMinutes { get; set; } = 15;
 
-	/// <summary>How often the wind-down sweep runs (§5.6). SRV-25 consumes this.</summary>
-	public int WindDownSweepSeconds { get; set; } = 60;
-
-	/// <summary>The wind-down's own length — a different thing from the sweep (§5.6).</summary>
-	public int MaxWindDownMinutes { get; set; } = 120;
-
 	/// <summary>
-	/// How many rides one rider may have <em>live</em> at once (§5.7).
+	/// How long a stored position may go without a fix before the nightly sweep deletes it and
+	/// clears the rider's sharing switch (§5.6, §7.11).
 	/// <para>
-	/// Being a member of many rides is fine; being live in many at once is what costs, because
-	/// each live ride is its own 5 s inbound batch. Unbounded means a rider can be broadcast into
-	/// fifty groups at once.
+	/// A backstop for the row nothing else reclaims — a phone that died, an app uninstalled, an
+	/// adventure nobody deletes. Not a privacy promise: a rider still sharing is still sharing.
 	/// </para>
 	/// </summary>
-	public int MaxConcurrentLiveRidesPerUser { get; set; } = 5;
+	public int PositionIdleDays { get; set; } = 14;
 
 	/// <summary>
 	/// How many planned routes one ride may carry (§5.4).

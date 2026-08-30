@@ -309,23 +309,16 @@ public sealed class TrackController : ControllerBase
 			return NotFound();
 		}
 
-		// The §15.4 precondition an edit meets, and this passes it for a stronger reason: an edit
-		// moves the line a ride in progress is being measured against, and a delete takes it away
-		// entirely — the attachment cascades, and every rider's place in §5.4's gap list goes with
-		// it mid-ride.
-		bool isLiveRoute = await database
-			.Set<Data.Rides.GroupRideRoute>()
-			.AnyAsync(
-				route => route.TrackId == id && route.Ride!.State == Data.Rides.GroupRideState.Live,
-				cancellationToken);
-
-		if (isLiveRoute)
+		// The §15.4 precondition an edit meets, and a delete meets it for a stronger reason: an
+		// edit moves the line an adventure is measured against, and a delete takes it away
+		// entirely — the attachment cascades, and every rider's place in §5.4's gap list with it.
+		if (await Rides.RideRouteEndpoints.IsTrackAttachedAsync(database, id, cancellationToken))
 		{
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
-				title: "This track is a live adventure's route",
-				detail: "An adventure in progress is using this track as its planned route. Delete it " +
-					"once the adventure has ended, or remove it from the adventure first.");
+				title: "This track is an adventure's route",
+				detail: "An adventure is using this track as its planned route. Remove it from the " +
+					"adventure first, or delete the adventure.");
 		}
 
 		// Gathered before the delete, for the reason on the method.

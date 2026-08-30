@@ -42,8 +42,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	private FakeTimeProvider _clock = default!;
 
 	private async Task<(FakeApiClient api, FakeRideHubClient hub, Guid rideId)> WireServicesAsync(
-		IReadOnlyList<RiderPositionDto>? positions = null,
-		RideStateDto state = RideStateDto.Live)
+		IReadOnlyList<RiderPositionDto>? positions = null)
 	{
 		Guid rideId = Guid.NewGuid();
 		FakeApiClient api = new()
@@ -54,7 +53,6 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
-				State: state,
 				JoinPolicy: JoinPolicyDto.Open,
 				MemberCap: 50,
 				MemberCount: 1,
@@ -674,11 +672,10 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	// ---------- The rider's own mark, off this device rather than off the server ----------
 
 	/// <summary>
-	/// The bug this pair exists for: a rider with a GPS lock, on a ride the server has nothing for
-	/// them in yet, saw an empty map and a follow mode that silently did nothing. Their pin is the
-	/// far end of a round trip — the ride only carries positions once it is Live (§5.1), and the
-	/// fan-out is a 5 s tick (§5.3) — and none of that should stand between somebody and seeing
-	/// where they are.
+	/// The bug this pair exists for: a rider with a GPS lock, on an adventure the server has
+	/// nothing for them in yet, saw an empty map and a follow mode that silently did nothing.
+	/// Their pin is the far end of a round trip — a 5 s fan-out tick (§5.3) after a flush — and
+	/// none of that should stand between somebody and seeing where they are.
 	/// </summary>
 	[Fact]
 	public async Task TheDevicesOwnFix_PutsThisRiderOnTheMap_WithNothingBackFromTheRide()
@@ -733,8 +730,8 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		{
 			MapCamera latest = _map.Cameras[^1];
 			latest.Latitude.ShouldBe(-37.8136, tolerance: 1e-4,
-				customMessage: "following waited on the server's copy of this traveller, which on an adventure " +
-				"that has not started yet never arrives.");
+				customMessage: "following waited on the server's copy of this traveller, which has " +
+				"not come back yet.");
 			latest.Longitude.ShouldBe(144.9631, tolerance: 1e-4);
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -942,53 +939,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			"permission gate neither MAUI host grants, so it would answer nothing at all.");
 	}
 
-	// ---------- A ride that has not started ----------
-
-	/// <summary>
-	/// The other half of the same bug. Sharing can be turned on for an <c>Open</c> ride — the
-	/// consent prompt is shown for exactly that state — but <c>PositionStore.PublishAsync</c> keeps
-	/// a fix only for a ride that is <c>Live</c> or inside a wind-down (§5.1). Running the GPS into
-	/// that is a foreground service and a battery bill for fixes the server drops, under a screen
-	/// that says "Sharing your location".
-	/// </summary>
-	[Fact]
-	public async Task OnARideThatHasNotStarted_TheReceiverDoesNotRun_AndTheMapSaysWhy()
-	{
-		(_, _, Guid rideId) = await WireServicesAsync(state: RideStateDto.Open);
-
-		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
-
-		component.WaitForAssertion(
-			() => component.Markup.ShouldContain("when the organiser starts the adventure",
-				customMessage: "a traveller who consented, read the disclosure and granted the phone's " +
-				"permission is owed the reason they are still not on the map."),
-			timeout: TimeSpan.FromSeconds(3));
-
-		Gps.WatchCount.ShouldBe(0,
-			"nothing this device sent would be kept, so nothing is sent — and no foreground service runs.");
-	}
-
-	[Fact]
-	public async Task WhenTheOrganiserStartsTheRide_TheReceiverComesUpOnItsOwn()
-	{
-		(_, FakeRideHubClient hub, Guid rideId) = await WireServicesAsync(state: RideStateDto.Open);
-
-		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
-
-		component.WaitForAssertion(
-			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
-			timeout: TimeSpan.FromSeconds(3));
-
-		Gps.WatchCount.ShouldBe(0);
-
-		await component.InvokeAsync(() => hub.RaiseRideStateChanged(rideId, RideStateDto.Live));
-
-		await BackgroundWait.UntilAsync(
-			() => Gps.WatchCount == 1,
-			"§5.1: the receiver to come up on its own — consent was already given, and the traveller "
-			+ "must not have to find the switch and toggle it twice to get onto a map they already "
-			+ "said yes to");
-	}
+	// ---------- The camera, with and without following ----------
 
 	[Fact]
 	public async Task WithoutFollowing_ANewFixLeavesTheCameraWhereTheRiderPutIt()

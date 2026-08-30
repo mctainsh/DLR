@@ -197,11 +197,11 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The §15.4 precondition, checkable now that a track can be a ride's route. Editing the
-	/// geometry of a line a ride is running on silently moves every rider's place in §5.4's gap
-	/// list — nobody rode anywhere, and the list reorders.
+	/// geometry of a line an adventure is running on silently moves every rider's place in §5.4's
+	/// gap list — nobody rode anywhere, and the list reorders.
 	/// </summary>
 	[Fact]
-	public async Task Routes_OfALiveRide_CannotHaveTheirTrackEdited()
+	public async Task Routes_OfAnAdventure_CannotHaveTheirTrackEdited()
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
@@ -211,9 +211,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 		TrackSummary track = await UploadAsync(organiser, "Saturday loop", points: 60);
 
-		await AttachAsync(organiser, ride.Id, track.Id);
-
-		// Open, so the same edit is still allowed: the rule is about a ride in progress.
+		// Editable while it is nobody's route — the rule is about the attachment, not the track.
 		using (HttpResponseMessage allowed = await organiser.PostAsJsonAsync(
 			$"{TracksUrl}/{track.Id}/edit",
 			new EditTrackRequest(track.Version, [new IndexRange(0, 5)])))
@@ -221,17 +219,14 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 			allowed.StatusCode.ShouldBe(HttpStatusCode.OK, await allowed.Content.ReadAsStringAsync());
 		}
 
-		using (HttpResponseMessage started = await organiser.PostAsync($"{RidesUrl}/{ride.Id}/start", content: null))
-		{
-			started.StatusCode.ShouldBe(HttpStatusCode.NoContent, await started.Content.ReadAsStringAsync());
-		}
+		await AttachAsync(organiser, ride.Id, track.Id);
 
 		using HttpResponseMessage refused = await organiser.PostAsJsonAsync(
 			$"{TracksUrl}/{track.Id}/edit",
 			new EditTrackRequest(track.Version + 1, [new IndexRange(0, 5)]));
 
 		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict,
-			"§15.4: an adventure in progress is travelling this line");
+			"§15.4: an adventure is travelling this line");
 
 		// Undo moves the line just as surely, so it meets the same precondition.
 		using HttpResponseMessage undoRefused = await organiser.PostAsync(
@@ -249,44 +244,6 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 		routes.Length.ShouldBe(2);
 		routes[0].TrackId.ShouldBe(track.Id, "the line the gap list uses did not move");
-	}
-
-	[Fact]
-	public async Task Routes_OfAFinishedRide_CannotBeChanged()
-	{
-		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
-
-		using HttpClient organiser = await SignedInAsync(app, "DaveSmith");
-
-		RideDetail ride = await CreateRideAsync(organiser);
-
-		TrackSummary track = await UploadAsync(organiser, "Saturday loop", points: 30);
-		TrackSummary another = await UploadAsync(organiser, "Another one", points: 30);
-
-		await AttachAsync(organiser, ride.Id, track.Id);
-
-		using (HttpResponseMessage ended = await organiser.PostAsJsonAsync(
-			$"{RidesUrl}/{ride.Id}/ending",
-			new EndRideRequest(RideEndingDto.Immediate)))
-		{
-			ended.StatusCode.ShouldBe(HttpStatusCode.NoContent, await ended.Content.ReadAsStringAsync());
-		}
-
-		using (HttpResponseMessage refused = await organiser.PostAsJsonAsync(
-			$"{RidesUrl}/{ride.Id}/routes",
-			new AddRideRouteRequest(another.Id)))
-		{
-			refused.StatusCode.ShouldBe(HttpStatusCode.Conflict,
-				"the routes of a finished adventure are part of the record of it");
-		}
-
-		using HttpResponseMessage cannotRemove = await organiser.DeleteAsync(
-			$"{RidesUrl}/{ride.Id}/routes/{track.Id}");
-
-		cannotRemove.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-
-		// And it is still readable, which is the whole point of keeping it.
-		(await ListAsync(organiser, ride.Id)).Length.ShouldBe(1);
 	}
 
 	/// <summary>

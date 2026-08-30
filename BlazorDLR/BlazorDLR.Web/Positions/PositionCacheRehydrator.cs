@@ -1,6 +1,5 @@
 using DLR.Server.Data;
 using DLR.Server.Data.Positions;
-using DLR.Server.Data.Rides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -10,7 +9,7 @@ namespace DLR.Server.Positions;
 /// Fills the cache once, at startup (§5.5).
 /// <para>
 /// A restart mid-ride must not blank the map for the riders the feature exists to protect. All
-/// four rules below matter; each one omitted is a defect rather than a rough edge.
+/// three rules below matter; each one omitted is a defect rather than a rough edge.
 /// </para>
 /// </summary>
 /// <param name="cache">What to fill.</param>
@@ -61,20 +60,10 @@ public sealed class PositionCacheRehydrator(
 			DateTimeOffset floor = clock.GetUtcNow()
 				.AddMinutes(-Math.Max(1, options.Value.StalenessMinutes));
 
-			DateTimeOffset now = clock.GetUtcNow();
-
-			// Rule 1: live rides only — plus rides inside an unexpired wind-down, which are
-			// Completed but still legitimately sharing (§5.6). A restart during a wind-down must
-			// not blank the map for the riders it exists to protect, and must not resurrect one
-			// that has already expired.
 			List<RiderPosition> rows = await database
 				.Set<RiderPosition>()
 				.AsNoTracking()
-				.Where(position =>
-					position.RecordedUtc > floor
-					&& (position.Ride!.State == GroupRideState.Live
-						|| (position.Ride.SharingEndsUtc != null
-							&& position.Ride.SharingEndsUtc > now)))
+				.Where(position => position.RecordedUtc > floor)
 				.ToListAsync();
 
 			foreach (RiderPosition row in rows)

@@ -40,7 +40,6 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 	/// complaining that the rider has not agreed to be tracked.
 	/// </summary>
 	private async Task<(FakeApiClient Api, FakeRideHubClient Hub, Guid RideId)> WirePhoneAsync(
-		RideStateDto state = RideStateDto.Live,
 		bool sharing = true)
 	{
 		Guid rideId = Guid.NewGuid();
@@ -53,7 +52,6 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 				Name: "Test adventure",
 				Description: null,
 				StartUtc: FixedInstant,
-				State: state,
 				JoinPolicy: JoinPolicyDto.Open,
 				MemberCap: 50,
 				MemberCount: 1,
@@ -266,20 +264,4 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 		component.FindAll(".gps-disabled").ShouldBeEmpty();
 	}
 
-	[Fact]
-	public async Task BeforeTheOrganiserStarts_TheGpsIsNotComplainedAbout()
-	{
-		// Sharing is on and the adventure has not started, so the receiver is deliberately not
-		// running (§5.1). That state has its own strip, and it is not a warning.
-		(_, _, Guid rideId) = await WirePhoneAsync(state: RideStateDto.Open);
-
-		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
-
-		component.WaitForAssertion(
-			() => component.Markup.ShouldContain("Your position starts going to the group"),
-			timeout: TimeSpan.FromSeconds(3));
-
-		component.FindAll(".no-gps").ShouldBeEmpty();
-		component.FindAll(".gps-disabled").ShouldBeEmpty();
-	}
 }

@@ -77,6 +77,7 @@ public abstract class PageTestContext : BunitContext
 		// withdraws its card on (§17.6). Page-wide for the same reason: NavMenu injects it, and
 		// CommentThreadView tells it when a thread comes on screen.
 		Services.AddScoped<UnreadThreadState>();
+		Services.AddScoped<ConsentAskedState>();
 
 		// The launch hook MainLayout runs after first render (§18.6). Page-wide because the layout
 		// injects it, so every routable page has one above it. Harmless by default: the fake API
