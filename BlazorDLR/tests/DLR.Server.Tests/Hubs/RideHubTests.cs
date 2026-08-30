@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using DLR.Core.Contracts.Account;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
 using DLR.Server.Data.Rides;
@@ -261,6 +262,194 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 			finished.ShouldNotBe(leaked, "a connection receives only the adventures it joined");
 		}
+	}
+
+	/// <summary>
+	/// Removal has to reach the connection and not only the row (§5.2). <c>JoinRide</c>'s
+	/// membership check runs once, so without an eviction the rider just removed keeps the live
+	/// map until their connection happens to drop — which on a phone mid-ride is hours.
+	/// </summary>
+	[Fact]
+	public async Task Removal_TakesTheRemovedMemberOffTheLiveFeed()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		(TokenResponse organiser, HttpClient organiserClient) = await SignedInAsync(app, "DaveSmith");
+		(TokenResponse rider, HttpClient riderClient) = await SignedInAsync(app, "SamJones");
+
+		using (organiserClient)
+		using (riderClient)
+		{
+			RideDetail ride = await CreateRideAsync(organiserClient);
+
+			await JoinAsync(riderClient, ride.JoinCode!);
+			await ShareAsync(organiserClient, ride.Id);
+
+			await using HubConnection organiserHub = await HubClient.ConnectAsync(app, organiser);
+			await using HubConnection riderHub = await HubClient.ConnectAsync(app, rider);
+
+			await organiserHub.InvokeAsync(nameof(RideHub.JoinRide), ride.Id);
+			await riderHub.InvokeAsync(nameof(RideHub.JoinRide), ride.Id);
+
+			// The subscription is live before the removal, or the assertion below proves nothing:
+			// a connection that never received anything would pass it for the wrong reason.
+			Task<PositionBatch> beforeRemoval = HubClient.NextBatchAsync(riderHub, ride.Id);
+
+			await PublishAsync(organiserHub, app, -33.86, 151.20);
+			await BroadcastAsync(app);
+
+			await beforeRemoval.WaitAsync(TimeSpan.FromSeconds(10));
+
+			Task<PositionBatch> afterRemoval = HubClient.NextBatchAsync(riderHub, ride.Id);
+			Task<PositionBatch> stillDelivered = HubClient.NextBatchAsync(organiserHub, ride.Id);
+
+			await RemoveMemberAsync(organiserClient, ride.Id, rider.User.Id);
+
+			await BroadcastAsync(app);
+
+			// The ride keeps its feed — the eviction is one account's connections, not a teardown.
+			await stillDelivered.WaitAsync(TimeSpan.FromSeconds(10));
+
+			Task finished = await Task.WhenAny(afterRemoval, Task.Delay(TimeSpan.FromSeconds(2)));
+
+			finished.ShouldNotBe(
+				afterRemoval,
+				"a removed member's connection stays in the group unless the removal evicts it");
+		}
+	}
+
+	/// <summary>
+	/// The same obligation on the way out under one's own steam. The client calls
+	/// <c>LeaveRide</c> as well, and that is not something the server may rely on — a rider who
+	/// leaves on one device with the adventure open on another would keep the feed on the second.
+	/// </summary>
+	[Fact]
+	public async Task Leaving_TakesTheDepartingMemberOffTheLiveFeed()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		(TokenResponse organiser, HttpClient organiserClient) = await SignedInAsync(app, "DaveSmith");
+		(TokenResponse rider, HttpClient riderClient) = await SignedInAsync(app, "SamJones");
+
+		using (organiserClient)
+		using (riderClient)
+		{
+			RideDetail ride = await CreateRideAsync(organiserClient);
+
+			await JoinAsync(riderClient, ride.JoinCode!);
+			await ShareAsync(organiserClient, ride.Id);
+
+			await using HubConnection organiserHub = await HubClient.ConnectAsync(app, organiser);
+			await using HubConnection riderHub = await HubClient.ConnectAsync(app, rider);
+
+			await organiserHub.InvokeAsync(nameof(RideHub.JoinRide), ride.Id);
+			await riderHub.InvokeAsync(nameof(RideHub.JoinRide), ride.Id);
+
+			Task<PositionBatch> beforeLeaving = HubClient.NextBatchAsync(riderHub, ride.Id);
+
+			await PublishAsync(organiserHub, app, -33.86, 151.20);
+			await BroadcastAsync(app);
+
+			await beforeLeaving.WaitAsync(TimeSpan.FromSeconds(10));
+
+			Task<PositionBatch> afterLeaving = HubClient.NextBatchAsync(riderHub, ride.Id);
+
+			// Over REST only. The hub connection is deliberately left holding its subscription,
+			// which is exactly the state a second device would be in.
+			await LeaveAsync(riderClient, ride.Id);
+
+			await BroadcastAsync(app);
+
+			Task finished = await Task.WhenAny(afterLeaving, Task.Delay(TimeSpan.FromSeconds(2)));
+
+			finished.ShouldNotBe(
+				afterLeaving,
+				"leaving over REST must not depend on the client also calling LeaveRide");
+		}
+	}
+
+	/// <summary>
+	/// Erasure has to reach the connection too (§6.3). This is the path that would be worst to
+	/// miss: the account is gone from every table and its hub connection is still on the adventure,
+	/// receiving the live positions of people it is no longer any part of.
+	/// </summary>
+	[Fact]
+	public async Task DeletingAnAccount_TakesItOffTheLiveFeed()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+
+		(TokenResponse organiser, HttpClient organiserClient) = await SignedInAsync(app, "DaveSmith");
+		(TokenResponse rider, HttpClient riderClient) = await SignedInAsync(app, "SamJones");
+
+		using (organiserClient)
+		using (riderClient)
+		{
+			RideDetail ride = await CreateRideAsync(organiserClient);
+
+			await JoinAsync(riderClient, ride.JoinCode!);
+			await ShareAsync(organiserClient, ride.Id);
+
+			await using HubConnection organiserHub = await HubClient.ConnectAsync(app, organiser);
+			await using HubConnection riderHub = await HubClient.ConnectAsync(app, rider);
+
+			await organiserHub.InvokeAsync(nameof(RideHub.JoinRide), ride.Id);
+			await riderHub.InvokeAsync(nameof(RideHub.JoinRide), ride.Id);
+
+			Task<PositionBatch> beforeDeleting = HubClient.NextBatchAsync(riderHub, ride.Id);
+
+			await PublishAsync(organiserHub, app, -33.86, 151.20);
+			await BroadcastAsync(app);
+
+			await beforeDeleting.WaitAsync(TimeSpan.FromSeconds(10));
+
+			Task<PositionBatch> afterDeleting = HubClient.NextBatchAsync(riderHub, ride.Id);
+
+			await DeleteAccountAsync(riderClient);
+
+			await BroadcastAsync(app);
+
+			Task finished = await Task.WhenAny(afterDeleting, Task.Delay(TimeSpan.FromSeconds(2)));
+
+			finished.ShouldNotBe(
+				afterDeleting,
+				"an erased account's connection outlives its rows unless the deletion evicts it");
+
+			_ = rider;
+		}
+	}
+
+	private static async Task DeleteAccountAsync(HttpClient client)
+	{
+		using HttpRequestMessage request = new(HttpMethod.Delete, "/api/v1/me")
+		{
+			Content = JsonContent.Create(new DeleteAccountRequest(TestRegistration.ValidPassword)),
+		};
+
+		using HttpResponseMessage response = await client.SendAsync(request);
+
+		response.StatusCode.ShouldBe(
+			HttpStatusCode.NoContent,
+			await response.Content.ReadAsStringAsync());
+	}
+
+	private static async Task RemoveMemberAsync(HttpClient organiser, Guid rideId, Guid userId)
+	{
+		using HttpResponseMessage response =
+			await organiser.DeleteAsync($"{RidesUrl}/{rideId}/members/{userId}");
+
+		response.StatusCode.ShouldBe(
+			HttpStatusCode.NoContent,
+			await response.Content.ReadAsStringAsync());
+	}
+
+	private static async Task LeaveAsync(HttpClient client, Guid rideId)
+	{
+		using HttpResponseMessage response =
+			await client.DeleteAsync($"{RidesUrl}/{rideId}/members/me");
+
+		response.StatusCode.ShouldBe(
+			HttpStatusCode.NoContent,
+			await response.Content.ReadAsStringAsync());
 	}
 
 	private static Task BroadcastAsync(DlrWebApplicationFactory app) =>

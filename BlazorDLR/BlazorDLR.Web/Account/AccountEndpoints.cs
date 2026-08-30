@@ -90,9 +90,7 @@ public sealed class AccountController : ControllerBase
 		// so narrowly to avoid.
 		[FromBody] DeleteAccountRequest request,
 		[FromServices] UserManager<AppUser> users,
-		[FromServices] DlrDbContext database,
-		[FromServices] IBlobStore blobs,
-		[FromServices] ILoggerFactory loggers,
+		[FromServices] AccountDeletion deletion,
 		CancellationToken cancellationToken)
 	{
 		if (await User.LoadAsync(users) is not { } user)
@@ -111,42 +109,7 @@ public sealed class AccountController : ControllerBase
 				detail: "Deleting an account needs the account's current password.");
 		}
 
-		// Gathered before the rows go. After the delete there is nothing left to say which files
-		// were this account's, and ON DELETE CASCADE reaches rows and not a filesystem (§16.6).
-		IReadOnlyList<string> owned = await AccountBlobs.OwnedByAsync(database, user.Id, cancellationToken);
-
-		// user_block.blocked_id is NO ACTION, not a cascade — two cascade paths into asp_net_users
-		// through one table is an error in PostgreSQL (§16.5). The nightly sweep does the same
-		// thing for the same reason; both would fail the whole delete without it.
-		await database
-			.Set<UserBlock>()
-			.Where(block => block.BlockedId == user.Id)
-			.ExecuteDeleteAsync(cancellationToken);
-
-		await database
-			.Set<AppUser>()
-			.Where(row => row.Id == user.Id)
-			.ExecuteDeleteAsync(cancellationToken);
-
-		ILogger logger = loggers.CreateLogger(typeof(AccountController));
-
-		// Rows first, blobs second, and a failure here is logged rather than thrown. The account is
-		// already gone; answering 500 would tell the rider their deletion failed when it did not,
-		// and the §7.11 orphan sweep collects whatever is left as the backstop it is meant to be.
-		foreach (string blobRef in owned)
-		{
-			try
-			{
-				await blobs.DeleteAsync(blobRef, cancellationToken);
-			}
-			catch (Exception exception) when (exception is not OperationCanceledException)
-			{
-				logger.LogError(
-					exception,
-					"Could not delete blob {BlobRef} for a deleted account; the nightly sweep will.",
-					blobRef);
-			}
-		}
+		await deletion.DeleteAsync(user.Id, cancellationToken);
 
 		return NoContent();
 	}

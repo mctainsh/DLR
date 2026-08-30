@@ -153,7 +153,8 @@ public sealed class MembershipController : ControllerBase
 	public async Task<IActionResult> LeaveAsync(
 		[FromRoute] Guid id,
 		[FromServices] DlrDbContext database,
-		[FromServices] PositionStore positions)
+		[FromServices] PositionStore positions,
+		[FromServices] RideConnections connections)
 	{
 		if (User.UserId() is not { } userId)
 		{
@@ -184,6 +185,10 @@ public sealed class MembershipController : ControllerBase
 
 		await database.SaveChangesAsync();
 
+		// The client calls LeaveRide too, and that is not enough to rely on: a rider who leaves
+		// from one device and has the ride open on another would keep the feed on the second.
+		await connections.EvictAsync(id, userId);
+
 		return NoContent();
 	}
 
@@ -193,7 +198,8 @@ public sealed class MembershipController : ControllerBase
 		[FromRoute] Guid id,
 		[FromRoute] Guid userId,
 		[FromServices] DlrDbContext database,
-		[FromServices] PositionStore positions)
+		[FromServices] PositionStore positions,
+		[FromServices] RideConnections connections)
 	{
 		if (User.UserId() is not { } callerId)
 		{
@@ -234,6 +240,11 @@ public sealed class MembershipController : ControllerBase
 		database.Remove(member);
 
 		await database.SaveChangesAsync();
+
+		// The row is what ends their REST access; this is what ends the rest of it. JoinRide's
+		// membership check ran when they connected and nothing re-runs it, so without this the
+		// person just removed keeps receiving every position batch until their connection drops.
+		await connections.EvictAsync(id, userId);
 
 		// Their posts stay (§17.6). Deleting half a conversation makes the other half nonsense,
 		// and an organiser who actually wants that can delete the posts explicitly.

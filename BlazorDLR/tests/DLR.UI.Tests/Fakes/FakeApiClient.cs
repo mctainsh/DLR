@@ -1137,4 +1137,31 @@ public sealed class FakeApiClient : IApiClient
 		Record(nameof(AdminStatsAsync));
 		return Task.FromResult(AdminStats);
 	}
+
+	/// <summary>Which account the last delete was asked for, and under what name.</summary>
+	public (Guid UserId, string UserName)? LastAdminDelete { get; private set; }
+
+	/// <summary>
+	/// Set to make the next delete fail. The roster refusal is the interesting one — the screen
+	/// has to say why rather than leaving the row looking as though nothing happened.
+	/// </summary>
+	public ApiException? AdminDeleteFailure { get; set; }
+
+	public Task AdminDeleteUserAsync(
+		Guid userId,
+		AdminDeleteUserRequest request,
+		CancellationToken cancellationToken = default)
+	{
+		Record(nameof(AdminDeleteUserAsync));
+		LastAdminDelete = (userId, request.UserName);
+
+		if (AdminDeleteFailure is { } failure)
+		{
+			return Task.FromException(failure);
+		}
+
+		AdminUsers = [.. AdminUsers.Where(row => row.UserId != userId)];
+
+		return Task.CompletedTask;
+	}
 }

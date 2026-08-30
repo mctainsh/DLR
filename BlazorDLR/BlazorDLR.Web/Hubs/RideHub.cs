@@ -202,6 +202,10 @@ public interface IRideClient
 /// check in <see cref="JoinRide"/> is the <em>only</em> thing standing between an authenticated
 /// account and a stranger's live location — so it is not optional, and it is tested directly.
 /// </para>
+/// <para>
+/// That check admits; it does not keep watch. How a later removal reaches a connection already in
+/// the group is <see cref="RideConnections"/>.
+/// </para>
 /// </summary>
 /// <param name="database">For the membership check.</param>
 /// <param name="positions">Where a published fix goes.</param>
@@ -210,14 +214,35 @@ public interface IRideClient
 /// <see cref="IRideClient"/> is sent from an endpoint; privacy is sent from here because it is the
 /// only state change a client makes over the hub rather than over REST.
 /// </param>
+/// <param name="connections">
+/// Where this connection is recorded, so that a removal can find it again. The gate below runs
+/// once per connection; <see cref="RideConnections"/> is what lets the answer be revisited.
+/// </param>
 [Authorize]
 public sealed class RideHub(
 	DlrDbContext database,
 	PositionStore positions,
-	IHubContext<RideHub, IRideClient> clients) : Hub<IRideClient>
+	IHubContext<RideHub, IRideClient> clients,
+	RideConnections connections) : Hub<IRideClient>
 {
 	/// <summary>The path the query-string token lift is scoped to (§7.6).</summary>
 	public const string Path = "/hubs/ride";
+
+	/// <inheritdoc />
+	public override async Task OnConnectedAsync()
+	{
+		connections.Add(CallerId(), Context.ConnectionId);
+
+		await base.OnConnectedAsync();
+	}
+
+	/// <inheritdoc />
+	public override async Task OnDisconnectedAsync(Exception? exception)
+	{
+		connections.Remove(CallerId(), Context.ConnectionId);
+
+		await base.OnDisconnectedAsync(exception);
+	}
 
 	/// <summary>Subscribes to a ride's live positions.</summary>
 	/// <param name="rideId">Which ride.</param>
@@ -261,15 +286,7 @@ public sealed class RideHub(
 
 	/// <summary>Unsubscribes.</summary>
 	/// <param name="rideId">Which ride.</param>
-	public async Task LeaveRide(Guid rideId)
-	{
-		await Groups.RemoveFromGroupAsync(Context.ConnectionId, Group(rideId));
-
-		// Unconditional, unlike the join. Removing a connection from a group it was never in is a
-		// no-op, and asking the database what role this member holds on the way *out* would be a
-		// query whose answer can only cost us a leaked subscription if it has changed since.
-		await Groups.RemoveFromGroupAsync(Context.ConnectionId, DecidersGroup(rideId));
-	}
+	public Task LeaveRide(Guid rideId) => LeaveGroupsAsync(Groups, Context.ConnectionId, rideId);
 
 	/// <summary>
 	/// Subscribes to a shared route's thread (§6.2).
@@ -379,6 +396,35 @@ public sealed class RideHub(
 	/// <param name="rideId">Which ride.</param>
 	/// <returns>The group name.</returns>
 	public static string DecidersGroup(Guid rideId) => $"ride-deciders:{rideId}";
+
+	/// <summary>
+	/// Takes one connection out of both of a ride's groups — by its own request through
+	/// <see cref="LeaveRide"/>, or because a membership ended, through
+	/// <see cref="RideConnections.EvictAsync"/>.
+	/// </summary>
+	/// <param name="groups">The groups, from a hub instance or from a hub context.</param>
+	/// <param name="connectionId">Which connection.</param>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="cancellationToken">Cancellation.</param>
+	/// <remarks>
+	/// The deciders' group goes unconditionally, unlike the join. Removing a connection from a
+	/// group it was never in is a no-op, and asking the database what role this member held on the
+	/// way out would be a query whose answer can only cost a leaked subscription.
+	/// <para>
+	/// Static, so it cannot become a hub method a client may invoke, and shared so that a third
+	/// group added to a ride's subscription cannot be added to one way out and forgotten on the
+	/// other.
+	/// </para>
+	/// </remarks>
+	internal static async Task LeaveGroupsAsync(
+		IGroupManager groups,
+		string connectionId,
+		Guid rideId,
+		CancellationToken cancellationToken = default)
+	{
+		await groups.RemoveFromGroupAsync(connectionId, Group(rideId), cancellationToken);
+		await groups.RemoveFromGroupAsync(connectionId, DecidersGroup(rideId), cancellationToken);
+	}
 
 	/// <summary>
 	/// The SignalR group name for a shared route's thread.

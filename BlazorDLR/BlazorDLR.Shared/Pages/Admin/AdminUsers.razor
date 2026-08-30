@@ -1,8 +1,9 @@
-@page "/admin/users"
+﻿@page "/admin/users"
 @attribute [Authorize]
 @using DLR.Core.Contracts.Admin
 @inject IApiClient Api
 @inject TimeProvider Clock
+@inject ConfirmService Confirm
 
 @*
 	Every account, with what it has put into the service (§14.6).
@@ -41,6 +42,16 @@
 			   @oninput="OnSearchAsync"
 			   autocomplete="off" />
 	</label>
+
+	@*
+		A refused delete is reported above the table rather than in place of it: the rows are still
+		accurate and still the thing the reader came for, and replacing them would make a 409 about
+		one account look like the list itself had failed.
+	*@
+	@if (_deleteError is { } refused)
+	{
+		<p class="error">@refused</p>
+	}
 
 	@if (_error is { } problem)
 	{
@@ -82,6 +93,7 @@
 					<col style="width: 5rem" />
 					<col style="width: 5.5rem" />
 					<col style="width: 5.5rem" />
+					<col style="width: 3rem" />
 				</colgroup>
 				<thead>
 					<tr>
@@ -97,6 +109,7 @@
 						<th scope="col" class="num">Photos</th>
 						<th scope="col" class="num">Markers</th>
 						<th scope="col" class="num">Devices</th>
+						<th scope="col"><span class="visually-hidden">Delete</span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -131,6 +144,24 @@
 							<td class="num">@row.Photos</td>
 							<td class="num">@row.Markers</td>
 							<td class="num">@row.Devices</td>
+							<td class="actions">
+								@*
+									Absent for a roster account rather than present and disabled: the server
+									refuses those outright (deleting one frees the username the roster entry
+									names), so a button here would exist only to be told no.
+								*@
+								@if (!row.IsAdmin)
+								{
+									<button type="button"
+											class="danger-icon"
+											title="@($"Delete {row.UserName}")"
+											aria-label="@($"Delete {row.UserName}")"
+											disabled="@(_deleting == row.UserId)"
+											@onclick="() => DeleteAsync(row)">
+										<i class="fa fa-fw @(_deleting == row.UserId ? "fa-spinner fa-spin" : "fa-trash")" aria-hidden="true"></i>
+									</button>
+								}
+							</td>
 						</tr>
 					}
 				</tbody>
@@ -154,6 +185,10 @@
 
 	private string? _error;
 
+	/// <summary>Why the last delete was refused, or null. Kept apart from <see cref="_error" />
+	/// so a refusal on one row does not take the whole list off the screen.</summary>
+	private string? _deleteError;
+
 	/// <summary>
 	/// Cancels the previous search when a new keystroke arrives.
 	/// <para>
@@ -164,7 +199,54 @@
 	/// </summary>
 	private CancellationTokenSource? _inFlight;
 
+	/// <summary>Which row is mid-delete, so its button cannot be pressed twice.</summary>
+	private Guid? _deleting;
+
 	protected override Task OnInitializedAsync() => LoadAsync();
+
+	/// <summary>
+	/// Erasing somebody else's account (§14.6, §6.3).
+	/// <para>
+	/// The list is not reloaded afterwards. A search that is mid-typing would be re-run and the
+	/// rows could move under the reader; dropping the one row that is definitely gone says what
+	/// happened without disturbing anything else on screen.
+	/// </para>
+	/// </summary>
+	private async Task DeleteAsync(AdminUserRow row)
+	{
+		bool confirmed = await Confirm.AskAsync(new ConfirmRequest(
+			$"Delete {row.UserName}?",
+			"This erases the account, the adventures it organises, its routes, photographs and "
+			+ "posts, and removes everyone else from those adventures. It cannot be undone.",
+			ConfirmText: "Delete for ever",
+			Danger: true));
+
+		if (!confirmed)
+		{
+			return;
+		}
+
+		_deleting = row.UserId;
+		_deleteError = null;
+
+		try
+		{
+			await Api.AdminDeleteUserAsync(row.UserId, new AdminDeleteUserRequest(row.UserName));
+
+			_rows = _rows?.Where(other => other.UserId != row.UserId).ToList();
+		}
+		catch (ApiException failure)
+		{
+			// Both refusals a caller can actually hit here — a roster account, and a row that has
+			// gone stale — are 409s carrying a sentence written for this screen, so the message is
+			// worth more than the title on its own.
+			_deleteError = failure.Error.Messages.FirstOrDefault() ?? failure.Error.Title;
+		}
+		finally
+		{
+			_deleting = null;
+		}
+	}
 
 	private async Task OnSearchAsync(ChangeEventArgs args)
 	{
@@ -340,6 +422,33 @@
 		.admin-users .email.unconfirmed {
 			color: var(--dlr-error);
 			text-decoration: underline dotted;
+		}
+
+	.admin-users .actions {
+		text-align: center;
+	}
+
+	/* Quiet until pointed at: this is the one destructive control on a screen that is otherwise
+	   all figures, and a column of red on every row would read as a warning about the accounts. */
+	.admin-users .danger-icon {
+		padding: 0.2rem 0.35rem;
+		background: none;
+		border: 0;
+		border-radius: 3px;
+		color: var(--dlr-fg-quiet);
+		cursor: pointer;
+		line-height: 1;
+	}
+
+		.admin-users .danger-icon:hover:not(:disabled),
+		.admin-users .danger-icon:focus-visible {
+			background: var(--dlr-surface-2);
+			color: var(--dlr-error);
+		}
+
+		.admin-users .danger-icon:disabled {
+			cursor: default;
+			opacity: 0.6;
 		}
 
 	.admin-users .tag.admin {

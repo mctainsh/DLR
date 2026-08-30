@@ -5,6 +5,7 @@ using BlazorDLR.Shared.State;
 using BlazorDLR.Web.Components;
 using BlazorDLR.Web.Services;
 using DLR.Server;
+using DLR.Server.Account;
 using DLR.Server.Admin;
 using DLR.Server.Api;
 using DLR.Server.Comments;
@@ -99,6 +100,11 @@ try
 	builder.Services.AddSingletonHostedService<PositionCounterFlushService>();
 
 	builder.Services.AddSignalR();
+
+	// Which connections each account holds. A singleton for the position cache's reason — it is
+	// live state — and the only way an ended membership can reach a connection that is already in
+	// a ride's group, since JoinRide's check runs once and nothing re-runs it (§5.2).
+	builder.Services.AddSingleton<RideConnections>();
 	builder.Services.AddSingletonHostedService<RideBroadcastService>();
 	builder.Services.Configure<TrackEditOptions>(builder.Configuration.GetSection(TrackEditOptions.Section));
 	builder.Services.Configure<MarkerOptions>(builder.Configuration.GetSection(MarkerOptions.Section));
@@ -128,6 +134,9 @@ try
 	builder.Services.AddAntiforgery(options => options.HeaderName = "X-DLR-Antiforgery");
 	builder.Services.AddSingleton<WebSessionCookie>();
 	builder.Services.AddScoped<RegistrationService>();
+
+	// The one erasure, shared by the rider's own delete and the administrator's (§6.3, §14.6).
+	builder.Services.AddScoped<AccountDeletion>();
 
 	builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
 	builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.Section));

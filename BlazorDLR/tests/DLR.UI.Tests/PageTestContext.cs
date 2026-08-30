@@ -53,6 +53,11 @@ public abstract class PageTestContext : BunitContext
 	{
 		Services.AddScoped<NavigationHistory>();
 
+		// Every host registers one and MainLayout mounts the single dialog against it, so a page
+		// that asks "are you sure" resolves it here too. A test that wants to answer the question
+		// resolves the same instance and completes it.
+		Services.AddScoped<ConfirmService>();
+
 		// The device store, the pack store and the tile source a RideMap resolves (§4.5). First,
 		// so a suite that brings its own IDeviceSettings to assert against still wins.
 		Services.AddRideMapServices();

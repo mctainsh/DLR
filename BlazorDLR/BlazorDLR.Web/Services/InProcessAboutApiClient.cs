@@ -138,4 +138,5 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task<IReadOnlyList<AdminUserRow>> AdminUsersAsync(string? search = null, int skip = 0, int take = 50, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<AdminLogPage> AdminLogsAsync(DateOnly? day = null, string? level = null, int take = 200, bool databaseCommands = true, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task AdminDeleteUserAsync(Guid userId, AdminDeleteUserRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 }

@@ -680,4 +680,20 @@ public sealed class HttpApiClient : IApiClient
 	/// <inheritdoc />
 	public Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default) =>
 		GetAsync<AdminStats>("/api/v1/admin/stats", cancellationToken);
+
+	/// <inheritdoc />
+	public async Task AdminDeleteUserAsync(
+		Guid userId,
+		AdminDeleteUserRequest request,
+		CancellationToken cancellationToken = default)
+	{
+		// DELETE with a body, as DeleteAccountAsync above — the name travels in the body rather
+		// than the query so it stays out of Caddy's access log alongside the id it confirms.
+		using HttpRequestMessage message = new(HttpMethod.Delete, $"/api/v1/admin/users/{userId}")
+		{
+			Content = JsonContent.Create(request, options: Json),
+		};
+		using HttpResponseMessage response = await _http.SendAsync(message, cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
 }

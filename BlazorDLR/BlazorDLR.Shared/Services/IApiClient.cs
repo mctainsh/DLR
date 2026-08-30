@@ -420,6 +420,22 @@ public interface IApiClient
 	/// <summary><c>GET /api/v1/admin/stats</c> — activity, live rides and fixes per minute.</summary>
 	/// <param name="cancellationToken">Abandons the call.</param>
 	Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>DELETE /api/v1/admin/users/{id}</c> — erases an account and everything it owns.
+	/// </summary>
+	/// <param name="userId">Which account.</param>
+	/// <param name="request">The handle the caller last saw against that id.</param>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	/// <remarks>
+	/// Irreversible, and refused for the caller's own account and for anyone on the server's
+	/// roster — see the endpoint for why the second of those is a security guard rather than
+	/// politeness.
+	/// </remarks>
+	Task AdminDeleteUserAsync(
+		Guid userId,
+		AdminDeleteUserRequest request,
+		CancellationToken cancellationToken = default);
 }
 
 /// <summary>The AGPL §13 offer, minted server-side (§14.6.2).</summary>

@@ -158,3 +158,15 @@ public sealed record AdminStats(
 	IReadOnlyList<int> PositionsPerMinute,
 	DateTimeOffset WindowStartUtc,
 	DateTimeOffset MeterStartedUtc);
+
+/// <summary>
+/// Deleting somebody else's account from the administration screen (§14.6, §6.3).
+/// <para>
+/// The username is echoed back so the server can refuse a request whose id and name disagree.
+/// That is a guard against acting on a stale row — the list is searched and paged, so the account
+/// under a pointer is not always the account the screen was showing when it loaded — and not a
+/// typed confirmation: the human "are you sure" is the dialog, and this is the machine's.
+/// </para>
+/// </summary>
+/// <param name="UserName">The handle of the account being deleted, as the caller last saw it.</param>
+public sealed record AdminDeleteUserRequest(string UserName);

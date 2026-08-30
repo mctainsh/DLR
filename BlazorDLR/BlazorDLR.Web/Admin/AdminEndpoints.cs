@@ -7,6 +7,7 @@ using DLR.Server.Data.Photos;
 using DLR.Server.Data.Rides;
 using DLR.Server.Data.Tracks;
 using DLR.Server.Diagnostics;
+using DLR.Server.Identity;
 using DLR.Server.Positions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +27,9 @@ public static class AdminEndpoints
 	/// <summary>Route name for the service statistics.</summary>
 	public const string StatsRouteName = "AdminStats";
 
+	/// <summary>Route name for deleting an account.</summary>
+	public const string DeleteUserRouteName = "AdminDeleteUser";
+
 	/// <summary>The most accounts one page may carry, whatever a caller asks for.</summary>
 	public const int MaxPageSize = 200;
 }
@@ -33,10 +37,18 @@ public static class AdminEndpoints
 /// <summary>
 /// What the people running the server can see about it (§14.6).
 /// <para>
-/// <strong>Every route here is read-only.</strong> There is no endpoint to suspend an account,
-/// edit a ride or delete a photograph, and that is deliberate rather than unfinished: moderation
-/// already has its own surface with its own audit trail, and an administration screen that could
-/// quietly change data would be a second one without it.
+/// <strong>Every route here reads except one.</strong> There is still no endpoint to suspend an
+/// account, edit a ride or delete a photograph, for the reason this section used to give for
+/// allowing nothing at all: moderation has its own surface with its own audit trail, and an
+/// administration screen that could quietly change data would be a second one without it.
+/// </para>
+/// <para>
+/// <see cref="DeleteUser"/> is the exception, and it is one because erasure is not moderation.
+/// §10.2 obliges this server to delete an account on request, and a rider who has lost their
+/// password cannot reach <c>DELETE /api/v1/me</c> to ask — leaving the operator to do it with a
+/// database client, unlogged and by hand. So it writes a line through <see cref="ServerEvents"/>
+/// rather than being silent, and it shares its implementation with the rider's own delete rather
+/// than being a second erasure that might miss something.
 /// </para>
 /// <para>
 /// The whole controller is behind <see cref="AdminPolicies.Admin"/> — see that policy for why the
@@ -249,6 +261,93 @@ public sealed class AdminController : ControllerBase
 			PositionsPerMinute: perMinute,
 			WindowStartUtc: windowStart,
 			MeterStartedUtc: meter.StartedUtc));
+	}
+
+	/// <summary>
+	/// Deletes somebody else's account, with everything it owns (§14.6, §6.3).
+	/// </summary>
+	/// <param name="id">Which account.</param>
+	/// <param name="request">The handle the caller last saw against <paramref name="id"/>.</param>
+	/// <param name="database">The context.</param>
+	/// <param name="roster">Who may not be deleted this way.</param>
+	/// <param name="deletion">The one implementation of erasure (§6.3).</param>
+	/// <param name="events">The audit line.</param>
+	/// <param name="cancellationToken">Abandons the delete.</param>
+	/// <remarks>
+	/// <para>
+	/// <strong>An account on the roster cannot be deleted here, and that is a security guard
+	/// rather than deference.</strong> The roster names administrators by username, and deleting
+	/// an account frees its username for anybody to register (§7.2) — so deleting a fellow
+	/// administrator turns the roster entry into a trap that promotes whoever claims the name
+	/// next. Take them off the roster in configuration first, and the deletion is then an ordinary
+	/// one.
+	/// </para>
+	/// <para>
+	/// <strong>No password, and the caller's own account is refused.</strong> An administrator
+	/// cannot know somebody else's password, so the re-entry <c>DELETE /api/v1/me</c> demands
+	/// cannot apply here — which is exactly why deleting yourself is sent back to that endpoint
+	/// rather than made easy from a screen full of other people's rows.
+	/// </para>
+	/// </remarks>
+	[HttpDelete("/api/v1/admin/users/{id:guid}", Name = AdminEndpoints.DeleteUserRouteName)]
+	[EndpointSummary("Deletes an account, its content and its blobs. Irreversible.")]
+	public async Task<IActionResult> DeleteUser(
+		[FromRoute] Guid id,
+		[FromBody] AdminDeleteUserRequest request,
+		[FromServices] DlrDbContext database,
+		[FromServices] AdminRoster roster,
+		[FromServices] Account.AccountDeletion deletion,
+		[FromServices] ServerEvents events,
+		CancellationToken cancellationToken)
+	{
+		if (User.UserId() == id)
+		{
+			return Problem(
+				statusCode: StatusCodes.Status400BadRequest,
+				title: "Not from here",
+				detail: "Deleting your own account is done from Settings, where it asks for your password.");
+		}
+
+		AppUser? target = await database
+			.Set<AppUser>()
+			.AsNoTracking()
+			.SingleOrDefaultAsync(row => row.Id == id, cancellationToken);
+
+		if (target is null)
+		{
+			return NotFound();
+		}
+
+		if (roster.IsAdmin(target.UserName))
+		{
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "Administrator account",
+				detail: $"{target.UserName} is named in this server's Admins roster. Remove them from "
+					+ "the configuration first — deleting the account while it is listed would free "
+					+ "the username for somebody else to register and inherit the roster entry.");
+		}
+
+		// Both halves have to describe the same account. The list is searched and paged, so a row
+		// on a stale screen can point at an id whose name has moved on under it.
+		if (!string.Equals(target.UserName, request.UserName?.Trim(), StringComparison.OrdinalIgnoreCase))
+		{
+			return Problem(
+				statusCode: StatusCodes.Status409Conflict,
+				title: "That is not who you were looking at",
+				detail: "The account behind that row has changed since the list was loaded. Reload and try again.");
+		}
+
+		await deletion.DeleteAsync(id, cancellationToken);
+
+		// The one write this controller does, so it is the one thing here worth a line in the log
+		// an administrator reads afterwards. Both names, because "who deleted whom" is the whole
+		// of the question anybody asks about it later.
+		events.Note(
+			ServerEvents.Areas.Admin,
+			$"{User.Identity?.Name ?? "an administrator"} deleted the account {target.UserName}.");
+
+		return NoContent();
 	}
 
 	/// <summary>The backslash, as the escape character handed to <c>ILIKE</c>.</summary>
