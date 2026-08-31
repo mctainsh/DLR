@@ -37,6 +37,9 @@ public sealed class AuthState : AuthenticationStateProvider
 {
 	private static readonly ClaimsPrincipal Anonymous = new(new ClaimsIdentity());
 
+	/// <summary>Where this installation's device id lives between sign-ins (§7.10).</summary>
+	private const string StoredDeviceIdKey = "dlr.device";
+
 	private readonly IApiClient _api;
 	private readonly ITokenStore _tokens;
 	private readonly TimeProvider _clock;
@@ -76,7 +79,15 @@ public sealed class AuthState : AuthenticationStateProvider
 	/// <summary>The current user's id, or null when signed out.</summary>
 	public Guid? UserId { get; private set; }
 
-	/// <summary>The device id claimed for the current session, or null.</summary>
+	/// <summary>
+	/// The device this session belongs to, or null when signed out (§7.10).
+	/// <para>
+	/// Comes off the server's answer rather than being invented here — the id is server-assigned,
+	/// and this device only ever repeats back the one it was given. Persisted beside the
+	/// remembered account so the next sign-in claims the same row instead of minting a new one,
+	/// which is what left a rider with a screen full of "Unnamed device".
+	/// </para>
+	/// </summary>
 	public Guid? DeviceId { get; private set; }
 
 	/// <summary>The signed-in user's handle, or null.</summary>
@@ -110,6 +121,7 @@ public sealed class AuthState : AuthenticationStateProvider
 
 		UserId = session.User.Id;
 		UserName = session.User.UserName;
+		DeviceId = session.DeviceId == Guid.Empty ? null : session.DeviceId;
 
 		// The username, never a token or any part of one. Who is signed in explains most of the
 		// authorisation failures further down a log; the credential explains none of them and
@@ -121,6 +133,15 @@ public sealed class AuthState : AuthenticationStateProvider
 		// cannot see a stale "offline" beside a live session.
 		IsOffline = false;
 		_restored = true;
+
+		// Kept for the *next* sign-in, which is the one that would otherwise mint a second device
+		// row for this same installation (§7.10). Written on every session rather than only on a
+		// new one — it costs one store write an app start and means a device that somehow lost the
+		// key gets it back on its next refresh.
+		if (DeviceId is { } device)
+		{
+			await RememberDeviceAsync(device, cancellationToken);
+		}
 
 		if (!string.IsNullOrEmpty(session.RefreshToken))
 		{
@@ -218,6 +239,11 @@ public sealed class AuthState : AuthenticationStateProvider
 		UserId = null;
 		UserName = null;
 		DiagnosticLog.Write("Signed out.");
+
+		// Cleared from memory, kept on disk. The stored id is what this *installation* was called
+		// last time, not who was signed in on it, so the next sign-in reuses the row rather than
+		// leaving the old one behind — and an id that turns out to belong to somebody else's
+		// account simply does not match server-side.
 		DeviceId = null;
 		IsOffline = false;
 
@@ -359,6 +385,30 @@ public sealed class AuthState : AuthenticationStateProvider
 
 	private static ClaimsPrincipal BuildPrincipal(RememberedAccount account) =>
 		BuildPrincipal(account.UserId, account.UserName, account.HasEmail, account.EmailConfirmed);
+
+	/// <summary>
+	/// The device id to claim on the next sign-in: the live one if a session is open, otherwise
+	/// whatever this installation was given last time, or <c>null</c> on a first run (§7.10).
+	/// </summary>
+	/// <param name="cancellationToken">Cancels the read.</param>
+	public async ValueTask<Guid?> ClaimedDeviceIdAsync(CancellationToken cancellationToken = default)
+	{
+		if (DeviceId is { } live) return live;
+
+		if (_settings is null) return null;
+
+		string? stored = await _settings.GetAsync(StoredDeviceIdKey, cancellationToken);
+
+		return Guid.TryParse(stored, out Guid id) ? id : null;
+	}
+
+	private async Task RememberDeviceAsync(Guid deviceId, CancellationToken cancellationToken)
+	{
+		if (_settings is not null)
+		{
+			await _settings.SetAsync(StoredDeviceIdKey, deviceId.ToString(), cancellationToken);
+		}
+	}
 
 	/// <summary>
 	/// Reads the account this device last signed in as, or <c>null</c> on a host that remembers

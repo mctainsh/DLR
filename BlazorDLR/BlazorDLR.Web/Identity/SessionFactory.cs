@@ -25,12 +25,19 @@ public sealed class SessionFactory(
 	NewDeviceNotifier alerts,
 	TimeProvider clock)
 {
+	/// <summary>Matches <c>device.name varchar(60)</c> (§7.10).</summary>
+	private const int NameLimit = 60;
+
 	/// <summary>Starts a session: a new device row if needed, and a new token family.</summary>
 	/// <param name="user">Who signed in.</param>
 	/// <param name="claimedDeviceId">
 	/// The device id the client says it was given last time. Honoured only when it really is
 	/// this account's device — an id belonging to somebody else is not rejected, it simply
 	/// does not match, and this installation gets one of its own.
+	/// </param>
+	/// <param name="deviceName">
+	/// What the rider will recognise the installation as. Never verified, and trimmed to the
+	/// column rather than refused.
 	/// </param>
 	/// <param name="cancellationToken">Cancellation.</param>
 	/// <param name="kind">
@@ -81,7 +88,8 @@ public sealed class SessionFactory(
 				user.Id,
 				user.UserName!,
 				HasEmail: user.Email is not null,
-				user.EmailConfirmed));
+				user.EmailConfirmed),
+			deviceId);
 	}
 
 	private async Task<bool> HasOtherDevicesAsync(
@@ -99,6 +107,8 @@ public sealed class SessionFactory(
 		DeviceKind kind,
 		CancellationToken cancellationToken)
 	{
+		deviceName = Shorten(deviceName);
+
 		if (claimedDeviceId is { } claimed)
 		{
 			Device? existing = await database
@@ -145,5 +155,19 @@ public sealed class SessionFactory(
 		await database.SaveChangesAsync(cancellationToken);
 
 		return (created.Id, IsNew: true);
+	}
+
+	/// <summary>
+	/// Cuts a client-supplied name to the column. The name is decoration — nothing reads it but a
+	/// rider picking a row — so a long one is trimmed rather than refused, which keeps a handset
+	/// with a chatty model string from failing the sign-in the name was attached to.
+	/// </summary>
+	private static string? Shorten(string? deviceName)
+	{
+		if (string.IsNullOrWhiteSpace(deviceName)) return null;
+
+		string trimmed = deviceName.Trim();
+
+		return trimmed.Length > NameLimit ? trimmed[..NameLimit] : trimmed;
 	}
 }

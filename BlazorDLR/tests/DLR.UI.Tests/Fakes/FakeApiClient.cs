@@ -105,9 +105,16 @@ public sealed class FakeApiClient : IApiClient
 			? Task.FromResult(Recorded(nameof(GetAboutAsync), about))
 			: throw new NotImplementedException("This fake has no About wired — set AboutResult if the test needs one.");
 
+	/// <summary>The last registration the UI sent, for asserting on what it said about the device (§7.10).</summary>
+	public RegisterRequest? LastRegisterRequest { get; private set; }
+
+	/// <summary>The last grant the UI sent, for the same reason.</summary>
+	public TokenRequest? LastTokenRequest { get; private set; }
+
 	public Task<TokenResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
 	{
 		Record(nameof(RegisterAsync));
+		LastRegisterRequest = request;
 		if (TokenException is not null) throw TokenException;
 		return Task.FromResult(TokenResult
 			?? new TokenResponse("access", 900, "refresh", new AuthenticatedUser(Guid.NewGuid(), request.UserName, request.Email is not null, false)));
@@ -116,6 +123,7 @@ public sealed class FakeApiClient : IApiClient
 	public Task<TokenResponse> TokenAsync(TokenRequest request, CancellationToken cancellationToken = default)
 	{
 		Record(nameof(TokenAsync));
+		LastTokenRequest = request;
 		if (TokenException is not null) throw TokenException;
 		return Task.FromResult(TokenResult
 			?? new TokenResponse("access", 900, "refresh", new AuthenticatedUser(Guid.NewGuid(), request.UserName ?? "test", false, false)));

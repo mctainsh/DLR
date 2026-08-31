@@ -1,5 +1,6 @@
 using BlazorDLR.Shared.Pages;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
 using Bunit.TestDoubles;
@@ -24,12 +25,14 @@ public sealed class WelcomeFlowsTests : PageTestContext
 {
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-	private (FakeApiClient api, AuthState auth) WireServices(TokenResponse? tokenResult = null)
+	private (FakeApiClient api, AuthState auth) WireServices(
+		TokenResponse? tokenResult = null,
+		IDeviceSettings? settings = null)
 	{
 		FakeApiClient api = new() { TokenResult = tokenResult };
 		FakeTokenStore tokens = new();
 		FakeTimeProvider clock = new(FixedInstant);
-		AuthState auth = new(api, tokens, clock);
+		AuthState auth = new(api, tokens, clock, settings);
 		Services.AddSingleton<IApiClient>(api);
 		Services.AddSingleton<ITokenStore>(tokens);
 		Services.AddSingleton<TimeProvider>(clock);
@@ -146,6 +149,78 @@ public sealed class WelcomeFlowsTests : PageTestContext
 			nav.History.Count.ShouldBeGreaterThan(0,
 				"successful registration navigates — the history records at least one navigation.");
 			nav.History.Last().Uri.EndsWith("/", StringComparison.Ordinal).ShouldBeTrue();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// What stops Settings → Signed-in devices filling with "Unnamed device": the sign-in says
+	/// which device it is on and what to call it (§7.10). Without the id the server has no way to
+	/// tell a returning installation from a new one, and mints a row for each sign-in.
+	/// </summary>
+	[Fact]
+	public async Task SignIn_ClaimsTheDeviceThisInstallationAlreadyHas()
+	{
+		Guid device = Guid.NewGuid();
+		InMemoryDeviceSettings settings = new();
+
+		(FakeApiClient api, AuthState auth) = WireServices(settings: settings);
+		Services.AddSingleton<IFormFactor>(new FakeFormFactor { DeviceName = "Pixel 9" });
+
+		// A previous sign-in on this installation, and the sign-out that followed it.
+		await auth.ApplySessionAsync(new TokenResponse(
+			AccessToken: "access-old",
+			ExpiresIn: 900,
+			RefreshToken: "refresh-old",
+			User: new AuthenticatedUser(Guid.NewGuid(), "DaveSmith", HasEmail: false, EmailConfirmed: false),
+			DeviceId: device));
+		await auth.SignOutAsync();
+
+		IRenderedComponent<Welcome> component = Render<Welcome>();
+
+		await component.InvokeAsync(() =>
+			component.FindAll("button.tab")
+				.First(tab => tab.TextContent.Contains("Sign in", StringComparison.Ordinal))
+				.Click());
+		await component.InvokeAsync(() =>
+			component.Find("input[autocomplete='username']").Change("DaveSmith"));
+		await component.InvokeAsync(() =>
+			component.Find("input[type=password]").Change("GoodPass9"));
+		await component.InvokeAsync(() => component.Find("form").Submit());
+
+		component.WaitForAssertion(() =>
+		{
+			api.LastTokenRequest.ShouldNotBeNull().DeviceId.ShouldBe(device,
+				"the id the server handed this installation last time is what keeps it to one row.");
+			api.LastTokenRequest!.DeviceName.ShouldBe("Pixel 9");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	/// <summary>
+	/// Registration signs you in too, so it lands on a device row like any other sign-in — and a
+	/// first run has no id to claim, which is the one case where a new row is the right answer.
+	/// </summary>
+	[Fact]
+	public async Task Register_NamesTheDeviceEvenWithNoIdToClaim()
+	{
+		(FakeApiClient api, _) = WireServices(settings: new InMemoryDeviceSettings());
+		Services.AddSingleton<IFormFactor>(new FakeFormFactor { DeviceName = "Pixel 9" });
+
+		IRenderedComponent<Welcome> component = Render<Welcome>();
+
+		await component.InvokeAsync(() =>
+			component.FindAll("button.tab")
+				.First(tab => tab.TextContent.Contains("Register", StringComparison.Ordinal))
+				.Click());
+		await component.InvokeAsync(() =>
+			component.FindAll("input").First(i => i.GetAttribute("placeholder") == "DaveSmith").Input("NewJoiner"));
+		await component.InvokeAsync(() =>
+			component.Find("input[type=password]").Change("GoodPass9"));
+		await component.InvokeAsync(() => component.Find("form").Submit());
+
+		component.WaitForAssertion(() =>
+		{
+			api.LastRegisterRequest.ShouldNotBeNull().DeviceName.ShouldBe("Pixel 9");
+			api.LastRegisterRequest!.DeviceId.ShouldBeNull("a first run has nothing to claim");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 

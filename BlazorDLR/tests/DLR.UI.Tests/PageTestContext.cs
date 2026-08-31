@@ -101,5 +101,10 @@ public abstract class PageTestContext : BunitContext
 		// was inert inside the MAUI WebView, which is the bug the seam exists to keep fixed. A test
 		// that asserts on a download registers its own FakeFileSaver and reads it back.
 		Services.AddScoped<IFileSaver, FakeFileSaver>();
+
+		// Page-wide since the sign-in screens ask it what to call this installation in the §7.10
+		// device list, and Home prints it. Nameless by default, which is what the browser hosts
+		// answer; a suite that cares registers its own over the top and wins.
+		Services.AddSingleton<IFormFactor>(new FakeFormFactor());
 	}
 }

@@ -9,6 +9,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject IEnumerable<IExternalSignInProvider> ExternalProviders
+@inject IFormFactor FormFactor
 @implements IDisposable
 
 <PageTitle>Welcome — Dumb Luck Routes</PageTitle>
@@ -261,7 +262,9 @@
 			TokenResponse session = await Api.RegisterAsync(new RegisterRequest(
 				UserName: _userName.Trim(),
 				Password: _password,
-				Email: string.IsNullOrWhiteSpace(_email) ? null : _email.Trim()));
+				Email: string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
+				DeviceId: await Auth.ClaimedDeviceIdAsync(),
+				DeviceName: FormFactor.GetDeviceName()));
 
 			await Auth.ApplySessionAsync(session);
 			GoHome();
@@ -291,10 +294,14 @@
 
 		try
 		{
+			// The id this installation was given last time, so signing in again claims the same
+			// row in Settings → Signed-in devices instead of adding one (§7.10).
 			TokenResponse session = await Api.TokenAsync(new TokenRequest(
 				GrantType: GrantTypes.Password,
 				UserName: _userName.Trim(),
-				Password: _password));
+				Password: _password,
+				DeviceId: await Auth.ClaimedDeviceIdAsync(),
+				DeviceName: FormFactor.GetDeviceName()));
 
 			await Auth.ApplySessionAsync(session);
 			GoHome();

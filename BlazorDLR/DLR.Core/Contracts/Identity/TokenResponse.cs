@@ -10,11 +10,22 @@ namespace DLR.Core.Contracts.Identity;
 /// find in a log.
 /// </param>
 /// <param name="User">Who the caller turned out to be.</param>
+/// <param name="DeviceId">
+/// The device this session belongs to — the same value as the access token's <c>dev</c> claim,
+/// handed back in the open so a client does not have to read its own JWT to find it.
+/// <para>
+/// A client stores this and sends it back on its next sign-in, which is the whole of what keeps
+/// one installation to one row in Settings → Signed-in devices (§7.10). Still server-assigned:
+/// an id that does not match the account simply does not match, and that installation gets one
+/// of its own.
+/// </para>
+/// </param>
 public sealed record TokenResponse(
 	string AccessToken,
 	int ExpiresIn,
 	string RefreshToken,
-	AuthenticatedUser User);
+	AuthenticatedUser User,
+	Guid DeviceId = default);
 
 /// <summary>
 /// The account behind a session, as the client needs it to render a first screen.

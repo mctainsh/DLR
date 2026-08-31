@@ -1,4 +1,5 @@
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using DLR.Core.Contracts.Identity;
 using DLR.UI.Tests.Fakes;
@@ -134,6 +135,64 @@ public sealed class AuthStateTests
 		auth.UserId.ShouldBeNull();
 		tokens.StoredToken.ShouldBeNull("§7.4: sign-out clears the refresh token from storage.");
 		tokens.ClearCount.ShouldBe(1);
+	}
+
+	/// <summary>
+	/// The device id survives sign-out, and that is the point of it: the next sign-in claims the
+	/// row this installation already has instead of adding one to Settings → Signed-in devices
+	/// (§7.10). A screen full of "Unnamed device" is what its absence looked like.
+	/// </summary>
+	[Fact]
+	public async Task DeviceId_IsKeptAcrossSignOut_SoTheNextSignInClaimsTheSameRow()
+	{
+		FakeApiClient api = new();
+		FakeTokenStore tokens = new();
+		FakeTimeProvider clock = new(FixedInstant);
+		InMemoryDeviceSettings settings = new();
+		AuthState auth = new(api, tokens, clock, settings);
+
+		Guid device = Guid.NewGuid();
+
+		(await auth.ClaimedDeviceIdAsync()).ShouldBeNull("a first run has nothing to claim");
+
+		await auth.ApplySessionAsync(new TokenResponse(
+			"access", 900, "refresh",
+			new AuthenticatedUser(Guid.NewGuid(), "DaveSmith", false, false),
+			device));
+
+		auth.DeviceId.ShouldBe(device);
+
+		await auth.SignOutAsync();
+
+		auth.DeviceId.ShouldBeNull("nothing is signed in, so nothing is the current device");
+		(await auth.ClaimedDeviceIdAsync()).ShouldBe(device,
+			"the id belongs to the installation, not to whoever was signed in on it");
+	}
+
+	/// <summary>
+	/// A host that remembers nothing — the browser (§18.5) — still reports the live session's
+	/// device, so its revoke button has something to revoke.
+	/// </summary>
+	[Fact]
+	public async Task DeviceId_WithoutAStore_LastsAsLongAsTheSession()
+	{
+		FakeApiClient api = new();
+		FakeTokenStore tokens = new();
+		FakeTimeProvider clock = new(FixedInstant);
+		AuthState auth = new(api, tokens, clock);
+
+		Guid device = Guid.NewGuid();
+
+		await auth.ApplySessionAsync(new TokenResponse(
+			"access", 900, "",
+			new AuthenticatedUser(Guid.NewGuid(), "DaveSmith", false, false),
+			device));
+
+		(await auth.ClaimedDeviceIdAsync()).ShouldBe(device);
+
+		await auth.SignOutAsync();
+
+		(await auth.ClaimedDeviceIdAsync()).ShouldBeNull();
 	}
 
 	/// <summary>

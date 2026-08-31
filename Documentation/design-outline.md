@@ -1,6 +1,6 @@
 # Dumb Luck Rides — Design Outline
 
-> **Status:** Draft **v0.34** — architecture outline; Milestone A of `tasks-server.md` is built.
+> **Status:** Draft **v0.35** — architecture outline; Milestone A of `tasks-server.md` is built.
 > **Assumption:** "Mani" = **.NET MAUI**. Target framework `net10.0-android` / `net10.0-ios`.
 > **UI:** one shared Razor component library, hosted by **MAUI Blazor Hybrid** on mobile and **Blazor WebAssembly** on the web (§18).
 
@@ -227,6 +227,8 @@
 | **0.34** | **The prominent disclosure has to name *every* use of a fix, not the one the screen is about** (§4.3, §10.2) | Play rejected 8.0.0.28 — *"the in-app Prominent Disclosure does not disclose the usage of accessed or collected Location data"*. The copy described live sharing and never said that the same fixes are written into a recorded track (§15.1), which the receiver does by default, upstream of every publish gate. One collection, two uses, and only one of them disclosed |
 | 0.34 | **The disclosure is its own type, in front of every route to a fix** — `LocationDisclosure` (§4.3) | It lived inside `LocationBroadcastState`, which covers sharing and recording but not *My routes → Use my location* asking the platform for one fix to centre a search on. That route reaches the same three-rung Android ladder, **background rung included**, and had nothing in front of it. A disclosure with one hole in it is a rejected release, so the words and the gate are one object rather than a habit |
 | 0.34 | **The acknowledgement key is versioned, and the version moves when the disclosure gains a use** (§4.3) | A device that agreed to copy which never mentioned recording has not agreed to what the new copy says. Keeping the old key would have counted those devices as having consented to something they were never shown — which is the same defect as the rejection, one release later and invisible |
+| **0.35** | **The token response carries the device id, and the client is required to send it back** (§7.10) | §7.10 has always said the id is server-assigned and echoed by the client, and no client echoed it: every sign-in took the "no id" branch and got a row of its own. Settings → Signed-in devices filled with "Unnamed device" rows for one phone, each holding a live session, and none of them revocable by a rider who cannot tell them apart |
+| 0.35 | **Signing out keeps the device id on the device, and only the account is forgotten** (§7.10) | The id names the installation, not who was signed in on it. Clearing it with the session is what made a sign-out/sign-in cycle add a row instead of reusing one |
 
 ---
 
@@ -1525,6 +1527,24 @@ An offline-first riding app has auth requirements a normal web app does not.
 - Revoking a device revokes its whole token family; its next refresh fails and the app signs out locally.
 - A sign-in from a new device emails a security alert **when an address is known** — silently impossible otherwise, which is another line in the §7.2 trade-off.
 - Sign-out revokes the family for that device and clears `SecureStorage`. **Locally recorded rides are kept** — they are the user's data, not session state.
+
+**The id is server-assigned, and the client has to send it back.** `TokenResponse` carries `DeviceId`
+on every grant, the client stores it beside the remembered account, and every sign-in — password
+grant, registration, and the confirm-email link, all three of which start a session — claims it.
+A client that sends nothing is not an error; it is a *new installation*, and gets a row. That is the
+whole mechanism, and skipping the client half of it is what filled the screen with "Unnamed device":
+one phone, one row per sign-in, each with a live session behind it and nothing to tell them apart by.
+
+**The id outlives the session, and the account does not.** Sign-out forgets who was signed in and
+keeps the id, because the id names the *installation*. Signing back in — as the same account or a
+different one — claims the row if it matches and gets a fresh one if it does not, which is the same
+answer the server already gives to an id belonging to somebody else.
+
+**The name is what the handset calls itself**, `DeviceInfo.Name` falling back to the model, trimmed
+to the column rather than refused. Never verified, and nothing reads it but a rider picking a row.
+Browsers do not send one: a browser signs in through a form post, so the server names those rows
+from the user agent — coarse, the family and nothing else, because a full user-agent string is a
+fingerprint stored for no purpose.
 
 **Recording last activity.** Every app start updates `asp_net_users.last_active_utc` and `device.last_seen_utc`. Two implementation notes that keep this free:
 

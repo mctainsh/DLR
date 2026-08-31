@@ -1,6 +1,7 @@
 @page "/confirm-email"
 @inject IApiClient Api
 @inject AuthState Auth
+@inject IFormFactor FormFactor
 @inject NavigationManager Nav
 
 <PageTitle>Confirming your email — Dumb Luck Routes</PageTitle>
@@ -109,10 +110,13 @@
 
 		try
 		{
-			// No device id or name: this host does not hold one yet, and the session that comes
-			// back is a normal one either way — the arguments exist so a client that does can
-			// name the device in Settings → Signed-in devices (§7.10).
-			TokenResponse session = await Api.ConfirmEmailAsync(new ConfirmEmailRequest(userId, Token));
+			// Confirming signs the caller in, so it lands on a device row like any other sign-in.
+			// Claiming the id this installation already holds keeps it to the one row (§7.10).
+			TokenResponse session = await Api.ConfirmEmailAsync(new ConfirmEmailRequest(
+				userId,
+				Token,
+				DeviceId: await Auth.ClaimedDeviceIdAsync(),
+				DeviceName: FormFactor.GetDeviceName()));
 
 			// The session is the point, not a side effect: confirming changes what the account may
 			// do (§7.8's ladder drops the `rst` claim), and a client left holding the old access

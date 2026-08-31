@@ -1482,9 +1482,44 @@ in §9.2; not needed until there is a second instance.
 
 ---
 
+### SRV-39 — One installation, one device row ✅
+**Status:** `TokenResponse.DeviceId` on every grant; `AuthState.DeviceId` is set from it and the id
+is persisted under `dlr.device`; `Welcome`, `ConfirmEmail` and registration all claim it and send
+`IFormFactor.GetDeviceName()`; `SessionFactory.Shorten` trims the name to the column. 518 server
+tests green, 1244 UI.
+**First red test:** `SigningInAgain_WithTheIdItWasGiven_StaysOneDevice`
+**Then:** `EverySession_SaysWhichDeviceItBelongsTo`,
+`DeviceName_LongerThanTheColumn_IsTrimmedRatherThanRefused`,
+`DeviceId_IsKeptAcrossSignOut_SoTheNextSignInClaimsTheSameRow`,
+`DeviceId_WithoutAStore_LastsAsLongAsTheSession`,
+`SignIn_ClaimsTheDeviceThisInstallationAlreadyHas`,
+`Register_NamesTheDeviceEvenWithNoIdToClaim`
+**Why.** The server half of §7.10 was built and correct — claim an id, honour it only for this
+account and this kind, otherwise mint one — and no client ever sent an id or a name, so every
+sign-in took the mint branch. One phone produced a row per sign-in, all called "Unnamed device",
+all holding a live session. Sessions are permanent (§7.4), so nothing cleaned them up, and the one
+control that would have — *Sign out on this device* — was dead code guarded on an `AuthState.DeviceId`
+that nothing ever assigned.
+**Watch out — the id had no way to reach the client.** It is the access token's `dev` claim and
+nothing else, so a client would have had to parse its own JWT to find it. `TokenResponse` carries it
+now, defaulted so the UI test fakes that build one by hand still compile.
+**Watch out — sign-out must keep the id.** It names the installation, not the account, and clearing
+it with the session is the other half of what made rows multiply. An id that then turns out to
+belong to a different account simply does not match, which is the answer the server already gave.
+**Watch out — the name can be longer than the column.** `device.name` is `varchar(60)` and the
+value is whatever a handset volunteers, so an unguarded pass-through turns a chatty model string
+into a failed sign-in. Trimmed server-side, in one place, because every grant reaches it.
+**Not done:** the browser rows still multiply. Web sign-in is a statically rendered form post
+(§7.5), so there is no script to read a stored id and nothing to send one in; those rows are at
+least named after the browser. Fixing it means a device cookie the sign-in endpoint reads and
+writes, which is its own decision about a third cookie.
+**Refs:** §7.4, §7.5, §7.10, §18.5
+
+---
+
 ## The server list is complete — and two things are owed before real riders
 
-Every task SRV-01 … SRV-38 is marked. 506 server tests green, `dotnet format --verify-no-changes` clean,
+Every task SRV-01 … SRV-39 is marked. 518 server tests green, `dotnet format --verify-no-changes` clean,
 architecture tests green, licence gate exit 0, and the image builds and reports healthy. What is
 *not* done is deliberately listed here rather than left to be discovered:
 

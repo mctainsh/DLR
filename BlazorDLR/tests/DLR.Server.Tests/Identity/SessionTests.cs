@@ -248,6 +248,76 @@ public sealed class SessionTests(PostgresFixture postgres)
 		session.AccessToken.ShouldNotBeNullOrWhiteSpace();
 	}
 
+	/// <summary>
+	/// The loop the client actually runs: sign in, keep the id the answer carried, send it back
+	/// next time. Without it every sign-in mints a row and the screen fills with devices the
+	/// rider has never owned.
+	/// </summary>
+	[Fact]
+	public async Task SigningInAgain_WithTheIdItWasGiven_StaysOneDevice()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		TokenResponse first = await client.RegisterAsync("DaveSmith");
+
+		TokenResponse second = await SignInAsync(client, "DaveSmith", "Pixel 9", deviceId: first.DeviceId);
+		TokenResponse third = await SignInAsync(client, "DaveSmith", "Pixel 9", deviceId: second.DeviceId);
+
+		third.DeviceId.ShouldBe(first.DeviceId);
+
+		using HttpClient authed = app.CreateClient().Authenticated(third);
+
+		List<DeviceSession> sessions =
+			(await authed.GetFromJsonAsync<List<DeviceSession>>(SessionsUrl))!;
+
+		sessions.ShouldHaveSingleItem().Name.ShouldBe("Pixel 9",
+			"the name arrives on the second sign-in and renames the row rather than adding one");
+	}
+
+	/// <summary>
+	/// The id is in the <c>dev</c> claim either way, but a client should not have to read its own
+	/// JWT to find out what to send back — so the body says it too, on every grant.
+	/// </summary>
+	[Fact]
+	public async Task EverySession_SaysWhichDeviceItBelongsTo()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		TokenResponse registered = await client.RegisterAsync("DaveSmith");
+		registered.DeviceId.ShouldBe(DeviceIdOf(registered));
+
+		TokenResponse signedIn = await SignInAsync(client, "DaveSmith", deviceId: registered.DeviceId);
+		signedIn.DeviceId.ShouldBe(registered.DeviceId);
+
+		TokenResponse refreshed = await RefreshAsync(client, signedIn.RefreshToken);
+		refreshed.DeviceId.ShouldBe(registered.DeviceId,
+			"a rotation continues the session it was handed, so the device cannot change under it");
+	}
+
+	/// <summary>
+	/// A handset volunteers its own name and nothing verifies it. Longer than the column is a
+	/// chatty phone, not an attack, and it must not fail the sign-in it was attached to.
+	/// </summary>
+	[Fact]
+	public async Task DeviceName_LongerThanTheColumn_IsTrimmedRatherThanRefused()
+	{
+		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
+		using HttpClient client = app.CreateClient();
+
+		await client.RegisterAsync("DaveSmith");
+
+		TokenResponse session = await SignInAsync(client, "DaveSmith", new string('x', 200));
+
+		using HttpClient authed = app.CreateClient().Authenticated(session);
+
+		List<DeviceSession> sessions =
+			(await authed.GetFromJsonAsync<List<DeviceSession>>(SessionsUrl))!;
+
+		sessions.Single(row => row.DeviceId == session.DeviceId).Name!.Length.ShouldBe(60);
+	}
+
 	private static Guid DeviceIdOf(TokenResponse session) =>
 		Guid.Parse(new Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler()
 			.ReadJsonWebToken(session.AccessToken)
