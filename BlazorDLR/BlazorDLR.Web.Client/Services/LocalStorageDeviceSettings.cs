@@ -4,7 +4,7 @@ using Microsoft.JSInterop;
 namespace BlazorDLR.Web.Client.Services;
 
 /// <summary>
-/// The web binding for <see cref="IDeviceSettings"/> — browser <c>localStorage</c>, which is
+/// The web binding for <see cref="IDeviceSettings"/> - browser <c>localStorage</c>, which is
 /// per-origin and per-browser-profile and therefore exactly the "this device" the interface
 /// promises. Nothing written here travels over the wire.
 /// </summary>

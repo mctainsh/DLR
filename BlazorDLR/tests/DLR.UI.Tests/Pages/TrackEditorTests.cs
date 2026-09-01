@@ -7,7 +7,7 @@ using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
-// DLR.Core.Tracks carries a TrackEditor of its own — the domain operation that applies the
+// DLR.Core.Tracks carries a TrackEditor of its own - the domain operation that applies the
 // removals. This file is about the page, so the bare name is pinned to it.
 using TrackEditor = BlazorDLR.Shared.Pages.TrackEditor;
 
@@ -17,7 +17,7 @@ namespace DLR.UI.Tests.Pages;
 /// The trim composer end to end (§15.5). The index arithmetic is asserted in
 /// <see cref="Tracks.TrackTrimSessionTests"/>; what this file covers is the wiring around it:
 /// <list type="bullet">
-///   <item>the composer loads on every form factor — §6.1's web-only gate was removed, and a
+///   <item>the composer loads on every form factor - §6.1's web-only gate was removed, and a
 ///     test that renders it as a phone is what stops the gate coming back;</item>
 ///   <item>a tap on the map places the cursor, and the trim buttons appear only once it has;</item>
 ///   <item>nothing reaches the API until Apply, and Apply asks first;</item>
@@ -35,7 +35,7 @@ public sealed class TrackEditorTests : PageTestContext
 		ZoomLevel: 12, HeadingDeg: 0,
 		CanvasWidthPx: 1000, CanvasHeightPx: 1000, DevicePixelRatio: 1);
 
-	/// <summary>Eleven points along the equator, 0.1° apart — index 5 sits on the origin.</summary>
+	/// <summary>Eleven points along the equator, 0.1° apart - index 5 sits on the origin.</summary>
 	private static readonly TrackPoint[] Line =
 	[
 		.. Enumerable.Range(0, 11).Select(index => new TrackPoint(0, -0.5 + (index * 0.1))),
@@ -101,13 +101,13 @@ public sealed class TrackEditorTests : PageTestContext
 	private static AngleSharp.Dom.IElement Button(IRenderedComponent<TrackEditor> component, string face) =>
 		component.FindAll("button").First(b => string.Equals(b.TextContent.Trim(), face, StringComparison.Ordinal));
 
-	/// <summary>A button whose face carries a changing count — Undo and Apply.</summary>
+	/// <summary>A button whose face carries a changing count - Undo and Apply.</summary>
 	private static AngleSharp.Dom.IElement ButtonStarting(IRenderedComponent<TrackEditor> component, string prefix) =>
 		component.FindAll("button").First(b => b.TextContent.Trim().StartsWith(prefix, StringComparison.Ordinal));
 
 	/// <summary>
 	/// The survivor count line as a human reads it. Asserted against text rather than markup
-	/// because the numbers render inside <c>&lt;strong&gt;</c> — "9 of 11" is one phrase on
+	/// because the numbers render inside <c>&lt;strong&gt;</c> - "9 of 11" is one phrase on
 	/// screen and three nodes in the DOM.
 	/// </summary>
 	private static string Lead(IRenderedComponent<TrackEditor> component) =>
@@ -127,7 +127,7 @@ public sealed class TrackEditorTests : PageTestContext
 		component.Markup.Contains("Track editing lives on the web", StringComparison.Ordinal).ShouldBeFalse(
 			"the note that sent a phone to a desktop browser is gone.");
 		api.Calls.ShouldContain("GetTrackPointsAsync",
-			"the raw points are the index space the cursor lands in — a host that can edit must fetch them.");
+			"the raw points are the index space the cursor lands in - a host that can edit must fetch them.");
 	}
 
 	[Fact]
@@ -140,9 +140,9 @@ public sealed class TrackEditorTests : PageTestContext
 		RideMap drawn = component.FindComponent<StubRideMap>().Instance;
 
 		// §15.5: the line is encoded by the one codec, and the overlay decodes with the same
-		// one — a precision mismatch here is what once drew every track a continent away and
+		// one - a precision mismatch here is what once drew every track a continent away and
 		// left the map looking empty rather than wrong.
-		// One line, because an editor edits one track — the parameter is a list only because a
+		// One line, because an editor edits one track - the parameter is a list only because a
 		// group ride may have several planned routes on the same map (§5.4).
 		drawn.Routes.ShouldNotBeNull("a track editor that draws no track cannot be tapped.");
 		PolylineCodec.DecodePoints(drawn.Routes!.Single().EncodedPolyline)
@@ -350,7 +350,7 @@ public sealed class TrackEditorTests : PageTestContext
 				.Where(b => b.TextContent.Contains("Undo", StringComparison.Ordinal))
 				.ShouldBeEmpty(
 					"the client history does not survive a commit. The page reloads into a fresh session "
-					+ "with no cursor and no steps, so the trim block — Undo included — is not even drawn.");
+					+ "with no cursor and no steps, so the trim block - Undo included - is not even drawn.");
 
 			component.Markup.Contains("retained until", StringComparison.Ordinal).ShouldBeFalse(
 				"an undo offered after the point of no return is one that gets trusted at the wrong moment.");

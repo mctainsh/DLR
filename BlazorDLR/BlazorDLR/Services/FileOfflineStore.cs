@@ -4,18 +4,18 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Services;
 
 /// <summary>
-/// The mobile binding for <see cref="IOfflineStore"/> — one UTF-8 file per entry under
+/// The mobile binding for <see cref="IOfflineStore"/> - one UTF-8 file per entry under
 /// <c>FileSystem.AppDataDirectory/offline/</c> (§4.4).
 /// <para>
 /// <strong>App data, not the cache directory.</strong> <c>FileSystem.CacheDirectory</c> is
 /// storage the OS is entitled to reclaim whenever it feels short, and both platforms do. The
 /// whole point of this store is the rider who relaunches in a dead zone, which is precisely the
-/// moment there is no way to refetch what the OS threw away — so this is data the app keeps
+/// moment there is no way to refetch what the OS threw away - so this is data the app keeps
 /// until it decides otherwise, and it is small: one file per ride, tens of kilobytes.
 /// </para>
 /// <para>
-/// <strong>Written through a temporary file.</strong> A phone killed mid-write — the OS
-/// reclaiming an app that has just been backgrounded is the ordinary case, not the rare one —
+/// <strong>Written through a temporary file.</strong> A phone killed mid-write - the OS
+/// reclaiming an app that has just been backgrounded is the ordinary case, not the rare one -
 /// would otherwise leave a half-written JSON document where a whole one used to be, and the
 /// rider would relaunch with neither a network nor a readable copy. The replace is the last
 /// thing that happens, so an entry is either the previous copy or the new one.
@@ -76,7 +76,7 @@ public sealed class FileOfflineStore : IOfflineStore
 
 			// Move rather than File.Replace: the destination does not exist on the first write of
 			// an entry, and Replace requires it to. Delete-then-move is not atomic on either
-			// platform, but the window it opens is between two copies of a cache — and the
+			// platform, but the window it opens is between two copies of a cache - and the
 			// temporary file is fully written before either happens, which is the failure that
 			// actually costs the rider something.
 			File.Move(temporary, path, overwrite: true);
@@ -105,7 +105,7 @@ public sealed class FileOfflineStore : IOfflineStore
 	/// <para>
 	/// <strong>Refused, not sanitised.</strong> Every name this app stores is assembled from a
 	/// <see cref="Guid"/> and a constant prefix, so a name that is not a plain slug is a caller
-	/// bug rather than user input to be cleaned up — and quietly rewriting it would map two
+	/// bug rather than user input to be cleaned up - and quietly rewriting it would map two
 	/// different names onto one file. Refusing also means no name can ever contain a separator
 	/// or a <c>..</c> and address a file outside this directory.
 	/// </para>

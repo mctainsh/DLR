@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace DLR.Server.Positions;
 
 /// <summary>
-/// Counts GPS fixes as they arrive — once per rider for the lifetime total, and once per minute
+/// Counts GPS fixes as they arrive - once per rider for the lifetime total, and once per minute
 /// for the administration screen's graph (§5.5).
 /// <para>
 /// <strong>Here rather than over the stored rows, because the stored rows do not last.</strong>
@@ -12,15 +12,15 @@ namespace DLR.Server.Positions;
 /// right now", and both of these questions are about what happened.
 /// </para>
 /// <para>
-/// <strong>Nothing here touches the database.</strong> The publish path is the hot one — 500
-/// riders at a fix a second — and a counter that took a row lock per fix would cost more than the
+/// <strong>Nothing here touches the database.</strong> The publish path is the hot one - 500
+/// riders at a fix a second - and a counter that took a row lock per fix would cost more than the
 /// position write it is counting. Per-rider totals accumulate here and are drained by the flush
 /// service, which already has a scope, a connection and a batching statement; see
 /// <see cref="DrainRiderCounts"/>.
 /// </para>
 /// <para>
 /// The graph is this process's own count and starts empty when it restarts. That is stated on the
-/// wire — <see cref="StartedUtc"/> travels with the numbers — because a graph climbing out of a
+/// wire - <see cref="StartedUtc"/> travels with the numbers - because a graph climbing out of a
 /// restart and a service that lost half its riders look identical otherwise.
 /// </para>
 /// </summary>
@@ -29,7 +29,7 @@ public sealed class PositionActivityMeter(TimeProvider clock)
 {
 	/// <summary>
 	/// How many minutes the graph covers. A day, because that is the window the screen asks for
-	/// and 1 440 <see cref="int"/>s is 6 KB — small enough that there is no reason to keep less.
+	/// and 1 440 <see cref="int"/>s is 6 KB - small enough that there is no reason to keep less.
 	/// </summary>
 	public const int WindowMinutes = 24 * 60;
 
@@ -53,7 +53,7 @@ public sealed class PositionActivityMeter(TimeProvider clock)
 	/// Fixes seen per rider since the last drain.
 	/// <para>
 	/// Concurrent rather than under <see cref="_gate"/>: the two are written on the same call but
-	/// contend differently — every fix touches one bucket and one rider, and riders are spread
+	/// contend differently - every fix touches one bucket and one rider, and riders are spread
 	/// across the dictionary while the bucket is a single slot every fix in a minute shares.
 	/// </para>
 	/// </summary>
@@ -62,7 +62,7 @@ public sealed class PositionActivityMeter(TimeProvider clock)
 	/// <summary>Handed out for a drain that found nothing, so an idle tick allocates nothing.</summary>
 	private static readonly Dictionary<Guid, long> Empty = [];
 
-	/// <summary>When this process began counting. Travels with the graph — see the type's note.</summary>
+	/// <summary>When this process began counting. Travels with the graph - see the type's note.</summary>
 	public DateTimeOffset StartedUtc { get; } = clock.GetUtcNow();
 
 	/// <summary>
@@ -160,7 +160,7 @@ public sealed class PositionActivityMeter(TimeProvider clock)
 		return window;
 	}
 
-	/// <summary>Whole minutes since the epoch — the graph's unit, and the ring's key.</summary>
+	/// <summary>Whole minutes since the epoch - the graph's unit, and the ring's key.</summary>
 	private static long Minute(DateTimeOffset instant) => instant.ToUnixTimeSeconds() / 60;
 
 	/// <summary>

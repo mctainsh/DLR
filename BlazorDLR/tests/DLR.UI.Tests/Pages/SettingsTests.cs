@@ -15,16 +15,16 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// The four Settings screens that each carry a rule from §7.
 /// <list type="bullet">
-///   <item><c>Profile</c> — two optional fields, each with a switch off by default (§7.3).
+///   <item><c>Profile</c> - two optional fields, each with a switch off by default (§7.3).
 ///     Sharing the email is disabled when the address is unconfirmed.</item>
-///   <item><c>Account</c> — password change surfaces per-rule server messages (§18.2).</item>
-///   <item><c>Devices</c> — non-current devices are revocable; the current device is called
+///   <item><c>Account</c> - password change surfaces per-rule server messages (§18.2).</item>
+///   <item><c>Devices</c> - non-current devices are revocable; the current device is called
 ///     out and has no revoke button (§7.10).</item>
-///   <item><c>Blocks</c> — the list, unblock, and the "they are not told" copy (§17.7).</item>
+///   <item><c>Blocks</c> - the list, unblock, and the "they are not told" copy (§17.7).</item>
 /// </list>
 /// <para>
 /// The home private area used to be a fifth section, on <c>Profile</c>. It lives on the Location
-/// screen now, beside the receiver it gates — see <see cref="LocationSettingsTests"/>.
+/// screen now, beside the receiver it gates - see <see cref="LocationSettingsTests"/>.
 /// </para>
 /// </summary>
 public sealed class SettingsTests : PageTestContext
@@ -37,8 +37,8 @@ public sealed class SettingsTests : PageTestContext
 		FakeTimeProvider clock = new(FixedInstant);
 		Services.AddSingleton<IApiClient>(api);
 		Services.AddSingleton<TimeProvider>(clock);
-		// Profile's marker preview names the rider by username, because that — never the display
-		// name — is what a map pin carries (§7.2). Signed out here, so it falls back to "You".
+		// Profile's marker preview names the rider by username, because that - never the display
+		// name - is what a map pin carries (§7.2). Signed out here, so it falls back to "You".
 		Services.AddSingleton<ITokenStore>(new FakeTokenStore());
 		Services.AddSingleton(serviceProvider => new AuthState(
 			serviceProvider.GetRequiredService<IApiClient>(),
@@ -48,7 +48,7 @@ public sealed class SettingsTests : PageTestContext
 
 		// The Settings landing asks whether to offer the administration card (§14.6). The fake
 		// client answers a profile with IsAdmin false, so the card stays off unless a test says
-		// otherwise — which is the state nearly every account is in.
+		// otherwise - which is the state nearly every account is in.
 		Services.AddSingleton<AdminAccess>();
 		return api;
 	}
@@ -72,7 +72,7 @@ public sealed class SettingsTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			// The share-email switch is the second checkbox on the page — after PhoneNumber, and
+			// The share-email switch is the second checkbox on the page - after PhoneNumber, and
 			// second rather than third because the display name no longer has a control here at all.
 			// It carries the disabled attribute when the email is unconfirmed.
 			AngleSharp.Dom.IElement[] switches = component.FindAll("input[type=checkbox]").ToArray();
@@ -93,7 +93,7 @@ public sealed class SettingsTests : PageTestContext
 		component.WaitForAssertion(() =>
 			component.FindAll("input[type=checkbox]").Count.ShouldBe(2), timeout: TimeSpan.FromSeconds(3));
 
-		// Type a new phone number (blank spaces around it — must be trimmed).
+		// Type a new phone number (blank spaces around it - must be trimmed).
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement phone = component.Find("input[type=tel]");
@@ -117,11 +117,11 @@ public sealed class SettingsTests : PageTestContext
 		UpdateProfileRequest sent = api.LastUpdateProfileRequest!;
 		sent.PhoneNumber.ShouldBe("0400 123 456", "§7.3: the field is trimmed before the wire.");
 		sent.SharePhoneNumber.ShouldBeTrue("the switch's new value must reach the API.");
-		sent.ShareEmail.ShouldBeFalse("the untouched share-email switch stays off — the caller does not flip it accidentally.");
+		sent.ShareEmail.ShouldBeFalse("the untouched share-email switch stays off - the caller does not flip it accidentally.");
 	}
 
 	/// <summary>
-	/// The display name has no control on this screen any more — every name a traveller reads is
+	/// The display name has no control on this screen any more - every name a traveller reads is
 	/// the login name (§7.2). The account still holds the value though, and the update replaces the
 	/// whole profile, so a save has to hand back what it loaded: a screen that dropped the field
 	/// would clear a stored name that nobody asked to clear.
@@ -167,7 +167,7 @@ public sealed class SettingsTests : PageTestContext
 			swatches.Length.ShouldBe(MarkerColours.Palette.Count);
 
 			swatches.Count(swatch => swatch.GetAttribute("aria-pressed") == "true").ShouldBe(1,
-				"exactly one swatch is in force, and the screen has to say which — a picker that " +
+				"exactly one swatch is in force, and the screen has to say which - a picker that " +
 				"does not show the current answer is a picker nobody can tell they have used.");
 
 			swatches.Single(swatch => swatch.GetAttribute("aria-pressed") == "true")
@@ -283,7 +283,7 @@ public sealed class SettingsTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		ChangePasswordRequest sent = api.LastChangePasswordRequest!;
-		sent.CurrentPassword.ShouldBe("OldPass1", "the old password proves it is the account holder — not an attacker with a stolen token.");
+		sent.CurrentPassword.ShouldBe("OldPass1", "the old password proves it is the account holder - not an attacker with a stolen token.");
 		sent.NewPassword.ShouldBe("NewPass9");
 	}
 
@@ -318,7 +318,7 @@ public sealed class SettingsTests : PageTestContext
 		{
 			string markup = component.Markup;
 			markup.Contains("Too short", StringComparison.Ordinal).ShouldBeTrue(
-				"§7.2 v0.22: per-rule messages surface — 'The new password does not meet the requirements' is not enough.");
+				"§7.2 v0.22: per-rule messages surface - 'The new password does not meet the requirements' is not enough.");
 			markup.Contains("No digit", StringComparison.Ordinal).ShouldBeTrue();
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -349,12 +349,12 @@ public sealed class SettingsTests : PageTestContext
 
 		api.LastSetEmailRequest!.Email.ShouldBe("dave@example.com", "§7.7: the address is trimmed before the wire.");
 		api.LastChangePasswordRequest.ShouldBeNull(
-			"setting an address must not touch the password — the two forms are separate.");
+			"setting an address must not touch the password - the two forms are separate.");
 	}
 
 	/// <summary>
 	/// An address is stored unconfirmed (§7.7), so the screen has to say the link is what turns it
-	/// into a recovery address — not the typing.
+	/// into a recovery address - not the typing.
 	/// </summary>
 	[Fact]
 	public async Task Account_SetEmail_SaysTheAddressDoesNothingUntilConfirmed()
@@ -372,7 +372,7 @@ public sealed class SettingsTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.Markup.Contains("confirmation link", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-				"§7.7: recovery is enabled by confirming, never by typing — the status has to say so."),
+				"§7.7: recovery is enabled by confirming, never by typing - the status has to say so."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -468,7 +468,7 @@ public sealed class SettingsTests : PageTestContext
 				"§7.10: the current session is called out so a user does not sign themselves out.");
 			int revokeButtons = component.FindAll("li.device button").Count;
 			revokeButtons.ShouldBe(1,
-				"§7.10: only non-current devices have a Sign-out button — one revoke per other device, none for this one.");
+				"§7.10: only non-current devices have a Sign-out button - one revoke per other device, none for this one.");
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		// Click the revoke button; the deviceId argument sent is the OTHER session, not the current one.
@@ -520,7 +520,7 @@ public sealed class SettingsTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("not told", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-				"§17.7: the block-vs-mute distinction is that the blocked traveller is not told — the copy must say so.");
+				"§17.7: the block-vs-mute distinction is that the blocked traveller is not told - the copy must say so.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -563,7 +563,7 @@ public sealed class SettingsTests : PageTestContext
 			AngleSharp.Dom.IElement delete = component.FindAll("button.danger")
 				.First(b => b.TextContent.Contains("permanently", StringComparison.Ordinal));
 			delete.HasAttribute("disabled").ShouldBeTrue(
-				"§6.3: the delete button is disabled until password + ack are both set — no one deletes on a stray tap.");
+				"§6.3: the delete button is disabled until password + ack are both set - no one deletes on a stray tap.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -578,13 +578,13 @@ public sealed class SettingsTests : PageTestContext
 
 		IRenderedComponent<Settings> component = Render<Settings>();
 
-		// Each subpage is reachable from this landing — omitting one strands its features.
+		// Each subpage is reachable from this landing - omitting one strands its features.
 		component.FindAll("a[href='/settings/profile']").ShouldNotBeEmpty();
 		component.FindAll("a[href='/settings/devices']").ShouldNotBeEmpty();
 		component.FindAll("a[href='/settings/blocks']").ShouldNotBeEmpty();
 		component.FindAll("a[href='/settings/account']").ShouldNotBeEmpty();
 		component.FindAll("a[href='/settings/data']").ShouldNotBeEmpty(
-			"§10.2: the data & export page is the store-compliance path — the landing must link to it.");
+			"§10.2: the data & export page is the store-compliance path - the landing must link to it.");
 	}
 
 	[Fact]
@@ -624,6 +624,6 @@ public sealed class SettingsTests : PageTestContext
 		component.WaitForAssertion(() => api.LastDeleteAccountRequest.ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
 		api.LastDeleteAccountRequest!.CurrentPassword.ShouldBe("MyPass9",
-			"§6.3: DELETE /me carries the current password — the token alone is not enough authorisation for permanent deletion.");
+			"§6.3: DELETE /me carries the current password - the token alone is not enough authorisation for permanent deletion.");
 	}
 }

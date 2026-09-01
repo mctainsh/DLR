@@ -5,7 +5,7 @@ namespace DLR.Core.Tracks;
 /// <para>
 /// One implementation, used by the recorder, the importer and the editor alike. Three copies of
 /// "compute the stats" is how a track's ascent comes out different depending on where it came
-/// from — and the person it looks wrong to is the one who rode it.
+/// from - and the person it looks wrong to is the one who rode it.
 /// </para>
 /// <para>
 /// Every time-derived figure is nullable, and null is not zero. A track with no timestamps is a
@@ -43,7 +43,7 @@ public sealed record TrackStats(
 	/// GPS altitude wanders by several metres while standing still, so summing every rise
 	/// produces a number that grows with how long the ride took rather than with how much of
 	/// it was uphill. §15.7 requires the importer and the editor to use the recorder's
-	/// threshold unchanged — an edited track whose untouched half reports different climbing
+	/// threshold unchanged - an edited track whose untouched half reports different climbing
 	/// reads as data corruption to the person who owns the ride.
 	/// </para>
 	/// </summary>
@@ -105,7 +105,7 @@ public sealed record TrackStats(
 	/// Climbing, counted only once a rise clears the noise threshold.
 	/// <para>
 	/// Tracked against a running reference rather than point to point, so a long steady climb
-	/// made of half-metre steps still counts — a naive per-point threshold would discard all
+	/// made of half-metre steps still counts - a naive per-point threshold would discard all
 	/// of it.
 	/// </para>
 	/// </summary>
@@ -198,7 +198,7 @@ public readonly record struct TrackBounds(
 	/// none.
 	/// <para>
 	/// What a group ride is framed on. A ride carries a <em>set</em> of planned routes rather than
-	/// one (§5.4) — the short option and the long one, the way out and the way home — so opening
+	/// one (§5.4) - the short option and the long one, the way out and the way home - so opening
 	/// on the first of them would put the rest off the screen.
 	/// </para>
 	/// <para>
@@ -221,7 +221,7 @@ public readonly record struct TrackBounds(
 	/// Whether a point falls inside this box, edges included.
 	/// <para>
 	/// Inclusive because the boxes this answers for are map-pack extents (§4.2), and a rider
-	/// pointing at a coast is pointing at an edge — refusing the boundary would leave a thin band
+	/// pointing at a coast is pointing at an edge - refusing the boundary would leave a thin band
 	/// along every extract that selects nothing and looks like a broken tap.
 	/// </para>
 	/// <para>
@@ -239,7 +239,7 @@ public readonly record struct TrackBounds(
 	/// <summary>
 	/// How much of the world the box covers, in square degrees.
 	/// <para>
-	/// A comparison key and nothing else — degrees of longitude shrink toward the poles, so this
+	/// A comparison key and nothing else - degrees of longitude shrink toward the poles, so this
 	/// is not an area on the ground. What it is used for is ordering boxes that all contain the
 	/// same point, where the ranking is what matters and any monotonic measure gives the same one.
 	/// </para>
@@ -250,7 +250,7 @@ public readonly record struct TrackBounds(
 	/// Whether this is a box a map can be framed on: real numbers, in range, and not inside out.
 	/// <para>
 	/// Asked of the catalogue's bounds (§4.2), which are a publisher's claim like everything else
-	/// in it — an entry whose corners are swapped, or which carries a longitude of 1000, would
+	/// in it - an entry whose corners are swapped, or which carries a longitude of 1000, would
 	/// otherwise be drawn as a box across the whole world and be selectable by a tap anywhere.
 	/// </para>
 	/// </summary>

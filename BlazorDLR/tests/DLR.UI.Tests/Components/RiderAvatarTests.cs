@@ -12,7 +12,7 @@ namespace DLR.UI.Tests.Components;
 /// <summary>
 /// The little round photograph beside a rider's name (§7.3).
 /// <para>
-/// Two properties carry the weight. It draws nothing at all for a rider with no photograph —
+/// Two properties carry the weight. It draws nothing at all for a rider with no photograph -
 /// a name is complete on its own, and a list of grey placeholders that pop into faces looks
 /// broken while it loads. And it survives a host that never registered the cache, because it is
 /// decoration: a missing picture is the right price for a missing registration, and a member list
@@ -34,7 +34,7 @@ public sealed class RiderAvatarTests : BunitContext
 		Services.AddScoped<RiderAvatars>();
 	}
 
-	/// <summary>Opens the batch window — the fake clock only moves when a test moves it (§10.4).</summary>
+	/// <summary>Opens the batch window - the fake clock only moves when a test moves it (§10.4).</summary>
 	private void OpenTheWindow() => _clock.Advance(TimeSpan.FromMilliseconds(RiderAvatars.BatchWindowMs + 1));
 
 	[Fact]
@@ -55,10 +55,10 @@ public sealed class RiderAvatarTests : BunitContext
 			// A data URL, because the photo endpoint is behind the bearer token and an <img src>
 			// cannot carry one (§16.4).
 			image.GetAttribute("src").ShouldStartWith("data:image/jpeg;base64,");
-			// About twice the line height, which is the default size — see AvatarSize.Inline.
+			// About twice the line height, which is the default size - see AvatarSize.Inline.
 			image.ClassList.ShouldContain("inline");
 			image.GetAttribute("alt").ShouldBe(string.Empty,
-				"the name is already beside it in text — announcing it twice is worse than not at all");
+				"the name is already beside it in text - announcing it twice is worse than not at all");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -96,7 +96,7 @@ public sealed class RiderAvatarTests : BunitContext
 	}
 
 	/// <summary>
-	/// The SSR host does not register the cache at all — it has no bearer token and no HttpClient,
+	/// The SSR host does not register the cache at all - it has no bearer token and no HttpClient,
 	/// so it could not fetch a thumbnail if it tried (see the note in <c>Program.cs</c>). The
 	/// prerendered markup must therefore carry the name and no picture rather than an exception.
 	/// </summary>

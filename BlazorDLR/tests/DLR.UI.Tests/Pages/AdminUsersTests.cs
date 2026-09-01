@@ -14,8 +14,8 @@ namespace DLR.UI.Tests.Pages;
 /// A renderer test can say nothing about pixels, so it does not try. What it can hold is the
 /// structural invariant the column alignment rests on: the table declares its own tracks in a
 /// <c>colgroup</c> and uses fixed layout, so a heading and the figures under it cannot end up in
-/// different columns. That bug shipped once — the numbers bunched left while the headings marched
-/// off to the right — and the shape of the mistake that caused it is "a column was added to the
+/// different columns. That bug shipped once - the numbers bunched left while the headings marched
+/// off to the right - and the shape of the mistake that caused it is "a column was added to the
 /// head and not to the colgroup", which is exactly what this catches.
 /// </para>
 /// </summary>
@@ -56,7 +56,7 @@ public sealed class AdminUsersTests : PageTestContext
 	/// <summary>
 	/// One <c>col</c> per heading, or the tracks the headings and the figures share stop being the
 	/// same tracks. Under <c>table-layout: fixed</c> a missing <c>col</c> is not a compile error and
-	/// not a blank column — it silently shifts every column after it.
+	/// not a blank column - it silently shifts every column after it.
 	/// </summary>
 	[Fact]
 	public void TheTableDeclaresOneColumnTrackPerHeading()
@@ -99,7 +99,7 @@ public sealed class AdminUsersTests : PageTestContext
 	/// numeric columns fall out of the table's tracks and stack up the side of it, which is what
 	/// this screen did until the class was renamed.
 	/// <para>
-	/// A renderer test cannot see the cascade, so it guards the thing it can see — that the markup
+	/// A renderer test cannot see the cascade, so it guards the thing it can see - that the markup
 	/// does not reach for that name again. The same trap is waiting for any class on shared markup
 	/// that Bootstrap also defines.
 	/// </para>
@@ -152,8 +152,8 @@ public sealed class AdminUsersTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A roster account gets no delete button. The server refuses those outright — deleting one
-	/// frees the username its roster entry names — so a button there could only ever be told no.
+	/// A roster account gets no delete button. The server refuses those outright - deleting one
+	/// frees the username its roster entry names - so a button there could only ever be told no.
 	/// </summary>
 	[Fact]
 	public void OnlyNonRosterAccountsOfferDelete()

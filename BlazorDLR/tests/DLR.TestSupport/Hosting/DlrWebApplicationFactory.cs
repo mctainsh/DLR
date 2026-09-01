@@ -1,3 +1,4 @@
+using DLR.Server.Announcements;
 using DLR.Server.Comments;
 using DLR.Server.Data;
 using DLR.Server.Identity;
@@ -39,7 +40,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	/// <summary>
 	/// Rate limits raised out of the way for tests that are not about them.
 	/// <para>
-	/// The §7.8 limits are per address, and every test in the suite shares one — so five
+	/// The §7.8 limits are per address, and every test in the suite shares one - so five
 	/// login attempts a minute would make the timing test in §7.4 fail for a reason it is not
 	/// investigating. Raised rather than switched off, so the code path is still exercised
 	/// everywhere; <see cref="WithRealRateLimits"/> puts the shipped numbers back for the
@@ -59,7 +60,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	/// <summary>
 	/// Where the work factor is read from. Private: it is this class talking to itself, and a
 	/// <c>Testing:</c> key on the application's own configuration surface is not something a
-	/// caller should have to know about — <see cref="ShippedPasswordCost"/> is the way in.
+	/// caller should have to know about - <see cref="ShippedPasswordCost"/> is the way in.
 	/// </summary>
 	private const string PasswordHasherIterationsKey = "Testing:PasswordHasherIterations";
 
@@ -68,7 +69,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	/// <para>
 	/// Password hashing is deliberately slow, and the shipped hundred thousand iterations cost
 	/// about forty milliseconds a hash. The suite registers and signs in hundreds of times, so
-	/// that is most of a minute spent proving PBKDF2 still works — which it is not the job of
+	/// that is most of a minute spent proving PBKDF2 still works - which it is not the job of
 	/// a group-ride test to establish. Lowered rather than replaced: the same hasher on the
 	/// same code path, so <see cref="DLR.Server.Identity.DummyPasswordVerifier"/> still matches
 	/// it and every §7.4 assertion still means what it says. The shipped number is asserted
@@ -78,7 +79,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	public const int CheapPasswordHasherIterations = 10_000;
 
 	/// <summary>
-	/// What the application actually ships — the framework default, which §7 never overrides.
+	/// What the application actually ships - the framework default, which §7 never overrides.
 	/// </summary>
 	public static int ShippedPasswordHasherIterations => new PasswordHasherOptions().IterationCount;
 
@@ -94,7 +95,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	/// <summary>
 	/// The nightly job's timer, off for every test that is not about it (§7.11).
 	/// <para>
-	/// Its period is a day, and this suite advances the clock by a day — or by a year — all over
+	/// Its period is a day, and this suite advances the clock by a day - or by a year - all over
 	/// the place: token lifespans, undo windows, the archival horizon. Left on, a
 	/// <see cref="PeriodicTimer"/> would fire an unbounded number of destructive runs in the middle
 	/// of tests investigating something else, at a moment decided by a race. Tests that want a run
@@ -151,14 +152,14 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	/// No migration step here: <see cref="PostgresFixture.CreateDatabaseAsync"/> hands back a copy
 	/// of an already-migrated template, <c>__EFMigrationsHistory</c> and all. Running the migrator
 	/// over it as well would resolve a context and round-trip the history table once per test only
-	/// to find nothing pending — which is the cost the template exists to remove. <see cref="Restart"/>
+	/// to find nothing pending - which is the cost the template exists to remove. <see cref="Restart"/>
 	/// has always skipped it for the same reason.
 	/// </para>
 	/// </summary>
 	/// <param name="postgres">The assembly's container.</param>
 	/// <param name="startingAt">Where the fake clock starts; defaults to <see cref="DefaultStart"/>.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
-	/// <param name="settings">Configuration overrides — the §7.8 thresholds, mostly.</param>
+	/// <param name="settings">Configuration overrides - the §7.8 thresholds, mostly.</param>
 	public static async Task<DlrWebApplicationFactory> CreateAsync(
 		PostgresFixture postgres,
 		DateTimeOffset? startingAt = null,
@@ -171,7 +172,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	}
 
 	/// <summary>
-	/// A second server against the <em>same</em> database — a process restart, in other words.
+	/// A second server against the <em>same</em> database - a process restart, in other words.
 	/// <para>
 	/// The distinction §7.8 draws between the ladder and the rate limiter is only visible
 	/// across one of these: in-process counters come back empty and row counts do not. Without
@@ -187,7 +188,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	{
 		_ = cancellationToken;
 
-		// The schema is already there, so no migration — and the clock restarts where this one
+		// The schema is already there, so no migration - and the clock restarts where this one
 		// currently is, because a redeploy does not move time.
 		return new DlrWebApplicationFactory(_connectionString, Clock.GetUtcNow(), settings);
 	}
@@ -209,7 +210,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	}
 
 	/// <summary>
-	/// How many positions the cache is holding — for one adventure, or every one (§5.5).
+	/// How many positions the cache is holding - for one adventure, or every one (§5.5).
 	/// </summary>
 	/// <param name="rideId">Which adventure, or null for the whole cache.</param>
 	/// <remarks>
@@ -228,7 +229,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	/// <summary>
 	/// Banks the counted fixes, synchronously (§14.6).
 	/// <para>
-	/// <strong>Not a position flush — there is no such thing since v0.33.</strong> A published fix
+	/// <strong>Not a position flush - there is no such thing since v0.33.</strong> A published fix
 	/// is in <c>RiderPositionCache</c> the moment the request returns, so a test asserting on a
 	/// position never needs this. What still reaches PostgreSQL on a tick is each rider's lifetime
 	/// count, and driving the drain directly is the same code path with none of the timer's
@@ -243,7 +244,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 	/// <para>
 	/// Reactions mark a comment dirty and the hub message follows on a timer, so a test that wants
 	/// to assert on the <em>message</em> has to get one sent. Driving the flush directly is the same
-	/// code path with none of the flakiness — advancing a fake clock and waiting for a
+	/// code path with none of the flakiness - advancing a fake clock and waiting for a
 	/// <see cref="PeriodicTimer"/> is a race twice over, which SRV-22 already paid for.
 	/// </para>
 	/// </summary>
@@ -251,9 +252,19 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 		Services.GetRequiredService<ReactionBroadcastService>().FlushAsync(CancellationToken.None);
 
 	/// <summary>
+	/// Sweeps for announcements that have gone live and sends them, synchronously (§20.3).
+	/// <para>
+	/// Same reasoning as the reaction flush above: the sweep runs on a <see cref="PeriodicTimer"/>,
+	/// and a test that wants to assert on the message has to get one sent without racing the timer.
+	/// </para>
+	/// </summary>
+	public Task FlushAnnouncementsAsync() =>
+		Services.GetRequiredService<AnnouncementBroadcastService>().FlushAsync(CancellationToken.None);
+
+	/// <summary>
 	/// Runs the nightly job once, synchronously, and hands back what it did (§7.11).
 	/// <para>
-	/// The timer is off in tests — see <see cref="NoMaintenanceTimer"/> — so this is the only way a
+	/// The timer is off in tests - see <see cref="NoMaintenanceTimer"/> - so this is the only way a
 	/// run happens, which is also the only way a test can be certain a run it did not ask for did
 	/// not happen.
 	/// </para>
@@ -279,7 +290,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 				["Blobs:RootPath"] = BlobRoot,
 
 				// The shipped settings switch the file log on and point it at a real folder. A
-				// suite that inherited that writes its fake-dated days — 2026-01-01, 2027-02-05 —
+				// suite that inherited that writes its fake-dated days - 2026-01-01, 2027-02-05 -
 				// into the developer's own log directory and leaves them there, where the
 				// administration screen then offers them beside the real ones. The tests that are
 				// about the writer build their own provider on a temporary directory instead (see
@@ -298,7 +309,7 @@ public sealed class DlrWebApplicationFactory : WebApplicationFactory<Program>
 
 		builder.ConfigureServices((context, services) =>
 		{
-			// The work factor, lowered for every test that is not about it — see
+			// The work factor, lowered for every test that is not about it - see
 			// PasswordHasherIterationsKey.
 			int iterations = context.Configuration.GetValue(
 				PasswordHasherIterationsKey,

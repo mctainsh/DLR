@@ -5,11 +5,11 @@
 // methods in BlazorDLR.Shared/Services.
 //
 // Kept as its own file after v0.24 collapsed three modules into one, because the rule below
-// is about Blazor's marshalling and not about any provider — a second module (an offline
+// is about Blazor's marshalling and not about any provider - a second module (an offline
 // PMTiles renderer, §13 Q26) would need it stated exactly once, here.
 //
 // That pairing has already been got wrong once. Blazor marshals a DotNetObjectReference
-// across as an object carrying `invokeMethodAsync` — NOT as a callable function — so
+// across as an object carrying `invokeMethodAsync` - NOT as a callable function - so
 // `callbacks.onViewportChanged(payload)` throws "is not a function" inside an event handler
 // and the event vanishes with no visible error. The map drew, and every viewport and click
 // it reported was silently discarded. One copy of this rule is the point of the file.
@@ -20,7 +20,7 @@
 //
 // A repaint is a round trip: MapLibre moves, JS tells C#, C# re-renders, rasterises, encodes and
 // marshals a frame back. That is on the order of a hundred milliseconds, so during a continuous
-// pan the overlay is always showing where the map *was*. Redrawing faster cannot fix it — the
+// pan the overlay is always showing where the map *was*. Redrawing faster cannot fix it - the
 // lag is the round trip, not the drawing.
 //
 // So the pixels already on screen are moved to follow the map, in JS, on the map's own frame.
@@ -28,7 +28,7 @@
 // looks that up and transforms itself. C# is not involved and cannot be the bottleneck.
 //
 // Keyed on the host element the base map attached to, because that is the one object both sides
-// can name without either importing the other — the overlay finds it by walking up to the
+// can name without either importing the other - the overlay finds it by walking up to the
 // shared container. A WeakMap so a disposed map does not pin its element.
 const trackers = new WeakMap();
 
@@ -46,7 +46,7 @@ export function unregisterTracker(hostElement) {
 	if (hostElement) trackers.delete(hostElement);
 }
 
-/** The tracker for a base map, or null when none has registered — tracking is optional. */
+/** The tracker for a base map, or null when none has registered - tracking is optional. */
 export function findTracker(hostElement) {
 	return (hostElement && trackers.get(hostElement)) || null;
 }
@@ -67,11 +67,11 @@ export function dispatch(target, method, payload) {
 // How many consecutive still frames end a tracking run on their own.
 //
 // The module stops its own pump on its settle event, so this is the backstop for the one
-// that never arrives — a `moveend` lost because the tab was hidden mid-drag, a `rotateend`
+// that never arrives - a `moveend` lost because the tab was hidden mid-drag, a `rotateend`
 // swallowed by a cancelled gesture. Without it that run samples the view forever.
 //
 // Ten seconds at 60 Hz, not half a second, and the difference is a bug: a finger resting
-// mid-drag is still a drag, and nothing would restart the pump until the gesture ended —
+// mid-drag is still a drag, and nothing would restart the pump until the gesture ended -
 // the overlay would freeze for the rest of a pan the user paused. The cost of erring long
 // is one bounds calculation per frame, dispatching nothing.
 const StillFramesBeforeStop = 600;
@@ -81,12 +81,12 @@ const StillFramesBeforeStop = 600;
  * moved, and can sample once per animation frame while the map is in motion.
  *
  * The overlay has to repaint *during* a pan, not after it. Reporting only on the settle
- * event leaves every marker and track frozen while the tiles slide underneath — so the
+ * event leaves every marker and track frozen while the tiles slide underneath - so the
  * module reports continuously, from the frame pump below, which runs between the base
  * map's move-start and move-end events.
  *
  * Sampling per frame is why the dedupe matters: a map that is being rendered but not moved
- * — tiles fading in, a finger held still mid-drag — would otherwise cross the interop
+ * - tiles fading in, a finger held still mid-drag - would otherwise cross the interop
  * boundary sixty times a second to say nothing changed.
  *
  * @param {Function} readViewport Builds the payload, or returns null when the map cannot
@@ -131,7 +131,7 @@ export function createViewportReporter(readViewport, readTarget) {
         /** Sample and dispatch now, unless the view is exactly where it was. */
         report,
 
-        /** Begin sampling once per frame. Idempotent — a second gesture does not stack pumps. */
+        /** Begin sampling once per frame. Idempotent - a second gesture does not stack pumps. */
         startTracking() {
             if (frame) return;
             stillFrames = 0;

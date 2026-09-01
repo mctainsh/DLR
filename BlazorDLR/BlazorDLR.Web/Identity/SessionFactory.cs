@@ -32,7 +32,7 @@ public sealed class SessionFactory(
 	/// <param name="user">Who signed in.</param>
 	/// <param name="claimedDeviceId">
 	/// The device id the client says it was given last time. Honoured only when it really is
-	/// this account's device — an id belonging to somebody else is not rejected, it simply
+	/// this account's device - an id belonging to somebody else is not rejected, it simply
 	/// does not match, and this installation gets one of its own.
 	/// </param>
 	/// <param name="deviceName">
@@ -42,7 +42,7 @@ public sealed class SessionFactory(
 	/// <param name="cancellationToken">Cancellation.</param>
 	/// <param name="kind">
 	/// Phone or browser (§7.5). Decided by which endpoint the caller reached, never by anything
-	/// the client asserts — a client-supplied value would let a browser ask for the permanent
+	/// the client asserts - a client-supplied value would let a browser ask for the permanent
 	/// session the distinction exists to withhold.
 	/// </param>
 	public async Task<TokenResponse> BeginAsync(
@@ -60,7 +60,7 @@ public sealed class SessionFactory(
 		// A *new* device, not the first one. The alert exists to tell somebody that another
 		// party got into their account; at registration there is no other party and no prior
 		// state, so it would arrive as noise attached to the very act that created the
-		// account — and noise is how a security alert stops being read.
+		// account - and noise is how a security alert stops being read.
 		if (isNew && await HasOtherDevicesAsync(user.Id, deviceId, cancellationToken))
 		{
 			await alerts.NewDeviceSignedInAsync(user, deviceName, cancellationToken);
@@ -119,7 +119,7 @@ public sealed class SessionFactory(
 
 			// The kind has to match, not merely the id. A browser presenting a phone's device id
 			// would otherwise adopt that row and inherit its permanent session, which is exactly
-			// what §7.5 withholds from browsers. A mismatch is not an error — the installation
+			// what §7.5 withholds from browsers. A mismatch is not an error - the installation
 			// gets a row of its own, the same as any other id that does not match.
 			if (existing is not null && existing.Kind == kind)
 			{
@@ -158,8 +158,8 @@ public sealed class SessionFactory(
 	}
 
 	/// <summary>
-	/// Cuts a client-supplied name to the column. The name is decoration — nothing reads it but a
-	/// rider picking a row — so a long one is trimmed rather than refused, which keeps a handset
+	/// Cuts a client-supplied name to the column. The name is decoration - nothing reads it but a
+	/// rider picking a row - so a long one is trimmed rather than refused, which keeps a handset
 	/// with a chatty model string from failing the sign-in the name was attached to.
 	/// </summary>
 	private static string? Shorten(string? deviceName)

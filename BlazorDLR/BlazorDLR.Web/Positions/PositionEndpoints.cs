@@ -68,7 +68,7 @@ public sealed class PositionController : ControllerBase
 
 		// An empty list is the right answer for a rider sharing with nobody, not an error. The
 		// client publishes on a timer and does not need to know, or be told, which of its rides
-		// consented — that is the server's job precisely so the client cannot get it wrong.
+		// consented - that is the server's job precisely so the client cannot get it wrong.
 		return Ok(new PublishResult(published.RideIds));
 	}
 
@@ -111,7 +111,7 @@ public sealed class PositionController : ControllerBase
 		}
 
 		// A member who is not sharing still sees the map (§5.6). Making sharing the price of
-		// seeing where everyone is would be simpler and it would be coercive — a pillion, an
+		// seeing where everyone is would be simpler and it would be coercive - a pillion, an
 		// organiser in a support van, or somebody following the route all have reason to watch
 		// without broadcasting.
 		bool isMember = await database

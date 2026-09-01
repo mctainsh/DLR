@@ -14,7 +14,7 @@
 @*
 	One thread, whichever thing it hangs off (§17, §6.2).
 
-	This component *is* the ride thread — it was lifted out of RideThread.razor whole when
+	This component *is* the ride thread - it was lifted out of RideThread.razor whole when
 	shared routes grew a conversation of their own, and that page is now a dozen lines that
 	hand it a ride id and the organiser's permissions. The route page hands it a track id and
 	the owner's. Nothing below knows which it got beyond two nullable parameters, which is the
@@ -25,7 +25,7 @@
 	Three things §17 leans on that live here:
 	  1. Ordering is by PostedUtc (§17.3). The server clamps CreatedUtc so a client with a
 		 broken clock cannot pin its post to the top.
-	  2. Reactions arrive coalesced (§17.4) — one hub message per comment per burst, not one
+	  2. Reactions arrive coalesced (§17.4) - one hub message per comment per burst, not one
 		 per tap.
 	  3. Every post notifies, whatever is on screen (§17.6). All this does is ask
 		 CommentNotifier to withdraw the card already standing for this thread, which is
@@ -71,7 +71,7 @@
 	{
 		<form class="composer" @onsubmit="PostAsync" @onsubmit:preventDefault="true">
 			@* oninput, not the default onchange: the Post button below is disabled from this
-			   value, and onchange does not fire until the textarea loses focus — which on a phone
+			   value, and onchange does not fire until the textarea loses focus - which on a phone
 			   means a rider types a whole message and watches a greyed-out button. Same reason
 			   RideDetail and Welcome bind theirs this way. *@
 			<textarea @bind="_composeText" @bind:event="oninput" rows="3" maxlength="2000"
@@ -127,7 +127,7 @@
 @code {
 	/// <summary>
 	/// Which adventure's thread, or null when this is a route's. Exactly one of this and
-	/// <see cref="TrackId"/> is set — the same rule the server's table enforces.
+	/// <see cref="TrackId"/> is set - the same rule the server's table enforces.
 	/// </summary>
 	[Parameter] public Guid? RideId { get; set; }
 
@@ -136,20 +136,20 @@
 
 	/// <summary>
 	/// Whether the composer is shown. Decided by the host page, which is the thing that knows
-	/// about §5.8's switches or about a route's visibility — and the server checks it again
+	/// about §5.8's switches or about a route's visibility - and the server checks it again
 	/// regardless, because a compose box is a courtesy and not a permission.
 	/// </summary>
 	[Parameter] public bool CanPost { get; set; } = true;
 
 	/// <summary>
-	/// Whether this reader may pin and may delete other people's posts — the organiser of an
+	/// Whether this reader may pin and may delete other people's posts - the organiser of an
 	/// adventure, the owner of a route.
 	/// </summary>
 	[Parameter] public bool CanModerate { get; set; }
 
 	/// <summary>
 	/// Whether the poll toggle is offered. A route's thread is a conversation about a road rather
-	/// than a group deciding something together, so the page that hosts it turns this off — the
+	/// than a group deciding something together, so the page that hosts it turns this off - the
 	/// server would accept a poll either way, and this is an editorial choice about the surface.
 	/// </summary>
 	[Parameter] public bool AllowPolls { get; set; } = true;
@@ -162,7 +162,7 @@
 
 	/// <summary>
 	/// Why there is no composer, or null to show nothing. Only rendered when
-	/// <see cref="CanPost"/> is false — "you cannot post" without a reason reads as a bug.
+	/// <see cref="CanPost"/> is false - "you cannot post" without a reason reads as a bug.
 	/// </summary>
 	[Parameter] public string? ClosedMessage { get; set; }
 
@@ -189,7 +189,7 @@
 	/// Kept apart from <see cref="_loaded"/> on purpose, and this is the difference that matters:
 	/// a thread whose first fetch <em>failed</em> is still a thread that has been attempted. The
 	/// parent re-renders on every rating tap and every keystroke it owns, which re-runs
-	/// <c>OnParametersSetAsync</c> — a guard that keyed on success would turn one 404 into a
+	/// <c>OnParametersSetAsync</c> - a guard that keyed on success would turn one 404 into a
 	/// request per render.
 	/// </para>
 	/// </summary>
@@ -234,8 +234,8 @@
 
 	protected override async Task OnParametersSetAsync()
 	{
-		// Only when the subject actually moved. A parent re-render that flips CanModerate — or
-		// that happens because the rating above changed — must not throw the loaded page away and
+		// Only when the subject actually moved. A parent re-render that flips CanModerate - or
+		// that happens because the rating above changed - must not throw the loaded page away and
 		// refetch it, which is what re-running this on every parameter set would do.
 		if (_attempted && _shownRide == RideId && _shownTrack == TrackId)
 		{
@@ -263,10 +263,10 @@
 			return;
 		}
 
-		// Clears whatever card was already showing for this thread (§17.6) — the rider is now
+		// Clears whatever card was already showing for this thread (§17.6) - the rider is now
 		// looking at the conversation it was pointing at. It suppresses nothing: posts that land
 		// while this is on screen still raise a notification.
-		// The rail's badge, which is the same "you have read this" the card withdrawal is — said on
+		// The rail's badge, which is the same "you have read this" the card withdrawal is - said on
 		// the one screen the rider is looking at rather than on the lock screen (§17.6). Started
 		// rather than awaited: it is a device read and a device write, and the comments the rider
 		// tapped through for are not owed a round trip to storage before they are asked for.
@@ -381,7 +381,7 @@
 			// can retry the same post safely, and the server's unique index rejects a
 			// duplicate rather than creating a second copy.
 			//
-			// A poll rides along on the same request (§17.5) — one posting path means the
+			// A poll rides along on the same request (§17.5) - one posting path means the
 			// poll inherits idempotency, caps and permissions rather than needing its own
 			// copy of each.
 			PollSpec? poll = _isPoll ? _pollComposer?.BuildSpec() : null;
@@ -411,7 +411,7 @@
 	/// <para>
 	/// Load-bearing now that two kinds of thread exist. The events are raised on one shared hub
 	/// client, and a rider who is live in an adventure while reading a route's page has both
-	/// groups joined — without this, the ride's chatter would appear under the route.
+	/// groups joined - without this, the ride's chatter would appear under the route.
 	/// </para>
 	/// </summary>
 	private bool Mine(CommentDto comment) =>
@@ -426,7 +426,7 @@
 
 	/// <summary>
 	/// Inserts a new comment at the top, or replaces the copy already in the list. Two
-	/// sources produce the same comment — the POST response and the hub echo — and one of
+	/// sources produce the same comment - the POST response and the hub echo - and one of
 	/// them arriving second must not create a duplicate row.
 	/// </summary>
 	private void InsertOrReplace(CommentDto comment)
@@ -482,7 +482,7 @@
 		int index = list.FindIndex(c => c.Id == commentId);
 		if (index < 0) return;
 
-		// Mine is null on a broadcast of necessity — a group message has one body — so the
+		// Mine is null on a broadcast of necessity - a group message has one body - so the
 		// reader's own reaction is carried across rather than overwritten with nothing.
 		list[index] = list[index] with
 		{
@@ -582,7 +582,7 @@
 		// The author's photograph, when they have one (§7.3).
 		//
 		// Every sequence number in this fragment is hand-kept rather than generated by the Razor
-		// compiler, and they run 0..58 in source order — which is what the compiler would have
+		// compiler, and they run 0..58 in source order - which is what the compiler would have
 		// produced. A repeated number lets the diffing renderer keep the wrong node between two
 		// comments.
 		builder.OpenComponent<RiderAvatar>(3);
@@ -597,7 +597,7 @@
 		builder.AddContent(9, comment.PostedUtc.ToLocalTime().ToString("HH:mm"));
 		if (comment.AuthoredEarlier)
 		{
-			builder.AddContent(10, " — written " + comment.CreatedUtc.ToLocalTime().ToString("HH:mm"));
+			builder.AddContent(10, " - written " + comment.CreatedUtc.ToLocalTime().ToString("HH:mm"));
 		}
 		if (comment.EditedUtc is not null)
 		{
@@ -646,7 +646,7 @@
 		builder.OpenElement(24, "div");
 		builder.AddAttribute(25, "class", "actions");
 
-		// Left group — reactions, then Report.
+		// Left group - reactions, then Report.
 		builder.OpenElement(26, "div");
 		builder.AddAttribute(27, "class", "actions-left");
 		foreach (string key in ReactionKeys)
@@ -686,7 +686,7 @@
 		}
 		builder.CloseElement();
 
-		// Right group — Pin, Delete.
+		// Right group - Pin, Delete.
 		builder.OpenElement(45, "div");
 		builder.AddAttribute(46, "class", "actions-right");
 		if (CanModerate)
@@ -719,7 +719,7 @@
 	};
 
 	/// <summary>
-	/// Leaves whichever group is joined. Called on a subject change as well as on dispose — a
+	/// Leaves whichever group is joined. Called on a subject change as well as on dispose - a
 	/// component whose TrackId moved and did not leave the old group would keep receiving a
 	/// conversation it is no longer showing.
 	/// </summary>

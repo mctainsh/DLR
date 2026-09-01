@@ -149,10 +149,10 @@ public static class MarkerIcons
 
 		// A symbol shaped like one of our keys is kept as one, even when this version has never
 		// heard of it. That is what makes the round trip lossless for a marker created by a newer
-		// client (§16.2) — flattening `ferry` to `note` here would quietly destroy it on any
+		// client (§16.2) - flattening `ferry` to `note` here would quietly destroy it on any
 		// export/import cycle through an older server.
 		//
-		// Anything not shaped like a key — "Flag, Blue", "Scenic Area" — still falls back, so a
+		// Anything not shaped like a key - "Flag, Blue", "Scenic Area" - still falls back, so a
 		// foreign file's symbols do not become junk icon keys.
 		return IsStorable(trimmed) ? trimmed : Fallback;
 	}
@@ -168,7 +168,7 @@ public static class MarkerIcons
 		ToSymbol.TryGetValue(icon, out string? symbol) ? symbol : icon;
 
 	/// <summary>
-	/// Whether a key is <em>storable</em> — length and character set only, not membership (§16.2).
+	/// Whether a key is <em>storable</em> - length and character set only, not membership (§16.2).
 	/// </summary>
 	/// <param name="icon">The key.</param>
 	/// <returns>True when it may be stored.</returns>

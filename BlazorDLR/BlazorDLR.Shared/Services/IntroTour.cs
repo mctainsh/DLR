@@ -1,7 +1,7 @@
 namespace BlazorDLR.Shared.Services;
 
 /// <summary>
-/// One card of the introduction slide show — a glyph, a heading and a paragraph.
+/// One card of the introduction slide show - a glyph, a heading and a paragraph.
 /// </summary>
 /// <param name="Icon">
 /// The Font Awesome class for the slide's glyph, without the <c>fa fa-fw</c> prefix the page
@@ -25,7 +25,7 @@ public sealed record IntroSlide(string Icon, string Title, string Body);
 /// </para>
 /// <para>
 /// <strong>Content, not markup, and in one place.</strong> The page renders whatever this list
-/// holds — adding, cutting or reordering a slide is an edit here and nothing else. That is also
+/// holds - adding, cutting or reordering a slide is an edit here and nothing else. That is also
 /// what makes the deck testable without rendering it.
 /// </para>
 /// <para>
@@ -40,7 +40,7 @@ public static class IntroTour
 	/// Which edition of the deck this is, and what <see cref="State.IntroTourState"/> stores once
 	/// a rider has finished it.
 	/// <para>
-	/// Bumping this shows the introduction again — once — to every device that had already seen
+	/// Bumping this shows the introduction again - once - to every device that had already seen
 	/// the old one. That is the point of storing a number rather than a flag: a materially new
 	/// deck is worth 20 seconds of an existing rider's time, and nothing else in the app has a
 	/// way to say so. Do <em>not</em> bump it for a typo fix; a rider who is shown this twice for
@@ -51,7 +51,7 @@ public static class IntroTour
 
 	/// <summary>
 	/// The deck, in order. Five cards: what the app is for, the live map, markers, the thread,
-	/// and what it does with a rider's location — that last one deliberately before the account
+	/// and what it does with a rider's location - that last one deliberately before the account
 	/// screen rather than after it.
 	/// </summary>
 	public static IReadOnlyList<IntroSlide> Slides { get; } =
@@ -66,7 +66,7 @@ public static class IntroTour
 			"fa-globe",
 			"See the group on one map",
 			"Start an adventure or join one with a code, and everybody on it appears on the same live map. "
-			+ "No hunting for a rider who took the other fork — you can see where they are."),
+			+ "No hunting for a rider who took the other fork - you can see where they are."),
 
 		new IntroSlide(
 			"fa-map-pin",

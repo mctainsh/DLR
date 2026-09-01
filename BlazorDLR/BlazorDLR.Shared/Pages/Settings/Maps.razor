@@ -11,17 +11,17 @@
 @implements IDisposable
 
 @*
-	Which tiles go under every map in the app (§4.5, §18.6), and — at the bottom — how long a
+	Which tiles go under every map in the app (§4.5, §18.6), and - at the bottom - how long a
 	rider's pin outlives their last fix on the live map (§5.3).
 
-	A device preference, like the route style — two riders on the same ride can hold different
+	A device preference, like the route style - two riders on the same ride can hold different
 	answers and neither is wrong. It never reaches the server. (The private area used to be
 	listed here as a third; it is an account setting now, because losing it silently was worse
 	than storing it, §10.1.)
 
 	The base map is only ever tiles, camera, rotation and attribution: every marker, rider pin
 	and route is drawn by the Skia overlay on top (§4.5 v0.21). So no tile source can change what
-	a ride shows — only what it is drawn over. The pin expiry at the bottom is the one control
+	a ride shows - only what it is drawn over. The pin expiry at the bottom is the one control
 	here that does reach the overlay, and it takes nothing away but a pin nobody has heard from.
 
 	The preview is the point of the screen rather than decoration. A tile URL is the one
@@ -31,14 +31,14 @@
 	state this page writes.
 *@
 
-<PageTitle>Maps — Dumb Luck Routes</PageTitle>
+<PageTitle>Maps - Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium form-page map-settings">
 	<PageNav Title="Maps" BackHref="/settings" BackLabel="Back to settings" />
 
 	<p class="lead">
 		Where the map's tiles come from, and how long a rider stays on the live map after their last
-		position. Both are stored on this device and never sent to the server — the tiles change
+		position. Both are stored on this device and never sent to the server - the tiles change
 		nothing about your routes and markers, which are drawn on top of them.
 	</p>
 
@@ -55,12 +55,12 @@
 		</p>
 
 		@*
-			Offline is offered only where a pack can actually live — the phone (§18.6). The browser
+			Offline is offered only where a pack can actually live - the phone (§18.6). The browser
 			hosts used to show it disabled with a note saying why, on the reasoning that a rider who
 			set it on their phone deserved an explanation here. That reasoning does not survive the
 			screen it produced: this page is per device, the sentence explained an option that was
 			never going to become available on this one, and the two hosts that show it are the two
-			where the whole section below — packs, downloads, cartography — is inert.
+			where the whole section below - packs, downloads, cartography - is inert.
 
 			It stays enabled whenever it is shown, including on a phone holding no packs. Picking it
 			stores nothing on its own (see ChooseAsync); what it does is reveal the download form,
@@ -77,7 +77,7 @@
 		}
 
 		@* Which pack, when there is more than one. A radio inside a radio would be a mess, so the
-		   packs are their own list and choosing one also selects the offline source — picking a
+		   packs are their own list and choosing one also selects the offline source - picking a
 		   map is the whole intent, and making it two actions would be pedantry. *@
 		@if (_kind == MapSourceKind.Offline && Packs.IsSupported && Packs.Packs.Count > 0)
 		{
@@ -117,11 +117,11 @@
 
 		It is offered here rather than beside the other two sources because it is the only source
 		that has the choice: a pack is vector, so the colour lives in a style document beside the
-		archive and both ship with the app — switching costs no download and no second pack. OSM
+		archive and both ship with the app - switching costs no download and no second pack. OSM
 		and a rider's own tile server hand back finished images, and there is nothing to restyle.
 
 		Base map only. Routes, markers and rider pins are the Skia overlay on top (§4.5 v0.21) and
-		do not follow this — a rider who wants a different line over a dark map has Route display.
+		do not follow this - a rider who wants a different line over a dark map has Route display.
 	*@
 	@if (_kind == MapSourceKind.Offline && Packs.IsSupported)
 	{
@@ -145,7 +145,7 @@
 			</label>
 			<p class="hint indent">
 				The same map painted for night. Your routes and everyone's pins are drawn on top and
-				keep their own colours — Route display is where those are set.
+				keep their own colours - Route display is where those are set.
 			</p>
 		</fieldset>
 	}
@@ -168,7 +168,7 @@
 			</label>
 			<p class="hint">
 				Must be <code>https</code> and carry <code>{x}</code>, <code>{y}</code> and
-				<code>{z}</code>. Plain <code>http</code> will not load — the app is served over a
+				<code>{z}</code>. Plain <code>http</code> will not load - the app is served over a
 				secure connection, so the phone blocks it.
 			</p>
 
@@ -178,7 +178,7 @@
 					   @onblur="RememberAsync" placeholder="© Example Maps" />
 			</label>
 			<p class="hint">
-				Shown in the corner of every map. Most tile servers require a specific credit —
+				Shown in the corner of every map. Most tile servers require a specific credit -
 				check theirs.
 			</p>
 
@@ -196,8 +196,8 @@
 				The button is disabled until the two fields are right, and while it is, it says why.
 
 				Shown from the moment the form opens rather than after a failed attempt. A disabled
-				button with no explanation is the worst of the three states — the rider can see the
-				control they want and not what is standing between them and it — and waiting for an
+				button with no explanation is the worst of the three states - the rider can see the
+				control they want and not what is standing between them and it - and waiting for an
 				attempt cannot help here, because there is no attempt to make: they cannot press it.
 
 				`aria-describedby` rather than a live region: the text is present rather than
@@ -218,7 +218,7 @@
 	}
 
 	@*
-		Adding a pack, from the catalogue the server publishes (§4.2). On the phone only — a browser
+		Adding a pack, from the catalogue the server publishes (§4.2). On the phone only - a browser
 		has nowhere to put one (§18.6), and a list that downloads 300 MB into a tab that forgets it
 		would be worse than absent.
 
@@ -228,11 +228,11 @@
 
 		This is the whole reason the offline radio stays enabled on a phone with no packs on it: the
 		list is behind that radio, so a disabled radio would have sealed off the one route to getting
-		a pack — the classic case of a feature you can only reach once you already have it.
+		a pack - the classic case of a feature you can only reach once you already have it.
 
 		This replaced a link-and-a-name form. That form was how the offline path got tested before a
 		catalogue existed, and it asked a rider to know a URL and to invent a name the store might
-		then refuse — two ways to get a 300 MB download wrong before it started, both of them
+		then refuse - two ways to get a 300 MB download wrong before it started, both of them
 		invisible until it finished. The catalogue answers both: the name and the id come from the
 		publisher, and the only thing left to choose is which region.
 	*@
@@ -243,19 +243,19 @@
 
 			@*
 				No refresh control. One was here, and a button offering to re-fetch a file that is
-				rebuilt when somebody publishes an extract — weeks apart — invites the pulling that it
+				rebuilt when somebody publishes an extract - weeks apart - invites the pulling that it
 				can never reward. The catalogue is read the first time this form is opened and that
 				copy is held until the app restarts, which is the whole of the policy.
 			*@
 			<p class="hint">
-				Maps you can carry with you. Large — usually tens or hundreds of megabytes — so use
+				Maps you can carry with you. Large - usually tens or hundreds of megabytes - so use
 				Wi-Fi. A download that is interrupted carries on from where it stopped.
 			</p>
 
 			@*
 				A banner rather than a branch, so the problem never takes a list away with it. The
 				commonest cause by a distance is no signal, which is also exactly the person trying to
-				download a map for later — and coming back to this form is what asks again, because a
+				download a map for later - and coming back to this form is what asks again, because a
 				failed read is not a copy and is not held.
 			*@
 			@if (Packs.CatalogueProblem is { } catalogueProblem)
@@ -281,7 +281,7 @@
 					on a phone screen, which turns a settings page into a scroll and buries the
 					source radios and the preview map under it. One select collapses that to a line,
 					but a single line holding two hundred options is a native picker somebody spins
-					through looking for their country — so the country is asked first and the area
+					through looking for their country - so the country is asked first and the area
 					within it second, which is how the catalogue is organised anyway (§4.2).
 
 					Country is not compulsory. "All countries" leaves the second dropdown holding the
@@ -328,12 +328,12 @@
 					The two dropdowns above are for somebody who knows the answer: their country, and
 					the state or region within it. A rider planning a trip through country they have
 					not ridden knows where they are going on a map and does not know that the extract
-					covering it is published under a name they have never heard — and no amount of
+					covering it is published under a name they have never heard - and no amount of
 					scrolling a list of two hundred names fixes that.
 
 					It fills these dropdowns in rather than replacing them, and it does not download:
 					what comes back from the map is a selection, and Download is still the separate
-					press below. Only offered when there is something to draw — an offer carries the
+					press below. Only offered when there is something to draw - an offer carries the
 					ground it covers only if the catalogue published it (§4.2), and a picker with no
 					boxes on it is a world map that answers no taps.
 				*@
@@ -348,7 +348,7 @@
 					One label, and nothing to press when the pack is already here.
 
 					This offered "Download again" for a pack the phone was holding, which is a second
-					several-hundred-megabyte transfer over the top of a file that is already good — and
+					several-hundred-megabyte transfer over the top of a file that is already good - and
 					the rider who taps it is almost always the one who thinks the first one failed. The
 					way to get a fresh copy is to delete the old one first, which the list above does,
 					costs nothing, and makes the disc space it is about to spend visible before it is
@@ -371,7 +371,7 @@
 			@if (Packs.IsDownloading)
 			{
 				<div class="progress" role="status">
-					@* The count sits inside the bar rather than after it — see the styles below. *@
+					@* The count sits inside the bar rather than after it - see the styles below. *@
 					<div class="bar">
 						<progress value="@(Packs.Progress?.Fraction ?? 0)" max="1"></progress>
 						<span>@DownloadDescription</span>
@@ -395,7 +395,7 @@
 		<h2>Preview</h2>
 		<p class="hint">
 			The same base map every adventure is drawn over. Pan and zoom it to check the tiles load at
-			the detail you travel at — it opens on the whole world, or on the ground a map pack covers.
+			the detail you travel at - it opens on the whole world, or on the ground a map pack covers.
 		</p>
 		<div class="preview-map">
 			<RideMap Camera="WorldView" Bounds="PreviewFrame" AllowRotation="false"
@@ -408,7 +408,7 @@
 
 		Last on the page, and the one control here that is not about tiles: everything above
 		changes what the map is drawn over, and this changes what is drawn on it. It belongs on
-		this screen rather than one of its own for the reason the rest of it is here — it is a map
+		this screen rather than one of its own for the reason the rest of it is here - it is a map
 		preference, held on this device, and it reaches no server and nobody else's phone.
 
 		A dropdown rather than the radios above. Six values as radios is the tallest control on the
@@ -430,7 +430,7 @@
 		<p class="hint">
 			How long somebody stays on the live map after their last position. A phone that goes
 			flat or loses signal leaves a pin sitting where it stopped, which reads as a rider
-			standing there — past this it comes off instead. Nothing is deleted: they keep their
+			standing there - past this it comes off instead. Nothing is deleted: they keep their
 			row on the members list, with the age of that last position beside it.
 		</p>
 	</fieldset>
@@ -438,7 +438,7 @@
 	@*
 		Rendered here rather than beside the button it belongs to: it is a fixed-position layer over
 		the whole screen, and hanging it inside a fieldset would put a full-screen dialog inside a
-		form group for no reason. It carries its own map, which is a second base map on this page —
+		form group for no reason. It carries its own map, which is a second base map on this page -
 		which is fine, because IMapInterop is transient and each RideMap holds its own.
 	*@
 	@if (_picking)
@@ -461,7 +461,7 @@
 	/// <para>
 	/// It is the camera rather than the frame because a camera is what a base map needs before it has
 	/// a canvas to measure. <see cref="PreviewFrame"/> is the correction once it has one, and the two
-	/// agree about which ground is being talked about — see <c>RideMap.Bounds</c>.
+	/// agree about which ground is being talked about - see <c>RideMap.Bounds</c>.
 	/// </para>
 	/// </summary>
 	private static readonly MapCamera WorldView = new(0, 0, 0);
@@ -481,7 +481,7 @@
 	/// with, and the whole world for OpenStreetMap and a tile server.
 	/// <para>
 	/// The two answers are the same question asked of two kinds of source. An online source draws
-	/// everywhere, so the honest sample of it is everywhere — and a rider judging one is looking for
+	/// everywhere, so the honest sample of it is everywhere - and a rider judging one is looking for
 	/// whether tiles arrive at all before they look at any particular street. A pack draws one
 	/// region and nothing outside it, so the world would be a preview of a grey rectangle with the
 	/// answer somewhere off in a corner; its own extent is the only frame that shows what was
@@ -489,14 +489,14 @@
 	/// </para>
 	/// <para>
 	/// The extent comes from the catalogue rather than the archive, so it is known exactly when the
-	/// catalogue read has landed (§4.2) — and it is a newer field than the catalogue riders are
+	/// catalogue read has landed (§4.2) - and it is a newer field than the catalogue riders are
 	/// fetching from today, so a pack with no published box is ordinary rather than broken. Both of
 	/// those fall back to the world, which is where the preview opened anyway.
 	/// </para>
 	/// <para>
 	/// Read on every render and handed to <c>RideMap</c>, which re-frames only when the box changes:
 	/// switching between the two online sources leaves the rider's pan alone, and switching to a pack
-	/// — or between two of them — moves the map to what that pack holds.
+	/// - or between two of them - moves the map to what that pack holds.
 	/// </para>
 	/// </summary>
 	private TrackBounds PreviewFrame =>
@@ -534,7 +534,7 @@
 	/// <para>
 	/// Empty is a real answer rather than a prompt: it leaves the second dropdown holding the whole
 	/// catalogue, which is what this screen offered before there were countries in it and is still the
-	/// shortest route for somebody who knows the area's name — the catalogue files Bangladesh under
+	/// shortest route for somebody who knows the area's name - the catalogue files Bangladesh under
 	/// India and Sardinia under Italy, and neither is wrong or guessable.
 	/// </para>
 	/// </summary>
@@ -552,7 +552,7 @@
 	/// The ground an extract covers is a published field and a newer one than the catalogue riders
 	/// are fetching from today (<see cref="MapPackOffer.Bounds"/>), so "no offer has bounds" is a
 	/// state that exists in the wild. The button is absent rather than disabled: a disabled control
-	/// says the rider is one step away from something, and here they are not — nothing they can do
+	/// says the rider is one step away from something, and here they are not - nothing they can do
 	/// on this device will put boxes on that map.
 	/// </para>
 	/// </summary>
@@ -563,13 +563,13 @@
 	/// window.
 	/// <para>
 	/// <strong>It does not download.</strong> The map is another way of answering "which area",
-	/// and the several hundred megabytes are still committed to by pressing Download — a window
+	/// and the several hundred megabytes are still committed to by pressing Download - a window
 	/// that started a transfer as it closed would spend a rider's connection on a tap they made to
 	/// look at a map.
 	/// </para>
 	/// <para>
 	/// The country is set as well as the area, and has to be: the second dropdown lists the chosen
-	/// country's packs, and <see cref="Chosen"/> resolves against that list — so an area set on its
+	/// country's packs, and <see cref="Chosen"/> resolves against that list - so an area set on its
 	/// own, under some other country, would be a selection the rider cannot see and a Download
 	/// button that stayed grey.
 	/// </para>
@@ -592,7 +592,7 @@
 	/// Distinct rather than counted from a table of countries: this screen knows about the countries
 	/// its offers name and no others, so a catalogue that publishes one region or fifty needs no
 	/// change here. The order comes from <c>MapPackCatalogue</c>, which sorts by country and then by
-	/// name — with the leftovers pushed to the end, because a rider scrolling for their country is
+	/// name - with the leftovers pushed to the end, because a rider scrolling for their country is
 	/// not scrolling for the bucket of packs that named none.
 	/// </para>
 	/// </summary>
@@ -613,7 +613,7 @@
 	/// One country as a line in the first dropdown: its name and how many areas are under it.
 	/// <para>
 	/// The count is there because it is the thing that decides whether opening the second dropdown is
-	/// worth doing — Australia is eight states and France is eight regions, but Greenland is one map,
+	/// worth doing - Australia is eight states and France is eight regions, but Greenland is one map,
 	/// and knowing that before the tap saves the tap.
 	/// </para>
 	/// </summary>
@@ -623,7 +623,7 @@
 		int count = Packs.Offers.Count(offer =>
 			string.Equals(offer.Region, region, StringComparison.OrdinalIgnoreCase));
 
-		return count == 1 ? $"{region} — 1 map" : $"{region} — {count} maps";
+		return count == 1 ? $"{region} - 1 map" : $"{region} - {count} maps";
 	}
 
 	/// <summary>
@@ -644,7 +644,7 @@
 	/// The pack the Download button would fetch, or <c>null</c> when none is picked.
 	/// <para>
 	/// Resolved against <see cref="InRegion"/> rather than the whole catalogue, because a selection
-	/// outside the chosen country is not one the rider can see — and a button that downloads
+	/// outside the chosen country is not one the rider can see - and a button that downloads
 	/// something invisible is worse than a disabled one.
 	/// </para>
 	/// </summary>
@@ -656,7 +656,7 @@
 	/// button out of use.
 	/// <para>
 	/// A second copy over the top of a good one is hundreds of megabytes for no map the rider does
-	/// not already have. Deleting is the way to a fresh one, and it is a tap away in the list above —
+	/// not already have. Deleting is the way to a fresh one, and it is a tap away in the list above -
 	/// which also means the space is freed before the download rather than doubled during it.
 	/// </para>
 	/// </summary>
@@ -665,15 +665,15 @@
 	/// <summary>
 	/// One pack as a line in the dropdown: what it is, what it costs, and whether it is already here.
 	/// <para>
-	/// All three on the option itself because an option is all a native picker shows — there is no
+	/// All three on the option itself because an option is all a native picker shows - there is no
 	/// room beside it for the size column a list had, and the size is the number somebody decides on.
 	/// </para>
 	/// </summary>
 	/// <param name="offer">The pack on offer.</param>
 	private string Describe(MapPackOffer offer) =>
 		Packs.Stored(offer.Id) is not null
-			? $"{offer.Name} — {MapPackDownloader.Describe(offer.SizeBytes)} (on this phone)"
-			: $"{offer.Name} — {MapPackDownloader.Describe(offer.SizeBytes)}";
+			? $"{offer.Name} - {MapPackDownloader.Describe(offer.SizeBytes)} (on this phone)"
+			: $"{offer.Name} - {MapPackDownloader.Describe(offer.SizeBytes)}";
 
 	/// <summary>
 	/// The small print under the offline radio. Only rendered on a host that can hold a pack, so
@@ -687,7 +687,7 @@
 	/// What to call a pack that is already on the device: the catalogue's name for it, falling back
 	/// to the id.
 	/// <para>
-	/// The fallback is the ordinary case rather than the odd one — the catalogue is only read once
+	/// The fallback is the ordinary case rather than the odd one - the catalogue is only read once
 	/// the rider picks the offline radio, and a phone with no signal is exactly the phone this
 	/// feature exists for. <c>au-nsw</c> beside a size is still a legible answer to "what is on my
 	/// phone and can I delete it", which is what that list is for.
@@ -699,7 +699,7 @@
 
 	/// <summary>
 	/// How far the download has got, as a rider reads it. Falls back to a bare byte count when the
-	/// host did not send a length — some do not, and a progress bar that cannot fill is better
+	/// host did not send a length - some do not, and a progress bar that cannot fill is better
 	/// than a number that never appears.
 	/// </summary>
 	private string DownloadDescription => Packs.Progress is not { } progress
@@ -716,7 +716,7 @@
 	/// <para>
 	/// One sentence naming <em>this</em> URL's defect rather than restating the rule. The hint
 	/// under the field already says what a good template looks like, and a rider staring at a
-	/// disabled button has read it — what they cannot see is which part of what they typed is the
+	/// disabled button has read it - what they cannot see is which part of what they typed is the
 	/// problem, and on a URL long enough to need a tile server it is not obvious by looking.
 	/// </para>
 	/// </summary>
@@ -735,7 +735,7 @@
 			{
 				// The commonest paste by a distance, and the one whose failure is invisible: plain
 				// http is mixed content, so the tiles are blocked by the WebView rather than by us.
-				return "The tile URL has to start with https:// — a plain http server is blocked before it is asked for a tile.";
+				return "The tile URL has to start with https:// - a plain http server is blocked before it is asked for a tile.";
 			}
 
 			// Named individually because a template is normally missing exactly one, and "contains
@@ -763,7 +763,7 @@
 	}
 
 	/// <summary>
-	/// Reads the device after first render — on the web the store is behind JS interop, which does
+	/// Reads the device after first render - on the web the store is behind JS interop, which does
 	/// not exist during the prerender pass. Idempotent, so the preview map below reading it too
 	/// costs nothing.
 	/// </summary>
@@ -780,7 +780,7 @@
 		// What was last typed into either half of this screen, so a rider comes back to their own
 		// tile server and their own pack link rather than to two empty boxes and a long URL to
 		// remember. Read before Adopt, which then overwrites the tile fields from the source that
-		// is actually applied — those agree, because applying one writes this too.
+		// is actually applied - those agree, because applying one writes this too.
 		Remember(RememberedMapSetup.Decode(await Settings.GetAsync(RememberedMapSetup.StorageKey)));
 
 		// The one setting on this page the map below does not draw, so nothing else reads it back
@@ -789,7 +789,7 @@
 		_pinExpiry = PinExpiry.Decode(await Settings.GetAsync(PinExpiry.StorageKey));
 
 		// Adopted here rather than left to the Changed handler. LoadAsync only raises when it was
-		// the read that resolved the value — a rider arriving from another screen that already
+		// the read that resolved the value - a rider arriving from another screen that already
 		// read the device gets no event at all, and this form would open on the default while the
 		// map below it drew something else.
 		Adopt(MapSources.Effective);
@@ -809,7 +809,7 @@
 	/// <para>
 	/// Called from every path that can put the form on the offline source, not only from the radio.
 	/// A rider who already drew with a pack last time arrives with offline <em>adopted</em> rather
-	/// than chosen — no tap, no <c>ChooseAsync</c> — and the first version of this hung the fetch off
+	/// than chosen - no tap, no <c>ChooseAsync</c> - and the first version of this hung the fetch off
 	/// the tap alone, so the one person most likely to want a second region was the one who had to
 	/// select OpenStreetMap and come back to see the list at all.
 	/// </para>
@@ -821,7 +821,7 @@
 	/// <para>
 	/// <strong>A read that failed is not retried from here</strong>, which is what
 	/// <paramref name="deliberate"/> separates. This runs again on every theme change and every pack
-	/// selection — those are re-renders of a form the rider is already looking at, and asking a host
+	/// selection - those are re-renders of a form the rider is already looking at, and asking a host
 	/// that just refused at each of them is a retry loop on the connection least able to serve one.
 	/// Choosing the offline radio is a different thing: it is somebody arriving at this form on
 	/// purpose, which with no refresh control is the one gesture that means "try again".
@@ -870,7 +870,7 @@
 	/// does not always blur the field it was typed into.
 	/// </para>
 	/// <para>
-	/// Whatever is there is kept, finished or not — see <see cref="RememberedMapSetup"/>. An empty
+	/// Whatever is there is kept, finished or not - see <see cref="RememberedMapSetup"/>. An empty
 	/// form removes the key rather than storing three blanks.
 	/// </para>
 	/// </summary>
@@ -895,7 +895,7 @@
 	/// Callers pass <c>Effective</c> rather than <c>Chosen</c>, which matters on the browser hosts
 	/// alone: they no longer render an offline radio at all, so adopting a stored offline source
 	/// there would leave the group with nothing checked. Effective is what those hosts are actually
-	/// drawing with, and on a phone the two agree — a deleted pack still reads as offline, which is
+	/// drawing with, and on a phone the two agree - a deleted pack still reads as offline, which is
 	/// what keeps the pack list on screen.
 	/// </para>
 	/// </summary>
@@ -918,7 +918,7 @@
 	}
 
 	/// <summary>
-	/// Picking a radio. OSM applies at once — there is nothing to fill in — while Custom only
+	/// Picking a radio. OSM applies at once - there is nothing to fill in - while Custom only
 	/// moves the form, because a source with no URL in it yet cannot draw anything.
 	/// </summary>
 	private async Task ChooseAsync(MapSourceKind kind)
@@ -937,12 +937,12 @@
 		{
 			// The list of packs on offer is fetched here rather than when the page opens: it is a
 			// request to a host that is not the API, and only somebody adding a pack is going to look
-			// at it. See EnsureCatalogue — this is one of three paths into the offline form, and the
+			// at it. See EnsureCatalogue - this is one of three paths into the offline form, and the
 			// only one that is a tap, which is why it is the one allowed to ask again after a failure.
 			EnsureCatalogue(deliberate: true);
 
 			// One pack on the device is not a choice worth making the rider make. Several, and the
-			// list below is where they pick; until they do, nothing is stored — an offline source
+			// list below is where they pick; until they do, nothing is stored - an offline source
 			// with no pack id cannot draw a map and MapSource refuses it.
 			if (Packs.Packs.Count == 1)
 			{
@@ -970,7 +970,7 @@
 	/// </para>
 	/// <para>
 	/// With no pack selected yet the choice is only remembered, not stored. An offline source needs
-	/// an archive behind it — <c>MapSource.Normalised</c> refuses one without — so the theme is
+	/// an archive behind it - <c>MapSource.Normalised</c> refuses one without - so the theme is
 	/// carried into whichever pack is picked next rather than being lost for having been chosen
 	/// first.
 	/// </para>
@@ -994,7 +994,7 @@
 	/// How long a rider's pin outlives their last fix, stored the moment it is picked (§5.3).
 	/// <para>
 	/// Written straight to the device rather than into a scoped state. Nothing on this screen draws
-	/// pins — the preview map is base map only — and the one page that does reads the store when
+	/// pins - the preview map is base map only - and the one page that does reads the store when
 	/// it opens, which is the only moment the value matters. A state object would exist to raise an
 	/// event no live map is mounted to hear.
 	/// </para>
@@ -1004,11 +1004,11 @@
 	/// message about a change rather than a confirmation of one.
 	/// </para>
 	/// </summary>
-	/// <param name="changed">What the dropdown now holds — whole minutes, as <see cref="PinExpiry.Encode"/> writes them.</param>
+	/// <param name="changed">What the dropdown now holds - whole minutes, as <see cref="PinExpiry.Encode"/> writes them.</param>
 	private async Task ChooseExpiryAsync(ChangeEventArgs changed)
 	{
-		// Through Decode rather than parsed here, so a value this build did not put in the list —
-		// an older option, a host that fired the event with something else — lands on an offered
+		// Through Decode rather than parsed here, so a value this build did not put in the list -
+		// an older option, a host that fired the event with something else - lands on an offered
 		// one instead of on whatever it happened to say.
 		_pinExpiry = PinExpiry.Decode(changed.Value?.ToString());
 
@@ -1019,7 +1019,7 @@
 	/// Fetches one of the packs on offer, filing it under the catalogue's id.
 	/// <para>
 	/// Nothing is selected as a result. A rider adding Victoria while riding on the New South Wales
-	/// pack should keep drawing the map they are looking at — the new one appears in the list above
+	/// pack should keep drawing the map they are looking at - the new one appears in the list above
 	/// and switching to it is a separate, deliberate tap.
 	/// </para>
 	/// </summary>
@@ -1040,7 +1040,7 @@
 	{
 		// Nothing is checked about the URL here on purpose. This guarded on a "can it be fetched"
 		// flag of its own once, which meant a row the screen was willing to draw a button for could
-		// still be one this method refused — silently, because a return is not a message. The
+		// still be one this method refused - silently, because a return is not a message. The
 		// downloader owns that rule (MapPackDownloader.IsFetchable), refuses before opening a
 		// connection, and says why through Packs.Status, which is already on screen below.
 		//
@@ -1054,12 +1054,12 @@
 	}
 
 	/// <summary>
-	/// Removes a pack, and stops drawing with it if it was the one selected — the alternative is a
+	/// Removes a pack, and stops drawing with it if it was the one selected - the alternative is a
 	/// stored source pointing at a file that is gone, which falls back silently and looks like the
 	/// delete did nothing.
 	/// <para>
 	/// <strong>Asked first.</strong> Delete sits in a row of small controls next to a radio somebody
-	/// taps to choose a map, on a phone, often in gloves — and what it throws away is the single
+	/// taps to choose a map, on a phone, often in gloves - and what it throws away is the single
 	/// largest thing this app puts on the device and the one thing a rider went to some trouble to
 	/// get. The cost of a mis-tap is not the file, it is the several hundred megabytes and the Wi-Fi
 	/// they have to find again, which on a trip is not always available at all.
@@ -1098,7 +1098,7 @@
 	private async Task ApplyCustomAsync()
 	{
 		// The button is disabled while this is false, so this is a guard against a programmatic
-		// caller rather than a path the rider can take — the reason is already on screen.
+		// caller rather than a path the rider can take - the reason is already on screen.
 		if (!CustomIsUsable)
 		{
 			return;
@@ -1145,7 +1145,7 @@
 	}
 
 	/* The packs on offer: country, then the area within it, each a search box and a dropdown and
-	   each full width. Two lines whatever the catalogue holds — which is the point, since this
+	   each full width. Two lines whatever the catalogue holds - which is the point, since this
 	   list is meant to grow past what a phone screen can show without burying the source radios
 	   and the preview below. */
 	.map-settings .picker {
@@ -1188,7 +1188,7 @@
 
 	/* The one control on this screen that commits a rider to hundreds of megabytes, so it carries
 	   the accent that .primary in app.css gives it rather than the outline the secondary buttons
-	   here have. Only the tap target is set locally — the colours, and the grey it turns when
+	   here have. Only the tap target is set locally - the colours, and the grey it turns when
 	   nothing is picked, come from app.css so this and "Use this tile server" cannot disagree. */
 	.map-settings .download.primary {
 		min-height: 44px;
@@ -1212,7 +1212,7 @@
 		cursor: pointer;
 	}
 
-	/* The packs on this device. A row is a choice, a size and a way out of it — nothing else,
+	/* The packs on this device. A row is a choice, a size and a way out of it - nothing else,
 	   because this is the screen a rider comes to when the phone says it is full. */
 	.map-settings .packs {
 		list-style: none;
@@ -1280,8 +1280,8 @@
 	}
 
 	/* The bar and the count it belongs to, stacked rather than sat side by side. This is the one
-	   thing in the app a rider watches for minutes at a stretch — often on a phone propped up
-	   across the room while the Wi-Fi does its work — so the bar is tall enough to read from
+	   thing in the app a rider watches for minutes at a stretch - often on a phone propped up
+	   across the room while the Wi-Fi does its work - so the bar is tall enough to read from
 	   there, and the number is on it rather than beside it: a count in the middle of the thing
 	   that is moving is read without moving the eye, and it leaves the bar the full width. */
 	.map-settings .progress .bar {
@@ -1295,8 +1295,8 @@
 		flex: 1;
 		min-width: 0;
 		/* Twice the ~1rem a native bar draws itself at, which is also what makes room for the
-		   text over it. The appearance reset is what lets the height take effect at all —
-		   WebKit keeps drawing its own inset groove at its own size otherwise — and once it is
+		   text over it. The appearance reset is what lets the height take effect at all -
+		   WebKit keeps drawing its own inset groove at its own size otherwise - and once it is
 		   reset the fill and the track have to be painted here too. */
 		height: 3rem;
 		appearance: none;
@@ -1373,7 +1373,7 @@
 	   RideMap's container carries a 480 px min-height for a full screen and this page overrode it
 	   to 300; both are heights picked against no width, so the sample was one shape on a phone and
 	   another on a desktop. A square is the shape that shows as much north-south as east-west,
-	   which is what a rider checking whether tiles load around a place actually pans through — and
+	   which is what a rider checking whether tiles load around a place actually pans through - and
 	   it is the shape the tiles themselves come in.
 
 	   The min-height is cleared, not lowered: it is a floor, so leaving it in place would win over

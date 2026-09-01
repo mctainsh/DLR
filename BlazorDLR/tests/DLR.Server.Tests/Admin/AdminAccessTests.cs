@@ -12,7 +12,7 @@ namespace DLR.Server.Tests.Admin;
 /// Who may reach the administration screens (§14.6).
 /// <para>
 /// The roster is a list of usernames in the server's own configuration rather than a column or a
-/// role, so these tests set it the way a deployment would — through configuration — and the thing
+/// role, so these tests set it the way a deployment would - through configuration - and the thing
 /// they are checking is that <em>nothing else</em> opens the door.
 /// </para>
 /// </summary>
@@ -21,6 +21,7 @@ public sealed class AdminAccessTests(PostgresFixture postgres)
 	private const string UsersUrl = "/api/v1/admin/users";
 	private const string StatsUrl = "/api/v1/admin/stats";
 	private const string LogsUrl = "/api/v1/admin/logs";
+	private const string NoticesUrl = "/api/v1/admin/announcements";
 
 	[Fact]
 	public async Task EveryAdminRoute_IsRefusedToAnAccountNotOnTheRoster()
@@ -34,9 +35,9 @@ public sealed class AdminAccessTests(PostgresFixture postgres)
 
 		using HttpClient authed = app.CreateClient().Authenticated(session);
 
-		// All three, not a representative one: they are three separate routes and the guard is an
+		// All of them, not a representative one: they are separate routes and the guard is an
 		// attribute somebody could forget on the next one added.
-		foreach (string url in new[] { UsersUrl, StatsUrl, LogsUrl })
+		foreach (string url in new[] { UsersUrl, StatsUrl, LogsUrl, NoticesUrl })
 		{
 			using HttpResponseMessage response = await authed.GetAsync(url);
 
@@ -52,7 +53,7 @@ public sealed class AdminAccessTests(PostgresFixture postgres)
 
 		using HttpClient client = app.CreateClient();
 
-		foreach (string url in new[] { UsersUrl, StatsUrl, LogsUrl })
+		foreach (string url in new[] { UsersUrl, StatsUrl, LogsUrl, NoticesUrl })
 		{
 			using HttpResponseMessage response = await client.GetAsync(url);
 
@@ -121,7 +122,7 @@ public sealed class AdminAccessTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The flag the client reads to decide whether to offer the menu has to be the same answer the
-	/// policy gives, or an administrator is shown a door that does not open — or worse, is not
+	/// policy gives, or an administrator is shown a door that does not open - or worse, is not
 	/// shown one that does.
 	/// </summary>
 	[Fact]

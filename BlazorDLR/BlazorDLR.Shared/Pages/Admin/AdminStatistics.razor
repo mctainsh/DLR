@@ -29,7 +29,7 @@
 	send for a shape that is thirty lines of path data.
 *@
 
-<PageTitle>Statistics — Administration — Dumb Luck Routes</PageTitle>
+<PageTitle>Statistics - Administration - Dumb Luck Routes</PageTitle>
 
 <div class="page page-wide admin-stats">
 	<PageNav Title="Statistics" BackHref="/admin" BackLabel="Back to administration" />
@@ -74,7 +74,7 @@
 		<p class="hint">
 			The first two are this minute, from the live position cache. The three
 			<em>active</em> figures count accounts the server has heard from, which it records at
-			most once an hour — they say who has opened the app, not who is out riding.
+			most once an hour - they say who has opened the app, not who is out riding.
 		</p>
 
 		<h2>GPS fixes per minute</h2>
@@ -119,12 +119,12 @@
 
 		<p class="hint">
 			Peak @_peak.ToString("N0") in a minute; @_total.ToString("N0") fixes in the
-			window. Counted in memory by this server as the fixes arrived — the stored positions
+			window. Counted in memory by this server as the fixes arrived - the stored positions
 			are deleted with the adventure, so there is nothing on disk to plot.
 			@if (stats.MeterStartedUtc > stats.WindowStartUtc)
 			{
 				<strong>
-					Counting began @Label(stats.MeterStartedUtc) — anything before that is missing
+					Counting began @Label(stats.MeterStartedUtc) - anything before that is missing
 					rather than quiet.
 				</strong>
 			}
@@ -150,7 +150,7 @@
 	/// The series, padded to <see cref="Columns"/>.
 	/// <para>
 	/// Held rather than read off the contract each render because the drawing loop indexes it 1 440
-	/// times, and a server that sent a short array — an older build, or one restarted mid-request —
+	/// times, and a server that sent a short array - an older build, or one restarted mid-request -
 	/// must not throw at the reader.
 	/// </para>
 	/// </summary>
@@ -162,7 +162,7 @@
 	/// The tallest minute, and never zero: it is the divisor.
 	/// <para>
 	/// A field filled once per load rather than a property scanning <see cref="_buckets"/> on every
-	/// read — the draw loop below divides by it 1 440 times, and the page reloads every minute for as
+	/// read - the draw loop below divides by it 1 440 times, and the page reloads every minute for as
 	/// long as the tab is open.
 	/// </para>
 	/// </summary>
@@ -256,7 +256,7 @@
 	}
 
 		/* The two that mean "this minute". Coloured so the eye separates them from the four that
-		   are counted over days — the note under them says the same thing in words. */
+		   are counted over days - the note under them says the same thing in words. */
 		.admin-stats .stat.live .value {
 			color: var(--dlr-good);
 		}

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-	<!-- Codecs, simplification, stats, the editor primitive — pure logic, no I/O (§3). -->
+	<!-- Codecs, simplification, stats, the editor primitive - pure logic, no I/O (§3). -->
 	<PropertyGroup>
 		<RootNamespace>DLR.Core.Tests</RootNamespace>
 	</PropertyGroup>

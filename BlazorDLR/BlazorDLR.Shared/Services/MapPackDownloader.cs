@@ -9,12 +9,12 @@ namespace BlazorDLR.Shared.Services;
 /// <summary>How a download ended.</summary>
 /// <param name="PackId">Which archive.</param>
 /// <param name="Succeeded">Whether it is now on the device and readable.</param>
-/// <param name="Message">What to put in front of the rider — the reason on a failure, the size on a success.</param>
+/// <param name="Message">What to put in front of the rider - the reason on a failure, the size on a success.</param>
 /// <param name="Sha256">
 /// The archive's checksum, lowercase hex, when one was computed.
 /// <para>
 /// Still nothing compares it, and now there is something to compare it <em>to</em>: the catalogue
-/// publishes a <c>sha256</c> per pack (§4.2). Wiring the two together is the outstanding half —
+/// publishes a <c>sha256</c> per pack (§4.2). Wiring the two together is the outstanding half -
 /// plan §4.3 step 3 wants a mismatch to discard the part file and fail the download, which is a
 /// change to this type's contract rather than to the value it already computes.
 /// </para>
@@ -35,10 +35,10 @@ public readonly record struct MapPackProgress(string PackId, long BytesReceived,
 /// Fetches a PMTiles archive from a URL onto this device (§4.4).
 /// <para>
 /// <strong>A URL, wherever it came from.</strong> This takes an address and a name and knows
-/// nothing about how they were chosen — which is why <see cref="MapPackCatalogue"/> could replace
+/// nothing about how they were chosen - which is why <see cref="MapPackCatalogue"/> could replace
 /// the screen's link-and-a-name form without touching anything here: the catalogue hands this
 /// method a URL exactly as a person used to. HTTPS, or cleartext from the one host the platform
-/// configs permit — see <see cref="IsFetchable"/>. That is not pedantry either way: the phones
+/// configs permit - see <see cref="IsFetchable"/>. That is not pedantry either way: the phones
 /// block every other <c>http://</c> host below this code, so such a link would fail at the platform
 /// rather than anywhere a rider could act on.
 /// </para>
@@ -46,13 +46,13 @@ public readonly record struct MapPackProgress(string PackId, long BytesReceived,
 /// <strong>It owns its own <see cref="HttpClient"/>, and that is a security decision rather than a
 /// convenience.</strong> The client every host registers carries <c>BearerAuthHandler</c> and is
 /// pointed at the DLR API (§18.5). Reusing it here would attach the rider's access token to a
-/// request aimed at whatever host they pasted — handing their session to a stranger's web server.
+/// request aimed at whatever host they pasted - handing their session to a stranger's web server.
 /// This one has no handler, no base address and no credentials.
 /// </para>
 /// <para>
 /// <strong>Resumable, because the file is big and the connection is a phone.</strong> A restart
 /// asks the store how much is already there and requests the rest with a <c>Range</c> header. A
-/// server that ignores it and answers <c>200</c> is handled explicitly — appending a whole file
+/// server that ignores it and answers <c>200</c> is handled explicitly - appending a whole file
 /// onto a partial one produces a corrupt archive of plausible length, which is the worst possible
 /// outcome and the easiest to write by accident.
 /// </para>
@@ -67,7 +67,7 @@ public sealed class MapPackDownloader : IDisposable
 
 	/// <summary>
 	/// How often progress is reported, in bytes. Independent of <see cref="BufferBytes"/> so the
-	/// two can be tuned apart — the buffer is about throughput, this is about a UI that re-renders.
+	/// two can be tuned apart - the buffer is about throughput, this is about a UI that re-renders.
 	/// </summary>
 	private const long ProgressEveryBytes = 512 * 1024;
 
@@ -77,11 +77,11 @@ public sealed class MapPackDownloader : IDisposable
 	/// <summary>
 	/// Creates a downloader over this device's pack store and a client to fetch with.
 	/// <para>
-	/// <strong>One constructor, and the client is not optional — that is the safety property.</strong>
+	/// <strong>One constructor, and the client is not optional - that is the safety property.</strong>
 	/// An earlier version offered a convenience overload taking only the store and building its own
 	/// client. Because every host also registers an <see cref="HttpClient"/>, and the container
 	/// picks the constructor with the most parameters it can satisfy, DI quietly chose the
-	/// <em>other</em> one and handed this the app's client — the one carrying
+	/// <em>other</em> one and handed this the app's client - the one carrying
 	/// <c>BearerAuthHandler</c>. Every pack download would have attached the rider's access token to
 	/// a request aimed at a host they pasted into a text box.
 	/// </para>
@@ -91,7 +91,7 @@ public sealed class MapPackDownloader : IDisposable
 	/// </para>
 	/// </summary>
 	/// <param name="store">Where the archive lands.</param>
-	/// <param name="http">The client to fetch with. Must carry no credentials — see the type's remarks.</param>
+	/// <param name="http">The client to fetch with. Must carry no credentials - see the type's remarks.</param>
 	public MapPackDownloader(IMapPackStore store, HttpClient http)
 	{
 		_store = store;
@@ -99,7 +99,7 @@ public sealed class MapPackDownloader : IDisposable
 	}
 
 	/// <summary>
-	/// A client with no handler, no base address and no credentials — what a pack download must go
+	/// A client with no handler, no base address and no credentials - what a pack download must go
 	/// out on, because the URL comes from a text box and points wherever the rider says.
 	/// <para>
 	/// The timeout is generous on purpose: this is a large file on a phone connection, and the
@@ -113,14 +113,14 @@ public sealed class MapPackDownloader : IDisposable
 	/// Downloads <paramref name="url"/> into the store as <paramref name="packId"/>, resuming a
 	/// previous attempt if one is on the device.
 	/// <para>
-	/// Never throws for an ordinary failure — a dead link, a full disk, a rider who cancelled all
+	/// Never throws for an ordinary failure - a dead link, a full disk, a rider who cancelled all
 	/// come back as a <see cref="MapPackDownloadResult"/> with something to put on screen. A screen
 	/// that has to catch exceptions to tell somebody a URL was wrong is a screen that will
 	/// eventually forget to.
 	/// </para>
 	/// </summary>
 	/// <param name="packId">
-	/// What to call it on this device. Must be a slug the store accepts — see
+	/// What to call it on this device. Must be a slug the store accepts - see
 	/// <see cref="IsUsablePackId"/>, which the settings screen checks before offering the button.
 	/// </param>
 	/// <param name="url">Where to fetch it from. Must satisfy <see cref="IsFetchable"/>.</param>
@@ -141,10 +141,10 @@ public sealed class MapPackDownloader : IDisposable
 			// Not pedantry: the phones refuse plain HTTP to every host but loopback and the one named
 			// in MapPackCatalogue.CleartextHost (see the platform network configs), so any other
 			// http:// link would fail with a platform error rather than anything a rider could act on.
-			// Refused here, before a connection is opened, and reported — this is what the settings
+			// Refused here, before a connection is opened, and reported - this is what the settings
 			// screen shows when somebody taps Download on a pack the catalogue published badly.
 			return new MapPackDownloadResult(packId, false,
-				"That map is not offered over a link this phone can use — it has to be https://.");
+				"That map is not offered over a link this phone can use - it has to be https://.");
 		}
 
 		if (!_store.IsSupported)
@@ -154,7 +154,7 @@ public sealed class MapPackDownloader : IDisposable
 		long resumeFrom = await _store.PartialLengthAsync(packId, version, cancellationToken);
 
 		// A pack is hundreds of megabytes over a link a rider may be standing at the edge of, so
-		// the interesting part is almost never the exception — it is how far it got and whether it
+		// the interesting part is almost never the exception - it is how far it got and whether it
 		// resumed. Both ends of the transfer are logged for that reason.
 		DiagnosticLog.Write(
 			$"Map pack '{packId}' v{version}: downloading from {url}" +
@@ -164,7 +164,7 @@ public sealed class MapPackDownloader : IDisposable
 		{
 			MapPackDownloadResult result = await TransferAsync(packId, version, url, resumeFrom, progress, cancellationToken);
 			DiagnosticLog.Write(
-				$"Map pack '{packId}' v{version}: {(result.Succeeded ? "downloaded" : "FAILED")} — {result.Message}");
+				$"Map pack '{packId}' v{version}: {(result.Succeeded ? "downloaded" : "FAILED")} - {result.Message}");
 			return result;
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -172,7 +172,7 @@ public sealed class MapPackDownloader : IDisposable
 			DiagnosticLog.Write($"Map pack '{packId}' v{version}: stopped (cancelled by the rider).");
 
 			// The partial file stays. Asking again resumes it, which is the whole point of keeping
-			// one — a rider who cancelled on mobile data and reconnected to Wi-Fi loses nothing.
+			// one - a rider who cancelled on mobile data and reconnected to Wi-Fi loses nothing.
 			return new MapPackDownloadResult(packId, false, "Download stopped. Starting it again will carry on from here.");
 		}
 		catch (HttpRequestException exception)
@@ -209,7 +209,7 @@ public sealed class MapPackDownloader : IDisposable
 
 		if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
 		{
-			// The partial is at or past the file's length — usually because the file on the host
+			// The partial is at or past the file's length - usually because the file on the host
 			// was replaced with a shorter one. Start again rather than resuming into nothing.
 			await _store.DiscardAsync(packId, version, cancellationToken);
 			return new MapPackDownloadResult(packId, false, "The map pack on that link has changed. Try again to download it fresh.");
@@ -272,7 +272,7 @@ public sealed class MapPackDownloader : IDisposable
 
 		if (total is { } expected && received != expected)
 		{
-			// Short. The connection dropped without an error — leave the partial so the next
+			// Short. The connection dropped without an error - leave the partial so the next
 			// attempt resumes rather than starting the whole thing again.
 			return new MapPackDownloadResult(packId, false,
 				$"The download stopped early ({Describe(received)} of {Describe(expected)}). Try again to carry on.");
@@ -282,7 +282,7 @@ public sealed class MapPackDownloader : IDisposable
 		{
 			await _store.DiscardAsync(packId, version, cancellationToken);
 			return new MapPackDownloadResult(packId, false,
-				"That link did not return a map pack. A PMTiles archive is expected — check the URL.");
+				"That link did not return a map pack. A PMTiles archive is expected - check the URL.");
 		}
 
 		string? checksum = await ChecksumAsync(packId, version, cancellationToken);
@@ -297,7 +297,7 @@ public sealed class MapPackDownloader : IDisposable
 	/// <para>
 	/// Cheap, and it catches the failure that would otherwise be baffling: a URL that answers 200
 	/// with an HTML error page, a login redirect, or a ZIP. Without this the archive commits, the
-	/// map goes blank, and nothing anywhere says why — the renderer's failure is inside a WebView.
+	/// map goes blank, and nothing anywhere says why - the renderer's failure is inside a WebView.
 	/// </para>
 	/// </summary>
 	private async Task<bool> LooksLikePmtilesAsync(string packId, int version, CancellationToken cancellationToken)
@@ -319,7 +319,7 @@ public sealed class MapPackDownloader : IDisposable
 
 	/// <summary>
 	/// SHA-256 of the finished download, lowercase hex, or <c>null</c> if it could not be read.
-	/// Streamed rather than buffered — the file is the reason this class exists.
+	/// Streamed rather than buffered - the file is the reason this class exists.
 	/// </summary>
 	private async Task<string?> ChecksumAsync(string packId, int version, CancellationToken cancellationToken)
 	{
@@ -362,7 +362,7 @@ public sealed class MapPackDownloader : IDisposable
 	/// <para>
 	/// HTTPS, or cleartext from the single host the platform configs permit
 	/// (<see cref="MapPackCatalogue.PermitsCleartext"/>). The same rule the catalogue applies before
-	/// offering a row, stated once and consulted from both — the screen uses it to decide whether to
+	/// offering a row, stated once and consulted from both - the screen uses it to decide whether to
 	/// draw a button, and this uses it because a caller reaching here another way must not get a
 	/// weaker answer than the screen did.
 	/// </para>

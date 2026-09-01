@@ -5,7 +5,7 @@
 	Renders a PollResults inside a comment (§17.5).
 
 	Two things this respects:
-	  1. Results are ALWAYS visible (§17.5). No "reveal after voting" curtain — the
+	  1. Results are ALWAYS visible (§17.5). No "reveal after voting" curtain - the
 		 question people actually ask is "who's coming Saturday?", and the tally answers it.
 	  2. Voters are named (§17.5). Anonymous polling is a different feature; this
 		 component leans on the attribution because that is what most users want.
@@ -45,7 +45,7 @@
 				@if (option.Voters.Count > 0)
 				{
 					@* One span per voter rather than a joined string, so each name can carry its
-					   own photograph (§7.3). The separator moves into CSS for the same reason —
+					   own photograph (§7.3). The separator moves into CSS for the same reason -
 					   a comma in the markup would sit between a name and the next circle. *@
 					<div class="voters">
 						@foreach (PollVoter voter in option.Voters)
@@ -63,7 +63,7 @@
 			@(Results.AllowMultiple ? "Pick any that apply" : "Pick one")
 			@if (Results.IsClosed)
 			{
-				<strong> — closed</strong>
+				<strong> - closed</strong>
 			}
 			else if (Results.ClosesUtc is { } closes)
 			{
@@ -87,7 +87,7 @@
 	[Parameter] public bool CanClose { get; set; }
 
 	/// <summary>
-	/// Cast a vote. The parent hands the full set of chosen option ids — single-select
+	/// Cast a vote. The parent hands the full set of chosen option ids - single-select
 	/// clients pass one, multi-select clients pass the toggled set. An empty list clears.
 	/// </summary>
 	[Parameter, EditorRequired] public EventCallback<IReadOnlyList<Guid>> OnCast { get; set; }
@@ -114,7 +114,7 @@
 			}
 			else
 			{
-				// Tapping the current single-select choice clears it — otherwise the caller
+				// Tapping the current single-select choice clears it - otherwise the caller
 				// would be stuck with their vote once they cast. §17.5's rule for the
 				// single-select shape.
 				if (chosen.Contains(optionId) && chosen.Count == 1)

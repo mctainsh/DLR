@@ -9,7 +9,7 @@ namespace BlazorDLR.Shared.State;
 /// Scoped, and the same shape as the other device states: read once, held in memory, broadcast on
 /// every change. The settings screen renders it; nothing else reads it, but it is a service rather
 /// than page fields so a download survives the rider navigating away from the screen that started
-/// it — which on a 300 MB archive they certainly will.
+/// it - which on a 300 MB archive they certainly will.
 /// </para>
 /// <para>
 /// <strong>One download at a time.</strong> Two large transfers over one phone connection make
@@ -19,7 +19,7 @@ namespace BlazorDLR.Shared.State;
 /// <para>
 /// <strong>Two lists, and the difference is where they live.</strong> <see cref="Packs"/> is what
 /// the phone holds; <see cref="Offers"/> is what the catalogue publishes. They are keyed the same
-/// way — a pack's id is the catalogue's id — which is what lets the screen show one region once,
+/// way - a pack's id is the catalogue's id - which is what lets the screen show one region once,
 /// with either a size or a Download beside it.
 /// </para>
 /// </summary>
@@ -59,16 +59,16 @@ public sealed class MapPackState
 	/// <summary>The download in flight, or <c>null</c> when none is.</summary>
 	public MapPackProgress? Progress { get; private set; }
 
-	/// <summary>Whether a download is running — the screen's cue to disable the button and offer cancel.</summary>
+	/// <summary>Whether a download is running - the screen's cue to disable the button and offer cancel.</summary>
 	public bool IsDownloading => _cancelling is not null;
 
 	/// <summary>The last thing that happened, in the words to put on screen. Null before anything has.</summary>
 	public string? Status { get; private set; }
 
 	/// <summary>
-	/// What the catalogue offers, by country and then alphabetically within it — the order the
+	/// What the catalogue offers, by country and then alphabetically within it - the order the
 	/// settings screen's two dropdowns read in. Empty until <see cref="LoadCatalogueAsync"/> has
-	/// answered, and empty again if it could not — in which case <see cref="CatalogueProblem"/> says
+	/// answered, and empty again if it could not - in which case <see cref="CatalogueProblem"/> says
 	/// why.
 	/// </summary>
 	public IReadOnlyList<MapPackOffer> Offers { get; private set; } = [];
@@ -76,7 +76,7 @@ public sealed class MapPackState
 	/// <summary>Why the catalogue could not be read, in the words to put on screen, or <c>null</c>.</summary>
 	public string? CatalogueProblem { get; private set; }
 
-	/// <summary>Whether a read of the catalogue is in flight — the screen's cue to say so rather than to show an empty list.</summary>
+	/// <summary>Whether a read of the catalogue is in flight - the screen's cue to say so rather than to show an empty list.</summary>
 	public bool IsReadingCatalogue { get; private set; }
 
 	/// <summary>Whether a copy of the catalogue has been read and is being held.</summary>
@@ -87,20 +87,20 @@ public sealed class MapPackState
 	/// launch.
 	/// <para>
 	/// <strong>Not called on load.</strong> The list matters only to somebody adding a pack, and it is
-	/// a request to a host that is not the API — asking for it when the screen opens would spend a
+	/// a request to a host that is not the API - asking for it when the screen opens would spend a
 	/// rider's connection on a list most visits never look at.
 	/// </para>
 	/// <para>
 	/// <strong>And not read twice.</strong> A catalogue is rebuilt when somebody publishes a new
 	/// extract, which is weeks apart, so a second read inside one run of the app is a request that
 	/// answers the same thing. This state is scoped, which on the phone means it lives as long as the
-	/// app does — restarting is what gets a fresh copy, and that is the whole of the policy. There is
+	/// app does - restarting is what gets a fresh copy, and that is the whole of the policy. There is
 	/// no refresh control: one existed, and a button offering to re-fetch a file that changes monthly
 	/// invited exactly the pulling-to-refresh it could never reward.
 	/// </para>
 	/// <para>
 	/// <strong>A failed read is not a copy</strong>, so it is not held. Nothing here retries on its
-	/// own — the screen decides that, and only asks again when the rider deliberately comes back to
+	/// own - the screen decides that, and only asks again when the rider deliberately comes back to
 	/// the offline source rather than on every render that happens to show the form.
 	/// </para>
 	/// </summary>
@@ -119,7 +119,7 @@ public sealed class MapPackState
 
 		if (IsReadingCatalogue)
 		{
-			// A second call while the first is in flight — two paths into the offline form landing
+			// A second call while the first is in flight - two paths into the offline form landing
 			// together. The later one rides on the answer the first is already waiting for.
 			return;
 		}
@@ -133,7 +133,7 @@ public sealed class MapPackState
 			MapPackCatalogueResult result = await _catalogue.ReadAsync(cancellationToken);
 
 			// Held only when there is something to hold. A failure leaves _catalogueRead false so the
-			// next deliberate visit to the offline form asks again — a rider who opened this in a
+			// next deliberate visit to the offline form asks again - a rider who opened this in a
 			// tunnel would otherwise have no route to the list but restarting the app.
 			if (result.Problem is null)
 			{
@@ -166,7 +166,7 @@ public sealed class MapPackState
 		await RefreshAsync(cancellationToken);
 	}
 
-	/// <summary>Re-reads the device — after a download, a delete, or anything else that moved a file.</summary>
+	/// <summary>Re-reads the device - after a download, a delete, or anything else that moved a file.</summary>
 	/// <param name="cancellationToken">Cancels the read.</param>
 	public async Task RefreshAsync(CancellationToken cancellationToken = default)
 	{
@@ -176,14 +176,14 @@ public sealed class MapPackState
 
 	/// <summary>
 	/// Downloads a pack the catalogue offers. It is filed under the catalogue's id rather than
-	/// anything the rider chose — which is the point of having a catalogue: the id is what
+	/// anything the rider chose - which is the point of having a catalogue: the id is what
 	/// <c>MapSource</c> stores, so two devices holding New South Wales agree on what it is called.
 	/// </summary>
 	/// <param name="offer">Which pack from the catalogue.</param>
 	public Task DownloadAsync(MapPackOffer offer) => DownloadAsync(offer.Id, offer.Url);
 
 	/// <summary>Whether this device already holds a pack, and what it knows about it.</summary>
-	/// <param name="packId">Which pack — a catalogue id.</param>
+	/// <param name="packId">Which pack - a catalogue id.</param>
 	public StoredMapPack? Stored(string packId) =>
 		Packs.FirstOrDefault(pack => string.Equals(pack.PackId, packId, StringComparison.Ordinal));
 

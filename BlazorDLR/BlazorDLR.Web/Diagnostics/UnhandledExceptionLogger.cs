@@ -11,7 +11,7 @@ namespace DLR.Server.Diagnostics;
 /// <c>UseExceptionHandler("/Error")</c>'s job and it already does it; a handler that returned
 /// <c>true</c> here would silently take that over and change what every caller sees. This exists
 /// because the framework's own log line for an unhandled exception is written under a
-/// <c>Microsoft.AspNetCore.Diagnostics</c> category — which the server's configuration filters to
+/// <c>Microsoft.AspNetCore.Diagnostics</c> category - which the server's configuration filters to
 /// Warning and above, so it survives, but it says nothing about who was signed in or which
 /// reference the caller was shown.
 /// </para>

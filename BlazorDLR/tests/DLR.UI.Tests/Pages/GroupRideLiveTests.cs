@@ -18,8 +18,8 @@ namespace DLR.UI.Tests.Pages;
 /// <para>
 /// Everything the rider might want while riding is behind that one button: the ride's
 /// info page, the marker composer, the ride thread, and the marker list. What these tests
-/// pin down is that the map is not competing with any of it for space — nothing but the
-/// map and the hamburger is on screen until somebody asks — and that the menu still obeys
+/// pin down is that the map is not competing with any of it for space - nothing but the
+/// map and the hamburger is on screen until somebody asks - and that the menu still obeys
 /// §5.8's content permissions.
 /// </para>
 /// <para>
@@ -72,7 +72,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		// Force the map into its stated-error branch so Skia never mounts.
 		Services.AddSingleton<IMapInterop>(new FakeMapInterop
 		{
-			InitException = new InvalidOperationException("Test host — map interop is stubbed."),
+			InitException = new InvalidOperationException("Test host - map interop is stubbed."),
 		});
 
 		// The rider's own private area is drawn on this map (§10.1), so the page injects the
@@ -84,7 +84,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		Services.AddSingleton<CurrentRideState>();
 
 		// The GPS seam (§4.3). The fake provider stands in for the phone's receiver; a page test
-		// never emits a fix, so this only has to resolve — turning sharing on is what would start
+		// never emits a fix, so this only has to resolve - turning sharing on is what would start
 		// it, and LocationBroadcastStateTests is where that path is exercised.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<LocationUpdateRateState>();
@@ -119,14 +119,14 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 		component.FindAll(".menu").ShouldBeEmpty("the menu is closed until it is asked for.");
 		component.FindAll(".markers-dialog").ShouldBeEmpty(
-			"the marker list is a popup now — a permanent panel is exactly the screen space " +
+			"the marker list is a popup now - a permanent panel is exactly the screen space " +
 			"a full-screen map was meant to win back.");
 	}
 
 	[Fact]
 	public void OpeningARide_IsWhereTheRailsGlobeLeadsBackTo()
 	{
-		// Every way into a ride — a code redeemed, a row in the list, a shared link — ends on this
+		// Every way into a ride - a code redeemed, a row in the list, a shared link - ends on this
 		// page, so this is the one place that has to remember (§18.6). The state persists through
 		// the device store, which is what carries it over a restart.
 		(_, _, Guid rideId) = WireServices();
@@ -144,7 +144,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	[Fact]
 	public void ARideThatIsGone_IsForgotten()
 	{
-		// A ride that was deleted, or one this rider has been removed from — §5.2 makes both a 404,
+		// A ride that was deleted, or one this rider has been removed from - §5.2 makes both a 404,
 		// because a non-member's answer must not say whether the ride exists. Either way the globe
 		// must stop leading to a page that can only answer "no such adventure".
 		(FakeApiClient api, _, Guid rideId) = WireServices();
@@ -172,11 +172,11 @@ public sealed class GroupRideLiveTests : PageTestContext
 	[Fact]
 	public async Task BeingRemovedWhileTheMapIsOpen_ForgetsTheRide_AndSaysSo()
 	{
-		// §5.2: an organiser can remove a member. It can land mid-ride, not only between loads —
+		// §5.2: an organiser can remove a member. It can land mid-ride, not only between loads -
 		// the map on screen is then a picture of a ride whose every next request will 404.
 		(_, FakeRideHubClient hub, Guid rideId) = WireServices();
 
-		// The event names a user id, so "it was me" needs a session — without one the page would
+		// The event names a user id, so "it was me" needs a session - without one the page would
 		// read the removal as somebody else's and the test would pass for the wrong reason.
 		Guid me = Guid.NewGuid();
 		await Services.GetRequiredService<AuthState>().ApplySessionAsync(new TokenResponse(
@@ -248,7 +248,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 	/// <summary>
 	/// The live map's thread item carried a "quiet while live" chip that outlived the rule it
-	/// described by two releases — v0.26 removed the Live silence and this label kept promising it,
+	/// described by two releases - v0.26 removed the Live silence and this label kept promising it,
 	/// which is worse than the silence itself was: the app was buzzing riders while its own menu
 	/// told them it would not. <c>RideThreadMoreTests</c> guards the same claim on the thread page;
 	/// this is the copy that had no test at all, which is why it survived.
@@ -308,13 +308,13 @@ public sealed class GroupRideLiveTests : PageTestContext
 		{
 			component.Find(".placing").TextContent.ShouldContain("Tap the map",
 				customMessage: "§16.1: the point is the traveller's to choose, so the item arms the map and " +
-				"says so — an armed map that looks exactly like an unarmed one is a screen that has " +
+				"says so - an armed map that looks exactly like an unarmed one is a screen that has " +
 				"quietly stopped answering taps the way it did a second ago.");
 			component.FindAll(".menu").ShouldBeEmpty("choosing an item closes the menu behind it.");
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri.ShouldBe(before,
-			"Nothing navigates until the point exists — the composer used to open on the centre of " +
+			"Nothing navigates until the point exists - the composer used to open on the centre of " +
 			"the view, which is a guess, and the middle of the screen is exactly where the traveller is.");
 	}
 
@@ -384,7 +384,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Find(".menu").TextContent.ShouldNotContain("Add marker",
-				customMessage: "§5.8: PermissionsChanged with markers off must remove the item — " +
+				customMessage: "§5.8: PermissionsChanged with markers off must remove the item - " +
 				"leaving it there means a compose screen that ends in a 403.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -400,7 +400,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("Share your location with Test adventure", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.6: opening the adventure when not already sharing prompts for consent — the prompt " +
+				"§5.6: opening the adventure when not already sharing prompts for consent - the prompt " +
 				"stays on the map page because that is where the traveller lands.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -441,7 +441,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 			component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// The MapMarker is drawn on the Skia overlay (which we've stubbed) — the property
+		// The MapMarker is drawn on the Skia overlay (which we've stubbed) - the property
 		// under test is that the hub event is handled without throwing. Missing this handler
 		// would break the live-marker path silently.
 		MarkerDto marker = new(
@@ -468,8 +468,8 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 	/// <summary>
 	/// The overlay draws a rider's own colour, and needs their speed to decide between the heading
-	/// arrow and the stopped dot. Neither travels with a position fix — the colour comes off the
-	/// member row and the speed off the fix — so this is the join that has to be right.
+	/// arrow and the stopped dot. Neither travels with a position fix - the colour comes off the
+	/// member row and the speed off the fix - so this is the join that has to be right.
 	/// </summary>
 	[Fact]
 	public void ARidersMarker_CarriesTheirColourFromTheMemberList_AndTheirSpeedFromTheFix()
@@ -496,7 +496,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 				.Single(marker => marker.Kind == MarkerKind.Rider);
 
 			drawn.Colour.ShouldBe("#16a34a",
-				"the colour is on the member row, not the fix — the map has to look it up per traveller.");
+				"the colour is on the member row, not the fix - the map has to look it up per traveller.");
 			drawn.SpeedMps.ShouldBe(8);
 			drawn.DirectionDeg.ShouldBe(90);
 			drawn.Title.ShouldBe("DaveSmith", "§7.2: the pin carries the username.");
@@ -504,7 +504,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A hub batch carries no username (§5.3) — the client is expected to already have it. Before
+	/// A hub batch carries no username (§5.3) - the client is expected to already have it. Before
 	/// this, a rider whose first sighting was a batch rather than the snapshot was drawn as "?".
 	/// </summary>
 	[Fact]
@@ -590,8 +590,8 @@ public sealed class GroupRideLiveTests : PageTestContext
 	/// Every rebuild hands the map a new dictionary rather than emptying the one it is drawing.
 	/// <para>
 	/// The overlay rasterises on a pool thread, so the layer it was given is being enumerated while
-	/// the next batch of fixes arrives on the renderer's. Clearing it there took the frame — and the
-	/// rider's whole overlay — down with "Collection was modified", which on a ride is a map that
+	/// the next batch of fixes arrives on the renderer's. Clearing it there took the frame - and the
+	/// rider's whole overlay - down with "Collection was modified", which on a ride is a map that
 	/// stops drawing pins and does not start again.
 	/// </para>
 	/// </summary>
@@ -638,7 +638,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.FindComponent<RideMap>().Instance.Circles.ShouldBeNull(
-				"a device that never set an area draws nothing extra — the shipped state."),
+				"a device that never set an area draws nothing extra - the shipped state."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -707,7 +707,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	{
 		// The one thing a rider on a bar mount cannot do is tap the screen to wake it: gloves on,
 		// at speed, both hands where they should be. The platform's idle timer measures input, and
-		// reading a map produces none — so without this the map goes black mid-ride.
+		// reading a map produces none - so without this the map goes black mid-ride.
 		(_, _, Guid rideId) = WireServices();
 		FakeScreenWakeLock wakeLock = WireScreenWakeLock();
 
@@ -719,7 +719,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		wakeLock.RequestCount.ShouldBe(1,
-			"taken once on first render — the map re-renders about once a second on positions alone, "
+			"taken once on first render - the map re-renders about once a second on positions alone, "
 			+ "and a request per frame would be a platform call per frame.");
 	}
 
@@ -736,11 +736,11 @@ public sealed class GroupRideLiveTests : PageTestContext
 			() => wakeLock.IsHeld.ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// How this suite spells "the traveller navigated away" — the router disposes the page.
+		// How this suite spells "the traveller navigated away" - the router disposes the page.
 		await component.InvokeAsync(() => component.Instance.DisposeAsync().AsTask());
 
 		wakeLock.IsHeld.ShouldBeFalse(
-			"a page that is no longer on screen must not go on holding the device awake — "
+			"a page that is no longer on screen must not go on holding the device awake - "
 			+ "that is somebody's battery for a map nobody is reading.");
 		wakeLock.ReleaseCount.ShouldBe(1, "released exactly once, matching the one request.");
 	}
@@ -775,7 +775,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	{
 		// The one state on this screen the rider cannot see for themselves: their own absence.
 		// Every other rider's pin is on the map, the map looks entirely healthy, and the thing
-		// that is wrong is that nobody can see *them* — which they find out when somebody rings.
+		// that is wrong is that nobody can see *them* - which they find out when somebody rings.
 		(_, _, Guid rideId) = WireServices();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
@@ -784,7 +784,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			AngleSharp.Dom.IElement strip = component.FindAll(".map-error.sharing-off").ShouldHaveSingleItem();
-			strip.ClassList.ShouldContain("error", "it is a warning, and it is red — see app.css .error.");
+			strip.ClassList.ShouldContain("error", "it is a warning, and it is red - see app.css .error.");
 			strip.GetAttribute("role").ShouldBe("alert");
 			strip.TextContent.ShouldContain("sharing is off");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -793,7 +793,7 @@ public sealed class GroupRideLiveTests : PageTestContext
 	[Fact]
 	public async Task APhoneThatIsSharing_GetsNoWarning()
 	{
-		// The strip is the state, so it has to go when the state does — a red bar that outlived
+		// The strip is the state, so it has to go when the state does - a red bar that outlived
 		// the problem would be the fastest way to teach a rider to ignore this one.
 		(FakeApiClient api, _, Guid rideId) = WireServices();
 

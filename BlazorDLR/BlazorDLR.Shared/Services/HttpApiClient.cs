@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using BlazorDLR.Shared.Diagnostics;
 using DLR.Core.Contracts.Account;
 using DLR.Core.Contracts.Admin;
+using DLR.Core.Contracts.Announcements;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
@@ -18,7 +19,7 @@ namespace BlazorDLR.Shared.Services;
 
 /// <summary>
 /// The concrete <see cref="IApiClient"/> both hosts use. One JSON pipeline, one URL surface,
-/// two DI registrations — the mobile host binds it to a bearer-token <c>HttpClient</c>,
+/// two DI registrations - the mobile host binds it to a bearer-token <c>HttpClient</c>,
 /// the web host binds it to an <c>HttpClient</c> with <c>credentials: include</c> so its
 /// cookie travels (§18.5).
 /// </summary>
@@ -33,7 +34,7 @@ public sealed class HttpApiClient : IApiClient
 
 	/// <param name="http">
 	/// The host wires up the base address, the auth handler (mobile) and the credential mode (web).
-	/// This class does not care which — it uses the client it was handed.
+	/// This class does not care which - it uses the client it was handed.
 	/// </param>
 	public HttpApiClient(HttpClient http)
 	{
@@ -45,6 +46,14 @@ public sealed class HttpApiClient : IApiClient
 	/// <inheritdoc />
 	public Task<AboutInfo> GetAboutAsync(CancellationToken cancellationToken = default) =>
 		GetAsync<AboutInfo>("/api/v1/about", cancellationToken);
+
+	// -- Startup check (§20) --
+
+	/// <inheritdoc />
+	public Task<StartupCheck> StartupCheckAsync(string? clientVersion, CancellationToken cancellationToken = default) =>
+		GetAsync<StartupCheck>(
+			$"/api/v1/startup?client={Uri.EscapeDataString(clientVersion ?? string.Empty)}",
+			cancellationToken);
 
 	// -- Auth --
 
@@ -255,7 +264,7 @@ public sealed class HttpApiClient : IApiClient
 	public Task<SharedTrackPage> ListSharedTracksAsync(SharedTrackQuery query, CancellationToken cancellationToken = default)
 	{
 		// Built as a list rather than one interpolated string so that an omitted filter is an
-		// absent parameter rather than an empty one — "name=" and no name at all are the same
+		// absent parameter rather than an empty one - "name=" and no name at all are the same
 		// thing to the server today, and relying on that is how they stop being the same thing.
 		List<string> parts = [];
 
@@ -479,8 +488,8 @@ public sealed class HttpApiClient : IApiClient
 		PostAsync<PostCommentRequest, CommentDto>($"/api/v1/tracks/{trackId}/comments", request, cancellationToken);
 
 	/// <summary>
-	/// Appends the cursor, escaped. The cursor is opaque to us — a position in a result set the
-	/// server chose the encoding of — so it goes through <see cref="Uri.EscapeDataString"/> rather
+	/// Appends the cursor, escaped. The cursor is opaque to us - a position in a result set the
+	/// server chose the encoding of - so it goes through <see cref="Uri.EscapeDataString"/> rather
 	/// than being trusted to be URL-safe.
 	/// </summary>
 	private static string ThreadPath(string path, string? cursor) =>
@@ -564,7 +573,7 @@ public sealed class HttpApiClient : IApiClient
 	/// <inheritdoc />
 	public async Task DeleteAccountAsync(DeleteAccountRequest request, CancellationToken cancellationToken = default)
 	{
-		// DELETE with a body — HttpClient has no built-in helper for it, and the endpoint
+		// DELETE with a body - HttpClient has no built-in helper for it, and the endpoint
 		// takes the current password in the body deliberately (§6.3): putting it on the
 		// query string would land the password in Caddy's access log.
 		using HttpRequestMessage message = new(HttpMethod.Delete, "/api/v1/me")
@@ -687,13 +696,45 @@ public sealed class HttpApiClient : IApiClient
 		AdminDeleteUserRequest request,
 		CancellationToken cancellationToken = default)
 	{
-		// DELETE with a body, as DeleteAccountAsync above — the name travels in the body rather
+		// DELETE with a body, as DeleteAccountAsync above - the name travels in the body rather
 		// than the query so it stays out of Caddy's access log alongside the id it confirms.
 		using HttpRequestMessage message = new(HttpMethod.Delete, $"/api/v1/admin/users/{userId}")
 		{
 			Content = JsonContent.Create(request, options: Json),
 		};
 		using HttpResponseMessage response = await _http.SendAsync(message, cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
+	// -- Administration: announcements (§20.2) --
+
+	/// <inheritdoc />
+	public async Task<IReadOnlyList<AdminAnnouncement>> AdminAnnouncementsAsync(CancellationToken cancellationToken = default) =>
+		await GetAsync<IReadOnlyList<AdminAnnouncement>>("/api/v1/admin/announcements", cancellationToken);
+
+	/// <inheritdoc />
+	public Task<AdminAnnouncement> AdminCreateAnnouncementAsync(
+		AdminAnnouncementRequest request,
+		CancellationToken cancellationToken = default) =>
+		PostAsync<AdminAnnouncementRequest, AdminAnnouncement>(
+			"/api/v1/admin/announcements", request, cancellationToken);
+
+	/// <inheritdoc />
+	public async Task AdminUpdateAnnouncementAsync(
+		Guid id,
+		AdminAnnouncementRequest request,
+		CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.PutAsJsonAsync(
+			$"/api/v1/admin/announcements/{id}", request, Json, cancellationToken);
+		await ThrowIfFailedAsync(response, cancellationToken);
+	}
+
+	/// <inheritdoc />
+	public async Task AdminDeleteAnnouncementAsync(Guid id, CancellationToken cancellationToken = default)
+	{
+		using HttpResponseMessage response = await _http.DeleteAsync(
+			$"/api/v1/admin/announcements/{id}", cancellationToken);
 		await ThrowIfFailedAsync(response, cancellationToken);
 	}
 }

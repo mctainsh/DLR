@@ -14,7 +14,7 @@ using AndroidUri = Android.Net.Uri;
 namespace BlazorDLR.Platforms.Android.Location;
 
 /// <summary>
-/// The Android half of §4.3 — a started foreground service that owns the receiver, so fixes keep
+/// The Android half of §4.3 - a started foreground service that owns the receiver, so fixes keep
 /// arriving when the app is backgrounded and when the screen is off.
 /// <para>
 /// <strong>Why a service and not a timer in the app.</strong> Since Android 8 a backgrounded
@@ -22,7 +22,7 @@ namespace BlazorDLR.Platforms.Android.Location;
 /// it cannot start one from the background at all. A ride is exactly the case those limits exist to
 /// stop, so the only supported way to do it is the one the platform offers deliberately: a
 /// foreground service, typed <c>location</c>, with a notification the rider cannot dismiss. That
-/// notification is not an inconvenience to be minimised — it is the contract. It is what makes
+/// notification is not an inconvenience to be minimised - it is the contract. It is what makes
 /// "this app is using your location right now" impossible to miss, and Play reviews the app
 /// against exactly that claim.
 /// </para>
@@ -35,7 +35,7 @@ namespace BlazorDLR.Platforms.Android.Location;
 /// <strong>A partial wake lock, held for the life of the receiver.</strong> A foreground service
 /// keeps the <em>process</em> alive; it does not keep the CPU awake. With the phone in a mount and
 /// the screen off, the device still suspends between fixes, and what suspends with it is the
-/// publish — which is how a ride ends up with a pin that has not moved for minutes. The manifest
+/// publish - which is how a ride ends up with a pin that has not moved for minutes. The manifest
 /// has always declared <c>WAKE_LOCK</c> and a comment claiming the service held one; it did not,
 /// and now it does. The notification is what bounds it: the lock cannot outlive a service the rider
 /// can see and stop.
@@ -67,7 +67,7 @@ public sealed class LocationForegroundService : Service
 
 	/// <summary>
 	/// The notification channel. Low importance: it must be present and permanent, and it must
-	/// never make a sound — a rider gets one of these for the whole ride, not one per fix.
+	/// never make a sound - a rider gets one of these for the whole ride, not one per fix.
 	/// </summary>
 	private const string ChannelId = "dlr.location";
 
@@ -81,13 +81,13 @@ public sealed class LocationForegroundService : Service
 	private const string WakeLockTag = "dlr:location";
 
 	/// <summary>
-	/// How many fixes may queue for a consumer that is behind — see the channel note in the type's
+	/// How many fixes may queue for a consumer that is behind - see the channel note in the type's
 	/// remarks.
 	/// <para>
 	/// This was ten, chosen when the consumer awaited a network round trip per fix and being far
 	/// behind was the normal condition. It no longer is: the publish moved off that loop into
 	/// <c>PositionOutbox</c>, so the consumer now only records and gates, and it drains this in
-	/// microseconds. What the buffer is for now is the other direction — Play Services coalesces
+	/// microseconds. What the buffer is for now is the other direction - Play Services coalesces
 	/// fixes while the device dozes and hands them over in a batch, and every one of them is a
 	/// point the rider's own track wants (§15.1). Ten threw most of a doze batch away.
 	/// </para>
@@ -108,7 +108,7 @@ public sealed class LocationForegroundService : Service
 
 	/// <summary>
 	/// The stream the shared provider reads. Static because the OS owns the service instance's
-	/// lifetime — it can be killed and restarted under a consumer that is still enumerating, and a
+	/// lifetime - it can be killed and restarted under a consumer that is still enumerating, and a
 	/// stream tied to one instance would end silently when that happened.
 	/// </summary>
 	public static ChannelReader<LocationFix> Reader => Fixes.Reader;
@@ -116,7 +116,7 @@ public sealed class LocationForegroundService : Service
 	/// <summary>Whether a receiver is currently running. What <see cref="ILocationProvider.IsRecording"/> answers.</summary>
 	public static bool IsRunning { get; private set; }
 
-	/// <summary>Not a bound service — the app talks to it with intents.</summary>
+	/// <summary>Not a bound service - the app talks to it with intents.</summary>
 	/// <param name="intent">Ignored.</param>
 	public override IBinder? OnBind(Intent? intent) => null;
 
@@ -128,7 +128,7 @@ public sealed class LocationForegroundService : Service
 		// a redelivery. A ride that came back on its own with nobody looking at the phone is this
 		// line and nothing else.
 		DiagnosticLog.Write(
-			$"GPS service: OnStartCommand action {intent?.Action ?? "(null — restarted by the OS)"}, " +
+			$"GPS service: OnStartCommand action {intent?.Action ?? "(null - restarted by the OS)"}, " +
 			$"flags {flags}, start id {startId}.");
 
 		if (intent?.Action == ActionStop)
@@ -155,11 +155,11 @@ public sealed class LocationForegroundService : Service
 		{
 			StartForeground(NotificationId, BuildNotification());
 
-			DiagnosticLog.Write($"GPS service: in the foreground — {_rate}; notification posted.");
+			DiagnosticLog.Write($"GPS service: in the foreground - {_rate}; notification posted.");
 		}
 		catch (Exception exception)
 		{
-			// Rethrown — there is no ride without this — but recorded first. The two ways it fails
+			// Rethrown - there is no ride without this - but recorded first. The two ways it fails
 			// are a missing FOREGROUND_SERVICE_LOCATION grant and a notification the platform
 			// would not build, and both are invisible from the app side: all the rider sees is a
 			// ride that would not start.
@@ -176,7 +176,7 @@ public sealed class LocationForegroundService : Service
 	/// The rider swiped the app off Recents (§4.3).
 	/// <para>
 	/// Android leaves a started service running when its task is removed, which is right for the
-	/// cases this service exists for — the phone in a mount with the screen off — and wrong for
+	/// cases this service exists for - the phone in a mount with the screen off - and wrong for
 	/// this one. A swipe is the rider saying they are done, and a receiver that outlives that is an
 	/// app holding GPS and a permanent notification for something nobody asked it to keep doing.
 	/// </para>
@@ -184,7 +184,7 @@ public sealed class LocationForegroundService : Service
 	/// The process goes with it, for the reason set out on <see cref="AppTermination"/>: a
 	/// surviving process is what makes the *next* launch hang. This callback is the only shutdown
 	/// hook that still fires once the OS has already destroyed the activity for its own reasons and
-	/// this service is all that is keeping the process up — <c>MainActivity.OnDestroy</c> covers
+	/// this service is all that is keeping the process up - <c>MainActivity.OnDestroy</c> covers
 	/// the ordinary case, and neither covers both.
 	/// </para>
 	/// </summary>
@@ -261,14 +261,14 @@ public sealed class LocationForegroundService : Service
 		}
 
 		// Before the engine, so there is no window in which a fix arrives with the CPU free to
-		// suspend under it. Idempotent — a re-tune keeps the lock it already holds.
+		// suspend under it. Idempotent - a re-tune keeps the lock it already holds.
 		AcquireWakeLock();
 
 		_engine = LocationEngineFactory.Create(this, Publish);
 		_engine.Start(_rate);
 		IsRunning = true;
 
-		DiagnosticLog.Write($"GPS service: {_engine.GetType().Name} watching — {_rate}.");
+		DiagnosticLog.Write($"GPS service: {_engine.GetType().Name} watching - {_rate}.");
 	}
 
 	private void StopWatching()
@@ -281,7 +281,7 @@ public sealed class LocationForegroundService : Service
 		IsRunning = false;
 
 		// Last, and unconditionally. A wake lock that outlives the receiver is a flat battery with
-		// nothing on screen to explain it — the one failure here worse than the one it fixes.
+		// nothing on screen to explain it - the one failure here worse than the one it fixes.
 		ReleaseWakeLock();
 	}
 
@@ -311,7 +311,7 @@ public sealed class LocationForegroundService : Service
 
 			if (_wakeLock is null)
 			{
-				DiagnosticLog.Write("GPS service: no PowerManager — the CPU may sleep between fixes.");
+				DiagnosticLog.Write("GPS service: no PowerManager - the CPU may sleep between fixes.");
 				return;
 			}
 
@@ -325,7 +325,7 @@ public sealed class LocationForegroundService : Service
 			DiagnosticLog.WriteError("taking the location wake lock", exception);
 
 			// Given back before the reference is dropped. Acquire() may well have succeeded and a
-			// later line thrown — and a partial wake lock with nothing left holding a reference to
+			// later line thrown - and a partial wake lock with nothing left holding a reference to
 			// it is held until the process dies. That is the failure ReleaseWakeLock calls the
 			// worse one: a flat battery with nothing on screen to explain it.
 			try
@@ -373,7 +373,7 @@ public sealed class LocationForegroundService : Service
 	/// The notification the rider cannot dismiss while this runs.
 	/// <para>
 	/// It says what is happening and why, in those words, because it is the only part of the
-	/// background-location story most riders will ever read — and because Play's policy for
+	/// background-location story most riders will ever read - and because Play's policy for
 	/// background location is judged on whether the app is honest about it at the moment it
 	/// happens, not only in the listing.
 	/// </para>
@@ -382,7 +382,7 @@ public sealed class LocationForegroundService : Service
 	{
 		EnsureChannel();
 
-		// Tapping it opens the app rather than doing nothing — a notification that is not a way
+		// Tapping it opens the app rather than doing nothing - a notification that is not a way
 		// back into the thing it describes is a dead end on a lock screen.
 		Intent? launch = PackageManager?.GetLaunchIntentForPackage(PackageName!);
 
@@ -405,7 +405,7 @@ public sealed class LocationForegroundService : Service
 		builder.SetContentTitle("Sharing your location");
 		builder.SetContentText("Your position is going to the group adventures you are sharing with.");
 
-		// Ours, not a stock android.R drawable — see the comment in the resource itself. A
+		// Ours, not a stock android.R drawable - see the comment in the resource itself. A
 		// notification with a small icon the platform cannot resolve is never posted, and a
 		// foreground service whose notification never posts is a service that cannot start.
 		builder.SetSmallIcon(global::BlazorDLR.Resource.Drawable.dlr_location_notification);
@@ -478,7 +478,7 @@ internal interface ILocationEngine
 /// </para>
 /// <para>
 /// It is not, however, universally present. Play Services is absent on Huawei's recent phones, on
-/// de-Googled Android, and in some emulators — and on those devices the fused client throws or
+/// de-Googled Android, and in some emulators - and on those devices the fused client throws or
 /// silently never calls back, which is indistinguishable from a phone that cannot see the sky. So
 /// the platform's own <see cref="LocationManager"/> is kept as a fallback: it is worse at all the
 /// things fused is good at, and it is very much better than an app that looks broken.
@@ -494,9 +494,9 @@ internal static class LocationEngineFactory
 		bool fused = FusedLocationEngine.IsAvailable(context);
 
 		// Which of the two this device got, said once per watch. The fallback is silent by design
-		// — the app works either way — and that is exactly why it needs writing down: "fixes are
+		// - the app works either way - and that is exactly why it needs writing down: "fixes are
 		// worse than they used to be" and "Play Services stopped answering" are the same report.
-		DiagnosticLog.Write($"GPS: Play Services fused provider {(fused ? "available" : "NOT available — falling back to LocationManager")}.");
+		DiagnosticLog.Write($"GPS: Play Services fused provider {(fused ? "available" : "NOT available - falling back to LocationManager")}.");
 
 		return fused
 			? new FusedLocationEngine(context, publish)
@@ -506,7 +506,7 @@ internal static class LocationEngineFactory
 
 /// <summary>
 /// The last-resort engine: <c>LocationManager</c> with the GPS provider, present on every Android
-/// device since the beginning. Used when Play Services is not installed — see
+/// device since the beginning. Used when Play Services is not installed - see
 /// <see cref="LocationEngineFactory"/>.
 /// </summary>
 internal sealed class PlatformLocationEngine : Java.Lang.Object, ILocationEngine, ILocationListener
@@ -539,7 +539,7 @@ internal sealed class PlatformLocationEngine : Java.Lang.Object, ILocationEngine
 			: _manager.IsProviderEnabled(LocationManager.NetworkProvider) ? LocationManager.NetworkProvider
 			: null;
 
-		DiagnosticLog.Write($"GPS: LocationManager provider {provider ?? "(none enabled — no fixes will arrive)"}.");
+		DiagnosticLog.Write($"GPS: LocationManager provider {provider ?? "(none enabled - no fixes will arrive)"}.");
 
 		if (provider is null)
 		{
@@ -578,7 +578,7 @@ internal sealed class PlatformLocationEngine : Java.Lang.Object, ILocationEngine
 /// Deliberately <em>not</em> the same numbers <c>PositionGate</c> enforces. This is what the
 /// receiver is asked to produce; the gate is what survives the trip to the server. Asking the
 /// platform for exactly the publish rate would leave nothing to filter and no way to notice a
-/// rider stopping between two sends — so the receiver runs a little ahead of the wire, and the
+/// rider stopping between two sends - so the receiver runs a little ahead of the wire, and the
 /// gate spends the difference.
 /// </para>
 /// </summary>
@@ -604,7 +604,7 @@ internal static class AndroidLocationRequestSpec
 	/// <para>
 	/// Kept well under the distance the gate is enforcing, and that is the whole point. A filter
 	/// set at the publish distance would make the <em>receiver</em> the thing deciding when to
-	/// send, and a phone that has not moved would be told nothing at all — which is exactly how a
+	/// send, and a phone that has not moved would be told nothing at all - which is exactly how a
 	/// parked rider came to send two positions in twenty-five minutes.
 	/// </para>
 	/// </summary>
@@ -632,7 +632,7 @@ internal static class AndroidLocationExtensions
 		location.HasSpeed ? location.Speed : null,
 		location.HasBearing ? location.Bearing : null,
 		// Location.Time is Unix epoch milliseconds from the receiver, not from this process's
-		// clock — which is the timestamp the ride wants, and is why reading the ambient clock here
+		// clock - which is the timestamp the ride wants, and is why reading the ambient clock here
 		// would be both wrong and against §10.4.
 		DateTimeOffset.FromUnixTimeMilliseconds(location.Time));
 }

@@ -19,11 +19,11 @@ namespace DLR.UI.Tests.Components;
 /// <summary>
 /// What the map does when the half of it that draws markers goes wrong.
 /// <para>
-/// The failure this file exists for was reported from a phone: "Map markers unavailable — the base
+/// The failure this file exists for was reported from a phone: "Map markers unavailable - the base
 /// map is working, but pins, tracks and traveller positions cannot be drawn on this device", with
 /// "One or more errors occurred. (Object reference not set to an instance of an object.)" for
 /// evidence and nothing in the log. That banner is <c>RideMap</c>'s error boundary, which means the
-/// overlay had thrown out of a lifecycle method and been unmounted for the rest of the page —
+/// overlay had thrown out of a lifecycle method and been unmounted for the rest of the page -
 /// markers gone until the rider navigated away and back.
 /// </para>
 /// <para>
@@ -40,12 +40,12 @@ public sealed class MapOverlayFailureTests : BunitContext
 	private static readonly MapCamera SampleCamera = new(-33.868, 151.209, 12);
 
 	/// <summary>
-	/// Empties the process-wide icon cache (§16.3 — rasterise once, keep for the life of the app),
+	/// Empties the process-wide icon cache (§16.3 - rasterise once, keep for the life of the app),
 	/// so a test starts against a host that has never rasterised anything.
 	/// <para>
 	/// <strong>Called from the test body, never from a constructor.</strong> xUnit builds a test
 	/// class instance well ahead of running its body, so a reset written in one is undone by
-	/// whatever ran in the gap — including the sibling test below that deliberately latches the
+	/// whatever ran in the gap - including the sibling test below that deliberately latches the
 	/// cache as unavailable. Same trap, same rule as <c>SourceOfferFooterCache</c>.
 	/// </para>
 	/// <para>
@@ -101,8 +101,8 @@ public sealed class MapOverlayFailureTests : BunitContext
 	public void AnIconRasteriserThatAnswersNothing_LeavesTheOverlayDrawing()
 	{
 		// The regression. `renderPixels` is declared to hand back a Uint8Array, and a JS function
-		// that returns undefined — a stale cached module, a host that answers the import with
-		// something else — deserialises as null. The C# side read `.Length` off it, and the
+		// that returns undefined - a stale cached module, a host that answers the import with
+		// something else - deserialises as null. The C# side read `.Length` off it, and the
 		// NullReferenceException that followed came out of OnAfterRenderAsync, which is not a
 		// failed frame but an unmounted overlay.
 		WireMap();
@@ -114,7 +114,7 @@ public sealed class MapOverlayFailureTests : BunitContext
 		component.WaitForAssertion(() =>
 		{
 			component.FindAll("canvas.dlr-map-overlay").Count.ShouldBe(1,
-				"an icon that cannot be rasterised is a plain pin — the overlay draws the marker either way.");
+				"an icon that cannot be rasterised is a plain pin - the overlay draws the marker either way.");
 			component.Markup.Contains("Map markers unavailable", StringComparison.Ordinal).ShouldBeFalse(
 				"neither RideMap's boundary nor the overlay's own error branch has anything to report here.");
 		}, timeout: TimeSpan.FromSeconds(5));
@@ -129,7 +129,7 @@ public sealed class MapOverlayFailureTests : BunitContext
 			.SetException(new JSException("marker icon failed to load"));
 
 		// Captured as it is written. The log is a process-wide ring that every suite in every
-		// other collection writes to — and one of them clears it — so reading it back afterwards
+		// other collection writes to - and one of them clears it - so reading it back afterwards
 		// is a race this assertion loses every few runs. See LogCapture.
 		using LogCapture log = new();
 
@@ -141,7 +141,7 @@ public sealed class MapOverlayFailureTests : BunitContext
 				"one icon that will not draw is one plain pin, never a map without markers.");
 
 			log.Text.Contains(iconKey, StringComparison.Ordinal).ShouldBeTrue(
-				"the log has to say which icon it was — that is the whole of what makes the entry actionable.");
+				"the log has to say which icon it was - that is the whole of what makes the entry actionable.");
 			log.Text.Contains("JSException", StringComparison.Ordinal).ShouldBeTrue(
 				"and what threw, by type: a message on its own has already proved not to be enough.");
 		}, timeout: TimeSpan.FromSeconds(5));
@@ -150,7 +150,7 @@ public sealed class MapOverlayFailureTests : BunitContext
 	[Fact]
 	public void NoRasteriserAtAll_LeavesTheOverlayDrawingAndSaysSoOnce()
 	{
-		// The module import itself failing — the case that is worth latching, because it will
+		// The module import itself failing - the case that is worth latching, because it will
 		// answer the same way for the rest of the session. Simulated by leaving markers.js
 		// unplanned: bUnit's JS interop is strict, so importing it throws, which is what a host
 		// that cannot fetch the module does.

@@ -2,8 +2,8 @@ namespace BlazorDLR.Shared.Services;
 
 /// <summary>
 /// Small pieces of map maths the overlay needs, kept out of the component so they can be
-/// asserted. <c>SkiaMapOverlay</c> cannot render in bUnit — its <c>SKCanvasView</c> is
-/// browser-only — so anything with a sign in it is worth extracting rather than eyeballing
+/// asserted. <c>SkiaMapOverlay</c> cannot render in bUnit - its <c>SKCanvasView</c> is
+/// browser-only - so anything with a sign in it is worth extracting rather than eyeballing
 /// on a screenshot.
 /// </summary>
 public static class MapGeometry
@@ -31,7 +31,7 @@ public static class MapGeometry
 	/// The latitude halfway down a view whose top and bottom edges are given.
 	/// <para>
 	/// Latitude is <em>not</em> linear in Web Mercator, so the plain mean of the two edge
-	/// latitudes is not the middle of the screen — the error grows with zoom-out and with
+	/// latitudes is not the middle of the screen - the error grows with zoom-out and with
 	/// distance from the equator. Averaging in projected space and inverting is what the
 	/// base maps do themselves, so this agrees with the pixel the user is looking at.
 	/// </para>
@@ -48,7 +48,7 @@ public static class MapGeometry
 	/// <summary>
 	/// Web Mercator's forward latitude projection, in degree-like units.
 	/// </summary>
-	/// <param name="latitudeDeg">Latitude in degrees. Clamped to the projection's limit —
+	/// <param name="latitudeDeg">Latitude in degrees. Clamped to the projection's limit -
 	/// the poles are at infinity, and no base map draws them.</param>
 	/// <returns>The projected Y.</returns>
 	public static double MercatorY(double latitudeDeg)
@@ -69,7 +69,7 @@ public static class MapGeometry
 	/// <strong>This is the one implementation.</strong> <c>SkiaMapOverlay</c> draws every pin
 	/// through it and <c>GroupRideLive</c> hit-tests taps through it, so "near the pin" means
 	/// near where the pin was actually drawn. A second copy of this arithmetic is precisely the
-	/// drift §4.5 keeps one overlay to avoid — the two would agree until somebody rotated the
+	/// drift §4.5 keeps one overlay to avoid - the two would agree until somebody rotated the
 	/// map, and then taps would land on markers that are no longer under the finger.
 	/// </para>
 	/// <para>
@@ -79,7 +79,7 @@ public static class MapGeometry
 	/// <para>
 	/// <strong>The reported bounds are axis-aligned</strong> (see <c>readViewport</c> in
 	/// <c>map.maplibre.js</c>): with a bearing applied they <em>enclose</em> the rotated view
-	/// rather than trace it, so the box is bigger than the canvas — by
+	/// rather than trace it, so the box is bigger than the canvas - by
 	/// <c>W·|cos θ| + H·|sin θ|</c> across and <c>W·|sin θ| + H·|cos θ|</c> down. The scale is
 	/// therefore recovered from that inflated box rather than by dividing the span by the canvas
 	/// side. Dividing directly is right at 0° and 180°, where the box <em>is</em> the canvas, and
@@ -102,7 +102,7 @@ public static class MapGeometry
 		double spanY = MercatorY(viewport.BottomRightLatitude) - topY;
 
 		// A canvas that has not been measured yet, or a view with no extent. Everything
-		// collapses to the centre — the only answer that cannot be mistaken for a position.
+		// collapses to the centre - the only answer that cannot be mistaken for a position.
 		if (Math.Abs(spanX) < 1e-12 || Math.Abs(spanY) < 1e-12)
 		{
 			return new CanvasPoint(width / 2, height / 2);
@@ -113,7 +113,7 @@ public static class MapGeometry
 		double sin = Math.Sin(radians);
 
 		// Undo the axis-aligned box's inflation to get pixels per degree along the map's own
-		// axes. Both of these are the same number on a square projection — Web Mercator is one —
+		// axes. Both of these are the same number on a square projection - Web Mercator is one -
 		// so they act as each other's cross-check; each is left to its own reported span so a
 		// base map that rounds its bounds is no worse off than it was north-up.
 		double pixelsPerDegreeX = ((width * Math.Abs(cos)) + (height * Math.Abs(sin))) / spanX;
@@ -138,7 +138,7 @@ public static class MapGeometry
 	/// Measured rather than derived: the same distance is projected twice through
 	/// <see cref="ProjectToCanvas"/> and the pixels between the two results are counted. Web
 	/// Mercator's scale changes with latitude, so a closed-form answer would need the projection's
-	/// derivative — a second piece of arithmetic that has to agree with the first one forever, on
+	/// derivative - a second piece of arithmetic that has to agree with the first one forever, on
 	/// a canvas where disagreement shows up as a circle that does not sit on what it encircles.
 	/// Rotation drops out, being rigid.
 	/// </para>
@@ -168,7 +168,7 @@ public static class MapGeometry
 	}
 
 	/// <summary>
-	/// Metres in one degree of latitude. Constant enough for this — the ellipsoid varies it by
+	/// Metres in one degree of latitude. Constant enough for this - the ellipsoid varies it by
 	/// about a fifth of a percent pole to equator, which on a circle drawn on a phone is nothing.
 	/// </summary>
 	private const double MetresPerDegreeLatitude = Math.PI * DLR.Core.Tracks.Distance.EarthRadiusM / 180.0;
@@ -181,7 +181,7 @@ public static class MapGeometry
 }
 
 /// <summary>
-/// A point in overlay canvas space — the same pixels <c>SkiaMapOverlay</c> paints in, with the
+/// A point in overlay canvas space - the same pixels <c>SkiaMapOverlay</c> paints in, with the
 /// origin at the canvas's top-left.
 /// </summary>
 /// <param name="X">Pixels from the left edge.</param>

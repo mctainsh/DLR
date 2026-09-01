@@ -9,8 +9,8 @@ namespace DLR.UI.Tests.State;
 /// The username-to-photograph cache (§7.3).
 /// <para>
 /// The behaviour worth pinning is the batching. A ride thread and a member list each draw dozens
-/// of names, and the whole reason this type exists is that the obvious implementation — one fetch
-/// per little circle — is forty round trips to open a screen. Every test below is about that, or
+/// of names, and the whole reason this type exists is that the obvious implementation - one fetch
+/// per little circle - is forty round trips to open a screen. Every test below is about that, or
 /// about the caching that stops the second render doing it again.
 /// </para>
 /// </summary>
@@ -24,7 +24,7 @@ public sealed class RiderAvatarsTests
 
 	private RiderAvatars Build() => new(_api, new HttpClient(_photos) { BaseAddress = new Uri("https://test.invalid") }, _clock);
 
-	/// <summary>Opens the batch window, which nothing else will — the clock only moves when a test moves it (§10.4).</summary>
+	/// <summary>Opens the batch window, which nothing else will - the clock only moves when a test moves it (§10.4).</summary>
 	private void OpenTheWindow() => _clock.Advance(TimeSpan.FromMilliseconds(RiderAvatars.BatchWindowMs + 1));
 
 	[Fact]
@@ -76,7 +76,7 @@ public sealed class RiderAvatarsTests
 
 	/// <summary>
 	/// "This rider has no photograph" is the common case and is cached exactly as hard as a photo
-	/// id — without it, every re-render asks the server about the same names again.
+	/// id - without it, every re-render asks the server about the same names again.
 	/// </summary>
 	[Fact]
 	public async Task TheAnswerNoPhotograph_IsRemembered()
@@ -148,7 +148,7 @@ public sealed class RiderAvatarsTests
 
 	/// <summary>
 	/// A lookup that failed must not become a permanent "no photograph" for the rest of the
-	/// session — the phone came back into signal, and the next render should find the face.
+	/// session - the phone came back into signal, and the next render should find the face.
 	/// </summary>
 	[Fact]
 	public async Task AFailedLookup_IsNotCachedAsNoPhotograph()
@@ -187,7 +187,7 @@ public sealed class RiderAvatarsTests
 
 		avatars.Forget("Alice");
 
-		told.ShouldBeTrue("rendered avatars re-resolve off this — it is how a rider's own change shows up");
+		told.ShouldBeTrue("rendered avatars re-resolve off this - it is how a rider's own change shows up");
 
 		_api.AvatarsByUserName["Alice"] = Guid.NewGuid();
 

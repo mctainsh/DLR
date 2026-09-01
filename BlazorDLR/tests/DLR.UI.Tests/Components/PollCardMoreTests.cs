@@ -13,7 +13,7 @@ namespace DLR.UI.Tests.Components;
 ///   <item>The "Close poll now" button is only rendered when the caller is the author
 ///     or the ride organiser (<c>CanClose</c> == true) AND the poll is not already
 ///     closed. Both branches would leak a control that would 403 on the server.</item>
-///   <item>A closed poll disables every vote target — the tally is history, not a
+///   <item>A closed poll disables every vote target - the tally is history, not a
 ///     ballot.</item>
 /// </list>
 /// </summary>
@@ -58,7 +58,7 @@ public sealed class PollCardMoreTests : BunitContext
 		});
 
 		sent.ShouldNotBeNull();
-		sent!.Count.ShouldBe(2, "§17.5 multi-select: an unchosen tap adds — the full new set of chosen ids reaches OnCast.");
+		sent!.Count.ShouldBe(2, "§17.5 multi-select: an unchosen tap adds - the full new set of chosen ids reaches OnCast.");
 		sent.ShouldContain(Opt1);
 		sent.ShouldContain(Opt2);
 	}
@@ -82,7 +82,7 @@ public sealed class PollCardMoreTests : BunitContext
 
 		sent.ShouldNotBeNull();
 		sent!.ShouldNotContain(Opt1, "§17.5 multi-select: a tap on an already-chosen option removes it.");
-		sent!.ShouldContain(Opt2, "the untouched option stays selected — the toggle is per option, not a wipe.");
+		sent!.ShouldContain(Opt2, "the untouched option stays selected - the toggle is per option, not a wipe.");
 	}
 
 	[Fact]
@@ -95,7 +95,7 @@ public sealed class PollCardMoreTests : BunitContext
 			.Add(p => p.OnClose, EventCallback.Factory.Create(this, () => { })));
 
 		component.FindAll("button.close").Count.ShouldBe(0,
-			"§17.5: only the author or organiser sees the close button — everyone else must not.");
+			"§17.5: only the author or organiser sees the close button - everyone else must not.");
 	}
 
 	[Fact]
@@ -121,7 +121,7 @@ public sealed class PollCardMoreTests : BunitContext
 			.Add(p => p.OnClose, EventCallback.Factory.Create(this, () => { })));
 
 		component.FindAll("button.close").Count.ShouldBe(0,
-			"§17.5: closing an already-closed poll is a no-op — the button must not offer it.");
+			"§17.5: closing an already-closed poll is a no-op - the button must not offer it.");
 	}
 
 	[Fact]

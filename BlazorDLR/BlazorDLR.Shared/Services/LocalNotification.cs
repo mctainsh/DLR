@@ -7,7 +7,7 @@ namespace BlazorDLR.Shared.Services;
 /// the app is already holding a SignalR connection for the ride it is on (§5.3), so the message
 /// that would have travelled through FCM or APNs has <em>already arrived</em> by the time this is
 /// composed. All that is left is asking the operating system to put it on the lock screen. That is
-/// why this type lives beside the client seam rather than in <c>DLR.Core.Contracts</c> — it is not
+/// why this type lives beside the client seam rather than in <c>DLR.Core.Contracts</c> - it is not
 /// a contract with anything, it is an instruction to the phone in the rider's pocket.
 /// </para>
 /// </summary>
@@ -17,7 +17,7 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// One tag per adventure (see <c>CommentNotifier.TagFor</c>). A group of twelve riders can put
 /// twenty posts in a thread while somebody is riding, and twenty entries in a shade is not twenty
-/// times as useful as one — it is a wall the rider has to dismiss at the next set of lights. The
+/// times as useful as one - it is a wall the rider has to dismiss at the next set of lights. The
 /// newest post is the one worth showing, and the thread holds the rest.
 /// </para>
 /// <para>
@@ -27,7 +27,7 @@ namespace BlazorDLR.Shared.Services;
 /// </para>
 /// </param>
 /// <param name="Title">
-/// The bold first line. For a thread post this is the author's handle — which §7.2 makes immutable,
+/// The bold first line. For a thread post this is the author's handle - which §7.2 makes immutable,
 /// so it is safe to render from whatever the hub happened to send.
 /// </param>
 /// <param name="Body">
@@ -35,7 +35,7 @@ namespace BlazorDLR.Shared.Services;
 /// 2 000 characters (§17.2) and a lock screen shows two lines of them.
 /// </param>
 /// <param name="Route">
-/// Where tapping it should land, relative to the app's base href — <c>group-rides/thread/{id}</c>
+/// Where tapping it should land, relative to the app's base href - <c>group-rides/thread/{id}</c>
 /// for a post. Null for a notification with nowhere to go.
 /// <para>
 /// <strong>A notification that only opens the home screen is a dead end.</strong> The rider was

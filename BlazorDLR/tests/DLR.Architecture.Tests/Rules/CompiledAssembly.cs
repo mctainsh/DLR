@@ -8,7 +8,7 @@ namespace DLR.Architecture.Tests.Rules;
 /// One compiled DLR assembly, read as metadata rather than loaded.
 /// <para>
 /// Reading the PE file means a rule can assert on what an assembly <em>refers to</em>
-/// without executing any of it, and without a third-party architecture-test package —
+/// without executing any of it, and without a third-party architecture-test package -
 /// which would itself have to clear the §14.6.3 licence gate.
 /// </para>
 /// </summary>
@@ -42,7 +42,7 @@ internal sealed class CompiledAssembly
 
 	/// <summary>
 	/// Every member this assembly references from another assembly, as
-	/// <c>Namespace.Type.Member</c> — so a property read shows up as <c>get_Name</c>.
+	/// <c>Namespace.Type.Member</c> - so a property read shows up as <c>get_Name</c>.
 	/// </summary>
 	public ImmutableArray<string> MemberReferences { get; }
 

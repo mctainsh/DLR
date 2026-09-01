@@ -6,7 +6,7 @@
 @inject IServiceProvider Services
 @inject NavigationManager Nav
 
-<PageTitle>Join an adventure — Dumb Luck Routes</PageTitle>
+<PageTitle>Join an adventure - Dumb Luck Routes</PageTitle>
 
 <div class="page page-form form-page">
 	<PageNav Title="Join an adventure" BackHref="/group-rides" BackLabel="Back to group adventures" />
@@ -22,7 +22,7 @@
 		</label>
 
 		<label>
-			Message (optional — for approval rides)
+			Message (optional - for approval rides)
 			<textarea @bind="_message" rows="3" maxlength="200"
 					  placeholder="Anything you want the organiser to see."></textarea>
 		</label>
@@ -56,19 +56,19 @@
 	private bool _busy;
 
 	/// <summary>
-	/// Turns sharing on for an adventure this rider has just joined — on a device that can
+	/// Turns sharing on for an adventure this rider has just joined - on a device that can
 	/// actually broadcast, and nowhere else.
 	/// <para>
 	/// <strong>Joining is the decision.</strong> Somebody who has typed an organiser's code into
 	/// their phone has said they are going on the adventure, and the thing the adventure is for is
 	/// the group being able to see each other. Leaving the flag off made the common case a rider
 	/// who believed they were on the map, was not, and found out when somebody rang to ask where
-	/// they had got to. The switch is still theirs — the ride's info page turns it off in one tap,
+	/// they had got to. The switch is still theirs - the ride's info page turns it off in one tap,
 	/// and the map says so in red for as long as it is off.
 	/// </para>
 	/// <para>
 	/// <strong>Only where there is a receiver.</strong> A browser has no GPS (§18.6), so setting
-	/// the flag there would light a consent record on the server that no fix will ever follow —
+	/// the flag there would light a consent record on the server that no fix will ever follow -
 	/// the same reason the info page's sharing panel is absent on the web.
 	/// </para>
 	/// <para>
@@ -117,7 +117,7 @@
 				await ShareByDefaultAsync(result.RideId);
 
 				// Straight into the ride. On a host with no receiver its own screen decides
-				// whether to ask for sharing consent (§5.6) — that check lives with the ride,
+				// whether to ask for sharing consent (§5.6) - that check lives with the ride,
 				// not with the join, because the same prompt runs on the approval path.
 				Nav.NavigateTo($"/group-rides/live/{result.RideId}");
 			}
@@ -144,7 +144,7 @@
 }
 
 <style>
-	/* A join code is typed, read back and compared — monospace and spaced out. */
+	/* A join code is typed, read back and compared - monospace and spaced out. */
 	.page input {
 		text-transform: uppercase; letter-spacing: 0.15em; font-family: ui-monospace, monospace;
 	}

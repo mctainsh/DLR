@@ -12,10 +12,10 @@
 @inject NavigationManager Nav
 @inject IFileSaver FileSaver
 
-<PageTitle>@Title — Dumb Luck Routes</PageTitle>
+<PageTitle>@Title - Dumb Luck Routes</PageTitle>
 
 <div class="page detail">
-	@* Outside the load branches, so the bar — and the way back — is on screen while the
+	@* Outside the load branches, so the bar - and the way back - is on screen while the
 	   track is still loading and if it fails to load at all. The actions inside it are
 	   what wait for the track, because neither can act on nothing. *@
 	<PageNav Title="@Title" BackHref="@BackHref" BackLabel="@BackLabel">
@@ -24,12 +24,12 @@
 			{
 				@* Everything that writes is gated on ownership. This page is reached from the
 				   browse tab as well as from My routes now (§6.2), and a stranger's route has to
-				   arrive with no Edit, no Rename and no Delete on it — the server refuses all
+				   arrive with no Edit, no Rename and no Delete on it - the server refuses all
 				   three anyway, but a button that exists to produce a 404 is not a button. *@
 				@if (_track.Track.IsMine)
 				{
 					<a class="button" href="/rides/@TrackId/edit">Edit</a>
-					@* Rename and delete apply to a recorded track and an imported one alike — they are
+					@* Rename and delete apply to a recorded track and an imported one alike - they are
 					   the same entity, and a file somebody sent you is the one most likely to arrive
 					   called "Course 3" (§15.1). *@
 					<button type="button" class="primary" @onclick="StartRenaming">Rename</button>
@@ -79,7 +79,7 @@
 				@if (_pickedPhoto is not null)
 				{
 					<p class="picked">
-						<em>@_pickedPhoto.FileName selected — @(_pickedPhoto.Bytes.Length / 1024) KB.</em>
+						<em>@_pickedPhoto.FileName selected - @(_pickedPhoto.Bytes.Length / 1024) KB.</em>
 						<button type="button" @onclick="() => _pickedPhoto = null">Undo</button>
 					</p>
 				}
@@ -97,7 +97,7 @@
 				}
 
 				<p class="hint">
-					The server re-encodes every photo and strips its metadata (§16.4) — an EXIF GPS
+					The server re-encodes every photo and strips its metadata (§16.4) - an EXIF GPS
 					tag from your driveway will not travel with a route you share.
 				</p>
 			</fieldset>
@@ -121,7 +121,7 @@
 				   unless they trimmed it (§15.6). *@
 				Shared routes appear in every rider's <a href="/rides">Others' shared routes</a>
 				list with your username, the whole line on the map and this description. Trim the
-				start and the end first if the route begins at your front door — turning this off
+				start and the end first if the route begins at your front door - turning this off
 				later does not un-see it.
 			</p>
 
@@ -197,8 +197,8 @@
 		@*
 			Stars and a conversation, and only once the route is actually shared (§6.2).
 
-			A private track has neither, and the reason is not a permission — the server would
-			serve the owner their own thread either way — it is that a rating nobody but you can
+			A private track has neither, and the reason is not a permission - the server would
+			serve the owner their own thread either way - it is that a rating nobody but you can
 			give and a thread nobody but you can read are two empty boxes on a page about a
 			recording. They appear the moment the route goes on the list, and the posts survive
 			it coming back off, so a rider who un-shares and re-shares finds the conversation
@@ -214,7 +214,7 @@
 				</div>
 
 				<p class="your-rating">
-					<span class="label">@(_track.Track.IsMine ? "Your own route — rate it if you like:" : "Your rating:")</span>
+					<span class="label">@(_track.Track.IsMine ? "Your own route - rate it if you like:" : "Your rating:")</span>
 					<StarRating Summary="_rating" Busy="_rating is null || _ratingBusy" OnRate="RateAsync" />
 				</p>
 
@@ -248,14 +248,14 @@
 	private MapCamera _mapCamera = new(0, 0, 2);
 
 	/// <summary>
-	/// The box the map frames itself on, or null for a track that carries no bounds — one with a
-	/// single point, or none — where there is nothing to fit and the whole-world camera stands.
+	/// The box the map frames itself on, or null for a track that carries no bounds - one with a
+	/// single point, or none - where there is nothing to fit and the whole-world camera stands.
 	/// </summary>
 	private TrackBounds? _mapBounds;
 
 	private IReadOnlyList<RouteOverlay>? _routes;
 
-	/// <summary>Whether the rename box is open. Closed until asked for — this is a reading page.</summary>
+	/// <summary>Whether the rename box is open. Closed until asked for - this is a reading page.</summary>
 	private bool _renaming;
 
 	/// <summary>What is in the rename box, seeded from the current name so a typo is a fix, not a retype.</summary>
@@ -273,7 +273,7 @@
 	/// <summary>What is in the description box while the panel is open.</summary>
 	private string? _description;
 
-	/// <summary>The cover photo the panel will save — the stored one, a cleared one, or the upload below.</summary>
+	/// <summary>The cover photo the panel will save - the stored one, a cleared one, or the upload below.</summary>
 	private Guid? _photoId;
 
 	/// <summary>Whether the panel's switch is on, which is <see cref="TrackVisibilityDto.Public"/> in one bool.</summary>
@@ -348,8 +348,8 @@
 			// to the Skia overlay. The polyline is encoded here via PolylineCodec, which is
 			// the one implementation in DLR.Core (§15.7).
 			//
-			// Both a camera and a box. The camera is where the map opens — the base map needs a
-			// centre before it has a canvas — and the zoom on it is a placeholder for the one frame
+			// Both a camera and a box. The camera is where the map opens - the base map needs a
+			// centre before it has a canvas - and the zoom on it is a placeholder for the one frame
 			// before the fit lands, which is why it no longer matters what it is. The box is what
 			// decides the view: a fixed zoom framed a suburban loop and a day tour identically, and
 			// one of the two was always wrong.
@@ -365,7 +365,7 @@
 			if (_track.Polyline.Count > 0)
 			{
 				// Keyed on the track, so a colour pinned to it on a ride's info page is the
-				// colour it is drawn in here too — it is the same line either way.
+				// colour it is drawn in here too - it is the same line either way.
 				string encoded = PolylineCodec.EncodePoints(_track.Polyline);
 				_routes = [new RouteOverlay(encoded, TrackId: TrackId)];
 			}
@@ -378,7 +378,7 @@
 
 	/// <summary>
 	/// Reads the star tally. Failure is swallowed into <see cref="_ratingError"/> rather than
-	/// taking the page with it — a map and a description that loaded are worth showing even when
+	/// taking the page with it - a map and a description that loaded are worth showing even when
 	/// the number beside them did not.
 	/// </summary>
 	private async Task LoadRatingAsync()
@@ -391,7 +391,7 @@
 	/// <summary>
 	/// Sets or withdraws the reader's own rating (§6.2).
 	/// </summary>
-	/// <param name="stars">One to five, or null to withdraw — which is what tapping the star you
+	/// <param name="stars">One to five, or null to withdraw - which is what tapping the star you
 	/// already gave means.</param>
 	private async Task RateAsync(int? stars)
 	{
@@ -414,7 +414,7 @@
 
 	/// <summary>
 	/// Opens the rename box over the name the track already has. An untitled track opens empty
-	/// rather than on the word the list prints for it — "Untitled" is what the absence of a name
+	/// rather than on the word the list prints for it - "Untitled" is what the absence of a name
 	/// looks like, not a name to edit.
 	/// </summary>
 	private void StartRenaming()
@@ -441,7 +441,7 @@
 	}
 
 	/// <summary>
-	/// Reads the chosen image into memory. Nothing is uploaded here — see <see cref="_pickedPhoto"/>.
+	/// Reads the chosen image into memory. Nothing is uploaded here - see <see cref="_pickedPhoto"/>.
 	/// </summary>
 	private async Task OnPhotoSelectedAsync(InputFileChangeEventArgs args)
 	{
@@ -451,7 +451,7 @@
 		{
 			// Said here rather than after a 413 from the far end of somebody's phone connection,
 			// which is the case this check exists for.
-			_status = "That photo is larger than 12 MB — the server would refuse it.";
+			_status = "That photo is larger than 12 MB - the server would refuse it.";
 			return;
 		}
 
@@ -509,7 +509,7 @@
 					// here would silently take a route out of a state nothing can put it back in.
 					_shared ? TrackVisibilityDto.Public : TrackVisibilityDto.Private));
 
-			// What the server stored, not what was typed — the description is cleaned on the way
+			// What the server stored, not what was typed - the description is cleaned on the way
 			// in and a screen echoing the raw string would disagree with the browse list.
 			_track = _track with { Track = saved };
 			_pickedPhoto = null;
@@ -520,7 +520,7 @@
 		}
 		catch (ApiException apiException)
 		{
-			// The reason a share is refused is in the body, not in the status — which route this
+			// The reason a share is refused is in the body, not in the status - which route this
 			// one duplicates, or which name is already taken (§18.2). Printing the title alone
 			// would leave a rider looking at "Already shared" with nothing to do about it.
 			_status = Reason(apiException, "Could not save it");
@@ -542,7 +542,7 @@
 	/// <param name="fallback">What was being attempted, for the case where the body said nothing.</param>
 	/// <remarks>
 	/// This page has one status line rather than the <c>ApiError</c> block the sign-in screens
-	/// use, so the messages are joined instead of listed — but they are still the server's own
+	/// use, so the messages are joined instead of listed - but they are still the server's own
 	/// words rather than a friendlier sentence invented here (§18.2).
 	/// </remarks>
 	private static string Reason(ApiException exception, string fallback) =>
@@ -555,7 +555,7 @@
 
 	/// <summary>
 	/// Renames the track. The response is the stored summary rather than what was typed, so what
-	/// this page prints afterwards is what the server actually holds — the name is trimmed on the
+	/// this page prints afterwards is what the server actually holds - the name is trimmed on the
 	/// way in, and a screen echoing the untrimmed version would disagree with the list.
 	/// </summary>
 	private async Task RenameAsync()
@@ -595,7 +595,7 @@
 	/// <summary>
 	/// Deletes the track after asking. What goes with it is stated in the question rather than
 	/// discovered afterwards: the points, any markers placed on this track, and the seven-day undo
-	/// of the last edit (§15.6) — none of which the rider can get back.
+	/// of the last edit (§15.6) - none of which the rider can get back.
 	/// </summary>
 	private async Task DeleteAsync()
 	{
@@ -626,8 +626,8 @@
 		}
 		catch (Exception exception)
 		{
-			// The one that lands here in practice is the §15.4 conflict — a ride in progress is
-			// running on this line — and the server says so in words worth showing.
+			// The one that lands here in practice is the §15.4 conflict - a ride in progress is
+			// running on this line - and the server says so in words worth showing.
 			_status = $"Could not delete it: {exception.Message}";
 			_busy = false;
 		}
@@ -635,7 +635,7 @@
 
 	/// <summary>
 	/// Downloads the raw GPX. The file the server returns is the same on every host; where it
-	/// then goes is not, so the save itself is <see cref="IFileSaver"/>'s job — a browser
+	/// then goes is not, so the save itself is <see cref="IFileSaver"/>'s job - a browser
 	/// download on the web, the system share sheet on a phone (§15.2). The anchor-click this
 	/// used to do inline was inert inside the MAUI WebView, which is why the button appeared
 	/// to do nothing there.
@@ -663,8 +663,8 @@
 
 			FileSaveResult saved = await FileSaver.SaveAsync(fileName, "application/gpx+xml", bytes);
 
-			// On success the host has already shown the rider something — a download shelf, a
-			// share sheet — so only speak up when there is something it did not say.
+			// On success the host has already shown the rider something - a download shelf, a
+			// share sheet - so only speak up when there is something it did not say.
 			_status = saved.Status switch
 			{
 				FileSaveStatus.Saved => saved.Detail,
@@ -683,8 +683,8 @@
 	}
 
 	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
-	private static string FormatDuration(double? seconds) => seconds is null ? "—" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
-	private static string FormatAscent(double? metres) => metres is null ? "—" : $"{metres.Value:0} m";
+	private static string FormatDuration(double? seconds) => seconds is null ? "-" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
+	private static string FormatAscent(double? metres) => metres is null ? "-" : $"{metres.Value:0} m";
 }
 
 <style>
@@ -749,7 +749,7 @@
 		margin: 0.75rem 0;
 	}
 
-	/* pre-wrap, because TrackDescription keeps the newlines the rider typed — collapsing them
+	/* pre-wrap, because TrackDescription keeps the newlines the rider typed - collapsing them
 	   here would throw away the paragraphs they wrote. */
 	.detail .description {
 		white-space: pre-wrap;

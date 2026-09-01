@@ -23,7 +23,7 @@ namespace BlazorDLR.Shared.Diagnostics;
 /// </para>
 /// <para>
 /// <strong>The file is opt-in per host.</strong> <see cref="UseFile"/> is called from a host that
-/// has somewhere to write — the MAUI heads — and never from the browsers, which have no filesystem
+/// has somewhere to write - the MAUI heads - and never from the browsers, which have no filesystem
 /// worth the name and a rider sitting in front of a real console anyway. Until it is called this
 /// is memory only, which is what every test gets.
 /// </para>
@@ -35,34 +35,34 @@ public static class DiagnosticLog
 
 	/// <summary>
 	/// How large the file may grow before it is rolled. Two megabytes is tens of thousands of
-	/// lines — long enough to hold the ride that went wrong, small enough that a rider mailing
+	/// lines - long enough to hold the ride that went wrong, small enough that a rider mailing
 	/// it in does not need to think about it.
 	/// </summary>
 	public const long MaxFileBytes = 2L * 1024 * 1024;
 
 	/// <summary>
-	/// Wall-clock, and <em>not</em> an injected <c>TimeProvider</c> — the one deliberate exception
+	/// Wall-clock, and <em>not</em> an injected <c>TimeProvider</c> - the one deliberate exception
 	/// to §10.4 rather than a hole in it.
 	/// <para>
 	/// The rule exists so timing logic can be tested by advancing a fake clock. A log line has no
 	/// timing logic; it has a timestamp a human reads against their own watch to line the app up
 	/// with something that happened outside it. Under a <c>FakeTimeProvider</c> anchored to
 	/// 2026-01-01 this log would confidently report the wrong time for everything, which is worse
-	/// than useless in the one job it has. <c>ClockRules</c> is satisfied on the letter — there is
-	/// no ambient property read anywhere here — and this says plainly why it is not resolving one.
+	/// than useless in the one job it has. <c>ClockRules</c> is satisfied on the letter - there is
+	/// no ambient property read anywhere here - and this says plainly why it is not resolving one.
 	/// </para>
 	/// </summary>
 	private static readonly TimeProvider Clock = TimeProvider.System;
 
 	/// <summary>
 	/// What the previous run's file is called: this run's path with a suffix. One generation, kept
-	/// deliberately — see <see cref="UseFile"/>.
+	/// deliberately - see <see cref="UseFile"/>.
 	/// </summary>
 	private const string PreviousSuffix = ".1";
 
 	/// <summary>
 	/// How many lines <see cref="ReadPreviousFile"/> will hand back. A rolled file is two megabytes
-	/// — tens of thousands of lines — and every one of them would go into a <c>textarea</c> in a
+	/// - tens of thousands of lines - and every one of them would go into a <c>textarea</c> in a
 	/// WebView on a phone. The tail is what is kept: a run that ended badly ended at the bottom.
 	/// </summary>
 	private const int MaxReadLines = 5000;
@@ -89,7 +89,7 @@ public static class DiagnosticLog
 
 	/// <summary>
 	/// Raised after every write, so an open viewer follows along without polling. Subscribers are
-	/// called on whatever thread wrote — a hub callback, the main thread, a background service —
+	/// called on whatever thread wrote - a hub callback, the main thread, a background service -
 	/// so a component handling this must marshal with <c>InvokeAsync</c> before touching state.
 	/// </summary>
 	public static event Action? Changed;
@@ -99,7 +99,7 @@ public static class DiagnosticLog
 
 	/// <summary>
 	/// Where the run before this one was written, or null when this host has no file sink. The
-	/// file may not exist — a first install has no previous run. See <see cref="HasPreviousFile"/>.
+	/// file may not exist - a first install has no previous run. See <see cref="HasPreviousFile"/>.
 	/// </summary>
 	public static string? PreviousFilePath => _filePath is null ? null : _filePath + PreviousSuffix;
 
@@ -123,7 +123,7 @@ public static class DiagnosticLog
 	/// <para>
 	/// <strong>The previous run is moved aside rather than appended to.</strong> One file per run,
 	/// one generation back, and that pair is chosen for the question this log is usually asked:
-	/// "why did the last launch not come up?" — which cannot be answered from the run that is doing
+	/// "why did the last launch not come up?" - which cannot be answered from the run that is doing
 	/// the asking. Appending across launches, which is what this used to do, left the evidence in
 	/// one growing file with no boundary in it, and the ring in memory covers only the run reading
 	/// it. <c>Pages/Settings/DiagnosticsLog.razor</c> reads the moved-aside copy back.
@@ -137,7 +137,7 @@ public static class DiagnosticLog
 		RotateForNewRun(path);
 
 		// A banner per run. Still worth writing now that each run has its own file: a process the
-		// OS restarted on its own — a sticky service coming back without an app — opens a file
+		// OS restarted on its own - a sticky service coming back without an app - opens a file
 		// exactly like a launch the rider made, and the timestamp on this line is the only tell.
 		Write($"===== Log file opened: {path} =====");
 	}
@@ -151,7 +151,7 @@ public static class DiagnosticLog
 		lock (TransientGate)
 		{
 			// A replaceable line is only ever replaced by another of its own kind. Anything else
-			// being said settles it where it stands — see WriteTransient — which is what makes
+			// being said settles it where it stands - see WriteTransient - which is what makes
 			// the totals in the log the ones each stretch of activity actually ended on.
 			if (_transient is { } settled)
 			{
@@ -172,7 +172,7 @@ public static class DiagnosticLog
 	/// <para>
 	/// For a counter that moves every couple of seconds for the length of a ride. Through
 	/// <see cref="Write"/> it would be thousands of lines saying almost nothing; left out
-	/// altogether it is the question a log cannot answer — how many fixes the receiver produced,
+	/// altogether it is the question a log cannot answer - how many fixes the receiver produced,
 	/// and how many of them reached the ride. Replacing rather than appending keeps the current
 	/// answer at the tail and costs one line.
 	/// </para>
@@ -216,7 +216,7 @@ public static class DiagnosticLog
 	/// <para>
 	/// <strong>The whole chain, and the stacks with it.</strong> This used to write one line of
 	/// type and message, which is enough for a failure that names itself and useless for one that
-	/// does not — "One or more errors occurred. (Object reference not set to an instance of an
+	/// does not - "One or more errors occurred. (Object reference not set to an instance of an
 	/// object.)" is a wrapper's message quoting a null dereference with no hint of whose. The
 	/// wrapper is unwrapped, the inner exceptions are listed and every frame is kept, because the
 	/// device this most often happens on is a phone in a mount with no debugger anywhere near it,
@@ -226,13 +226,13 @@ public static class DiagnosticLog
 	/// <param name="context">What was being attempted, in the app's own words.</param>
 	/// <param name="exception">What went wrong.</param>
 	public static void WriteError(string context, Exception exception) =>
-		Write($"ERROR — {context}: {Describe(exception)}");
+		Write($"ERROR - {context}: {Describe(exception)}");
 
 	/// <summary>
 	/// The whole of an exception as the log renders it: type, message and stack for it and for
 	/// everything it wraps.
 	/// <para>
-	/// <see cref="AggregateException"/> is flattened rather than quoted — its own message says
+	/// <see cref="AggregateException"/> is flattened rather than quoted - its own message says
 	/// only how many there were, and the answer is always in what it carries. Every inner
 	/// exception is listed, indented under the one that wrapped it.
 	/// </para>
@@ -316,7 +316,7 @@ public static class DiagnosticLog
 		}
 
 		// Flattened, so a wrapper around a wrapper does not cost two levels of indent for one
-		// piece of information — and so every branch of a multi-error aggregate is listed rather
+		// piece of information - and so every branch of a multi-error aggregate is listed rather
 		// than only whichever one happened to be first.
 		if (exception is AggregateException aggregate)
 		{
@@ -369,7 +369,7 @@ public static class DiagnosticLog
 	/// <returns>
 	/// The lines as they were written, at most <see cref="MaxReadLines"/> of them with a marker in
 	/// place of what was dropped. Empty when this host has no file sink or there is no previous
-	/// run; a single explanatory line when the file is there and could not be read — a diagnostic
+	/// run; a single explanatory line when the file is there and could not be read - a diagnostic
 	/// screen that fails silently is worse than one that says what stopped it.
 	/// </returns>
 	public static IReadOnlyList<string> ReadPreviousFile()
@@ -401,7 +401,7 @@ public static class DiagnosticLog
 
 	/// <summary>
 	/// Moves this run's file aside so the run starts on an empty one, keeping exactly one
-	/// generation. Failure is swallowed for the reason given on <see cref="AppendToFile"/> — the
+	/// generation. Failure is swallowed for the reason given on <see cref="AppendToFile"/> - the
 	/// worst outcome allowed here is a log that is harder to read, never an app that will not
 	/// start.
 	/// </summary>
@@ -429,7 +429,7 @@ public static class DiagnosticLog
 	/// Appends to the file, rolling it once it passes <see cref="MaxFileBytes"/>.
 	/// <para>
 	/// Every failure is swallowed, and deliberately: a log that can take the app down with it is a
-	/// worse bug than whatever it was added to find. There is also nowhere left to report it —
+	/// worse bug than whatever it was added to find. There is also nowhere left to report it -
 	/// this <em>is</em> the reporting.
 	/// </para>
 	/// </summary>

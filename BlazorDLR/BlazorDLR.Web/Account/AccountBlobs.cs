@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DLR.Server.Account;
 
 /// <summary>
-/// Every blob an account owns — the list that has to be gathered <em>before</em> the rows go
+/// Every blob an account owns - the list that has to be gathered <em>before</em> the rows go
 /// (§16.6).
 /// <para>
 /// <strong>`ON DELETE CASCADE` does not reach a filesystem.</strong> Deleting the account takes
@@ -17,7 +17,7 @@ namespace DLR.Server.Account;
 /// </para>
 /// <para>
 /// The nightly sweep (§7.11) is the backstop rather than the mechanism. It runs once a day behind a
-/// grace window, so relying on it would mean "deleted" meaning "gone by tomorrow" — which is not
+/// grace window, so relying on it would mean "deleted" meaning "gone by tomorrow" - which is not
 /// what somebody pressing this button is asking for.
 /// </para>
 /// </summary>
@@ -54,7 +54,7 @@ public static class AccountBlobs
 			.Select(revision => revision.BlobRef)
 			.ToListAsync(cancellationToken);
 
-		// Both objects. A photo is two files — the stored image and the callout thumbnail — and a
+		// Both objects. A photo is two files - the stored image and the callout thumbnail - and a
 		// sweep or a delete that reads only BlobRef leaves every thumbnail behind. Projected as a
 		// pair and flattened in memory, because a two-element array literal is not something the
 		// query translator can put into SQL.

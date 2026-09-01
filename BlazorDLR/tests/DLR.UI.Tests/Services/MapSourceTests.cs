@@ -39,7 +39,7 @@ public sealed class MapSourceTests
 	public void Custom_RoundTripsATemplateFullOfCharactersTheEncodingCouldHaveEaten()
 	{
 		// Query strings and braces are what a tile URL is made of, and '|' is the separator the
-		// encoding uses — none of them may survive into the stored value unescaped.
+		// encoding uses - none of them may survive into the stored value unescaped.
 		MapSource source = MapSource.Custom(
 			"https://mt1.example.com/vt/lyrs=m&x={x}&y={y}&z={z}|v2",
 			"© Example | Maps",
@@ -74,7 +74,7 @@ public sealed class MapSourceTests
 		MapSource? decoded = MapSource.Decode(MapSource.OfflinePack("au-nsw", MapTheme.Dark).Encode());
 
 		decoded.ShouldNotBeNull();
-		decoded.PackId.ShouldBe("au-nsw", "the theme picks a style document — the archive is the same one.");
+		decoded.PackId.ShouldBe("au-nsw", "the theme picks a style document - the archive is the same one.");
 		decoded.Theme.ShouldBe(MapTheme.Dark);
 	}
 
@@ -136,7 +136,7 @@ public sealed class MapSourceTests
 	public void HttpsIsAccepted_IncludingWithAQueryString()
 	{
 		MapSource.IsUsableTemplate("https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}").ShouldBeTrue(
-			"the mechanism takes any well-formed https template — what the traveller points it at is their decision.");
+			"the mechanism takes any well-formed https template - what the traveller points it at is their decision.");
 	}
 
 	[Fact]
@@ -150,7 +150,7 @@ public sealed class MapSourceTests
 	public void OfflineWithoutAPack_IsRefused()
 	{
 		new MapSource(MapSourceKind.Offline).Normalised().ShouldBeNull(
-			"a pack id is the whole of what an offline source is — without one there is nothing to open.");
+			"a pack id is the whole of what an offline source is - without one there is nothing to open.");
 	}
 
 	[Fact]
@@ -199,7 +199,7 @@ public sealed class MapSourceTests
 	public void AStoredValueThisBuildCannotUse_IsNoSource(string? stored)
 	{
 		MapSource.Decode(stored).ShouldBeNull(
-			"the caller falls back to the default, which is a working map — no worse than a device that stored nothing.");
+			"the caller falls back to the default, which is a working map - no worse than a device that stored nothing.");
 	}
 
 	[Fact]

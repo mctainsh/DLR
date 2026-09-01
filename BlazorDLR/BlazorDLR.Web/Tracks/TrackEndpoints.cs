@@ -60,8 +60,8 @@ public sealed class TrackController : ControllerBase
 				$"this upload has {request.Points.Count}.");
 		}
 
-		// Length rather than presence. An upload with no name at all is legitimate — a track saved
-		// by an older build, or one whose name the importer will supply — but a name too long for
+		// Length rather than presence. An upload with no name at all is legitimate - a track saved
+		// by an older build, or one whose name the importer will supply - but a name too long for
 		// the column is a 500 dressed up as a database error unless it is caught here.
 		if (TrackNaming.Clean(request.Name) is { Length: > TrackNaming.MaxLength } overlong)
 		{
@@ -77,7 +77,7 @@ public sealed class TrackController : ControllerBase
 		}
 
 		// Checked before the blob is written. Losing the race still leaves nothing behind,
-		// because the unique index below is what actually decides — this only avoids doing the
+		// because the unique index below is what actually decides - this only avoids doing the
 		// work twice in the common case.
 		Track? existing = await database
 			.Set<Track>()
@@ -205,7 +205,7 @@ public sealed class TrackController : ControllerBase
 	}
 
 	/// <summary>
-	/// Renaming a track — recorded or imported alike (§15.1).
+	/// Renaming a track - recorded or imported alike (§15.1).
 	/// <para>
 	/// <strong>Not an edit, and deliberately not versioned.</strong> §15.5's version guards point
 	/// indices: an edit quotes the version it was composed against because the indices it carries
@@ -241,7 +241,7 @@ public sealed class TrackController : ControllerBase
 			return NameTooLong(name);
 		}
 
-		// Owner-scoped, and 404 to everybody else — the same answer the detail read gives, so a
+		// Owner-scoped, and 404 to everybody else - the same answer the detail read gives, so a
 		// rename cannot be used to ask whether a track id exists (§15.4).
 		Track? track = await database
 			.Set<Track>()
@@ -253,7 +253,7 @@ public sealed class TrackController : ControllerBase
 		}
 
 		// A shared route's name is on a list other riders read, so it has to be its own (§6.2).
-		// A private track is the rider's own filing system and may be called whatever they like —
+		// A private track is the rider's own filing system and may be called whatever they like -
 		// the same rule the share itself applies, applied again here because a rename is the other
 		// way a route on that list can end up wearing a name that is already on it.
 		if (track.Visibility == TrackVisibility.Public
@@ -277,7 +277,7 @@ public sealed class TrackController : ControllerBase
 	/// <para>
 	/// <strong>The rows cascade; the blobs do not.</strong> `ON DELETE CASCADE` takes the retained
 	/// original, the markers hanging off the track and any ride attachment with it, and reaches no
-	/// filesystem at all. The two blob references are therefore read <em>before</em> the row goes —
+	/// filesystem at all. The two blob references are therefore read <em>before</em> the row goes -
 	/// afterwards nothing is left to say which files were this track's, and a track a rider deleted
 	/// to be rid of is still on the disk and in tonight's backup. The §7.11 sweep is the backstop
 	/// rather than the mechanism, on <see cref="Account.AccountBlobs"/>'s reasoning.
@@ -311,7 +311,7 @@ public sealed class TrackController : ControllerBase
 
 		// The §15.4 precondition an edit meets, and a delete meets it for a stronger reason: an
 		// edit moves the line an adventure is measured against, and a delete takes it away
-		// entirely — the attachment cascades, and every rider's place in §5.4's gap list with it.
+		// entirely - the attachment cascades, and every rider's place in §5.4's gap list with it.
 		if (await Rides.RideRouteEndpoints.IsTrackAttachedAsync(database, id, cancellationToken))
 		{
 			return Problem(

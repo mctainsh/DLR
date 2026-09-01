@@ -8,10 +8,10 @@ namespace DLR.UI.Tests.Fakes;
 /// A hand-rolled <see cref="IMapInterop"/> that lets bUnit render <c>RideMap</c> without
 /// loading a JS SDK (§4.5 v0.24). Two levers:
 /// <list type="bullet">
-///   <item><c>Provider</c> — what the fake reports. One value since v0.24, kept settable
+///   <item><c>Provider</c> - what the fake reports. One value since v0.24, kept settable
 ///     because the property is on the interface and a future offline renderer would add
 ///     another (§13 Q26).</item>
-///   <item><c>InitException</c> — the exception <see cref="InitAsync"/> should throw, if any.
+///   <item><c>InitException</c> - the exception <see cref="InitAsync"/> should throw, if any.
 ///     Set this to reproduce the CDN-unreachable and tile-server-unreachable branches, which
 ///     surface identically to <c>RideMap</c>.</item>
 /// </list>
@@ -36,7 +36,7 @@ public sealed class FakeMapInterop : IMapInterop
 	public int DisposeCount { get; private set; }
 
 	/// <summary>
-	/// The options the last <see cref="InitAsync"/> was given — recorded even when
+	/// The options the last <see cref="InitAsync"/> was given - recorded even when
 	/// <see cref="InitException"/> makes the call throw, because the camera a map <em>opens</em>
 	/// on is decided before the base map has a chance to fail.
 	/// </summary>
@@ -68,7 +68,7 @@ public sealed class FakeMapInterop : IMapInterop
 
 	/// <summary>
 	/// Stands in for the base map working out that the source under it does not reach where the
-	/// map is looking — a rider panning off the edge of an offline pack. The real module reads the
+	/// map is looking - a rider panning off the edge of an offline pack. The real module reads the
 	/// archive's own box out of the PMTiles header; a bUnit test says the answer directly.
 	/// </summary>
 	/// <param name="hasTiles">Whether anything on screen has tiles behind it.</param>
@@ -77,7 +77,7 @@ public sealed class FakeMapInterop : IMapInterop
 		CoverageChanged?.Invoke(new MapCoverage(hasTiles, zoomLevel));
 
 	/// <summary>
-	/// Stands in for MapLibre reporting a problem it did not throw for — a tile source it cannot
+	/// Stands in for MapLibre reporting a problem it did not throw for - a tile source it cannot
 	/// reach, a style it cannot parse. The real module raises this from a JS event.
 	/// </summary>
 	public void RaiseError(string message) => ErrorOccurred?.Invoke(message);
@@ -92,7 +92,7 @@ public sealed class FakeMapInterop : IMapInterop
 	/// <summary>
 	/// Stands in for the base map reporting a view. Separate from <see cref="InitAsync"/> so a
 	/// test can hand a page a viewport while still using <see cref="InitException"/> to keep
-	/// <c>SkiaMapOverlay</c> — whose <c>SKCanvasView</c> is browser-only — unmounted.
+	/// <c>SkiaMapOverlay</c> - whose <c>SKCanvasView</c> is browser-only - unmounted.
 	/// </summary>
 	public void RaiseViewport(MapViewport viewport) => ViewportChanged?.Invoke(viewport);
 
@@ -101,7 +101,7 @@ public sealed class FakeMapInterop : IMapInterop
 
 	/// <summary>
 	/// The animation duration asked for with each of <see cref="Cameras"/>, same order and same
-	/// length — <see cref="TimeSpan.Zero"/> for a jump.
+	/// length - <see cref="TimeSpan.Zero"/> for a jump.
 	/// <para>
 	/// A parallel list rather than a field on the camera, because a <see cref="MapCamera"/> is
 	/// where the map is looking and how it got there is not part of that. It is here so a test can
@@ -112,14 +112,14 @@ public sealed class FakeMapInterop : IMapInterop
 	public List<TimeSpan> CameraAnimations { get; } = new();
 
 	/// <summary>
-	/// Every box passed to <see cref="FitBoundsAsync"/>, in order — the frames a map was asked to
+	/// Every box passed to <see cref="FitBoundsAsync"/>, in order - the frames a map was asked to
 	/// fit itself to. Real <c>fitBounds</c> resolves a zoom against the canvas, which a bUnit test
 	/// has none of, so what is asserted here is the request rather than the view it produced.
 	/// </summary>
 	public List<TrackBounds> Fits { get; } = new();
 
 	/// <summary>
-	/// Every source passed to <see cref="SetSourceAsync"/>, in order — the restyles a map performs
+	/// Every source passed to <see cref="SetSourceAsync"/>, in order - the restyles a map performs
 	/// while it is on screen (§4.5). The one <see cref="InitAsync"/> opened with is not in here;
 	/// that is <c>LastOptions.EffectiveSource</c>.
 	/// </summary>

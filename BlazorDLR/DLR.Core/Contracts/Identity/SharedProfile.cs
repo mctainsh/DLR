@@ -7,7 +7,7 @@ namespace DLR.Core.Contracts.Identity;
 /// <para>
 /// Three booleans defaulting to false are trivial to get right at creation and easy to get
 /// wrong on a read path. One forgetful DTO mapper leaks a phone number, and there is no way to
-/// un-leak it — so the defence is structural rather than conventional: the properties are
+/// un-leak it - so the defence is structural rather than conventional: the properties are
 /// <c>private init</c>, which makes <see cref="For"/> the only thing in any assembly that can
 /// build one, and <see cref="For"/> cannot be called without stating the viewer's relationship
 /// to the owner.
@@ -19,7 +19,7 @@ public sealed record SharedProfile
 	/// Appears in a ride's member list <em>beside</em> the username, never instead of it.
 	/// <para>
 	/// Map pins and the position batch always carry the immutable username (§7.2), which is
-	/// what lets a client denormalise it forever with no invalidation — and what stops a rider
+	/// what lets a client denormalise it forever with no invalidation - and what stops a rider
 	/// labelling themselves <c>RideLeader</c> on somebody else's map.
 	/// </para>
 	/// </summary>
@@ -33,7 +33,7 @@ public sealed record SharedProfile
 	public string? PhoneNumber { get; private init; }
 
 	/// <summary>
-	/// Sharing this exposes the account's recovery address — the rider is telling a ride full
+	/// Sharing this exposes the account's recovery address - the rider is telling a ride full
 	/// of people which mailbox to attack in order to reset the password. Not a reason to
 	/// forbid it; a reason for the UI to say so plainly next to the switch.
 	/// </summary>
@@ -73,7 +73,7 @@ public sealed record SharedProfile
 /// The half of an account <see cref="SharedProfile"/> reads.
 /// <para>
 /// An interface rather than the entity, so the rule lives in <c>DLR.Core</c> with the type it
-/// protects and every host compiles against the same one — and so nothing has to reference the
+/// protects and every host compiles against the same one - and so nothing has to reference the
 /// persistence assembly in order to describe what a viewer may see.
 /// </para>
 /// </summary>

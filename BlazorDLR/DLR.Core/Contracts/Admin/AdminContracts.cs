@@ -5,7 +5,7 @@ namespace DLR.Core.Contracts.Admin;
 /// <para>
 /// <strong>This type may only ever be built from an explicit projection.</strong> It carries an
 /// email address and it is handed to somebody who is not its owner, which is exactly the shape
-/// <c>ApiSurfaceRules</c> exists to stop happening by accident — an <c>AppUser</c> returned from
+/// <c>ApiSurfaceRules</c> exists to stop happening by accident - an <c>AppUser</c> returned from
 /// a response factory would carry the password hash and the security stamp with it.
 /// </para>
 /// <para>
@@ -22,7 +22,7 @@ namespace DLR.Core.Contracts.Admin;
 /// <param name="CreatedUtc">When the account was made.</param>
 /// <param name="LastActiveUtc">
 /// When the server last heard from it (§7.10). Throttled to one write an hour, so it is accurate
-/// to the hour and no better — the list must not be read as a session log.
+/// to the hour and no better - the list must not be read as a session log.
 /// </param>
 /// <param name="PositionsRecorded">
 /// Lifetime count of GPS fixes this account has published (§5.5).
@@ -30,11 +30,11 @@ namespace DLR.Core.Contracts.Admin;
 /// A counter rather than a row count, because the rows do not survive: positions are deleted when
 /// the ride carrying them stops being live, so counting <c>rider_position</c> would answer "how
 /// many fixes are on a map right now", which is <see cref="PositionsHeld"/> and a different
-/// question. Accounts that predate the counter start at zero rather than at their true total —
+/// question. Accounts that predate the counter start at zero rather than at their true total -
 /// there is nothing left to count them from.
 /// </para>
 /// </param>
-/// <param name="PositionsHeld">Fixes currently stored for this account — non-zero only while they
+/// <param name="PositionsHeld">Fixes currently stored for this account - non-zero only while they
 /// are on a live ride.</param>
 /// <param name="Adventures">Group rides this account created (§5.1).</param>
 /// <param name="Routes">Tracks this account owns, recorded or imported (§6).</param>
@@ -72,7 +72,7 @@ public sealed record AdminUserRow(
 /// <summary>
 /// One line off the server's log file, parsed as far as it can be.
 /// </summary>
-/// <param name="Utc">When it was written, or null for a line the reader could not date — a stack
+/// <param name="Utc">When it was written, or null for a line the reader could not date - a stack
 /// trace continuation, or a line from a provider that formatted itself differently.</param>
 /// <param name="Level">Trace, Debug, Information, Warning, Error or Critical, or blank when the
 /// line carried no level.</param>
@@ -90,7 +90,7 @@ public sealed record AdminLogEntry(
 /// <param name="Entries">The lines, newest first.</param>
 /// <param name="Day">Which day's file this came from.</param>
 /// <param name="AvailableDays">Every day the log directory currently holds a file for, newest
-/// first — the picker's options, so a caller never has to guess a filename.</param>
+/// first - the picker's options, so a caller never has to guess a filename.</param>
 /// <param name="Truncated">Whether older lines exist in this file beyond what was returned.</param>
 /// <param name="DatabaseCommandsHidden">
 /// How many of EF Core's statement lines the reader stepped over on the way to
@@ -98,21 +98,21 @@ public sealed record AdminLogEntry(
 /// <para>
 /// Counted over the part of the file that was read rather than over the whole day, because the
 /// read stops at <paramref name="Truncated"/>. It is here so the screen can say that a filter is
-/// on and how much it is holding back — a short list otherwise reads as a quiet day.
+/// on and how much it is holding back - a short list otherwise reads as a quiet day.
 /// </para>
 /// </param>
-/// <param name="Enabled">Whether the server was asked to write a file at all — <c>FileLog:Enabled</c>
+/// <param name="Enabled">Whether the server was asked to write a file at all - <c>FileLog:Enabled</c>
 /// as the running process bound it, not as the file on disk reads.</param>
 /// <param name="Directory">The absolute directory the server resolved and is writing to. Relative
 /// configuration is resolved against the application's base directory, which is not the working
-/// directory under IIS — so the answer to "where are they then" is worth stating rather than
+/// directory under IIS - so the answer to "where are they then" is worth stating rather than
 /// leaving an administrator to derive.</param>
-/// <param name="Problem">Why nothing is being written, when the writer has failed — a directory it
+/// <param name="Problem">Why nothing is being written, when the writer has failed - a directory it
 /// may not create, a disk that has filled. Null when the writer is healthy.</param>
 /// <remarks>
 /// The last three carry no entries and exist for the empty case. "No files" has several causes
 /// that look identical on screen and have completely different fixes, and the one an administrator
-/// guesses at first — the setting — is the one that is usually already right.
+/// guesses at first - the setting - is the one that is usually already right.
 /// </remarks>
 public sealed record AdminLogPage(
 	IReadOnlyList<AdminLogEntry> Entries,
@@ -132,7 +132,7 @@ public sealed record AdminLogPage(
 /// <param name="ActiveLastWeek">…in the last 7 days.</param>
 /// <param name="ActiveLastMonth">…in the last 30 days.</param>
 /// <param name="RidersSharingNow">
-/// Accounts with a live position in the ride cache — the only one of these numbers that is
+/// Accounts with a live position in the ride cache - the only one of these numbers that is
 /// "active" in the sense of somebody being out on a road at this moment.
 /// </param>
 /// <param name="RidesSharingNow">Adventures with at least one rider on the map right now.</param>
@@ -141,7 +141,7 @@ public sealed record AdminLogPage(
 /// <para>
 /// Counted in memory rather than from the stored rows, which do not survive the ride (see
 /// <see cref="AdminUserRow.PositionsRecorded"/>). It is therefore this process's own count and
-/// starts empty after a restart — <paramref name="MeterStartedUtc"/> says from when, so a graph
+/// starts empty after a restart - <paramref name="MeterStartedUtc"/> says from when, so a graph
 /// that is climbing out of a restart is not read as a service that lost its riders.
 /// </para>
 /// </param>
@@ -163,8 +163,8 @@ public sealed record AdminStats(
 /// Deleting somebody else's account from the administration screen (§14.6, §6.3).
 /// <para>
 /// The username is echoed back so the server can refuse a request whose id and name disagree.
-/// That is a guard against acting on a stale row — the list is searched and paged, so the account
-/// under a pointer is not always the account the screen was showing when it loaded — and not a
+/// That is a guard against acting on a stale row - the list is searched and paged, so the account
+/// under a pointer is not always the account the screen was showing when it loaded - and not a
 /// typed confirmation: the human "are you sure" is the dialog, and this is the machine's.
 /// </para>
 /// </summary>

@@ -29,15 +29,15 @@ public static class TrackRatingEndpoints
 /// <strong>Anyone signed in who can see the route can rate it</strong>, which is the same audience
 /// that can post to its thread and for the same reason: a route on the browse list has been put in
 /// front of every rider on the service, and a score only its owner's friends could give would be a
-/// score nobody should read. §7.8's ladder still applies to the write — a brand-new account cannot
-/// rate, exactly as it cannot share a route or post a comment — and that is the policy attribute
+/// score nobody should read. §7.8's ladder still applies to the write - a brand-new account cannot
+/// rate, exactly as it cannot share a route or post a comment - and that is the policy attribute
 /// rather than anything in the bodies below.
 /// </para>
 /// <para>
 /// The scale, the "one rating per rider" rule and the storage all belong to
 /// <see cref="TrackRating"/> and <see cref="TrackRatings"/>; this file is the three verbs. Reading
-/// is <c>GET</c>, setting is an idempotent <c>PUT</c> — rating again replaces rather than
-/// accumulates, so there is nothing for a <c>POST</c> to mean — and withdrawing is
+/// is <c>GET</c>, setting is an idempotent <c>PUT</c> - rating again replaces rather than
+/// accumulates, so there is nothing for a <c>POST</c> to mean - and withdrawing is
 /// <c>DELETE</c>, never a zero, because a stored zero would count as the worst possible score
 /// against every rider who changed their mind.
 /// </para>
@@ -115,7 +115,7 @@ public sealed class TrackRatingController : ControllerBase
 		{
 			// Updated in place. The primary key already guarantees one row per rider per route, but
 			// writing it this way is what makes changing your mind a single row rather than a
-			// delete and an insert racing each other — CommentReaction's reasoning exactly.
+			// delete and an insert racing each other - CommentReaction's reasoning exactly.
 			//
 			// Stamped only when the number actually moves. Re-sending the same rating is what a
 			// drained outbox does, and it must not read afterwards as though the rider went back
@@ -154,7 +154,7 @@ public sealed class TrackRatingController : ControllerBase
 			.SingleOrDefaultAsync(row => row.TrackId == id && row.UserId == userId, cancellationToken);
 
 		// Withdrawing a rating that was never given is success, not a 404. A rider tapping their
-		// own star again to clear it does not need to be told they had not rated it — and a phone
+		// own star again to clear it does not need to be told they had not rated it - and a phone
 		// draining an outbox will send this twice.
 		if (existing is not null)
 		{
@@ -172,7 +172,7 @@ public sealed class TrackRatingController : ControllerBase
 	/// The same three rules <see cref="Comments.CommentThreadAccess.ForTrackAsync"/> applies, and
 	/// deliberately the same answer for all three failures: a route that does not exist, one that
 	/// is not shared, and one whose owner the caller has blocked are all <c>404</c>. A
-	/// distinguishable refusal would turn a track id — which travels in links — into an oracle for
+	/// distinguishable refusal would turn a track id - which travels in links - into an oracle for
 	/// which of them are real.
 	/// </para>
 	/// <para>
@@ -245,8 +245,8 @@ public static class TrackRatingReader
 	/// </para>
 	/// <para>
 	/// Blocked accounts are deliberately <em>not</em> excluded from the tally, which is the one
-	/// place this differs from a reaction count. A block hides what somebody wrote — their
-	/// comments, their reactions, their votes are all authored content with a name on it (§17.7) —
+	/// place this differs from a reaction count. A block hides what somebody wrote - their
+	/// comments, their reactions, their votes are all authored content with a name on it (§17.7) -
 	/// but a rating is anonymous by construction: nothing anywhere says who gave a route three
 	/// stars. Filtering it would make one rider's average differ from another's for a number they
 	/// are both being asked to trust, and would leak, in the difference, that a blocked rider had

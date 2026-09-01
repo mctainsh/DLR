@@ -9,7 +9,7 @@ namespace DLR.Server.Tests.Identity;
 /// file that ships with the code (§7.4).
 /// <para>
 /// A rule enforced at startup rather than at review, because the failure mode is a signing key
-/// in git history — and git history is permanent in practice, so the fix is rotating the key
+/// in git history - and git history is permanent in practice, so the fix is rotating the key
 /// rather than deleting the line. The moment this rule gets broken is not a code review; it is
 /// an afternoon when the app will not start and the other settings are right there.
 /// </para>
@@ -98,7 +98,7 @@ public sealed class SigningKeySourceTests : IDisposable
 
 	/// <summary>
 	/// A guard that only says what is forbidden sends the next person to the design document.
-	/// This one has to name the fix, because the fix is one command and is not guessable —
+	/// This one has to name the fix, because the fix is one command and is not guessable -
 	/// user secrets satisfy §7.4 precisely because that file is not in the repository.
 	/// </summary>
 	[Fact]

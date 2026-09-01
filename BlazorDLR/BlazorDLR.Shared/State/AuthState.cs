@@ -12,12 +12,12 @@ namespace BlazorDLR.Shared.State;
 /// <para>
 /// Holds the current access token in memory and the current user's claims for
 /// <c>AuthorizeView</c> / <c>@attribute [Authorize]</c>. Never touches the refresh token
-/// directly — that goes through <see cref="ITokenStore"/> and the token endpoint
+/// directly - that goes through <see cref="ITokenStore"/> and the token endpoint
 /// (§7.4). Never persists an access token anywhere but memory (§7.4 rule).
 /// </para>
 /// <para>
-/// <strong>Single-flight refresh.</strong> When several callers race a 401 at once — three
-/// screens polling their own data, plus a hub reconnect — one shared <see cref="Task"/>
+/// <strong>Single-flight refresh.</strong> When several callers race a 401 at once - three
+/// screens polling their own data, plus a hub reconnect - one shared <see cref="Task"/>
 /// serves them all, so the token endpoint sees one refresh and not four. The server also
 /// has an idempotency window (§7.4) for the seconds where a genuine caller replays a token
 /// it just rotated; the client's job is to make replays happen as rarely as possible in
@@ -27,7 +27,7 @@ namespace BlazorDLR.Shared.State;
 /// <strong>Signed in is "a refresh token exists", not "the access token is valid" (§7.9).</strong>
 /// This app is used at trailheads. A request that failed because there was nothing to fail
 /// against is a network condition, and treating it as a credential failure would sign riders out
-/// in the middle of nowhere — which is where the app matters most and where the Welcome screen
+/// in the middle of nowhere - which is where the app matters most and where the Welcome screen
 /// helps least. <see cref="RestoreAsync"/> is the other half of that rule: a relaunch adopts the
 /// account this device remembers and confirms it with the server afterwards, rather than the
 /// other way round.
@@ -53,12 +53,12 @@ public sealed class AuthState : AuthenticationStateProvider
 	private bool _restored;
 
 	/// <param name="api">The token endpoint, among everything else.</param>
-	/// <param name="tokens">Where the refresh token lives — the Keychain on a phone, a cookie the script cannot read on the web (§7.4, §18.5).</param>
+	/// <param name="tokens">Where the refresh token lives - the Keychain on a phone, a cookie the script cannot read on the web (§7.4, §18.5).</param>
 	/// <param name="clock">Decides when the cached access token is close enough to expiry to refresh (§10.4).</param>
 	/// <param name="settings">
 	/// Where this device remembers <em>who</em> signed in, so a relaunch with no signal can open on
 	/// their rides (see <see cref="RememberedAccount"/>). <c>null</c> for a caller that remembers
-	/// nobody — which is also what a host without one behaves like, since the account is only ever
+	/// nobody - which is also what a host without one behaves like, since the account is only ever
 	/// adopted alongside a refresh token and the browser hosts hold none (§18.5).
 	/// </param>
 	public AuthState(IApiClient api, ITokenStore tokens, TimeProvider clock, IDeviceSettings? settings = null)
@@ -82,7 +82,7 @@ public sealed class AuthState : AuthenticationStateProvider
 	/// <summary>
 	/// The device this session belongs to, or null when signed out (§7.10).
 	/// <para>
-	/// Comes off the server's answer rather than being invented here — the id is server-assigned,
+	/// Comes off the server's answer rather than being invented here - the id is server-assigned,
 	/// and this device only ever repeats back the one it was given. Persisted beside the
 	/// remembered account so the next sign-in claims the same row instead of minting a new one,
 	/// which is what left a rider with a screen full of "Unnamed device".
@@ -95,11 +95,11 @@ public sealed class AuthState : AuthenticationStateProvider
 
 	/// <summary>
 	/// Whether the current sign-in is one this device adopted on its own and the server has not
-	/// confirmed since (§7.9) — the state a relaunch in a dead zone lands in.
+	/// confirmed since (§7.9) - the state a relaunch in a dead zone lands in.
 	/// <para>
 	/// The rider is signed in for every purpose the app decides locally: <c>[Authorize]</c> passes,
 	/// their own ride opens from the cache (§4.4), and their name is on screen. What they do not
-	/// have is an access token, so anything that needs the server fails until one arrives — which
+	/// have is an access token, so anything that needs the server fails until one arrives - which
 	/// is not a different outcome from being online with no signal, only an honest name for it.
 	/// </para>
 	/// <para>
@@ -110,7 +110,7 @@ public sealed class AuthState : AuthenticationStateProvider
 	public bool IsOffline { get; private set; }
 
 	/// <summary>
-	/// Accepts a fresh session — from a password grant, from a refresh, or from the
+	/// Accepts a fresh session - from a password grant, from a refresh, or from the
 	/// browser's cookie-to-token exchange. Broadcasts <see cref="AuthenticationState"/>
 	/// so <c>AuthorizeView</c> re-renders.
 	/// </summary>
@@ -136,7 +136,7 @@ public sealed class AuthState : AuthenticationStateProvider
 
 		// Kept for the *next* sign-in, which is the one that would otherwise mint a second device
 		// row for this same installation (§7.10). Written on every session rather than only on a
-		// new one — it costs one store write an app start and means a device that somehow lost the
+		// new one - it costs one store write an app start and means a device that somehow lost the
 		// key gets it back on its next refresh.
 		if (DeviceId is { } device)
 		{
@@ -150,7 +150,7 @@ public sealed class AuthState : AuthenticationStateProvider
 			// Only alongside a token, and that is the whole rule: a host that cannot hold a refresh
 			// token is one where a remembered account could never be adopted (see RestoreAsync), so
 			// storing one there would be a name on a device with nothing to back it. The web is
-			// exactly that host — its token endpoint strips the refresh token out of the body and
+			// exactly that host - its token endpoint strips the refresh token out of the body and
 			// puts it in a cookie the script cannot read (§18.5).
 			await RememberAccountAsync(RememberedAccount.From(session.User), cancellationToken);
 		}
@@ -164,7 +164,7 @@ public sealed class AuthState : AuthenticationStateProvider
 	/// sign in to an account they never signed out of (§7.9).
 	/// <para>
 	/// <strong>The remembered account is adopted first and confirmed second.</strong> The obvious
-	/// order — refresh, then sign in if it worked — makes every launch wait on a round trip, and
+	/// order - refresh, then sign in if it worked - makes every launch wait on a round trip, and
 	/// makes a launch with no network end at the Welcome screen. So this adopts
 	/// <see cref="RememberedAccount"/> immediately when there is a refresh token beside it, marks
 	/// the session <see cref="IsOffline"/>, and then asks the token endpoint. Three things can come
@@ -172,12 +172,12 @@ public sealed class AuthState : AuthenticationStateProvider
 	/// </para>
 	/// <list type="bullet">
 	/// <item>a session, which replaces the adopted one and clears the flag;</item>
-	/// <item>a refusal — 401, the only status the refresh grant refuses with — which signs out;</item>
+	/// <item>a refusal - 401, the only status the refresh grant refuses with - which signs out;</item>
 	/// <item>nothing at all, which is a rider in a tunnel and changes nothing.</item>
 	/// </list>
 	/// <para>
 	/// <strong>Idempotent, and safe to call from a layout's first render.</strong> A session that
-	/// is already live is left alone, and so is a second call — the app has exactly one launch, but
+	/// is already live is left alone, and so is a second call - the app has exactly one launch, but
 	/// nothing about the shell that calls this guarantees it renders once.
 	/// </para>
 	/// <para>
@@ -202,7 +202,7 @@ public sealed class AuthState : AuthenticationStateProvider
 
 		if (refresh is null)
 		{
-			// Nothing signed in here — a fresh install, a vault that will not decrypt (§7.4), or a
+			// Nothing signed in here - a fresh install, a vault that will not decrypt (§7.4), or a
 			// browser. The Welcome screen is the honest destination and it is already where an
 			// anonymous principal sends the rider.
 			return;
@@ -210,7 +210,7 @@ public sealed class AuthState : AuthenticationStateProvider
 
 		if (await ReadAccountAsync(cancellationToken) is { } account)
 		{
-			// Signed in, on this device's word. Everything the app decides locally now works —
+			// Signed in, on this device's word. Everything the app decides locally now works -
 			// including opening the remembered ride off the cache (§4.4), which is the entire point
 			// of doing this before the network rather than after it.
 			UserId = account.UserId;
@@ -242,14 +242,14 @@ public sealed class AuthState : AuthenticationStateProvider
 
 		// Cleared from memory, kept on disk. The stored id is what this *installation* was called
 		// last time, not who was signed in on it, so the next sign-in reuses the row rather than
-		// leaving the old one behind — and an id that turns out to belong to somebody else's
+		// leaving the old one behind - and an id that turns out to belong to somebody else's
 		// account simply does not match server-side.
 		DeviceId = null;
 		IsOffline = false;
 
 		// Nothing left to restore, and there must not be: an account left behind here would be
 		// adopted by the next launch (see RestoreAsync) and show a signed-out rider their own name.
-		// Cleared alongside the token rather than instead of it — both, or the pair disagrees.
+		// Cleared alongside the token rather than instead of it - both, or the pair disagrees.
 		_restored = true;
 
 		await _tokens.ClearAsync(cancellationToken);
@@ -279,7 +279,7 @@ public sealed class AuthState : AuthenticationStateProvider
 
 	/// <summary>
 	/// Ask for a fresh access token now regardless of the cache. Used by the auth handler
-	/// when it sees a 401 despite a token that looked fresh — the server's view is the
+	/// when it sees a 401 despite a token that looked fresh - the server's view is the
 	/// authoritative one, and the client should not argue.
 	/// </summary>
 	public Task<string?> RefreshNowAsync(CancellationToken cancellationToken = default) =>
@@ -292,7 +292,7 @@ public sealed class AuthState : AuthenticationStateProvider
 		try
 		{
 			// A second caller arriving after the first has already kicked off gets the same task.
-			// A third arriving after the task completes falls through to a fresh refresh — the
+			// A third arriving after the task completes falls through to a fresh refresh - the
 			// completed task is discarded rather than cached, because a discarded refresh's result
 			// is stale by construction.
 			if (_refreshInFlight is null || _refreshInFlight.IsCompleted)
@@ -333,8 +333,8 @@ public sealed class AuthState : AuthenticationStateProvider
 			// not the server refusing.**
 			//
 			// The two are tellable apart, and the distinction is load-bearing enough to be worth
-			// stating. HttpApiClient throws ApiException — which *is* an HttpRequestException, so it
-			// arrives here — carrying the status the server answered. A transport failure throws the
+			// stating. HttpApiClient throws ApiException - which *is* an HttpRequestException, so it
+			// arrives here - carrying the status the server answered. A transport failure throws the
 			// base type with StatusCode null, because there was no response to take one from.
 			//
 			// 401 is the only status the refresh grant refuses with (TokenEndpoints): a revoked
@@ -343,7 +343,7 @@ public sealed class AuthState : AuthenticationStateProvider
 			// unrecoverable without a password, so the stored token is dead and the session ends.
 			//
 			// Everything else stays signed in. A 429 is the device refreshing too often, a 5xx is a
-			// server having a bad minute, and a null status is a rider in a tunnel — and a rider
+			// server having a bad minute, and a null status is a rider in a tunnel - and a rider
 			// mid-ride in a dead zone being returned to the Welcome screen is the exact failure this
 			// rule exists to prevent. The caller gets null and its request fails; the next refresh
 			// tries again.
@@ -362,7 +362,7 @@ public sealed class AuthState : AuthenticationStateProvider
 	/// <para>
 	/// One builder for both callers on purpose: a session off the wire and an account this device
 	/// remembered must produce an identical principal, or a screen would be able to tell which of
-	/// the two signed the rider in — and the answer to that question is <see cref="IsOffline"/>,
+	/// the two signed the rider in - and the answer to that question is <see cref="IsOffline"/>,
 	/// deliberately, rather than a claim that is quietly missing.
 	/// </para>
 	/// </summary>
@@ -428,7 +428,7 @@ public sealed class AuthState : AuthenticationStateProvider
 	}
 
 	/// <summary>
-	/// Forgets the remembered account. Removes the key rather than storing a blank one — see
+	/// Forgets the remembered account. Removes the key rather than storing a blank one - see
 	/// <see cref="IDeviceSettings.RemoveAsync"/>.
 	/// </summary>
 	private async Task ForgetAccountAsync(CancellationToken cancellationToken)

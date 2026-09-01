@@ -14,7 +14,7 @@ public static class RiderMarker
 	/// <summary>
 	/// At or above this, in metres per second, a rider is travelling and gets the arrow.
 	/// <para>
-	/// 1 m/s is 3.6 km/h — walking pace, and comfortably above the drift a phone reports while
+	/// 1 m/s is 3.6 km/h - walking pace, and comfortably above the drift a phone reports while
 	/// standing at a junction. Positions travel as whole metres per second
 	/// (<c>RiderPositionDto.SpeedMps</c> is a <c>short</c>), so every threshold between zero and
 	/// one is the same threshold; this is the one that says what it means.
@@ -40,7 +40,7 @@ public static class RiderMarker
 
 	/// <summary>
 	/// The longest label the overlay will draw. Usernames are capped at 20 characters on the way
-	/// in, so this only ever bites on a name from somewhere else — but a label is drawn to the
+	/// in, so this only ever bites on a name from somewhere else - but a label is drawn to the
 	/// right of the rider and an unbounded one is a banner across the map at the exact moment
 	/// somebody is trying to read the road under it.
 	/// </summary>

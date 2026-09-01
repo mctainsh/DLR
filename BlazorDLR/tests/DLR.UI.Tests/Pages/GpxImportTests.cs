@@ -8,7 +8,7 @@ namespace DLR.UI.Tests.Pages;
 
 /// <summary>
 /// §15.2's GPX import entry. The `.gpx` <c>InputFile</c> is deliberately the same
-/// component on both hosts — a phone's file picker is provided by MAUI's
+/// component on both hosts - a phone's file picker is provided by MAUI's
 /// <c>FilePicker</c> when the user asks for it, but the "always available" path
 /// through <c>InputFile</c> works on every host. The initial render is what this
 /// test can prove without an actual file upload flow (which needs
@@ -48,6 +48,6 @@ public sealed class GpxImportTests : PageTestContext
 		IRenderedComponent<GpxImport> component = Render<GpxImport>();
 
 		component.Markup.Contains("distance, ascent and duration", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"§15.2: the copy tells the user they will see the summary before committing — the dryRun flow.");
+			"§15.2: the copy tells the user they will see the summary before committing - the dryRun flow.");
 	}
 }

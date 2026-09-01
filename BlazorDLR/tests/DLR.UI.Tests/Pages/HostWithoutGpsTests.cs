@@ -13,13 +13,13 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Pages;
 
 /// <summary>
-/// The shared screens on a host that registers no GPS at all — which is both browsers (§18.6).
+/// The shared screens on a host that registers no GPS at all - which is both browsers (§18.6).
 /// <para>
 /// This is the arrangement rather than a corner of it: the web hosts register no
 /// <c>ILocationProvider</c>, no <c>LocationUpdateRateState</c>, no <c>TrackRecordingState</c>, no
 /// <c>PrivateAreaState</c> and no <c>LocationBroadcastState</c>. Every screen below resolves the
 /// broadcaster with <c>GetService</c> and renders its no-receiver branch when it comes back null,
-/// and that is what these tests hold in place — a screen that went back to <c>@inject</c> would
+/// and that is what these tests hold in place - a screen that went back to <c>@inject</c> would
 /// throw here rather than fail quietly on the one host nobody tests by hand.
 /// </para>
 /// <para>
@@ -116,7 +116,7 @@ public sealed class HostWithoutGpsTests : PageTestContext
 		component.FindAll("a.card[href='/settings/location']").ShouldBeEmpty(
 			"§18.6: every control on that screen configures a receiver this host does not have.");
 
-		// The rest of the hub is untouched — this is a removal, not a collapse.
+		// The rest of the hub is untouched - this is a removal, not a collapse.
 		component.FindAll("a.card[href='/settings/profile']").Count.ShouldBe(1);
 		component.FindAll("a.card[href='/settings/maps']").Count.ShouldBe(1);
 	}
@@ -132,7 +132,7 @@ public sealed class HostWithoutGpsTests : PageTestContext
 
 		component.Markup.ShouldContain("set up on your phone");
 
-		// None of the controls are there — not disabled, not empty: absent.
+		// None of the controls are there - not disabled, not empty: absent.
 		component.FindAll("input[name=gps-profile]").ShouldBeEmpty();
 		component.FindAll(".intervals").ShouldBeEmpty();
 		component.FindAll(".area-picker").ShouldBeEmpty();
@@ -145,7 +145,7 @@ public sealed class HostWithoutGpsTests : PageTestContext
 	public void RideInfo_HasNoSharingSwitch()
 	{
 		// The headline of this change. The switch set a server-side consent flag for fixes only a
-		// phone can produce, under copy promising "your phone keeps sending" — on a laptop.
+		// phone can produce, under copy promising "your phone keeps sending" - on a laptop.
 		(_, _, Guid rideId) = WireBrowser();
 
 		IRenderedComponent<GroupRideInfo> component = Render<GroupRideInfo>(
@@ -169,7 +169,7 @@ public sealed class HostWithoutGpsTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			// Routes are ride data, not device data — untouched by any of this. Removing the
+			// Routes are ride data, not device data - untouched by any of this. Removing the
 			// switch is a removal of one control, and a browser that lost the rest of the page
 			// with it would be the same mistake in the other direction.
 			component.FindAll(".routes").Count.ShouldBe(1);
@@ -188,18 +188,18 @@ public sealed class HostWithoutGpsTests : PageTestContext
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(
 			parameters => parameters.Add(page => page.RideId, rideId));
 
-		// The hamburger appearing is the snapshot having landed — the map is the whole page, so
+		// The hamburger appearing is the snapshot having landed - the map is the whole page, so
 		// there is no ride name in the markup to wait on.
 		component.WaitForAssertion(() =>
 			component.FindAll("button.hamburger").ShouldNotBeEmpty(), timeout: TimeSpan.FromSeconds(3));
 
-		// The GPS strip over the map is absent — a rider watching other people's pins was never
+		// The GPS strip over the map is absent - a rider watching other people's pins was never
 		// asking about their own.
 		component.FindAll(".gps-alert").ShouldBeEmpty();
 		component.Markup.ShouldNotContain("cannot share its location");
 
 		// Nor the sharing-off warning a phone gets (§5.6). A traveller watching from a laptop is
-		// not withholding anything — there is nothing here to turn on and nothing to warn about.
+		// not withholding anything - there is nothing here to turn on and nothing to warn about.
 		component.FindAll(".sharing-off").ShouldBeEmpty();
 
 		// And so is the receiver's line inside the menu, which is where it lives.
@@ -289,8 +289,8 @@ public sealed class HostWithoutGpsTests : PageTestContext
 			])));
 
 		// The page took the batch with no receiver anywhere in its graph. bUnit surfaces an
-		// unhandled render exception on the next render, so a null-deref in the map rebuild —
-		// SelfMarker and MyPoint both reach for the broadcaster — would fail here.
+		// unhandled render exception on the next render, so a null-deref in the map rebuild -
+		// SelfMarker and MyPoint both reach for the broadcaster - would fail here.
 		component.WaitForAssertion(() =>
 			component.FindAll("button.hamburger").ShouldNotBeEmpty(), timeout: TimeSpan.FromSeconds(3));
 

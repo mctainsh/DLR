@@ -11,7 +11,7 @@ namespace DLR.UI.Tests.Services;
 ///     malformed shape it can meet is a shape a real device can hand it.</item>
 ///   <item><see cref="RouteStyle.Normalised"/> is the only thing standing between an
 ///     <c>&lt;input&gt;</c> and the Skia canvas, which silently falls back to blue on a colour
-///     it cannot parse — a setting that saves and then does nothing is worse than one that
+///     it cannot parse - a setting that saves and then does nothing is worse than one that
 ///     refuses.</item>
 /// </list>
 /// </summary>
@@ -36,7 +36,7 @@ public sealed class RouteStyleTests
 	public void Encode_ThenDecode_KeepsThePerRoutePaletteDistinctFromAColour()
 	{
 		// The one field that is legitimately absent. "No override" and "black" are different
-		// answers and the encoding must not conflate them — a ride with three routes drawn in
+		// answers and the encoding must not conflate them - a ride with three routes drawn in
 		// one colour is unreadable against its own list.
 		RouteStyle read = RouteStyle.Decode(RouteStyle.Default.Encode());
 

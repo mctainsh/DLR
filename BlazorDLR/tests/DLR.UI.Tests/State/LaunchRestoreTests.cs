@@ -12,8 +12,8 @@ namespace DLR.UI.Tests.State;
 /// <summary>
 /// What a relaunch puts back (§5.6, §5.7, §18.6).
 /// <para>
-/// The case underneath all of these is the same one: the app went away mid-ride — the battery, the
-/// OS reclaiming it, a WebView reload — and came back with the sharing flag still standing on the
+/// The case underneath all of these is the same one: the app went away mid-ride - the battery, the
+/// OS reclaiming it, a WebView reload - and came back with the sharing flag still standing on the
 /// server and no receiver running behind it. So what is worth asserting is which launches are put
 /// back and which are left alone: a server that says the ride is gone against a phone that could
 /// not ask, and a phone at all against a browser tab that lost nothing by being reloaded.
@@ -45,7 +45,7 @@ public sealed class LaunchRestoreTests
 		public LocationBroadcastState? Broadcast { get; private set; }
 
 		/// <summary>
-		/// Builds the launch. <paramref name="remembered"/> is what the device last wrote — a ride
+		/// Builds the launch. <paramref name="remembered"/> is what the device last wrote - a ride
 		/// id, or null for a device that has never opened one.
 		/// <para>
 		/// A phone by default, because that is the device this exists for.
@@ -133,7 +133,7 @@ public sealed class LaunchRestoreTests
 		harness.Api.RideResult = Adventure(sharing: true);
 
 		(await harness.Restore.RestoreAsync()).ShouldBeNull(
-			"§18.6: a reloaded tab lost no receiver, because this host never had one — so there is "
+			"§18.6: a reloaded tab lost no receiver, because this host never had one - so there is "
 			+ "nothing to put back, and moving somebody off the page they opened would buy nothing.");
 
 		harness.Api.Calls.ShouldNotContain(nameof(IApiClient.GetRideAsync),
@@ -148,7 +148,7 @@ public sealed class LaunchRestoreTests
 
 		(await harness.Restore.RestoreAsync()).ShouldBeNull(
 			"§18.6: the Windows and macOS heads take NoopLocationProvider, so they are the browsers "
-			+ "as far as this is concerned — a desktop is not what the OS reclaims mid-ride.");
+			+ "as far as this is concerned - a desktop is not what the OS reclaims mid-ride.");
 	}
 
 	[Fact]
@@ -158,7 +158,7 @@ public sealed class LaunchRestoreTests
 		harness.Api.RideResult = Adventure(sharing: true);
 
 		(await harness.Restore.RestoreAsync()).ShouldBeNull(
-			"§7.9: a launch with no session has nobody to restore — the rider signs in first.");
+			"§7.9: a launch with no session has nobody to restore - the rider signs in first.");
 	}
 
 	[Fact]
@@ -193,7 +193,7 @@ public sealed class LaunchRestoreTests
 
 		harness.CurrentRide.RideId.ShouldBeNull(
 			"§5.2: the server saying the ride is not this rider's is the one answer that clears the "
-			+ "globe — otherwise it leads somewhere that 404s for the rest of the app's life.");
+			+ "globe - otherwise it leads somewhere that 404s for the rest of the app's life.");
 	}
 
 	[Fact]
@@ -219,7 +219,7 @@ public sealed class LaunchRestoreTests
 
 		await BackgroundWait.UntilAsync(
 			() => harness.Broadcast!.Rides.Contains(Ride),
-			"§5.7: the flag survived the process and the receiver did not — a rider the server still "
+			"§5.7: the flag survived the process and the receiver did not - a rider the server still "
 			+ "has on the map must not be one whose pin has stopped moving.",
 			() => $"Status={harness.Broadcast!.Status}.");
 	}

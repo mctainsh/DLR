@@ -17,7 +17,7 @@ public sealed class ContentReportConfiguration : IEntityTypeConfiguration<Conten
 		builder.Property(report => report.Reason).HasMaxLength(500).IsRequired();
 		builder.Property(report => report.ContentSnapshot).HasMaxLength(4_000).IsRequired();
 
-		// No foreign key on TargetId or AuthorId, deliberately — see ContentReport. The report has
+		// No foreign key on TargetId or AuthorId, deliberately - see ContentReport. The report has
 		// to survive the content, which is the entire reason the snapshot column exists.
 		builder
 			.HasOne(report => report.ReportedBy)

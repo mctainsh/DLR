@@ -15,9 +15,9 @@
       The wasm build of libSkiaSharp, for SkiaMapOverlay (§4.5, §16.3).
 
       Named here rather than inherited: until v0.24 it arrived transitively through
-      BlazorDLR.Shared's SkiaSharp.Views.Blazor reference, and dropping that package —
+      BlazorDLR.Shared's SkiaSharp.Views.Blazor reference, and dropping that package -
       because its SKCanvasView is [JSImport]-based and therefore browser-only, which is
-      what broke the map on both phones — took the native assets with it. The shared
+      what broke the map on both phones - took the native assets with it. The shared
       project must stay host-agnostic, so each host names the native assets it needs.
     -->
     <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" Version="4.151.1" />

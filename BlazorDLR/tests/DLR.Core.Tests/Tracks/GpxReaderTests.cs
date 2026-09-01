@@ -28,7 +28,7 @@ public sealed class GpxReaderTests
 		TrackStats stats = TrackStats.From(track.Geometry);
 
 		// Four legs of roughly twenty metres. Loose, because the fixture converts metres to
-		// degrees with a flat approximation — the assertion is that a real distance was
+		// degrees with a flat approximation - the assertion is that a real distance was
 		// measured, not that the arithmetic matches a spreadsheet.
 		stats.DistanceM.ShouldBeInRange(75, 85);
 
@@ -82,7 +82,7 @@ public sealed class GpxReaderTests
 		capped.Tracks.Count.ShouldBe(20);
 
 		capped.TracksTruncated.ShouldBeTrue(
-			"the preview lists what was read and says what was left — refusing a file for " +
+			"the preview lists what was read and says what was left - refusing a file for " +
 			"having twenty-one tracks would be less use to everyone");
 	}
 
@@ -115,7 +115,7 @@ public sealed class GpxReaderTests
 
 	/// <summary>
 	/// Some planning tools stamp a time on a route point anyway. §15.3 imports a route without
-	/// timestamps regardless — honouring one would give a planned route a duration and let it
+	/// timestamps regardless - honouring one would give a planned route a duration and let it
 	/// into a total of rides actually ridden.
 	/// </summary>
 	[Fact]
@@ -135,7 +135,7 @@ public sealed class GpxReaderTests
 		TrackStats stats = TrackStats.From(document.Tracks.ShouldHaveSingleItem().Geometry);
 
 		stats.AscentM.ShouldBeNull(
-			"no interpolation and no DEM lookup — inventing elevation adds a paid dependency " +
+			"no interpolation and no DEM lookup - inventing elevation adds a paid dependency " +
 			"and a failure mode for a number nobody is checking (§15.1)");
 
 		stats.DistanceM.ShouldBeGreaterThan(0, "the rest of the track is still perfectly usable");
@@ -169,7 +169,7 @@ public sealed class GpxReaderTests
 
 		track.Geometry.Points.Count.ShouldBe(5);
 
-		// File order, untouched — the fourth point's clock reads earlier than the third's and
+		// File order, untouched - the fourth point's clock reads earlier than the third's and
 		// it stays exactly where the file put it.
 		track.Geometry.Points[3].TimeUtc.ShouldBe(GpxFixtures.Start.AddSeconds(5));
 

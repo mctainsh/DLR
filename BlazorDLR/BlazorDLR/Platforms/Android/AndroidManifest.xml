@@ -5,7 +5,7 @@
         map-pack server runs on 127.0.0.1 so MapLibre can range-read a downloaded PMTiles
         archive it could not otherwise address (§4.5). The alternative switch,
         android:usesCleartextTraffic, would turn cleartext back on for every host the app
-        ever talks to — see the comments in Resources/xml/network_security_config.xml.
+        ever talks to - see the comments in Resources/xml/network_security_config.xml.
     -->
     <application android:allowBackup="true" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true" android:networkSecurityConfig="@xml/network_security_config"></application>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -17,14 +17,14 @@
         FINE, and COARSE beside it: from Android 12 the system dialog offers the rider
         "precise" or "approximate", and it will not offer precise unless the app declares
         both. An app that declares FINE alone gets the approximate answer with no choice
-        shown, which is a few hundred metres — enough to say which suburb somebody is in and
+        shown, which is a few hundred metres - enough to say which suburb somebody is in and
         useless for saying which road.
 
         BACKGROUND_LOCATION is what keeps fixes arriving once the phone is in the mount with
         the screen off. It is requested separately and *after* foreground permission is
         granted (see AndroidLocationProvider) because Android 11 refuses a request that
         bundles the two. Play requires a separate declaration and a review for this
-        permission — see Documentation/store-release.md.
+        permission - see Documentation/store-release.md.
     -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -40,7 +40,7 @@
 
     <!--
         Android 13+. The ongoing notification is the whole visible contract of background
-        location — a rider must be able to see that the app is using their position, and Play
+        location - a rider must be able to see that the app is using their position, and Play
         judges the app against that. Refusing it does not stop the ride; it makes the
         notification silent, which the settings screen says out loud.
     -->
@@ -50,8 +50,8 @@
         Kept while a ride is recording so a dozing CPU still wakes for fixes, and taken
         directly: LocationForegroundService acquires a PARTIAL_WAKE_LOCK when the receiver
         starts and gives it back when the receiver stops. This comment used to claim the
-        foreground service held one on the app's behalf. It does not — a foreground
-        service keeps the process alive, not the CPU awake — and the difference was a
+        foreground service held one on the app's behalf. It does not - a foreground
+        service keeps the process alive, not the CPU awake - and the difference was a
         phone in a mount whose fixes stopped reaching the ride while the screen was off.
     -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -71,7 +71,7 @@
         filters inside <activity> here would either duplicate or miss the name.
 
         The location foreground service is declared the same way, by [Service] on
-        LocationForegroundService — including its foregroundServiceType, which has to match
+        LocationForegroundService - including its foregroundServiceType, which has to match
         the permission above.
     -->
 </manifest>

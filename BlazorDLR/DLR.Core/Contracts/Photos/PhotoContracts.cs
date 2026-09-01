@@ -3,8 +3,8 @@ namespace DLR.Core.Contracts.Photos;
 /// <summary>
 /// What an upload answers with (§16.4).
 /// <para>
-/// The dimensions come back because they are the <em>stored</em> ones — after the orientation was
-/// applied and the long edge was capped — so a client can lay the image out before fetching it,
+/// The dimensions come back because they are the <em>stored</em> ones - after the orientation was
+/// applied and the long edge was capped - so a client can lay the image out before fetching it,
 /// and can see that a portrait photograph stayed portrait.
 /// </para>
 /// </summary>

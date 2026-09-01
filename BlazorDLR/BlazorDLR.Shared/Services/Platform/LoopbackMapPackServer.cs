@@ -16,7 +16,7 @@ namespace BlazorDLR.Shared.Services.Platform;
 /// <strong>Hand-rolled rather than Kestrel or <c>HttpListener</c>.</strong> <c>HttpListener</c> is
 /// not dependable on the mobile targets, and pulling ASP.NET Core into a MAUI head to serve one
 /// file is a large dependency for a small job. What is actually needed is one route, <c>GET</c>,
-/// <c>HEAD</c>, <c>OPTIONS</c> and <c>Range</c> — a surface small enough to write correctly and
+/// <c>HEAD</c>, <c>OPTIONS</c> and <c>Range</c> - a surface small enough to write correctly and
 /// keep in one file, and small enough to test.
 /// </para>
 /// <para>
@@ -34,13 +34,13 @@ namespace BlazorDLR.Shared.Services.Platform;
 /// </para>
 /// <para>
 /// <strong>CORS is required, and is the part that is easy to miss.</strong> The WebView serves the
-/// app from its own scheme, so every request here is cross-origin — and <c>Range</c> is not a
+/// app from its own scheme, so every request here is cross-origin - and <c>Range</c> is not a
 /// safelisted header, so the browser sends a preflight first. Without the headers below, MapLibre
 /// gets an opaque failure and the map is blank with nothing in the console worth reading.
 /// </para>
 /// <para>
 /// <strong>Not usable in a browser, and the attribute says so.</strong> This assembly compiles to
-/// WebAssembly as well as into the MAUI head (§18.2), and a socket does not exist there — the APIs
+/// WebAssembly as well as into the MAUI head (§18.2), and a socket does not exist there - the APIs
 /// are present in the browser BCL and throw when called. The type still <em>compiles</em> into the
 /// WASM build, which is harmless because nothing there constructs it: both browser hosts bind
 /// <see cref="UnavailableMapPackServer"/>. Marking it is what stops the platform analyzer warning
@@ -69,7 +69,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	/// <para>
 	/// One failure is not a dead server. A client that connects and resets before the accept
 	/// completes surfaces here as a <see cref="SocketException"/> against a listener that is
-	/// perfectly healthy — and MapLibre produces exactly that, in bursts, every time a style swap
+	/// perfectly healthy - and MapLibre produces exactly that, in bursts, every time a style swap
 	/// or a <c>map.remove()</c> aborts the twenty tile fetches that were in flight. Treating one of
 	/// those as fatal is what this constant exists to prevent.
 	/// </para>
@@ -92,7 +92,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	/// <summary>
 	/// The shortest gap between two lines about requests this server refused. A source that cannot
 	/// be read fails per tile, so an unthrottled line would push the rest of the log out of the
-	/// ring — see <see cref="ThrottledLog"/>, which counts what it swallows.
+	/// ring - see <see cref="ThrottledLog"/>, which counts what it swallows.
 	/// </summary>
 	private const int RefusalLogEveryMs = 2000;
 
@@ -100,7 +100,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	private readonly SemaphoreSlim _startGate = new(1, 1);
 	private readonly CancellationTokenSource _stopping = new();
 
-	/// <summary>Requests answered 404 — a pack this device does not hold, or a token from a previous run.</summary>
+	/// <summary>Requests answered 404 - a pack this device does not hold, or a token from a previous run.</summary>
 	private readonly ThrottledLog _refusals = new(RefusalLogEveryMs);
 
 	/// <summary>Connections that failed part way through being served.</summary>
@@ -113,7 +113,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	private readonly string _token = Base64Url(RandomNumberGenerator.GetBytes(16));
 
 	/// <summary>
-	/// The listener currently accepting, read from the accept loop's thread as well as this one —
+	/// The listener currently accepting, read from the accept loop's thread as well as this one -
 	/// which is why it is <c>volatile</c>. Identity matters: a loop unwinding from a listener that
 	/// has already been replaced must not condemn its replacement.
 	/// </summary>
@@ -122,19 +122,19 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	private Uri? _baseUri;
 	private bool _disposed;
 
-	/// <summary>How many URLs have been handed out. Only its uniqueness matters — see ResolveAsync.</summary>
+	/// <summary>How many URLs have been handed out. Only its uniqueness matters - see ResolveAsync.</summary>
 	private int _resolves;
 
 	/// <summary>
-	/// Set when the accept loop gives up on a listener that is not shutting down — see
-	/// <see cref="MaxConsecutiveAcceptFailures"/> — or when one fails the probe in
+	/// Set when the accept loop gives up on a listener that is not shutting down - see
+	/// <see cref="MaxConsecutiveAcceptFailures"/> - or when one fails the probe in
 	/// <see cref="AnswersAsync"/>. It is what turns a dead port into a rebind on the next
 	/// <see cref="ResolveAsync"/> rather than into a URL nothing answers.
 	/// <para>
 	/// <strong>This is the failure that produced "Load failed" on a map that had been working.</strong>
-	/// The loop used to return on any <see cref="SocketException"/>, so one aborted connection —
+	/// The loop used to return on any <see cref="SocketException"/>, so one aborted connection -
 	/// or the OS closing the socket while the app was in the background during a long pack
-	/// download — stopped the server for the life of the process while <see cref="_baseUri"/>
+	/// download - stopped the server for the life of the process while <see cref="_baseUri"/>
 	/// carried on handing out its address. Every offline pack then failed at the fetch, with
 	/// nothing in the log to say the port had gone, and only a restart brought it back.
 	/// </para>
@@ -164,7 +164,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 			if (probe is null)
 			{
 				// Worth a line: from the map's side this is indistinguishable from a rider who
-				// never chose a pack — the source silently becomes OSM — and the two have very
+				// never chose a pack - the source silently becomes OSM - and the two have very
 				// different fixes.
 				DiagnosticLog.Write($"Map pack server: this device holds no archive for '{packId}'; the map falls back to OSM.");
 				return null;
@@ -180,7 +180,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 		// The query is ignored here (see PackIdFrom) and exists for the reader on the other side.
 		// pmtiles.js keys its archive cache on the URL and stores the pending header read in it
-		// before knowing whether it resolves — nothing removes a rejected one, so once a read of
+		// before knowing whether it resolves - nothing removes a rejected one, so once a read of
 		// this archive has failed at the network layer, every later read of the same URL is served
 		// that same rejection for the life of the page. A rebind onto the same port would come back
 		// to a working socket and a map that still could not read it, which is why re-resolving has
@@ -191,7 +191,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	}
 
 	/// <summary>
-	/// The address this server is answering on, or <c>null</c> when there is nothing behind it —
+	/// The address this server is answering on, or <c>null</c> when there is nothing behind it -
 	/// never bound, disposed, or a listener the accept loop has written off.
 	/// <para>
 	/// The last of those is the point. A cached URL outliving the port it names is invisible from
@@ -202,8 +202,8 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	private Uri? Live => _baseUri is { } uri && !_listenerFailed && !_disposed ? uri : null;
 
 	/// <summary>
-	/// Binds the listener and starts accepting, once. Concurrent callers — several maps opening at
-	/// the same moment — wait on one start rather than racing to bind two ports.
+	/// Binds the listener and starts accepting, once. Concurrent callers - several maps opening at
+	/// the same moment - wait on one start rather than racing to bind two ports.
 	/// <para>
 	/// Also the recovery path: a listener the accept loop gave up on, or one that no longer answers,
 	/// is replaced here rather than leaving the app with no offline map until it is restarted. The
@@ -212,7 +212,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	/// </para>
 	/// <para>
 	/// <strong>An existing listener is proven rather than assumed</strong>, which is why there is no
-	/// fast path around the gate. See <see cref="AnswersAsync"/> — a socket that has died quietly
+	/// fast path around the gate. See <see cref="AnswersAsync"/> - a socket that has died quietly
 	/// looks identical from here to one that is working.
 	/// </para>
 	/// </summary>
@@ -245,7 +245,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 				DiagnosticLog.Write(
 					$"Map pack server: {existing} accepted no probe within " +
-					$"{ProbeTimeoutMs.ToString(CultureInfo.InvariantCulture)} ms — the listener has gone quiet " +
+					$"{ProbeTimeoutMs.ToString(CultureInfo.InvariantCulture)} ms - the listener has gone quiet " +
 					"without ever failing an accept. Binding again.");
 
 				_listenerFailed = true;
@@ -253,7 +253,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 			int previousPort = 0;
 
-			// Reached only for a listener that has been written off — a healthy one returned above —
+			// Reached only for a listener that has been written off - a healthy one returned above -
 			// and both paths that write one off have already said so in the log.
 			if (_listener is { } stopped)
 			{
@@ -289,8 +289,8 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 		catch (SocketException exception)
 		{
 			// A phone that will not give us a loopback port. Nothing to say to the rider that they
-			// could act on — the map falls back to an online source, which is the same answer as a
-			// device holding no archive — but it is the whole diagnosis for whoever reads the log.
+			// could act on - the map falls back to an online source, which is the same answer as a
+			// device holding no archive - but it is the whole diagnosis for whoever reads the log.
 			DiagnosticLog.WriteError("binding the map pack server to a loopback port", exception);
 			return null;
 		}
@@ -302,8 +302,8 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 	/// <summary>
 	/// A listener on <paramref name="preferredPort"/> if it can be had, and on whatever the OS
-	/// offers otherwise. A port that is taken — by another process, or by the dead socket this is
-	/// replacing while it lingers — is not a reason to fail: an offline map on a new port beats no
+	/// offers otherwise. A port that is taken - by another process, or by the dead socket this is
+	/// replacing while it lingers - is not a reason to fail: an offline map on a new port beats no
 	/// offline map at all.
 	/// </summary>
 	/// <param name="preferredPort">The port to ask for, or <c>0</c> for any.</param>
@@ -341,7 +341,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	/// request rather than inferred from the absence of an exception.
 	/// <para>
 	/// <strong>This is the failure the accept loop cannot see.</strong> A listening socket the OS
-	/// tears down under a suspended app does not always fail an accept — often
+	/// tears down under a suspended app does not always fail an accept - often
 	/// <c>AcceptTcpClientAsync</c> simply never completes again. Nothing throws, so nothing is
 	/// counted and <see cref="Live"/> goes on handing out a dead port: a phone left overnight on a
 	/// ride screen fails every tile with <c>TypeError: Load failed</c>, re-resolving and switching
@@ -401,8 +401,8 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	/// fetch with nothing anywhere saying why.
 	/// </para>
 	/// <para>
-	/// A listener that really has gone — the OS closing the socket under a backgrounded app is the
-	/// realistic case — fails every time rather than once, so it is told apart by counting rather
+	/// A listener that really has gone - the OS closing the socket under a backgrounded app is the
+	/// realistic case - fails every time rather than once, so it is told apart by counting rather
 	/// than by exception type, and answered by writing the listener off so the next map binds a new
 	/// port.
 	/// </para>
@@ -440,7 +440,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 				consecutiveFailures++;
 
 				DiagnosticLog.Write(
-					$"Map pack server: accept on {_baseUri} failed ({DiagnosticLog.Summarise(exception)}) — " +
+					$"Map pack server: accept on {_baseUri} failed ({DiagnosticLog.Summarise(exception)}) - " +
 					$"{consecutiveFailures} in a row of {MaxConsecutiveAcceptFailures} allowed.");
 
 				// A disposed or unbound socket is not going to start working: it is the listener
@@ -497,7 +497,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 		catch (Exception exception) when (exception is IOException or OperationCanceledException or SocketException or ObjectDisposedException)
 		{
 			// A map that navigated away mid-tile, or the app closing. Ordinary one at a time, which
-			// is why the line is throttled — but a map that draws nothing while these arrive by the
+			// is why the line is throttled - but a map that draws nothing while these arrive by the
 			// hundred is a different thing entirely, and the count is what shows the difference.
 			_failures.Write($"Map pack server: a connection failed while being served ({DiagnosticLog.Summarise(exception)}).");
 		}
@@ -525,7 +525,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 			// which of the two it was. The log is allowed to know the difference: a URL carrying
 			// the wrong token is a map holding an address from a listener that has been replaced,
 			// which is worth being able to read rather than guess at.
-			_refusals.Write($"Map pack server: 404 for '{request.Method} {request.Path}' — that path is not this run's token and a pack.");
+			_refusals.Write($"Map pack server: 404 for '{request.Method} {request.Path}' - that path is not this run's token and a pack.");
 			await WriteStatusAsync(stream, 404, "Not Found", cancellationToken);
 			return;
 		}
@@ -534,7 +534,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 		if (archive is null)
 		{
-			_refusals.Write($"Map pack server: 404 for pack '{packId}' — this device no longer holds it.");
+			_refusals.Write($"Map pack server: 404 for pack '{packId}' - this device no longer holds it.");
 			await WriteStatusAsync(stream, 404, "Not Found", cancellationToken);
 			return;
 		}
@@ -550,10 +550,10 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 		if (Resolve(range, length) is not { } resolved)
 		{
 			// A PMTiles reader asking past the end of the archive means the file is shorter than
-			// its own directory says — a truncated download that passed the magic-byte check, or a
+			// its own directory says - a truncated download that passed the magic-byte check, or a
 			// version swapped underneath a reader. Neither is visible from the map's side.
 			_refusals.Write(
-				$"Map pack server: 416 for pack '{packId}' — asked for bytes " +
+				$"Map pack server: 416 for pack '{packId}' - asked for bytes " +
 				$"{range.First?.ToString(CultureInfo.InvariantCulture) ?? ""}-{range.Last?.ToString(CultureInfo.InvariantCulture) ?? ""} " +
 				$"of an archive that is {length.ToString(CultureInfo.InvariantCulture)} bytes.");
 
@@ -736,7 +736,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 	/// <summary>
 	/// Parses a single-range <c>bytes=</c> header. Multi-range requests are answered as if no range
-	/// was asked for, which RFC 9110 permits — a multipart response is a lot of machinery for
+	/// was asked for, which RFC 9110 permits - a multipart response is a lot of machinery for
 	/// something no PMTiles reader sends.
 	/// </summary>
 	private static (long? First, long? Last)? ParseRange(string value)
@@ -791,7 +791,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 	/// <summary>
 	/// The headers every response carries. The CORS trio is what makes this reachable from the
-	/// WebView at all — see the type's remarks — and <c>Accept-Ranges</c> is what tells a PMTiles
+	/// WebView at all - see the type's remarks - and <c>Accept-Ranges</c> is what tells a PMTiles
 	/// reader it may range-read rather than pulling the whole archive.
 	/// </summary>
 	private static void AppendCommonHeaders(StringBuilder headers) =>
@@ -874,7 +874,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 
 				if (read <= 0)
 				{
-					// The archive was truncated underneath us — a download replacing it, or a
+					// The archive was truncated underneath us - a download replacing it, or a
 					// deletion. The connection closes short, which the client reads as a failed
 					// tile rather than a corrupt one, and which says nothing at all on the phone
 					// unless it says it here.
@@ -900,7 +900,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 	/// One log line that will not flood the ring, however often it is written.
 	/// <para>
 	/// Every failure this server has is per tile, and a map draws twenty of those a pan. The line
-	/// that matters is the first one and the count that follows it — a thousand copies of the same
+	/// that matters is the first one and the count that follows it - a thousand copies of the same
 	/// sentence would push the rest of the ride out of <see cref="DiagnosticLog"/> and take the
 	/// evidence with it.
 	/// </para>
@@ -947,7 +947,7 @@ public sealed class LoopbackMapPackServer : IMapPackServer, IAsyncDisposable
 		}
 	}
 
-	/// <summary>Base64url without padding — safe in a URL path with no escaping.</summary>
+	/// <summary>Base64url without padding - safe in a URL path with no escaping.</summary>
 	private static string Base64Url(byte[] bytes) =>
 		Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 

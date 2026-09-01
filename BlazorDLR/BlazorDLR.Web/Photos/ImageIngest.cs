@@ -16,7 +16,7 @@ public enum PhotoProblem
 	NotAnImage,
 
 	/// <summary>
-	/// The header declares more pixels than <see cref="PhotoOptions.MaxDecodedPixels"/> allows —
+	/// The header declares more pixels than <see cref="PhotoOptions.MaxDecodedPixels"/> allows -
 	/// a decompression bomb. Refused before any bitmap exists.
 	/// </summary>
 	TooManyPixels,
@@ -50,7 +50,7 @@ public sealed record IngestOutcome(PhotoProblem Problem, IngestedImage? Image)
 /// <strong>The only place in this server that decodes an image (§16.4).</strong>
 /// <para>
 /// One ingest path is what makes metadata stripping non-optional rather than well-intentioned. A
-/// second decoder anywhere — a thumbnailer, an avatar endpoint, a "just check it is valid" helper —
+/// second decoder anywhere - a thumbnailer, an avatar endpoint, a "just check it is valid" helper -
 /// is a path that has to re-implement all of this and will not, so
 /// <c>ImageDecodingHappensInOnePlaceOnly</c> is a build failure to add one.
 /// </para>
@@ -65,7 +65,7 @@ public sealed record IngestOutcome(PhotoProblem Problem, IngestedImage? Image)
 public sealed class ImageIngest(IOptions<PhotoOptions> options)
 {
 	/// <summary>
-	/// Formats accepted, by content (§16.4). Anything else — an SVG, a TIFF, an ICO — is refused
+	/// Formats accepted, by content (§16.4). Anything else - an SVG, a TIFF, an ICO - is refused
 	/// rather than handed to a decoder we have no reason to trust with a stranger's bytes.
 	/// </summary>
 	private static readonly SKEncodedImageFormat[] Accepted =
@@ -114,7 +114,7 @@ public sealed class ImageIngest(IOptions<PhotoOptions> options)
 		}
 
 		// Applied here, and then thrown away with the rest of the metadata. Doing it in the other
-		// order — or not at all — is why photographs arrive sideways from iPhones.
+		// order - or not at all - is why photographs arrive sideways from iPhones.
 		using SKBitmap upright = Upright(decoded, codec.EncodedOrigin);
 
 		using SKBitmap full = Downscale(upright, _options.MaxDimension);
@@ -223,7 +223,7 @@ public sealed class ImageIngest(IOptions<PhotoOptions> options)
 
 	/// <summary>
 	/// Fits the long edge inside <paramref name="longEdge"/>, preserving the aspect ratio. An
-	/// image already smaller is copied rather than enlarged — upscaling a photograph invents
+	/// image already smaller is copied rather than enlarged - upscaling a photograph invents
 	/// detail and costs storage to do it.
 	/// </summary>
 	private static SKBitmap Downscale(SKBitmap source, int longEdge)
@@ -253,13 +253,13 @@ public sealed class ImageIngest(IOptions<PhotoOptions> options)
 	/// <para>
 	/// <c>SKBitmap.Copy</c> would be the obvious call and is the wrong one: it preserves the
 	/// decoded image's <c>SKColorSpace</c>, and the JPEG encoder then writes that out as an ICC
-	/// profile in an <c>APP2</c> segment. An ICC profile is metadata — it can name the device that
-	/// produced it — so a file carrying one is not the metadata-free file §16.4 promises.
+	/// profile in an <c>APP2</c> segment. An ICC profile is metadata - it can name the device that
+	/// produced it - so a file carrying one is not the metadata-free file §16.4 promises.
 	/// </para>
 	/// <para>
 	/// It is worth knowing <em>which</em> images took that path: the ones needing neither rotation
 	/// nor downscaling, because every other route already builds its target from an
-	/// <see cref="SKImageInfo"/> with no colour space. That is the small, upright photograph — the
+	/// <see cref="SKImageInfo"/> with no colour space. That is the small, upright photograph - the
 	/// ordinary case, and the one a spot check is least likely to look at.
 	/// </para>
 	/// </summary>

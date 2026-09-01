@@ -13,7 +13,7 @@ namespace DLR.UI.Tests.Components;
 /// (§4.5 v0.21). Two integration properties that live on the component and do not
 /// require the JS module to load:
 /// <list type="bullet">
-///   <item>InitAsync is called exactly once even across re-renders — a base map that
+///   <item>InitAsync is called exactly once even across re-renders - a base map that
 ///     initialises twice would double-bind DOM handlers.</item>
 ///   <item>Route / Markers / ShowUserLocation reach <c>InitAsync</c>'s options exactly
 ///     as the caller passed them; the SkiaMapOverlay picks up the same values via the
@@ -21,7 +21,7 @@ namespace DLR.UI.Tests.Components;
 /// </list>
 /// The SkiaMapOverlay itself renders in a live browser only (its <c>SKCanvasView</c>
 /// reaches for <c>System.Runtime.InteropServices.JavaScript</c>). These tests force
-/// the stated-error branch so the overlay never mounts — the assertion is on what
+/// the stated-error branch so the overlay never mounts - the assertion is on what
 /// the fake interop observed before the failure.
 /// </summary>
 public sealed class RideMapForwardTests : BunitContext
@@ -33,7 +33,7 @@ public sealed class RideMapForwardTests : BunitContext
 	{
 		FakeMapInterop map = new()
 		{
-			// Force stated-error so Skia never mounts — but Init still fires first.
+			// Force stated-error so Skia never mounts - but Init still fires first.
 			InitException = new InvalidOperationException("Stubbed."),
 			// Wrap the fake so we can observe InitAsync's MapOptions argument.
 		};
@@ -52,7 +52,7 @@ public sealed class RideMapForwardTests : BunitContext
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		wrapped.LastOptions!.ShowUserLocation.ShouldBeTrue(
-			"the ShowUserLocation flag must reach the base-map SDK — the platform's blue dot depends on it.");
+			"the ShowUserLocation flag must reach the base-map SDK - the platform's blue dot depends on it.");
 		wrapped.LastOptions.Camera.Latitude.ShouldBe(-33.868);
 		wrapped.LastOptions.Camera.Longitude.ShouldBe(151.209);
 	}
@@ -73,7 +73,7 @@ public sealed class RideMapForwardTests : BunitContext
 		component.WaitForAssertion(() => wrapped.InitCount.ShouldBe(1),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Change a parameter — the component re-renders but must not re-init.
+		// Change a parameter - the component re-renders but must not re-init.
 		component.Render(parameters => parameters
 			.Add(p => p.Camera, new MapCamera(0, 0, 5)));
 
@@ -105,14 +105,14 @@ public sealed class RideMapForwardTests : BunitContext
 
 		component.WaitForAssertion(
 			() => map.Cameras.ShouldContain(moved,
-				"a camera set during init must reach the base map — the alternative is a map " +
+				"a camera set during init must reach the base map - the alternative is a map " +
 				"stuck on whatever it happened to open with."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
 	/// An <see cref="IMapInterop"/> whose <c>InitAsync</c> hangs until the test releases it, and
-	/// which never announces a viewport — so <c>SkiaMapOverlay</c>, browser-only, never mounts.
+	/// which never announces a viewport - so <c>SkiaMapOverlay</c>, browser-only, never mounts.
 	/// </summary>
 	private sealed class SlowInitMapInterop : IMapInterop
 	{
@@ -133,7 +133,7 @@ public sealed class RideMapForwardTests : BunitContext
 		/// <summary>A map that never finishes attaching is never gestured at either.</summary>
 		public event Action<MapGesture>? Gestured
 		{
-			add { /* nothing to pan or turn — InitAsync has not returned. */ }
+			add { /* nothing to pan or turn - InitAsync has not returned. */ }
 			remove { /* symmetric no-op. */ }
 		}
 
@@ -171,7 +171,7 @@ public sealed class RideMapForwardTests : BunitContext
 
 		public ValueTask DisposeAsync(CancellationToken cancellationToken = default)
 		{
-			// Nothing to release, and the events exist only to satisfy the interface — this fake
+			// Nothing to release, and the events exist only to satisfy the interface - this fake
 			// deliberately never raises any of them.
 			_ = ViewportChanged;
 			_ = Clicked;
@@ -208,7 +208,7 @@ public sealed class RideMapForwardTests : BunitContext
 	{
 		// This is what makes the preview on the settings screen a preview: the state is scoped, so
 		// the page writing it and the map reading it are the same instance. Restyling keeps the
-		// camera — rebuilding would throw the rider back to a default view on every edit.
+		// camera - rebuilding would throw the rider back to a default view on every edit.
 		FakeMapInterop map = new();
 		Services.AddSingleton<IMapInterop>(map);
 		Services.AddRideMapServices();
@@ -283,7 +283,7 @@ public sealed class RideMapForwardTests : BunitContext
 	[Fact]
 	public void RepeatedTileErrors_ShowTheFirstRatherThanFlickering()
 	{
-		// One unreachable source raises an error per tile — a screenful is twenty a second.
+		// One unreachable source raises an error per tile - a screenful is twenty a second.
 		FakeMapInterop map = new();
 		Services.AddSingleton<IMapInterop>(map);
 		Services.AddRideMapServices();
@@ -308,7 +308,7 @@ public sealed class RideMapForwardTests : BunitContext
 	public void AnOfflinePackThatCannotBeRead_IsResolvedAgainOnce()
 	{
 		// A pack's archive is served over loopback, and the URL in the style carries a port the OS
-		// assigned to this run. That address can stop being true while the map is still on screen —
+		// assigned to this run. That address can stop being true while the map is still on screen -
 		// a phone that suspends the app long enough for the listener to go takes every tile with it,
 		// and the map never comes back on its own. Asking for the source again re-resolves the URL
 		// and restarts the server, which is why this is worth one attempt before the banner.
@@ -322,7 +322,7 @@ public sealed class RideMapForwardTests : BunitContext
 
 		component.WaitForAssertion(() => map.InitCount.ShouldBe(1), timeout: TimeSpan.FromSeconds(3));
 
-		map.RaiseError("Load failed — source: protomaps");
+		map.RaiseError("Load failed - source: protomaps");
 
 		component.WaitForAssertion(
 			() => map.Sources.ShouldBe([MapSource.OfflinePack("au-qld")]),
@@ -330,8 +330,8 @@ public sealed class RideMapForwardTests : BunitContext
 
 		// And once only: a pack that is genuinely unreadable would otherwise restyle the map on
 		// every failed tile for as long as the screen is open.
-		map.RaiseError("Load failed — source: protomaps");
-		map.RaiseError("Load failed — source: protomaps");
+		map.RaiseError("Load failed - source: protomaps");
+		map.RaiseError("Load failed - source: protomaps");
 
 		component.WaitForAssertion(
 			() => component.Markup.ShouldContain("Map tiles unavailable"),
@@ -368,7 +368,7 @@ public sealed class RideMapForwardTests : BunitContext
 
 	/// <summary>
 	/// The map-pack picker opens a world map, and the source stored on the device may be an offline
-	/// pack — one region and then nothing, on the one screen where the rest of the world is the
+	/// pack - one region and then nothing, on the one screen where the rest of the world is the
 	/// point. So a caller can hand this map a source of its own.
 	/// </summary>
 	[Fact]
@@ -418,7 +418,7 @@ public sealed class RideMapForwardTests : BunitContext
 	}
 
 	/// <summary>
-	/// Changing what the caller asked for restyles, on the same terms a device change does — which
+	/// Changing what the caller asked for restyles, on the same terms a device change does - which
 	/// is how the picker answers a tile source that will not draw by falling back to OpenStreetMap.
 	/// </summary>
 	[Fact]
@@ -449,7 +449,7 @@ public sealed class RideMapForwardTests : BunitContext
 
 	/// <summary>
 	/// The complaint reaches the caller as well as the screen. A screen whose whole interface is
-	/// drawn on the map — the pack picker — has somewhere better to go than a message about it.
+	/// drawn on the map - the pack picker - has somewhere better to go than a message about it.
 	/// </summary>
 	[Fact]
 	public void TheFirstTileError_IsToldToTheCallerAsWellAsShown()

@@ -6,7 +6,7 @@ public interface IFormFactor
 	public string GetPlatform();
 
 	/// <summary>
-	/// What this installation should be called in Settings → Signed-in devices — "Pixel 8", say
+	/// What this installation should be called in Settings → Signed-in devices - "Pixel 8", say
 	/// (§7.10). <c>null</c> when the host has nothing to offer, which leaves the row unnamed
 	/// rather than inventing a label nobody would recognise.
 	/// </summary>

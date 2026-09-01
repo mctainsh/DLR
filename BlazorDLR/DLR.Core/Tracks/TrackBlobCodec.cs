@@ -8,7 +8,7 @@ namespace DLR.Core.Tracks;
 /// How a track's points are written to a blob (§8, §9.1).
 /// <para>
 /// <strong>Lossless, deliberately.</strong> §15.5's points endpoint sends the editor an encoded
-/// polyline, which quantises coordinates to about a tenth of a metre — fine there, because the
+/// polyline, which quantises coordinates to about a tenth of a metre - fine there, because the
 /// editor only ever sends back <em>indices</em>. The blob is different: it is what an edit
 /// re-reads and re-stats from, and a format that rounded coordinates would make
 /// <c>Edit_NoOpEdit_ProducesIdenticalStats</c> false by construction. A track's ascent must not
@@ -52,7 +52,7 @@ public static class TrackBlobCodec
 			writer.Write(point.Longitude);
 
 			// Presence flags rather than sentinel values. A missing elevation is not zero and
-			// a missing timestamp is not the epoch — §15.1 is emphatic that null and zero are
+			// a missing timestamp is not the epoch - §15.1 is emphatic that null and zero are
 			// different claims, and a sentinel is how they stop being.
 			writer.Write(point.ElevationM is not null);
 			writer.Write(point.ElevationM ?? 0);
@@ -119,7 +119,7 @@ public static class TrackBlobCodec
 	/// A stable hash over the points themselves (§15.3).
 	/// <para>
 	/// Computed from the <em>uncompressed</em> encoding, so it identifies a track's content
-	/// rather than a particular compressor's output — the same ride hashed the same way
+	/// rather than a particular compressor's output - the same ride hashed the same way
 	/// whichever version of gzip ran. This is what lets an import say "you imported this on
 	/// 3 June" and let the rider decide.
 	/// </para>

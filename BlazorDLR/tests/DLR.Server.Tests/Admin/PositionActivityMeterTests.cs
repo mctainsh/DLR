@@ -7,8 +7,8 @@ namespace DLR.Server.Tests.Admin;
 /// The in-memory counter behind the lifetime GPS total and the per-minute graph (§14.6).
 /// <para>
 /// No database and no host: this is the one piece of the administration feature that is pure
-/// arithmetic over a clock, and the two things it has to get right — that a drained count is not
-/// counted twice, and that a slot from yesterday reads as zero rather than as today's traffic —
+/// arithmetic over a clock, and the two things it has to get right - that a drained count is not
+/// counted twice, and that a slot from yesterday reads as zero rather than as today's traffic -
 /// are both invisible from an endpoint test.
 /// </para>
 /// </summary>
@@ -40,7 +40,7 @@ public sealed class PositionActivityMeterTests
 	}
 
 	/// <summary>
-	/// The flush puts the counts back when the write fails, because it has the only copy — and
+	/// The flush puts the counts back when the write fails, because it has the only copy - and
 	/// putting them back must add to whatever arrived in the meantime rather than replace it.
 	/// </summary>
 	[Fact]
@@ -118,7 +118,7 @@ public sealed class PositionActivityMeterTests
 
 		window.Count.ShouldBe(PositionActivityMeter.WindowMinutes);
 
-		// The first column is 1 439 minutes before the minute in progress — the graph's own axis
+		// The first column is 1 439 minutes before the minute in progress - the graph's own axis
 		// labels are drawn by adding hours to this, so an hour out here is an hour out on screen.
 		windowStart.ShouldBe(
 			Start.AddMinutes(-(PositionActivityMeter.WindowMinutes - 1)),

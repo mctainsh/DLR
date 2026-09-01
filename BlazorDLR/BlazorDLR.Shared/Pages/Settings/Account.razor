@@ -5,14 +5,14 @@
 @using DLR.Core.Contracts.Identity
 @inject IApiClient Api
 
-<PageTitle>Account — Dumb Luck Routes</PageTitle>
+<PageTitle>Account - Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium form-page account">
 	<PageNav Title="Account" BackHref="/settings" BackLabel="Back to settings" />
 
 	@*
 		The recovery address (§7.7). First on the page because this is where "add an email" from
-		Profile lands — a link about setting an address that opened on a password form was sending
+		Profile lands - a link about setting an address that opened on a password form was sending
 		people to the wrong control.
 	*@
 	<section id="email">
@@ -138,7 +138,7 @@
 	<section>
 		<h2>Delete or export</h2>
 		<p>
-			Downloading your data and deleting the account both live on their own page —
+			Downloading your data and deleting the account both live on their own page -
 			they are the two irreversible things and they deserve their own screen.
 		</p>
 		<a class="button" href="/settings/data">Open data &amp; export</a>
@@ -152,7 +152,7 @@
 	private ApiError? _passwordError;
 	private bool _busy;
 
-	/// <summary>What the account holds now — the address on file and whether it has been confirmed.</summary>
+	/// <summary>What the account holds now - the address on file and whether it has been confirmed.</summary>
 	private OwnProfile? _profile;
 
 	private string _email = string.Empty;
@@ -177,7 +177,7 @@
 			// there yet (§7.7).
 			_profile = await Api.GetProfileAsync();
 			_emailStatus =
-				"Saved. Check that inbox for a confirmation link — it works for 24 hours, and until " +
+				"Saved. Check that inbox for a confirmation link - it works for 24 hours, and until " +
 				"you use it the address cannot recover your account.";
 			_email = string.Empty;
 		}

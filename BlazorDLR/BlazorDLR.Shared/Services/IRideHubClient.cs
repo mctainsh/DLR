@@ -1,3 +1,4 @@
+using DLR.Core.Contracts.Announcements;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
@@ -17,7 +18,7 @@ public interface IRideHubClient : IAsyncDisposable
 	bool IsConnected { get; }
 
 	/// <summary>
-	/// <see cref="IsConnected"/> may have changed — the connection came up, dropped, or started
+	/// <see cref="IsConnected"/> may have changed - the connection came up, dropped, or started
 	/// trying again.
 	/// <para>
 	/// A property with no event is a property a screen can only read at the moment it happens to
@@ -56,11 +57,11 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <summary>Unsubscribe from a route's thread.</summary>
 	Task LeaveTrackAsync(Guid trackId, CancellationToken cancellationToken = default);
 
-	/// <summary>Publish this device's position — one push, fanned out to every ride the rider is live in (§5.7).</summary>
+	/// <summary>Publish this device's position - one push, fanned out to every ride the rider is live in (§5.7).</summary>
 	Task PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// Say that this rider has entered — or left — their own private area (§10.1).
+	/// Say that this rider has entered - or left - their own private area (§10.1).
 	/// <para>
 	/// Sent <em>instead of</em> a position, never alongside one: a fix from inside the circle is
 	/// dropped on the device, and this one bit goes in its place. It takes the rider off every other
@@ -85,7 +86,7 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <summary>
 	/// A route was attached to or detached from the ride (§5.4).
 	/// <para>
-	/// Carries the ride, not the routes — the receiver refetches, because the lines are the
+	/// Carries the ride, not the routes - the receiver refetches, because the lines are the
 	/// largest thing a ride owns and they change rarely. Replaces the single-route
 	/// <c>RouteUpdated(rideId, trackId)</c> this used to declare: a ride carries a set of
 	/// routes now, so "the route was replaced" is no longer a thing that can happen.
@@ -93,7 +94,7 @@ public interface IRideHubClient : IAsyncDisposable
 	/// </summary>
 	event Action<Guid>? RoutesChanged;
 
-	/// <summary>A pending request arrived — organiser only (§5.2).</summary>
+	/// <summary>A pending request arrived - organiser only (§5.2).</summary>
 	event Action<Guid, JoinRequestSummary>? JoinRequestReceived;
 
 	/// <summary>An organiser decided on a request the caller made.</summary>
@@ -114,10 +115,10 @@ public interface IRideHubClient : IAsyncDisposable
 	/// <remarks>
 	/// No thread id is carried because the SignalR group already scopes every message to the
 	/// adventure or the route the client joined via <see cref="JoinRideAsync"/> or
-	/// <see cref="JoinTrackAsync"/>. A subscriber that is watching both — which nothing does
-	/// today, but the events are process-wide — tells them apart by the <c>GroupRideId</c> and
+	/// <see cref="JoinTrackAsync"/>. A subscriber that is watching both - which nothing does
+	/// today, but the events are process-wide - tells them apart by the <c>GroupRideId</c> and
 	/// <c>TrackId</c> on the payload. Matches the server's
-	/// <c>IRideClient.CommentPosted/Edited/Removed/PinChanged</c> exactly — a mismatch there
+	/// <c>IRideClient.CommentPosted/Edited/Removed/PinChanged</c> exactly - a mismatch there
 	/// used to leave subscribers silent because SignalR could not bind the incoming payload.
 	/// </remarks>
 	event Action<CommentDto>? CommentPosted;
@@ -138,13 +139,23 @@ public interface IRideHubClient : IAsyncDisposable
 	event Action<Guid, Guid, bool>? MemberSharingChanged;
 
 	/// <summary>
-	/// A member entered or left their own private area (§10.1, §5.6) — ride, rider, and whether they
+	/// A member entered or left their own private area (§10.1, §5.6) - ride, rider, and whether they
 	/// are now private.
 	/// <para>
 	/// The payload is that one bit and nothing else. While it is set the ride holds no position for
-	/// them at all, so this is the difference between a member row that reads "no signal" — wait at
-	/// the junction — and one that reads "private", which is somebody at home who will be along.
+	/// them at all, so this is the difference between a member row that reads "no signal" - wait at
+	/// the junction - and one that reads "private", which is somebody at home who will be along.
 	/// </para>
 	/// </summary>
 	event Action<Guid, Guid, bool>? MemberPrivacyChanged;
+
+	/// <summary>
+	/// A message from whoever runs this server arrived (§20.3).
+	/// <para>
+	/// The only event here that belongs to no ride and no route, so it is raised on every
+	/// connection rather than to a group - which is why the connection this fires on is one the app
+	/// holds for its whole life rather than one a ride screen opened.
+	/// </para>
+	/// </summary>
+	event Action<AnnouncementDto>? AnnouncementPosted;
 }

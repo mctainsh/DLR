@@ -8,10 +8,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DLR.UI.Tests.Components;
 
 /// <summary>
-/// What a map says when it is drawing ground its tiles do not cover — see
+/// What a map says when it is drawing ground its tiles do not cover - see
 /// <see cref="IMapInterop.CoverageChanged"/> for why that failure carries no error with it.
 /// <para>
-/// The banner is <c>RideMap</c>'s, so it reaches every screen with a map on it at once — the two
+/// The banner is <c>RideMap</c>'s, so it reaches every screen with a map on it at once - the two
 /// settings screens and the live ride among them.
 /// </para>
 /// </summary>
@@ -34,7 +34,7 @@ public sealed class RideMapCoverageTests : BunitContext
 	}
 
 	/// <summary>
-	/// The warning names the zoom, and it is not there until the base map has said something — the
+	/// The warning names the zoom, and it is not there until the base map has said something - the
 	/// archive's box arrives a round trip after the style, and a map that opened on a pack would
 	/// otherwise flash the banner every time.
 	/// </summary>
@@ -86,7 +86,7 @@ public sealed class RideMapCoverageTests : BunitContext
 
 		component.WaitForAssertion(
 			() => component.FindAll(".dlr-map-no-tiles").Count.ShouldBe(0,
-				"the rider is back over ground the pack holds — there is nothing left to warn about."),
+				"the rider is back over ground the pack holds - there is nothing left to warn about."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 

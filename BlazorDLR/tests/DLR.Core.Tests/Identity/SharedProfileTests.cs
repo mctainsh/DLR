@@ -7,7 +7,7 @@ namespace DLR.Core.Tests.Identity;
 /// The one factory that decides what a rider may see of another rider (§7.3).
 /// <para>
 /// Tested here rather than through an endpoint because there is nothing to reach for: no
-/// database, no HTTP, no ride. That is the whole design — the rule is a pure function of the
+/// database, no HTTP, no ride. That is the whole design - the rule is a pure function of the
 /// owner's switches and one boolean about the viewer, so it can be exercised exhaustively and
 /// cheaply, and there is no code path that reaches the wire without going through it.
 /// </para>
@@ -61,7 +61,7 @@ public sealed class SharedProfileTests
 
 	/// <summary>
 	/// Emitting <c>phone: null</c> for withheld while omitting it for absent would leak the
-	/// <em>existence</em> of a phone number — a small leak, and a completely avoidable one.
+	/// <em>existence</em> of a phone number - a small leak, and a completely avoidable one.
 	/// </summary>
 	[Fact]
 	public void Profile_WithheldAndUnrecorded_AreIndistinguishableOnTheWire()
@@ -83,7 +83,7 @@ public sealed class SharedProfileTests
 			SharedProfile.For(unrecorded, viewerSharesActiveRide: true));
 
 		withheldJson.ShouldBe(unrecordedJson,
-			"one traveller has a phone number and is not sharing it, the other has none at all — " +
+			"one traveller has a phone number and is not sharing it, the other has none at all - " +
 			"and the wire must not be able to tell you which");
 
 		withheldJson.ShouldNotContain("PhoneNumber");

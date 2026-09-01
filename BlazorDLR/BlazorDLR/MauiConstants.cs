@@ -6,9 +6,9 @@ namespace BlazorDLR;
 /// A phone app has no <c>appsettings.json</c> shipped alongside it the way the web
 /// client does, so the "base URL" that would live in configuration lives here as a
 /// constant instead. An environment variable named <c>DLR_API_BASE</c> or
-/// <c>DLR_HUB_URL</c> — read at startup — overrides these for local development and
+/// <c>DLR_HUB_URL</c> - read at startup - overrides these for local development and
 /// CI. <strong>This file carries only URLs, and since v0.24 there is no map credential
-/// left anywhere on the client to tempt anyone otherwise</strong> — MapLibre over OSM
+/// left anywhere on the client to tempt anyone otherwise</strong> - MapLibre over OSM
 /// needs no key on any host (§4.5, §14.2).
 /// </para>
 /// </summary>
@@ -19,7 +19,7 @@ internal static class MauiConstants
 	/// Android and iOS ship pointing at production, so an installed build works on a
 	/// real device with no configuration. Other MAUI targets (Windows / Mac Catalyst
 	/// stubs) stay on the loopback address they build against. To develop against a
-	/// local server, set <c>DLR_API_BASE</c> — <c>http://10.0.2.2:5005/</c> from the
+	/// local server, set <c>DLR_API_BASE</c> - <c>http://10.0.2.2:5005/</c> from the
 	/// Android emulator (its shortcut to the host machine), <c>http://127.0.0.1:5005/</c>
 	/// from the iOS simulator (it shares a kernel with the host).
 	/// </summary>

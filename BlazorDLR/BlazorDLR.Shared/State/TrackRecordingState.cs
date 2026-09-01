@@ -24,7 +24,7 @@ namespace BlazorDLR.Shared.State;
 /// <strong>Written through, not held.</strong> The list is in memory and flushed to the device
 /// store every <see cref="FlushEveryPoints"/> points and on every deliberate stop. Writing on
 /// every point would gzip the whole ride once a second; writing only at the end would lose the
-/// ride to the one thing that actually happens — Android reclaiming the app mid-tour.
+/// ride to the one thing that actually happens - Android reclaiming the app mid-tour.
 /// </para>
 /// </summary>
 public sealed class TrackRecordingState
@@ -40,7 +40,7 @@ public sealed class TrackRecordingState
 
 	/// <summary>
 	/// How many appended points force a flush. At the default 10 m interval a rider at 60 km/h
-	/// produces one about every 0.6 s, so this is a write every ten seconds or so — cheap against
+	/// produces one about every 0.6 s, so this is a write every ten seconds or so - cheap against
 	/// how much of a ride it is willing to lose.
 	/// </summary>
 	private const int FlushEveryPoints = 16;
@@ -110,7 +110,7 @@ public sealed class TrackRecordingState
 	/// there is none.
 	/// <para>
 	/// Computed on demand and cached until the next point, because <see cref="TrackStats.From"/>
-	/// walks the whole track — recomputing it per appended point would turn a day's recording into
+	/// walks the whole track - recomputing it per appended point would turn a day's recording into
 	/// quadratic work on the one device that has the least to spare.
 	/// </para>
 	/// </summary>
@@ -138,7 +138,7 @@ public sealed class TrackRecordingState
 	public bool IsFull => PointCount >= TrackRecording.MaxPoints;
 
 	/// <summary>
-	/// Reads the switch, the interval and any track left over from the last run. Idempotent — the
+	/// Reads the switch, the interval and any track left over from the last run. Idempotent - the
 	/// settings screen and the receiver both call it without coordinating.
 	/// <para>
 	/// Callers must run this <em>after</em> first render on the web: the browser store is behind JS
@@ -154,7 +154,7 @@ public sealed class TrackRecordingState
 		}
 
 		// Set before the reads so two callers do not start two round trips, on
-		// LocationUpdateRateState's reasoning — nothing here fails closed, so an in-flight read costs at
+		// LocationUpdateRateState's reasoning - nothing here fails closed, so an in-flight read costs at
 		// worst a first fix landing on the shipped defaults.
 		_loaded = true;
 
@@ -188,7 +188,7 @@ public sealed class TrackRecordingState
 
 	/// <summary>
 	/// Turns recording on or off for this device. Turning it off keeps whatever has been recorded
-	/// so far — the rider asked to stop adding to a track, not to lose one.
+	/// so far - the rider asked to stop adding to a track, not to lose one.
 	/// </summary>
 	/// <param name="enabled">The rider's choice.</param>
 	/// <param name="cancellationToken">Cancels the write.</param>
@@ -356,7 +356,7 @@ public sealed class TrackRecordingState
 		}
 
 		// The area is read rather than assumed: PrivateAreaState.HidesLocation answers "hide"
-		// until it has been read, which is right for a fix about to be broadcast and wrong here —
+		// until it has been read, which is right for a fix about to be broadcast and wrong here -
 		// it would silently delete the whole ride.
 		await _privateAreas.LoadAsync(cancellationToken);
 

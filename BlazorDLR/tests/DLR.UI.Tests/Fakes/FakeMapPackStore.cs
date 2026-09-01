@@ -4,7 +4,7 @@ namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
 /// An in-memory <see cref="IMapPackStore"/>. Stands in for the phone's file-backed store without
-/// putting a few hundred megabytes on a build agent — the archives here are a few bytes each, and
+/// putting a few hundred megabytes on a build agent - the archives here are a few bytes each, and
 /// the server under test cannot tell the difference because all it does is seek and copy.
 /// </summary>
 public sealed class FakeMapPackStore : IMapPackStore
@@ -14,7 +14,7 @@ public sealed class FakeMapPackStore : IMapPackStore
 	/// <summary>Whether this store holds anything. Settable, so a test can play the browser (§18.6).</summary>
 	public bool IsSupported { get; set; } = true;
 
-	/// <summary>How many streams have been handed out and not yet disposed — a leak check.</summary>
+	/// <summary>How many streams have been handed out and not yet disposed - a leak check.</summary>
 	public int OpenStreams => _open;
 
 	private int _open;
@@ -43,7 +43,7 @@ public sealed class FakeMapPackStore : IMapPackStore
 
 		Interlocked.Increment(ref _open);
 
-		// Seekable, which is the property the interface actually requires — PMTiles is read by
+		// Seekable, which is the property the interface actually requires - PMTiles is read by
 		// range, and a forward-only stream would mean reading the whole archive to serve a tile
 		// in the middle of it.
 		return ValueTask.FromResult<Stream?>(new CountingMemoryStream(content, () => Interlocked.Decrement(ref _open)));
@@ -88,7 +88,7 @@ public sealed class FakeMapPackStore : IMapPackStore
 			_partials[key] = partial;
 		}
 
-		// Appending, like the real store's FileMode.Append — and left undisposed by the caller's
+		// Appending, like the real store's FileMode.Append - and left undisposed by the caller's
 		// `await using` without losing the bytes, which a plain MemoryStream survives.
 		partial.Seek(0, SeekOrigin.End);
 		return ValueTask.FromResult<Stream?>(new NonClosingStream(partial));
@@ -125,7 +125,7 @@ public sealed class FakeMapPackStore : IMapPackStore
 		ValueTask.FromResult(Versions.TryGetValue(packId, out int version) ? version + 1 : 1);
 
 	/// <summary>
-	/// Wraps the backing buffer so the caller's <c>await using</c> does not close it — the real
+	/// Wraps the backing buffer so the caller's <c>await using</c> does not close it - the real
 	/// store hands out a fresh <see cref="FileStream"/> per open over a file that persists, and a
 	/// <see cref="MemoryStream"/> that closed would lose everything a resume is meant to keep.
 	/// </summary>

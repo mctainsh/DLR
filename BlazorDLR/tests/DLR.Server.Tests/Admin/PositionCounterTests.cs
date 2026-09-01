@@ -16,7 +16,7 @@ namespace DLR.Server.Tests.Admin;
 /// <para>
 /// The number exists because the rows do not: positions are swept as soon as the ride carrying
 /// them stops being live, so a count of <c>rider_position</c> answers a different question. These
-/// tests are about the two properties that gives the counter — that it counts a <em>fix</em>
+/// tests are about the two properties that gives the counter - that it counts a <em>fix</em>
 /// rather than a flushed row, and that it survives the sweep that deletes what it counted.
 /// </para>
 /// </summary>
@@ -29,7 +29,7 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 	/// <para>
 	/// The flush upserts one row per rider per ride and coalesces a whole period into it, so a
 	/// counter that incremented per written row would report a rider publishing at 1 Hz as one fix
-	/// every ten seconds — an order of magnitude out, and silently.
+	/// every ten seconds - an order of magnitude out, and silently.
 	/// </para>
 	/// </summary>
 	[Fact]
@@ -57,7 +57,7 @@ public sealed class PositionCounterTests(PostgresFixture postgres)
 			counted.ShouldBe(3);
 
 			// And one position held, which is the thing that makes the counter necessary rather
-			// than redundant — the two numbers are deliberately different, and since v0.33 they
+			// than redundant - the two numbers are deliberately different, and since v0.33 they
 			// do not even live in the same place.
 			app.PositionCount().ShouldBe(1);
 		}

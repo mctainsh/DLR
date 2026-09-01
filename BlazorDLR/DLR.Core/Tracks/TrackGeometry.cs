@@ -39,7 +39,7 @@ public sealed class TrackGeometry
 	public int SegmentCount => _segmentStarts.Length;
 
 	/// <summary>
-	/// Consecutive pairs within a segment — every pair a distance or a duration may be measured
+	/// Consecutive pairs within a segment - every pair a distance or a duration may be measured
 	/// across, and none that spans a break.
 	/// </summary>
 	public IEnumerable<(TrackPoint From, TrackPoint To)> Legs()

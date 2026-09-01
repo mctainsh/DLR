@@ -13,7 +13,7 @@
 @implements IAsyncDisposable
 
 @*
-	Ride members live (§5.3, §5.4, §5.6) — who is out there, and what each of their positions
+	Ride members live (§5.3, §5.4, §5.6) - who is out there, and what each of their positions
 	is doing right now.
 
 	It is the rail's third destination, in the slot the group rides list used to hold. That
@@ -25,7 +25,7 @@
 	The list itself is LiveMemberList, which is also the whole of what used to be the ride
 	info page's "Members" panel. That panel gave a name and one of three words; this gives
 	the same three words plus the age of the last fix, the range, the distance along the
-	route and the gap back from the leader — a strict superset, so keeping both would have
+	route and the gap back from the leader - a strict superset, so keeping both would have
 	been one screen a rider has to visit twice to learn less.
 
 	Same RideSession as the live map and the info page (§5.3): one snapshot, the same hub
@@ -33,7 +33,7 @@
 	refetch.
 *@
 
-<PageTitle>Members — @Title — Dumb Luck Routes</PageTitle>
+<PageTitle>Members - @Title - Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium ride-members">
 	@* Outside the load branches: the way back to the map has to be there while the ride is
@@ -62,7 +62,7 @@
 		{
 			<p class="cached" role="status">
 				<i class="fa fa-cloud-arrow-down" aria-hidden="true"></i>
-				Offline — this adventure as it was @CachedAge. Nothing below is moving.
+				Offline - this adventure as it was @CachedAge. Nothing below is moving.
 			</p>
 		}
 		else if (_session.Error is { } problem)
@@ -73,7 +73,7 @@
 		@*
 			OwnFix is this device's own reading and it fills exactly one hole: the reader's own row
 			while their private area has emptied it (§10.1). Everybody else's row is the ride's answer
-			and only the ride's — a list drawn from two sources per rider would be two lists.
+			and only the ride's - a list drawn from two sources per rider would be two lists.
 		*@
 		<LiveMemberList Members="ride.Members"
 						Positions="_session.Positions"
@@ -86,13 +86,13 @@
 		@if (MyPoint is null)
 		{
 			@*
-				Range is measured from the reader, and this device does not know where that is —
+				Range is measured from the reader, and this device does not know where that is -
 				a browser, which has no receiver at all (§18.6), or a phone whose first fix has
 				not landed. Said once, under the list, rather than leaving a column of em dashes
 				to be read as a fault in everybody else's positions.
 			*@
 			<p class="hint">
-				Range is measured from where you are, and this device does not know that yet —
+				Range is measured from where you are, and this device does not know that yet -
 				turn sharing on from the adventure's info page, or wait for the first fix.
 			</p>
 		}
@@ -113,7 +113,7 @@
 	/// <summary>
 	/// How often the ages are redrawn. The fixes themselves arrive on the hub about once every
 	/// five seconds (§5.3) and re-render this page when they do; this is for the seconds in
-	/// between, on the rows where nothing is arriving — which are the rows a rider is reading
+	/// between, on the rows where nothing is arriving - which are the rows a rider is reading
 	/// this screen to find.
 	/// </summary>
 	private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(1);
@@ -128,13 +128,13 @@
 	private MemberSort _sort = MemberSort.LastActive;
 
 	/// <summary>
-	/// Redraws the ages between fixes. Started after first render — there is no clock worth
-	/// ticking during the prerender pass — and disposed with the page.
+	/// Redraws the ages between fixes. Started after first render - there is no clock worth
+	/// ticking during the prerender pass - and disposed with the page.
 	/// </summary>
 	private ITimer? _tick;
 
 	/// <summary>
-	/// This device's receiver, or <c>null</c> on a host that has none — both browsers (§18.6).
+	/// This device's receiver, or <c>null</c> on a host that has none - both browsers (§18.6).
 	/// Resolved rather than <c>@@inject</c>ed for the reason the other two ride screens give: the
 	/// web hosts register no receiver at all, and null is an answer this page already draws (see
 	/// <see cref="MyPoint"/>).
@@ -156,7 +156,7 @@
 	/// Where the reader is, which is the point every range in the list is measured from.
 	/// <para>
 	/// This device's own reading on a host that has one, and the ride's round-tripped copy only on
-	/// a host that does not — the same split, for the same reasons, as the live map's own
+	/// a host that does not - the same split, for the same reasons, as the live map's own
 	/// <c>MyPoint</c>: a phone has the current answer in its hand, and a browser has only ever had
 	/// the server's. The private area does not narrow this: it stops a fix reaching the hub, and
 	/// the ranges in this list are measured on the phone, from the phone's own reading, for the
@@ -189,7 +189,7 @@
 				return null;
 			}
 
-			// Routes[0] is the route RoutePolyline was derived from — see RideSession.ApplyRoutes.
+			// Routes[0] is the route RoutePolyline was derived from - see RideSession.ApplyRoutes.
 			return _session.Routes.Count > 0 && RouteStyles.IsReversed(_session.Routes[0].TrackId)
 				? [.. line.Reverse()]
 				: line;
@@ -197,7 +197,7 @@
 	}
 
 	/// <summary>
-	/// How old this device's copy of the ride is (§4.4). Coarse on purpose — the same wording the
+	/// How old this device's copy of the ride is (§4.4). Coarse on purpose - the same wording the
 	/// live map's offline strip uses, because it is the same fact.
 	/// </summary>
 	private string CachedAge
@@ -228,7 +228,7 @@
 	{
 		_broadcast = Services.GetService<LocationBroadcastState>();
 
-		// RideSession has taken a nullable broadcaster from the start — see its constructor.
+		// RideSession has taken a nullable broadcaster from the start - see its constructor.
 		_session = new RideSession(Api, Hub, Auth, _broadcast, Cache);
 		_session.Changed += OnSessionChanged;
 
@@ -239,7 +239,7 @@
 		if (_broadcast is { } broadcast)
 		{
 			// Range starts at this device's own fix, so a fix landing moves every number in the
-			// list — and it moves on the receiver's timetable, not the session's.
+			// list - and it moves on the receiver's timetable, not the session's.
 			broadcast.Changed += OnSessionChanged;
 		}
 	}
@@ -251,7 +251,7 @@
 			return;
 		}
 
-		// Not in OnInitialized — the web binding reads localStorage over JS interop, which is
+		// Not in OnInitialized - the web binding reads localStorage over JS interop, which is
 		// unreachable on the prerender pass. Idempotent, so this costs nothing on a device where
 		// a map has already loaded it.
 		await RouteStyles.LoadAsync();

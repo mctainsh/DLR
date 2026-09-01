@@ -5,7 +5,7 @@ namespace DLR.Core.Tracks;
 /// <para>
 /// A class rather than a record struct, and that is not a style choice. A struct's parameterless
 /// <c>new()</c> zeroes every field instead of running the primary constructor's defaults, so
-/// <c>default(GpxLimits)</c> would be a cap of <em>nothing</em> — a limit object whose accidental
+/// <c>default(GpxLimits)</c> would be a cap of <em>nothing</em> - a limit object whose accidental
 /// value permits no tracks and no points, failing closed here but failing silently in any caller
 /// that read the defaults as documentation.
 /// </para>
@@ -40,7 +40,7 @@ public enum GpxTrackSource
 	/// <summary>
 	/// A planned route: <c>&lt;rte&gt;</c>, imported as a track with no timestamps.
 	/// <para>
-	/// Rejecting these would fail the most common import there is — planning tools emit routes,
+	/// Rejecting these would fail the most common import there is - planning tools emit routes,
 	/// not tracks (§15.3).
 	/// </para>
 	/// </summary>
@@ -79,7 +79,7 @@ public static class DlrGpx
 	/// The namespace URI for <c>dlr:</c> elements.
 	/// <para>
 	/// Uses the app's own <c>dlr://</c> scheme rather than an <c>https://</c> domain, because an
-	/// XML namespace is an identifier and not an address — nothing should ever fetch it, and
+	/// XML namespace is an identifier and not an address - nothing should ever fetch it, and
 	/// pointing it at a real domain invites something to try.
 	/// </para>
 	/// </summary>

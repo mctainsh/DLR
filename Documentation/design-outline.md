@@ -1,6 +1,6 @@
 # Dumb Luck Rides — Design Outline
 
-> **Status:** Draft **v0.35** — architecture outline; Milestone A of `tasks-server.md` is built.
+> **Status:** Draft **v0.36** — architecture outline; Milestone A of `tasks-server.md` is built.
 > **Assumption:** "Mani" = **.NET MAUI**. Target framework `net10.0-android` / `net10.0-ios`.
 > **UI:** one shared Razor component library, hosted by **MAUI Blazor Hybrid** on mobile and **Blazor WebAssembly** on the web (§18).
 
@@ -229,6 +229,11 @@
 | 0.34 | **The acknowledgement key is versioned, and the version moves when the disclosure gains a use** (§4.3) | A device that agreed to copy which never mentioned recording has not agreed to what the new copy says. Keeping the old key would have counted those devices as having consented to something they were never shown — which is the same defect as the rejection, one release later and invisible |
 | **0.35** | **The token response carries the device id, and the client is required to send it back** (§7.10) | §7.10 has always said the id is server-assigned and echoed by the client, and no client echoed it: every sign-in took the "no id" branch and got a row of its own. Settings → Signed-in devices filled with "Unnamed device" rows for one phone, each holding a live session, and none of them revocable by a rider who cannot tell them apart |
 | 0.35 | **Signing out keeps the device id on the device, and only the account is forgotten** (§7.10) | The id names the installation, not who was signed in on it. Clearing it with the session is what made a sign-out/sign-in cycle add a row instead of reusing one |
+| **0.36** | **New §20 Startup checks and announcements** — a version floor with a wall behind it, and messages from whoever runs the server | Two things the server knew and had no way to say. A client too old to talk to this server discovered it as a screen of failures; an operator with a maintenance window had no channel to a rider at all |
+| 0.36 | **The version floor is a pair of constants in `DLR.Core`, not configuration and not a row** (§20.1) | The release that breaks a wire contract is the release that raises the floor, in the same commit. A setting lets the two drift; a database row lets anybody with an administrator account lock every rider out of a running server |
+| 0.36 | **Announcements are delivered over SignalR, and the hub connection now lives as long as the app** (§20.3, §5.3) | Before this, nothing connected unless the rider was on a ride or a thread screen — so the rider who most needs to hear that the server goes down in ten minutes, the one who has had the app open for an hour, was the one who could not be told |
+| 0.36 | **No push infrastructure is added, and none is planned here** (§20.3, §17.6) | The same trade §17.6 already documents, stated plainly: a message reaches a running app, not a suspended one. A rider whose phone is in a pocket sees it at their next launch, from the check |
+| 0.36 | **A dismissal is device-local, in `IDeviceSettings`** (§20.2, §18.6) | `IntroTourState`'s precedent, for its reasons: no table, no round trip, works with no signal, and nothing about what a rider has read reaches the database. It costs a rider on two devices one repeated dialog |
 
 ---
 
@@ -3673,3 +3678,130 @@ DeletingTheRoute_TakesItsRatingsWithIt
 ```
 
 The route thread's own list is in §17.10, beside the adventure's, because they are the same feature asked two questions.
+---
+
+## 20. Startup Checks and Announcements
+
+Two things the server knows that the device has to be told, answered by one anonymous endpoint —
+`GET /api/v1/startup` — and one rung on `MainLayout`'s launch ladder.
+
+They are here as §20 rather than folded into §7 or §14 for the reason §§15–19 are appended: a peer
+section renumbers every cross-reference in the document, and there are several hundred of them.
+
+### 20.1 The version floor
+
+`DLR.Core/Client/ClientRelease.cs` holds two constants and the rule that reads them.
+
+| | Meaning | What the rider sees |
+|---|---|---|
+| `Minimum` | Below this, the client cannot talk to this server correctly | A wall, at the next launch |
+| `Recommended` | Below this, it works but is behind | A dismissable card, once |
+
+**Constants, not configuration and not a database row.** The floor is a property of the build that
+raised it: the release which breaks a wire contract is the release that moves `Minimum`, in the same
+commit. A setting would let the two drift — and `reloadConfigOnChange` is off (§7.4), so it would
+need a restart anyway. A row would let anybody holding an administrator account lock every rider out
+of a running server, which is a far larger power than the screens §14.6 allows.
+
+**The server returns a verdict, not the two numbers.** The client sends the version it is; the
+server decides. A later rule the client never heard of — a per-platform floor, one bad build
+recalled — then takes effect without a client release.
+
+**A client that cannot say what it is, is unsupported.** An absent or unparseable version is
+answered `Unsupported` rather than waved through. The other way round would make the whole check
+opt-in for exactly the builds most likely to be broken.
+
+**The wall replaces the routed page rather than covering it** (`MainLayout`, `ClientOutOfDate`).
+That is what makes it a wall: no route underneath it is reachable, so nothing behind it can make the
+call the server would refuse. The nav rail stays, because an app that hid its own furniture would
+read as a crash rather than as a decision.
+
+**It is latched at the first check and never raised mid-session.** A later answer takes effect at
+the next launch. Taking the map away from a rider who is out on a road would be the worst possible
+moment for a correction that can just as well wait, and the binary has not changed since the app
+opened.
+
+**This only works forward, and that is worth stating.** A build already in the store never calls
+this endpoint, so the first release carrying this code is the first one that can ever be told it is
+too old. Unavoidable, and the argument for landing it before anything is broken rather than after.
+
+### 20.2 Announcements
+
+One table, `announcement`: a heading, a body, a severity, and a window — `PublishFromUtc` to
+`ExpiresUtc`. Written from `/admin/notices`, behind the same `Admins` roster as every other
+administration screen (§14.6).
+
+**The window is evaluated on read, never swept.** A job that flipped an `IsLive` flag would leave a
+gap as wide as its own interval and widest exactly when it is behind — the reasoning
+`Poll.ClosesUtc` already carries (§17.5). There is no job to fail.
+
+**`AdminAnnouncementController` writes, and §14.6's "administration only reads" rule survives it.**
+That rule is about reaching into a rider's rides and photographs without the audit trail moderation
+has. An announcement is content this screen authors and owns; there is nowhere else it could come
+from. It still writes a line through `ServerEvents`.
+
+**A dismissal is device-local**, under `dlr.notices-seen` in `IDeviceSettings` — `IntroTourState`'s
+precedent (§18.6) and its reasoning: no table, no round trip, works with no signal, and nothing
+about what a rider has read reaches the database. The stored value is `id@unix-seconds` pairs, so
+the list prunes itself against the clock rather than against the server's live list, which is capped
+at five and would drop — and so re-show — anything past it.
+
+**Amending a live announcement does not show it again to anybody who cleared it.** The id is what a
+device wrote down and the id does not change. To reach everybody again, delete it and write another.
+
+### 20.3 Delivery — SignalR, and the connection that outlives the screen
+
+`AnnouncementBroadcastService` sweeps every 60 s and sends what became live since it last looked, to
+`Clients.All`. `RideHub` is `[Authorize]`, so every connection on it is an authenticated rider.
+
+**A sweep rather than a send from the create endpoint.** A publish-from date means an announcement
+goes live at an instant when no request is happening and there is nobody to send it. One path covers
+that and the immediate case; broadcasting from the endpoint *as well* would be a second path that
+has to keep agreeing with this one about what "live" means.
+
+The swept window is `(lastTick, now]`, which is what makes the send once-only with no column to
+mark. `lastTick` starts at the boot instant, so a restart does not re-blast everything published
+while the process was down — those reach a client through the launch check, which every client runs
+anyway.
+
+**The hub connection now lives as long as the app does** (`AnnouncementNotifier`, given its lifetime
+by `MainLayout` injecting it — `CommentNotifier`'s trick, §17.6). Until v0.36 nothing connected
+unless the rider was on a ride or a thread screen, so a rider sitting on the adventure list could
+not be told anything at all. An announcement belongs to the server rather than to a ride, so the
+connection it arrives on cannot belong to a ride either.
+
+**What that costs:** an idle websocket per open app, a few KB each, on a VPS §9 sizes for a few
+hundred riders. What it gives back beyond this feature: `CommentNotifier` now sees posts on every
+screen rather than only when some other screen happened to have connected.
+
+**Reconnect re-asks rather than replaying.** §5.3's standing rule. Nothing is queued for a
+connection that was away, so the refetch is what closes the gap for a rider who was in a tunnel when
+the sweep ran. Between the launch check, the push and that refetch there is no polling timer.
+
+**No push infrastructure, and this feature adds none.** `INotificationService` is untouched: there
+is no FCM key, no APNs entitlement and no device-token registry (§17.6). So an announcement reaches
+a *running* app. A rider whose phone has the app suspended sees it when they next open it. That is
+the same trade §17.6 already made, and it is written here so nobody reads "live" as "reaches a
+closed phone".
+
+### 20.4 Tests to write first
+
+```
+Check_BelowMinimum_IsUnsupported
+Check_ExactlyMinimum_IsNotWalledOff                          — the floor is inclusive
+Check_NoVersionAtAll_IsUnsupported                           — §20.1, the safe direction
+TheCheck_IsReachableWithoutAuthentication                    — the case the wall exists for
+TheCheck_IsStillReachableWithAnUnusableToken
+AnAnnouncementOutsideItsWindow_IsNotServed                   — both directions, on a fake clock
+TheWorstOnesComeFirst_AndOnlyFiveAreServed
+EveryAnnouncementRoute_IsRefusedToAnAccountNotOnTheRoster
+AWindowThatNeverOpens_IsRefused
+OneThatHasJustGoneLive_ReachesARiderWhoIsInNoRide            — §20.3, the point of the feature
+ItIsSentOnce_HoweverManyTimesTheSweepRuns
+OneWrittenBeforeTheServerStarted_IsLeftToTheLaunchCheck
+ABuildBelowTheServersFloor_ReplacesTheRoutedPage             — replaces, not covers
+TheWallIsLatchedAtTheFirstCheck
+OneAlreadyCleared_IsNotShownAgain
+AnExpiredDismissal_IsForgotten
+AFailedCheck_ChangesNothing                                  — no signal must never raise a wall
+```

@@ -16,8 +16,8 @@ namespace DLR.Server.Maintenance;
 /// <summary>
 /// The one nightly job, carrying all seven sweeps (§7.11).
 /// <para>
-/// <strong>One service rather than seven.</strong> They have nothing in common as features — a
-/// dormant account, an idle position, an expired undo, a photo nobody points at — and everything in
+/// <strong>One service rather than seven.</strong> They have nothing in common as features - a
+/// dormant account, an idle position, an expired undo, a photo nobody points at - and everything in
 /// common as risk: each is destructive, each runs on a timer, and none of them has anybody watching
 /// when it fires. Sharing the job means they share the dry run, the kill switch and the batch cap,
 /// which is the part that actually matters.
@@ -29,7 +29,7 @@ namespace DLR.Server.Maintenance;
 /// </para>
 /// </summary>
 /// <param name="scopes">A scope per run.</param>
-/// <param name="clock">The project's clock — every horizon here is measured against it (§10.4).</param>
+/// <param name="clock">The project's clock - every horizon here is measured against it (§10.4).</param>
 /// <param name="options">The brakes.</param>
 /// <param name="moderation">§17.7's retention, which this job enforces and does not own.</param>
 /// <param name="logger">Where a dry run's output is read, and where a failure is recorded.</param>
@@ -47,7 +47,7 @@ public sealed class NightlyMaintenanceService(
 
 		if (hours <= 0)
 		{
-			// No timer at all — for a deployment that would rather drive this from cron, and for
+			// No timer at all - for a deployment that would rather drive this from cron, and for
 			// the test suite, which calls RunAsync directly. Advancing a fake clock a whole day
 			// into a PeriodicTimer is a race twice over, and SRV-22 already paid for finding out.
 			logger.LogInformation("Nightly maintenance is not on a timer; run it externally.");
@@ -71,7 +71,7 @@ public sealed class NightlyMaintenanceService(
 		}
 	}
 
-	/// <summary>Runs every sweep once. Public so a test — or an operator — can drive one run.</summary>
+	/// <summary>Runs every sweep once. Public so a test - or an operator - can drive one run.</summary>
 	/// <param name="cancellationToken">Abandons the run.</param>
 	public async Task<MaintenanceReport> RunAsync(CancellationToken cancellationToken = default)
 	{
@@ -84,7 +84,7 @@ public sealed class NightlyMaintenanceService(
 		logger.LogInformation(
 			"Nightly maintenance starting at {Now} ({Mode}).",
 			now,
-			settings.DryRun ? "dry run — nothing will be changed" : "live");
+			settings.DryRun ? "dry run - nothing will be changed" : "live");
 
 		IReadOnlyList<InactiveAccount> candidates = await SweepAsync(
 			"inactive accounts",
@@ -162,7 +162,7 @@ public sealed class NightlyMaintenanceService(
 			report.OrphanBlobsDeleted,
 			report.LogFilesDeleted);
 
-		// Through SweepAsync like everything else, so a failure here cannot take the run down —
+		// Through SweepAsync like everything else, so a failure here cannot take the run down -
 		// but with no number in the report, the way the alert below has none: positions live in
 		// RiderPositionCache and nowhere else (§5.5), so there is nothing on disk to reclaim and
 		// nothing an operator could act on.
@@ -196,12 +196,12 @@ public sealed class NightlyMaintenanceService(
 			: string.Join(
 				"\n",
 				report.InactiveCandidates.Select(candidate =>
-					$"  {candidate.UserName} — last active {candidate.LastActiveUtc:u}"));
+					$"  {candidate.UserName} - last active {candidate.LastActiveUtc:u}"));
 
 		await scope.ServiceProvider.GetRequiredService<IEmailSender>().SendAsync(
 			new EmailMessage(
 				settings.AlertEmail,
-				$"Dumb Luck Routes nightly maintenance — {(report.WasDryRun ? "dry run" : "live")}",
+				$"Dumb Luck Routes nightly maintenance - {(report.WasDryRun ? "dry run" : "live")}",
 				$"""
 				Run at {now:u}.
 
@@ -225,7 +225,7 @@ public sealed class NightlyMaintenanceService(
 	/// §7.11's conjunction, and the safety property of the whole job.
 	/// <para>
 	/// <strong>One method, used by both the deletion and the warning.</strong> An account warned by
-	/// one predicate and deleted by another is either warned and kept — noise — or deleted with no
+	/// one predicate and deleted by another is either warned and kept - noise - or deleted with no
 	/// warning, which is the failure the notice at signup promises will not happen.
 	/// </para>
 	/// </summary>
@@ -284,7 +284,7 @@ public sealed class NightlyMaintenanceService(
 		database.AddRange(tombstones);
 		await database.SaveChangesAsync(cancellationToken);
 
-		// user_block.blocked_id is NoAction, not Cascade — two cascade paths into asp_net_users
+		// user_block.blocked_id is NoAction, not Cascade - two cascade paths into asp_net_users
 		// through one table is a multiple-cascade-path error in PostgreSQL, so SRV-31 left this
 		// side to this sweep. Nothing else in the project deletes an account, so nothing else has
 		// ever hit the constraint, and an unhandled violation here does not skip one account: it
@@ -295,7 +295,7 @@ public sealed class NightlyMaintenanceService(
 			.ExecuteDeleteAsync(cancellationToken);
 
 		// Hard delete. Every other table reaches asp_net_users through ON DELETE CASCADE, and
-		// §7.11's criteria are what make that safe — an eligible account has never joined a ride,
+		// §7.11's criteria are what make that safe - an eligible account has never joined a ride,
 		// so there is nothing of anybody else's hanging off it.
 		return await database
 			.Set<AppUser>()
@@ -329,7 +329,7 @@ public sealed class NightlyMaintenanceService(
 				&& user.InactivityWarnedUtc == null
 
 				// Confirmed, per §7.11. An address that was typed and never confirmed may belong
-				// to somebody who mistyped it — the same reason §7.7 will not send a reset to one.
+				// to somebody who mistyped it - the same reason §7.7 will not send a reset to one.
 				&& user.EmailConfirmed
 				&& user.Email != null
 
@@ -404,13 +404,13 @@ public sealed class NightlyMaintenanceService(
 	/// Deletes daily log files past <see cref="FileLogOptions.RetainDays"/> (§14.6).
 	/// <para>
 	/// In the nightly job rather than in the log provider, because it is the same kind of thing as
-	/// every other sweep here — a bounded amount of deletion, once a day, honouring the same
+	/// every other sweep here - a bounded amount of deletion, once a day, honouring the same
 	/// <see cref="MaintenanceOptions.DryRun"/> switch. A provider that pruned as it wrote would be
 	/// doing filesystem work on the logging path, which is the one place this project has decided
 	/// not to do work.
 	/// </para>
 	/// <para>
-	/// <em>Which</em> files are ours is the reader's question, not this one's — see
+	/// <em>Which</em> files are ours is the reader's question, not this one's - see
 	/// <see cref="ServerLogReader.Prune"/>. This decides only when they expire.
 	/// </para>
 	/// </summary>
@@ -544,7 +544,7 @@ public sealed class NightlyMaintenanceService(
 			.ToHashSetAsync(StringComparer.Ordinal, cancellationToken);
 
 		// The blob store stamps what it writes from this same clock, which is what makes the two
-		// sides of this comparison comparable at all — see FileSystemBlobStore.
+		// sides of this comparison comparable at all - see FileSystemBlobStore.
 		DateTimeOffset cutoff = now.AddHours(-settings.OrphanBlobGraceHours);
 
 		IBlobStore blobs = scope.ServiceProvider.GetRequiredService<IBlobStore>();
@@ -585,7 +585,7 @@ public sealed class NightlyMaintenanceService(
 	/// </summary>
 	/// <summary>Forgets cached positions nothing has updated for <c>Ride:PositionIdleDays</c> (§7.11).</summary>
 	/// <remarks>
-	/// A memory bound rather than a retention rule — nothing is retained (§5.5). What it stops is a
+	/// A memory bound rather than a retention rule - nothing is retained (§5.5). What it stops is a
 	/// long-lived process accumulating a year of pins for riders whose phones went quiet.
 	/// </remarks>
 	private static Task<bool> EvictIdlePositions(

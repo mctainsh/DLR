@@ -11,7 +11,7 @@
 @inject IServiceProvider Services
 @inject IJSRuntime JS
 
-<PageTitle>My routes — Dumb Luck Routes</PageTitle>
+<PageTitle>My routes - Dumb Luck Routes</PageTitle>
 
 <div class="page rides">
 	<PageNav Title="My routes" BackHref="/" BackLabel="Back to home">
@@ -139,7 +139,7 @@
 			}
 			else if (_withinKm > 0)
 			{
-				<span class="warn">Pick a point first — <em>Use my location</em> or <em>Pick on map</em>.</span>
+				<span class="warn">Pick a point first - <em>Use my location</em> or <em>Pick on map</em>.</span>
 			}
 			else
 			{
@@ -180,7 +180,7 @@
 		{
 			<p class="count">
 				@_shared.TotalCount shared @(_shared.TotalCount == 1 ? "route" : "routes")
-				— page @_shared.Page of @_shared.PageCount
+				- page @_shared.Page of @_shared.PageCount
 			</p>
 
 			<ul class="shared-list">
@@ -254,7 +254,7 @@
 
 	// -- The shared tab ------------------------------------------------------------------
 
-	/// <summary>The radii offered. Wide gaps on purpose — nobody is choosing between 50 and 60 km.</summary>
+	/// <summary>The radii offered. Wide gaps on purpose - nobody is choosing between 50 and 60 km.</summary>
 	private static readonly double[] RadiusOptions = [10, 25, 50, 100, 250, 500];
 
 	private SharedTrackPage? _shared;
@@ -269,7 +269,7 @@
 	/// <summary>Where the area filter measures from, once the rider has said.</summary>
 	private (double Lat, double Lon)? _anchor;
 
-	/// <summary>What to call that point on screen — "my location" reads very differently from "the map".</summary>
+	/// <summary>What to call that point on screen - "my location" reads very differently from "the map".</summary>
 	private string _anchorLabel = "";
 
 	private bool _locating;
@@ -286,8 +286,8 @@
 	protected override async Task OnParametersSetAsync()
 	{
 		// The first time the shared tab is opened, and only then. The query string changes on
-		// every tab switch, so without this the browse list would be re-fetched — and the
-		// rider's filters silently reset — every time they looked at their own routes.
+		// every tab switch, so without this the browse list would be re-fetched - and the
+		// rider's filters silently reset - every time they looked at their own routes.
 		if (ShowingShared && !_sharedLoaded)
 		{
 			_sharedLoaded = true;
@@ -324,7 +324,7 @@
 	/// <param name="page">Which page, one-based.</param>
 	/// <remarks>
 	/// The area half of the filter is sent only when there is a point to measure from. A radius
-	/// with no centre is not a narrower search, it is an unanswerable one — the note above the
+	/// with no centre is not a narrower search, it is an unanswerable one - the note above the
 	/// list says so rather than the list quietly coming back empty.
 	/// </remarks>
 	private async Task LoadSharedAsync(int page)
@@ -356,15 +356,15 @@
 	/// <remarks>
 	/// Two paths, and the order matters. On a phone <see cref="ILocationProvider"/> is the
 	/// sanctioned seam and the one that knows how to ask for the platform's permissions (§4.3).
-	/// The web hosts do not register it at all — a browser cannot deliver the background,
-	/// high-cadence stream a ride needs (§18.6) — but a browser can perfectly well answer "where
+	/// The web hosts do not register it at all - a browser cannot deliver the background,
+	/// high-cadence stream a ride needs (§18.6) - but a browser can perfectly well answer "where
 	/// am I, once", which is all a search filter is asking for. So the fallback is the browser's
 	/// own one-shot API rather than nothing, and the distinction §18.6 draws is preserved: this
 	/// never watches, and it never records.
 	/// <para>
 	/// <strong>The disclosure comes first on the platform path (§4.3).</strong> One fix for a search
-	/// box still goes through <c>EnsurePermissionsAsync</c>, which climbs the whole Android ladder —
-	/// background rung included — so a traveller who has never shared anything can reach the system
+	/// box still goes through <c>EnsurePermissionsAsync</c>, which climbs the whole Android ladder -
+	/// background rung included - so a traveller who has never shared anything can reach the system
 	/// location dialog from here. Play requires the app's own words before that dialog on
 	/// <em>every</em> route to it, and this being the route that had none is what version 8.0.0.28
 	/// was rejected over.
@@ -466,11 +466,11 @@
 
 	private void OpenTrack(Guid id) => Nav.NavigateTo($"/rides/{id}");
 
-	// Zero is a real number for distance and ascent; null is not, and it should show as "—"
+	// Zero is a real number for distance and ascent; null is not, and it should show as "-"
 	// rather than "0". §8 makes the point once; every renderer is expected to honour it.
 	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
-	private static string FormatDuration(double? seconds) => seconds is null ? "—" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
-	private static string FormatAscent(double? metres) => metres is null ? "—" : $"{metres.Value:0} m";
+	private static string FormatDuration(double? seconds) => seconds is null ? "-" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
+	private static string FormatAscent(double? metres) => metres is null ? "-" : $"{metres.Value:0} m";
 
 	// Two decimals below a kilometre would be false precision on a bounding-box centre, and a
 	// whole number above one is all anybody reads.

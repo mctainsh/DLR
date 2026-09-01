@@ -23,6 +23,57 @@ namespace DLR.Server.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DLR.Server.Data.Announcements.Announcement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("body");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<DateTimeOffset>("ExpiresUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_utc");
+
+                    b.Property<DateTimeOffset>("PublishFromUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("publish_from_utc");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("integer")
+                        .HasColumnName("severity");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id")
+                        .HasName("pk_announcement");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_announcement_created_by_user_id");
+
+                    b.HasIndex("PublishFromUtc", "ExpiresUtc")
+                        .HasDatabaseName("ix_announcement_window");
+
+                    b.ToTable("announcement", (string)null);
+                });
+
             modelBuilder.Entity("DLR.Server.Data.Comments.CommentReaction", b =>
                 {
                     b.Property<Guid>("CommentId")
@@ -1284,6 +1335,17 @@ namespace DLR.Server.Data.Migrations
                         .HasName("pk_asp_net_user_tokens");
 
                     b.ToTable("asp_net_user_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("DLR.Server.Data.Announcements.Announcement", b =>
+                {
+                    b.HasOne("DLR.Server.Data.Identity.AppUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_announcement_asp_net_users_created_by_user_id");
+
+                    b.Navigation("CreatedBy");
                 });
 
             modelBuilder.Entity("DLR.Server.Data.Comments.CommentReaction", b =>

@@ -17,14 +17,14 @@ namespace DLR.Server.Tests.Comments;
 /// <summary>
 /// A shared route's thread (§6.2, §17).
 /// <para>
-/// The conversation machinery itself is <c>CommentTests</c>'s subject and is not retested here —
+/// The conversation machinery itself is <c>CommentTests</c>'s subject and is not retested here -
 /// it is the same table, the same controller and the same code path, which is the whole point of
 /// the arrangement. What these tests are about is the half that <em>is</em> different: who gets in.
 /// An adventure's thread is the people the organiser admitted; a route's is everybody, right up to
 /// the moment the route comes off the list or somebody blocks its owner.
 /// </para>
 /// <para>
-/// Two of them are about the seam rather than the feature — that a route comment cannot be
+/// Two of them are about the seam rather than the feature - that a route comment cannot be
 /// mistaken for a ride comment by the queries, and that the idempotency index actually decides
 /// anything on a column that is null for half the table. Both are the kind of thing that looks
 /// obviously right and is obviously wrong the first time somebody drains an outbox twice.
@@ -77,7 +77,7 @@ public sealed class RouteThreadTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Un-sharing hides the thread and keeps the posts. Deleting a conversation because somebody
-	/// took a route off a list would destroy other people's writing over a reversible act — and
+	/// took a route off a list would destroy other people's writing over a reversible act - and
 	/// re-sharing has to bring the thread back rather than start a new one.
 	/// </summary>
 	[Fact]
@@ -182,7 +182,7 @@ public sealed class RouteThreadTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The unique index PostgreSQL can actually decide on. <c>ux_ride_comment_client</c> leads on
-	/// <c>group_ride_id</c>, which is null for every route comment — and nulls are distinct in a
+	/// <c>group_ride_id</c>, which is null for every route comment - and nulls are distinct in a
 	/// unique index, so that one lets every re-send through. This is the second index earning its
 	/// place.
 	/// </summary>
@@ -246,7 +246,7 @@ public sealed class RouteThreadTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Reporting has to reach the most public thread on the service, which is exactly the one a
-	/// membership check would have left unreportable — and a report on a route's post carries no
+	/// membership check would have left unreportable - and a report on a route's post carries no
 	/// ride, because there is no organiser to route it to.
 	/// </summary>
 	[Fact]
@@ -298,7 +298,7 @@ public sealed class RouteThreadTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Reactions never learned that a second kind of thread exists — they key on a comment id and
+	/// Reactions never learned that a second kind of thread exists - they key on a comment id and
 	/// ask <c>CommentThreadAccess</c> the same question they always asked. This is that claim
 	/// tested rather than asserted.
 	/// </summary>

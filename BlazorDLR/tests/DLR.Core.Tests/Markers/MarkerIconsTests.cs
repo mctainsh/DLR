@@ -5,11 +5,11 @@ namespace DLR.Core.Tests.Markers;
 /// <summary>
 /// §16.2's curated icon key set + GPX &lt;sym&gt; mapping. Three invariants:
 /// <list type="bullet">
-///   <item>An unknown-shaped-like-a-key icon is stored rather than flattened — the
+///   <item>An unknown-shaped-like-a-key icon is stored rather than flattened - the
 ///     forward-compat rule that lets a v-N+1 client's <c>ferry</c> round-trip through
 ///     a v-N server.</item>
 ///   <item>A foreign symbol (with spaces / capitals) that is not in the map falls back
-///     to <c>note</c> — no attempt to guess.</item>
+///     to <c>note</c> - no attempt to guess.</item>
 ///   <item>The Known set contains every fallback the code documents.</item>
 /// </list>
 /// </summary>
@@ -30,7 +30,7 @@ public sealed class MarkerIconsTests
 	{
 		MarkerIcons.IsKnown("hazard").ShouldBeTrue();
 		MarkerIcons.IsKnown("ferry").ShouldBeFalse(
-			"§16.2: 'ferry' is a v-N+1 icon and this version does not draw it — but ForSymbol still stores it.");
+			"§16.2: 'ferry' is a v-N+1 icon and this version does not draw it - but ForSymbol still stores it.");
 	}
 
 	[Fact]
@@ -54,8 +54,8 @@ public sealed class MarkerIconsTests
 	[Fact]
 	public void ForSymbol_UnknownButKeyShaped_IsStoredAsIs()
 	{
-		// A future icon key like 'ferry' or 'bakery' passes IsStorable — lowercase ASCII
-		// letters plus hyphens, under 32 chars — and survives the mapping.
+		// A future icon key like 'ferry' or 'bakery' passes IsStorable - lowercase ASCII
+		// letters plus hyphens, under 32 chars - and survives the mapping.
 		MarkerIcons.ForSymbol("ferry").ShouldBe("ferry",
 			"§16.2 forward-compat: a v-N+1 client's key is stored unchanged so it survives export/import through this version.");
 		MarkerIcons.ForSymbol("bakery-hot").ShouldBe("bakery-hot");
@@ -65,7 +65,7 @@ public sealed class MarkerIconsTests
 	public void ForSymbol_UnknownAndForeignShaped_FallsBackToNote()
 	{
 		// A GPX symbol shaped like a human phrase (spaces, capitals) does not survive as
-		// an icon key — the code correctly flattens it.
+		// an icon key - the code correctly flattens it.
 		MarkerIcons.ForSymbol("Scenic Overlook").ShouldBe("note");
 		MarkerIcons.ForSymbol("Flag, Blue").ShouldBe("note",
 			"foreign symbols not in the map and not key-shaped fall back rather than become junk keys.");
@@ -77,7 +77,7 @@ public sealed class MarkerIconsTests
 		// A client that received a v-N+1 icon has to export it as itself so the file
 		// carries the same key on the way out.
 		MarkerIcons.ToGpxSymbol("ferry").ShouldBe("ferry",
-			"§16.2: the exporter does not flatten a stored unknown to the fallback — that would be lossy on round trip.");
+			"§16.2: the exporter does not flatten a stored unknown to the fallback - that would be lossy on round trip.");
 	}
 
 	[Fact]

@@ -25,7 +25,7 @@ public sealed class NavigationHistoryTests : BunitContext
 		Services.AddScoped<NavigationHistory>();
 
 		// Resolve first: the counter only sees the navigations that happen after it has
-		// subscribed, which is the same order the app gets — PageNav's injection is what
+		// subscribed, which is the same order the app gets - PageNav's injection is what
 		// constructs it.
 		NavigationHistory history = Services.GetRequiredService<NavigationHistory>();
 		return (history, Services.GetRequiredService<NavigationManager>());
@@ -38,7 +38,7 @@ public sealed class NavigationHistoryTests : BunitContext
 
 		history.Depth.ShouldBe(0);
 		history.CanGoBack.ShouldBeFalse(
-			"the entry a session opens at — app root or deep link — has no in-app page behind it.");
+			"the entry a session opens at - app root or deep link - has no in-app page behind it.");
 	}
 
 	[Fact]
@@ -66,13 +66,13 @@ public sealed class NavigationHistoryTests : BunitContext
 		nav.NavigateTo("/group-rides");
 
 		history.Depth.ShouldBe(1,
-			"stepping back must unwind the stack — counting it as a forward move would leave the arrow " +
+			"stepping back must unwind the stack - counting it as a forward move would leave the arrow " +
 			"pointing deeper into the app the more the traveller used it.");
 	}
 
 	/// <summary>
 	/// The loop this type exists to prevent. A rider opens a shared link to a child page:
-	/// there is no history, so the arrow follows the parent route — and that navigation must
+	/// there is no history, so the arrow follows the parent route - and that navigation must
 	/// not itself become the history the next arrow steps back into, or child and parent
 	/// bounce off each other forever.
 	/// </summary>
@@ -87,7 +87,7 @@ public sealed class NavigationHistoryTests : BunitContext
 		nav.NavigateTo("/group-rides");
 
 		history.CanGoBack.ShouldBeFalse(
-			"walking up to a parent must leave the traveller no deeper than they started — otherwise the " +
+			"walking up to a parent must leave the traveller no deeper than they started - otherwise the " +
 			"parent's own arrow steps back into the child they just left.");
 	}
 

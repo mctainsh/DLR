@@ -14,7 +14,7 @@ namespace DLR.UI.Tests;
 /// Pages open with <c>&lt;PageNav&gt;</c>, which injects <see cref="NavigationHistory"/> to
 /// decide whether its back arrow steps into real in-app history or follows the page's
 /// declared parent route. That is a page-wide dependency rather than any one screen's, so
-/// it is registered once here instead of in each test class — a page test that forgot it
+/// it is registered once here instead of in each test class - a page test that forgot it
 /// would fail inside Blazor's property injector with a stack trace naming the renderer and
 /// not the missing service.
 /// </para>
@@ -27,15 +27,15 @@ namespace DLR.UI.Tests;
 /// </para>
 /// <para>
 /// Component tests (<c>Components/</c>, <c>Layout/</c>) keep inheriting
-/// <see cref="BunitContext"/> directly — they render below the page level, so no
+/// <see cref="BunitContext"/> directly - they render below the page level, so no
 /// <c>PageNav</c> appears in their tree. <c>PageNavTests</c> is the exception and inherits
 /// this, since the component under test is the one that needs the service.
 /// </para>
 /// <para>
 /// <see cref="RideSnapshotCache"/> is here for the same reason: the ride pages resolve it to keep
 /// a device-local copy of the ride (§4.4), so it is a page-wide dependency rather than any one
-/// screen's. It is registered over <see cref="UnavailableOfflineStore"/> — the binding the browser
-/// hosts get (§18.6) — so a test gets the "this device keeps nothing" behaviour by default and
+/// screen's. It is registered over <see cref="UnavailableOfflineStore"/> - the binding the browser
+/// hosts get (§18.6) - so a test gets the "this device keeps nothing" behaviour by default and
 /// nothing leaks between tests through a real file. A test about the cache itself registers
 /// <c>FakeOfflineStore</c> over the top.
 /// </para>
@@ -43,7 +43,7 @@ namespace DLR.UI.Tests;
 public abstract class PageTestContext : BunitContext
 {
 	/// <summary>
-	/// A fixed instant for the cache's <c>CachedUtc</c> stamps — <c>ClockRules</c> forbids an
+	/// A fixed instant for the cache's <c>CachedUtc</c> stamps - <c>ClockRules</c> forbids an
 	/// ambient clock read in test source (§10.4). A test that cares about time registers its own
 	/// <see cref="TimeProvider"/>, which wins: the last registration is the one resolved.
 	/// </summary>
@@ -66,12 +66,12 @@ public abstract class PageTestContext : BunitContext
 		Services.AddScoped<RideSnapshotCache>();
 
 		// The live map holds the screen on while it is the page (§4.3). Registered here rather
-		// than per suite for the same reason as the cache — it is a dependency of a page, not of
+		// than per suite for the same reason as the cache - it is a dependency of a page, not of
 		// one test's subject. A test about the lock registers FakeScreenWakeLock over the top.
 		Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
 
-		// The notification seams (§17.6). Page-wide in the strongest sense — MainLayout injects the
-		// notifier, so every routable page has one above it — and registered over the no-op binding
+		// The notification seams (§17.6). Page-wide in the strongest sense - MainLayout injects the
+		// notifier, so every routable page has one above it - and registered over the no-op binding
 		// the browsers get, so a page test raises nothing by default. CommentNotifierTests builds
 		// its own over FakeNotificationService rather than resolving these.
 		Services.AddScoped<INotificationService, NoopNotificationService>();
@@ -91,16 +91,23 @@ public abstract class PageTestContext : BunitContext
 
 		// Username to profile photograph (§7.3). Page-wide in the same sense as the notifier above:
 		// nearly every page draws somebody's name, and RiderAvatar sits beside each one. Registered
-		// here so a page test exercises the real DI graph — the component itself resolves this with
+		// here so a page test exercises the real DI graph - the component itself resolves this with
 		// GetService and draws nothing without it, so a component test below the page level does
 		// not have to know it exists.
 		Services.AddScoped<RiderAvatars>();
 
 		// Saving a file out of the app (§15.2, §17.3). Page-wide because two pages offer it and
-		// neither can do the saving itself — the anchor-click that used to be inline in RideDetail
+		// neither can do the saving itself - the anchor-click that used to be inline in RideDetail
 		// was inert inside the MAUI WebView, which is the bug the seam exists to keep fixed. A test
 		// that asserts on a download registers its own FakeFileSaver and reads it back.
 		Services.AddScoped<IFileSaver, FakeFileSaver>();
+
+		// The launch check and the hub connection it holds open (§20). Page-wide for the notifier's
+		// reason above: MainLayout injects both, so every routable page has them over it. Harmless
+		// by default - the fake API client answers the check with a throw, which reads as "no
+		// server to ask" and leaves the app exactly as it was.
+		Services.AddScoped<StartupCheckState>();
+		Services.AddScoped<AnnouncementNotifier>();
 
 		// Page-wide since the sign-in screens ask it what to call this installation in the §7.10
 		// device list, and Home prints it. Nameless by default, which is what the browser hosts

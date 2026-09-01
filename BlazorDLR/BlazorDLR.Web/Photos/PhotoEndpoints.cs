@@ -63,7 +63,7 @@ public sealed class PhotoController : ControllerBase
 		}
 
 		// Checked before anything is read. Content-Length can lie, so the file is checked again
-		// below — but refusing a declared 900 MB upload without reading it is worth doing first.
+		// below - but refusing a declared 900 MB upload without reading it is worth doing first.
 		if (http.ContentLength > caps.MaxUploadBytes)
 		{
 			return TooLarge(caps);
@@ -233,7 +233,7 @@ public sealed class PhotoController : ControllerBase
 		{
 			Status = StatusCodes.Status400BadRequest,
 			Title = "Image could not be read",
-			Detail = "The header parsed but the image data did not — the file looks truncated or corrupt.",
+			Detail = "The header parsed but the image data did not - the file looks truncated or corrupt.",
 			Extensions = { ["problem"] = problem.ToString() },
 		})
 		{

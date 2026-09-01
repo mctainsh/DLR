@@ -10,7 +10,7 @@ namespace DLR.Server.Data.Migrations;
 /// (§6.2, §6.3).
 /// <para>
 /// Three nullable columns and no backfill. <c>visibility</c> already existed and every row is
-/// already <c>Private</c>, so nothing becomes visible to anybody as a result of this running —
+/// already <c>Private</c>, so nothing becomes visible to anybody as a result of this running -
 /// which is the property a sharing migration most needs to have. <c>first_shared_utc</c> stays
 /// null until a rider actually shares something, and the browse list only ever reads rows where
 /// it is set.
@@ -22,7 +22,7 @@ namespace DLR.Server.Data.Migrations;
 /// <para>
 /// Both new indexes are partial, filtered on <c>visibility = 'Public'</c>. Shared routes are the
 /// small minority of the table and these are read on every page of a list expected to get long,
-/// so a partial index is a few kilobytes doing the work of a full one — and it costs nothing on
+/// so a partial index is a few kilobytes doing the work of a full one - and it costs nothing on
 /// the recording path, which never writes a public row.
 /// </para>
 /// </summary>

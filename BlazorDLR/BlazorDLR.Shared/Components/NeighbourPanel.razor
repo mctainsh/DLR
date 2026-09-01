@@ -7,7 +7,7 @@
 	this screen is read at a stop; this is read at 40 km/h out of the corner of an eye, which
 	is what every decision below follows from.
 
-	**Translucent panel, solid text.** The map is the page — a rider covering a strip of it
+	**Translucent panel, solid text.** The map is the page - a rider covering a strip of it
 	with an opaque card has hidden the thing they came for, and the ground under this panel is
 	behind them or ahead of them and worth seeing. The text is not translucent with it: a name
 	at 55% over a satellite tile is unreadable, and a panel nobody can read is an opaque one
@@ -19,13 +19,13 @@
 
 	**Road order, leader at the top.** The rows are in the order the riders are actually in on
 	the route, so a rider off the front finds themselves at the top of the panel and one off
-	the back finds themselves at the bottom — the shape of it answers "am I ahead or behind"
+	the back finds themselves at the bottom - the shape of it answers "am I ahead or behind"
 	before a single number has been read. NeighbourList is what settles that; this is layout.
 
 	**The name wears the colour, rather than a square beside it.** The same pill the members
 	list and the map label draw (§16.3): the rider picks the background, MarkerColours derives
 	the ink. One thing carrying both the colour and the words beats a swatch that has to be
-	matched to a name by eye — and colour through a visor in daylight is the first thing to go,
+	matched to a name by eye - and colour through a visor in daylight is the first thing to go,
 	so the words are what survive.
 *@
 
@@ -49,11 +49,11 @@
 						{
 							@*
 								Their pin is still on the map and it stopped moving (§5.6). The number
-								is still the best answer there is — it is where they were — but a gap
+								is still the best answer there is - it is where they were - but a gap
 								that has quietly frozen is exactly the thing that must not be read as
 								a gap that is holding steady, so it says which it is.
 							*@
-							<span class="stale" title="No signal — this is where they were">
+							<span class="stale" title="No signal - this is where they were">
 								@NeighbourList.FormatRelative(row.RelativeMetres)
 							</span>
 						}
@@ -71,7 +71,7 @@
 @code {
 	/// <summary>
 	/// The riders to draw, road order, from <see cref="NeighbourList.Nearest"/>. An empty list
-	/// renders nothing at all — a panel saying it has nothing to say is a panel covering the map
+	/// renders nothing at all - a panel saying it has nothing to say is a panel covering the map
 	/// for no reason.
 	/// </summary>
 	[Parameter, EditorRequired] public IReadOnlyList<NeighbourRow> Rows { get; set; } = [];
@@ -82,11 +82,11 @@
 		The bottom-left corner.
 
 		Absolute inside the live page's .page-full rather than fixed, so it lands inside the
-		content area on both rail placements without restating the rail's geometry — the same
+		content area on both rail placements without restating the rail's geometry - the same
 		arrangement .chrome uses on the opposite edge.
 
 		Down here rather than vertically centred, because the middle of the map is the part the
-		rider is actually reading — their own pin and the road ahead of it — and a panel across
+		rider is actually reading - their own pin and the road ahead of it - and a panel across
 		it is the thing they came for, covered. The corners are what is free: the top-right
 		carries the hamburger and the camera buttons, the top-left the base map's compass, and
 		the bottom centre the placing strip and the mode toast, both of which are transient and
@@ -109,7 +109,7 @@
 		max-width: min(13rem, 45vw);
 		padding: 0.35rem 0.5rem;
 		/* See-through to the ground, because the map is the page. The border is what keeps the
-		   panel's shape legible over a light tile — over dark ones the fill does it. */
+		   panel's shape legible over a light tile - over dark ones the fill does it. */
 		background: rgba(15, 23, 42, 0.55);
 		border: 1px solid rgba(226, 232, 240, 0.2);
 		border-radius: 8px;
@@ -138,8 +138,8 @@
 	}
 
 	/*
-		The reader's own row. A left edge and a weight rather than a background — the same
-		treatment the members list gives it — because a filled row on a panel this small reads as
+		The reader's own row. A left edge and a weight rather than a background - the same
+		treatment the members list gives it - because a filled row on a panel this small reads as
 		a selection, and nobody selected anything.
 	*/
 	.live-neighbours li.self {
@@ -151,7 +151,7 @@
 
 	/* The map's rider tag, in HTML: their colour behind the name and the contrasting ink on top
 	   and around it (§16.3). The border is in the ink rather than a fixed grey, for the one
-	   colour that needs it — white over a bright tile is a name floating with no tag at all. */
+	   colour that needs it - white over a bright tile is a name floating with no tag at all. */
 	.live-neighbours .name {
 		flex: 1 1 auto;
 		min-width: 0;

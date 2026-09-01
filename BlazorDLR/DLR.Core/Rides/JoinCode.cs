@@ -6,7 +6,7 @@ namespace DLR.Core.Rides;
 /// The six-character code an organiser hands out (§5.2).
 /// <para>
 /// Crockford base32: no <c>I</c>, <c>L</c>, <c>O</c> or <c>U</c>. The first three are dropped
-/// because a code is read aloud across a car park and typed by someone wearing gloves — and
+/// because a code is read aloud across a car park and typed by someone wearing gloves - and
 /// <c>U</c> because excluding it is how the alphabet avoids spelling things nobody wants
 /// printed on a screen.
 /// </para>
@@ -29,7 +29,7 @@ public static class JoinCode
 	/// <para>
 	/// Impractical to guess at human speed and entirely practical for a script, which is why
 	/// §14.5 requires the join endpoint to be rate-limited before the repository goes public.
-	/// Publishing the format makes that obvious to anyone reading — so the limit is the
+	/// Publishing the format makes that obvious to anyone reading - so the limit is the
 	/// defence, not the alphabet.
 	/// </para>
 	/// </summary>

@@ -24,7 +24,7 @@ namespace DLR.Server.Account;
 /// <strong>An archive rather than a JSON document, because §16.6 says the export includes markers
 /// <em>and their photos</em>.</strong> A response listing photo identifiers would not be an export
 /// of anybody's photographs, and a track reduced to its distance would not be an export of their
-/// ride. Points go out as GPX — the format the rest of the product already reads and writes, so the
+/// ride. Points go out as GPX - the format the rest of the product already reads and writes, so the
 /// file is useful somewhere other than here (§15.1).
 /// </para>
 /// </summary>
@@ -205,7 +205,7 @@ public static class AccountExportBuilder
 
 				// Compared, never cast. Role is stored through HasConversion<string>, so an
 				// enum-to-int cast inside a translated projection asks PostgreSQL to read 'Owner'
-				// as an integer — the trap SRV-29 paid fifteen failing tests for.
+				// as an integer - the trap SRV-29 paid fifteen failing tests for.
 				member.Role == GroupRideRole.Owner ? "Owner"
 					: member.Role == GroupRideRole.Leader ? "Leader"
 					: member.Role == GroupRideRole.Spectator ? "Spectator"
@@ -234,7 +234,7 @@ public static class AccountExportBuilder
 		// runs once per row.
 		//
 		// Fetched flat and grouped in memory, deliberately. An `OrderBy` *before* a translated
-		// `GroupBy` does not survive into the result — PostgreSQL is free to return the groups'
+		// `GroupBy` does not survive into the result - PostgreSQL is free to return the groups'
 		// members in any order, and it does, intermittently. A poll whose options come back
 		// reversed is a different poll, and the failure appears in about one run in three.
 		List<PollOption> options = await database
@@ -310,7 +310,7 @@ public static class AccountExportBuilder
 			.ToListAsync(cancellationToken);
 
 	/// <summary>
-	/// Writes one track's points as GPX, with its markers as waypoints — the same mapping
+	/// Writes one track's points as GPX, with its markers as waypoints - the same mapping
 	/// <c>GET /tracks/{id}/gpx</c> uses, so a file out of an export re-imports (§16.6).
 	/// </summary>
 	private static async Task WriteGpxAsync(

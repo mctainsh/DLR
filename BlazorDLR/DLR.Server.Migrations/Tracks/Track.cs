@@ -38,7 +38,7 @@ public enum TrackVisibility
 /// authorisation.
 /// </para>
 /// <para>
-/// The points are not here. They live in a blob (§9.1) — write-once and read-whole, so a row per
+/// The points are not here. They live in a blob (§9.1) - write-once and read-whole, so a row per
 /// point would be a mistake, and an edit rewrites the blob whole rather than mutating points in
 /// place (§15.5).
 /// </para>
@@ -55,7 +55,7 @@ public sealed class Track
 	/// The identifier the client generated before it had a server (§4.4, §6.3).
 	/// <para>
 	/// What makes the upload idempotent. A phone drains its outbox over a flaky connection and
-	/// will re-send an upload it never saw acknowledged — without this, a ride recorded in a
+	/// will re-send an upload it never saw acknowledged - without this, a ride recorded in a
 	/// tunnel appears three times.
 	/// </para>
 	/// </summary>
@@ -65,7 +65,7 @@ public sealed class Track
 	public string? Name { get; set; }
 
 	/// <summary>
-	/// What the rider wrote about it — surface, traffic, where to stop for coffee.
+	/// What the rider wrote about it - surface, traffic, where to stop for coffee.
 	/// <para>
 	/// Free text, and the only field on a track written for somebody else to read. Newlines
 	/// survive <see cref="DLR.Core.Markers.MarkerText.Clean"/>, because a route description is
@@ -145,7 +145,7 @@ public sealed class Track
 	public string BlobRef { get; set; } = string.Empty;
 
 	/// <summary>
-	/// The reduced line the map draws (§4.2). Never what an edit addresses — the editor works
+	/// The reduced line the map draws (§4.2). Never what an edit addresses - the editor works
 	/// in full-resolution indices throughout (§15.5).
 	/// </summary>
 	public byte[] SimplifiedPolyline { get; set; } = [];
@@ -179,7 +179,7 @@ public sealed class Track
 	/// </para>
 	/// <para>
 	/// Empty on a row written before the check existed, and refilled from the blob the first time
-	/// that route is published. Empty therefore means "unknown", never "matches nothing" — a
+	/// that route is published. Empty therefore means "unknown", never "matches nothing" - a
 	/// comparison against it is skipped rather than treated as a match.
 	/// </para>
 	/// </summary>

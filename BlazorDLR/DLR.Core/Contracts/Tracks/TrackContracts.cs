@@ -54,7 +54,7 @@ public sealed record UploadTrackRequest(
 	string? ImportedFileName = null);
 
 /// <summary>
-/// <c>PATCH /api/v1/tracks/{id}</c> — what a stored track is called (§15.1).
+/// <c>PATCH /api/v1/tracks/{id}</c> - what a stored track is called (§15.1).
 /// <para>
 /// A rename is not an edit: it moves no point, so it does not touch
 /// <see cref="TrackSummary.Version"/> and carries none. Quoting a version here would mean a rider
@@ -63,7 +63,7 @@ public sealed record UploadTrackRequest(
 /// </para>
 /// </summary>
 /// <param name="Name">
-/// The new name. Required — the endpoint refuses a blank one rather than quietly clearing the
+/// The new name. Required - the endpoint refuses a blank one rather than quietly clearing the
 /// name, which is what "rename it to nothing" would otherwise mean.
 /// </param>
 public sealed record RenameTrackRequest(string Name);
@@ -71,7 +71,7 @@ public sealed record RenameTrackRequest(string Name);
 /// <summary>
 /// One row of the track list (§6.2).
 /// <para>
-/// Every time-derived figure is nullable and rendered as "—" rather than <c>0</c>. A route has a
+/// Every time-derived figure is nullable and rendered as "-" rather than <c>0</c>. A route has a
 /// distance and a shape but no duration; zero would claim a measurement nobody took (§8).
 /// </para>
 /// </summary>
@@ -92,8 +92,8 @@ public sealed record RenameTrackRequest(string Name);
 /// <param name="Description">What the owner wrote about it, or null.</param>
 /// <param name="PhotoId">The cover photograph, or null. Fetch it from <c>/api/v1/photos/{id}</c>.</param>
 /// <param name="OwnerName">
-/// Who shared it. Populated on a track the caller does not own — a shared route with no name
-/// against it is a route from nobody — and null on the caller's own, where it would be their
+/// Who shared it. Populated on a track the caller does not own - a shared route with no name
+/// against it is a route from nobody - and null on the caller's own, where it would be their
 /// own username on every row of their own list.
 /// </param>
 /// <param name="IsMine">
@@ -101,8 +101,8 @@ public sealed record RenameTrackRequest(string Name);
 /// Delete and the sharing panel at all.
 /// <para>
 /// Defaults to <c>true</c> because every read that existed before sharing was owner-scoped and
-/// could return nothing else. The one read that can answer <c>false</c> — a public track opened
-/// by somebody else — says so explicitly.
+/// could return nothing else. The one read that can answer <c>false</c> - a public track opened
+/// by somebody else - says so explicitly.
 /// </para>
 /// </param>
 public sealed record TrackSummary(
@@ -131,7 +131,7 @@ public sealed record TrackSummary(
 /// <param name="Track">The metadata.</param>
 /// <param name="Bounds">The box to frame the map on.</param>
 /// <param name="Polyline">
-/// The simplified line, for display only. An edit never addresses these indices — it works
+/// The simplified line, for display only. An edit never addresses these indices - it works
 /// against the full-resolution points from <c>GET /tracks/{id}/points</c> (§15.5).
 /// </param>
 public sealed record TrackDetail(

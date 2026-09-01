@@ -5,12 +5,12 @@
 
 @*
 	The rail's last item: what the GPS is doing, and the one tap that turns it off and on
-	(§4.3, §5.6, §18.6). A `<button>`, not a `NavLink` — the only thing on the rail that does
+	(§4.3, §5.6, §18.6). A `<button>`, not a `NavLink` - the only thing on the rail that does
 	something rather than going somewhere. MainLayout.razor.css styles it beside the five.
 
 	**Shape and colour, never colour alone.** Ten states share one 20 px glyph, read through a
 	visor by somebody in gloves, and a fair number of riders cannot tell the amber from the
-	green at all. So each status gets its own icon and the colour only grades it — either half
+	green at all. So each status gets its own icon and the colour only grades it - either half
 	read on its own says which state this is.
 *@
 
@@ -32,7 +32,7 @@
 	@if (_toasts?.Text is { } toast)
 	{
 		@* Says what the tap did, then goes. The button's own icon is the standing answer, so
-		   this only has to cover the moment the rider is looking away from it — and a
+		   this only has to cover the moment the rider is looking away from it - and a
 		   dismiss button for something that removes itself in a few seconds would be a tap
 		   target for nothing. *@
 		<div class="gps-toast" role="status" aria-live="polite">@toast</div>
@@ -68,7 +68,7 @@
 	}
 
 	/// <summary>
-	/// The glyph for each status. One shape each, deliberately — see the markup.
+	/// The glyph for each status. One shape each, deliberately - see the markup.
 	/// </summary>
 	private string Glyph => _broadcast!.Status switch
 	{
@@ -102,7 +102,7 @@
 
 	/// <summary>
 	/// The whole of what this control announces. A glyph has no accessible name and there is no
-	/// caption beside it, so the state and what the tap will do both have to be said here —
+	/// caption beside it, so the state and what the tap will do both have to be said here -
 	/// <see cref="LocationBroadcastState.Describe"/> is the same sentence the settings screen and
 	/// the ride's menu use, so the three cannot drift.
 	/// </summary>
@@ -124,7 +124,7 @@
 
 	/// <summary>
 	/// Turns the device's broadcast off, or back on for whatever it was last turned off for
-	/// (§5.6). The state owns both halves — including the sharing flag on the server, which is
+	/// (§5.6). The state owns both halves - including the sharing flag on the server, which is
 	/// what stops a rider's last pin standing on everybody else's map after they go dark.
 	/// </summary>
 	private async Task ToggleAsync()
@@ -139,7 +139,7 @@
 			{
 				string? failure = await broadcast.SuspendAsync();
 				_toasts!.Show(failure is null
-					? "Location off — you are not being shared."
+					? "Location off - you are not being shared."
 					: $"Location off on this phone, but the adventure was not told: {failure}");
 				return;
 			}
@@ -149,13 +149,13 @@
 			{
 				// Nothing suspended and no adventure open on this device. There is no such thing as
 				// broadcasting to nobody, so this says what is missing rather than pretending.
-				_toasts!.Show("Open a group adventure first — there is nothing to share with.");
+				_toasts!.Show("Open a group adventure first - there is nothing to share with.");
 				return;
 			}
 
 			string? refusal = await broadcast.ResumeAsync(targets);
 			_toasts!.Show(refusal is null
-				? "Location on — you are being shared."
+				? "Location on - you are being shared."
 				: $"Could not turn your location on: {refusal}");
 		}
 		finally

@@ -71,7 +71,7 @@ public sealed class HealthTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Anonymous, because the thing watching it is a free uptime pinger with no credential to
-	/// present — which is also the reason the body says as little as it does.
+	/// present - which is also the reason the body says as little as it does.
 	/// </summary>
 	[Fact]
 	public async Task Health_IsReachableWithoutAuthentication()
@@ -93,7 +93,7 @@ public sealed class HealthTests(PostgresFixture postgres)
 
 		// A *count* of pending migrations is fine; their identifiers describe the schema and the
 		// order it was built in. The field names legitimately contain "migration", so the assertion
-		// is against the shape of an identifier — a timestamp followed by a name.
+		// is against the shape of an identifier - a timestamp followed by a name.
 		System.Text.RegularExpressions.Regex
 			.IsMatch(body, @"\d{14}_\w+")
 			.ShouldBeFalse("a migration identifier names a table this server has");

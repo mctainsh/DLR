@@ -10,7 +10,7 @@ namespace DLR.Server.Data.Migrations;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One column, empty by default, and <strong>no backfill</strong> — the points are in blobs on
+/// One column, empty by default, and <strong>no backfill</strong> - the points are in blobs on
 /// the volume rather than in the table (§9.1), so there is nothing SQL could hash. Every path
 /// that writes points fills it from now on, and a track written before this ran has it filled
 /// from its blob the first time somebody shares it. Empty therefore reads as "not known yet",

@@ -14,12 +14,12 @@ namespace DLR.UI.Tests.Pages;
 /// Welcome is the one screen an unauthenticated caller lands on (§7.9). Design decisions
 /// from §7.2 that must hold at render time:
 /// <list type="bullet">
-///   <item>Sign in is the default tab — most visits to Welcome are returning riders.
+///   <item>Sign in is the default tab - most visits to Welcome are returning riders.
 ///     Register is one click away.</item>
 ///   <item>Empty email on the Register tab always shows the recovery-trade-off callout,
 ///     so no one can register without seeing what they gave up.</item>
 ///   <item>The password composition rule is stated in plain text (§7.2 v0.22): 6+ chars,
-///     an uppercase letter, a lowercase letter and a digit — no special-character rule.</item>
+///     an uppercase letter, a lowercase letter and a digit - no special-character rule.</item>
 ///   <item>Server-side per-rule password errors (from Identity's <c>ValidationProblemDetails</c>)
 ///     survive the round trip and render as a list, so a user seeing "Too short" learns
 ///     what to fix, not "The details you entered were rejected."</item>
@@ -49,7 +49,7 @@ public sealed class WelcomeTests : PageTestContext
 
 	/// <summary>
 	/// The current design opens Welcome on the Sign in tab. Every test that needs the
-	/// Register form has to switch to it first — otherwise it asserts against the sign-in
+	/// Register form has to switch to it first - otherwise it asserts against the sign-in
 	/// form, which has no password-composition copy and no recovery callout.
 	/// </summary>
 	private static async Task ClickRegisterTabAsync(IRenderedComponent<Welcome> component)
@@ -95,7 +95,7 @@ public sealed class WelcomeTests : PageTestContext
 		{
 			// Register tab, email is empty, so the "no recovery" callout is visible.
 			component.Markup.Contains("No email means no recovery", StringComparison.Ordinal).ShouldBeTrue(
-				"§7.2: the callout is always rendered when email is blank — no dialog nobody reads.");
+				"§7.2: the callout is always rendered when email is blank - no dialog nobody reads.");
 			component.Markup.Contains("6 months", StringComparison.Ordinal).ShouldBeTrue(
 				"the inactivity policy is named on the callout so the user can make an informed choice.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -106,11 +106,11 @@ public sealed class WelcomeTests : PageTestContext
 	{
 		FakeApiClient api = WireServices();
 
-		// Reproduce Identity's per-rule ValidationProblemDetails payload — one Title, three
+		// Reproduce Identity's per-rule ValidationProblemDetails payload - one Title, three
 		// specific messages a user can act on.
 		api.TokenException = new ApiException(new ApiError(
 			StatusCode: System.Net.HttpStatusCode.BadRequest,
-			Title: "The details you entered were rejected — please check and try again.",
+			Title: "The details you entered were rejected - please check and try again.",
 			Messages: new[] { "Too short", "No uppercase", "No digit" }));
 
 		IRenderedComponent<Welcome> component = Render<Welcome>();
@@ -171,7 +171,7 @@ public sealed class WelcomeTests : PageTestContext
 
 	/// <summary>
 	/// The meter is Register-only, and only once something is typed. On Sign in the password
-	/// is one the rider already has — grading it there is advice about a decision they cannot
+	/// is one the rider already has - grading it there is advice about a decision they cannot
 	/// act on from that form.
 	/// </summary>
 	[Fact]
@@ -189,7 +189,7 @@ public sealed class WelcomeTests : PageTestContext
 
 		await ClickRegisterTabAsync(component);
 
-		// An empty field draws no meter at all — asserted on the component itself, since a
+		// An empty field draws no meter at all - asserted on the component itself, since a
 		// DEBUG build pre-fills this form's password to save typing during development.
 		await component.InvokeAsync(() => component.Find("input[type=password]").Input("Ride4mountains"));
 
@@ -203,7 +203,7 @@ public sealed class WelcomeTests : PageTestContext
 
 	/// <summary>
 	/// A password that will be refused says so while the rider is still in the field. This is
-	/// the only warning left on the way in — v0.23 removed the breach check, so nothing
+	/// the only warning left on the way in - v0.23 removed the breach check, so nothing
 	/// downstream will second-guess a password that passes the composition rules.
 	/// </summary>
 	[Fact]
@@ -227,7 +227,7 @@ public sealed class WelcomeTests : PageTestContext
 
 	/// <summary>
 	/// Both forms carry the reveal button. On Register it is how a rider checks the password
-	/// they are inventing; on Sign in it is how they find the typo — and on an account with no
+	/// they are inventing; on Sign in it is how they find the typo - and on an account with no
 	/// email there is no reset path to fall back on when they cannot.
 	/// </summary>
 	[Fact]
@@ -268,17 +268,17 @@ public sealed class WelcomeTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			// Welcome opens on Sign in — the common return path for a signed-out rider.
+			// Welcome opens on Sign in - the common return path for a signed-out rider.
 			AngleSharp.Dom.IElement signInTab = component.FindAll("button.tab")
 				.First(b => b.TextContent.Contains("Sign in", StringComparison.Ordinal));
 			signInTab.ClassList.Contains("active").ShouldBeTrue("Sign in is the default tab.");
 
 			// The recovery callout is register-only; the sign-in form must not carry it.
 			component.Markup.Contains("No email means no recovery", StringComparison.Ordinal).ShouldBeFalse(
-				"the callout is register-only — the sign-in form has no email field.");
+				"the callout is register-only - the sign-in form has no email field.");
 		}, timeout: TimeSpan.FromSeconds(3));
 
-		// Switching to Register brings the callout back — a rider who lands here can still
+		// Switching to Register brings the callout back - a rider who lands here can still
 		// choose to sign up, and needs to see the trade-off before they do.
 		await ClickRegisterTabAsync(component);
 

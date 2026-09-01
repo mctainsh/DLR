@@ -108,7 +108,7 @@ public sealed class TrackEditingTests(PostgresFixture postgres)
 	/// <summary>
 	/// §15.5 calls this the single most important implementation constraint in the section.
 	/// The map draws a simplified line; an edit addressed against <em>that</em> index space
-	/// deletes a different point on the server — plausibly hundreds of metres away, invisibly,
+	/// deletes a different point on the server - plausibly hundreds of metres away, invisibly,
 	/// and only on tracks dense enough for simplification to have done anything.
 	/// </summary>
 	[Fact]
@@ -134,7 +134,7 @@ public sealed class TrackEditingTests(PostgresFixture postgres)
 		IReadOnlyList<(double Latitude, double Longitude)> raw =
 			PolylineCodec.DecodePoints(before.Polyline);
 
-		// Remove ten raw points from the middle — an index far beyond the simplified line's
+		// Remove ten raw points from the middle - an index far beyond the simplified line's
 		// entire length, so a server working in the wrong space could not even apply it.
 		await EditAsync(client, track.Id, version: 1, new IndexRange(100, 110));
 
@@ -246,7 +246,7 @@ public sealed class TrackEditingTests(PostgresFixture postgres)
 			DlrWebApplicationFactory.DefaultStart.AddDays(7),
 			"seven days is the default window (§15.8)");
 
-		// Six days on: inside the window, and well past the fifteen-minute access token — so
+		// Six days on: inside the window, and well past the fifteen-minute access token - so
 		// the rider signs in again, exactly as they would have.
 		app.Clock.Advance(TimeSpan.FromDays(6));
 
@@ -263,7 +263,7 @@ public sealed class TrackEditingTests(PostgresFixture postgres)
 
 		restored.Track.Version.ShouldBe(
 			3,
-			"undo moves the chain forward — a device replaces its cached copy on the version " +
+			"undo moves the chain forward - a device replaces its cached copy on the version " +
 			"number and never has to reason about going backwards");
 
 		restored.UndoAvailableUntilUtc.ShouldBeNull("the safety net is spent");
@@ -297,7 +297,7 @@ public sealed class TrackEditingTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Exactly one revision per track. Undo is a safety net for the last action, not a history
-	/// feature — and unbounded revisions would quietly triple storage on a 40 GB disk (§15.6).
+	/// feature - and unbounded revisions would quietly triple storage on a 40 GB disk (§15.6).
 	/// </summary>
 	[Fact]
 	public async Task Undo_SecondEditWithinWindow_ReplacesRetainedOriginal()

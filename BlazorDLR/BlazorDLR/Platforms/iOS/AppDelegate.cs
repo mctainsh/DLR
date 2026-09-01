@@ -12,7 +12,7 @@ public class AppDelegate : MauiUIApplicationDelegate
 	/// <summary>
 	/// Kept alive for the life of the process. <c>UNUserNotificationCenter.Delegate</c> is a weak
 	/// reference on the Objective-C side, so a delegate held only by the local that assigned it is
-	/// collected as soon as this method returns — and the symptom is a notification that shows on a
+	/// collected as soon as this method returns - and the symptom is a notification that shows on a
 	/// locked phone and silently does nothing in the foreground, which is a bad thing to have to
 	/// diagnose on a device.
 	/// </summary>
@@ -29,13 +29,13 @@ public class AppDelegate : MauiUIApplicationDelegate
 	/// it. See <see cref="ThreadNotificationDelegate"/> for what the two callbacks do.
 	/// </para>
 	/// <para>
-	/// This registers <em>nothing remote</em> — no <c>RegisterForRemoteNotifications</c>, no APNs
+	/// This registers <em>nothing remote</em> - no <c>RegisterForRemoteNotifications</c>, no APNs
 	/// token, no entitlement. Claiming the delegate is a local-notification concern only.
 	/// </para>
 	/// </summary>
 	/// <param name="application">The application being launched.</param>
 	/// <param name="launchOptions">
-	/// Why the app was started, or <c>null</c> — which is the ordinary case, since a launch from the
+	/// Why the app was started, or <c>null</c> - which is the ordinary case, since a launch from the
 	/// home screen carries no options at all. The <c>?</c> is not decoration: UIKit declares this
 	/// parameter nullable, and an override that narrows it is a promise the framework never made.
 	/// </param>
@@ -49,8 +49,8 @@ public class AppDelegate : MauiUIApplicationDelegate
 		bool launched = base.FinishedLaunching(application, launchOptions);
 
 		// Read back *after* MAUI has built the app, not just after the assignment: the delegate is
-		// a weak reference on the Objective-C side and this is the one place a later claimant — or
-		// a collected delegate — becomes visible before a rider notices a notification that never
+		// a weak reference on the Objective-C side and this is the one place a later claimant - or
+		// a collected delegate - becomes visible before a rider notices a notification that never
 		// appeared. Names the type, so "somebody else owns it now" reads differently from "nobody
 		// does".
 		DiagnosticLog.Write(

@@ -31,7 +31,7 @@ public sealed class RouteColourMapTests
 	[Fact]
 	public void Encode_AnEmptyMap_StillDecodesToAnEmptyMap()
 	{
-		// What a device stores after clearing its last override — it must not read back as
+		// What a device stores after clearing its last override - it must not read back as
 		// "unreadable", which would be indistinguishable but is a different thing.
 		RouteColourMap.Decode(RouteColourMap.Encode(RouteColourMap.Empty)).ShouldBeEmpty();
 	}
@@ -50,7 +50,7 @@ public sealed class RouteColourMapTests
 	{
 		Guid good = Guid.NewGuid();
 
-		// A mangled id, a mangled colour, an entry with no separator — then a valid one.
+		// A mangled id, a mangled colour, an entry with no separator - then a valid one.
 		string stored = $"1|not-a-guid=#ff8800|{Guid.NewGuid():N}=purple|orphan|{good:N}=#00ffcc";
 
 		IReadOnlyDictionary<Guid, string> read = RouteColourMap.Decode(stored);

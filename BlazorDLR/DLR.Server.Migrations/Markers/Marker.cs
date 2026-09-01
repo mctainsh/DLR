@@ -9,7 +9,7 @@ namespace DLR.Server.Data.Markers;
 /// An authored point of interest on the map (§16.1).
 /// <para>
 /// <strong>Authored is the word that matters.</strong> Everything else this app puts on a map is
-/// <em>measured</em> — a recorded track, a live position — and measured data is governed by the
+/// <em>measured</em> - a recorded track, a live position - and measured data is governed by the
 /// §10.1 rules that delete it when a ride ends. A marker is something a person deliberately placed
 /// and typed, so it lives as long as the thing it is attached to. Conflating the two lifecycles is
 /// how a privacy-first app quietly starts retaining locations.
@@ -35,7 +35,7 @@ public sealed class Marker
 	/// <summary>Who placed it. They and the organiser may edit it (§16.5).</summary>
 	public Guid CreatedByUserId { get; set; }
 
-	/// <summary>Latitude, scaled by 1e5 — one coordinate encoding in the database (§5.5).</summary>
+	/// <summary>Latitude, scaled by 1e5 - one coordinate encoding in the database (§5.5).</summary>
 	public int Lat { get; set; }
 
 	/// <summary>Longitude, scaled by 1e5.</summary>
@@ -51,7 +51,7 @@ public sealed class Marker
 	/// </summary>
 	public short? DirectionDeg { get; set; }
 
-	/// <summary>A key from the curated set — never a user-supplied image (§16.2).</summary>
+	/// <summary>A key from the curated set - never a user-supplied image (§16.2).</summary>
 	public string Icon { get; set; } = string.Empty;
 
 	/// <summary>Rendered on the map beside the icon.</summary>

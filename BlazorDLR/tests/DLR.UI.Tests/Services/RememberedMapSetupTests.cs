@@ -29,7 +29,7 @@ public sealed class RememberedMapSetupTests
 
 	/// <summary>
 	/// Version 1 carried a map-pack link and a name after the zoom. Packs come from the catalogue
-	/// now (§4.2), so those two fields went with the form that asked for them — but a rider's tile
+	/// now (§4.2), so those two fields went with the form that asked for them - but a rider's tile
 	/// URL must survive a format change they did not ask for, which is why this reads rather than
 	/// rejects.
 	/// </summary>
@@ -47,7 +47,7 @@ public sealed class RememberedMapSetupTests
 
 	/// <summary>
 	/// Version 2 carried the preview map's camera after the zoom. The preview frames itself on its
-	/// source now — the world for a tile server, the pack's extent for a pack — so those three
+	/// source now - the world for a tile server, the pack's extent for a pack - so those three
 	/// fields went the same way version 1's pack link did, and for the same reason they are read
 	/// past rather than rejected.
 	/// </summary>
@@ -66,7 +66,7 @@ public sealed class RememberedMapSetupTests
 	[Fact]
 	public void AHalfTypedTemplateIsKept()
 	{
-		// MapSource would refuse this outright — that is the whole difference between the two.
+		// MapSource would refuse this outright - that is the whole difference between the two.
 		RememberedMapSetup setup = new(TileTemplate: "https://tiles.example.com/{z}/{x}");
 
 		RememberedMapSetup? decoded = RememberedMapSetup.Decode(setup.Encode());
@@ -96,7 +96,7 @@ public sealed class RememberedMapSetupTests
 		RememberedMapSetup.Empty.IsEmpty.ShouldBeTrue(
 			"and the page removes the key rather than storing three blanks.");
 
-		// Whitespace is not content — a field somebody tabbed through does not make a draft.
+		// Whitespace is not content - a field somebody tabbed through does not make a draft.
 		new RememberedMapSetup(TileTemplate: "   ", TileAttribution: "\t").IsEmpty.ShouldBeTrue();
 	}
 

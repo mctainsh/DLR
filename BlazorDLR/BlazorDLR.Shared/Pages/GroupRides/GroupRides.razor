@@ -5,22 +5,22 @@
 @using DLR.Core.Contracts.Rides
 @inject IApiClient Api
 @inject ConfirmService Confirm
-@* §ClockRules: never DateTime.Now — the wait below is measured against the injected clock. *@
+@* §ClockRules: never DateTime.Now - the wait below is measured against the injected clock. *@
 @inject TimeProvider Clock
-@* Which row the rail's globe leads to (§18.6), and the state leaving has to clear — along with
+@* Which row the rail's globe leads to (§18.6), and the state leaving has to clear - along with
    the device's own copy (§4.4), since a ride nobody is on must not still open from a cache. *@
 @inject CurrentRideState CurrentRide
 @inject RideSnapshotCache Cache
 @implements IDisposable
 
-<PageTitle>Group adventures — Dumb Luck Routes</PageTitle>
+<PageTitle>Group adventures - Dumb Luck Routes</PageTitle>
 
 @*
 	The signed-in entry point to group rides (§5.2).
 
 	Sections split server-side (§5.2), so a member of one ride and the organiser of
 	another gets two lists rather than one list plus a filter. Both show the join
-	code — a rider who has joined needs it to tell somebody else how to follow along, and
+	code - a rider who has joined needs it to tell somebody else how to follow along, and
 	the badge is the only place they can read it back off.
 
 	The third list is the odd one out and is meant to be: an adventure the rider has asked to
@@ -28,7 +28,7 @@
 	and the section is absent entirely when nobody is waiting on anything.
 
 	One row across the first two lists may be badged Current: the adventure this device is on,
-	which is where the rail's globe leads from anywhere in the app (§18.6). Often there is none —
+	which is where the rail's globe leads from anywhere in the app (§18.6). Often there is none -
 	a rider who has not opened one yet, or who has left the one they had.
 *@
 
@@ -49,7 +49,7 @@
 	@*
 		Above the lists rather than instead of them. A failed *load* has nothing to show under it
 		anyway, but a refused delete is a message about one row of a list the reader is still
-		looking at — replacing the list with the sentence would take away the thing it is about.
+		looking at - replacing the list with the sentence would take away the thing it is about.
 	*@
 	@if (_error is not null)
 	{
@@ -73,7 +73,7 @@
 
 			Rendered only when it has rows, unlike the two below it. Those say "you have not created
 			any adventures yet" because being empty is a state worth naming to somebody who has just
-			arrived — it is what the two cards at the top are an answer to. This one has no such
+			arrived - it is what the two cards at the top are an answer to. This one has no such
 			job: almost nobody ever has a pending request, and a permanent "you are not waiting on
 			anything" is a line every rider reads forever so that a few can read it once.
 		*@
@@ -86,7 +86,7 @@
 					{
 						@*
 							A li and not an anchor. Every other row on this page opens a ride; this one
-							cannot, because the caller is not on it — the detail endpoint answers a
+							cannot, because the caller is not on it - the detail endpoint answers a
 							non-member the same 404 a stranger gets (§5.2), so a link here would be a
 							control that leads to a dead end. Nothing about the row invites a tap.
 						*@
@@ -104,7 +104,7 @@
 								<span class="meta asked">Asked @Ago(waiting.RequestedUtc)</span>
 							</div>
 
-							@* No join code here, and none available to put here — see WaitingRide. *@
+							@* No join code here, and none available to put here - see WaitingRide. *@
 							<span class="pending-badge" title="The organiser has not answered yet">
 								<i class="fa fa-fw fa-hourglass-half" aria-hidden="true"></i>
 								Pending
@@ -157,7 +157,7 @@
 							}
 							@if (!string.IsNullOrEmpty(ride.JoinCode))
 							{
-								<span class="join-code" title="Join code — share with people you invite">
+								<span class="join-code" title="Join code - share with people you invite">
 									@ride.JoinCode
 								</span>
 							}
@@ -203,7 +203,7 @@
 							}
 							@if (!string.IsNullOrEmpty(ride.JoinCode))
 							{
-								<span class="join-code" title="Join code — share with people you invite">
+								<span class="join-code" title="Join code - share with people you invite">
 									@ride.JoinCode
 								</span>
 							}
@@ -211,15 +211,15 @@
 							@*
 								Leaving, from the list rather than only from inside the ride (§5.6).
 
-								It was reachable before this — the ride's own info page has "Leave adventure…"
-								— but only by opening the ride first, which is the wrong shape for the case it
+								It was reachable before this - the ride's own info page has "Leave adventure…"
+								- but only by opening the ride first, which is the wrong shape for the case it
 								is most wanted in: a rider tidying up several adventures they are done with.
 								The confirm is the same one, and it is the confirm rather than the placement
 								that makes this safe.
 
 								Only on this list. The organised rows have the trash instead, and the server
 								refuses to let an organiser leave their own ride outright (409, "a ride nobody
-								organises has nobody to decide who is in it") — so a Leave there would be a
+								organises has nobody to decide who is in it") - so a Leave there would be a
 								control that cannot work.
 							*@
 							<button type="button" class="leave" disabled="@(_leaving == ride.Id)"
@@ -245,7 +245,7 @@
 	private Guid? _deleting;
 
 	// The same idea for the two ways off a ride. One field for both, because a row is either a
-	// membership or a request and never both — and it is keyed by ride id in both cases, so a
+	// membership or a request and never both - and it is keyed by ride id in both cases, so a
 	// rider who is somehow on one list and waiting on the other still only ever locks one row.
 	private Guid? _leaving;
 
@@ -259,19 +259,19 @@
 	}
 
 	/// <summary>
-	/// Whether <paramref name="rideId"/> is the adventure this device is on — the one the rail's
+	/// Whether <paramref name="rideId"/> is the adventure this device is on - the one the rail's
 	/// globe leads back to (§18.6).
 	/// </summary>
 	private bool IsCurrent(Guid rideId) => CurrentRide.RideId == rideId;
 
 	/// <summary>
-	/// The marker on whichever row the rail's globe leads to. One fragment for both lists — the
+	/// The marker on whichever row the rail's globe leads to. One fragment for both lists - the
 	/// organised rows and the joined ones draw the same badge, and two copies of it drift.
 	/// <para>aria-hidden, because <c>aria-current</c> on the row's own link already says it.</para>
 	/// </summary>
 	private static readonly RenderFragment CurrentBadge =
 		@<span class="current-badge" aria-hidden="true"
-			   title="The adventure this device is on — the rail's globe leads here">
+			   title="The adventure this device is on - the rail's globe leads here">
 			<i class="fa fa-fw fa-globe" aria-hidden="true"></i>
 			Current
 		</span>;
@@ -327,14 +327,14 @@
 	/// Leaves an adventure the caller was admitted to (§5.6).
 	/// <para>
 	/// The same three consequences the ride's own Leave has, because it is the same act: the
-	/// membership goes, the device's copy goes with it — a ride nobody is on must not still open
-	/// from a cache (§4.4) — and the rail's globe stops pointing at it if that is where it pointed
+	/// membership goes, the device's copy goes with it - a ride nobody is on must not still open
+	/// from a cache (§4.4) - and the rail's globe stops pointing at it if that is where it pointed
 	/// (§18.6). Doing two of the three would leave the app remembering a ride the server has
 	/// forgotten.
 	/// </para>
 	/// <para>
 	/// The receiver is not touched here, unlike in <c>RideSession.LeaveRideAsync</c>. It is stopped
-	/// per ride by the session that started it, and this page has none — a rider on this screen is
+	/// per ride by the session that started it, and this page has none - a rider on this screen is
 	/// not on a map, and the server has already stopped copying their position into a ride they
 	/// left (§5.6). The next ride they open brings its own receiver up.
 	/// </para>
@@ -350,7 +350,7 @@
 			$"Leave {ride.Name}?",
 			"Your location stops going to the group, the position the adventure holds for you is "
 			+ "deleted, and it drops off this list. The adventure itself carries on without you. "
-			+ "You would need the join code — or a new request — to get back on.",
+			+ "You would need the join code - or a new request - to get back on.",
 			confirmText: "Leave");
 
 		if (!confirmed)
@@ -374,7 +374,7 @@
 		catch (Exception exception)
 		{
 			// The one that lands here is the organiser's 409, which this list should never be able
-			// to produce — the button is only on rides they joined. Shown rather than swallowed, on
+			// to produce - the button is only on rides they joined. Shown rather than swallowed, on
 			// the principle that a refusal the app did not expect is exactly the one worth reading.
 			_error = $"Could not leave {ride.Name}: {exception.Message}";
 		}
@@ -393,8 +393,8 @@
 	/// </para>
 	/// <para>
 	/// Confirmed, though it destroys nothing. What it costs is the queue position and the
-	/// organiser's attention — asking again puts them at the back of a list somebody has already
-	/// read — and the button sits a thumb's width from nothing else on the row.
+	/// organiser's attention - asking again puts them at the back of a list somebody has already
+	/// read - and the button sits a thumb's width from nothing else on the row.
 	/// </para>
 	/// </summary>
 	private async Task WithdrawAsync(WaitingRide waiting)
@@ -435,7 +435,7 @@
 
 	/// <summary>
 	/// Deletes an adventure the caller organises (§5.2), through the app's own dialog rather than
-	/// <c>window.confirm</c> — it is irreversible, and the trash sits one thumb-width from the row
+	/// <c>window.confirm</c> - it is irreversible, and the trash sits one thumb-width from the row
 	/// that opens the ride.
 	/// <para>
 	/// The list is refetched rather than the row spliced out locally: the server is the one that

@@ -26,7 +26,7 @@ public sealed class RouteDirectionMapTests
 	[Fact]
 	public void Encode_AnEmptySet_StillDecodesToAnEmptySet()
 	{
-		// What a device stores after turning its last reversed route back — it must not read
+		// What a device stores after turning its last reversed route back - it must not read
 		// back as "unreadable", which would be indistinguishable but is a different thing.
 		RouteDirectionMap.Decode(RouteDirectionMap.Encode(RouteDirectionMap.Empty)).ShouldBeEmpty();
 	}

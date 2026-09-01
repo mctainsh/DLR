@@ -6,7 +6,7 @@ namespace DLR.UI.Tests.Tracks;
 
 /// <summary>
 /// Which point of the track a tap landed on (§15.5). The cursor is placed by pointing, so the
-/// answer has to be "the one under the finger" in screen pixels — and a tap that hit bare map
+/// answer has to be "the one under the finger" in screen pixels - and a tap that hit bare map
 /// has to be no answer at all rather than the nearest end of the ride.
 /// </summary>
 public sealed class TrackHitTestTests
@@ -60,7 +60,7 @@ public sealed class TrackHitTestTests
 	[Fact]
 	public void Nearest_MeasuresInPixels_SoZoomChangesWhatCounts()
 	{
-		// One tenth of a degree off the line is 50 px here — inside the 36 px radius? No.
+		// One tenth of a degree off the line is 50 px here - inside the 36 px radius? No.
 		TrackHitTest.Nearest(UnitViewport, Line, new MapClick(0.1, 0)).ShouldBeNull();
 
 		// The same tap on a view ten times wider is 5 px off, and hits.

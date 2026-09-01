@@ -4,13 +4,13 @@
 @inject IApiClient Api
 @inject NavigationManager Nav
 
-<PageTitle>Adventure permissions — Dumb Luck Routes</PageTitle>
+<PageTitle>Adventure permissions - Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium">
 	<PageNav Title="Content permissions" BackHref="@($"/group-rides/live/{RideId}")" BackLabel="Back to the adventure" />
 
 	<p class="lead">
-		Turning a switch off stops <em>new</em> content — nothing is deleted.
+		Turning a switch off stops <em>new</em> content - nothing is deleted.
 		An organiser who wants something gone deletes it explicitly.
 	</p>
 
@@ -42,7 +42,7 @@
 				Members may post comments
 			</label>
 			<p class="note">
-				Off leaves reading, reacting and voting alone — reactions carry no free
+				Off leaves reading, reacting and voting alone - reactions carry no free
 				text and switching off polls would break them rather than moderate them.
 			</p>
 		</fieldset>
@@ -53,7 +53,7 @@
 				Members may attach photos
 			</label>
 			<p class="note">
-				Its own switch, not a consequence of comments — photos are the expensive
+				Its own switch, not a consequence of comments - photos are the expensive
 				half and often the thing an organiser wants to stop while leaving
 				conversation alone.
 			</p>
@@ -74,7 +74,7 @@
 	[Parameter] public Guid RideId { get; set; }
 
 	private RideDetail? _ride;
-	// Mutable local copy — the record is immutable but the UI binds to fields, so
+	// Mutable local copy - the record is immutable but the UI binds to fields, so
 	// a plain class is easier than fighting @bind against `with`-expressions.
 	private RidePermissionsMutable _permissions = new();
 	private string? _error;

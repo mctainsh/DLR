@@ -28,7 +28,7 @@ public enum RideContent
 /// <para>
 /// <strong>Enforcement is server-side and the UI merely agrees.</strong> The
 /// <c>RidePermissionsChanged</c> hub message exists so a client can grey out a compose surface
-/// rather than lie about it — but a member whose permission was revoked mid-compose is stopped
+/// rather than lie about it - but a member whose permission was revoked mid-compose is stopped
 /// here, not by their own client choosing to behave.
 /// </para>
 /// </summary>
@@ -70,8 +70,8 @@ public static class RideContentPermissions
 	/// The refusal, worded so the rider knows it is a setting rather than a fault.
 	/// <para>
 	/// Separate from <see cref="Refuse"/> so that a caller which has <em>decided</em> a refusal
-	/// but is not yet returning it — <see cref="Comments.ThreadAccess"/>, which carries the
-	/// reason a thread is closed to somebody alongside the fact that it is — can hold the words
+	/// but is not yet returning it - <see cref="Comments.ThreadAccess"/>, which carries the
+	/// reason a thread is closed to somebody alongside the fact that it is - can hold the words
 	/// without holding an <see cref="IActionResult"/>. The two must not drift, so there is one
 	/// wording and the result is built from it.
 	/// </para>
@@ -102,7 +102,7 @@ public static class RideContentPermissions
 
 	/// <summary>
 	/// Wraps a decided refusal in the response shape every endpoint in this project returns one
-	/// in — the status on the result as well as in the body, and the problem content type, both
+	/// in - the status on the result as well as in the body, and the problem content type, both
 	/// of which <see cref="ControllerBase.Problem"/> would otherwise be doing invisibly.
 	/// </summary>
 	/// <param name="problem">The refusal.</param>

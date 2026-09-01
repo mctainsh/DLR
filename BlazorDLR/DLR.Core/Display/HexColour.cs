@@ -6,7 +6,7 @@ namespace DLR.Core.Display;
 /// The one reader of a <c>#rrggbb</c> colour string, and the one answer to "what colour of ink
 /// is legible on top of it".
 /// <para>
-/// <c>#rrggbb</c> exactly — six digits, one leading hash. It is the only form the Skia overlay's
+/// <c>#rrggbb</c> exactly - six digits, one leading hash. It is the only form the Skia overlay's
 /// own parser accepts and the only form an <c>&lt;input type="color"&gt;</c> ever produces, so
 /// accepting more here would mean a value that validates, saves, persists, and then silently
 /// draws as somebody's fallback blue.
@@ -83,7 +83,7 @@ public static class HexColour
 	/// </para>
 	/// </summary>
 	/// <param name="colour">A <c>#rrggbb</c> colour.</param>
-	/// <returns>The luminance, or 1 (white) for a string that is not a colour — the value that
+	/// <returns>The luminance, or 1 (white) for a string that is not a colour - the value that
 	/// makes <see cref="ContrastingForeground"/> answer black, which is the safe ink for a
 	/// surface nobody could measure.</returns>
 	public static double RelativeLuminance(string? colour)
@@ -98,7 +98,7 @@ public static class HexColour
 
 	/// <summary>
 	/// Black or white, whichever has the higher contrast ratio against
-	/// <paramref name="background"/> — the "opposite colour" a marker's text and border are drawn
+	/// <paramref name="background"/> - the "opposite colour" a marker's text and border are drawn
 	/// in (§16.3).
 	/// <para>
 	/// Ratios rather than a hard luminance threshold, because the threshold is only ever the

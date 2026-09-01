@@ -4,7 +4,7 @@
 @*
 	Five stars, read-only or tappable (§6.2).
 
-	One component for both jobs, because they are the same five glyphs and the same rounding —
+	One component for both jobs, because they are the same five glyphs and the same rounding -
 	a browse row that drew "4.5" one way and a detail page that drew it another would be the
 	same route disagreeing with itself between two screens. Interactive is the presence of an
 	OnRate callback rather than a separate flag: a caller that cannot handle a tap has nothing
@@ -14,7 +14,7 @@
 	later all round the same way.
 
 	The stars are drawn, not typed. Both rows were once ★ and ☆ text glyphs, one row clipped
-	over the other to show a fraction — which only works if the two characters share an advance
+	over the other to show a fraction - which only works if the two characters share an advance
 	width, and they do not in every font this app lands in. A row that disagreed with itself by
 	half a character drew a sixth star nobody had rated. A path has the width the viewBox says it
 	has on every platform, and both rows draw the same one.
@@ -39,7 +39,7 @@
 			</button>
 		}
 
-		@* Tapping the star you already gave clears the rating (§6.2) — the same "tap it again to
+		@* Tapping the star you already gave clears the rating (§6.2) - the same "tap it again to
 		   undo it" a reaction has, so there is no separate control to find. It is said out loud
 		   because a control that only reveals itself by being pressed is a control nobody
 		   presses. *@
@@ -56,7 +56,7 @@ else
 
 	   Half a star is drawn as half a star rather than reached for in Unicode. There is a
 	   character for it and it is missing from enough phone fonts to render as a box, which is a
-	   worse answer than being approximate — this is exact, and ToHalfStars has already promised
+	   worse answer than being approximate - this is exact, and ToHalfStars has already promised
 	   that a half is the only fraction that can turn up. *@
 	<span class="stars" title="@Title">
 		@for (int star = TrackRatings.MinStars; star <= TrackRatings.MaxStars; star++)
@@ -72,7 +72,7 @@ else
 	[Parameter] public TrackRatingSummary? Summary { get; set; }
 
 	/// <summary>
-	/// Called when the reader taps a star, with the number they chose — or null when they tapped
+	/// Called when the reader taps a star, with the number they chose - or null when they tapped
 	/// the star they had already given, which clears the rating. Leave unset for a display-only
 	/// row, which is what a browse list wants.
 	/// </summary>
@@ -82,7 +82,7 @@ else
 	[Parameter] public bool Busy { get; set; }
 
 	/// <summary>
-	/// A five-pointed star on a 24×24 canvas, centred so that half its width is half the star —
+	/// A five-pointed star on a 24×24 canvas, centred so that half its width is half the star -
 	/// which is what lets the half state be an inset of exactly 50%.
 	/// </summary>
 	private const string StarPath =
@@ -111,7 +111,7 @@ else
 
 	/// <summary>
 	/// The number beside the stars. Zero ratings is said in words rather than shown as five empty
-	/// stars and a "0.0" — a route nobody has rated has no score, and printing one would be
+	/// stars and a "0.0" - a route nobody has rated has no score, and printing one would be
 	/// inventing the worst possible verdict out of an absence (§8).
 	/// </summary>
 	private string Label => Summary is not { Count: > 0 } summary

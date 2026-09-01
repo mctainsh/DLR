@@ -1,0 +1,53 @@
+﻿@using BlazorDLR.Shared.State
+@inject StartupCheckState Startup
+
+@*
+	The wall (§20.1). MainLayout renders this INSTEAD OF @Body, which is what makes it a wall
+	rather than a dialog: there is no route underneath it to reach, so nothing behind it can make
+	a call the server would refuse.
+
+	The nav rail stays. A rider who cannot use the app can still read what is wrong, and hiding
+	the furniture as well would look like a crash rather than a decision.
+
+	Nothing here calls the server. This build is one the server has already said it will not
+	serve, so a retry button would be a button that cannot work.
+*@
+
+<div class="page page-narrow">
+	<div class="wall">
+		<h1><i class="fa fa-fw fa-circle-arrow-up" aria-hidden="true"></i> Time for an update</h1>
+
+		<p>
+			This copy of Dumb Luck Routes is too old to talk to the server properly. Rather than let
+			it half work and lose something you have recorded, it stops here.
+		</p>
+
+		<p class="wall-versions">
+			This app is version <strong>@(StartupCheckState.ClientVersion ?? "unknown")</strong>.
+			The server needs at least <strong>@Startup.MinimumVersion</strong>.
+		</p>
+
+		@if (Startup.UpdateUrl is { } store)
+		{
+			<p><a class="button" href="@store" target="_blank" rel="noopener">Get the new version</a></p>
+		}
+		else
+		{
+			<p>Update the app from the store you installed it from, then open it again.</p>
+		}
+	</div>
+</div>
+
+<style>
+	.wall {
+		border: 1px solid var(--dlr-border); border-top: 4px solid var(--dlr-warn); border-radius: 8px;
+		background: var(--dlr-surface);
+		padding: 1.5rem 1.25rem;
+		margin-top: 2rem;
+	}
+	.wall h1 { margin: 0 0 1rem; font-size: 1.3rem; }
+	.wall h1 i { color: var(--dlr-warn); }
+	.wall p { margin: 0 0 1rem; line-height: 1.5; }
+	.wall p:last-child { margin-bottom: 0; }
+	.wall-versions { color: var(--dlr-fg-muted); }
+</style>

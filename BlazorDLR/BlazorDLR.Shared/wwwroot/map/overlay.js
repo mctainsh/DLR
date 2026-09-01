@@ -4,11 +4,11 @@
 // the result: get it onto the screen, and keep it over the right ground while the map moves.
 //
 // Why this file exists. The overlay used to be an <SKCanvasView> from SkiaSharp.Views.Blazor,
-// which initialises through [JSImport] — WebAssembly-only interop. On a MAUI BlazorWebView the
+// which initialises through [JSImport] - WebAssembly-only interop. On a MAUI BlazorWebView the
 // runtime is Mono, so that threw "System.Runtime.InteropServices.JavaScript is not supported on
 // this platform" on first render, and an unhandled throw there takes down the whole Blazor
 // renderer: the base map kept panning (it is pure JS) while every button in the app went dead.
-// Skia itself runs fine on the phone — only the canvas *binding* was browser-only — so C# now
+// Skia itself runs fine on the phone - only the canvas *binding* was browser-only - so C# now
 // rasterises off-screen and hands the encoded frame here.
 
 // A <canvas> and createImageBitmap, NOT an <img> with a data: URL.
@@ -17,7 +17,7 @@
 // and assigning src again *cancels a decode already in flight*. On the web, where decoding a
 // frame is far quicker than the gap between repaints, it looked fine. On a phone it did not:
 // Group Ride Live repaints about once a second as rider positions arrive, each assignment
-// killed the previous decode, and the overlay never displayed anything at all — while a static
+// killed the previous decode, and the overlay never displayed anything at all - while a static
 // page like the track editor, which paints once and then stops, eventually got a frame through.
 
 import { findTracker } from "./interop.js";
@@ -32,7 +32,7 @@ const tracked = new WeakMap();
  * @param {HTMLCanvasElement} element The canvas the component owns.
  * @param {string} pngBase64 The frame, PNG-encoded. Empty clears the overlay.
  * @param {{widthPx: number, heightPx: number, centreLat: number, centreLon: number, zoom: number, bearingDeg: number}} view
- *   The base map's view when the frame was drawn — its size in device pixels, and the centre,
+ *   The base map's view when the frame was drawn - its size in device pixels, and the centre,
  *   zoom and bearing that every later frame's transform is measured against.
  */
 export async function present(element, pngBase64, view) {
@@ -44,7 +44,7 @@ export async function present(element, pngBase64, view) {
 	if (!context) throw new Error("map/overlay.js: could not get a 2d context for the overlay canvas.");
 
 	// Assigning width or height also clears the canvas, so only touch them when they actually
-	// changed — otherwise every frame would blank the surface before drawing the new one and a
+	// changed - otherwise every frame would blank the surface before drawing the new one and a
 	// slow decode would show as a flicker.
 	if (element.width !== widthPx || element.height !== heightPx) {
 		element.width = widthPx;
@@ -110,7 +110,7 @@ function track(element, view) {
 
 	// Immediately, not on the next move. C# spent tens of milliseconds rasterising this frame
 	// and the map has kept moving the whole time, so presenting it untransformed would snap the
-	// overlay back to where the map was when the paint started — a visible twitch on every
+	// overlay back to where the map was when the paint started - a visible twitch on every
 	// frame of a pan, which is worse than the lag it is meant to cure.
 	state.apply();
 }
@@ -134,7 +134,7 @@ function applyTransform(element, view, tracker) {
 	// CSS pixels throughout: the canvas is laid out at the container's CSS size, whatever its
 	// backing store measures in device pixels. Derived from the frame rather than read off the
 	// element, because reading clientWidth inside a move handler forces a layout on every frame
-	// of every pan — and the two cannot disagree, because a resize changes the reported viewport
+	// of every pan - and the two cannot disagree, because a resize changes the reported viewport
 	// and therefore produces a new frame.
 	const ratio = window.devicePixelRatio || 1;
 	const dx = now.x - (view.widthPx / ratio / 2);

@@ -3,7 +3,7 @@ using BlazorDLR.Shared.Services;
 namespace DLR.UI.Tests.Services;
 
 /// <summary>
-/// §4.2's filter — the five rules between the receiver and the wire.
+/// §4.2's filter - the five rules between the receiver and the wire.
 /// <para>
 /// Worth testing properly because every one of these rules exists to stop a specific observed
 /// failure, and none of them can be checked on a phone without going and riding: a parked bike
@@ -15,7 +15,7 @@ public sealed class PositionGateTests
 {
 	private static readonly DateTimeOffset Start = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 
-	/// <summary>Sydney, and a point due east of it — a metre of longitude is about 92 m here.</summary>
+	/// <summary>Sydney, and a point due east of it - a metre of longitude is about 92 m here.</summary>
 	private const double Latitude = -33.868;
 	private const double Longitude = 151.209;
 
@@ -82,7 +82,7 @@ public sealed class PositionGateTests
 	public void WhatGoesWhenTheMinimumLifts_IsWhereTheRiderIsThen()
 	{
 		// The point of holding rather than queueing. The fix that rang the bell at 2 s is gone by
-		// the time the floor lifts, and the one that goes is the newer one — a rider at speed has
+		// the time the floor lifts, and the one that goes is the newer one - a rider at speed has
 		// travelled another 60 m in the meantime and the ride wants that, not the old point.
 		PositionGate gate = new(Rate(25, 60, 5));
 
@@ -141,7 +141,7 @@ public sealed class PositionGateTests
 	[Fact]
 	public void AJumpNobodyCouldHaveRidden_IsRefused()
 	{
-		// 5 km in one second. A receiver correcting itself after a cold start, not a rider — and
+		// 5 km in one second. A receiver correcting itself after a cold start, not a rider - and
 		// published, it would drag the whole group's map somewhere nobody is.
 		PositionGate gate = new(Rate(25, 60, 2));
 
@@ -169,7 +169,7 @@ public sealed class PositionGateTests
 	public void AFixStampedBeforeOneAlreadySent_IsRefused()
 	{
 		// A replayed cached point, or a clock correction landing mid-ride. Publishing it moves
-		// every other rider's map backwards — and it is asked before the floor, because a fix from
+		// every other rider's map backwards - and it is asked before the floor, because a fix from
 		// the past is wrong rather than early.
 		PositionGate gate = new(LocationUpdateRate.Default);
 
@@ -198,7 +198,7 @@ public sealed class PositionGateTests
 	{
 		// The reported symptom was a pin that stopped for a minute or more after a link came back.
 		// Half of it was here: the gate advanced the moment it said yes, so a fix that then failed
-		// to send still spent the whole maximum — the rider's link recovered and the app sat on its
+		// to send still spent the whole maximum - the rider's link recovered and the app sat on its
 		// hands for another minute before it would even try again.
 		PositionGate gate = new(Rate(25, 60, 5));
 
@@ -232,7 +232,7 @@ public sealed class PositionGateTests
 	public void AReferencePointThatIsItselfWrong_DoesNotSilenceARiderForever()
 	{
 		// The other half of the reported symptom, and the nastier half. A refused fix does not
-		// become the new reference — that is what makes the speed rule work — so a reference that
+		// become the new reference - that is what makes the speed rule work - so a reference that
 		// is *wrong* refuses everything measured against it. The only way out used to be the rider
 		// travelling far enough for the arithmetic to fall back under 90 m/s, which for a 20 km
 		// error is 222 seconds of a pin that has stopped moving on every other rider's map.
@@ -285,7 +285,7 @@ public sealed class PositionGateTests
 	public void Reset_LetsARideResumeSomewhereElse()
 	{
 		// Stopped sharing in one city, started again in another. Without the reset the first fix of
-		// the new ride is refused as an implausible speed — and the gap between the two is exactly
+		// the new ride is refused as an implausible speed - and the gap between the two is exactly
 		// the time the app was not watching.
 		PositionGate gate = new(LocationUpdateRate.Default);
 
@@ -308,7 +308,7 @@ public sealed class PositionGateTests
 				$"a {distance:0} m gate tighter than a consumer GPS's own error would publish nothing.");
 
 			// The other end of the same clamp. A 500 m step would derive a 2 km gate, which is a
-			// cell-tower fix — published, it puts a rider two suburbs from where they are.
+			// cell-tower fix - published, it puts a rider two suburbs from where they are.
 			PositionGate.MaxAccuracyFor(distance).ShouldBeLessThanOrEqualTo(50,
 				$"a {distance:0} m gate this loose would publish fixes nobody could adventure to.");
 		}

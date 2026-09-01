@@ -19,7 +19,7 @@ namespace DLR.UI.Tests.Pages;
 /// <c>NeighbourPanel</c>'s; both are tested where they live. What is left for the page is the
 /// wiring only the page has: that the panel is measured from <em>this device's</em> fix rather
 /// than from the ride's round-tripped copy of it, that the hamburger can take it off and put it
-/// back, and that the choice survives leaving the map — which is the commonest thing a rider does
+/// back, and that the choice survives leaving the map - which is the commonest thing a rider does
 /// mid-ride.
 /// </para>
 /// </summary>
@@ -107,7 +107,7 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 		Services.AddSingleton<PrivateAreaState>();
 		Services.AddSingleton<CurrentRideState>();
 
-		// Play's background-location disclosure, already answered — without it the receiver stops at
+		// Play's background-location disclosure, already answered - without it the receiver stops at
 		// a modal nothing here presses, and this rider never gets a fix of their own.
 		await _settings.SetAsync(LocationDisclosure.StorageKey, "1");
 
@@ -152,11 +152,11 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Polled rather than waited on through the renderer — the watch starts after the last
+		// Polled rather than waited on through the renderer - the watch starts after the last
 		// render the page has any reason to do. See BackgroundWait.
 		await BackgroundWait.UntilAsync(
 			() => Gps.WatchCount == 1,
-			"the receiver to start — sharing is on and the adventure is Live, so the GPS runs");
+			"the receiver to start - sharing is on and the adventure is Live, so the GPS runs");
 
 		Gps.Emit(new LocationFix(
 			BaseLat, LonAt(metresEast), AccuracyM: 5, SpeedMps: 8, HeadingDeg: 90, RecordedUtc: FixedInstant));
@@ -290,14 +290,14 @@ public sealed class GroupRideLiveNeighbourTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.FindAll(".live-neighbours").ShouldNotBeEmpty(
-				"switching it back on fills it now, rather than waiting on the next position batch — "
+				"switching it back on fills it now, rather than waiting on the next position batch - "
 				+ "on a group standing at the meeting point that batch may be a while."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
 	/// The switch says which way it is set while the menu is open, in the attribute a screen reader
-	/// reads out — the panel behind the menu is what says it once the menu has closed.
+	/// reads out - the panel behind the menu is what says it once the menu has closed.
 	/// </summary>
 	[Fact]
 	public async Task TheSwitch_CarriesItsStateAsAChecked()

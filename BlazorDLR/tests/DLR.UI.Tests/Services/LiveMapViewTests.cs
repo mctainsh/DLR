@@ -3,7 +3,7 @@ using BlazorDLR.Shared.Services;
 namespace DLR.UI.Tests.Services;
 
 /// <summary>
-/// The live map's remembered view — the one string that decides where the ride map opens.
+/// The live map's remembered view - the one string that decides where the ride map opens.
 /// <para>
 /// The value comes off a device we do not control and can have been written by another
 /// version, so what is pinned here is the round trip and the refusals: a view that cannot be
@@ -32,7 +32,7 @@ public sealed class LiveMapViewTests
 	}
 
 	/// <summary>
-	/// The two modes are independent switches, and the encoding has to keep them that way — a
+	/// The two modes are independent switches, and the encoding has to keep them that way - a
 	/// rider who wants a turning map they pan around themselves is asking for exactly this pair.
 	/// </summary>
 	[Theory]
@@ -52,7 +52,7 @@ public sealed class LiveMapViewTests
 	/// <summary>
 	/// The compatibility this format's field-count floor is for. <c>HeadingUp</c> was appended to
 	/// the tail without a version bump, so the value on a device that last ran the build before it
-	/// still opens the map where the rider left it — losing at most the one preference that build
+	/// still opens the map where the rider left it - losing at most the one preference that build
 	/// never had.
 	/// </summary>
 	[Fact]
@@ -102,7 +102,7 @@ public sealed class LiveMapViewTests
 		LiveMapView? read = LiveMapView.Decode(
 			$"1|{RideId:N}|-33.8|151.2|99|0");
 
-		read.ShouldNotBeNull("an out-of-range zoom is repairable — the ground it names is not in doubt.");
+		read.ShouldNotBeNull("an out-of-range zoom is repairable - the ground it names is not in doubt.");
 		read.ZoomLevel.ShouldBe(LiveMapView.MaxZoomLevel);
 	}
 

@@ -12,7 +12,7 @@ namespace BlazorDLR.Shared.Services;
 /// </param>
 public readonly record struct OutboxBatch(LocationFix? Fix, bool? Privacy, bool Keepalive = false)
 {
-	/// <summary>Nothing to send — what a drained and closed outbox answers.</summary>
+	/// <summary>Nothing to send - what a drained and closed outbox answers.</summary>
 	public bool IsEmpty => Fix is null && Privacy is null;
 }
 
@@ -21,7 +21,7 @@ public readonly record struct OutboxBatch(LocationFix? Fix, bool? Privacy, bool 
 /// <para>
 /// <strong>Why it exists.</strong> The pump used to send inline: a fix arrived, and the loop that
 /// read it awaited a hub round trip and then an HTTP POST before it went back for the next one. On
-/// a good link that is invisible. On a marginal one — which on a motorcycle is most of them — a
+/// a good link that is invisible. On a marginal one - which on a motorcycle is most of them - a
 /// single send that hangs stops <em>everything</em>: the rider's own mark, the recorder, and every
 /// fix behind it. Riders saw exactly that: a pin frozen for minutes, then a jump of tens of
 /// kilometres, then normal movement again. This is the seam that stops it. The pump posts and
@@ -30,14 +30,14 @@ public readonly record struct OutboxBatch(LocationFix? Fix, bool? Privacy, bool 
 /// <para>
 /// <strong>Latest wins, and that is the whole design.</strong> There is one slot for a position and
 /// one for a privacy crossing, not a queue. A position that a newer one has already superseded is
-/// worth nothing to anybody — publishing it costs uplink to tell a ride where a rider <em>was</em>,
+/// worth nothing to anybody - publishing it costs uplink to tell a ride where a rider <em>was</em>,
 /// and, worse, guarantees the backlog never drains: every stalled send used to be followed by ten
 /// more sends of history before the current point was reached. A slot cannot fall behind.
 /// </para>
 /// <para>
 /// The two slots are separate rather than one because they are not interchangeable. A fix is
 /// repeated seconds later; a privacy crossing is sent once, at the edge of the circle, and
-/// coalescing it away would leave a rider hidden — or exposed — for the rest of the ride.
+/// coalescing it away would leave a rider hidden - or exposed - for the rest of the ride.
 /// </para>
 /// </summary>
 public sealed class PositionOutbox : IDisposable
@@ -57,7 +57,7 @@ public sealed class PositionOutbox : IDisposable
 	/// <summary>
 	/// Hands over the newest position, replacing any the sender has not picked up yet.
 	/// <para>
-	/// Never blocks and never throws — the caller is the fix pump, and the pump's whole job after
+	/// Never blocks and never throws - the caller is the fix pump, and the pump's whole job after
 	/// this change is to not wait for anything that involves a socket.
 	/// </para>
 	/// </summary>
@@ -123,7 +123,7 @@ public sealed class PositionOutbox : IDisposable
 	/// <see cref="TakeAsync"/> is woken so its loop can end.
 	/// <para>
 	/// What the pump calls when the receiver has stopped. Whatever is already in the slots is still
-	/// handed over first — the last thing posted before a stop is usually the privacy crossing that
+	/// handed over first - the last thing posted before a stop is usually the privacy crossing that
 	/// takes a rider off the map.
 	/// </para>
 	/// </summary>
@@ -150,7 +150,7 @@ public sealed class PositionOutbox : IDisposable
 	/// <para>
 	/// The sender reads this between its two transports. One turn can spend a deadline on the hub
 	/// and another on REST, and pushing a fix that has already been superseded down the slow path
-	/// costs uplink to tell the ride where the rider <em>was</em> — the same backlog this class
+	/// costs uplink to tell the ride where the rider <em>was</em> - the same backlog this class
 	/// exists to prevent, arriving one turn at a time instead of ten.
 	/// </para>
 	/// </summary>
@@ -170,7 +170,7 @@ public sealed class PositionOutbox : IDisposable
 	/// </summary>
 	/// <param name="cancellationToken">Stops the sender.</param>
 	/// <returns>
-	/// What to send, or an empty batch — <see cref="OutboxBatch.IsEmpty"/> — once the outbox has
+	/// What to send, or an empty batch - <see cref="OutboxBatch.IsEmpty"/> - once the outbox has
 	/// been completed and drained. The sender's loop ends on that rather than on an exception.
 	/// </returns>
 	public async ValueTask<OutboxBatch> TakeAsync(CancellationToken cancellationToken = default)

@@ -3,11 +3,11 @@ using DLR.Core.Contracts.Identity;
 namespace BlazorDLR.Shared.Services;
 
 /// <summary>
-/// Social sign-in — Apple and Google (§7.16).
+/// Social sign-in - Apple and Google (§7.16).
 /// <para>
 /// <strong>Scaffolded, not shipped.</strong> The design decision is that Apple and Google
 /// ship together, using <em>native</em> flows (<c>ASWebAuthenticationSession</c> on iOS,
-/// Credential Manager on Android) rather than embedded web views — Google refuses embedded
+/// Credential Manager on Android) rather than embedded web views - Google refuses embedded
 /// web-view sign-in and the two stores' rules line up to make one-provider shipping the
 /// wrong shape. Real bindings need registrations at Apple / Google Cloud, a URL scheme in
 /// each mobile manifest, and a server endpoint that verifies the returned ID token against
@@ -25,7 +25,7 @@ public interface IExternalSignInProvider
 
 	/// <summary>
 	/// Whether this provider has been configured for the current deployment. False today
-	/// on every host — the Welcome page shows "not yet available" and does not call
+	/// on every host - the Welcome page shows "not yet available" and does not call
 	/// <see cref="StartAsync"/>.
 	/// </summary>
 	bool IsAvailable { get; }

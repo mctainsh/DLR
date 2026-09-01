@@ -9,7 +9,7 @@ namespace BlazorDLR.Shared.Services;
 /// round the route goes.
 /// <para>
 /// <strong>A device preference, not ride data.</strong> Two riders on the same ride can hold
-/// different answers and neither is wrong — this is legibility on the screen in front of you,
+/// different answers and neither is wrong - this is legibility on the screen in front of you,
 /// which depends on the phone, the mount, the sunlight and the eyes. It is stored through
 /// <see cref="IDeviceSettings"/>, never sent to the server, and never shared with the ride.
 /// </para>
@@ -18,7 +18,7 @@ namespace BlazorDLR.Shared.Services;
 /// <c>null</c> means "leave the per-route colour alone", which is what <see cref="RoutePalette"/>
 /// assigns by position so a ride's second route is a different colour from its first. Setting it
 /// paints every route the same, which is what somebody with one route and a strong opinion
-/// actually wants — and is a real loss on a ride with three, so it is off by default.
+/// actually wants - and is a real loss on a ride with three, so it is off by default.
 /// </para>
 /// </summary>
 /// <param name="FillColour">The line's own colour as <c>#rrggbb</c>, or <c>null</c> to keep the per-route palette.</param>
@@ -101,7 +101,7 @@ public sealed record RouteStyle(
 	{
 		RouteStyle safe = Normalised();
 
-		// Empty fill field means "no override" — the one value that is legitimately absent.
+		// Empty fill field means "no override" - the one value that is legitimately absent.
 		return string.Join('|', [
 			"1",
 			safe.FillColour ?? "",
@@ -116,7 +116,7 @@ public sealed record RouteStyle(
 	/// Reads back what <see cref="Encode"/> wrote.
 	/// <para>
 	/// Field by field, each falling back to <see cref="Default"/> on its own. A single
-	/// corrupted colour costs that colour, not the width and the arrows with it — the value
+	/// corrupted colour costs that colour, not the width and the arrows with it - the value
 	/// comes off a device we do not control and the failure mode should be "one thing looks
 	/// stock", not "all your settings are gone".
 	/// </para>

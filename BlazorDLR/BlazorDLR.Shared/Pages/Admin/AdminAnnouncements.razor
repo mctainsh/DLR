@@ -1,0 +1,338 @@
+@page "/admin/notices"
+@attribute [Authorize]
+@using DLR.Core.Contracts.Announcements
+@inject IApiClient Api
+@inject TimeProvider Clock
+@inject ConfirmService Confirm
+
+@*
+	What every rider sees when the app is open (§20.2).
+
+	The composer sits above the list rather than behind a button. This screen is opened to say
+	something, not to browse - and a form that is already there is one fewer press between "the
+	server goes down in ten minutes" and the riders who need to know.
+
+	Expired notices stay in the list. This is also the screen that answers "what did we tell
+	people, and when", and a list that hid everything past its expiry would answer that only for
+	the few days a message was up.
+
+	Times are typed and read in this device's own zone, like every other instant the app shows a
+	person (GroupRides, MyRides, the thread). Only the wire and the column are UTC. An operator
+	deciding when to take the server down is thinking in the time on their own wall, and a screen
+	that made them convert would be a screen that eventually gets it wrong by an hour.
+*@
+
+<PageTitle>Notices - Administration - Dumb Luck Routes</PageTitle>
+
+<div class="page page-medium admin-notices">
+	<PageNav Title="Notices" BackHref="/admin" BackLabel="Back to administration" />
+
+	<form class="composer" @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
+		<h2>@(_editing is null ? "Write a notice" : "Amend this notice")</h2>
+
+		<label>
+			<span>Heading</span>
+			<input type="text" maxlength="@AnnouncementLimits.MaxTitleChars"
+				   placeholder="Server restart tonight" @bind="_title" @bind:event="oninput" />
+		</label>
+
+		<label>
+			<span>Message</span>
+			<textarea rows="4" maxlength="@AnnouncementLimits.MaxBodyChars"
+					  placeholder="One line per paragraph." @bind="_body" @bind:event="oninput"></textarea>
+		</label>
+
+		<label>
+			<span>How loud</span>
+			<select @bind="_severity">
+				<option value="@NoticeSeverity.Information">Information</option>
+				<option value="@NoticeSeverity.Warning">Warning</option>
+				<option value="@NoticeSeverity.Urgent">Urgent</option>
+			</select>
+		</label>
+
+		@* The two halves of one window, so they sit side by side and wrap together. *@
+		<div class="row">
+			<label>
+				<span>Shown from</span>
+				<input type="datetime-local" @bind="_fromLocal" />
+			</label>
+
+			<label>
+				<span>Until</span>
+				<input type="datetime-local" @bind="_untilLocal" />
+			</label>
+		</div>
+
+		@if (_saveError is { } refused)
+		{
+			<p class="error">@refused</p>
+		}
+
+		<div class="composer-actions">
+			@if (_editing is not null)
+			{
+				<button type="button" class="secondary" @onclick="Reset">Cancel</button>
+			}
+			<button type="submit" disabled="@(_saving || !IsWritable)">
+				@(_editing is null ? "Publish" : "Save changes")
+			</button>
+		</div>
+
+		<p class="hint">
+			A notice appears within a minute of the time it is shown from, on every app that is
+			open, and at launch for everyone else. Amending one does not show it again to anybody
+			who has already cleared it.
+		</p>
+	</form>
+
+	@if (_error is { } problem)
+	{
+		<p class="error">@problem</p>
+	}
+	else if (_rows is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (_rows.Count == 0)
+	{
+		<p class="empty">Nothing has been announced on this server.</p>
+	}
+	else
+	{
+		@* One clock read for the whole list: IsLive was asked twice per row, and a list that
+		   disagreed with itself halfway down would be a list rendered across a tick. *@
+		DateTimeOffset now = Clock.GetUtcNow();
+
+		<ul class="notices">
+			@foreach (AdminAnnouncement row in _rows)
+			{
+				bool live = row.PublishFromUtc <= now && now < row.ExpiresUtc;
+
+				<li class="@(live ? "live" : "past")">
+					<div class="notice-head">
+						<h3>@row.Title</h3>
+						<span class="badge @row.Severity.ToString().ToLowerInvariant()">@row.Severity</span>
+						@if (live)
+						{
+							<span class="badge live-badge">Live now</span>
+						}
+					</div>
+
+					<p class="notice-text">@row.Body</p>
+
+					<p class="notice-when">
+						@row.PublishFromUtc.ToLocalTime().ToString("d MMM yyyy, h:mm tt") -
+						@row.ExpiresUtc.ToLocalTime().ToString("d MMM yyyy, h:mm tt")
+						@if (row.CreatedBy is { } author)
+						{
+							<span>· written by @author</span>
+						}
+					</p>
+
+					<div class="notice-actions">
+						<button type="button" class="secondary" @onclick="() => Edit(row)">Amend</button>
+						<button type="button" class="danger" @onclick="() => DeleteAsync(row)">Delete</button>
+					</div>
+				</li>
+			}
+		</ul>
+	}
+</div>
+
+@code {
+	private IReadOnlyList<AdminAnnouncement>? _rows;
+	private string? _error;
+	private string? _saveError;
+	private bool _saving;
+
+	/// <summary>Which notice the composer is amending, or null when it is writing a new one.</summary>
+	private Guid? _editing;
+
+	private string _title = string.Empty;
+	private string _body = string.Empty;
+	private NoticeSeverity _severity = NoticeSeverity.Information;
+	/// <summary>The window as the operator types it: this device's zone, never UTC.</summary>
+	private DateTime _fromLocal;
+	private DateTime _untilLocal;
+
+	/// <summary>Whether there is enough in the composer to send. Length is capped by the inputs.</summary>
+	private bool IsWritable =>
+		!string.IsNullOrWhiteSpace(_title) && !string.IsNullOrWhiteSpace(_body) && _untilLocal > _fromLocal;
+
+	protected override async Task OnInitializedAsync()
+	{
+		Reset();
+
+		await LoadAsync();
+	}
+
+	/// <summary>
+	/// Empties the composer back to a new notice starting now and running for a week - the shape
+	/// of most of them, and a window that is at least valid before anybody touches it.
+	/// </summary>
+	private void Reset()
+	{
+		DateTime now = Clock.GetLocalNow().DateTime;
+
+		_editing = null;
+		_title = string.Empty;
+		_body = string.Empty;
+		_severity = NoticeSeverity.Information;
+		_fromLocal = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Unspecified);
+		_untilLocal = _fromLocal.AddDays(7);
+		_saveError = null;
+	}
+
+	private void Edit(AdminAnnouncement row)
+	{
+		_editing = row.Id;
+		_title = row.Title;
+		_body = row.Body;
+		_severity = row.Severity;
+		_fromLocal = row.PublishFromUtc.ToLocalTime().DateTime;
+		_untilLocal = row.ExpiresUtc.ToLocalTime().DateTime;
+		_saveError = null;
+	}
+
+	private async Task SaveAsync()
+	{
+		if (!IsWritable || _saving) return;
+
+		_saving = true;
+		_saveError = null;
+
+		AdminAnnouncementRequest request = new(
+			_severity,
+			_title.Trim(),
+			_body.Trim(),
+			ToInstant(_fromLocal),
+			ToInstant(_untilLocal));
+
+		try
+		{
+			if (_editing is { } id)
+			{
+				await Api.AdminUpdateAnnouncementAsync(id, request);
+			}
+			else
+			{
+				await Api.AdminCreateAnnouncementAsync(request);
+			}
+
+			Reset();
+			await LoadAsync();
+		}
+		catch (ApiException failure)
+		{
+			// Every refusal here carries a sentence written for this screen - a window that never
+			// opens, a heading that is too long - so the message is worth more than the title.
+			_saveError = failure.Error.Messages.FirstOrDefault() ?? failure.Error.Title;
+		}
+		finally
+		{
+			_saving = false;
+		}
+	}
+
+	private async Task DeleteAsync(AdminAnnouncement row)
+	{
+		bool confirmed = await Confirm.AskAsync(new ConfirmRequest(
+			$"Delete “{row.Title}”?",
+			"It stops being shown to anybody who has not already seen it. A rider with it on "
+			+ "screen right now keeps it there until they clear it.",
+			ConfirmText: "Delete",
+			Danger: true));
+
+		if (!confirmed) return;
+
+		try
+		{
+			await Api.AdminDeleteAnnouncementAsync(row.Id);
+
+			_rows = _rows?.Where(other => other.Id != row.Id).ToList();
+		}
+		catch (ApiException failure)
+		{
+			_error = failure.Error.Title;
+		}
+	}
+
+	private async Task LoadAsync()
+	{
+		try
+		{
+			_rows = await Api.AdminAnnouncementsAsync();
+			_error = null;
+		}
+		catch (ApiException failure)
+		{
+			// 403 here is the ordinary case rather than a fault: somebody followed a link, or was
+			// taken off the roster while the tab was open.
+			_error = failure.Error.Title;
+		}
+	}
+
+	/// <summary>
+	/// A wall clock time the operator typed, as the instant the server stores.
+	/// </summary>
+	/// <param name="local">What the picker holds. Its <c>Kind</c> is unspecified, as a
+	/// <c>datetime-local</c> input's always is - it carries no zone of its own.</param>
+	/// <remarks>
+	/// The offset is asked for <em>at that local time</em> rather than taken from the clock's
+	/// current one. A maintenance window is usually written days ahead, so a window on the far
+	/// side of a daylight-saving change would otherwise be stored an hour out - and be an hour out
+	/// on every rider's screen.
+	/// </remarks>
+	private DateTimeOffset ToInstant(DateTime local) =>
+		new DateTimeOffset(local, Clock.LocalTimeZone.GetUtcOffset(local)).ToUniversalTime();
+}
+
+<style>
+	.admin-notices .composer {
+		display: flex; flex-direction: column; gap: 0.75rem;
+		border: 1px solid var(--dlr-border); border-radius: 8px;
+		background: var(--dlr-surface);
+		padding: 1rem; margin-bottom: 1.5rem;
+	}
+	.admin-notices .composer h2 { margin: 0; font-size: 1.05rem; }
+	.admin-notices .composer label { display: flex; flex-direction: column; gap: 0.25rem; }
+	.admin-notices .composer label span { color: var(--dlr-fg-muted); font-size: 0.85rem; }
+	.admin-notices .composer textarea { resize: vertical; }
+	/*
+		A grid rather than a wrapping flex row, and two tracks rather than three. A date input's
+		min-content width is its whole formatted value plus the picker glyph - wider than any basis
+		you give it - so three of these across 40rem could not fit, and flex wrapped the third onto
+		a line of its own. Two even halves fit, and they are the two halves of one window.
+	*/
+	.admin-notices .composer .row {
+		display: grid; gap: 0.75rem;
+		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+	}
+	/* Lets a date input shrink inside its track instead of overflowing it on a narrow screen. */
+	.admin-notices .composer .row input { min-width: 0; }
+	.admin-notices .composer-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+	.admin-notices .composer .hint { margin: 0; color: var(--dlr-fg-quiet); font-size: 0.85rem; line-height: 1.4; }
+
+	.admin-notices .notices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+	.admin-notices .notices li {
+		border: 1px solid var(--dlr-border); border-left-width: 4px; border-radius: 8px;
+		background: var(--dlr-surface); padding: 0.85rem 1rem;
+	}
+	/* A notice that is over reads as history rather than as something to act on. */
+	.admin-notices .notices li.past { opacity: 0.6; border-left-color: var(--dlr-border); }
+	.admin-notices .notices li.live { border-left-color: var(--dlr-accent); }
+	.admin-notices .notice-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+	.admin-notices .notice-head h3 { margin: 0; font-size: 1rem; }
+	.admin-notices .badge {
+		font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;
+		padding: 0.1rem 0.4rem; border-radius: 3px; border: 1px solid var(--dlr-border-strong);
+		color: var(--dlr-fg-muted);
+	}
+	.admin-notices .badge.warning { color: var(--dlr-warn); border-color: var(--dlr-warn); }
+	.admin-notices .badge.urgent { color: var(--dlr-error); border-color: var(--dlr-error-border); }
+	.admin-notices .badge.live-badge { color: var(--dlr-good); border-color: var(--dlr-good); }
+	.admin-notices .notice-text { margin: 0.5rem 0; line-height: 1.4; white-space: pre-wrap; }
+	.admin-notices .notice-when { margin: 0 0 0.5rem; color: var(--dlr-fg-quiet); font-size: 0.85rem; }
+	.admin-notices .notice-actions { display: flex; gap: 0.5rem; }
+</style>

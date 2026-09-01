@@ -4,8 +4,8 @@ using Bunit;
 namespace DLR.UI.Tests.Components;
 
 /// <summary>
-/// The password box used by both halves of Welcome (§7.2): a reveal button, and — where the
-/// caller asks for it — a strength meter.
+/// The password box used by both halves of Welcome (§7.2): a reveal button, and - where the
+/// caller asks for it - a strength meter.
 /// <para>
 /// Three properties here are the kind that break silently. A reveal button that submits the
 /// form registers the account instead of showing the password; a meter drawn on the sign-in
@@ -68,7 +68,7 @@ public sealed class PasswordFieldTests : BunitContext
 	}
 
 	/// <summary>
-	/// The meter has to move while the rider is typing, which means <c>oninput</c> — a field
+	/// The meter has to move while the rider is typing, which means <c>oninput</c> - a field
 	/// bound on <c>change</c> only updates when focus leaves, by which time the advice is
 	/// about a password they have finished choosing.
 	/// </summary>
@@ -115,7 +115,7 @@ public sealed class PasswordFieldTests : BunitContext
 		IRenderedComponent<PasswordField> component = RenderField("Ride4mountainsEveryWeekend");
 
 		component.FindAll(".pw-strength").ShouldBeEmpty(
-			"§7.2: sign-in grades nothing — the password is already chosen and cannot be changed from that form.");
+			"§7.2: sign-in grades nothing - the password is already chosen and cannot be changed from that form.");
 	}
 
 	/// <summary>The label points at the field, so a tap on the word focuses the box.</summary>

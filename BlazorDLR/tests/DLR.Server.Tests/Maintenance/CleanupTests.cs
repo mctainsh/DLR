@@ -16,8 +16,8 @@ namespace DLR.Server.Tests.Maintenance;
 /// The 180-day inactivity sweep (§7.11).
 /// <para>
 /// This is the only code in the project that deletes an account, and it does it on a timer with
-/// nobody watching. The conjunction in §7.11 is the safety property — an account holding a single
-/// saved ride is never touched — so every clause of it gets its own test, and the dry run gets the
+/// nobody watching. The conjunction in §7.11 is the safety property - an account holding a single
+/// saved ride is never touched - so every clause of it gets its own test, and the dry run gets the
 /// first one.
 /// </para>
 /// </summary>
@@ -56,7 +56,7 @@ public sealed class CleanupTests(PostgresFixture postgres)
 		report.InactiveCandidates.Select(candidate => candidate.UserName).ShouldContain("DaveSmith");
 
 		app.Logs.Mentions("DaveSmith").ShouldBeTrue(
-			"the output is the whole point of the switch — an operator reads it for a week");
+			"the output is the whole point of the switch - an operator reads it for a week");
 	}
 
 	/// <summary>The sweep itself: nothing held, nothing heard, 180 days (§7.11).</summary>
@@ -140,7 +140,7 @@ public sealed class CleanupTests(PostgresFixture postgres)
 		(await ExistsAsync(app, "DaveSmith")).ShouldBeTrue();
 	}
 
-	/// <summary>Clause four — and not covered by clause three, because an organiser could have left.</summary>
+	/// <summary>Clause four - and not covered by clause three, because an organiser could have left.</summary>
 	[Fact]
 	public async Task Cleanup_AccountOwningRide_IsNeverDeleted()
 	{
@@ -209,7 +209,7 @@ public sealed class CleanupTests(PostgresFixture postgres)
 		(await ExistsAsync(app, "Pending")).ShouldBeTrue("somebody is still waiting on an answer");
 
 		(await ExistsAsync(app, "Declined")).ShouldBeFalse(
-			"the clause is Pending, not 'has ever asked' — otherwise one decline keeps an " +
+			"the clause is Pending, not 'has ever asked' - otherwise one decline keeps an " +
 			"account alive forever");
 	}
 
@@ -251,7 +251,7 @@ public sealed class CleanupTests(PostgresFixture postgres)
 		app.Emails.To("dave@example.com").Count.ShouldBe(1);
 
 		// The window is thirty days wide and the job runs nightly. Without a record that the
-		// warning went, this is thirty emails — which reads as a broken service rather than a
+		// warning went, this is thirty emails - which reads as a broken service rather than a
 		// courtesy, and is how a sending domain gets blocked.
 		await app.RunMaintenanceAsync();
 		await app.RunMaintenanceAsync();
@@ -280,7 +280,7 @@ public sealed class CleanupTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The batch cap (§7.11). One run can never take a long lock — and a predicate that has gone
+	/// The batch cap (§7.11). One run can never take a long lock - and a predicate that has gone
 	/// wrong is bounded by how many nights it survives unnoticed rather than by how many accounts
 	/// there are.
 	/// </summary>
@@ -314,7 +314,7 @@ public sealed class CleanupTests(PostgresFixture postgres)
 	/// <summary>
 	/// §7.2 says a username can never be changed; §7.11 says a deleted one goes back to the pool.
 	/// Those are consistent only because an eligible account has never joined a ride, so no rider
-	/// can have formed an association with the name — there is nothing to inherit or impersonate.
+	/// can have formed an association with the name - there is nothing to inherit or impersonate.
 	/// </summary>
 	[Fact]
 	public async Task Cleanup_ReleasesUsernameForReuse()
@@ -395,7 +395,7 @@ public sealed class CleanupTests(PostgresFixture postgres)
 		(await RegistrationIpAsync(app, "OldAccount")).ShouldBeNull();
 
 		(await RegistrationIpAsync(app, "NewAccount")).ShouldNotBeNull(
-			"the ladder still needs it — clearing it early breaks §7.8 rather than tidying it");
+			"the ladder still needs it - clearing it early breaks §7.8 rather than tidying it");
 	}
 
 	/// <summary>
@@ -463,11 +463,11 @@ public sealed class CleanupTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Backdates an account's activity — and confirms its address, when it has one.
+	/// Backdates an account's activity - and confirms its address, when it has one.
 	/// <para>
 	/// <strong>A minute past the day, not exactly on it.</strong> §7.11's predicate is
 	/// <c>last_active_utc &lt; now() - 180 days</c>, strictly, so an account last active at exactly
-	/// the horizon has not yet been idle for 180 days — it is at 180 days. "Idle for <em>at least</em>
+	/// the horizon has not yet been idle for 180 days - it is at 180 days. "Idle for <em>at least</em>
 	/// N days" is what these tests mean, and the 179-day test is what pins the boundary from the
 	/// other side.
 	/// </para>

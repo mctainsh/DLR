@@ -19,7 +19,7 @@ public sealed class MarkerHitTestTests
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 
 	/// <summary>
-	/// A square view one degree across centred on the origin, 1000 px on a side — so 0.001° is
+	/// A square view one degree across centred on the origin, 1000 px on a side - so 0.001° is
 	/// 1 px, which makes the distances in these tests arithmetic anybody can check.
 	/// </summary>
 	private static MapViewport Viewport(double headingDeg = 0) => new(
@@ -63,9 +63,9 @@ public sealed class MarkerHitTestTests
 	{
 		MarkerDto marker = At(0, 0, "Gravel");
 
-		// 0.2° east on this viewport is 200 px — far outside any sane finger.
+		// 0.2° east on this viewport is 200 px - far outside any sane finger.
 		MarkerHitTest.Near(Viewport(), [marker], new MapClick(0, 0.2)).ShouldBeEmpty(
-			"§16.4: a tap on empty map is a tap on empty map — it must not drag in the nearest " +
+			"§16.4: a tap on empty map is a tap on empty map - it must not drag in the nearest " +
 			"marker on the adventure from half a screen away.");
 	}
 
@@ -81,7 +81,7 @@ public sealed class MarkerHitTestTests
 			Viewport(), [far, middle, near], new MapClick(0, 0));
 
 		hits.Select(hit => hit.Title).ShouldBe(["Near", "Middle"],
-			"Markers pile up at low zoom, so the answer is the list — ordered nearest first, " +
+			"Markers pile up at low zoom, so the answer is the list - ordered nearest first, " +
 			"because the one the finger was aimed at should be the one read first.");
 	}
 

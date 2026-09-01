@@ -29,7 +29,7 @@ public sealed class RideOptions
 	/// How long a stored position may go without a fix before the nightly sweep deletes it and
 	/// clears the rider's sharing switch (§5.6, §7.11).
 	/// <para>
-	/// A backstop for the row nothing else reclaims — a phone that died, an app uninstalled, an
+	/// A backstop for the row nothing else reclaims - a phone that died, an app uninstalled, an
 	/// adventure nobody deletes. Not a privacy promise: a rider still sharing is still sharing.
 	/// </para>
 	/// </summary>
@@ -38,7 +38,7 @@ public sealed class RideOptions
 	/// <summary>
 	/// How many planned routes one ride may carry (§5.4).
 	/// <para>
-	/// A ride has a handful — the short one, the long one, the way home. The cap is here because
+	/// A ride has a handful - the short one, the long one, the way home. The cap is here because
 	/// every member downloads every route's line on every load of the ride, so an unbounded set is
 	/// a payload an organiser can grow on everyone else's connection.
 	/// </para>

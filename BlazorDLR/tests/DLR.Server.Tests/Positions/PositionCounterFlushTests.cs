@@ -13,7 +13,7 @@ namespace DLR.Server.Tests.Positions;
 /// <para>
 /// Since v0.33 this timer is <em>accounting</em> and not durability: a position never leaves
 /// <see cref="RiderPositionCache"/> (§5.5), so what is on the tick is each rider's fix count. What
-/// is tested here is the bookkeeping — when a drain happens, and what becomes of the counts when
+/// is tested here is the bookkeeping - when a drain happens, and what becomes of the counts when
 /// the write fails.
 /// </para>
 /// </summary>
@@ -37,7 +37,7 @@ public sealed class PositionCounterFlushTests
 	}
 
 	/// <summary>
-	/// One command regardless of rider count — the whole reason the drain is affordable. Five
+	/// One command regardless of rider count - the whole reason the drain is affordable. Five
 	/// hundred riders is the §5.5 sizing figure.
 	/// </summary>
 	[Fact]
@@ -58,7 +58,7 @@ public sealed class PositionCounterFlushTests
 	}
 
 	/// <summary>
-	/// The counts have no second copy anywhere — unlike a position, which the cache still holds —
+	/// The counts have no second copy anywhere - unlike a position, which the cache still holds -
 	/// so a deploy without this drops every fix banked since the last tick.
 	/// </summary>
 	[Fact]
@@ -104,7 +104,7 @@ public sealed class PositionCounterFlushTests
 	/// <para>
 	/// Waits on a signal the counter raises, and <em>keeps advancing</em> until it arrives.
 	/// <c>StartAsync</c> returns as soon as <c>ExecuteAsync</c> reaches its first await, which is
-	/// not necessarily after the <see cref="PeriodicTimer"/> has been constructed — so a single
+	/// not necessarily after the <see cref="PeriodicTimer"/> has been constructed - so a single
 	/// advance can land before anything is listening and then wait ten seconds of fake time that
 	/// never elapse. Two earlier shapes of this test both failed roughly one run in four.
 	/// </para>
@@ -140,7 +140,7 @@ public sealed class PositionCounterFlushTests
 		}
 
 		written.Task.IsCompletedSuccessfully.ShouldBeTrue(
-			"the service has to drain on its own timer — every other test in this class calls " +
+			"the service has to drain on its own timer - every other test in this class calls " +
 			"FlushAsync directly, so without this one the timer loop could be deleted outright");
 
 		await flush.StopAsync(CancellationToken.None);

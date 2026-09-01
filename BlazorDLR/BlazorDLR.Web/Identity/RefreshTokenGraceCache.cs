@@ -14,7 +14,7 @@ namespace DLR.Server.Identity;
 /// </para>
 /// <para>
 /// A process restart empties it. <see cref="RefreshTokenService"/> treats a miss inside the
-/// window as "cannot answer idempotently" rather than as theft — the caller gets a 401 and the
+/// window as "cannot answer idempotently" rather than as theft - the caller gets a 401 and the
 /// family survives, because a restart is not evidence of anything.
 /// </para>
 /// </summary>

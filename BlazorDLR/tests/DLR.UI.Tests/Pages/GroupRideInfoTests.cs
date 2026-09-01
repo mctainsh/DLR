@@ -13,14 +13,14 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Pages;
 
 /// <summary>
-/// The ride's info page — everything about a group ride that is not the map. It reads the
+/// The ride's info page - everything about a group ride that is not the map. It reads the
 /// same <c>RideSession</c> the live map does, so §5.3's rule is what these tests exercise:
 /// the snapshot is authoritative and the hub is the delta on top.
 /// <list type="bullet">
-///   <item><c>MemberJoined</c> / <c>MemberLeft</c> — nothing here follows them any more: who is
+///   <item><c>MemberJoined</c> / <c>MemberLeft</c> - nothing here follows them any more: who is
 ///     on the ride is "Live members" (see <c>RideMembersLiveTests</c>), and this page must
 ///     not grow a second, thinner copy of that list.</item>
-///   <item><c>RidePermissionsChanged</c> — the organiser's switches arrive as a delta.</item>
+///   <item><c>RidePermissionsChanged</c> - the organiser's switches arrive as a delta.</item>
 /// </list>
 /// </summary>
 public sealed class GroupRideInfoTests : PageTestContext
@@ -76,7 +76,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		Services.AddSingleton<CurrentRideState>();
 
 		// The GPS seam (§4.3). The fake provider stands in for the phone's receiver; a page test
-		// never emits a fix, so this only has to resolve — turning sharing on is what would start
+		// never emits a fix, so this only has to resolve - turning sharing on is what would start
 		// it, and LocationBroadcastStateTests is where that path is exercised.
 		//
 		// PrivateAreaState comes with it rather than for this page: the broadcaster consults it
@@ -147,7 +147,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.FindAll(".route-list li").ShouldNotBeEmpty(
-				"a member still sees which routes the adventure is on — reading is membership."),
+				"a member still sees which routes the adventure is on - reading is membership."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		// Mirrors the server's owner-or-leader check, so the control is absent rather than there
@@ -176,7 +176,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.FindAll(".track-list button").ShouldNotBeEmpty(
-				"the picker offers the caller's own tracks — the only ones §15.4 lets them attach."),
+				"the picker offers the caller's own tracks - the only ones §15.4 lets them attach."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => component.Find(".track-list button").Click());
@@ -213,7 +213,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.Markup.Contains("The long way", StringComparison.Ordinal).ShouldBeFalse(
-				"detaching removes it from the adventure — the owner's track itself is untouched."),
+				"detaching removes it from the adventure - the owner's track itself is untouched."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -228,7 +228,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 			() => component.Markup.Contains("No route on this adventure yet", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Somebody else attached one. The event carries the ride, not the routes — the lines are
+		// Somebody else attached one. The event carries the ride, not the routes - the lines are
 		// the largest thing a ride owns, so the client refetches rather than being pushed them.
 		api.RoutesResult.Add(Route("Added by the organiser"));
 
@@ -255,7 +255,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 	[Fact]
 	public async Task WhoIsOnTheRide_IsNotOnThisPageAtAll()
 	{
-		// Who is on the ride is its own screen now — "Live members", which says everything
+		// Who is on the ride is its own screen now - "Live members", which says everything
 		// the panel that used to sit here said and four things it did not (see
 		// RideMembersLiveTests). The rail carries the way through on every screen, so a count and
 		// a link here would be a second entry point to a list this page no longer shows: one more
@@ -269,7 +269,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.FindAll(".members").ShouldBeEmpty(
-			"the member panel moved to \"Live members\" — the rail is the way through.");
+			"the member panel moved to \"Live members\" - the rail is the way through.");
 
 		// And a join arriving over the hub does not put it back. The delta itself is not being
 		// dropped: RideMembersLiveTests.MemberJoined_AppearsInTheList holds §5.3 on the screen
@@ -284,7 +284,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 	}
 
 	/// <summary>
-	/// §5.2: the code is on the adventure page for whoever is in the ride, organiser or not — a
+	/// §5.2: the code is on the adventure page for whoever is in the ride, organiser or not - a
 	/// rider who joined has no other way to read it back off and pass it on.
 	/// </summary>
 	[Theory]
@@ -316,7 +316,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 			component.Markup.Contains("Test adventure", StringComparison.Ordinal).ShouldBeTrue(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Raise events for a different ride id — none of them must alter this page.
+		// Raise events for a different ride id - none of them must alter this page.
 		Guid otherRide = Guid.NewGuid();
 		await component.InvokeAsync(() => hub.RaisePermissionsChanged(otherRide,
 			new RidePermissions(AllowMemberMarkers: false, AllowMemberComments: false, AllowMemberPhotos: false)));
@@ -324,7 +324,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 			new RideMemberSummary(Guid.NewGuid(), "InterloperFromOtherRide", "Rider", FixedInstant, false, false)));
 
 		component.Markup.Contains("InterloperFromOtherRide", StringComparison.Ordinal).ShouldBeFalse(
-			"§5.3: events for other adventures must not alter this adventure — a shared hub connection is not a shared page.");
+			"§5.3: events for other adventures must not alter this adventure - a shared hub connection is not a shared page.");
 	}
 
 	[Fact]
@@ -355,7 +355,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		IRenderedComponent<GroupRideInfo> component = RenderInfo(rideId);
 
-		// It changes nothing about the ride and nothing anybody else sees — it is legibility on
+		// It changes nothing about the ride and nothing anybody else sees - it is legibility on
 		// the screen in front of one rider, so gating it behind the organiser would be wrong.
 		component.WaitForAssertion(
 			() => component.FindAll(".route-style").ShouldNotBeEmpty(),
@@ -383,7 +383,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 			() => styles.Style.LineWidthPx.ShouldBe(9),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Through the device store, not just the in-memory state — the whole point of the
+		// Through the device store, not just the in-memory state - the whole point of the
 		// panel is that the answer is still there after a restart.
 		RouteStyleState afterRestart = new(Services.GetRequiredService<IDeviceSettings>());
 		await afterRestart.LoadAsync();
@@ -570,7 +570,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 		// round says nothing about the other.
 		styles.IsReversed(api.RoutesResult[1].TrackId).ShouldBeFalse();
 
-		// The state is on the button for a screen reader and in the row for everybody else — a
+		// The state is on the button for a screen reader and in the row for everybody else - a
 		// chevron direction is not something you notice you have changed.
 		component.WaitForAssertion(
 			() => component.FindAll(".route-list .reverse")[0].GetAttribute("aria-pressed").ShouldBe("true"),
@@ -653,7 +653,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 	{
 		(FakeApiClient api, _, Guid rideId) = WireServices();
 
-		// The ride this device is on — what the rail's globe leads back to until this test's rider
+		// The ride this device is on - what the rail's globe leads back to until this test's rider
 		// stops being a member of it.
 		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
 		await current.SetAsync(rideId);
@@ -663,7 +663,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		await ClickAsync(component, "Leave adventure…");
 
-		// ConfirmDialog lives in MainLayout, which a page-only render does not mount — answering
+		// ConfirmDialog lives in MainLayout, which a page-only render does not mount - answering
 		// the service directly is what the dialog's confirm button does.
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(
 			"leaving cannot be undone from this screen, so it asks."), timeout: TimeSpan.FromSeconds(3));
@@ -686,7 +686,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
 			.ShouldEndWith("/group-rides",
-				customMessage: "the page describes an adventure this traveller is no longer on — staying on it "
+				customMessage: "the page describes an adventure this traveller is no longer on - staying on it "
 				+ "would be a screen whose next request 404s.");
 	}
 
@@ -713,7 +713,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 	[Fact]
 	public void LeaveRide_IsNotOfferedToTheOrganiser()
 	{
-		// The server answers 409 — "an adventure nobody organises has nobody to decide who is in it" —
+		// The server answers 409 - "an adventure nobody organises has nobody to decide who is in it" -
 		// so the control is simply absent rather than there and failing, the same arrangement the
 		// marker delete and the route controls use.
 		(_, _, Guid rideId) = WireServices(isOrganiser: true);
@@ -778,7 +778,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 				+ "screen, rather than by opening the list to find out."),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// A control, not a line of text — it is the one thing in this section with work behind it.
+		// A control, not a line of text - it is the one thing in this section with work behind it.
 		component.Find(".organiser .requests").TagName.ShouldBe("BUTTON", StringCompareShould.IgnoreCase);
 	}
 
@@ -793,7 +793,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => component.FindAll(".organiser .requests").ShouldNotBeEmpty(
-				"the way to the list stays put — an organiser may want to look even when it is empty."),
+				"the way to the list stays put - an organiser may want to look even when it is empty."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.FindAll(".organiser .requests .count-badge").ShouldBeEmpty(
@@ -827,7 +827,7 @@ public sealed class GroupRideInfoTests : PageTestContext
 			() => api.Calls.ShouldContain(nameof(IApiClient.GetRideAsync)),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Only the organiser may list them, so asking on a member's behalf is a call that 403s —
+		// Only the organiser may list them, so asking on a member's behalf is a call that 403s -
 		// and the whole Organiser section is absent for them anyway.
 		api.Calls.ShouldNotContain(nameof(IApiClient.ListJoinRequestsAsync));
 		component.FindAll(".organiser").ShouldBeEmpty();

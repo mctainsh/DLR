@@ -52,8 +52,8 @@ public sealed class ProfileController : ControllerBase
 	/// The only route by which one rider's fields reach another (§7.3).
 	/// <para>
 	/// It answers <see cref="SharedProfile.Empty"/> rather than 404 for a stranger. A 404 would
-	/// make this endpoint a membership oracle — ask about an account, learn whether you share a
-	/// ride with it — and the empty profile is indistinguishable from a co-member who shares
+	/// make this endpoint a membership oracle - ask about an account, learn whether you share a
+	/// ride with it - and the empty profile is indistinguishable from a co-member who shares
 	/// nothing, which is the common case anyway since all three switches default off.
 	/// </para>
 	/// </summary>
@@ -111,7 +111,7 @@ public sealed class ProfileController : ControllerBase
 
 		// Before anything is written. A colour that is not #rrggbb is a client bug, and defaulting
 		// it quietly would leave a rider retrying a setting that never had a chance of sticking
-		// (§16.3). Blank is not a bug — it is how they go back to the default.
+		// (§16.3). Blank is not a bug - it is how they go back to the default.
 		if (!MarkerColours.TryNormalise(request.MarkerColour, out string? markerColour))
 		{
 			return new BadRequestObjectResult(new ValidationProblemDetails(new Dictionary<string, string[]>
@@ -161,7 +161,7 @@ public sealed class ProfileController : ControllerBase
 	/// </summary>
 	/// <param name="user">The account.</param>
 	/// <param name="roster">Answers the one field that is not a column (§14.6).</param>
-	/// <returns>The contract, projected by hand — ApiSurfaceRules forbids the entity itself.</returns>
+	/// <returns>The contract, projected by hand - ApiSurfaceRules forbids the entity itself.</returns>
 	private static OwnProfile Describe(AppUser user, AdminRoster roster) => new(
 		user.DisplayName,
 		user.PhoneNumber,
@@ -179,7 +179,7 @@ public sealed class ProfileController : ControllerBase
 	// Its own sub-resource rather than three more fields on PUT /me/profile, and the separation
 	// is load-bearing rather than tidy. That endpoint takes a whole UpdateProfileRequest and
 	// writes every field on it, so an area carried inside it would be cleared by any client that
-	// had not been taught about it — a rider editing their display name in an older build would
+	// had not been taught about it - a rider editing their display name in an older build would
 	// silently lose the circle around their house. A privacy control must not be deletable as a
 	// side effect of an unrelated save.
 	//
@@ -188,7 +188,7 @@ public sealed class ProfileController : ControllerBase
 	// which has no field for one.
 
 	/// <summary>
-	/// The caller's own area, or the fact that they have none. Only ever their own — the route has
+	/// The caller's own area, or the fact that they have none. Only ever their own - the route has
 	/// no user id in it, deliberately.
 	/// </summary>
 	[HttpGet("/api/v1/me/private-area", Name = ProfileEndpoints.PrivateAreaRouteName)]
@@ -206,7 +206,7 @@ public sealed class ProfileController : ControllerBase
 	/// <summary>
 	/// Places or moves it.
 	/// <para>
-	/// The radius is clamped rather than refused and the centre is refused rather than clamped —
+	/// The radius is clamped rather than refused and the centre is refused rather than clamped -
 	/// <c>PrivateAreaSettings.Normalised</c>, the same call the phone makes before it sends, so
 	/// the two cannot disagree about what was stored. A number outside the offered range is a
 	/// rider typing in a box; a centre that is not on the earth is a broken client, and quietly
@@ -248,7 +248,7 @@ public sealed class ProfileController : ControllerBase
 	}
 
 	/// <summary>
-	/// Forgets it, so the account shares from everywhere again. Idempotent — an account with no
+	/// Forgets it, so the account shares from everywhere again. Idempotent - an account with no
 	/// area is a 200 and not a 404, because the caller is asking for a state and not for a row.
 	/// </summary>
 	[HttpDelete("/api/v1/me/private-area", Name = ProfileEndpoints.ClearPrivateAreaRouteName)]
@@ -301,7 +301,7 @@ public sealed class ProfileController : ControllerBase
 	/// </summary>
 	/// <remarks>
 	/// The image must be one the caller uploaded. Anything else is a 404 rather than a silent
-	/// no-op — MarkerController's reasoning, and it bites harder here: a guessed identifier would
+	/// no-op - MarkerController's reasoning, and it bites harder here: a guessed identifier would
 	/// otherwise put somebody else's face beside the caller's name on every screen in the app.
 	/// </remarks>
 	[HttpPut("/api/v1/me/avatar", Name = ProfileEndpoints.SetAvatarRouteName)]
@@ -339,7 +339,7 @@ public sealed class ProfileController : ControllerBase
 	}
 
 	/// <summary>
-	/// Removes it, so the caller's name is drawn on its own again. Idempotent — an account with no
+	/// Removes it, so the caller's name is drawn on its own again. Idempotent - an account with no
 	/// photograph is a 200 and not a 404, because the caller is asking for a state and not for a row.
 	/// </summary>
 	/// <remarks>
@@ -409,7 +409,7 @@ public sealed class ProfileController : ControllerBase
 			return Ok(Array.Empty<RiderAvatarDto>());
 		}
 
-		// Matched on the normalised column, which is what Identity keys uniqueness on — a caller
+		// Matched on the normalised column, which is what Identity keys uniqueness on - a caller
 		// holding "davesmith" off a cached row must find the account stored as "DaveSmith" (§7.2).
 		List<string> normalised = [.. wanted.Select(name => name.ToUpperInvariant())];
 

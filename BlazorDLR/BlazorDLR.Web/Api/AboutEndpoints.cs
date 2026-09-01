@@ -9,7 +9,7 @@ namespace DLR.Server.Api;
 /// <para>
 /// This is the part of choosing the AGPL that shows up in the code. Section 13 obliges
 /// anyone who lets users interact with a modified version remotely to offer those users
-/// the Corresponding Source of that running version — so it is a live obligation from the
+/// the Corresponding Source of that running version - so it is a live obligation from the
 /// moment the server is reachable, not a file at the repository root.
 /// </para>
 /// </summary>
@@ -62,7 +62,7 @@ public sealed class AboutOptions
 
 	/// <summary>
 	/// Where this instance's Corresponding Source can be obtained. Configurable because a
-	/// fork running a modified server owes its users <em>its own</em> source, not ours —
+	/// fork running a modified server owes its users <em>its own</em> source, not ours -
 	/// a hard-coded upstream URL would make every downstream deployment non-compliant by
 	/// construction.
 	/// </summary>

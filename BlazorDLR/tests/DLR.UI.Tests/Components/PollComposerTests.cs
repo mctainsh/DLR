@@ -7,7 +7,7 @@ namespace DLR.UI.Tests.Components;
 
 /// <summary>
 /// §17.5 says a poll has 2–6 options. The composer's <c>BuildSpec</c> is what the
-/// parent thread reads before it lets the user post — an under-filled composer must
+/// parent thread reads before it lets the user post - an under-filled composer must
 /// return null so the "Post" button stays disabled.
 /// </summary>
 public sealed class PollComposerTests : BunitContext
@@ -26,7 +26,7 @@ public sealed class PollComposerTests : BunitContext
 		// Default composer has two empty option fields; both are trimmed to empty and
 		// discarded, so BuildSpec sees zero real options and returns null.
 		component.Instance.BuildSpec().ShouldBeNull(
-			"a poll needs two or more real options — an empty composer is not a poll yet.");
+			"a poll needs two or more real options - an empty composer is not a poll yet.");
 	}
 
 	[Fact]

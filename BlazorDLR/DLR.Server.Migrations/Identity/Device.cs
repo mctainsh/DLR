@@ -35,7 +35,7 @@ public enum DeviceKind
 /// <para>
 /// The identifier is assigned by the server, never accepted from the client. A client sends
 /// back the id it was given last time, and one belonging to somebody else is not an error to
-/// report — it simply does not match, and a new device is created. That way guessing another
+/// report - it simply does not match, and a new device is created. That way guessing another
 /// rider's device id gains an attacker a row of their own rather than a foothold in someone
 /// else's session list.
 /// </para>
@@ -49,14 +49,14 @@ public sealed class Device
 	public Guid UserId { get; set; }
 
 	/// <summary>
-	/// What the rider will recognise it as — "iPhone 15" (§7.10). Supplied by the client and
+	/// What the rider will recognise it as - "iPhone 15" (§7.10). Supplied by the client and
 	/// never verified, because the only thing it is used for is helping somebody pick the
 	/// right row to revoke. Null when a client did not send one.
 	/// </summary>
 	public string? Name { get; set; }
 
 	/// <summary>
-	/// Phone or browser (§7.5). <strong>Server-decided, like the id itself</strong> — it comes from
+	/// Phone or browser (§7.5). <strong>Server-decided, like the id itself</strong> - it comes from
 	/// which endpoint the session was started through, never from anything the client asserts. A
 	/// client-supplied value would let a browser ask for a permanent session, which is precisely
 	/// the thing the distinction exists to prevent.

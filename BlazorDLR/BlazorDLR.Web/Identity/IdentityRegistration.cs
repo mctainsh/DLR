@@ -35,7 +35,7 @@ public static class IdentityRegistration
 				ApplyLockoutPolicy(options.Lockout);
 
 				// Two purposes, two providers, two lifespans (§7.7). Selected by name so that
-				// changing one cannot silently move the other — which is exactly what a single
+				// changing one cannot silently move the other - which is exactly what a single
 				// global TokenLifespan does, and why neither of these is the framework default.
 				options.Tokens.EmailConfirmationTokenProvider =
 					EmailConfirmationTokenProvider.ProviderName;
@@ -69,7 +69,7 @@ public static class IdentityRegistration
 		services.AddSingleton<IEmailSender, MailKitEmailSender>();
 
 		// No token providers yet. They arrive in SRV-11, where the point is that email
-		// confirmation and password reset need *separate* providers — TokenLifespan is a
+		// confirmation and password reset need *separate* providers - TokenLifespan is a
 		// global setting, and one number silently governing both a 24-hour link and a
 		// 1-hour one is the bug that task's first test exists to catch (§7.7, §7.12).
 		return services;
@@ -79,18 +79,18 @@ public static class IdentityRegistration
 	/// Password policy (§7.2, revised).
 	/// <para>
 	/// <strong>Deliberate deviation from §7.2's original stance.</strong> §7.2 argues that
-	/// composition rules measure compliance rather than strength — every rule below turned
+	/// composition rules measure compliance rather than strength - every rule below turned
 	/// on is a rule people work around with <c>Passw0rd!</c>, which is in every breach
 	/// corpus and passes them all. The operator has decided the trade-off differently:
 	/// each rule below produces a specific, obvious error message ("no uppercase letter",
 	/// "no digit") that a signing-up user can act on, at the cost of pushing toward the
 	/// well-known bad shape §7.2 warned about. The breached-password lookup that used to
-	/// backstop that shape was removed at operator request (v0.23) — the composition rules
+	/// backstop that shape was removed at operator request (v0.23) - the composition rules
 	/// are now the whole policy, which is the accepted trade for an application where the
 	/// security impact of a weak password is judged not to be significant.
 	/// </para>
 	/// <para>
-	/// <c>RequireNonAlphanumeric</c> stays <c>false</c> — a special-character requirement
+	/// <c>RequireNonAlphanumeric</c> stays <c>false</c> - a special-character requirement
 	/// pushes toward the same predictable-substitution shape as the digit and case rules,
 	/// and the operator specifically asked not to require it.
 	/// </para>

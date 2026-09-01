@@ -16,7 +16,7 @@ namespace DLR.Server.Positions;
 /// </para>
 /// </summary>
 /// <param name="RideIds">
-/// Every ride the fix was written to — the rides where this rider's own consent flag is set. An
+/// Every ride the fix was written to - the rides where this rider's own consent flag is set. An
 /// empty list is the correct answer for a rider who is sharing with nobody, not an error.
 /// </param>
 /// <param name="LeftPrivateArea">
@@ -26,7 +26,7 @@ namespace DLR.Server.Positions;
 public sealed record PositionPublication(IReadOnlyList<Guid> RideIds, bool LeftPrivateArea);
 
 /// <summary>
-/// Reading, writing and — the part that matters — <em>deleting</em> live positions (§5.5, §5.6).
+/// Reading, writing and - the part that matters - <em>deleting</em> live positions (§5.5, §5.6).
 /// <para>
 /// Every route that ends a rider's participation funnels through <see cref="StopSharing"/>:
 /// turning the switch off, leaving, and being removed by the organiser. They are three different
@@ -35,12 +35,12 @@ public sealed record PositionPublication(IReadOnlyList<Guid> RideIds, bool LeftP
 /// </para>
 /// <para>
 /// A position lives in <see cref="RiderPositionCache"/> and nowhere else (§5.5), so a delete here
-/// is immediate and total — there is no write behind it to outrun, and nothing left on disk to
+/// is immediate and total - there is no write behind it to outrun, and nothing left on disk to
 /// reclaim later. The database this still holds is for <em>membership</em>: which rides a fix may
 /// land in, and what the riders in one are called.
 /// </para>
 /// </summary>
-/// <param name="database">The one context — read for membership and names, never for positions.</param>
+/// <param name="database">The one context - read for membership and names, never for positions.</param>
 /// <param name="cache">Where every live position is.</param>
 /// <param name="privacy">Who is inside their own private area right now (§10.1).</param>
 public sealed class PositionStore(
@@ -58,7 +58,7 @@ public sealed class PositionStore(
 	public async Task<PositionPublication> PublishAsync(Guid userId, PositionUpdate update)
 	{
 		// Consent is filtered on the *write* (§5.7). A rider not sharing with a ride has no row
-		// in it at all — broadcasting anyway and having the recipients' apps hide the pin would
+		// in it at all - broadcasting anyway and having the recipients' apps hide the pin would
 		// leave the position in the database, in the fan-out and on the wire, three places it has
 		// no business being.
 		IReadOnlyList<Guid> rideIds = await SharedRideIdsAsync(userId);
@@ -88,19 +88,19 @@ public sealed class PositionStore(
 	}
 
 	/// <summary>
-	/// Takes a rider off every map they are on, or puts them back — the private area, as the rest of
+	/// Takes a rider off every map they are on, or puts them back - the private area, as the rest of
 	/// the ride sees it (§10.1, §5.6).
 	/// </summary>
 	/// <param name="userId">Which rider.</param>
 	/// <param name="isPrivate">True on the way into the circle, false on the way out.</param>
 	/// <returns>
-	/// The rides to announce the change to, or an empty list when nothing changed — a device
+	/// The rides to announce the change to, or an empty list when nothing changed - a device
 	/// re-stating what the server already believes must not put a message on every connection.
 	/// </returns>
 	/// <remarks>
 	/// Going private <strong>deletes</strong>, on <see cref="StopSharing"/>'s reasoning and for a
 	/// sharper reason. Ceasing to update would leave the last fix before the driveway on every
-	/// other rider's map — a pin that has stopped moving a few streets from somebody's house is a
+	/// other rider's map - a pin that has stopped moving a few streets from somebody's house is a
 	/// better clue to where they live than most of what this feature withholds.
 	/// <para>
 	/// The sharing flag is untouched: this is a place, not a decision about the ride, and the rider
@@ -155,7 +155,7 @@ public sealed class PositionStore(
 	/// </remarks>
 	public void StopSharing(Guid rideId, Guid userId) => cache.Remove(rideId, userId);
 
-	/// <summary>Deletes every position in an adventure — what deleting one takes with it (§5.6).</summary>
+	/// <summary>Deletes every position in an adventure - what deleting one takes with it (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
 	public void ClearRide(Guid rideId) => cache.RemoveRide(rideId);
 
@@ -164,7 +164,7 @@ public sealed class PositionStore(
 	/// </summary>
 	/// <param name="floor">The oldest fix worth keeping.</param>
 	/// <remarks>
-	/// A memory bound rather than a retention rule — nothing is retained. A rider whose phone went
+	/// A memory bound rather than a retention rule - nothing is retained. A rider whose phone went
 	/// quiet holds an entry nothing else reclaims, and this is what stops a year of them
 	/// accumulating in a process that has been up that long.
 	/// </remarks>

@@ -6,8 +6,8 @@ namespace DLR.UI.Tests.Components;
 
 /// <summary>
 /// §5.6's join-time consent prompt. Two properties matter and both are structural:
-/// the copy names only what the rider controls — an adventure has no end for sharing
-/// to stop at, so a card that promised one would overstate the protection — and Share
+/// the copy names only what the rider controls - an adventure has no end for sharing
+/// to stop at, so a card that promised one would overstate the protection - and Share
 /// vs. "Not now" are two callbacks the parent maps distinctly, since a swipe-away is
 /// not consent.
 /// </summary>
@@ -23,7 +23,7 @@ public sealed class ConsentPromptTests : BunitContext
 		markup.Contains("turn it off", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
 			"§5.6: the card names the three things that actually stop sharing, and the first is the rider.");
 		markup.Contains("adventure ends", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
-			"§5.6: an adventure has no end to stop sharing at — promising one overstates the protection.");
+			"§5.6: an adventure has no end to stop sharing at - promising one overstates the protection.");
 		markup.Contains("Saturday club run", StringComparison.Ordinal).ShouldBeTrue(
 			"the adventure name is what the user is agreeing to share with, so it belongs on the card.");
 	}
@@ -48,7 +48,7 @@ public sealed class ConsentPromptTests : BunitContext
 		});
 
 		shared.ShouldBeTrue();
-		dismissed.ShouldBeFalse("Share and 'Not now' are two distinct callbacks — one must not fall through to the other.");
+		dismissed.ShouldBeFalse("Share and 'Not now' are two distinct callbacks - one must not fall through to the other.");
 	}
 
 	[Fact]

@@ -13,14 +13,14 @@ public static class DiagnosticsRegistration
 	/// <remarks>
 	/// Separate from <c>AddDlrAdmin</c>, which owns the log <em>file</em> and the screen that reads
 	/// it. This owns what gets written to it, and a deployment could sensibly have one without the
-	/// other — the events still go to the console when no file is configured.
+	/// other - the events still go to the console when no file is configured.
 	/// </remarks>
 	public static IServiceCollection AddDlrDiagnostics(this IServiceCollection services)
 	{
 		services.AddSingleton<ServerEvents>();
 
 		// Resolved by whichever of the startup block and the lifetime log gets there first, both of
-		// which are boot — so the anchor is the boot, and both then age the run from the same one.
+		// which are boot - so the anchor is the boot, and both then age the run from the same one.
 		services.AddSingleton<ServerStart>();
 
 		// Hosted so it can hook the lifetime, and singleton-hosted so nothing ends up with a second
@@ -28,7 +28,7 @@ public static class DiagnosticsRegistration
 		services.AddSingletonHostedService<ServerLifetimeLog>();
 
 		// Runs inside UseExceptionHandler ahead of the /Error re-execute, records the exception and
-		// declines to handle it — so the response every caller gets is exactly what it was before.
+		// declines to handle it - so the response every caller gets is exactly what it was before.
 		services.AddExceptionHandler<UnhandledExceptionLogger>();
 
 		return services;

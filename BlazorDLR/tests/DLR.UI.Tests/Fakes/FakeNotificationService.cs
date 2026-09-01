@@ -6,7 +6,7 @@ namespace DLR.UI.Tests.Fakes;
 /// An <see cref="INotificationService"/> that records what a phone would have shown.
 /// <para>
 /// Stands in for <c>AndroidNotificationService</c> and <c>AppleNotificationService</c>, neither of
-/// which can be referenced from here — <c>UiLayeringRules</c> keeps every MAUI assembly out of this
+/// which can be referenced from here - <c>UiLayeringRules</c> keeps every MAUI assembly out of this
 /// project so bUnit runs under a plain <c>dotnet test</c>. The platform half is the part a compiler
 /// can check and a device has to prove; the part worth asserting on is which posts got this far,
 /// and that is <c>CommentNotifier</c>'s decision rather than the phone's.
@@ -17,7 +17,7 @@ public sealed class FakeNotificationService : INotificationService
 	/// <summary>Set false to stand in for a browser host, or any device with no notifier (§18.2).</summary>
 	public bool IsSupported { get; set; } = true;
 
-	/// <summary>Set false to stand in for a rider who refused the permission — a choice, not a fault.</summary>
+	/// <summary>Set false to stand in for a rider who refused the permission - a choice, not a fault.</summary>
 	public bool PermissionGranted { get; set; } = true;
 
 	/// <summary>How many times permission was asked for. Both platforms prompt at most once.</summary>

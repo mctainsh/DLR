@@ -5,7 +5,7 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// <strong>Local notifications, and deliberately not push.</strong> There is no FCM sender key, no
 /// APNs <c>.p8</c>, no device-token registry on the server and no Apple Push Notifications
-/// entitlement on the bundle — this app registers with nothing. What it has instead is the hub
+/// entitlement on the bundle - this app registers with nothing. What it has instead is the hub
 /// connection it is already holding for the ride (§5.3): the post arrives over SignalR, and this
 /// seam is only the last step of putting it on the lock screen. The whole feature is
 /// <c>UNUserNotificationCenter</c> on iOS and <c>NotificationManagerCompat</c> on Android, both of
@@ -13,7 +13,7 @@ namespace BlazorDLR.Shared.Services;
 /// </para>
 /// <para>
 /// <strong>What that costs, stated plainly.</strong> A notification can only be raised by a process
-/// that is running, so this delivers exactly while the app is alive — which during a ride it is,
+/// that is running, so this delivers exactly while the app is alive - which during a ride it is,
 /// because the receiver holds an Android foreground service and iOS's <c>location</c> background
 /// mode (§4.3). An app the OS has suspended raises nothing and the rider sees the thread when they
 /// next open it. That is the trade for owning no push infrastructure, and it lands in the right
@@ -22,12 +22,12 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// <strong>There is no per-ride mute and no quiet-hours logic here.</strong> Every phone already has
 /// both, applied consistently to every app on it and reachable from a place riders already know.
-/// Re-implementing them would be a second, worse copy that only covers this app — so the channel
+/// Re-implementing them would be a second, worse copy that only covers this app - so the channel
 /// (Android) and the authorisation (iOS) are the whole of the control surface, and a rider who
 /// wants an adventure to stop buzzing turns it off where they turn everything else off.
 /// </para>
 /// <para>
-/// <strong>Web:</strong> not supported in v1 — the implementation is a no-op (§18.2). The browser
+/// <strong>Web:</strong> not supported in v1 - the implementation is a no-op (§18.2). The browser
 /// has its own Notification API, but the surface this feature exists for is the phone on a bar
 /// mount, and a laptop with the tab open is already showing the thread.
 /// </para>
@@ -42,7 +42,7 @@ public interface INotificationService
 	/// given.
 	/// <para>
 	/// <strong>Idempotent, and cheap to call again.</strong> Neither platform will show a second
-	/// prompt — Android 13's <c>POST_NOTIFICATIONS</c> dialog and iOS's authorisation alert are
+	/// prompt - Android 13's <c>POST_NOTIFICATIONS</c> dialog and iOS's authorisation alert are
 	/// each shown once ever, and after that the answer comes back from the system without the
 	/// rider seeing anything. So callers may simply ask before every notification rather than
 	/// tracking state of their own.
@@ -60,7 +60,7 @@ public interface INotificationService
 	/// Posts <paramref name="notification"/> now, replacing any earlier one carrying the same
 	/// <see cref="LocalNotification.Tag"/>.
 	/// <para>
-	/// Never throws for a reason the caller can act on — a denied permission, a host with no
+	/// Never throws for a reason the caller can act on - a denied permission, a host with no
 	/// notifier and a platform that rejected the post all end the same way, with nothing on screen.
 	/// The caller is a hub callback with nobody to report to.
 	/// </para>

@@ -42,7 +42,7 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// §15.6's undo window, enforced (§7.11). The API already refuses to undo past
-	/// <c>PurgeAfterUtc</c> — this is what makes the bytes go, which is the half the rider who
+	/// <c>PurgeAfterUtc</c> - this is what makes the bytes go, which is the half the rider who
 	/// trimmed their home address off a track actually asked for.
 	/// </summary>
 	[Fact]
@@ -134,14 +134,14 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 
 		(await BlobExistsAsync(app, keptFull)).ShouldBeTrue();
 		(await BlobExistsAsync(app, keptThumb)).ShouldBeTrue(
-			"the thumbnail is a second blob on the same row — a sweep that only read blob_ref " +
+			"the thumbnail is a second blob on the same row - a sweep that only read blob_ref " +
 			"would take every thumbnail in the store");
 	}
 
 	/// <summary>
 	/// The grace window is the whole safety of the orphan sweep. A blob is written before the row
 	/// that points at it is committed, so for the width of one request every new upload is
-	/// indistinguishable from an orphan — and taking one would delete a photograph out from under
+	/// indistinguishable from an orphan - and taking one would delete a photograph out from under
 	/// the request that was still uploading it.
 	/// </summary>
 	[Fact]
@@ -164,7 +164,7 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 	/// somebody has to remember to extend.
 	/// <para>
 	/// <strong>This is the guard on the most dangerous code in the project.</strong> A blob column
-	/// the sweep does not know about is not a missed tidy-up — every value in it is unreferenced as
+	/// the sweep does not know about is not a missed tidy-up - every value in it is unreferenced as
 	/// far as the sweep can tell, so the next run deletes all of them. It reddens the moment a new
 	/// blob-bearing column is added, which is the moment somebody can still think about it.
 	/// </para>
@@ -202,7 +202,7 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// §7.13's row hygiene. Sessions do not expire in practice, so what accumulates here is the
-	/// revoked and the genuinely expired — a chain per sign-in, forever, on a €4 VPS.
+	/// revoked and the genuinely expired - a chain per sign-in, forever, on a €4 VPS.
 	/// </summary>
 	[Fact]
 	public async Task NightlySweep_DeletesLongRevokedRefreshTokens()
@@ -245,7 +245,7 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// §17.7's retention. The snapshot is a copy of content that may have been deleted everywhere
-	/// else, so keeping it forever is its own privacy problem — and only <em>resolved</em> reports
+	/// else, so keeping it forever is its own privacy problem - and only <em>resolved</em> reports
 	/// age out, because ageing out a backlog is a silent amnesty.
 	/// </summary>
 	[Fact]
@@ -285,7 +285,7 @@ public sealed class NightlySweepTests(PostgresFixture postgres)
 	/// SRV-31 left this one FK to this task: <c>user_block.blocked_id</c> is <c>NoAction</c>,
 	/// because two cascade paths into <c>asp_net_users</c> through one table is an error in
 	/// PostgreSQL. Nothing else in the project deletes an account, so nothing else has ever hit it
-	/// — and an unhandled FK violation here does not skip one account, it aborts the whole sweep.
+	/// - and an unhandled FK violation here does not skip one account, it aborts the whole sweep.
 	/// </summary>
 	[Fact]
 	public async Task Cleanup_AccountSomebodyElseHasBlocked_IsStillDeleted()

@@ -23,7 +23,7 @@ public sealed class JwtOptions
 
 	/// <summary>
 	/// The current signing secret. Comes from an environment variable or a Docker secret and
-	/// never from a file that ships with the code — a rule the startup check enforces rather
+	/// never from a file that ships with the code - a rule the startup check enforces rather
 	/// than a convention this comment expresses.
 	/// </summary>
 	public string SigningKey { get; set; } = string.Empty;
@@ -38,7 +38,7 @@ public sealed class JwtOptions
 	/// The key being rotated out, still accepted for verification.
 	/// <para>
 	/// Without this, rotating the signing key invalidates every access token in existence at
-	/// once — which, for people mid-ride with a live hub connection, means being signed out on
+	/// once - which, for people mid-ride with a live hub connection, means being signed out on
 	/// a motorway because an operator ran a routine key rotation.
 	/// </para>
 	/// </summary>
@@ -94,7 +94,7 @@ public sealed class JwtOptions
 	/// otherwise read the ambient one: the issuer stamps <c>exp</c> from this clock, so a
 	/// verifier reading a different one disagrees with it about whether a token has expired.
 	/// In production the two are the same and this changes nothing. In a test it is the
-	/// difference between being able to advance time and not — which is the whole reason
+	/// difference between being able to advance time and not - which is the whole reason
 	/// <c>TimeProvider</c> was registered on day one.
 	/// </param>
 	public TokenValidationParameters ValidationParameters(TimeProvider clock) => new()
@@ -132,7 +132,7 @@ public sealed class JwtOptions
 /// <summary>The claim names §7.4 specifies, spelled once.</summary>
 public static class DlrClaims
 {
-	/// <summary>Subject — the account id.</summary>
+	/// <summary>Subject - the account id.</summary>
 	public const string Subject = "sub";
 
 	/// <summary>Username. Safe to denormalise anywhere, because it can never change (§7.2).</summary>

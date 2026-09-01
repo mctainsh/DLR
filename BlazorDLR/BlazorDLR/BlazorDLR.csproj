@@ -14,7 +14,7 @@
 	  here so a Windows developer can still open the solution and build the heads that make sense
 	  on their machine.
 
-	  iOS is NOT gated, and is deliberately absent from this line — it is already in the list
+	  iOS is NOT gated, and is deliberately absent from this line - it is already in the list
 	  above. The .NET iOS workload ships reference assemblies, so `Platforms/iOS/**` compiles on
 	  Windows even though linking and signing still need a Mac; keeping it in the base list is what
 	  catches a break in AppleLocationProvider.cs on the machine that made it rather than in CI.
@@ -83,7 +83,7 @@
   <!--
     ============================ Store release configuration ============================
     Everything below is about producing an artefact a store will accept. The full
-    submission procedure — the parts that are forms rather than builds — is
+    submission procedure - the parts that are forms rather than builds - is
     Documentation/store-release.md.
 
     Nothing here hard-codes a credential. Signing material is read from environment
@@ -123,7 +123,7 @@
       DLR_ANDROID_KEY_PASS       key password
 
     Play App Signing holds the *app* signing key; this is the *upload* key. Losing the
-    upload key is recoverable by asking Google to reset it — which is the whole reason to
+    upload key is recoverable by asking Google to reset it - which is the whole reason to
     be enrolled, and Documentation/store-release.md says so at the top.
   -->
   <PropertyGroup Condition="'$(Configuration)'=='Release'&#xD;&#xA;                            and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'&#xD;&#xA;                            and '$(DLR_ANDROID_KEYSTORE)' != ''">
@@ -136,7 +136,7 @@
 
   <!--
     Distribution signing for the App Store. Overrides the development pair above, and only
-    when the environment names a distribution identity — so a Mac with only a development
+    when the environment names a distribution identity - so a Mac with only a development
     certificate still builds Release for a device.
 
       DLR_IOS_CODESIGN_KEY   e.g. "Apple Distribution: Your Company (TEAMID)"
@@ -153,7 +153,7 @@
   <!--
     The privacy manifest (required for App Store submission since 1 May 2024). It has to
     land at the root of the .app bundle under this exact name, which is what LogicalName
-    does — a manifest inside Platforms/iOS/ in the bundle is a manifest App Store Connect
+    does - a manifest inside Platforms/iOS/ in the bundle is a manifest App Store Connect
     does not find, and the rejection mail does not say why.
   -->
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
@@ -167,7 +167,7 @@
     transitive constraint was widened, not that anything is missing.
 
     Project-wide rather than on the Android head, because restore evaluates the package graph
-    once for the whole project — conditioning it on the target framework left the same
+    once for the whole project - conditioning it on the target framework left the same
     warnings on the iOS build, which does not reference the package at all. No other project
     in the solution carries this suppression, so a genuine version conflict elsewhere still
     surfaces.
@@ -183,7 +183,7 @@
 
 	  Android composites an *adaptive* icon: appiconfg.png becomes a 108dp foreground drawable that
 	  the launcher masks down to the central 72dp safe zone, so a full-bleed foreground loses the
-	  outer sixth on all four sides — the reported "you only see the middle". ForegroundScale shrinks
+	  outer sixth on all four sides - the reported "you only see the middle". ForegroundScale shrinks
 	  the artwork inside that same 108dp canvas (0.65 x 108dp = 70.2dp) so it lands inside the safe
 	  zone and survives any mask shape; the appicon.png gradient fills the margin it vacates.
 
@@ -197,7 +197,7 @@
 	  Splash Screen. Declared twice for the same reason, this time with iOS as the odd one out.
 
 	  The storyboard MAUI generates for iOS puts the image in a full-screen UIImageView with
-	  contentMode="center" and clipsSubviews="YES" — the image is never scaled to fit, it is drawn at
+	  contentMode="center" and clipsSubviews="YES" - the image is never scaled to fit, it is drawn at
 	  exactly BaseSize points and cropped by the screen. At 476pt that is wider than every iPhone in
 	  portrait (320-440pt), which is why the transparent border baked into splash.png disappeared:
 	  it was being clipped off along with the artwork's edges. 320pt is the narrowest portrait width
@@ -230,7 +230,7 @@
   <!--
 	The fused location provider (§4.3): GNSS blended with Wi-Fi, cell and the motion sensors,
 	which is what keeps a fix alive between tall buildings and what makes the Balanced profile
-	cost what it claims to. Android only — it is a Play Services binding, and the iOS head has
+	cost what it claims to. Android only - it is a Play Services binding, and the iOS head has
 	CLLocationManager.
 
 	It is a preference, not a requirement. Play Services is absent on recent Huawei phones, on

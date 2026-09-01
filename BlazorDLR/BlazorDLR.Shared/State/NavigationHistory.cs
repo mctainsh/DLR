@@ -9,18 +9,18 @@ namespace BlazorDLR.Shared.State;
 /// <para>
 /// One instance per app (scoped in each host), and the count is deliberately in C# rather
 /// than read from the browser: <c>window.history.length</c> counts entries this app did not
-/// create — a tab that visited three other sites before landing on a deep link reports a
+/// create - a tab that visited three other sites before landing on a deep link reports a
 /// history to go back into, and stepping into it would walk the rider out of the app.
 /// </para>
 /// <para>
 /// A rider who opens a shared link lands with <see cref="Depth"/> at zero, so
 /// <c>PageNav</c> follows the page's declared parent route instead of calling
-/// <c>history.back()</c> — which on that first entry would leave the app entirely, or do
+/// <c>history.back()</c> - which on that first entry would leave the app entirely, or do
 /// nothing at all.
 /// </para>
 /// <para>
 /// Counting starts when the first <c>PageNav</c> injects this, so navigations made before
-/// any page with a title bar — Home and Welcome are the ones that have none — are not in
+/// any page with a title bar - Home and Welcome are the ones that have none - are not in
 /// the count. That is the answer we want rather than a gap to close: the first page with an
 /// arrow reports no history and therefore follows its declared parent, and for every such
 /// page that parent is the rail destination the rider actually arrived from.

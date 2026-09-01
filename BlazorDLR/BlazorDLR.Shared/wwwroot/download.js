@@ -1,4 +1,4 @@
-// Saving a file from a browser page. There is no API for it — the only route is an
+// Saving a file from a browser page. There is no API for it - the only route is an
 // anchor carrying a download attribute and a synthetic click, so that is what this does.
 //
 // A Blob URL rather than a data: URL: an account export is a zip that runs to megabytes,

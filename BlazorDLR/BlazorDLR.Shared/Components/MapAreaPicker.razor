@@ -8,7 +8,7 @@
 
 	The catalogue is two hundred and thirty-odd areas across eighty-odd countries, and the form
 	behind this asks for them as a country and then an area within it. That works for somebody who
-	knows the answer already. It does not work for the case this screen exists for — a rider
+	knows the answer already. It does not work for the case this screen exists for - a rider
 	planning a trip through country they have not been to, who knows where they are going on a map
 	and does not know that the extract covering it is filed under a name they have never heard.
 
@@ -34,7 +34,7 @@
 		</header>
 
 		<p class="hint">
-			Every map on offer is drawn as a box. Tap the one you want — where areas overlap you
+			Every map on offer is drawn as a box. Tap the one you want - where areas overlap you
 			will be asked which. Nothing downloads until you press Download.
 		</p>
 
@@ -53,7 +53,7 @@
 		{
 			@*
 				More than one area covers the point, which on a catalogue of nested extracts is
-				ordinary rather than rare — a country and the states inside it are both on offer.
+				ordinary rather than rare - a country and the states inside it are both on offer.
 
 				Smallest first, because a tap is a statement about a place and the smallest box
 				containing it is the most specific answer to it. The boxes tapped are redrawn
@@ -90,8 +90,8 @@
 
 @code {
 	/// <summary>
-	/// The packs on offer. Only those carrying bounds can be drawn or pointed at — see
-	/// <see cref="MapPackOffer.Bounds"/> — and the rest are left to the dropdowns behind this.
+	/// The packs on offer. Only those carrying bounds can be drawn or pointed at - see
+	/// <see cref="MapPackOffer.Bounds"/> - and the rest are left to the dropdowns behind this.
 	/// </summary>
 	[Parameter, EditorRequired] public IReadOnlyList<MapPackOffer> Offers { get; set; } = [];
 
@@ -104,7 +104,7 @@
 	/// <summary>The whole world, which is where this opens and stays until the rider zooms it.</summary>
 	private static readonly MapCamera WorldView = new(0, 0, 0);
 
-	/// <summary>The colour every area is drawn in — the app's accent, the same one the Download button carries.</summary>
+	/// <summary>The colour every area is drawn in - the app's accent, the same one the Download button carries.</summary>
 	private const string BoxColour = "#2563eb";
 
 	private ElementReference _root;
@@ -116,7 +116,7 @@
 	private string? _status;
 
 	/// <summary>
-	/// The boxes as the overlay draws them. Rebuilt only when what they should look like changes —
+	/// The boxes as the overlay draws them. Rebuilt only when what they should look like changes -
 	/// a fresh list on every render would repaint the Skia canvas for every keystroke and status
 	/// line, and there are two hundred of them.
 	/// </summary>
@@ -150,13 +150,13 @@
 	/// Which tiles a world map of the whole catalogue can actually be drawn with.
 	/// <para>
 	/// The rider's own choice, with one exception: an offline pack is a single region, so a world
-	/// map drawn from one is that region and then nothing — and this screen is the one place in the
+	/// map drawn from one is that region and then nothing - and this screen is the one place in the
 	/// app where the rest of the world is the point. A rider who has downloaded New South Wales and
 	/// come here to add Victoria would be looking at New South Wales and a void.
 	/// </para>
 	/// <para>
 	/// A tile server of the rider's own is left alone, because it is a world map and probably works.
-	/// If it does not, <see cref="OnTileFailed"/> is the answer to that — and it has to be,
+	/// If it does not, <see cref="OnTileFailed"/> is the answer to that - and it has to be,
 	/// since the commonest way to arrive on this screen with a broken one is to have just typed it.
 	/// </para>
 	/// </summary>
@@ -166,14 +166,14 @@
 
 	/// <summary>
 	/// The base map cannot draw. Falls back to OpenStreetMap, which is the source that needs no
-	/// account, no pack and no configuration — and without a map underneath them the boxes are two
+	/// account, no pack and no configuration - and without a map underneath them the boxes are two
 	/// hundred rectangles on a grey field, which is not a thing anybody can point at.
 	/// <para>
 	/// Once. A second failure is OSM itself failing, and there is nowhere further to fall back to;
 	/// <c>RideMap</c> is already showing what went wrong.
 	/// </para>
 	/// </summary>
-	/// <param name="problem">What the base map said. Not shown here — RideMap says it itself.</param>
+	/// <param name="problem">What the base map said. Not shown here - RideMap says it itself.</param>
 	private void OnTileFailed(string problem)
 	{
 		if (_source == MapSource.Default)
@@ -240,7 +240,7 @@
 		BuildBoxes();
 	}
 
-	/// <summary>Settles on an area, which is also what closes this — the caller does the closing.</summary>
+	/// <summary>Settles on an area, which is also what closes this - the caller does the closing.</summary>
 	/// <param name="offer">The area chosen.</param>
 	private Task ChooseAsync(MapPackOffer offer) => OnChosen.InvokeAsync(offer);
 
@@ -278,7 +278,7 @@
 }
 
 <style>
-	/* Over everything, including the nav rail — this is a map you point at, and every pixel of it
+	/* Over everything, including the nav rail - this is a map you point at, and every pixel of it
 	   that is page furniture is a pixel of the world you cannot see. Above the confirm dialog's
 	   z-index is deliberately *not* claimed: a confirm raised while this is open is a question
 	   about it and has to be readable. */
@@ -296,7 +296,7 @@
 
 	.area-picker {
 		/* The containing block for the disambiguation list below, which sits over the map's bottom
-		   edge. Without it that list resolves against the fixed backdrop — the viewport — and hangs
+		   edge. Without it that list resolves against the fixed backdrop - the viewport - and hangs
 		   outside the dialog's own border on any screen wider than it. */
 		position: relative;
 		display: flex;
@@ -346,7 +346,7 @@
 	}
 
 	/* The map takes whatever height is left. Its own container carries a 480 px minimum for a full
-	   screen, which on a phone in this dialog would push the header off the top — so it is cleared
+	   screen, which on a phone in this dialog would push the header off the top - so it is cleared
 	   here and the flex row is what sizes it. */
 	.area-picker-map {
 		flex: 1;

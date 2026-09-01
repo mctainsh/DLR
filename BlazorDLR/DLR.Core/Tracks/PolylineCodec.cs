@@ -14,11 +14,11 @@ namespace DLR.Core.Tracks;
 /// <para>
 /// <strong>Lossy, and that is fine here.</strong> Precision 6 rounds to about a tenth of a
 /// metre. The editor is the only consumer and it sends back <em>indices</em>, never coordinates,
-/// so nothing derived is ever computed from a decoded value — the blob keeps the exact doubles
+/// so nothing derived is ever computed from a decoded value - the blob keeps the exact doubles
 /// (<see cref="TrackBlobCodec"/>) and that is what an edit re-stats from.
 /// </para>
 /// <para>
-/// A 12-hour tour at 1 Hz is ~43 000 points, roughly 200 KB gzipped in this encoding — fine for
+/// A 12-hour tour at 1 Hz is ~43 000 points, roughly 200 KB gzipped in this encoding - fine for
 /// a desktop browser, which is the only place the editor runs.
 /// </para>
 /// </summary>
@@ -75,7 +75,7 @@ public static class PolylineCodec
 	}
 
 	/// <summary>
-	/// Encodes a series of longs — timestamps as seconds, or elevations in decimetres — with
+	/// Encodes a series of longs - timestamps as seconds, or elevations in decimetres - with
 	/// the same delta and zig-zag scheme the coordinates use.
 	/// </summary>
 	/// <param name="values">The values, in order.</param>

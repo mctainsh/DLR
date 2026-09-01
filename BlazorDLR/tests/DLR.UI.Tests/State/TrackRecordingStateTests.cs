@@ -43,7 +43,7 @@ public sealed class TrackRecordingStateTests
 			Recording = new TrackRecordingState(Settings, Api, PrivateAreas);
 		}
 
-		/// <summary>A fresh state over the <em>same</em> device store — a relaunch, in other words.</summary>
+		/// <summary>A fresh state over the <em>same</em> device store - a relaunch, in other words.</summary>
 		public TrackRecordingState Relaunch() => new(Settings, Api, PrivateAreas);
 
 		/// <summary>Rides north, one fix every <paramref name="stepM"/> metres.</summary>
@@ -106,7 +106,7 @@ public sealed class TrackRecordingStateTests
 		await harness.Recording.SetIntervalAsync(100);
 
 		// Fifty-five metres a fix, so one step is inside a 100 m interval and two are past it.
-		// Deliberately not a step that lands on the boundary — the fixture's metres-per-degree is
+		// Deliberately not a step that lands on the boundary - the fixture's metres-per-degree is
 		// an approximation and a test that turned on it would be testing the approximation.
 		await harness.RideAsync(11, stepM: 55);
 
@@ -145,7 +145,7 @@ public sealed class TrackRecordingStateTests
 	public async Task ATrackSurvivesTheAppBeingReclaimedMidRide()
 	{
 		// Android reclaiming the app in a pocket is the failure this is written against, and it
-		// is not exotic — it is what happens on a long tour with the screen off.
+		// is not exotic - it is what happens on a long tour with the screen off.
 		Harness harness = new();
 		await harness.Recording.LoadAsync();
 		await harness.RideAsync(40);
@@ -202,7 +202,7 @@ public sealed class TrackRecordingStateTests
 	/// <summary>
 	/// §15.1: a track is named before it is saved. The rule lives in the state and not only on the
 	/// Location screen's disabled button, because this is the one path that takes a recorded ride
-	/// off the device — and a list of rides called "Untitled" is a list nobody can use.
+	/// off the device - and a list of rides called "Untitled" is a list nobody can use.
 	/// </summary>
 	[Theory]
 	[InlineData(null)]
@@ -260,7 +260,7 @@ public sealed class TrackRecordingStateTests
 	[Fact]
 	public async Task Saving_KeepsThePrivateArea_WhenTheRiderTurnsTheFilterOff()
 	{
-		// It is a choice, not a policy — and a rider who wants their whole commute is entitled to
+		// It is a choice, not a policy - and a rider who wants their whole commute is entitled to
 		// it. What matters is that it is theirs to make, and that it defaults the other way.
 		Harness harness = new();
 		await harness.PrivateAreas.SetAsync(new PrivateArea(Latitude, Longitude, PrivateArea.MinRadiusM));

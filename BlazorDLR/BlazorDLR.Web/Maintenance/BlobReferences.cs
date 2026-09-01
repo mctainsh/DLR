@@ -11,7 +11,7 @@ namespace DLR.Server.Maintenance;
 public readonly record struct BlobColumn(string Table, string Column);
 
 /// <summary>
-/// Everywhere a blob reference is stored — the subtrahend of the orphan sweep (§7.11, §16.6).
+/// Everywhere a blob reference is stored - the subtrahend of the orphan sweep (§7.11, §16.6).
 /// <para>
 /// <strong>Getting this list wrong is not a missed tidy-up.</strong> A blob column the sweep does
 /// not know about is a column whose every value looks unreferenced, so the next run deletes every
@@ -57,7 +57,7 @@ public static class BlobReferences
 			IProperty column = type.FindProperty(property)
 				?? throw new InvalidOperationException(
 					$"{entity.Name}.{property} is not in the model. If it was renamed, rename it " +
-					"here too — every blob it holds is a deletion candidate until you do.");
+					"here too - every blob it holds is a deletion candidate until you do.");
 
 			columns.Add(new BlobColumn(type.GetTableName()!, column.GetColumnName()));
 		}

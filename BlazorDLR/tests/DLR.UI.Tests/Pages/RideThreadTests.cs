@@ -61,11 +61,11 @@ public sealed class RideThreadTests : PageTestContext
 		{
 			// The read side always renders; the compose surface must NOT.
 			component.Markup.Contains("Adventure thread", StringComparison.Ordinal).ShouldBeTrue(
-				"§17.7: revoking the permission does not hide the thread — only the composer.");
+				"§17.7: revoking the permission does not hide the thread - only the composer.");
 			component.FindAll("form.composer").Count.ShouldBe(0,
 				"§5.8: with AllowMemberComments off and no organiser role, the composer must be absent.");
 			component.FindAll("textarea").Count.ShouldBe(0,
-				"a lingering textarea is a fallible client-side guard — the entire compose surface should be gone.");
+				"a lingering textarea is a fallible client-side guard - the entire compose surface should be gone.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -82,12 +82,12 @@ public sealed class RideThreadTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.FindAll("form.composer").Count.ShouldBe(1,
-				"§5.8: turning off member comments does not silence the organiser — announcements are still allowed.");
+				"§5.8: turning off member comments does not silence the organiser - announcements are still allowed.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
-	/// Typing enables Post — on the keystroke, not on the blur.
+	/// Typing enables Post - on the keystroke, not on the blur.
 	/// <para>
 	/// bUnit's <c>Input</c> raises <c>oninput</c> and nothing else, which is exactly the event a
 	/// plain <c>@@bind</c> ignores: it listens on <c>onchange</c>, and a browser does not raise that
@@ -113,7 +113,7 @@ public sealed class RideThreadTests : PageTestContext
 		component.Find("form.composer button.primary").HasAttribute("disabled").ShouldBeTrue(
 			"an empty composer has nothing to post.");
 
-		// oninput only. No blur, no change event — the phone case.
+		// oninput only. No blur, no change event - the phone case.
 		component.Find("form.composer textarea").Input("See you at the servo.");
 
 		component.Find("form.composer button.primary").HasAttribute("disabled").ShouldBeFalse(

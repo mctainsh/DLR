@@ -4,7 +4,7 @@ namespace DLR.Core.Tests.Tracks;
 
 /// <summary>
 /// §15.7's numbers. One computation used by the recorder, the importer and the editor,
-/// so every property has to be pinned by test — three copies that agree today is not the
+/// so every property has to be pinned by test - three copies that agree today is not the
 /// same guarantee as one that always agrees.
 /// </summary>
 public sealed class TrackStatsTests
@@ -69,7 +69,7 @@ public sealed class TrackStatsTests
 		// Noise threshold is 3 m. A rise of 2 m then a rise of 5 m should count only the 5 m
 		// (against the running reference).
 		TrackPoint a = new(0.0, 0.0, TimeUtc: null, ElevationM: 100);
-		TrackPoint b = new(0.0001, 0.0, TimeUtc: null, ElevationM: 102); // +2m — noise
+		TrackPoint b = new(0.0001, 0.0, TimeUtc: null, ElevationM: 102); // +2m - noise
 		TrackPoint c = new(0.0002, 0.0, TimeUtc: null, ElevationM: 107); // +5m from ref → counts
 
 		TrackStats stats = TrackStats.From(new TrackGeometry(new[] { a, b, c }));
@@ -88,7 +88,7 @@ public sealed class TrackStatsTests
 		TrackStats stats = TrackStats.From(new TrackGeometry(new[] { a, b }));
 
 		stats.AscentM.ShouldBeNull(
-			"§15.7: no elevation on the file means null ascent — inventing zero would claim a measurement nobody took.");
+			"§15.7: no elevation on the file means null ascent - inventing zero would claim a measurement nobody took.");
 	}
 
 	[Fact]
@@ -114,7 +114,7 @@ public sealed class TrackStatsTests
 		TrackStats stats = TrackStats.From(new TrackGeometry(new[] { a, b }));
 
 		stats.DurationS.ShouldBeNull(
-			"§15.3: non-monotonic clocks drop stats rather than reorder — geometry wins over the clock.");
+			"§15.3: non-monotonic clocks drop stats rather than reorder - geometry wins over the clock.");
 	}
 
 	[Fact]
@@ -130,7 +130,7 @@ public sealed class TrackStatsTests
 
 		stats.DurationS.ShouldNotBeNull();
 		stats.DurationS!.Value.ShouldBe(20d,
-			"§15.7: duration is per-segment. Two 10-second legs = 20 s — the pause between segments is not travelling time.");
+			"§15.7: duration is per-segment. Two 10-second legs = 20 s - the pause between segments is not travelling time.");
 	}
 
 	[Fact]

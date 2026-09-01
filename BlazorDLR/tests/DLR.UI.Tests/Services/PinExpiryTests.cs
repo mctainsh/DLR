@@ -9,8 +9,8 @@ namespace DLR.UI.Tests.Services;
 ///   <item><see cref="PinExpiry.Decode"/> reads a value off a device we do not control and hands
 ///     it straight to a dropdown. Anything it cannot place has to land on an offered value, or
 ///     the settings screen shows one thing while the map does another.</item>
-///   <item><see cref="PinExpiry.IsExpired"/> is what takes somebody off the map. Its edges — the
-///     exact cut-off, and a fix stamped in the future by a phone whose clock runs fast — are the
+///   <item><see cref="PinExpiry.IsExpired"/> is what takes somebody off the map. Its edges - the
+///     exact cut-off, and a fix stamped in the future by a phone whose clock runs fast - are the
 ///     difference between a ghost pin and a rider who vanishes while still riding.</item>
 /// </list>
 /// </summary>
@@ -103,7 +103,7 @@ public sealed class PinExpiryTests
 	{
 		// Stamped by the device that took it (§5.7), so a phone whose clock runs fast produces
 		// one. Which side of ours its clock is on says nothing about how long ago the rider was
-		// there — and dropping the pin of somebody who is riding beside you is the worse mistake.
+		// there - and dropping the pin of somebody who is riding beside you is the worse mistake.
 		PinExpiry.IsExpired(Now.AddMinutes(30), Now, TimeSpan.FromMinutes(10)).ShouldBeFalse();
 	}
 

@@ -8,7 +8,7 @@ namespace DLR.TestSupport.Database;
 /// <summary>
 /// A real PostgreSQL, started once per test assembly and shared by every test in it (§10.4).
 /// <para>
-/// Declared as an assembly fixture — see <c>DLR.Server.Tests/DatabaseFixture.cs</c>, which records
+/// Declared as an assembly fixture - see <c>DLR.Server.Tests/DatabaseFixture.cs</c>, which records
 /// why sharing it through a collection was what made the suite run one test at a time.
 /// </para>
 /// <para>
@@ -27,7 +27,7 @@ public sealed class PostgresFixture : IAsyncLifetime
 		.WithPassword("dlr-tests-only")
 
 		// Headroom above the 100 default, so the pool ceiling above is what bounds the suite
-		// rather than the server — one of the two has to have room to spare, and it is
+		// rather than the server - one of the two has to have room to spare, and it is
 		// cheaper for it to be this one.
 		.WithCommand("-c", "max_connections=300")
 		.Build();
@@ -59,14 +59,14 @@ public sealed class PostgresFixture : IAsyncLifetime
 	/// Creates a migrated database and returns a connection string for it.
 	/// <para>
 	/// One database per factory rather than one per collection: tests then share a
-	/// container's start-up cost — which is all of the cost — while staying isolated from
+	/// container's start-up cost - which is all of the cost - while staying isolated from
 	/// each other's rows. Cleaning up between tests instead would put every future test
 	/// one forgotten table behind a confusing failure.
 	/// </para>
 	/// <para>
 	/// Copied from a template rather than migrated in place. Replaying the migrations is
 	/// around four hundred milliseconds and the copy is fifteen, and the suite builds one of
-	/// these per test — which made replaying the same twenty-eight migrations onto the same
+	/// these per test - which made replaying the same twenty-eight migrations onto the same
 	/// empty database the single largest thing <c>dotnet test</c> did. The copy is a real
 	/// PostgreSQL database with the real schema in it, <c>__EFMigrationsHistory</c> included,
 	/// so <see cref="RelationalDatabaseFacadeExtensions.GetAppliedMigrations"/> and the
@@ -93,7 +93,7 @@ public sealed class PostgresFixture : IAsyncLifetime
 		await connection.OpenAsync(cancellationToken);
 
 		// The names are a fresh GUID and one this class chose, not input, and CREATE DATABASE
-		// takes no parameters — quoting the identifiers is what keeps them well-formed rather
+		// takes no parameters - quoting the identifiers is what keeps them well-formed rather
 		// than what keeps them safe.
 		await using NpgsqlCommand command = connection.CreateCommand();
 		command.CommandText = template is null
@@ -121,7 +121,7 @@ public sealed class PostgresFixture : IAsyncLifetime
 
 		// PostgreSQL refuses to copy a database while any session is connected to it, and the
 		// migration above just held one. Without this the copy fails with "source database is
-		// being accessed by other users" — and it fails intermittently, in whichever test happened
+		// being accessed by other users" - and it fails intermittently, in whichever test happened
 		// to ask first, which is the worst shape a failure can have.
 		//
 		// Both halves are needed. ClearPool returns Npgsql's own idle connectors, but
@@ -152,7 +152,7 @@ public sealed class PostgresFixture : IAsyncLifetime
 	/// <para>
 	/// A small pool per database, because there is one database per factory and one factory
 	/// per test. Npgsql's default ceiling is 100 connectors each, and PostgreSQL's default
-	/// max_connections is 100 in total — so a suite of any size eventually meets "sorry,
+	/// max_connections is 100 in total - so a suite of any size eventually meets "sorry,
 	/// too many clients already", and it meets it as a failure in whichever test happened
 	/// to run when the limit was reached rather than as anything to do with that test.
 	/// Nothing here needs more than a handful.

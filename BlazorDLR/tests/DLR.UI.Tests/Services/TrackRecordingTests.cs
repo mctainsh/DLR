@@ -8,7 +8,7 @@ namespace DLR.UI.Tests.Services;
 /// not saved yet: write it down so a relaunch still has it, and cut the private area out of it on
 /// the way to the server (§10.1).
 /// <para>
-/// Pure — no device store, no clock, no network. Everything here is a decision about a list of
+/// Pure - no device store, no clock, no network. Everything here is a decision about a list of
 /// points, which is exactly the part that must be right before the phone is involved.
 /// </para>
 /// </summary>
@@ -77,7 +77,7 @@ public sealed class TrackRecordingTests
 	public void AFixStampedBeforeTheLastOneKept_IsDropped()
 	{
 		// TrackStats drops duration, max speed and both timestamps wholesale for a non-monotonic
-		// track (§15.3) — so one replayed cached point costs the rider every time-derived figure
+		// track (§15.3) - so one replayed cached point costs the rider every time-derived figure
 		// about the whole ride.
 		TrackRecording.Decide(Point(Latitude, 60), Fix(latitude: NorthOf(500), secondsIn: 10), 10)
 			.ShouldBe(RecordDecision.Drop);
@@ -133,7 +133,7 @@ public sealed class TrackRecordingTests
 	public void RidingOutAndBackIn_LeavesAGapRatherThanALineThroughTheHouse()
 	{
 		// The headline claim of the feature. A single segment across the hole would draw a
-		// straight line between the two ends of it — through the middle, which is the one
+		// straight line between the two ends of it - through the middle, which is the one
 		// coordinate the setting exists to keep off other people's screens.
 		PrivateArea area = new(Latitude, Longitude, PrivateArea.MinRadiusM);
 
@@ -175,7 +175,7 @@ public sealed class TrackRecordingTests
 	public void ATrackSurvivesARoundTripThroughTheDeviceStore()
 	{
 		// What a relaunch mid-tour depends on. The identifier travels with it because the upload
-		// is idempotent on it (§4.4) — a phone that came back and re-sent must not produce two
+		// is idempotent on it (§4.4) - a phone that came back and re-sent must not produce two
 		// rides.
 		Guid clientGuid = Guid.NewGuid();
 		TrackGeometry source = new(

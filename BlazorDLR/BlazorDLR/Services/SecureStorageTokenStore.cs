@@ -3,7 +3,7 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Services;
 
 /// <summary>
-/// The mobile <see cref="ITokenStore"/> — refresh token in MAUI <see cref="SecureStorage"/> →
+/// The mobile <see cref="ITokenStore"/> - refresh token in MAUI <see cref="SecureStorage"/> →
 /// iOS Keychain / Android Keystore (§7.4, §18.5).
 /// <para>
 /// Three platform realities this handles rather than discovers:
@@ -13,7 +13,7 @@ namespace BlazorDLR.Services;
 /// <strong>This-device-only accessibility.</strong> A device restored from another phone's
 /// backup must not carry a working permanent token onto new hardware. MAUI's
 /// <see cref="SecureStorage"/> uses <c>kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly</c>
-/// under the hood, so this is the platform default rather than a switch — worth stating so
+/// under the hood, so this is the platform default rather than a switch - worth stating so
 /// the property is not accidentally regressed by a wrapper.
 /// </item>
 /// <item>
@@ -31,7 +31,7 @@ namespace BlazorDLR.Services;
 public sealed class SecureStorageTokenStore : ITokenStore
 {
 	/// <summary>
-	/// The SecureStorage key. Constant, and the only one this class reads — Phase 1's
+	/// The SecureStorage key. Constant, and the only one this class reads - Phase 1's
 	/// storage layout is deliberately as narrow as it can be.
 	/// </summary>
 	private const string TokenKey = "dlr.refresh-token";

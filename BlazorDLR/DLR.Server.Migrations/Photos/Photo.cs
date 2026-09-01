@@ -9,7 +9,7 @@ namespace DLR.Server.Data.Photos;
 /// <see cref="BlobRef"/> came out of a JPEG encoder that was handed a pixel buffer and nothing
 /// else, so there is no tag to have missed. That matters here more than it would in most apps:
 /// §15.6 lets a rider trim the first 400 m off a track so a ride does not start at their house,
-/// and an EXIF GPS tag in a photograph taken in the driveway would put the house straight back —
+/// and an EXIF GPS tag in a photograph taken in the driveway would put the house straight back -
 /// in a file handed to every member of the ride.
 /// </para>
 /// <para>
@@ -20,7 +20,7 @@ namespace DLR.Server.Data.Photos;
 /// </summary>
 public sealed class Photo
 {
-	/// <summary>Row identifier — the <c>photoId</c> the upload returns.</summary>
+	/// <summary>Row identifier - the <c>photoId</c> the upload returns.</summary>
 	public Guid Id { get; set; }
 
 	/// <summary>Who uploaded it. Their account going takes the row and the blobs with it (§16.6).</summary>
@@ -38,7 +38,7 @@ public sealed class Photo
 	/// <summary>The stored image's height, after orientation was applied.</summary>
 	public int HeightPx { get; set; }
 
-	/// <summary>Bytes of the stored image — what counts against the account's quota (§13 Q13).</summary>
+	/// <summary>Bytes of the stored image - what counts against the account's quota (§13 Q13).</summary>
 	public int ByteSize { get; set; }
 
 	/// <summary>

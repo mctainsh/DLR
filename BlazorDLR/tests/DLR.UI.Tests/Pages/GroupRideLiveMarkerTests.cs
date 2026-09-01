@@ -16,14 +16,14 @@ namespace DLR.UI.Tests.Pages;
 /// The live ride page's marker list (§16.4, §16.5).
 /// <para>
 /// The map's pins are drawn on the Skia overlay, which is <c>pointer-events: none</c> so
-/// gestures reach the base map — a pin cannot be tapped. The list under the hamburger's
+/// gestures reach the base map - a pin cannot be tapped. The list under the hamburger's
 /// "Markers" is therefore the only place a marker's note, its photograph and its delete
 /// exist, and these tests are what say so. It is a popup rather than the sidebar it used
 /// to be, so every test that reads a row opens it first.
 /// </para>
 /// <para>
 /// The delete rule mirrors <c>MarkerController.CanWriteAsync</c>: the rider who placed it,
-/// or the organiser. The server is the one that enforces it — what is asserted here is that
+/// or the organiser. The server is the one that enforces it - what is asserted here is that
 /// the button is <em>absent</em> for everybody else, because a button that always 403s reads
 /// as a broken app rather than as a decision somebody made.
 /// </para>
@@ -36,7 +36,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 	private static readonly Guid AliceId = new("22222222-2222-2222-2222-222222222222");
 
 	/// <summary>
-	/// A square view one degree across, 1000 px on a side, centred on the origin — so 0.001°
+	/// A square view one degree across, 1000 px on a side, centred on the origin - so 0.001°
 	/// is one pixel and "near the pin" is arithmetic rather than guesswork.
 	/// </summary>
 	private static readonly MapViewport UnitViewport = new(
@@ -54,7 +54,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		// RideMap's stated-error branch (§4.5), which keeps SkiaMapOverlay unmounted. Its
 		// SKCanvasView throws PlatformNotSupportedException outside a browser. Viewports and
 		// taps are raised on the fake directly, so both seams are still live.
-		InitException = new InvalidOperationException("Test host — map interop is stubbed."),
+		InitException = new InvalidOperationException("Test host - map interop is stubbed."),
 	};
 
 	private async Task<(FakeApiClient api, FakeRideHubClient hub, ConfirmService confirm, Guid rideId)> WireServicesAsync(
@@ -89,7 +89,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		AuthState auth = new(api, tokens, clock);
 		ConfirmService confirm = new();
 
-		// CanDelete compares against AuthState.UserId, which is only set by a session — without
+		// CanDelete compares against AuthState.UserId, which is only set by a session - without
 		// this the page would treat every marker as somebody else's and the test would pass for
 		// the wrong reason.
 		await auth.ApplySessionAsync(new TokenResponse(
@@ -119,7 +119,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		Services.AddSingleton<CurrentRideState>();
 
 		// The GPS seam (§4.3). The fake provider stands in for the phone's receiver; a page test
-		// never emits a fix, so this only has to resolve — turning sharing on is what would start
+		// never emits a fix, so this only has to resolve - turning sharing on is what would start
 		// it, and LocationBroadcastStateTests is where that path is exercised.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
 		Services.AddSingleton<LocationUpdateRateState>();
@@ -135,7 +135,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A marker, at the origin unless a test says otherwise — <see cref="UnitViewport"/> is
+	/// A marker, at the origin unless a test says otherwise - <see cref="UnitViewport"/> is
 	/// centred there, which is what makes the tap distances in these tests readable.
 	/// </summary>
 	private static MarkerDto Marker(
@@ -224,7 +224,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A title is optional (§16.2). On the map that means a bare icon, which is the point of it —
+	/// A title is optional (§16.2). On the map that means a bare icon, which is the point of it -
 	/// but a list row with an empty name column reads as data that failed to load, so the icon's
 	/// own name stands in there.
 	/// </summary>
@@ -246,7 +246,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			// Marker() places a "gravel" pin; MarkerIconGlyphs labels that key "Gravel".
 			AngleSharp.Dom.IElement head = component.Find("button.marker-head");
 			head.TextContent.ShouldContain("Gravel",
-				customMessage: "an untitled marker still needs a name in a list — the icon's is the one " +
+				customMessage: "an untitled marker still needs a name in a list - the icon's is the one " +
 				"its author would have typed.");
 			head.QuerySelector("strong")!.TextContent.ShouldNotBeNullOrWhiteSpace(
 				"a blank row is indistinguishable from a broken one.");
@@ -268,7 +268,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.Markup.ShouldNotContain("Whole corner",
-				customMessage: "A note is the detail behind the pin — it stays collapsed until asked for."),
+				customMessage: "A note is the detail behind the pin - it stays collapsed until asked for."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		await component.InvokeAsync(() => component.Find("button.marker-head").Click());
@@ -288,7 +288,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			Marker(Guid.NewGuid(), AliceId, "Alice", photoId: photoId),
 		});
 
-		// AuthedImage fetches the bytes itself (§16.4) — an <img> cannot carry a bearer token.
+		// AuthedImage fetches the bytes itself (§16.4) - an <img> cannot carry a bearer token.
 		Services.AddSingleton(new HttpClient { BaseAddress = new Uri("https://test.invalid") });
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
@@ -298,7 +298,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		// The photo endpoint is authenticated, so the component renders its loading or error
 		// branch rather than an <img> in a test host. What matters is that the page asked for
-		// the right photo at all — the fetch itself is AuthedImage's own test.
+		// the right photo at all - the fetch itself is AuthedImage's own test.
 		component.WaitForAssertion(() =>
 			component.Find(".marker-body").InnerHtml.ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
@@ -361,7 +361,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		component.FindAll(".marker-body button.danger").ShouldBeEmpty(
-			"§16.5: a member who did not place a marker and does not run the adventure cannot remove it — " +
+			"§16.5: a member who did not place a marker and does not run the adventure cannot remove it - " +
 			"the server would refuse, so the button must not be there to press.");
 	}
 
@@ -385,7 +385,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		await component.InvokeAsync(() => component.Find(".marker-body button.danger").Click());
 
-		// ConfirmDialog lives in MainLayout, which a page-only render does not mount — answering
+		// ConfirmDialog lives in MainLayout, which a page-only render does not mount - answering
 		// the service directly is the same thing the dialog's confirm button does.
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(
 			"Deleting a marker is destructive and asks first."), timeout: TimeSpan.FromSeconds(3));
@@ -399,7 +399,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.Markup.ShouldContain("Nothing marked on this adventure yet",
-				customMessage: "The row goes on the caller's own delete, not only when the hub echoes it back — " +
+				customMessage: "The row goes on the caller's own delete, not only when the hub echoes it back - " +
 				"§5.3 makes the snapshot authoritative and the hub the delta on top."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
@@ -477,11 +477,11 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
 
-		// 0.2° is 200 px from the pin — a tap on open road, not on anything.
+		// 0.2° is 200 px from the pin - a tap on open road, not on anything.
 		await component.InvokeAsync(() => _map.RaiseClick(0, 0.2));
 
 		component.FindAll(".nearby-dialog").ShouldBeEmpty(
-			"A tap on empty map must stay inert — a popup that opens for every tap on a live " +
+			"A tap on empty map must stay inert - a popup that opens for every tap on a live " +
 			"adventure map is a popup permanently in the way.");
 	}
 
@@ -506,7 +506,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		{
 			AngleSharp.Dom.IElement popup = component.Find(".nearby-dialog");
 			popup.TextContent.ShouldContain("2 markers here",
-				customMessage: "Pins pile up at low zoom — the answer is every marker under the " +
+				customMessage: "Pins pile up at low zoom - the answer is every marker under the " +
 				"tap, not a guess at which one was meant.");
 			popup.TextContent.ShouldContain("Loose gravel");
 			popup.TextContent.ShouldContain("Regroup here");
@@ -564,14 +564,14 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		string uri = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri;
 
 		uri.ShouldContain($"/group-rides/{rideId}/markers/new",
-			customMessage: "The tap is what opens the composer — the menu item only armed the map.");
+			customMessage: "The tap is what opens the composer - the menu item only armed the map.");
 		uri.ShouldContain("lat=-37.81402",
 			customMessage: "§16.1: the composer opens on the point the traveller pointed at, to the wire's " +
 			"five decimal places, so the number they chose is the number that gets stored.");
 		uri.ShouldContain("lon=144.96328");
 		uri.ShouldNotContain("zoom=",
 			customMessage: "The zoom existed for the composer's own picker to re-open at the scale the " +
-			"point was chosen at. That picker is gone, so nothing reads it — a query parameter with no " +
+			"point was chosen at. That picker is gone, so nothing reads it - a query parameter with no " +
 			"reader is a claim the next person has to go and disprove.");
 	}
 
@@ -590,7 +590,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		await component.InvokeAsync(() => _map.RaiseViewport(UnitViewport));
 
-		// Straight onto the pin at the origin — the tap the unarmed map answers with a popup.
+		// Straight onto the pin at the origin - the tap the unarmed map answers with a popup.
 		await component.InvokeAsync(() => _map.RaiseClick(0, 0));
 
 		component.FindAll(".nearby-dialog").ShouldBeEmpty(
@@ -620,7 +620,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.Find(".nearby-dialog").TextContent.ShouldContain("Loose gravel",
-				customMessage: "Cancelling has to put the map back to interrogating its pins — a mode " +
+				customMessage: "Cancelling has to put the map back to interrogating its pins - a mode " +
 				"that half-exits leaves a map that answers neither way."),
 			timeout: TimeSpan.FromSeconds(3));
 
@@ -639,7 +639,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		await ArmPlacementAsync(component);
 
 		// No RaiseViewport. Hit-testing needs pixels to measure "near" in and stays inert without
-		// them; placing does not — the tap arrives carrying its own coordinates.
+		// them; placing does not - the tap arrives carrying its own coordinates.
 		await component.InvokeAsync(() => _map.RaiseClick(-37.81402, 144.96328));
 
 		Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
@@ -672,7 +672,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.FindAll(".nearby-dialog").ShouldBeEmpty(
-				"The popup holds ids, not copies — a marker deleted from under it takes its " +
+				"The popup holds ids, not copies - a marker deleted from under it takes its " +
 				"card with it rather than leaving detail nobody else can see."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
@@ -691,14 +691,14 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		await OpenFirstMarkerAsync(component);
 
 		component.WaitForAssertion(() => _map.Cameras.ShouldNotBeEmpty(
-			"Choosing a marker in the list must take the map to it — the list and the map are " +
+			"Choosing a marker in the list must take the map to it - the list and the map are " +
 			"two views of the same pins."), timeout: TimeSpan.FromSeconds(3));
 
 		MapCamera moved = _map.Cameras[^1];
 		moved.Latitude.ShouldBe(-33.868, tolerance: 1e-5);
 		moved.Longitude.ShouldBe(151.209, tolerance: 1e-5);
 		moved.ZoomLevel.ShouldBeGreaterThanOrEqualTo(16,
-			"§16.4: 'zoom in and centre' means street level — a marker centred at continent " +
+			"§16.4: 'zoom in and centre' means street level - a marker centred at continent " +
 			"zoom has not been shown to anybody.");
 	}
 
@@ -718,18 +718,18 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 		component.WaitForAssertion(() => _map.Cameras.Count.ShouldBe(1),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Same row again — this collapses it.
+		// Same row again - this collapses it.
 		await component.InvokeAsync(() => component.Find("button.marker-head").Click());
 
 		component.FindAll(".marker-body").ShouldBeEmpty();
 		_map.Cameras.Count.ShouldBe(1,
-			"Closing a panel means done reading, not 'take me somewhere' — moving the camera " +
+			"Closing a panel means done reading, not 'take me somewhere' - moving the camera " +
 			"on the way out would yank the view from under whoever was looking at it.");
 	}
 
 	/// <summary>
 	/// Choosing a marker puts <em>it</em> at the centre of the screen, so the two modes that assume
-	/// the rider is that centre have to stop — a map still turning to somebody's heading while it
+	/// the rider is that centre have to stop - a map still turning to somebody's heading while it
 	/// is centred on a pin rotates the ground about a point nobody is standing on. The third route
 	/// through <c>StopFollowing</c>, alongside the follow button and a pan.
 	/// </summary>
@@ -748,7 +748,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			() => component.FindAll("button.heading-up").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Heading up, which brings following with it — one tap sets both.
+		// Heading up, which brings following with it - one tap sets both.
 		await component.InvokeAsync(() => component.Find("button.heading-up").Click());
 
 		component.WaitForAssertion(() =>
@@ -764,7 +764,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			component.Find("button.follow").GetAttribute("aria-pressed").ShouldBe("false");
 			component.FindAll("button.heading-up.on").ShouldBeEmpty();
 			component.Find(".mode-toast").TextContent
-				.ShouldBe("Following and heading up off — showing you that marker.");
+				.ShouldBe("Following and heading up off - showing you that marker.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -790,7 +790,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		_map.Cameras[^1].ZoomLevel.ShouldBe(18,
-			"Centring on a marker must not zoom *out* — pulling the view back throws away " +
+			"Centring on a marker must not zoom *out* - pulling the view back throws away " +
 			"detail the traveller chose.");
 	}
 
@@ -816,7 +816,7 @@ public sealed class GroupRideLiveMarkerTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 			component.Markup.ShouldContain("Nothing marked on this adventure yet",
-				customMessage: "Somebody else's delete has to take the expanded detail with it — an open " +
+				customMessage: "Somebody else's delete has to take the expanded detail with it - an open " +
 				"panel describing a marker that no longer exists is worse than no panel."),
 			timeout: TimeSpan.FromSeconds(3));
 	}

@@ -2,12 +2,12 @@
 	The join-time consent prompt (§5.6).
 
 	Two things this exists to enforce:
-	  1. Dismissing is "Not now" — a swipe-away is not consent. The `default off` shape
+	  1. Dismissing is "Not now" - a swipe-away is not consent. The `default off` shape
 		 is structural, not a matter of "the switch happens to start off". §5.6 leans on
 		 this and §7.3's profile-fields prompt uses the same pattern for the same reason.
 	  2. The copy names only what the rider controls, and nothing else. Sharing has no
 		 end they did not choose, so a card that implied one would overstate the
-		 protection — and consent copy that overstates it is worse than none.
+		 protection - and consent copy that overstates it is worse than none.
 
 	The parent binds two callbacks: OnShare (yes) and OnDismiss (no / not now). If the
 	user closes the modal any other way, the parent should treat it as OnDismiss.

@@ -17,7 +17,7 @@ public sealed class PhotoConfiguration : IEntityTypeConfiguration<Photo>
 		builder.Property(photo => photo.ThumbBlobRef).HasMaxLength(64).IsRequired();
 		builder.Property(photo => photo.ContentHash).HasMaxLength(32).IsRequired();
 
-		// Deleting the account deletes the row. It does *not* delete the blobs — a cascade does
+		// Deleting the account deletes the row. It does *not* delete the blobs - a cascade does
 		// not reach the filesystem (§16.6), which is why SRV-33 deletes them explicitly and the
 		// nightly sweep looks for orphans as a backstop. An orphaned blob is a privacy failure
 		// that presents as a storage bill.

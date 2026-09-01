@@ -10,8 +10,8 @@ namespace DLR.Server.Diagnostics;
 /// <para>
 /// <strong>No path ever comes off the wire.</strong> The caller names a <em>date</em>; this builds
 /// the filename from it through <see cref="FileLoggerProvider.FileFor"/> and refuses anything that
-/// does not resolve inside the configured directory. A <c>file</c> parameter — even one that
-/// looked safe — would make an endpoint that returns the contents of an arbitrary file to whoever
+/// does not resolve inside the configured directory. A <c>file</c> parameter - even one that
+/// looked safe - would make an endpoint that returns the contents of an arbitrary file to whoever
 /// the admin roster happens to contain, and the roster is a list of usernames in a config file.
 /// </para>
 /// <para>
@@ -20,7 +20,7 @@ namespace DLR.Server.Diagnostics;
 /// throw nearly all of it away.
 /// </para>
 /// </summary>
-/// <param name="provider">Owns the resolved directory — the only directory this will open.</param>
+/// <param name="provider">Owns the resolved directory - the only directory this will open.</param>
 /// <param name="options">The read cap.</param>
 public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLogOptions> options)
 {
@@ -55,7 +55,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 		IReadOnlyList<DateOnly> days = AvailableDays();
 
 		// Null means "whatever is newest", which is what the screen opens on. A day the caller
-		// named that has no file is not an error — it is an empty page for that day, which is the
+		// named that has no file is not an error - it is an empty page for that day, which is the
 		// honest answer and keeps the picker from having to be right about the past.
 		DateOnly target = day ?? (days.Count > 0 ? days[0] : DateOnly.FromDateTime(provider.Now.UtcDateTime));
 
@@ -72,7 +72,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 		int hidden = 0;
 
 		// How many lines may be *looked at*, as against returned. A filtered read yields fewer lines
-		// than it examines — that is the point of filtering while reading — but without a second
+		// than it examines - that is the point of filtering while reading - but without a second
 		// bound the day this exists for is the day it is worst: a file that is almost all statements
 		// would be walked from end to beginning, every block parsed, to fill a page of five hundred.
 		// The configured cap is the same promise made about the other end, so it is the honest one
@@ -129,7 +129,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 	/// Matched on the tail of the category rather than in full. The framework's own is
 	/// <c>Microsoft.EntityFrameworkCore.Database.Command</c>, and matching the end also catches a
 	/// second context or an interceptor logging under a category of its own that still ends the
-	/// same way — which is what somebody unticking the box means by "not the SQL".
+	/// same way - which is what somebody unticking the box means by "not the SQL".
 	/// </para>
 	/// </summary>
 	/// <param name="entry">A parsed line.</param>
@@ -197,12 +197,12 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 	/// <remarks>
 	/// Here rather than in the nightly job, so the <c>dlr-yyyyMMdd.log</c> naming is known to the one
 	/// component that owns it. A sweep that composed the name itself would keep working after a
-	/// change to the format by silently matching nothing — reporting zero deleted forever while the
+	/// change to the format by silently matching nothing - reporting zero deleted forever while the
 	/// disk filled, which is the outcome retention exists to prevent.
 	/// <para>
 	/// Only files this reader would have offered to read are candidates: something else left in the
 	/// directory is not this job's to remove. A file held open or newly unreadable is skipped rather
-	/// than thrown out of — the next run tries it again.
+	/// than thrown out of - the next run tries it again.
 	/// </para>
 	/// </remarks>
 	public int Prune(DateOnly cutoff, bool dryRun)
@@ -235,7 +235,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 	/// <summary>
 	/// Whether a resolved path really sits in the log directory.
 	/// <para>
-	/// Belt and braces — the only caller builds the name from a <see cref="DateOnly"/>, which
+	/// Belt and braces - the only caller builds the name from a <see cref="DateOnly"/>, which
 	/// cannot carry a separator. It is here so that the guarantee survives somebody later adding an
 	/// overload that takes a string.
 	/// </para>
@@ -255,7 +255,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 	/// <para>
 	/// Reads fixed blocks backwards from the end and splits them, so the cost is the size of what
 	/// was asked for rather than the size of the day. <c>FileShare.ReadWrite</c> because the writer
-	/// has the same file open and appending — a reader that locked it would silence the log while
+	/// has the same file open and appending - a reader that locked it would silence the log while
 	/// somebody was reading it.
 	/// </para>
 	/// </summary>
@@ -271,7 +271,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 		long position = stream.Length;
 		byte[] block = new byte[BlockSize];
 
-		// Whatever was at the front of the last block read and did not end in a newline — the tail
+		// Whatever was at the front of the last block read and did not end in a newline - the tail
 		// of a line whose beginning is in the block before it.
 		string remainder = string.Empty;
 
@@ -305,7 +305,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 	}
 
 	/// <summary>
-	/// Splits a written line back into its fields — three separators, then the rest verbatim.
+	/// Splits a written line back into its fields - three separators, then the rest verbatim.
 	/// </summary>
 	/// <param name="line">One line as <see cref="FileLogger"/> wrote it.</param>
 	/// <returns>The parsed entry, or the whole line as the message when it is not one of ours.</returns>
@@ -320,7 +320,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 				DateTimeStyles.RoundtripKind,
 				out DateTimeOffset stamp))
 		{
-			// Not a line this provider wrote — a crash dump, or something else appending to the
+			// Not a line this provider wrote - a crash dump, or something else appending to the
 			// same file. It is still shown, because a log that hides what it did not recognise is
 			// hiding the entries most worth seeing.
 			return new AdminLogEntry(null, string.Empty, string.Empty, Unflatten(line));
@@ -334,7 +334,7 @@ public sealed class ServerLogReader(FileLoggerProvider provider, IOptions<FileLo
 
 	/// <summary>
 	/// Severity order, by prefix so that both the file's fixed-width names and the framework's own
-	/// spelling match — "INFO", "INFO " and "Information" are one level.
+	/// spelling match - "INFO", "INFO " and "Information" are one level.
 	/// </summary>
 	private static int Rank(string level) => level.Trim().ToUpperInvariant() switch
 	{

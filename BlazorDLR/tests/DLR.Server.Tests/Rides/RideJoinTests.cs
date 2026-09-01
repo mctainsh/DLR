@@ -39,7 +39,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 		result.Joined.ShouldBeFalse("nobody enters an approval adventure until the organiser says so");
 		result.RequestId.ShouldNotBeNull();
 
-		// Not a member — which is the assertion that matters, because a pending request that
+		// Not a member - which is the assertion that matters, because a pending request that
 		// also let somebody in would defeat the entire access model.
 		int members = await app.WithDatabaseAsync(database =>
 			database.Set<GroupRideMember>().CountAsync(m => m.GroupRideId == ride.Id));
@@ -77,12 +77,12 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Every member receives the code (§5.2), not only the organiser — a rider who is already in
+	/// Every member receives the code (§5.2), not only the organiser - a rider who is already in
 	/// wants to tell a friend how to follow along, and the two ways into a ride have to agree.
 	/// <para>
 	/// Both membership paths are checked because they reach membership differently: joining an
 	/// open ride with the code, and being admitted to an approval ride by the organiser. On the
-	/// approval ride the code still does not admit anybody by itself — the organiser decides.
+	/// approval ride the code still does not admit anybody by itself - the organiser decides.
 	/// </para>
 	/// </summary>
 	[Fact]
@@ -197,7 +197,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The organiser's answer to somebody who will not take a no (§5.2). And the refusal is the
-	/// same one an unknown code gets — telling them they are blocked hands them the one fact
+	/// same one an unknown code gets - telling them they are blocked hands them the one fact
 	/// the organiser was trying not to have a conversation about.
 	/// </summary>
 	[Fact]
@@ -252,7 +252,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 		second.RequestId.ShouldNotBe(first.RequestId, "a fresh ask, not the old one revived");
 
-		// The partial unique index permits both because only one is Pending — and the decided
+		// The partial unique index permits both because only one is Pending - and the decided
 		// row stays, because a declined history is what a block is made of.
 		int requests = await app.WithDatabaseAsync(database =>
 			database.Set<GroupRideJoinRequest>().CountAsync(row => row.GroupRideId == ride.Id));
@@ -318,7 +318,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The gap §14.5 found, and said not to ship this endpoint without (§5.2). Six Crockford
-	/// characters is about 1.07 billion combinations — impractical to guess at human speed and
+	/// characters is about 1.07 billion combinations - impractical to guess at human speed and
 	/// entirely practical for a script.
 	/// </summary>
 	[Fact]
@@ -503,14 +503,14 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 			"the map paints somebody else's marker, so somebody else's client has to be told the colour.");
 
 		seen.Members.Single(member => member.UserName == "DaveSmith").MarkerColour.ShouldBeNull(
-			"a member who never chose sends nothing — the default is applied where it is drawn.");
+			"a member who never chose sends nothing - the default is applied where it is drawn.");
 	}
 
 	/// <summary>
 	/// A rider waiting on an approval can see that they are waiting, and on what (§5.2).
 	/// <para>
 	/// They are in neither of the other two lists, because both are built from membership rows and
-	/// a pending requester has none — which is the fact every other ride screen leans on. Without a
+	/// a pending requester has none - which is the fact every other ride screen leans on. Without a
 	/// third list, asking to join an adventure produced no visible trace anywhere at all.
 	/// </para>
 	/// </summary>
@@ -529,7 +529,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
 
 		mine.Organised.ShouldBeEmpty();
-		mine.Joined.ShouldBeEmpty("asking is not joining — nobody has admitted them");
+		mine.Joined.ShouldBeEmpty("asking is not joining - nobody has admitted them");
 
 		WaitingRide waiting = mine.Waiting.ShouldHaveSingleItem();
 
@@ -541,7 +541,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 	/// <summary>
 	/// <strong>The join code is a member's.</strong> It is the credential that gets a third person
 	/// into the adventure, and somebody the organiser has not admitted must not be handed one on a
-	/// list — which is why the waiting rows are their own contract with no field to put it in.
+	/// list - which is why the waiting rows are their own contract with no field to put it in.
 	/// </summary>
 	[Fact]
 	public async Task MyRides_WaitingRows_CarryNothingThatBelongsToAMember()
@@ -590,7 +590,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
 
-		mine.Waiting.ShouldBeEmpty("the request is answered — there is nothing left to wait for");
+		mine.Waiting.ShouldBeEmpty("the request is answered - there is nothing left to wait for");
 		mine.Joined.ShouldHaveSingleItem().Id.ShouldBe(ride.Id);
 	}
 
@@ -672,7 +672,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 		attempt.StatusCode.ShouldBe(HttpStatusCode.NoContent, "it answers alike either way");
 
-		// The row is untouched, which is the assertion that matters — the status code is only the
+		// The row is untouched, which is the assertion that matters - the status code is only the
 		// half of it a caller can see.
 		IReadOnlyList<JoinRequestSummary> pending =
 			(await organiser.GetFromJsonAsync<List<JoinRequestSummary>>($"{RidesUrl}/{ride.Id}/join-requests"))!;
@@ -683,7 +683,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 	/// <summary>
 	/// <strong>Withdrawing is not a way out of a block.</strong> A block lives on a Declined row and
 	/// only a Pending one can be withdrawn, so the row that stops somebody asking again survives this
-	/// call — and the ride goes on answering them the way it answers a stranger.
+	/// call - and the ride goes on answering them the way it answers a stranger.
 	/// </summary>
 	[Fact]
 	public async Task Withdraw_CannotClearABlock()
@@ -721,7 +721,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 	/// <summary>
 	/// Idempotent by design: the caller asked for the request to be gone, and it is. A rider who taps
 	/// Withdraw a half-second after the organiser taps Admit must not be shown a failure for a race
-	/// they cannot see — their next load says which way it went.
+	/// they cannot see - their next load says which way it went.
 	/// </summary>
 	[Fact]
 	public async Task Withdraw_AfterItWasAlreadyAnswered_SucceedsQuietly()
@@ -746,7 +746,7 @@ public sealed class RideJoinTests(PostgresFixture postgres)
 
 		late.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-		// And the membership the organiser granted is untouched — a late withdrawal must not undo it.
+		// And the membership the organiser granted is untouched - a late withdrawal must not undo it.
 		MyRides mine = (await rider.GetFromJsonAsync<MyRides>(RidesUrl))!;
 
 		mine.Joined.ShouldHaveSingleItem().Id.ShouldBe(ride.Id);

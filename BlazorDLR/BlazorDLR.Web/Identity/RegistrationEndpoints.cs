@@ -35,7 +35,7 @@ public sealed class RegistrationController : ControllerBase
 			return problem;
 		}
 
-		// Registering signs you in — §7.2's flow ends "issue access + permanent refresh token",
+		// Registering signs you in - §7.2's flow ends "issue access + permanent refresh token",
 		// not "now go and log in". Sending someone who just chose a password to a login screen
 		// to type it again is the kind of thing that reads as a bug because it is one.
 		//

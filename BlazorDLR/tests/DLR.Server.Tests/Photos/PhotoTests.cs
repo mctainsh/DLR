@@ -22,7 +22,7 @@ namespace DLR.Server.Tests.Photos;
 /// <para>
 /// The first test here is a privacy guarantee rather than a feature. §15.6 lets a rider trim the
 /// first 400 m off a track so a ride does not start at their house; if they then attach a photo
-/// taken in the driveway, an EXIF GPS tag puts the house straight back — in a file handed to every
+/// taken in the driveway, an EXIF GPS tag puts the house straight back - in a file handed to every
 /// member of the ride. The two features are one decision, and getting one right without the other
 /// is worth nothing.
 /// </para>
@@ -35,7 +35,7 @@ public sealed class PhotoTests(PostgresFixture postgres)
 	/// The whole reason this feature re-encodes rather than passing bytes through.
 	/// <para>
 	/// Asserted against the made-up coordinates the fixture wrote, not merely against the absence
-	/// of an <c>Exif</c> marker — an implementation that moved the tags into a comment segment
+	/// of an <c>Exif</c> marker - an implementation that moved the tags into a comment segment
 	/// would satisfy the weaker assertion and still ship the rider's house.
 	/// </para>
 	/// </summary>
@@ -68,9 +68,9 @@ public sealed class PhotoTests(PostgresFixture postgres)
 	/// <summary>
 	/// Both halves matter, and each catches a different mistake (§16.4).
 	/// <para>
-	/// The dimensions swap only if the orientation was <em>applied</em> — code that stripped the
+	/// The dimensions swap only if the orientation was <em>applied</em> - code that stripped the
 	/// tag first has nothing left to rotate by and leaves the image sideways forever. The absent
-	/// EXIF only holds if it was then <em>discarded</em> — code that passed the tag through would
+	/// EXIF only holds if it was then <em>discarded</em> - code that passed the tag through would
 	/// also look upright in a viewer, and would double-rotate in one that trusts the tag.
 	/// </para>
 	/// </summary>
@@ -142,7 +142,7 @@ public sealed class PhotoTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A 69-byte PNG declaring a 30000 × 30000 canvas — 900 megapixels, some 3.6 GB of bitmap.
+	/// A 69-byte PNG declaring a 30000 × 30000 canvas - 900 megapixels, some 3.6 GB of bitmap.
 	/// <para>
 	/// <strong>How this test tells the two orderings apart.</strong> The fixture's image data is
 	/// deliberately unusable, so an implementation that decoded first would fail in the decoder and
@@ -161,7 +161,7 @@ public sealed class PhotoTests(PostgresFixture postgres)
 
 		byte[] bomb = ImageFixtures.PngDeclaring(30_000, 30_000);
 
-		bomb.Length.ShouldBeLessThan(4096, "a decompression bomb is small — that is the whole trick");
+		bomb.Length.ShouldBeLessThan(4096, "a decompression bomb is small - that is the whole trick");
 
 		using HttpResponseMessage response = await PostAsync(rider, bomb, "bomb.png", "image/png");
 
@@ -191,7 +191,7 @@ public sealed class PhotoTests(PostgresFixture postgres)
 		using HttpClient rider = await SignedInAsync(app, "DaveSmith");
 
 		// The cap is lowered to meet the fixture rather than the other way round. These images are
-		// two flat colours, so a 1600 x 1200 one is about 12 KB — a fixture big enough to exceed a
+		// two flat colours, so a 1600 x 1200 one is about 12 KB - a fixture big enough to exceed a
 		// realistic 12 MB cap would have to be noise, and noise compresses to megabytes of nothing.
 		byte[] large = ImageFixtures.Jpeg(1600, 1200);
 
@@ -298,7 +298,7 @@ public sealed class PhotoTests(PostgresFixture postgres)
 			thumbnail.Height.ShouldBe(160);
 		}
 
-		// Two objects, and the small one is genuinely small — a map callout that pulled the full
+		// Two objects, and the small one is genuinely small - a map callout that pulled the full
 		// image would spend a rider's data allowance drawing pins (§16.4).
 		thumbnailBytes.Length.ShouldBeLessThan(photo.ByteSize / 4);
 
@@ -347,7 +347,7 @@ public sealed class PhotoTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// A photo identifier is a guid somebody else's client generated, so attaching has to check
-	/// ownership rather than existence — otherwise a guessed identifier republishes a stranger's
+	/// ownership rather than existence - otherwise a guessed identifier republishes a stranger's
 	/// photograph under a marker of the caller's choosing.
 	/// </summary>
 	[Fact]

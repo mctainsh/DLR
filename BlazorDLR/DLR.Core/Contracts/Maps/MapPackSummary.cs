@@ -6,7 +6,7 @@ namespace DLR.Core.Contracts.Maps;
 /// One offline map pack the catalogue offers (§4.2).
 /// <para>
 /// The wire shape of a <c>catalogue.json</c> entry, and the same record the planned
-/// <c>GET /api/v1/map-packs</c> will answer with — so the day the server grows that endpoint the
+/// <c>GET /api/v1/map-packs</c> will answer with - so the day the server grows that endpoint the
 /// client changes where it reads from and not what it reads. It is published today by
 /// <c>Documentation/Build-AuMapPacks.ps1</c>, which writes this shape after building each extract.
 /// </para>
@@ -17,17 +17,17 @@ namespace DLR.Core.Contracts.Maps;
 /// and the downloader still checks the PMTiles magic on what actually arrives.
 /// </para>
 /// </summary>
-/// <param name="Id">The pack's slug — <c>au-nsw</c> — and what it is called on the device.</param>
+/// <param name="Id">The pack's slug - <c>au-nsw</c> - and what it is called on the device.</param>
 /// <param name="Name">What a rider reads: <c>New South Wales</c>.</param>
 /// <param name="Region">
-/// The country the pack is part of — <c>Australia</c>, <c>France</c> — or the smallest natural
+/// The country the pack is part of - <c>Australia</c>, <c>France</c> - or the smallest natural
 /// grouping when no one country owns it (<c>The Caribbean</c>, <c>The Sahel</c>). The settings
 /// screen asks for this first and for the area within it second, because two hundred regions in one
 /// dropdown is not a choice anybody makes on a phone.
 /// <para>
 /// Nullable, and every reader has to cope: a catalogue published before this field existed carries
 /// no region at all, and that is the catalogue on the host riders are fetching from today. What the
-/// client does about it is <c>MapPackCatalogue.RegionFor</c> — one fallback, stated once.
+/// client does about it is <c>MapPackCatalogue.RegionFor</c> - one fallback, stated once.
 /// </para>
 /// <para>
 /// Published rather than worked out on the device. The alternative was a table on the phone saying
@@ -43,7 +43,7 @@ namespace DLR.Core.Contracts.Maps;
 /// <param name="MinZoom">The shallowest zoom in the archive, normally 0.</param>
 /// <param name="MaxZoom">
 /// The deepest zoom with real data, normally 14. Above it MapLibre overzooms the vector tiles, which
-/// stays sharp — §4.1's whole size argument.
+/// stays sharp - §4.1's whole size argument.
 /// </param>
 /// <param name="SizeBytes">How much of the phone it will take. The number the settings screen shows before anybody commits to it.</param>
 /// <param name="Sha256">The archive's checksum, lowercase hex.</param>

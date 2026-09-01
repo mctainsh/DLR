@@ -8,13 +8,13 @@ using Microsoft.Extensions.Options;
 namespace DLR.Server.Identity;
 
 /// <summary>
-/// Creating an account (§7.2, §7.8) — everything up to but not including the session.
+/// Creating an account (§7.2, §7.8) - everything up to but not including the session.
 /// <para>
 /// <strong>Extracted in SRV-34 because a browser registers too.</strong> The rules here are the
 /// ones it would be worst to have two copies of: the §7.8 per-address ladder, the rate limit above
 /// it, the duplicate-address answer that must not become an enumeration oracle, and the
 /// confirmation link a ladder-restricted account needs in order to stop being restricted. A second
-/// copy on the web route is how one of them ends up subtly different — and the different one would
+/// copy on the web route is how one of them ends up subtly different - and the different one would
 /// be the route an abuser reaches with a browser.
 /// </para>
 /// </summary>
@@ -77,7 +77,7 @@ public sealed class RegistrationService(
 			UserName = request.UserName,
 
 			// The address that registered this account, for the ladder to count (§7.8). The
-			// nightly job nulls it after 30 days — long enough to throttle with, short enough
+			// nightly job nulls it after 30 days - long enough to throttle with, short enough
 			// not to be a standing record of where people signed up (§7.11).
 			CreatedByIp = client,
 			CreatedUtc = clock.GetUtcNow(),
@@ -87,7 +87,7 @@ public sealed class RegistrationService(
 			RequiresEmailConfirmation = emailRequired,
 
 			// Stamped at creation rather than left to default. The column is not nullable, so
-			// the alternative is year 0001 — an account that reads as two thousand years idle
+			// the alternative is year 0001 - an account that reads as two thousand years idle
 			// to the §7.11 sweep from the moment it exists.
 			LastActiveUtc = clock.GetUtcNow(),
 
@@ -100,13 +100,13 @@ public sealed class RegistrationService(
 		// An address somebody else already holds (§7.8).
 		//
 		// Saying "that email is taken" would make this an oracle for whether any given person
-		// has an account — a question worth refusing outright for a location-sharing app. The
+		// has an account - a question worth refusing outright for a location-sharing app. The
 		// *username* is enumerable because it is a public handle drawn on a map; an address is
 		// not.
 		//
 		// So registration proceeds and the address is simply not attached: it is not this
 		// caller's to attach, and there is no way to tell them so without answering the
-		// question. Whoever does hold it gets told instead — and if that turns out to be the
+		// question. Whoever does hold it gets told instead - and if that turns out to be the
 		// same person, that email is precisely the thing they needed to read.
 		AppUser? owner = user.Email is null ? null : await users.FindByEmailAsync(user.Email);
 
@@ -146,7 +146,7 @@ public sealed class RegistrationService(
 	/// The duplicate-username message is deliberately specific, which is the one place this
 	/// project accepts enumeration. Uniqueness means registration cannot avoid saying whether
 	/// a name is taken, and a username is a public handle drawn on a map rather than a private
-	/// identifier — so login stays generic (§7.4) and this does not.
+	/// identifier - so login stays generic (§7.4) and this does not.
 	/// </para>
 	/// </summary>
 	private static Dictionary<string, string[]> AsProblems(IdentityResult result)
@@ -182,8 +182,8 @@ public sealed class RegistrationService(
 
 	/// <summary>
 	/// The equivalent of <c>Results.ValidationProblem</c> for the MVC controllers this service
-	/// feeds (§7.2). Returning an <see cref="IActionResult"/> keeps the shape identical — a
-	/// <c>ProblemDetails</c> body with a 400 status — without dragging the minimal-API
+	/// feeds (§7.2). Returning an <see cref="IActionResult"/> keeps the shape identical - a
+	/// <c>ProblemDetails</c> body with a 400 status - without dragging the minimal-API
 	/// <c>IResult</c> back through the controllers that consume this.
 	/// </summary>
 	private static IActionResult ValidationProblem(

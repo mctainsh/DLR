@@ -86,15 +86,15 @@ public sealed class WelcomeFlowsTests : PageTestContext
 			api.Calls.ShouldContain("TokenAsync",
 				"§7.4: sign-in hits the token endpoint (password grant).");
 			auth.AccessToken.ShouldBe("access-xyz",
-				"the session is applied — AuthState now carries the access token in memory.");
+				"the session is applied - AuthState now carries the access token in memory.");
 			auth.UserName.ShouldBe("DaveSmith");
 			// Base URI is http://localhost/ and Home is /, so the resolved URI is
-			// http://localhost/ either way — a URI comparison would not distinguish
+			// http://localhost/ either way - a URI comparison would not distinguish
 			// "did not navigate" from "navigated to /". Assert on the history instead.
 			nav.History.Count.ShouldBeGreaterThan(0,
-				"§4.1: successful sign-in navigates — the history records at least one navigation.");
+				"§4.1: successful sign-in navigates - the history records at least one navigation.");
 			nav.History.Last().Uri.EndsWith("/", StringComparison.Ordinal).ShouldBeTrue(
-				"the last navigation was to the app root — Home.");
+				"the last navigation was to the app root - Home.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -132,7 +132,7 @@ public sealed class WelcomeFlowsTests : PageTestContext
 			AngleSharp.Dom.IElement password = component.Find("input[type=password]");
 			password.Change("Passw0rd");
 		});
-		// Leave email blank on purpose — the callout must have been visible, and the
+		// Leave email blank on purpose - the callout must have been visible, and the
 		// account must still be creatable.
 		await component.InvokeAsync(() =>
 		{
@@ -147,7 +147,7 @@ public sealed class WelcomeFlowsTests : PageTestContext
 			auth.AccessToken.ShouldBe("access-new");
 			auth.UserName.ShouldBe("NewJoiner");
 			nav.History.Count.ShouldBeGreaterThan(0,
-				"successful registration navigates — the history records at least one navigation.");
+				"successful registration navigates - the history records at least one navigation.");
 			nav.History.Last().Uri.EndsWith("/", StringComparison.Ordinal).ShouldBeTrue();
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -196,7 +196,7 @@ public sealed class WelcomeFlowsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Registration signs you in too, so it lands on a device row like any other sign-in — and a
+	/// Registration signs you in too, so it lands on a device row like any other sign-in - and a
 	/// first run has no id to claim, which is the one case where a new row is the right answer.
 	/// </summary>
 	[Fact]
@@ -226,7 +226,7 @@ public sealed class WelcomeFlowsTests : PageTestContext
 
 	/// <summary>
 	/// A rider who is already signed in is not asked to confirm it. Landing on Welcome
-	/// with a live session goes straight home — no "Continue" to push.
+	/// with a live session goes straight home - no "Continue" to push.
 	/// </summary>
 	[Fact]
 	public async Task AlreadySignedIn_NavigatesHomeWithoutAnyInteraction()
@@ -251,7 +251,7 @@ public sealed class WelcomeFlowsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// The session can arrive after the page has rendered — a refresh that was still in
+	/// The session can arrive after the page has rendered - a refresh that was still in
 	/// flight when <c>RedirectToWelcome</c> bounced the rider here. The broadcast re-renders
 	/// <c>AuthorizeView</c> but not the page, so the redirect has to hang off
 	/// <c>AuthenticationStateChanged</c>; this test fails if it hangs off a render callback.

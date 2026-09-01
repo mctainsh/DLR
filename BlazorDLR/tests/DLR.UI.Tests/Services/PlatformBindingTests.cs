@@ -4,7 +4,7 @@ using BlazorDLR.Shared.Services.Platform;
 namespace DLR.UI.Tests.Services;
 
 /// <summary>
-/// The platform bindings in <c>BlazorDLR.Shared/Services/Platform/</c> — the implementations
+/// The platform bindings in <c>BlazorDLR.Shared/Services/Platform/</c> - the implementations
 /// a host registers when the capability behind a seam does not exist there (no GPS in a
 /// browser, no JS runtime during a prerender, no device storage on the server). These are
 /// shipping behaviour, not scaffolding, so the tests pin the two properties that matter:
@@ -13,8 +13,8 @@ namespace DLR.UI.Tests.Services;
 ///     The Welcome page and every other consumer branches on the
 ///     <c>IsAvailable</c>/<c>IsSupported</c> flag, so a throw there would be a crash on a
 ///     path the caller has already handled.</item>
-///   <item>Where a binding does throw, the message names the reason — which host, and what
-///     re-resolves the seam instead — so a bug report has the answer without a stack read.</item>
+///   <item>Where a binding does throw, the message names the reason - which host, and what
+///     re-resolves the seam instead - so a bug report has the answer without a stack read.</item>
 /// </list>
 /// </summary>
 public sealed class PlatformBindingTests
@@ -28,9 +28,9 @@ public sealed class PlatformBindingTests
 
 		// The refresh token lives in an HttpOnly cookie the JS heap cannot touch (§18.5).
 		string? read = await store.ReadRefreshTokenAsync();
-		read.ShouldBeNull("§18.5: the JS heap cannot read the HttpOnly cookie — Read must return null, not throw.");
+		read.ShouldBeNull("§18.5: the JS heap cannot read the HttpOnly cookie - Read must return null, not throw.");
 
-		// Write is silent — the cookie is authoritative.
+		// Write is silent - the cookie is authoritative.
 		await Should.NotThrowAsync(() => store.WriteRefreshTokenAsync("would-be-refresh").AsTask());
 		await Should.NotThrowAsync(() => store.ClearAsync().AsTask());
 	}
@@ -40,7 +40,7 @@ public sealed class PlatformBindingTests
 	[Fact]
 	public async Task NoopLocationProvider_IsUnsupported_AndYieldsNoFixes()
 	{
-		// The MAUI Windows and macOS heads bind this — the browsers no longer bind anything at
+		// The MAUI Windows and macOS heads bind this - the browsers no longer bind anything at
 		// all, so "no receiver" is a missing service there rather than a stub (see
 		// HostWithoutGpsTests). It still has to answer cleanly on the target that does bind it.
 		NoopLocationProvider provider = new();
@@ -52,7 +52,7 @@ public sealed class PlatformBindingTests
 		permission.ShouldBe(LocationPermissionState.NotSupported,
 			"the permission call must report not-supported rather than pretend to grant.");
 
-		// WatchAsync yields nothing rather than throw — a UI awaiting the first fix
+		// WatchAsync yields nothing rather than throw - a UI awaiting the first fix
 		// simply never gets one, which is the accurate answer on a host without GPS.
 		int fixes = 0;
 		await foreach (LocationFix _ in provider.WatchAsync(LocationUpdateRate.Default))
@@ -72,7 +72,7 @@ public sealed class PlatformBindingTests
 
 		picker.CanCapture.ShouldBeFalse();
 		(await picker.PickPhotoAsync()).ShouldBeNull(
-			"cancelled/unsupported picker returns null — the caller reads null as 'no photo attached', not as an error.");
+			"cancelled/unsupported picker returns null - the caller reads null as 'no photo attached', not as an error.");
 		(await picker.CapturePhotoAsync()).ShouldBeNull();
 	}
 
@@ -86,7 +86,7 @@ public sealed class PlatformBindingTests
 		service.IsSupported.ShouldBeFalse("§18.2: the browser raises no notifications in v1.");
 
 		(await service.EnsurePermissionAsync()).ShouldBeFalse(
-			"a host that cannot notify must answer 'no permission' rather than claim one it could not act on — " +
+			"a host that cannot notify must answer 'no permission' rather than claim one it could not act on - " +
 			"CommentNotifier reads this as the gate before ShowAsync.");
 
 		// Silent rather than throwing, for the same reason every other unavailable binding is:
@@ -108,7 +108,7 @@ public sealed class PlatformBindingTests
 		store.IsSupported.ShouldBeFalse("§18.6: a browser has nowhere to keep a few hundred megabytes.");
 		server.IsSupported.ShouldBeFalse();
 
-		(await store.ListAsync()).ShouldBeEmpty("empty rather than null — the settings screen enumerates it.");
+		(await store.ListAsync()).ShouldBeEmpty("empty rather than null - the settings screen enumerates it.");
 		(await store.OpenReadAsync("au-nsw")).ShouldBeNull();
 		await Should.NotThrowAsync(() => store.DeleteAsync("au-nsw").AsTask());
 
@@ -127,7 +127,7 @@ public sealed class PlatformBindingTests
 		wakeLock.IsSupported.ShouldBeFalse(
 			"§18.6: holding the screen on is for a phone on a bar mount, not a laptop with a tab open.");
 
-		// The live map calls these unconditionally — a throw here would crash the one page the
+		// The live map calls these unconditionally - a throw here would crash the one page the
 		// whole app is for, on the host where nothing was going to happen anyway.
 		await Should.NotThrowAsync(() => wakeLock.RequestAsync().AsTask());
 		await Should.NotThrowAsync(() => wakeLock.ReleaseAsync().AsTask());
@@ -146,9 +146,9 @@ public sealed class PlatformBindingTests
 		apple.Provider.ShouldBe(ExternalProvider.Apple,
 			"the provider identifier round-trips so the Welcome page can label the button 'Sign in with Apple'.");
 		apple.IsAvailable.ShouldBeFalse(
-			"§7.16: real Apple/Google bindings arrive with store submission — Welcome must dim the button until then.");
+			"§7.16: real Apple/Google bindings arrive with store submission - Welcome must dim the button until then.");
 		(await apple.StartAsync()).ShouldBeNull(
-			"§7.16: StartAsync must return null rather than throw — the composer treats null as 'user cancelled', which is the correct posture until a real binding is wired.");
+			"§7.16: StartAsync must return null rather than throw - the composer treats null as 'user cancelled', which is the correct posture until a real binding is wired.");
 	}
 
 	[Fact]
@@ -188,7 +188,7 @@ public sealed class PlatformBindingTests
 		await using ThrowingRideHubClient hub = new();
 
 		hub.IsConnected.ShouldBeFalse(
-			"a static render has no connection — callers reading the flag get the honest answer rather than a throw.");
+			"a static render has no connection - callers reading the flag get the honest answer rather than a throw.");
 
 		NotImplementedException nx = await Should.ThrowAsync<NotImplementedException>(
 			() => hub.ConnectAsync());

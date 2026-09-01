@@ -10,7 +10,7 @@ namespace DLR.Server.Data.Tracks;
 /// <para>
 /// <strong>Exactly one row per track, at most.</strong> A second edit inside the window replaces
 /// the retained original and restarts the clock. Undo is a safety net for the last action, not a
-/// history feature — and unbounded revisions would quietly triple storage on a €4 VPS.
+/// history feature - and unbounded revisions would quietly triple storage on a €4 VPS.
 /// </para>
 /// </summary>
 public sealed class TrackRevision
@@ -31,8 +31,8 @@ public sealed class TrackRevision
 	/// When the nightly job may delete it (§7.11).
 	/// <para>
 	/// Also what <c>undo</c> checks: past this instant the original is gone as far as the API is
-	/// concerned, whether or not the sweep has run yet. Two answers to "can I undo" — one from
-	/// the clock and one from whether a job happened to fire — is one answer too many.
+	/// concerned, whether or not the sweep has run yet. Two answers to "can I undo" - one from
+	/// the clock and one from whether a job happened to fire - is one answer too many.
 	/// </para>
 	/// </summary>
 	public DateTimeOffset PurgeAfterUtc { get; set; }

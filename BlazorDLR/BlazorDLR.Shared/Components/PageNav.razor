@@ -7,19 +7,19 @@
 	The bar at the top of every page: a back arrow on the left, the page's title beside it,
 	and an optional slot on the right for whatever that page acts on.
 
-	The title here is the page's <h1>. Pages do not carry their own — one heading per
+	The title here is the page's <h1>. Pages do not carry their own - one heading per
 	document, and this is it, so the heading a screen reader announces and the title a rider
 	reads are the same string.
 
 	**The back arrow is a real anchor with a real href.** It has to be: the SSR pass renders
 	it before any JS exists, and a rider may middle-click or long-press it. The href is the
-	page's parent — one level up the route, not "wherever you came from". Interactive
+	page's parent - one level up the route, not "wherever you came from". Interactive
 	renders then upgrade the click: if the rider walked here inside the app there is a
 	genuine previous page, and history.back() returns them to it (with its scroll position
 	and, on the ride pages, its map view). If they arrived on a deep link there is no such
 	entry, and the href's parent route is the honest answer.
 
-	Pages with no parent — Home, Welcome, MapSpike, GroupRideLive — do not render this bar
+	Pages with no parent - Home, Welcome, MapSpike, GroupRideLive - do not render this bar
 	at all rather than render it with a dead arrow.
 *@
 
@@ -50,7 +50,7 @@
 	public string Title { get; set; } = string.Empty;
 
 	/// <summary>
-	/// The route one level up. Null or empty renders no arrow — for a page that is
+	/// The route one level up. Null or empty renders no arrow - for a page that is
 	/// genuinely a root.
 	/// </summary>
 	[Parameter]
@@ -63,7 +63,7 @@
 	[Parameter]
 	public string BackLabel { get; set; } = "Back";
 
-	/// <summary>What this page acts on — a button, a status badge — laid out at the right.</summary>
+	/// <summary>What this page acts on - a button, a status badge - laid out at the right.</summary>
 	[Parameter]
 	public RenderFragment? Actions { get; set; }
 

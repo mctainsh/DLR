@@ -12,14 +12,14 @@ namespace BlazorDLR.Platforms.Android.Location;
 /// §4.3's specified receiver: Google's fused location provider, which blends GNSS with Wi-Fi, cell
 /// and the motion sensors.
 /// <para>
-/// The reason it is the default rather than <c>LocationManager</c> is not accuracy in the open —
+/// The reason it is the default rather than <c>LocationManager</c> is not accuracy in the open -
 /// raw GNSS is fine there. It is everywhere else: a street of tall buildings, a tunnel exit, the
 /// first thirty seconds after the phone comes out of a pocket. Fused keeps producing a usable fix
 /// through all three, and it does the duty-cycling that makes a coarse update rate actually cost less
 /// battery rather than merely reporting less often.
 /// </para>
 /// <para>
-/// <strong>Availability is checked, not assumed</strong> — see
+/// <strong>Availability is checked, not assumed</strong> - see
 /// <see cref="LocationEngineFactory"/>. On a device with no Play Services this type is never
 /// constructed.
 /// </para>
@@ -43,8 +43,8 @@ internal sealed class FusedLocationEngine : ILocationEngine
 	/// <summary>
 	/// Whether this device has a working Play Services to talk to.
 	/// <para>
-	/// <c>IsGooglePlayServicesAvailable</c> answers several kinds of "no" — missing, disabled, too
-	/// old — and only <c>Success</c> is a yes. The others are treated identically here: any of them
+	/// <c>IsGooglePlayServicesAvailable</c> answers several kinds of "no" - missing, disabled, too
+	/// old - and only <c>Success</c> is a yes. The others are treated identically here: any of them
 	/// means the fused client will not deliver, and the caller has a fallback that will.
 	/// </para>
 	/// </summary>
@@ -90,7 +90,7 @@ internal sealed class FusedLocationEngine : ILocationEngine
 		// words; these are the numbers Play Services was given, and when a ride reports fixes at
 		// the wrong cadence this line says whether the request or the receiver is at fault.
 		DiagnosticLog.Write(
-			$"GPS: fused request — every {intervalMs} ms, priority {Priority(rate)}, " +
+			$"GPS: fused request - every {intervalMs} ms, priority {Priority(rate)}, " +
 			$"min move {AndroidLocationRequestSpec.MinDistanceM(rate)} m.");
 
 		// Looper.MainLooper rather than the calling thread: the service's OnStartCommand thread
@@ -126,8 +126,8 @@ internal sealed class FusedLocationEngine : ILocationEngine
 			: global::Android.Gms.Location.Priority.PriorityHighAccuracy;
 
 	/// <summary>
-	/// Play Services hands fixes back through this. A batch may carry more than one — the API
-	/// coalesces while the device is dozing — and every one of them is published: the gate
+	/// Play Services hands fixes back through this. A batch may carry more than one - the API
+	/// coalesces while the device is dozing - and every one of them is published: the gate
 	/// upstream is what decides which are worth sending, and it needs to see them in order.
 	/// </summary>
 	private sealed class FixCallback : LocationCallback

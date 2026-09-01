@@ -9,8 +9,8 @@ namespace DLR.TestSupport.Hosting;
 /// Asserting on log output is usually a way to pin an implementation detail, and this project does
 /// not do it anywhere else. §7.11's dry run is the exception: the entire purpose of running the
 /// nightly job with <c>DryRun</c> on for a week is that somebody reads what it says it would have
-/// deleted. A dry run that quietly logged nothing would satisfy every other assertion available —
-/// the accounts are still there either way — and would be useless.
+/// deleted. A dry run that quietly logged nothing would satisfy every other assertion available -
+/// the accounts are still there either way - and would be useless.
 /// </para>
 /// </summary>
 public sealed class CapturedLogs : ILoggerProvider

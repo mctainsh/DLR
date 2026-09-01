@@ -13,12 +13,12 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Pages;
 
 /// <summary>
-/// "Live members" — the rail's rider list (§5.3, §5.4, §5.6).
+/// "Live members" - the rail's rider list (§5.3, §5.4, §5.6).
 /// <para>
 /// It reads the same <c>RideSession</c> the live map and the info page do, so what these tests
 /// pin down is §5.3's rule applied to this screen: the snapshot is authoritative and the hub is
 /// the delta on top. A member joining, leaving or flipping their sharing has to land here
-/// without a refetch — the tests for the first two moved from <c>GroupRideInfoTests</c> along
+/// without a refetch - the tests for the first two moved from <c>GroupRideInfoTests</c> along
 /// with the list itself.
 /// </para>
 /// <para>
@@ -120,7 +120,7 @@ public sealed class RideMembersLiveTests : PageTestContext
 	[Fact]
 	public void TheWayBack_IsTheMap()
 	{
-		// The map is what this screen is read alongside — a rider opens the list, finds who they
+		// The map is what this screen is read alongside - a rider opens the list, finds who they
 		// were looking for, and goes back to the ground they are on.
 		(_, _, Guid rideId) = WireServices();
 
@@ -155,7 +155,7 @@ public sealed class RideMembersLiveTests : PageTestContext
 	/// <para>
 	/// Not a theoretical worry now that the server actually sends this (§5.3): a reconnect replays
 	/// nothing and promises nothing, so the same arrival can reach a client that already has them.
-	/// A list that can show one rider twice is worse than one that is briefly a row short — it is
+	/// A list that can show one rider twice is worse than one that is briefly a row short - it is
 	/// the list the gap panel and the member count are both read off.
 	/// </para>
 	/// </summary>
@@ -260,14 +260,14 @@ public sealed class RideMembersLiveTests : PageTestContext
 			// §5.6: turning sharing off deletes the stored fix rather than merely ceasing to update
 			// it, so the row has to stop reporting an age as well as changing its word.
 			component.Find(".live-members .state").TextContent.Trim().ShouldBe("not sharing");
-			component.Find(".live-members .age dd").TextContent.Trim().ShouldBe("—");
+			component.Find(".live-members .age dd").TextContent.Trim().ShouldBe("-");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]
 	public async Task MemberPrivacyChanged_LeavesThemOnTheList_AndTakesTheirFiguresAway()
 	{
-		// §10.1 as the rest of the ride sees it. They are still on the adventure — the row stays —
+		// §10.1 as the rest of the ride sees it. They are still on the adventure - the row stays -
 		// and every figure derived from a position goes, because the ride no longer holds one.
 		Guid bob = Guid.NewGuid();
 		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices(members:
@@ -290,7 +290,7 @@ public sealed class RideMembersLiveTests : PageTestContext
 			component.Find(".live-members .state").TextContent.Trim().ShouldBe("private");
 			component.Markup.ShouldContain("Bob", Case.Sensitive);
 
-			// Not "—" four times: the four columns are not rendered at all. A row of dashes reads as
+			// Not "-" four times: the four columns are not rendered at all. A row of dashes reads as
 			// an app that has lost somebody, where the chip has already said what happened.
 			component.FindAll(".live-members .range").ShouldBeEmpty();
 			component.FindAll(".live-members .along").ShouldBeEmpty();
@@ -322,7 +322,7 @@ public sealed class RideMembersLiveTests : PageTestContext
 	public void OnAHostWithNoReceiver_TheEmptyRangeColumnIsExplained()
 	{
 		// A browser registers no LocationBroadcastState at all (§18.6), so this device does not
-		// know where the reader is — and a column of em dashes with no sentence beside it reads as
+		// know where the reader is - and a column of em dashes with no sentence beside it reads as
 		// everybody else having no position.
 		(_, _, Guid rideId) = WireServices();
 

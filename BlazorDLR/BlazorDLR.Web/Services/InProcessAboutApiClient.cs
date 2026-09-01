@@ -1,6 +1,8 @@
 using BlazorDLR.Shared.Services;
+using DLR.Core.Client;
 using DLR.Core.Contracts.Account;
 using DLR.Core.Contracts.Admin;
+using DLR.Core.Contracts.Announcements;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
@@ -41,8 +43,26 @@ public sealed class InProcessAboutApiClient : IApiClient
 			Version: _build.Version,
 			BuiltUtc: _build.BuiltUtc));
 
+	/// <summary>
+	/// Answered rather than thrown, for <c>GetRiderAvatarsAsync</c>'s reason below: nothing on this
+	/// host reaches it - the launch check runs after first render, which the prerender never gets
+	/// to - and the cost of being wrong is a page with no dialog rather than a prerender that threw.
+	/// <para>
+	/// The verdict is <em>computed</em>, from the same static the controller uses. Hard-coding
+	/// "supported" here would have this shim inventing a policy answer it has no authority to give,
+	/// and inventing it for every version including one below the floor. Announcements are empty
+	/// because a static render has no rider to show one to.
+	/// </para>
+	/// </summary>
+	public Task<StartupCheck> StartupCheckAsync(string? clientVersion, CancellationToken cancellationToken = default) =>
+		Task.FromResult(new StartupCheck(
+			ClientRelease.Check(ClientRelease.Parse(clientVersion)),
+			ClientRelease.MinimumText,
+			ClientRelease.RecommendedText,
+			[]));
+
 	private static readonly string SsrGuard =
-		"The SSR shell renders the shared components but has no signed-in session — the WASM " +
+		"The SSR shell renders the shared components but has no signed-in session - the WASM " +
 		"client that boots after it re-resolves this interface and handles authed calls. If a " +
 		"component is calling this during a static render, it is a wiring bug.";
 
@@ -71,7 +91,7 @@ public sealed class InProcessAboutApiClient : IApiClient
 	/// Nothing on the SSR host should reach this: <c>RiderAvatars</c> is not registered there at
 	/// all (see the note in <c>Program.cs</c>), so no prerendered component asks. It answers
 	/// safely anyway because the cost of being wrong is the difference between a page with no
-	/// avatars and a prerender that threw — and this stub exists to make that choice explicitly
+	/// avatars and a prerender that threw - and this stub exists to make that choice explicitly
 	/// rather than by omission.
 	/// </para>
 	/// </summary>
@@ -139,4 +159,8 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task<AdminLogPage> AdminLogsAsync(DateOnly? day = null, string? level = null, int take = 200, bool databaseCommands = true, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task AdminDeleteUserAsync(Guid userId, AdminDeleteUserRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<IReadOnlyList<AdminAnnouncement>> AdminAnnouncementsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<AdminAnnouncement> AdminCreateAnnouncementAsync(AdminAnnouncementRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task AdminUpdateAnnouncementAsync(Guid id, AdminAnnouncementRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task AdminDeleteAnnouncementAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 }

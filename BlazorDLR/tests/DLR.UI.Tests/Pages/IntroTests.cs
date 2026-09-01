@@ -14,8 +14,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DLR.UI.Tests.Pages;
 
 /// <summary>
-/// The introduction slide show (§18.6). What matters is not the copy — that is placeholder and
-/// will be rewritten — but the four things a rider is entitled to on a screen that opens by
+/// The introduction slide show (§18.6). What matters is not the copy - that is placeholder and
+/// will be rewritten - but the four things a rider is entitled to on a screen that opens by
 /// itself:
 /// <list type="bullet">
 ///   <item>it shows one card at a time and pages forward,</item>
@@ -25,7 +25,7 @@ namespace DLR.UI.Tests.Pages;
 /// </list>
 /// <para>
 /// In <see cref="Components.SourceOfferFooterCollection"/> because this page carries the AGPL
-/// source offer, whose About response lives in a static cache — a footer rendered here while the
+/// source offer, whose About response lives in a static cache - a footer rendered here while the
 /// footer's own suite is mid-test is a value that suite never wired. Nothing in this file looks
 /// at the footer; it is the write that has to be kept out of the way, not the assertion.
 /// </para>
@@ -60,7 +60,7 @@ public sealed class IntroTests : PageTestContext
 	/// <summary>
 	/// Puts the deck on the URL the launch redirect would have built. A
 	/// <c>[SupplyParameterFromQuery]</c> parameter cannot be handed over as a component parameter
-	/// — it is bound from the address, so the address is what a test has to set.
+	/// - it is bound from the address, so the address is what a test has to set.
 	/// </summary>
 	private void OpenWithReturn(string route)
 	{

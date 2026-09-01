@@ -56,7 +56,7 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// §15.5's version guards point indices, and none of this moves a point — the same reasoning
+	/// §15.5's version guards point indices, and none of this moves a point - the same reasoning
 	/// that keeps a rename unversioned.
 	/// </summary>
 	[Fact]
@@ -198,7 +198,7 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 		await SaveDetailsAsync(owner, track.Id, new UpdateTrackDetailsRequest(null, null, TrackVisibilityDto.Private));
 		(await BrowseAsync(reader)).TotalCount.ShouldBe(0);
 
-		// And the detail read closes with it — a stranger who kept the link gets the same 404 as
+		// And the detail read closes with it - a stranger who kept the link gets the same 404 as
 		// somebody who guessed the id.
 		using HttpResponseMessage detail = await reader.GetAsync($"{TracksUrl}/{track.Id}");
 
@@ -292,8 +292,8 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 		first.PageCount.ShouldBe(2);
 		second.Items.Count.ShouldBe(3);
 
-		// The whole set, once each. Every route shares FirstSharedUtc — the fake clock does not
-		// tick unless a test moves it — so this is exactly the case a sort without a tiebreak
+		// The whole set, once each. Every route shares FirstSharedUtc - the fake clock does not
+		// tick unless a test moves it - so this is exactly the case a sort without a tiebreak
 		// gets wrong, and it gets it wrong by repeating one row and losing another (§17.8).
 		List<Guid> seen = [.. first.Items.Select(row => row.Id), .. second.Items.Select(row => row.Id)];
 
@@ -409,7 +409,7 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The browse list is a catalogue, and the same road on it twice is a page of results that is
-	/// mostly one route (§6.2). Only the points are compared — the second rider's copy has a name
+	/// mostly one route (§6.2). Only the points are compared - the second rider's copy has a name
 	/// and a description of its own, and is refused all the same.
 	/// </summary>
 	[Fact]
@@ -421,7 +421,7 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 
 		await ShareAsync(first, "Coast run north");
 
-		// The same line arriving from another rider — an export of the first one, imported and
+		// The same line arriving from another rider - an export of the first one, imported and
 		// renamed, is exactly how this happens.
 		TrackSummary copy = await UploadAsync(second, name: "My favourite ride");
 
@@ -446,8 +446,8 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The check is scoped to other owners. A rider who holds the same line twice — the recording
-	/// and the route they planned it from — publishes whichever of them they consider the good
+	/// The check is scoped to other owners. A rider who holds the same line twice - the recording
+	/// and the route they planned it from - publishes whichever of them they consider the good
 	/// copy, and refusing that would be telling somebody they may not share their own route.
 	/// </summary>
 	[Fact]
@@ -465,7 +465,7 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The fingerprint column arrived after sharing did, so a track recorded before it has an
-	/// empty one. Empty means "not known yet" and is filled from the blob on the way through —
+	/// empty one. Empty means "not known yet" and is filled from the blob on the way through -
 	/// the alternative is two empty hashes matching each other, and every un-fingerprinted route
 	/// being a duplicate of every other.
 	/// </summary>
@@ -497,7 +497,7 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// A name on the shared list identifies a route to somebody who did not record it, and three
-	/// rows called <em>Morning loop</em> identify nothing. Case is not a difference — nobody
+	/// rows called <em>Morning loop</em> identify nothing. Case is not a difference - nobody
 	/// reading a list sees two names there.
 	/// </summary>
 	[Fact]
@@ -534,7 +534,7 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Uniqueness is a property of the list, not of the app. A private track is the rider's own
-	/// filing system and two of them may be called the same thing — the rule starts where somebody
+	/// filing system and two of them may be called the same thing - the rule starts where somebody
 	/// else has to tell them apart.
 	/// </summary>
 	[Fact]
@@ -613,7 +613,7 @@ public sealed class TrackSharingTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// A rider renaming their own shared route to what it is already called is not a clash with
-	/// itself — most obviously when they are correcting its capitalisation.
+	/// itself - most obviously when they are correcting its capitalisation.
 	/// </summary>
 	[Fact]
 	public async Task Rename_OfASharedRoute_ToWhatItIsAlreadyCalled_IsFine()

@@ -65,7 +65,7 @@ public sealed class TrackImportController : ControllerBase
 
 		// Per user rather than per address (§7.8): an import costs a parse and a blob write,
 		// and the account is what those are charged to. Two windows, because twenty an hour and
-		// a hundred a day answer different things — a burst, and a day spent uploading.
+		// a hundred a day answer different things - a burst, and a day spent uploading.
 		bool withinLimits =
 			throttle.TryAcquire(
 				$"import-hour:{ownerId}",
@@ -82,7 +82,7 @@ public sealed class TrackImportController : ControllerBase
 		}
 
 		// Checked before anything is read. Content-Length can lie, so the stream is capped as
-		// well — but refusing a declared 900 MB upload without reading it is worth doing first.
+		// well - but refusing a declared 900 MB upload without reading it is worth doing first.
 		if (http.ContentLength > caps.MaxUploadBytes)
 		{
 			return TooLarge(caps);
@@ -148,7 +148,7 @@ public sealed class TrackImportController : ControllerBase
 			};
 		}
 
-		// The extension and the client's content type are hints, not facts — validation is by
+		// The extension and the client's content type are hints, not facts - validation is by
 		// parsing (§15.3). A file that parses but holds no track is not an error to shout
 		// about; it is a preview that says "nothing here".
 		List<GpxTrack> usable =
@@ -202,7 +202,7 @@ public sealed class TrackImportController : ControllerBase
 
 		if (dryRun)
 		{
-			// Nothing was staged, so nothing to discard — the preview parses and answers, and
+			// Nothing was staged, so nothing to discard - the preview parses and answers, and
 			// the client re-posts to commit (§15.3).
 			return Ok(new TrackImportResult(
 				DryRun: true,
@@ -211,7 +211,7 @@ public sealed class TrackImportController : ControllerBase
 				document.TracksTruncated));
 		}
 
-		// Waypoints are file-level rather than per-track, so they land on the first usable track —
+		// Waypoints are file-level rather than per-track, so they land on the first usable track -
 		// which is the ordinary case, a file holding one ride and the places along it (§16.6).
 		if (staged.Count > 0)
 		{

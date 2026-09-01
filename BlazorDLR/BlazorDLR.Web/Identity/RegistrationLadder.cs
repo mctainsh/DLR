@@ -14,7 +14,7 @@ public sealed class AbuseOptions
 	/// <summary>
 	/// How many accounts one address may create in the window before an email is required.
 	/// <para>
-	/// Configurable not because the number is secret — it is printed in the design document —
+	/// Configurable not because the number is secret - it is printed in the design document -
 	/// but because you want to change it in response to real abuse without shipping a release,
 	/// and because a reader of a public repository should not learn the <em>current</em> value
 	/// (§14.5).
@@ -31,8 +31,8 @@ public sealed class AbuseOptions
 /// <para>
 /// There is deliberately <strong>no hard cap</strong>. Carrier-grade NAT means an entire mobile
 /// network can present as one address, so a flat block would silently refuse legitimate signups
-/// on mobile data with no path forward. A ladder gives a real person an obvious next step —
-/// verify an email — while an abuser needs N distinct working mailboxes.
+/// on mobile data with no path forward. A ladder gives a real person an obvious next step -
+/// verify an email - while an abuser needs N distinct working mailboxes.
 /// </para>
 /// </summary>
 /// <param name="database">The one context.</param>
@@ -80,7 +80,7 @@ public sealed class RegistrationLadder(
 			// Crossing the threshold logs an alert (§7.8). One line is not an incident; the
 			// same address appearing here all afternoon is.
 			logger.LogWarning(
-				"Registration from {Address} is past the ladder threshold — {Existing} accounts " +
+				"Registration from {Address} is past the ladder threshold - {Existing} accounts " +
 				"in the last {Window}. An email address is now required.",
 				address,
 				existing,

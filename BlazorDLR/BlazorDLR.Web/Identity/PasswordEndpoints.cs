@@ -50,7 +50,7 @@ public sealed class PasswordController : ControllerBase
 
 		// Per address submitted and per caller (§7.8). The first stops one mailbox being
 		// buried in reset links; the second stops one machine walking a list of them. Both
-		// answer 202 like everything else here — a 429 that only appeared for real addresses
+		// answer 202 like everything else here - a 429 that only appeared for real addresses
 		// would undo the whole point of the endpoint.
 		bool withinLimits =
 			throttle.TryAcquire(
@@ -70,7 +70,7 @@ public sealed class PasswordController : ControllerBase
 		AppUser? user = await users.FindByEmailAsync(request.Email.Trim());
 
 		// Reset requires a *confirmed* address. An unconfirmed one may belong to somebody who
-		// mistyped it — or to somebody else entirely — and honouring it would turn a typo into
+		// mistyped it - or to somebody else entirely - and honouring it would turn a typo into
 		// an account takeover.
 		if (user is { EmailConfirmed: true })
 		{
@@ -165,6 +165,6 @@ public sealed class PasswordController : ControllerBase
 			: nameof(ChangePasswordRequest.NewPassword);
 
 	private const string InvalidLink =
-		"That reset link is not valid. It may have expired — they last one hour — or already " +
+		"That reset link is not valid. It may have expired - they last one hour - or already " +
 		"been used. Ask for a new one.";
 }

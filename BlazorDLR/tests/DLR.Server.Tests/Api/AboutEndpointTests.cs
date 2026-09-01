@@ -11,7 +11,7 @@ namespace DLR.Server.Tests.Api;
 /// AGPL §13 obliges anyone who lets users interact with a modified version remotely to
 /// offer those users the Corresponding Source of <em>that running version</em> (§14.6.2).
 /// Publishing the repository is not enough on its own, and neither is a link on a
-/// marketing page if the deployed build is ahead of it — so the server has to be able to
+/// marketing page if the deployed build is ahead of it - so the server has to be able to
 /// say exactly which commit it is.
 /// </summary>
 public sealed class AboutEndpointTests(PostgresFixture postgres)
@@ -92,8 +92,8 @@ public sealed class AboutEndpointTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// A build from a modified working tree is a §13 breach in progress if it is deployed.
-	/// The server is not asked to refuse — CI refusing to publish such an image is the real
-	/// fix — but it must not pretend to be the commit it nearly is.
+	/// The server is not asked to refuse - CI refusing to publish such an image is the real
+	/// fix - but it must not pretend to be the commit it nearly is.
 	/// </summary>
 	[Fact]
 	public async Task About_MarksABuildFromAModifiedWorkingTreeAsDirty()

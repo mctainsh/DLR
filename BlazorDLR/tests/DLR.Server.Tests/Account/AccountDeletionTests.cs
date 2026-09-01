@@ -23,11 +23,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DLR.Server.Tests.Account;
 
 /// <summary>
-/// <c>DELETE /api/v1/me</c> — the one irreversible action in the API (§6.3, §10.1, §16.6).
+/// <c>DELETE /api/v1/me</c> - the one irreversible action in the API (§6.3, §10.1, §16.6).
 /// <para>
 /// The half of §16.6 that is easy to get wrong is not the rows. <c>ON DELETE CASCADE</c> clears
 /// those and does it well; it reaches nothing on the filesystem, so a deletion that trusts it
-/// leaves the photographs behind — a privacy failure that presents as a storage bill.
+/// leaves the photographs behind - a privacy failure that presents as a storage bill.
 /// </para>
 /// </summary>
 public sealed class AccountDeletionTests(PostgresFixture postgres)
@@ -35,7 +35,7 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
 	private const string MeUrl = "/api/v1/me";
 
 	/// <summary>
-	/// The thread is authored content and §10.1 keeps it — <em>while the author has an account</em>.
+	/// The thread is authored content and §10.1 keeps it - <em>while the author has an account</em>.
 	/// Erasure means the posts, the reactions and the votes, not only the row that names them.
 	/// </summary>
 	[Fact]
@@ -48,7 +48,7 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
 
 		RideDetail ride = await RideAsync(app, organiser, leaver);
 
-		// A poll from the organiser, so the leaver has a vote on somebody else's comment — the
+		// A poll from the organiser, so the leaver has a vote on somebody else's comment - the
 		// row that a naive "delete their comments" would miss entirely.
 		CommentDto poll = await PostAsync(
 			organiser,
@@ -90,13 +90,13 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
 
 		(await CountAsync<PollVote>(app)).ShouldBe(
 			0,
-			"and so is a vote — a tally that still counted them would be counting a person who " +
+			"and so is a vote - a tally that still counted them would be counting a person who " +
 			"no longer exists");
 	}
 
 	/// <summary>
 	/// The test §16.6 is written for. <c>ON DELETE CASCADE</c> reaches rows and not a filesystem,
-	/// so the blob has to be deleted explicitly — and the list of which blobs has to be gathered
+	/// so the blob has to be deleted explicitly - and the list of which blobs has to be gathered
 	/// <em>before</em> the rows that name them are gone.
 	/// </summary>
 	[Fact]
@@ -157,7 +157,7 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
 		(await CountAsync<Track>(app)).ShouldBe(0);
 
 		(await BlobExistsAsync(app, revisionBlob)).ShouldBeFalse(
-			"the pre-edit original is reached through the track, not through the account — a " +
+			"the pre-edit original is reached through the track, not through the account - a " +
 			"query scoped only by OwnerId never sees it");
 	}
 
@@ -204,7 +204,7 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// SRV-31 left <c>user_block.blocked_id</c> as <c>NO ACTION</c> — two cascade paths into
+	/// SRV-31 left <c>user_block.blocked_id</c> as <c>NO ACTION</c> - two cascade paths into
 	/// <c>asp_net_users</c> through one table is an error in PostgreSQL. Nothing but this endpoint
 	/// and the nightly sweep ever meets that constraint, and an unhandled violation fails the whole
 	/// deletion rather than skipping a row.
@@ -254,7 +254,7 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The username goes back to the pool, exactly as the §7.11 sweep's does — and for a rider who
+	/// The username goes back to the pool, exactly as the §7.11 sweep's does - and for a rider who
 	/// chose to leave, the same reasoning does not apply, so this is worth pinning rather than
 	/// assuming. A hard delete is a hard delete.
 	/// </summary>

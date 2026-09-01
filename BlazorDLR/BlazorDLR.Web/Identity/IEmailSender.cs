@@ -3,7 +3,7 @@ namespace DLR.Server.Identity;
 /// <summary>
 /// Outbound email (§7.12). An interface rather than a concrete sender because every
 /// email the server sends is asserted on in a test, and because the transport is
-/// expected to change — the design's cutover from Zoho SMTP to ZeptoMail is five
+/// expected to change - the design's cutover from Zoho SMTP to ZeptoMail is five
 /// configuration values and no code.
 /// </summary>
 public interface IEmailSender

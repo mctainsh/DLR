@@ -13,7 +13,7 @@ namespace BlazorDLR.Shared.State;
 /// </para>
 /// <para>
 /// Asked once per session and remembered. The answer comes from <see cref="OwnProfile.IsAdmin"/>,
-/// which is the same roster lookup the server's own policy makes — so the two cannot disagree the
+/// which is the same roster lookup the server's own policy makes - so the two cannot disagree the
 /// way a claim minted at sign-in and a config file edited since would.
 /// </para>
 /// </summary>
@@ -43,7 +43,7 @@ public sealed class AdminAccess(IApiClient api)
 	/// <remarks>
 	/// <strong>Nothing calls this yet.</strong> It is the seam for sign-out: on a host where this is
 	/// scoped for the life of the tab, the next account signed in without it inherits the previous
-	/// one's menu — which is only a menu, but it would be the wrong menu. Wiring it is not as simple
+	/// one's menu - which is only a menu, but it would be the wrong menu. Wiring it is not as simple
 	/// as calling it from <c>AuthState.SignOutAsync</c>, which cannot take an <c>AdminAccess</c>
 	/// without closing a cycle through <see cref="IApiClient"/>; the answer is probably for this to
 	/// listen to <c>AuthenticationStateChanged</c> instead.

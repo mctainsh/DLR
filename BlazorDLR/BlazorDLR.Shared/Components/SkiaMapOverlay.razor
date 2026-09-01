@@ -14,8 +14,8 @@
 
 	One C# component, one SkiaSharp canvas, one set of pixels drawn on every host. The
 	half of the map "we own" is drawn once, so a marker looks the same on every platform
-	and the class of bug v0.13 warned about — two map code paths drift on marker
-	rendering — is closed by construction.
+	and the class of bug v0.13 warned about - two map code paths drift on marker
+	rendering - is closed by construction.
 
 	v0.24 consolidated the base map onto MapLibre everywhere, which makes that guarantee
 	cheaper but not redundant: this component is still the only thing that draws authored
@@ -29,7 +29,7 @@
 @*
 	A plain <canvas>, not an <SKCanvasView>.
 
-	SkiaSharp.Views.Blazor's SKCanvasView initialises through [JSImport] — WebAssembly-only —
+	SkiaSharp.Views.Blazor's SKCanvasView initialises through [JSImport] - WebAssembly-only -
 	so on a MAUI BlazorWebView it threw on first render and took the Blazor renderer down with
 	it (§4.5 v0.24). Skia itself runs perfectly well on the phone; only the canvas binding was
 	browser-only. So the paint path below is unchanged and rasterises off-screen instead, and
@@ -41,7 +41,7 @@
 {
 	@*
 		Deliberately visible. Without the overlay there are no rider pins, no markers and no
-		route — on a live group ride that is the whole point of the screen, so an empty map must
+		route - on a live group ride that is the whole point of the screen, so an empty map must
 		not be left to read as "nobody is moving" (§4.5, §5.3, §16.3).
 
 		This exists because its absence cost a debugging round trip: repaints run detached from
@@ -63,7 +63,7 @@
 
 @code {
 	/// <summary>
-	/// Routes drawn under the pins, in the order they should stack — later ones over earlier.
+	/// Routes drawn under the pins, in the order they should stack - later ones over earlier.
 	/// A ride may have several planned routes (§5.4); a track detail has exactly one.
 	/// </summary>
 	[Parameter] public IReadOnlyList<RouteOverlay>? Routes { get; set; }
@@ -79,14 +79,14 @@
 	[Parameter] public IReadOnlyDictionary<Guid, MapMarker>? Markers { get; set; }
 
 	/// <summary>
-	/// Ground circles drawn beneath everything else — the private-area picker's radius (§10.1)
+	/// Ground circles drawn beneath everything else - the private-area picker's radius (§10.1)
 	/// is the only caller today. Under the routes and pins because a circle is an area the other
 	/// two are read against, and a wash over the top of a line would recolour it.
 	/// </summary>
 	[Parameter] public IReadOnlyList<MapCircle>? Circles { get; set; }
 
 	/// <summary>
-	/// Lat / lon rectangles, drawn at the very bottom — the extents of the offline packs on offer
+	/// Lat / lon rectangles, drawn at the very bottom - the extents of the offline packs on offer
 	/// (§4.2) are the only caller. Under the circles for the same reason those are under the
 	/// routes: a box is ground, and everything else on the map is read against it.
 	/// </summary>
@@ -103,7 +103,7 @@
 	private IJSObjectReference? _module;
 
 	/// <summary>
-	/// Why the last repaint failed, or null. Rendered rather than swallowed — see the markup.
+	/// Why the last repaint failed, or null. Rendered rather than swallowed - see the markup.
 	/// </summary>
 	private string? _error;
 
@@ -132,8 +132,8 @@
 	/// Set the moment teardown starts, and checked at every point a paint could resume.
 	/// <para>
 	/// <strong>This is what stops a repaint drawing into objects that have been released.</strong>
-	/// Repaints run detached from the render loop and span several awaits — a Skia rasterise, a
-	/// PNG encode, a hop across the JS bridge — and disposal can land in any of those gaps.
+	/// Repaints run detached from the render loop and span several awaits - a Skia rasterise, a
+	/// PNG encode, a hop across the JS bridge - and disposal can land in any of those gaps.
 	/// Nothing used to stop the paint carrying on afterwards into a disposed
 	/// <see cref="SKSurface"/> and disposed paints, which is a use-after-dispose over native
 	/// handles: at best it asks for a canvas and is handed null, which the next line dereferences
@@ -157,8 +157,8 @@
 	/// <summary>
 	/// One route's line, decoded and ready to project. Rebuilt on every parameter set.
 	/// <para>
-	/// The colour is kept as the caller's <em>request</em> — the palette entry and the track it
-	/// belongs to — rather than as a resolved <see cref="SKColor"/>. What actually gets drawn
+	/// The colour is kept as the caller's <em>request</em> - the palette entry and the track it
+	/// belongs to - rather than as a resolved <see cref="SKColor"/>. What actually gets drawn
 	/// depends on the device's preferences, which change without any parameter changing, so
 	/// resolving at decode time would leave a repaint showing the previous answer.
 	/// </para>
@@ -170,14 +170,14 @@
 
 	/// <summary>
 	/// Scratch space for one route's points in canvas coordinates. Reused across routes and
-	/// frames: the line is walked twice per frame — once to build the path, once to space the
-	/// direction chevrons along it — and projecting several thousand points twice per repaint,
+	/// frames: the line is walked twice per frame - once to build the path, once to space the
+	/// direction chevrons along it - and projecting several thousand points twice per repaint,
 	/// on a surface that repaints on every pan, is exactly the cost this buffer removes.
 	/// </summary>
 	private readonly List<SKPoint> _projected = [];
 
 	/// <summary>
-	/// The builder every per-frame path is assembled through. Paths are immutable in Skia now —
+	/// The builder every per-frame path is assembled through. Paths are immutable in Skia now -
 	/// they are built here and taken with <see cref="SKPathBuilder.Detach"/>, which hands over the
 	/// path and leaves this empty for the next one.
 	/// <para>
@@ -202,8 +202,8 @@
 
 	/// <summary>
 	/// Subscribes to the device's route-style preference (§18.6). The style is not a parameter
-	/// — no caller of this component knows or should know about it, and threading it down from
-	/// four pages would be four places to forget it — so the change signal comes from the
+	/// - no caller of this component knows or should know about it, and threading it down from
+	/// four pages would be four places to forget it - so the change signal comes from the
 	/// shared state instead, and lands as a repaint.
 	/// </summary>
 	protected override void OnInitialized() => RouteStyles.Changed += OnRouteStyleChanged;
@@ -230,7 +230,7 @@
 				{
 					// PolylineCodec is the only implementation of this encoding (§15.5) and the
 					// one the server encodes with. A second decoder here is how the line ended up
-					// drawn at a tenth of its coordinates — precision 5 against a precision 6
+					// drawn at a tenth of its coordinates - precision 5 against a precision 6
 					// encoder puts a Sydney ride off the Gulf of Guinea, so the map looked empty
 					// rather than wrong.
 					points = PolylineCodec.DecodePoints(route.EncodedPolyline);
@@ -240,8 +240,8 @@
 				decoded.Add(new DecodedRoute(points, route.TrackId, route.Colour));
 			}
 
-			// A route detached is a line nobody will ask for again. Without this the editor —
-			// which hands this component a freshly encoded line on every cursor drag — would
+			// A route detached is a line nobody will ask for again. Without this the editor -
+			// which hands this component a freshly encoded line on every cursor drag - would
 			// accumulate a decoded copy of every intermediate state it ever showed.
 			if (_lineCache.Count > live.Count)
 			{
@@ -264,14 +264,14 @@
 
 	/// <summary>
 	/// Rasterise any icon this overlay is about to draw but does not have yet, then repaint.
-	/// Runs after render because it needs JS, and painting itself is synchronous — the first
+	/// Runs after render because it needs JS, and painting itself is synchronous - the first
 	/// frame of a newly-seen icon shows the plain pin, the next shows the artwork.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
 		// Contained, and this is the boundary that matters most in the component.
 		//
-		// An exception escaping here does not fail a paint — it unmounts the overlay through
+		// An exception escaping here does not fail a paint - it unmounts the overlay through
 		// RideMap's ErrorBoundary, which is the "Map markers unavailable … on this device" banner,
 		// and the overlay never comes back for the life of the page. Every failure below is
 		// recoverable on the next frame, so the overlay's own error line is the honest place for
@@ -305,7 +305,7 @@
 		}
 
 		// Runs on every render, which on a live ride is at least once a second. Collect only
-		// what is genuinely new — riders draw as darts and never ask for an icon at all — so
+		// what is genuinely new - riders draw as darts and never ask for an icon at all - so
 		// the steady state is a handful of hash lookups and no allocation.
 		List<string>? wanted = null;
 		foreach (MapMarker marker in Markers.Values)
@@ -340,7 +340,7 @@
 	private readonly HashSet<string> _requested = new(StringComparer.Ordinal);
 
 	/// <summary>
-	/// Draws one frame. Unchanged by v0.24's move off <c>SKCanvasView</c> — it took an
+	/// Draws one frame. Unchanged by v0.24's move off <c>SKCanvasView</c> - it took an
 	/// <c>SKCanvas</c> then and it takes one now, which is the whole reason the switch cost a
 	/// surface and not a rendering rewrite.
 	/// </summary>
@@ -349,14 +349,14 @@
 	/// <para>
 	/// <strong>Every length in this component is multiplied by this</strong>, and getting it
 	/// wrong is what made the overlay unreadable on both phones. The canvas is sized in
-	/// <em>device</em> pixels — that is what <see cref="MapViewport.CanvasWidthPx"/> counts, and
-	/// what <c>ProjectToCanvas</c> plots into — but every width, radius and font size here was
+	/// <em>device</em> pixels - that is what <see cref="MapViewport.CanvasWidthPx"/> counts, and
+	/// what <c>ProjectToCanvas</c> plots into - but every width, radius and font size here was
 	/// written as a CSS pixel, tuned on a desktop browser where the two are the same number.
 	/// </para>
 	/// <para>
 	/// On a phone they are not. At the ratio of 3 a typical iPhone reports, a 2 px circle ring
 	/// is two thirds of one CSS pixel and a 12 px label is 4: the tracks read as hairlines, and
-	/// the private-area circle — a sheer wash behind a sub-pixel ring — did not appear at all.
+	/// the private-area circle - a sheer wash behind a sub-pixel ring - did not appear at all.
 	/// Positions were always right, because the projection works in the same device pixels the
 	/// canvas is sized in. Only the sizes were wrong.
 	/// </para>
@@ -378,7 +378,7 @@
 		}
 
 		// Clamped rather than trusted. A viewport that arrives before the base map has measured
-		// itself can carry 0, and a zero scale collapses every stroke to nothing — the same
+		// itself can carry 0, and a zero scale collapses every stroke to nothing - the same
 		// invisible-overlay symptom this field exists to fix, arriving by a different route.
 		_scale = Viewport.DevicePixelRatio is > 0 and <= 8
 			? (float)Viewport.DevicePixelRatio
@@ -402,7 +402,7 @@
 	/// Draws each lat / lon rectangle: a wash inside and an outline on the edge (§4.2).
 	/// <para>
 	/// Four projected corners joined into a path rather than an <c>SKRect</c>. The two are the same
-	/// shape only on a north-up map — <c>Project</c> applies the base map's bearing, so a rectangle
+	/// shape only on a north-up map - <c>Project</c> applies the base map's bearing, so a rectangle
 	/// built from a min and a max corner would stay square to the screen while the ground it names
 	/// turned underneath it.
 	/// </para>
@@ -440,7 +440,7 @@
 
 			// A whole-continent extent on a zoomed-in map is millions of pixels across with nothing
 			// of it on screen. Tested as a box around the corners rather than corner by corner,
-			// because the commonest visible case is a region the canvas sits *inside* — where every
+			// because the commonest visible case is a region the canvas sits *inside* - where every
 			// corner is off screen and the fill covers the lot.
 			if (!MeetsCanvas(corners)) continue;
 
@@ -485,7 +485,7 @@
 
 	/// <summary>
 	/// How opaque the wash inside a box is. Sheerer than a circle's, because these come in
-	/// hundreds and overlap — a tint that reads on its own is opaque mud where three regions meet.
+	/// hundreds and overlap - a tint that reads on its own is opaque mud where three regions meet.
 	/// </summary>
 	private const byte BoxWashAlpha = 0x1f;
 
@@ -504,7 +504,7 @@
 	/// Coalescing rather than queueing: a drag produces a viewport per animation frame and a
 	/// repaint costs far more than a frame, so all but the newest request is dropped and a
 	/// trailing one is guaranteed by <see cref="_repaintPending"/>. During a drag that means
-	/// the overlay lags the tiles slightly and then settles — chosen over the CSS-transform
+	/// the overlay lags the tiles slightly and then settles - chosen over the CSS-transform
 	/// shortcut the first version had, which tracked smoothly and put pins in the wrong place.
 	/// </para>
 	/// </summary>
@@ -561,11 +561,11 @@
 
 				// The frame travels with the view it was drawn for. JS needs that to follow the
 				// map with these pixels until the next frame arrives, which is what stops a pan
-				// dragging the overlay behind it — the round trip that produced this frame is
+				// dragging the overlay behind it - the round trip that produced this frame is
 				// far too slow to be in the loop at gesture frame rate.
 				//
 				// One options object rather than six positional arguments, matching createMap in
-				// map.maplibre.js — the convention this folder already had.
+				// map.maplibre.js - the convention this folder already had.
 				await module.InvokeVoidAsync("present", _surface, frame, new
 				{
 					widthPx = target.CanvasWidthPx,
@@ -592,8 +592,8 @@
 		{
 			// Anything else is reported, not swallowed.
 			//
-			// This runs detached from the render loop — OnParametersSet starts it and does not
-			// await it — so without this catch a failure became an unobserved task exception
+			// This runs detached from the render loop - OnParametersSet starts it and does not
+			// await it - so without this catch a failure became an unobserved task exception
 			// and the overlay just drew nothing. That is precisely the "blank rectangle rather
 			// than a stated error" §4.5 forbids, and it cost a debugging round trip on a device
 			// where there was no other way to ask what had gone wrong.
@@ -603,8 +603,8 @@
 			DiagnosticLog.WriteError("painting the map overlay", exception);
 			_error = DiagnosticLog.Summarise(exception);
 
-			// Guarded, because this catch must not throw. The renderer may already be gone —
-			// that is the commonest way to arrive here — and an InvokeAsync against a disposed
+			// Guarded, because this catch must not throw. The renderer may already be gone -
+			// that is the commonest way to arrive here - and an InvokeAsync against a disposed
 			// one would replace a contained failure with an escaping one, which is what took the
 			// whole overlay down through RideMap's error boundary.
 			await ShowErrorAsync();
@@ -688,7 +688,7 @@
 		}
 
 		// Skia hands back null for a handle it no longer has, so this is where a paint that
-		// outlived its component used to die — see _disposed, which is the actual fix. This
+		// outlived its component used to die - see _disposed, which is the actual fix. This
 		// checks rather than assumes, so any path found around that guard is a frame that does
 		// not get drawn instead of a null dereference in a task nobody is awaiting.
 		if (_raster.Canvas is not { } canvas)
@@ -716,7 +716,7 @@
 	/// <summary>
 	/// zlib level for the frame PNG, and the reason a pan feels quicker than it did.
 	/// <para>
-	/// The default of 6 — and the 100 this used to pass — spends most of the encode budget
+	/// The default of 6 - and the 100 this used to pass - spends most of the encode budget
 	/// squeezing an image that is about to travel a few hundred microseconds across an in-process
 	/// bridge and then be thrown away. Level 1 with filtering off is the fastest lossless setting
 	/// Skia offers, and on an overlay that is transparent almost everywhere the extra bytes are a
@@ -739,7 +739,7 @@
 	/// Draws each ground circle: a wash inside, a ring on the edge, and a dot on the centre.
 	/// <para>
 	/// The dot is not decoration. A 1 km circle at street zoom is wider than the canvas, so
-	/// without it the only thing on screen is a tint the rider cannot tell from a map style —
+	/// without it the only thing on screen is a tint the rider cannot tell from a map style -
 	/// and the point they are being asked to position is the centre.
 	/// </para>
 	/// </summary>
@@ -756,7 +756,7 @@
 
 			if (radius > 0.5f)
 			{
-				// Both passes are skipped for a circle drawn entirely off screen — at low zoom a
+				// Both passes are skipped for a circle drawn entirely off screen - at low zoom a
 				// ride's worth of panning can leave the centre thousands of pixels away, and Skia
 				// would otherwise rasterise a ring that intersects nothing.
 				if (centre.X + radius >= -CanvasMarginPx && centre.X - radius <= Viewport.CanvasWidthPx + CanvasMarginPx
@@ -810,14 +810,14 @@
 	/// <summary>The circle's edge, in canvas pixels.</summary>
 	private float CircleRingWidthPx => (2f) * _scale;
 
-	/// <summary>The dot on a circle's centre — small enough to point at a spot, big enough to find.</summary>
+	/// <summary>The dot on a circle's centre - small enough to point at a spot, big enough to find.</summary>
 	private float CircleCentreDotRadius => (5f) * _scale;
 
 	private void DrawRoutes(SKCanvas canvas)
 	{
 		if (_decodedRoutes.Count == 0) return;
 
-		// The rider's own answer for this device (§18.6) — colours, thickness and whether the
+		// The rider's own answer for this device (§18.6) - colours, thickness and whether the
 		// line says which way round it goes. Read once per frame rather than per route: it
 		// cannot change mid-paint, and RouteStyleState raises Changed when it does, which is
 		// what invalidates this canvas.
@@ -853,8 +853,8 @@
 			if (route.Points.Count < 2) continue;
 
 			// Reversing is a direction to *read* the stored points in, not a second copy of them
-			// (§5.4). The stroke comes out identical either way — a line has no ends as far as
-			// Skia is concerned — so the only thing this changes is which way the chevrons below
+			// (§5.4). The stroke comes out identical either way - a line has no ends as far as
+			// Skia is concerned - so the only thing this changes is which way the chevrons below
 			// point, which is the whole of what the rider asked for. The gap list is reversed at
 			// its own call site, against the same flag; see RouteStyleState.IsReversed.
 			_projected.Clear();
@@ -915,7 +915,7 @@
 	/// <param name="casingColour">The line's casing colour, reused to edge each chevron so it stays visible on a line of its own colour.</param>
 	private void DrawDirectionArrows(SKCanvas canvas, float lineWidth, SKColor arrowColour, SKColor casingColour)
 	{
-		// Chevrons grow with the line so they still read on a 12 px stroke, but not linearly —
+		// Chevrons grow with the line so they still read on a 12 px stroke, but not linearly -
 		// a chevron three times the size wants more than three times the gap or the line turns
 		// into a chain of arrowheads.
 		float scale = Math.Clamp(lineWidth / RouteStyleDefaultWidthPx, 0.8f, 2.2f);
@@ -942,7 +942,7 @@
 		};
 
 		// Distance still to run before the next chevron is due. Carried across segments so the
-		// spacing is even along the whole line rather than restarting at every GPX point —
+		// spacing is even along the whole line rather than restarting at every GPX point -
 		// restarting would put a chevron on every point, which is the failure this method's
 		// remarks describe.
 		float untilNext = spacing / 2f;
@@ -973,7 +973,7 @@
 			// the segment that is on screen.
 			float carriedOn = untilNext + (count * spacing) - length;
 
-			// A segment can be millions of pixels long at high zoom — the canvas is the small
+			// A segment can be millions of pixels long at high zoom - the canvas is the small
 			// window in the middle of it. Clipping first means the loop runs once per *visible*
 			// chevron instead of once per chevron on a line that mostly leaves the country.
 			if (ClipToCanvas(from, to, out float enters, out float leaves))
@@ -1014,7 +1014,7 @@
 			canvas.Translate(at.X, at.Y);
 
 			// (_chevronPath ??= BuildChevronPath()) points along +X, and the bearing is already measured in canvas space
-			// (atan2 of the projected delta), so no north-relative conversion happens here —
+			// (atan2 of the projected delta), so no north-relative conversion happens here -
 			// unlike the rider dart, which starts from a compass heading.
 			canvas.RotateDegrees(bearingDeg);
 			canvas.Scale(scale);
@@ -1078,7 +1078,7 @@
 	}
 
 	/// <summary>
-	/// How much wider the casing is than the line it sits under — 1.5 px of edge either side,
+	/// How much wider the casing is than the line it sits under - 1.5 px of edge either side,
 	/// which is enough to separate the line from a tile without reading as a second line.
 	/// </summary>
 	private float CasingWidthPx => (3f) * _scale;
@@ -1098,7 +1098,7 @@
 	private float ArrowSpacingPx => (88f) * _scale;
 
 	/// <summary>
-	/// Stroke width of a chevron at scale 1 — half again the default 4 px line, so a chevron
+	/// Stroke width of a chevron at scale 1 - half again the default 4 px line, so a chevron
 	/// reads as a solid arrowhead rather than as a hairline scratched over the line.
 	/// </summary>
 	private float ChevronStrokePx => (6f) * _scale;
@@ -1110,7 +1110,7 @@
 	/// The direction chevron: an open "greater-than" pointing along +X, centred on the point it
 	/// is drawn at. Open rather than a filled triangle because it is stroked in the same round
 	/// cap the line uses, so at any size it reads as part of the line rather than as a marker
-	/// dropped on it — and the line's own colour shows through the middle.
+	/// dropped on it - and the line's own colour shows through the middle.
 	/// <para>
 	/// Built once, for the same reason <see cref="(_arrowPath ??= BuildArrowPath())"/> is: a long route at low zoom
 	/// carries dozens of these per frame.
@@ -1170,7 +1170,7 @@
 		SKSamplingOptions sampling = new(SKFilterMode.Linear, SKMipmapMode.Linear);
 
 		// Riders carry a colour each (§16.3), so the paints that draw them cannot be the shared
-		// static ones below — those are immutable configuration precisely so nothing mutates them
+		// static ones below - those are immutable configuration precisely so nothing mutates them
 		// per marker. One pair for the whole frame, recoloured per rider: a twenty-rider map at
 		// 1 Hz would otherwise build forty native paints a second for no gain.
 		using SKPaint riderFill = new() { Style = SKPaintStyle.Fill, IsAntialias = true };
@@ -1195,7 +1195,7 @@
 				continue;
 			}
 
-			// Null means "no direction", never zero — zero is due north, a real bearing
+			// Null means "no direction", never zero - zero is due north, a real bearing
 			// (§16.2). A marker that carries no bearing gets no arrow rather than one
 			// confidently pointing north.
 			bool hasHeading = marker.DirectionDeg is not null;
@@ -1213,14 +1213,14 @@
 			if (glyph is null)
 			{
 				// Icon not rasterised yet (or the host cannot). A plain pin holds the
-				// place — the marker is still on the map and still labelled.
+				// place - the marker is still on the map and still labelled.
 				canvas.DrawCircle(screen, 6f, PinFill);
 				canvas.DrawCircle(screen, 6f, PinRing);
 			}
 			else
 			{
 				// Straight onto the map, no disc behind it. Each icon carries its own 1px black
-				// and 1px white outline, which is the job the plate used to do — and it does it
+				// and 1px white outline, which is the job the plate used to do - and it does it
 				// following the artwork's edge rather than boxing it into a circle, so the
 				// silhouette is what a rider recognises at a glance instead of "a white dot".
 				SKRect target = new(
@@ -1257,7 +1257,7 @@
 	/// </para>
 	/// <para>
 	/// <strong>The rider picks the background and nothing else.</strong> Text and border are
-	/// <see cref="MarkerColours.ForegroundFor"/>'s answer — black or white, whichever reads —
+	/// <see cref="MarkerColours.ForegroundFor"/>'s answer - black or white, whichever reads -
 	/// because a rider free to choose both could pick a pairing that disappears, and the person
 	/// who pays for that is whoever is looking for them at a junction.
 	/// </para>
@@ -1312,8 +1312,8 @@
 
 			if (moving)
 			{
-				// Canvas Y grows downward, so screen-up is -Y — which is where (_riderArrowPath ??= BuildRiderArrowPath())
-				// points — and a clockwise rotation by the screen bearing carries the tip round
+				// Canvas Y grows downward, so screen-up is -Y - which is where (_riderArrowPath ??= BuildRiderArrowPath())
+				// points - and a clockwise rotation by the screen bearing carries the tip round
 				// to the compass point. Same conversion the authored-marker arrow uses, so a
 				// heading-up map turns both together.
 				canvas.RotateDegrees((float)MapGeometry.ScreenBearingDeg(marker.DirectionDeg!.Value, Viewport.HeadingDeg));
@@ -1344,13 +1344,13 @@
 
 	/// <summary>
 	/// Draws <em>you</em>: an arrowhead along the way this device is facing when the fix says which
-	/// way, and a green dot when it does not — with no label behind either, and half as big again
+	/// way, and a green dot when it does not - with no label behind either, and half as big again
 	/// as a rider pin (§4.3).
 	/// <para>
 	/// <strong>No name, and that is the whole distinction.</strong> Every other position on this
 	/// map is a pill with somebody's name on it; a rider does not need to be told their own, and a
 	/// bare shape is instantly legible as "me" in a knot of pins at a regroup. It is also the one
-	/// marker on the map that is not a claim about what anyone else can see — it comes off this
+	/// marker on the map that is not a claim about what anyone else can see - it comes off this
 	/// phone's receiver, not off a published fix (§5.3).
 	/// </para>
 	/// <para>
@@ -1360,19 +1360,19 @@
 	/// </summary>
 	/// <param name="canvas">The overlay canvas.</param>
 	/// <param name="at">Where this device is, in canvas pixels.</param>
-	/// <param name="marker">The self marker. Only its heading is read — see the note below on why not its speed.</param>
+	/// <param name="marker">The self marker. Only its heading is read - see the note below on why not its speed.</param>
 	/// <param name="fill">The frame's shared fill paint. Recoloured here.</param>
 	/// <param name="stroke">The frame's shared stroke paint. Recoloured and re-widthed here.</param>
 	private void DrawSelf(SKCanvas canvas, SKPoint at, MapMarker marker, SKPaint fill, SKPaint stroke)
 	{
-		// The fix carrying a direction is the whole test, and the speed is not consulted —
+		// The fix carrying a direction is the whole test, and the speed is not consulted -
 		// deliberately unlike a rider pin, which demands both (RiderMarker.IsMoving).
 		//
 		// The difference is what the two marks are drawn from. A rider pin comes off a fix that has
 		// been round the server and arrives as whole metres per second, so the speed is the only
 		// evidence left that a bearing means anything. This one is *this* phone's own live fix, and
-		// both platforms usually decline to report a bearing they cannot stand behind — iOS returns
-		// Course as -1 when stationary, Android answers false to HasBearing — with both providers
+		// both platforms usually decline to report a bearing they cannot stand behind - iOS returns
+		// Course as -1 when stationary, Android answers false to HasBearing - with both providers
 		// mapping that to null rather than to zero (§8). So the receiver's own "I do not know which
 		// way" is the better signal here, and it is the one a rider asked to see.
 		//
@@ -1393,13 +1393,13 @@
 
 			SKPath shape = pointing ? (_riderArrowPath ??= BuildRiderArrowPath()) : (_riderDotPath ??= BuildRiderDotPath());
 
-			// Three passes, widest first — the same sandwich the heading arrow uses, and for the
+			// Three passes, widest first - the same sandwich the heading arrow uses, and for the
 			// same reason: OSM runs from near-white sand to dark forest, and a single-outlined
 			// shape disappears into one end of that or the other. White outermost because this one
 			// sits on tiles rather than on a coloured pill.
 			//
 			// The widths are divided by the scale so the canvas transform above does not thicken
-			// them with the shape — a stroke is a constant on screen, not a proportion of the mark.
+			// them with the shape - a stroke is a constant on screen, not a proportion of the mark.
 			stroke.Color = SKColors.White;
 			stroke.StrokeWidth = (GpsEdgePx + GpsHairlinePx) / SelfScale;
 			canvas.DrawPath(shape, stroke);
@@ -1418,7 +1418,7 @@
 	}
 
 	/// <summary>
-	/// How much larger the own-position mark is than a rider's. See <see cref="DrawSelf"/> — it is
+	/// How much larger the own-position mark is than a rider's. See <see cref="DrawSelf"/> - it is
 	/// the one somebody is looking for through a visor.
 	/// </summary>
 	private const float SelfScale = 1.5f;
@@ -1433,7 +1433,7 @@
 	/// The own-position dot, when the receiver has not said which way this phone is facing.
 	/// <para>
 	/// Green, and pointedly <em>not</em> the red a stopped rider gets (<see cref="RiderStoppedColour"/>).
-	/// That red is a call for attention — somebody else on the ride has stopped and the group may
+	/// That red is a call for attention - somebody else on the ride has stopped and the group may
 	/// need to know. Your own phone having no bearing yet is neither a problem nor anybody's
 	/// business: it is a working GPS that has not been moved. Red on the mark a rider looks at most
 	/// would be crying wolf every time they sat at a light.
@@ -1443,8 +1443,8 @@
 
 	// Paints and fonts are immutable configuration built from compile-time constants, and
 	// this method runs on every viewport change with live positions arriving about once a
-	// second. Building eleven native SkPaint objects per frame — each one a native alloc plus
-	// a registration in SkiaSharp's global handle dictionary — bought nothing. Held for the
+	// second. Building eleven native SkPaint objects per frame - each one a native alloc plus
+	// a registration in SkiaSharp's global handle dictionary - bought nothing. Held for the
 	// process lifetime and deliberately never disposed: there is no static-teardown hook to
 	// hang a dispose off, and the native memory goes back at exit. Nothing may mutate them
 	// per-marker; per-marker variation is done with canvas transforms.
@@ -1476,7 +1476,7 @@
 
 	/// <summary>
 	/// Baseline offset from the fix, so the name sits optically centred in the pill rather than
-	/// hanging off its top edge. Derived from the font's own ascent and descent — a hand-tuned
+	/// hanging off its top edge. Derived from the font's own ascent and descent - a hand-tuned
 	/// constant here is a constant that has to be re-tuned when the size changes.
 	/// </summary>
 	private float LabelBaselineOffset => -(LabelFont.Metrics.Ascent + LabelFont.Metrics.Descent) / 2f;
@@ -1511,7 +1511,7 @@
 	/// <summary>
 	/// The rider's arrow: pointing up (screen-up is -Y), centred on the fix, and sized to sit
 	/// within the pill's rounded end. Swallow-tailed for the reason <see cref="(_arrowPath ??= BuildArrowPath())"/> gives
-	/// — a plain triangle stops reading as a direction once it is rotated away from vertical.
+	/// - a plain triangle stops reading as a direction once it is rotated away from vertical.
 	/// <para>
 	/// Its own path rather than a scaled <see cref="(_arrowPath ??= BuildArrowPath())"/>: this one has to fit a circle the
 	/// font decides the size of, and a scale factor between the two is a number nobody could
@@ -1552,8 +1552,8 @@
 		return builder.Detach();
 	}
 
-	// The heading arrow: blue, edged in black, haloed in white. Three passes over one path —
-	// widest stroke first — so the black reads as the arrow's own outline and the white
+	// The heading arrow: blue, edged in black, haloed in white. Three passes over one path -
+	// widest stroke first - so the black reads as the arrow's own outline and the white
 	// separates it from whatever tile is underneath. OSM runs from near-white sand to dark
 	// forest, and a single-outlined arrow disappears into one end or the other.
 	private readonly SKPaint ArrowHalo = new() { Style = SKPaintStyle.Stroke, IsAntialias = true, StrokeJoin = SKStrokeJoin.Round, Color = SKColors.White };
@@ -1570,7 +1570,7 @@
 	private float LabelGap => (11f) * _scale;
 
 	/// <summary>
-	/// Draws the bearing dart an authored marker may carry — "face this way" (§16.2). Riders get
+	/// Draws the bearing dart an authored marker may carry - "face this way" (§16.2). Riders get
 	/// <c>(_riderArrowPath ??= BuildRiderArrowPath())</c> instead, which is sized to their label rather than to an icon disc.
 	/// </summary>
 	/// <param name="canvas">The overlay canvas.</param>
@@ -1619,7 +1619,7 @@
 
 	/// <summary>
 	/// The dart, pointing up (screen-up is -Y), centred on the marker's position. Four points:
-	/// tip, the two rear corners, and a notch between them — the swallowtail is what makes
+	/// tip, the two rear corners, and a notch between them - the swallowtail is what makes
 	/// the pointing end unambiguous at a glance, which a plain triangle is not once it is
 	/// rotated away from vertical.
 	/// <para>
@@ -1654,7 +1654,7 @@
 
 	/// <summary>
 	/// The icon bitmaps, wrapped as Skia images. <see cref="MarkerIconCache"/> deliberately
-	/// holds only raw RGBA — no image decoder runs outside the photo-ingest path — so the
+	/// holds only raw RGBA - no image decoder runs outside the photo-ingest path - so the
 	/// conversion to an <see cref="SKImage"/> happens here, in the one component §4.5 puts in
 	/// the drawing business. This is a pixel copy, not a decode. Built once per icon and kept:
 	/// 29 curated icons at 48² is well under a megabyte, and rebuilding per frame would be the
@@ -1704,7 +1704,7 @@
 	/// Web Mercator projection from geographic degrees to overlay pixel coordinates.
 	/// <para>
 	/// The arithmetic lives in <see cref="MapGeometry.ProjectToCanvas"/> rather than here,
-	/// because the live ride page hit-tests taps against the pins this method draws — and two
+	/// because the live ride page hit-tests taps against the pins this method draws - and two
 	/// copies of a projection agree right up until somebody rotates the map.
 	/// </para>
 	/// </summary>
@@ -1740,7 +1740,7 @@
 		RouteStyles.Changed -= OnRouteStyleChanged;
 
 		// Then wait for the paint already running to notice. It short-circuits at its next await,
-		// so this is a frame at most — and it is the difference between disposing a surface
+		// so this is a frame at most - and it is the difference between disposing a surface
 		// nothing is using and pulling one out from under a rasterise.
 		//
 		// Bounded, because the last thing a paint does is cross the JS bridge and a WebView that
@@ -1769,7 +1769,7 @@
 		_arrowPath?.Dispose();
 
 		// Held across frames since the pan-performance change, so it is this component's to
-		// release — a few million pixels per <RideMap> otherwise leaks on every navigation.
+		// release - a few million pixels per <RideMap> otherwise leaks on every navigation.
 		_raster?.Dispose();
 
 		PinRing.Dispose();
@@ -1779,13 +1779,13 @@
 		ArrowEdge.Dispose();
 
 		// One module reference per overlay, and an overlay is created per <RideMap>. Leaving it
-		// undisposed leaks a tracked JS object on every navigation into a ride page — the same
+		// undisposed leaks a tracked JS object on every navigation into a ride page - the same
 		// trap the base-map interop documents.
 		if (_module is not null)
 		{
 			// Unhook the move subscription first. It is held by the JS module against the
 			// canvas, so disposing the module reference without it leaves a listener attached
-			// to a live map for a canvas that has left the DOM — twenty visits to a ride page
+			// to a live map for a canvas that has left the DOM - twenty visits to a ride page
 			// is twenty of them, all transforming an element nobody can see.
 			try { await _module.InvokeVoidAsync("detach", _surface); }
 			catch (JSDisconnectedException) { /* WebView or circuit already gone */ }
@@ -1803,7 +1803,7 @@
 <style>
 	/*
 	  The canvas sits over the base map. `pointer-events: none` lets pan and zoom
-	  travel through to whichever base map is underneath — the overlay never eats
+	  travel through to whichever base map is underneath - the overlay never eats
 	  gestures, because on every host the base map already handles them and the
 	  overlay is a visual layer, not an input surface.
 	*/
@@ -1822,7 +1822,7 @@
 
 		/*
 		  Load-bearing, not decorative. overlay.js follows the map by transforming this
-		  element, and it measures the translation from the canvas centre — the pixel the
+		  element, and it measures the translation from the canvas centre - the pixel the
 		  painted view's centre coordinate landed on. This is the CSS default, stated
 		  because changing it silently offsets every tracked frame by half the map.
 		*/
@@ -1830,7 +1830,7 @@
 
 		/*
 		  The transform is recomputed on the map's own move event, so the browser must not
-		  interpolate between two positions that are already one frame apart — an eased
+		  interpolate between two positions that are already one frame apart - an eased
 		  overlay chasing an un-eased map is the drag this tracking exists to remove.
 		*/
 		transition: none;

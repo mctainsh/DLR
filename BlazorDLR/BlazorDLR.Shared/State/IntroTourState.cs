@@ -11,7 +11,7 @@ namespace BlazorDLR.Shared.State;
 /// second phone is a rider looking at an unfamiliar screen on an unfamiliar device, so the
 /// introduction is worth showing again there. It goes in <see cref="IDeviceSettings"/> like
 /// every other preference that describes the machine rather than the person, which also means
-/// it costs no round trip on launch and works on a phone with no signal — the two things a
+/// it costs no round trip on launch and works on a phone with no signal - the two things a
 /// first-run gate must not depend on.
 /// </para>
 /// <para>
@@ -55,7 +55,7 @@ public sealed class IntroTourState
 
 	/// <summary>
 	/// Whether this device has finished the introduction that is currently shipping. <c>false</c>
-	/// until <see cref="LoadAsync"/> has run — see the type's remarks on why that is the safe way
+	/// until <see cref="LoadAsync"/> has run - see the type's remarks on why that is the safe way
 	/// round.
 	/// </summary>
 	public bool HasSeenCurrent => _seenVersion >= IntroTour.Version;
@@ -122,7 +122,7 @@ public sealed class IntroTourState
 	/// Forgets that the introduction was ever shown, so it opens by itself again on the next
 	/// launch. What a "show this next time I open the app" control writes.
 	/// <para>
-	/// Removes the key rather than storing a zero — see <see cref="IDeviceSettings.RemoveAsync"/>.
+	/// Removes the key rather than storing a zero - see <see cref="IDeviceSettings.RemoveAsync"/>.
 	/// </para>
 	/// </summary>
 	/// <param name="cancellationToken">Cancels the removal.</param>

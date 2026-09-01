@@ -2,10 +2,10 @@
 @using BlazorDLR.Shared.Components
 
 @*
-	Web sign-in page — statically rendered, form-posts to /api/v1/auth/web/login (§7.5).
+	Web sign-in page - statically rendered, form-posts to /api/v1/auth/web/login (§7.5).
 
 	Deliberately not a WASM page: a cookie cannot be set from inside an already-running
-	WASM client, and the failure mode is subtle — the sign-in appears to work and the
+	WASM client, and the failure mode is subtle - the sign-in appears to work and the
 	next request is anonymous. §7.5 is explicit about this and about the shape of the
 	endpoint that sets the cookie.
 
@@ -13,7 +13,7 @@
 	need to fetch a token first.
 *@
 
-<PageTitle>Sign in — Dumb Luck Routes</PageTitle>
+<PageTitle>Sign in - Dumb Luck Routes</PageTitle>
 
 <div class="page page-standalone page-narrow form-page">
 	<h1>Sign in</h1>

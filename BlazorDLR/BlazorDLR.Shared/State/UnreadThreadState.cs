@@ -5,11 +5,11 @@ using DLR.Core.Contracts.Comments;
 namespace BlazorDLR.Shared.State;
 
 /// <summary>
-/// How many posts have landed in an adventure's thread since the rider last had it open — the
+/// How many posts have landed in an adventure's thread since the rider last had it open - the
 /// number in the red bubble on the rail's speech bubbles (§17.6, §18.6).
 /// <para>
 /// Counted from the hub rather than asked of the server, because there is no read marker in the
-/// schema and no endpoint that answers "how many since" — so this counts only what it is told
+/// schema and no endpoint that answers "how many since" - so this counts only what it is told
 /// about while the app is running, the same reach <see cref="CommentNotifier"/> has. Persisted
 /// through <see cref="IDeviceSettings"/>, so a phone the OS reclaimed mid-ride does not come back
 /// having quietly lost the posts the rider was about to read.
@@ -47,7 +47,7 @@ public sealed class UnreadThreadState : IDisposable
 	private bool _loaded;
 	private bool _disposed;
 
-	/// <summary>The device read, held so a second caller joins it — see <see cref="LoadAsync"/>.</summary>
+	/// <summary>The device read, held so a second caller joins it - see <see cref="LoadAsync"/>.</summary>
 	private Task? _reading;
 
 	/// <summary>Guards the two below, which the hub's callbacks and the write's own loop both touch.</summary>
@@ -58,7 +58,7 @@ public sealed class UnreadThreadState : IDisposable
 
 	/// <summary>Starts counting posts as they arrive.</summary>
 	/// <param name="hub">Where posts arrive (§5.3).</param>
-	/// <param name="auth">Who is reading — which is how a rider's own post is recognised.</param>
+	/// <param name="auth">Who is reading - which is how a rider's own post is recognised.</param>
 	/// <param name="settings">Where the counts are persisted, so they outlive the process.</param>
 	public UnreadThreadState(IRideHubClient hub, AuthState auth, IDeviceSettings settings)
 	{
@@ -76,7 +76,7 @@ public sealed class UnreadThreadState : IDisposable
 	public bool IsLoaded => _loaded;
 
 	/// <summary>
-	/// How many unread posts one adventure is holding — zero for a ride nothing has arrived for,
+	/// How many unread posts one adventure is holding - zero for a ride nothing has arrived for,
 	/// and zero for <c>null</c>, which is a device that has not opened a ride at all.
 	/// </summary>
 	/// <param name="rideId">Which adventure, or null.</param>
@@ -84,7 +84,7 @@ public sealed class UnreadThreadState : IDisposable
 		rideId is { } id && Find(id) is { } entry ? entry.Count : 0;
 
 	/// <summary>
-	/// Reads the persisted counts. Idempotent — the rail calls it on first render and nobody else
+	/// Reads the persisted counts. Idempotent - the rail calls it on first render and nobody else
 	/// has to coordinate with that.
 	/// <para>
 	/// Callers must run this <em>after</em> first render on the web: the browser store is reached
@@ -109,7 +109,7 @@ public sealed class UnreadThreadState : IDisposable
 	private async Task ReadAsync(CancellationToken cancellationToken)
 	{
 		// Posts that landed before the rail got round to reading the store. Their own write was
-		// held back — see OnCommentPosted — because writing what is in memory before knowing what
+		// held back - see OnCommentPosted - because writing what is in memory before knowing what
 		// is on the device is how the count stored yesterday gets overwritten by the one post that
 		// arrived while the app was starting.
 		bool pending = _entries.Count > 0;
@@ -153,7 +153,7 @@ public sealed class UnreadThreadState : IDisposable
 
 	/// <summary>
 	/// The thread has gone off screen, so its posts count again. Does nothing for a thread that was
-	/// not the open one — the ride page and the thread page tear down in either order.
+	/// not the open one - the ride page and the thread page tear down in either order.
 	/// </summary>
 	/// <param name="rideId">The thread that was on screen.</param>
 	public void Closed(Guid rideId)
@@ -189,7 +189,7 @@ public sealed class UnreadThreadState : IDisposable
 	/// Persists the counts, folding a burst of posts into one write.
 	/// <para>
 	/// A busy thread delivers posts faster than a device store round trip, and every one of them
-	/// used to be its own <see cref="IDeviceSettings.SetAsync"/> — of which only the last one's
+	/// used to be its own <see cref="IDeviceSettings.SetAsync"/> - of which only the last one's
 	/// value ever mattered. So a write already running is marked to run again rather than joined by
 	/// a second, and the badge on screen never waits for either: it moves on <see cref="Changed"/>.
 	/// </para>
@@ -260,7 +260,7 @@ public sealed class UnreadThreadState : IDisposable
 	}
 
 	/// <summary>
-	/// Writes the counts, or removes the key when there are none — the same thing
+	/// Writes the counts, or removes the key when there are none - the same thing
 	/// <see cref="CurrentRideState.ClearAsync"/> does, and for the same reason.
 	/// </summary>
 	private ValueTask SaveAsync(CancellationToken cancellationToken) =>
@@ -276,8 +276,8 @@ public sealed class UnreadThreadState : IDisposable
 				$"{entry.RideId:N}:{entry.Count}")));
 
 	/// <summary>
-	/// Reads back what <see cref="Encode"/> wrote. Anything else — a value from a format this
-	/// version does not know, a half-written string — reads as "nothing unread", which is what a
+	/// Reads back what <see cref="Encode"/> wrote. Anything else - a value from a format this
+	/// version does not know, a half-written string - reads as "nothing unread", which is what a
 	/// device with nothing stored answers and is never worse than wrong.
 	/// </summary>
 	private static List<Entry> Decode(string? stored)

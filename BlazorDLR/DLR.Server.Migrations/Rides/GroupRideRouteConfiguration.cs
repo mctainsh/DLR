@@ -30,7 +30,7 @@ public sealed class GroupRideRouteConfiguration : IEntityTypeConfiguration<Group
 			.OnDelete(DeleteBehavior.Cascade);
 
 		// Cascade rather than SetNull, because the track is that account's too (§10.1) and would
-		// cascade anyway — leaving a row whose "added by" is null while its track is gone would be
+		// cascade anyway - leaving a row whose "added by" is null while its track is gone would be
 		// a broken attachment kept for the sake of a name nobody can read.
 		builder
 			.HasOne(route => route.AddedBy)
@@ -44,7 +44,7 @@ public sealed class GroupRideRouteConfiguration : IEntityTypeConfiguration<Group
 			.HasIndex(route => new { route.GroupRideId, route.Position })
 			.HasDatabaseName("ix_group_ride_route_ride_position");
 
-		// "Is this track any adventure's route" — the §15.4 precondition on editing, asked of the
+		// "Is this track any adventure's route" - the §15.4 precondition on editing, asked of the
 		// track rather than of the ride.
 		builder
 			.HasIndex(route => route.TrackId)

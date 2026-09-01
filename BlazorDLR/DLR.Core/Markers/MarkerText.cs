@@ -7,7 +7,7 @@ namespace DLR.Core.Markers;
 /// Cleaning the two free-text fields (§16.2).
 /// <para>
 /// Title and note are user text shown to other people. Blazor escapes by default and MAUI labels
-/// are not HTML, so this is a discipline story rather than an XSS one — but the GPX exporter writes
+/// are not HTML, so this is a discipline story rather than an XSS one - but the GPX exporter writes
 /// both into a file other software reads, and a control character or an unnormalised composition
 /// that survives to there is a bug in somebody else's parser with our name on it.
 /// </para>
@@ -28,7 +28,7 @@ public static class MarkerText
 
 		foreach (char character in value)
 		{
-			// Newlines survive in a note — somebody typing an address over two lines is not
+			// Newlines survive in a note - somebody typing an address over two lines is not
 			// doing anything wrong. Everything else in the control range goes, including the
 			// bidirectional overrides that let a title render as something other than what is
 			// stored.

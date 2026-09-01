@@ -7,7 +7,7 @@ namespace DLR.Server.Identity;
 /// <summary>
 /// Burns the same work on an unknown username as on a real one (§7.8).
 /// <para>
-/// Password hashing is deliberately slow — that is the point of it — which makes "no such
+/// Password hashing is deliberately slow - that is the point of it - which makes "no such
 /// user" the fastest path through the login endpoint by an enormous margin. Returning the same
 /// message in a tenth of the time tells an attacker exactly what the message was written to
 /// hide, and does so through a channel nobody thinks to look at.
@@ -20,7 +20,7 @@ namespace DLR.Server.Identity;
 /// </summary>
 /// <param name="scopes">
 /// A scope factory rather than the hasher itself. Identity registers
-/// <see cref="IPasswordHasher{TUser}"/> as <em>scoped</em>, so a singleton cannot hold one —
+/// <see cref="IPasswordHasher{TUser}"/> as <em>scoped</em>, so a singleton cannot hold one -
 /// and this has to be a singleton, because computing that target hash on every unknown-username
 /// login would turn a timing defence into a denial-of-service amplifier. Resolving per call
 /// costs microseconds on a path whose whole purpose is to cost milliseconds, and it keeps the

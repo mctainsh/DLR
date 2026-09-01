@@ -3,7 +3,7 @@
 @using Microsoft.AspNetCore.Components
 
 @*
-	§7.7's email confirmation landing. Statically rendered — same reasoning as reset.
+	§7.7's email confirmation landing. Statically rendered - same reasoning as reset.
 
 	The form POSTs to the JSON endpoint at /api/v1/auth/confirm-email. That endpoint
 	returns fresh tokens, so the user sees "confirmed" and the next visit to the app has
@@ -11,7 +11,7 @@
 	signed-in bounce.
 *@
 
-<PageTitle>Confirm email — Dumb Luck Routes</PageTitle>
+<PageTitle>Confirm email - Dumb Luck Routes</PageTitle>
 
 <div class="page page-standalone page-form form-page">
 	<h1>Confirm email</h1>
@@ -19,7 +19,7 @@
 	@if (string.IsNullOrEmpty(UserId) || string.IsNullOrEmpty(Token))
 	{
 		<p>
-			This link is missing information. Open the email we sent again — the link there
+			This link is missing information. Open the email we sent again - the link there
 			has everything it needs.
 		</p>
 	}

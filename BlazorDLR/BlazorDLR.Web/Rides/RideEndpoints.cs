@@ -31,7 +31,7 @@ public sealed class RideJoinOptions
 	/// <para>
 	/// The gap §14.5 found: §7.8 limited the auth endpoints and join <em>requests</em>, but never
 	/// join-<em>code</em> submission. Six Crockford characters is about 1.07 billion
-	/// combinations — impractical to guess at human speed, entirely practical for a script, and
+	/// combinations - impractical to guess at human speed, entirely practical for a script, and
 	/// publishing the code format makes that obvious to anyone reading the repository.
 	/// </para>
 	/// </summary>
@@ -267,7 +267,7 @@ public sealed class RideController : ControllerBase
 
 		// Without this, "request to join" is an invitation to pester every ride in the system
 		// (§5.2). Counted from rows rather than from memory, for the same reason the §7.8
-		// ladder is — a restart must not be a way to start again.
+		// ladder is - a restart must not be a way to start again.
 		int pending = await database
 			.Set<GroupRideJoinRequest>()
 			.CountAsync(row => row.UserId == userId && row.Status == JoinRequestStatus.Pending);
@@ -349,7 +349,7 @@ public sealed class RideController : ControllerBase
 
 				// Every member sees the code, not only the organiser. A rider who has joined has
 				// already been let in, and withholding the code only stopped them telling a friend
-				// how to follow along — which is what they most want to do at the start line (§5.2).
+				// how to follow along - which is what they most want to do at the start line (§5.2).
 				row.JoinCode);
 
 			(row.IsOrganiser ? organised : joined).Add(summary);
@@ -522,7 +522,7 @@ public sealed class RideController : ControllerBase
 		if (admitted is not null)
 		{
 			// The same announcement the open-code path makes, for the same reason: from the ride's
-			// point of view these are one event — somebody is on it now — and they arrived by two
+			// point of view these are one event - somebody is on it now - and they arrived by two
 			// different doors (§5.2).
 			await members.AnnounceJoinedAsync(id, admitted);
 		}
@@ -538,14 +538,14 @@ public sealed class RideController : ControllerBase
 	/// </para>
 	/// <para>
 	/// <strong>The row is deleted, not marked.</strong> There is no <c>Withdrawn</c> status and
-	/// there should not be one — nobody decided anything, and recording a decline the organiser
+	/// there should not be one - nobody decided anything, and recording a decline the organiser
 	/// never made would put a lie in the table the organiser reads. Deleting also frees the
 	/// pending slot, which is the point: a rider who changed their mind is not spending one of
 	/// their allowance on it.
 	/// </para>
 	/// <para>
 	/// <strong>It is not a way out of a block.</strong> Only a <c>Pending</c> row can be withdrawn,
-	/// and a block lives on a <c>Declined</c> one — so the row that stops somebody asking again
+	/// and a block lives on a <c>Declined</c> one - so the row that stops somebody asking again
 	/// survives this call untouched. Nor does it refund the daily throttle, which counts attempts
 	/// rather than rows (§14.5), so asking and withdrawing in a loop buys nothing.
 	/// </para>
@@ -593,7 +593,7 @@ public sealed class RideController : ControllerBase
 
 		if (ride is not null)
 		{
-			// The organiser's badge is counting this one. Nothing is e-mailed — an organiser does
+			// The organiser's badge is counting this one. Nothing is e-mailed - an organiser does
 			// not need a message every time somebody changes their mind, and the count going down
 			// is the whole of what they need to know.
 			await notifications.RequestWithdrawnAsync(ride, request);
@@ -690,7 +690,7 @@ public sealed class RideController : ControllerBase
 			ride.Members.Count,
 			isOrganiser,
 
-			// Sent to every member, not only the organiser — same rule as the list (§5.2). The
+			// Sent to every member, not only the organiser - same rule as the list (§5.2). The
 			// organiser still controls admission on an approval ride; on an open one the code is a
 			// convenience the people already in the ride are trusted with.
 			ride.JoinCode,
@@ -785,12 +785,12 @@ public sealed class RideMembers(
 /// Two transports, and they answer different questions. The <strong>hub</strong> reaches the
 /// people who decide, on the screens they already have open, and is what keeps the waiting count
 /// on the live map and the info page true without a reload (§5.3). <strong>E-mail</strong>
-/// reaches whoever is not looking — including the asker, who is not on the ride yet and so is in
+/// reaches whoever is not looking - including the asker, who is not on the ride yet and so is in
 /// no hub group at all.
 /// </para>
 /// <para>
 /// §5.2 specifies push, which is Phase 2 work. When it arrives this is still where it attaches.
-/// Email goes only where an address is known — silently impossible otherwise, which is another
+/// Email goes only where an address is known - silently impossible otherwise, which is another
 /// line in §7.2's trade-off.
 /// </para>
 /// <para>
@@ -865,7 +865,7 @@ public sealed class RideNotifications(
 	/// <param name="admitted">Whether they are in.</param>
 	public async Task DecisionMadeAsync(GroupRide ride, GroupRideJoinRequest request, bool admitted)
 	{
-		// The deciders, not the rider — see IRideClient.JoinRequestDecided. This is the half that
+		// The deciders, not the rider - see IRideClient.JoinRequestDecided. This is the half that
 		// stops an organiser's second device, or a co-leader's, from going on showing a number that
 		// has already been answered. The rider is told by e-mail, below.
 		await AnnounceAsync(
@@ -887,7 +887,7 @@ public sealed class RideNotifications(
 					{ride.Name} is yours to open now.
 
 					Sharing your location is a separate decision and it is off until you turn it
-					on — joining a ride does not start broadcasting.
+					on - joining a ride does not start broadcasting.
 					"""
 				: $"""
 					The organiser of {ride.Name} did not admit you this time.
@@ -900,7 +900,7 @@ public sealed class RideNotifications(
 	/// <para>
 	/// Hub only, no e-mail. The other two events here are about a decision somebody is waiting on;
 	/// this one is somebody quietly changing their mind, and an organiser who is not looking at the
-	/// app does not need to be told about it at all — the list will simply be one shorter when they
+	/// app does not need to be told about it at all - the list will simply be one shorter when they
 	/// next open it.
 	/// </para>
 	/// </summary>
@@ -916,7 +916,7 @@ public sealed class RideNotifications(
 	/// decision is already in the database, and a hub that cannot deliver must not turn a committed
 	/// write into a 500 for the person who made it. The cost of a lost message is one stale badge
 	/// until the next load re-counts, which is what <c>RideSession.RefreshJoinRequestsAsync</c> is
-	/// for — §5.3's rule holds here as everywhere: the snapshot is authoritative and this is the
+	/// for - §5.3's rule holds here as everywhere: the snapshot is authoritative and this is the
 	/// delta on top.
 	/// </para>
 	/// </summary>

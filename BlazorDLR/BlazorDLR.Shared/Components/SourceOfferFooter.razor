@@ -6,12 +6,12 @@
 	AGPL §13 source offer, rendered on every page (§14.6.2, §6.1).
 
 	Section 13 of the AGPL obliges the running server to offer the source of the
-	exact build it is running — publishing the repo alone is not sufficient, and
+	exact build it is running - publishing the repo alone is not sufficient, and
 	a hand-maintained commit string is a licence breach that looks like a bug.
 	So the footer reads /api/v1/about (which reads the assembly's embedded commit
 	at build time via SourceLink) and renders licence + source URL + commit.
 
-	Kept in DLR.UI as a shared component so both hosts render it — the SSR shell
+	Kept in DLR.UI as a shared component so both hosts render it - the SSR shell
 	for the public web pages renders it too via the Razor host (§18.4).
 *@
 
@@ -28,7 +28,7 @@
 			Source
 		</a>
 		<span class="separator" aria-hidden="true">·</span>
-		<span class="commit" title="This build's exact commit — §14.6.2.">
+		<span class="commit" title="This build's exact commit - §14.6.2.">
 			@Truncated(info.Commit)
 		</span>
 	}
@@ -60,7 +60,7 @@
 		catch (NotImplementedException)
 		{
 			// A host whose IApiClient cannot answer About. Render the placeholder above and
-			// leave the footer honest — "©, AGPL-3.0-only" is true regardless of whether the
+			// leave the footer honest - "©, AGPL-3.0-only" is true regardless of whether the
 			// server answered.
 		}
 		catch (Exception)
@@ -76,7 +76,7 @@
 		loading?.Dispose();
 	}
 
-	// Show enough of the commit to be recognisable, and no more — the full 40-char SHA is
+	// Show enough of the commit to be recognisable, and no more - the full 40-char SHA is
 	// in the response, which somebody debugging can copy out of the DOM if they need it.
 	private static string Truncated(string commit) =>
 		string.IsNullOrEmpty(commit)

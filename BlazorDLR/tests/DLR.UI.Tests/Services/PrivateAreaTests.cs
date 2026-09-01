@@ -8,13 +8,13 @@ namespace DLR.UI.Tests.Services;
 /// <para>
 /// Worth asserting rather than eyeballing because both halves fail silently. A containment
 /// test that is wrong by a factor publishes a fix from inside the circle, and a round trip
-/// that loses a decimal moves the circle off the house it was drawn around — neither shows
+/// that loses a decimal moves the circle off the house it was drawn around - neither shows
 /// up as an error anywhere.
 /// </para>
 /// </summary>
 public sealed class PrivateAreaTests
 {
-	/// <summary>A kilometre circle over inner Sydney — the default radius, somewhere real.</summary>
+	/// <summary>A kilometre circle over inner Sydney - the default radius, somewhere real.</summary>
 	private static readonly PrivateArea Home = new(-33.868, 151.209, 1_000);
 
 	[Fact]
@@ -22,7 +22,7 @@ public sealed class PrivateAreaTests
 	{
 		Home.Contains(-33.868, 151.209).ShouldBeTrue();
 
-		// ~0.05° of latitude is about 5.5 km — comfortably outside a 1 km circle.
+		// ~0.05° of latitude is about 5.5 km - comfortably outside a 1 km circle.
 		Home.Contains(-33.918, 151.209).ShouldBeFalse();
 	}
 
@@ -95,7 +95,7 @@ public sealed class PrivateAreaTests
 	public void Decode_AnythingNotWhollyReadable_MeansNoArea(string? stored)
 	{
 		// Deliberately unlike RouteStyle.Decode, which repairs field by field. A half-recovered
-		// circle would sit somewhere the rider never put one — silently protecting the wrong
+		// circle would sit somewhere the rider never put one - silently protecting the wrong
 		// place is worse than visibly having lost the setting.
 		PrivateArea.Decode(stored).ShouldBeNull();
 	}

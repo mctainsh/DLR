@@ -15,14 +15,14 @@ namespace DLR.Server.Tests.Hubs;
 /// <summary>
 /// Announcing a new member to the ride (§5.2, §5.3).
 /// <para>
-/// Unlike a join <em>request</em>, this one goes to <see cref="RideHub.Group"/> — everybody. A
+/// Unlike a join <em>request</em>, this one goes to <see cref="RideHub.Group"/> - everybody. A
 /// member list is drawn for every rider on the ride, and somebody who is now on it is not a
 /// confidence: the alternative is fifty people looking at a list that is a row short until each of
 /// them happens to reload.
 /// </para>
 /// <para>
-/// There are two doors into a ride (§5.2) — a code on an open ride, and an organiser admitting a
-/// request — and from the ride's point of view they are one event. Both are tested here, along with
+/// There are two doors into a ride (§5.2) - a code on an open ride, and an organiser admitting a
+/// request - and from the ride's point of view they are one event. Both are tested here, along with
 /// the decline that must announce nothing.
 /// </para>
 /// </summary>
@@ -65,7 +65,7 @@ public sealed class MemberJoinedBroadcastTests(PostgresFixture postgres)
 			// claiming a consent nobody gave.
 			member.Sharing.ShouldBeFalse();
 
-			// And "not sharing" is not "no signal" — neither is a fix they have not sent yet.
+			// And "not sharing" is not "no signal" - neither is a fix they have not sent yet.
 			member.HasPosition.ShouldBeFalse();
 		}
 	}

@@ -32,7 +32,7 @@
       than a new dependency to licence-check. MIT.
 
       Plain SkiaSharp, NOT SkiaSharp.Views.Blazor (v0.24). That package's SKCanvasView
-      initialises through [JSImport] — WebAssembly-only interop — so on a MAUI
+      initialises through [JSImport] - WebAssembly-only interop - so on a MAUI
       BlazorWebView, where the runtime is Mono, it threw on first render and took the
       Blazor renderer down with it: the base map kept panning and every button in the app
       stopped responding. Rasterising off-screen and handing the frame to an <img> works

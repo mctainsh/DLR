@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DLR.Server.Tests.Admin;
 
 /// <summary>
-/// <c>DELETE /api/v1/admin/users/{id}</c> — the one write on the administration surface (§14.6).
+/// <c>DELETE /api/v1/admin/users/{id}</c> - the one write on the administration surface (§14.6).
 /// <para>
 /// It shares its implementation with <c>DELETE /api/v1/me</c>, so what that endpoint erases is
 /// covered by <see cref="AccountDeletionTests"/> and is not repeated here. What is here is the
@@ -42,7 +42,7 @@ public sealed class AdminUserDeletionTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The roster names administrators by username, and a deleted username is free to register
-	/// again (§7.2) — so deleting a fellow administrator would leave the roster entry waiting to
+	/// again (§7.2) - so deleting a fellow administrator would leave the roster entry waiting to
 	/// promote whoever claims the name next.
 	/// </summary>
 	[Fact]

@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @using BlazorDLR.Shared.Components
 @using BlazorDLR.Shared.Diagnostics
+@using BlazorDLR.Shared.Services
 @using BlazorDLR.Shared.State
 @inject AuthState Auth
 @inject CommentNotifier Notifier
@@ -8,6 +9,8 @@
 @inject NavigationManager Nav
 @inject IntroTourState Tour
 @inject LaunchRestore Restore
+@inject StartupCheckState Startup
+@inject AnnouncementNotifier Announcements
 @implements IDisposable
 
 @*
@@ -17,12 +20,12 @@
 	Under 560 px wide: it moves to a bar along the BOTTOM, and a page taller than the
 	screen scrolls underneath it.
 
-	Both are pure CSS — one width media query on `.shell` picks the flex-direction, and
+	Both are pure CSS - one width media query on `.shell` picks the flex-direction, and
 	NavMenu draws the same DOM either way. There is no collapsed state at any width: the
 	rail always shows every destination.
 
 	The breakpoint is width, not orientation. What decides whether a left rail is
-	affordable is how many horizontal pixels the content keeps after it — so a phone held
+	affordable is how many horizontal pixels the content keeps after it - so a phone held
 	landscape is wide enough to keep the rail, and the same phone upright is not.
 
 	The wrapper is `.shell`, not `.page`: `.page` is the shared *content column* every
@@ -32,7 +35,7 @@
 	wrapper used to carry a `data-theme` attribute for a light alternative, which never
 	worked: the CSS selectors were `:root[data-theme=…]`, so they matched <html> and this
 	attribute on a div never selected anything. The attribute, the preference, its store
-	and the settings control it was set from are all gone rather than fixed — the app is
+	and the settings control it was set from are all gone rather than fixed - the app is
 	read through a visor in daylight and the dark palette is the design (§18.6).
 *@
 
@@ -44,7 +47,16 @@
 
 		<main class="main">
 			<article class="content">
-				@Body
+				@* The wall goes HERE rather than over the top, which is what makes it a wall: a build
+				   the server will not serve has no route underneath it to reach (§20.1). *@
+				@if (Startup.IsUnsupported)
+				{
+					<ClientOutOfDate />
+				}
+				else
+				{
+					@Body
+				}
 			</article>
 		</main>
 	</div>
@@ -52,6 +64,11 @@
 	@* One dialog for every destructive action in the app. Pages call
 	   ConfirmService.AskAsync(...); this component renders whatever is pending. *@
 	<ConfirmDialog />
+
+	@* And one for whatever the people running the server are telling riders (§20.2). Here rather
+	   than on a page for the same reason as the confirm dialog: an announcement arrives over the
+	   hub at a moment nobody chose, so it has to be able to draw over any screen there is. *@
+	<AnnouncementDialog />
 </div>
 
 @code {
@@ -67,7 +84,7 @@
 	/// <summary>
 	/// Subscribing here is what gives <see cref="CommentNotifier"/> a lifetime (§17.6).
 	/// <para>
-	/// Injecting it is what constructs it, and constructing it is what subscribes it to the hub —
+	/// Injecting it is what constructs it, and constructing it is what subscribes it to the hub -
 	/// so the notifier is alive from the first render of the first page and stays alive for as long
 	/// as the app does. That is the point of putting it on the layout rather than on a page: a
 	/// notifier that only existed while the thread was open would be a notifier for the one
@@ -90,8 +107,8 @@
 		Nav.LocationChanged += OnLocationChanged;
 		DiagnosticLog.Write($"Page: {Path(Nav.Uri)} (Init).");
 
-		// Subscribe first, then drain. A route that arrived before the subscription above — the
-		// cold-launch case, which is most of them — is parked rather than raised, and this ordering
+		// Subscribe first, then drain. A route that arrived before the subscription above - the
+		// cold-launch case, which is most of them - is parked rather than raised, and this ordering
 		// is what makes sure exactly one of the two paths picks it up.
 		if (Routing.TakePending() is { } pending)
 		{
@@ -107,7 +124,7 @@
 	/// Travels to where a tapped notification pointed.
 	/// <para>
 	/// Marshalled through <c>InvokeAsync</c> because the caller is a platform callback on whatever
-	/// thread Android or iOS chose — <c>NavigationManager</c> is not thread-safe and Blazor throws
+	/// thread Android or iOS chose - <c>NavigationManager</c> is not thread-safe and Blazor throws
 	/// if it is touched from off the renderer's context.
 	/// </para>
 	/// </summary>
@@ -129,7 +146,7 @@
 			// RedirectToWelcome asks a rider to sign in to an account they never signed out of.
 			//
 			// Here rather than in each host's Program.cs because it needs a rendered tree to
-			// broadcast into — and here rather than on a page because every page is downstream of
+			// broadcast into - and here rather than on a page because every page is downstream of
 			// this layout, including the Welcome screen the redirect lands on, which watches for
 			// the arriving session and takes the rider home when it turns up.
 			//
@@ -139,8 +156,26 @@
 			await StepAsync("session", () => Auth.RestoreAsync());
 			DiagnosticLog.Write($"Startup: session is {(Auth.UserId is { } who ? who.ToString() : "anonymous")}.");
 
+			// What the server has to say to this app (§20): whether it is still one the server will
+			// serve, and anything the operator is telling riders. After the session because the hub
+			// it then holds open is authenticated, and before the two rungs below because a build
+			// that is walled off has no business being sent to the introduction or to last night's
+			// adventure.
+			await StepAsync("startup check", () => Announcements.StartAsync());
+
+			if (Startup.IsUnsupported)
+			{
+				// Nothing below this line is worth doing for a build that cannot talk to the server:
+				// the introduction would teach a rider to use an app that is walled off, and the
+				// adventure restore would navigate them behind the wall. StateHasChanged because
+				// OnAfterRenderAsync does not re-render on its own, and the wall is drawn from here.
+				DiagnosticLog.Write("Startup: this build is below the server's minimum; showing the wall.");
+				StateHasChanged();
+				return;
+			}
+
 			// After the session, because a rider who is already signed in on this device has run
-			// the app before and the introduction has nothing to tell them — the read below is the
+			// the app before and the introduction has nothing to tell them - the read below is the
 			// one that decides, and putting it first would race the restore for the navigation.
 			await StepAsync("introduction", ShowIntroductionIfFirstRunAsync);
 
@@ -152,7 +187,7 @@
 
 	/// <summary>
 	/// Runs one rung of the launch ladder on its own, so a failure in it does not take the rungs
-	/// below it down as well — not every failure in the session restore is one <c>AuthState</c>
+	/// below it down as well - not every failure in the session restore is one <c>AuthState</c>
 	/// catches, and a refresh that times out throws <see cref="TaskCanceledException"/>.
 	/// </summary>
 	/// <param name="rung">What is being attempted, for the log.</param>
@@ -171,7 +206,7 @@
 
 	/// <summary>
 	/// Puts the rider back on the adventure they were on (<see cref="LaunchRestore"/>), which only
-	/// Home is a landing for — a notification or an invitation aimed this launch somewhere already.
+	/// Home is a landing for - a notification or an invitation aimed this launch somewhere already.
 	/// <para>
 	/// The one non-obvious part: on the launch this exists for, Home is <c>[Authorize]</c> and the
 	/// session is still restoring, so the router has already bounced to Welcome and the URL here
@@ -225,7 +260,7 @@
 	/// </para>
 	/// <para>
 	/// <strong>It never fires twice and never traps.</strong> The state is read from the device, so
-	/// a host with no store to read — the SSR prerender, which does not reach this method at all —
+	/// a host with no store to read - the SSR prerender, which does not reach this method at all -
 	/// cannot start a redirect loop, and the deck marks itself seen whether it is finished or
 	/// skipped.
 	/// </para>
@@ -241,7 +276,7 @@
 
 		string here = Path(Nav.Uri);
 
-		// Already there — Settings' "How this works" card, or a reload of the deck itself.
+		// Already there - Settings' "How this works" card, or a reload of the deck itself.
 		if (here.StartsWith("/intro", StringComparison.OrdinalIgnoreCase))
 			return;
 
@@ -286,7 +321,7 @@
 	}
 
 	/// <summary>
-	/// The route without the scheme and host — which on the phone is a WebView's own invented
+	/// The route without the scheme and host - which on the phone is a WebView's own invented
 	/// origin and tells a reader nothing, while making every line long enough to wrap.
 	/// </summary>
 	private string Path(string uri) =>

@@ -11,9 +11,9 @@ namespace DLR.Server.Data.Migrations;
 /// <remarks>
 /// <para>
 /// <strong>The thread is the comment table it already had, widened by one column.</strong> A
-/// route's conversation is the same conversation an adventure's is — same plain-text body, same
+/// route's conversation is the same conversation an adventure's is - same plain-text body, same
 /// photograph, same six reactions, same polls, same edit window, same pinning, same reporting and
-/// blocking — so <c>ride_comment</c> now hangs off either a ride or a route, and
+/// blocking - so <c>ride_comment</c> now hangs off either a ride or a route, and
 /// <c>ck_ride_comment_one_thread</c> makes "exactly one of the two" a property of the table rather
 /// than a promise the endpoints keep. A second table would have been a second copy of all of it,
 /// and the copy that drifted would have been whichever had fewer tests.
@@ -27,7 +27,7 @@ namespace DLR.Server.Data.Migrations;
 /// <para>
 /// <strong>Two unique indexes for one idempotency rule, not one over both columns.</strong>
 /// PostgreSQL treats nulls as distinct in a unique index, so
-/// <c>ux_ride_comment_client</c> — which leads on <c>group_ride_id</c> — cannot decide anything
+/// <c>ux_ride_comment_client</c> - which leads on <c>group_ride_id</c> - cannot decide anything
 /// about a route comment, whose <c>group_ride_id</c> is null. Every drain of an outbox would slip
 /// past it. <c>ux_ride_comment_track_client</c> is the same rule with a leading column that is
 /// never null for the rows it has to judge.
@@ -132,7 +132,7 @@ public partial class AddTrackRatingsAndRouteComments : Migration
 	/// <inheritdoc />
 	/// <remarks>
 	/// Going back narrows <c>group_ride_id</c> again, which fails outright if any route comment
-	/// has been written — as it should. There is nowhere for those rows to go, and a
+	/// has been written - as it should. There is nowhere for those rows to go, and a
 	/// <c>Down</c> that quietly discarded a conversation to make the column fit would be worse
 	/// than one that refuses.
 	/// </remarks>

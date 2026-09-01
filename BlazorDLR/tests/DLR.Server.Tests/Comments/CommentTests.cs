@@ -17,7 +17,7 @@ namespace DLR.Server.Tests.Comments;
 /// <summary>
 /// The ride thread (§17).
 /// <para>
-/// The thread spans the whole ride, and most of its value is outside the live window — before
+/// The thread spans the whole ride, and most of its value is outside the live window - before
 /// (what time, which route, who is actually coming) and after (photos, and argument about who was
 /// slowest). During the ride, traffic should be near zero, because the people this reaches are
 /// operating vehicles (§17.1).
@@ -30,7 +30,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The question a live thread cannot dodge: a rider writes at 10:04 in a valley with no signal
-	/// and it uploads at 14:32 — where does it go?
+	/// and it uploads at 14:32 - where does it go?
 	/// <para>
 	/// At the point of receipt. Ordering on a client-supplied time makes the thread only as
 	/// trustworthy as the least accurate clock in the group, and drops four-hour-old text into the
@@ -54,7 +54,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 		// 10:04 in the valley. Written first, and it will arrive last.
 		app.Clock.Advance(TimeSpan.FromHours(4));
 
-		// Four hours is past the fifteen-minute access token, so both riders sign in again —
+		// Four hours is past the fifteen-minute access token, so both riders sign in again -
 		// which is exactly what their apps would have done on the way back into coverage.
 		await ReauthenticateAsync(app, organiser, "DaveSmith");
 		await ReauthenticateAsync(app, member, "SamJones");
@@ -74,7 +74,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 		CommentPage page = await ThreadAsync(member, ride.Id);
 
-		// Newest first by receipt, so the four-hour-old text sits at the top where it arrived —
+		// Newest first by receipt, so the four-hour-old text sits at the top where it arrived -
 		// not buried under the conversation it missed.
 		page.Comments.Select(comment => comment.Id).ShouldBe([drained.Id, live.Id]);
 	}
@@ -111,7 +111,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The UI shows <em>"14:32 — written 10:04"</em>, and the threshold that decides when is
+	/// The UI shows <em>"14:32 - written 10:04"</em>, and the threshold that decides when is
 	/// configuration rather than a number three clients each pick for themselves (§17.3, §14.5).
 	/// </summary>
 	[Fact]
@@ -149,7 +149,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A photograph with no text is legitimate — most post-ride posts are exactly that — so the
+	/// A photograph with no text is legitimate - most post-ride posts are exactly that - so the
 	/// rule is "at least one of the two", not "body required" (§17.2).
 	/// </summary>
 	[Fact]
@@ -216,7 +216,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 		refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
 		// And they cannot read it either. The thread is visible to admitted members and nobody
-		// else — that is the whole abuse model §17.1 declines to give up (§5.2).
+		// else - that is the whole abuse model §17.1 declines to give up (§5.2).
 		using HttpResponseMessage unread = await stranger.GetAsync($"{RidesUrl}/{ride.Id}/comments");
 
 		unread.StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -249,7 +249,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 		app.Clock.Advance(TimeSpan.FromMinutes(2));
 
-		// Past fifteen minutes from receipt — which is also exactly the access token's lifetime,
+		// Past fifteen minutes from receipt - which is also exactly the access token's lifetime,
 		// so this test cannot reach the far side of the window without signing in again. Any test
 		// that moves the clock more than fifteen minutes needs this (§7.4).
 		await ReauthenticateAsync(app, organiser, "DaveSmith");
@@ -280,7 +280,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 		CommentDto theirs = await PostAsync(member, ride.Id, "Something the organiser will remove");
 
-		// An ordinary member cannot delete somebody else's post — otherwise "the organiser can
+		// An ordinary member cannot delete somebody else's post - otherwise "the organiser can
 		// moderate" would mean "anybody can".
 		using (HttpResponseMessage refused = await other.DeleteAsync($"{CommentsUrl}/{theirs.Id}"))
 		{
@@ -322,7 +322,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
 
-		// Deleting one makes room again — the cap bounds what a thread holds, not how many posts
+		// Deleting one makes room again - the cap bounds what a thread holds, not how many posts
 		// it has ever seen.
 		CommentPage page = await ThreadAsync(organiser, ride.Id);
 
@@ -444,7 +444,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 		(await ThreadAsync(organiser, ride.Id)).Pinned.Count.ShouldBe(3);
 
-		// Unpin one and the fourth fits — otherwise the cap would be a permanent ceiling on a
+		// Unpin one and the fourth fits - otherwise the cap would be a permanent ceiling on a
 		// noticeboard that is supposed to change through the ride.
 		await PinAsync(organiser, posts[0].Id, pinned: false);
 		await PinAsync(organiser, posts[3].Id, pinned: true);
@@ -503,7 +503,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 
 		PositionRows(app, ride.Id).ShouldBe(0, "measured data goes with the consent (§5.6)");
 
-		// The thread is kept and stays open — the best photos land after everybody gets home.
+		// The thread is kept and stays open - the best photos land after everybody gets home.
 		CommentPage page = await ThreadAsync(organiser, ride.Id);
 
 		page.Comments.Single().Id.ShouldBe(posted.Id);
@@ -545,7 +545,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 		page.Comments.Single().Id.ShouldBe(theirs.Id);
 		page.Comments.Single().AuthorUserName.ShouldBe("SamJones");
 
-		// And the author has lost the thread entirely — reading, posting and editing their own.
+		// And the author has lost the thread entirely - reading, posting and editing their own.
 		using (HttpResponseMessage reading = await member.GetAsync($"{RidesUrl}/{ride.Id}/comments"))
 		{
 			reading.StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -588,7 +588,7 @@ public sealed class CommentTests(PostgresFixture postgres)
 			set.StatusCode.ShouldBe(HttpStatusCode.OK, await set.Content.ReadAsStringAsync());
 		}
 
-		// Text still works — this is the assertion the switch exists to make true.
+		// Text still works - this is the assertion the switch exists to make true.
 		CommentDto text = await PostAsync(member, ride.Id, "No pictures then");
 
 		text.PhotoId.ShouldBeNull();

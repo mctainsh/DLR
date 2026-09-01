@@ -6,7 +6,7 @@
 @inject NavigationManager Nav
 @inject TimeProvider Clock
 
-<PageTitle>Create an adventure — Dumb Luck Routes</PageTitle>
+<PageTitle>Create an adventure - Dumb Luck Routes</PageTitle>
 
 <div class="page page-form form-page">
 	<PageNav Title="Create an adventure" BackHref="/group-rides" BackLabel="Back to group adventures" />
@@ -20,7 +20,7 @@
 	{
 		@*
 			The adventure exists; only the route did not attach (§5.4). The form is gone rather
-			than re-armed on purpose — pressing Create again would make a second adventure, and
+			than re-armed on purpose - pressing Create again would make a second adventure, and
 			the way on from here is the ride's own Info screen, where routes are managed anyway.
 		*@
 		<p><a class="button" href="@($"/group-rides/{created}/info")">Open the adventure</a></p>
@@ -46,7 +46,7 @@
 
 			@*
 				The planned route, chosen here rather than only afterwards (§5.4). Optional, and a
-				failed track fetch says so inside the control instead of blocking the form — a rider
+				failed track fetch says so inside the control instead of blocking the form - a rider
 				creating an adventure at the trailhead should not be stopped by a list they were
 				never going to pick from.
 			*@
@@ -57,7 +57,7 @@
 					<option value="">@RoutePlaceholder</option>
 					@foreach (TrackSummary track in _tracks ?? [])
 					{
-						<option value="@track.Id">@(track.Name ?? "Unnamed track") — @FormatKm(track.DistanceM)</option>
+						<option value="@track.Id">@(track.Name ?? "Unnamed track") - @FormatKm(track.DistanceM)</option>
 					}
 				</select>
 			</label>
@@ -65,11 +65,11 @@
 			@if (_tracks is { Count: 0 })
 			{
 				@*
-					Only the caller's own tracks can be attached (§15.4) — a route somebody sent you
+					Only the caller's own tracks can be attached (§15.4) - a route somebody sent you
 					is added by importing their GPX, which is the copy feature.
 				*@
 				<p class="hint">
-					Routes come from your own tracks — <a href="/import">import a GPX</a> or record
+					Routes come from your own tracks - <a href="/import">import a GPX</a> or record
 					an adventure first, then attach it from the adventure's Info screen.
 				</p>
 			}
@@ -80,13 +80,13 @@
 					<input type="radio" name="policy" value="@JoinPolicyDto.Approval"
 						   checked="@(_joinPolicy == JoinPolicyDto.Approval)"
 						   @onchange="() => _joinPolicy = JoinPolicyDto.Approval" />
-					Approval — a valid code creates a pending request; nobody enters until you admit them.
+					Approval - a valid code creates a pending request; nobody enters until you admit them.
 				</label>
 				<label class="radio">
 					<input type="radio" name="policy" value="@JoinPolicyDto.Open"
 						   checked="@(_joinPolicy == JoinPolicyDto.Open)"
 						   @onchange="() => _joinPolicy = JoinPolicyDto.Open" />
-					Open — a valid code joins immediately.
+					Open - a valid code joins immediately.
 				</label>
 			</fieldset>
 
@@ -129,13 +129,13 @@
 	private string? _tracksError;
 	private Guid? _trackId;
 
-	// Set only when the ride was created but its route would not attach — see the markup.
+	// Set only when the ride was created but its route would not attach - see the markup.
 	private Guid? _createdRideId;
 
 	/// <summary>
 	/// The tracks are fetched here rather than behind a "pick a route" button, because the whole
 	/// point of offering the choice on this screen is that it costs the organiser no extra step.
-	/// A failed fetch is kept and shown in the placeholder — the route is optional, so it must
+	/// A failed fetch is kept and shown in the placeholder - the route is optional, so it must
 	/// never stop somebody creating the adventure.
 	/// </summary>
 	protected override async Task OnInitializedAsync()
@@ -158,14 +158,14 @@
 
 	/// <summary>
 	/// The empty option's text, which is also where the picker says why it has nothing to
-	/// offer — a disabled dropdown reading a bare "No route" looks like a broken control.
+	/// offer - a disabled dropdown reading a bare "No route" looks like a broken control.
 	/// </summary>
 	private string RoutePlaceholder => (_tracks, _tracksError) switch
 	{
-		(_, not null) => $"No route — {_tracksError}",
+		(_, not null) => $"No route - {_tracksError}",
 		(null, _) => "Loading your tracks…",
-		({ Count: 0 }, _) => "No route — you have no tracks yet",
-		_ => "No route — add one later",
+		({ Count: 0 }, _) => "No route - you have no tracks yet",
+		_ => "No route - add one later",
 	};
 
 	/// <summary>

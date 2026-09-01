@@ -10,7 +10,7 @@ namespace DLR.Server.Tests.Harness;
 /// <para>
 /// This exists because it was missed. <c>DummyPasswordVerifier</c> shipped as a singleton
 /// holding a scoped <c>IPasswordHasher</c>, the whole suite stayed green, and the first thing
-/// to notice was <c>dotnet run</c> — because the default arrangement validates the graph only
+/// to notice was <c>dotnet run</c> - because the default arrangement validates the graph only
 /// under Development, and the test host runs as "Testing".
 /// </para>
 /// <para>

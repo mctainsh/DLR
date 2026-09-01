@@ -16,7 +16,7 @@ namespace DLR.UI.Tests.State;
 /// that is too loud tells a rider about their own posts at 100 km/h. Neither shows up in a build.
 /// </para>
 /// <para>
-/// The platform halves are deliberately not here — <c>UiLayeringRules</c> bars every MAUI assembly
+/// The platform halves are deliberately not here - <c>UiLayeringRules</c> bars every MAUI assembly
 /// from this project, and <c>UNUserNotificationCenter</c> has to be proven on a device anyway. What
 /// a compiler cannot check and a device should not have to is <em>which</em> posts get that far.
 /// </para>
@@ -88,7 +88,7 @@ public sealed class CommentNotifierTests
 		harness.Hub.RaiseCommentPosted(Post(TheRide, SomebodyElse));
 
 		await harness.Notifications.Shown.ShouldEventuallyContainOne(
-			"§17.6: since v0.26 removed the Live silence, an ordinary post notifies in every ride state — " +
+			"§17.6: since v0.26 removed the Live silence, an ordinary post notifies in every ride state - " +
 			"there is no ride state left that changes this.");
 
 		harness.Notifications.Shown[0].Title.ShouldBe("SarahJones",
@@ -115,7 +115,7 @@ public sealed class CommentNotifierTests
 	{
 		Harness harness = await BuildAsync();
 
-		// The notifier is handed no ride state at all — it has no constructor parameter for one and
+		// The notifier is handed no ride state at all - it has no constructor parameter for one and
 		// no way to ask. That is the v0.26 reversal expressed as a shape rather than as a branch
 		// somebody could re-add: there is nothing here for a "but during a ride…" condition to hang
 		// off. The assertion is that a post notifies with the notifier knowing nothing about the ride.
@@ -128,7 +128,7 @@ public sealed class CommentNotifierTests
 
 	/// <summary>
 	/// v0.27's reversal, and the reason the section below it is one test long. Until then a post
-	/// landing in the thread on screen was swallowed — which needed the app to know both that the
+	/// landing in the thread on screen was swallowed - which needed the app to know both that the
 	/// page was mounted and that the phone was not in a tank bag, and got the second half wrong for
 	/// the rest of the ride if the rider locked the screen with the thread open.
 	/// </summary>
@@ -142,7 +142,7 @@ public sealed class CommentNotifierTests
 
 		await harness.Notifications.Shown.ShouldEventuallyContainOne(
 			"§17.6: opening a thread withdraws the card standing in the shade for it and changes " +
-			"nothing else — the app presents every post and leaves silence to the operating system.");
+			"nothing else - the app presents every post and leaves silence to the operating system.");
 	}
 
 	[Fact]
@@ -165,14 +165,14 @@ public sealed class CommentNotifierTests
 		harness.Notifier.ThreadOpened(TheRide);
 
 		harness.Notifications.Cancelled.ShouldContain(CommentNotifier.TagFor(TheRide),
-			"the card was about a conversation the rider has now opened, so it has done its job — " +
+			"the card was about a conversation the rider has now opened, so it has done its job - " +
 			"and a stale card is how riders learn to swipe notifications away without reading them.");
 	}
 
 	/// <summary>
 	/// Opening a thread is where the permission gets asked for, and the point is the timing.
 	/// <para>
-	/// The other caller is <c>RaiseAsync</c>, which asks at the instant a post lands — on a hub
+	/// The other caller is <c>RaiseAsync</c>, which asks at the instant a post lands - on a hub
 	/// callback, which during a ride is a phone in a tank bag. iOS will not put an authorisation
 	/// alert on a screen nobody is looking at, so a first-ever prompt raised from there is one the
 	/// rider never answers and every notification after it is gated off. Android hid the whole
@@ -187,7 +187,7 @@ public sealed class CommentNotifierTests
 		harness.Notifier.ThreadOpened(TheRide);
 
 		harness.Notifications.PermissionRequests.ShouldBeGreaterThan(0,
-			"a rider who has just opened a conversation is a rider looking at the phone — which is " +
+			"a rider who has just opened a conversation is a rider looking at the phone - which is " +
 			"the one moment the platform will actually show the prompt.");
 	}
 
@@ -201,7 +201,7 @@ public sealed class CommentNotifierTests
 
 		harness.Notifications.PermissionRequests.ShouldBe(0,
 			"§18.2: the browsers raise nothing, so prompting there would be a dialog for a capability " +
-			"that does not exist — opening a thread is no different from a post arriving.");
+			"that does not exist - opening a thread is no different from a post arriving.");
 	}
 
 	// ---------- What does not ----------
@@ -234,7 +234,7 @@ public sealed class CommentNotifierTests
 
 		harness.Notifications.Shown.ShouldBeEmpty(
 			"a refusal is a rider saying they do not want to be interrupted, which is exactly the choice " +
-			"§17.6 now leaves to them — not an error to work around.");
+			"§17.6 now leaves to them - not an error to work around.");
 		harness.Notifications.PermissionRequests.ShouldBeGreaterThan(0);
 	}
 
@@ -276,7 +276,7 @@ public sealed class CommentNotifierTests
 			Post(TheRide, SomebodyElse, body: null, photoId: Guid.NewGuid()));
 
 		notification.Body.ShouldBe("Sent a photo.",
-			"§17.2 makes a photo-only post legitimate — and an empty notification body is a bug that " +
+			"§17.2 makes a photo-only post legitimate - and an empty notification body is a bug that " +
 			"looks like one.");
 	}
 
@@ -300,7 +300,7 @@ public sealed class CommentNotifierTests
 		string body = CommentNotifier.Compose(Post(TheRide, SomebodyElse, body: essay)).Body;
 
 		body.Length.ShouldBeLessThanOrEqualTo(CommentNotifier.MaxBodyChars,
-			"the ellipsis replaces the last character rather than being appended — a payload that grows " +
+			"the ellipsis replaces the last character rather than being appended - a payload that grows " +
 			"past the cap it promised is how a cap stops being one.");
 		body.ShouldEndWith("…");
 	}
@@ -323,7 +323,7 @@ public sealed class CommentNotifierTests
 		LocalNotification elsewhere = CommentNotifier.Compose(Post(AnotherRide, SomebodyElse, "Three."));
 
 		second.Tag.ShouldBe(first.Tag,
-			"twenty entries in a shade is not twenty times as useful as one — it is a wall the rider has " +
+			"twenty entries in a shade is not twenty times as useful as one - it is a wall the rider has " +
 			"to dismiss at the next set of lights.");
 		elsewhere.Tag.ShouldNotBe(first.Tag,
 			"but two adventures are two conversations, and collapsing them would hide one behind the other.");
@@ -341,8 +341,8 @@ public sealed class CommentNotifierTests
 }
 
 /// <summary>
-/// The notifier raises notifications from a fire-and-forget continuation — its caller is a hub
-/// callback with nowhere to await — so a test that asserts immediately races the post it is
+/// The notifier raises notifications from a fire-and-forget continuation - its caller is a hub
+/// callback with nowhere to await - so a test that asserts immediately races the post it is
 /// checking for. This polls briefly instead of sleeping a fixed amount, which keeps a passing run
 /// fast and a failing one honest.
 /// </summary>

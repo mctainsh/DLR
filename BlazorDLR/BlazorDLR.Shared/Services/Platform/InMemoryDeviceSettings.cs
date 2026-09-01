@@ -3,7 +3,7 @@ namespace BlazorDLR.Shared.Services.Platform;
 /// <summary>
 /// An <see cref="IDeviceSettings"/> that forgets everything when the process does.
 /// <para>
-/// Bound by the SSR pass, which has no device to store anything on — the prerender renders
+/// Bound by the SSR pass, which has no device to store anything on - the prerender renders
 /// with the shipped defaults and the WASM client re-resolves against browser
 /// <c>localStorage</c> the moment it boots. Also what bUnit tests get, so a test that sets a
 /// preference can read it back without a browser.

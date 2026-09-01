@@ -10,7 +10,7 @@ namespace BlazorDLR.Platforms.Apple.Notifications;
 /// The two callbacks that make local notifications actually behave on iOS (§17.6).
 /// <para>
 /// <strong><see cref="WillPresentNotification"/> is not optional.</strong> iOS does not show a
-/// notification an app raises on itself while that app is in the foreground — it delivers it
+/// notification an app raises on itself while that app is in the foreground - it delivers it
 /// silently and expects the app to have drawn its own UI, because normally the app knows. That
 /// default is exactly wrong here: the case this feature exists for is a rider on the <em>live
 /// map</em>, which is the foreground, with the thread nowhere on screen. Without this delegate the
@@ -21,14 +21,14 @@ namespace BlazorDLR.Platforms.Apple.Notifications;
 /// <para>
 /// <strong>Set from <c>AppDelegate.FinishedLaunching</c>, before the app finishes launching.</strong>
 /// Apple's requirement, and it has teeth: a notification tapped from a cold lock screen delivers its
-/// response during startup, and a delegate assigned any later than this misses it — which is the
+/// response during startup, and a delegate assigned any later than this misses it - which is the
 /// one launch where the rider most obviously expected to land somewhere specific.
 /// </para>
 /// </summary>
 public sealed class ThreadNotificationDelegate : UNUserNotificationCenterDelegate
 {
 	/// <summary>
-	/// Shows a notification the app raised while it was in the foreground. See the type's remarks —
+	/// Shows a notification the app raised while it was in the foreground. See the type's remarks -
 	/// without this it is swallowed.
 	/// </summary>
 	public override void WillPresentNotification(
@@ -38,7 +38,7 @@ public sealed class ThreadNotificationDelegate : UNUserNotificationCenterDelegat
 	{
 		// The other half of the pair in AppleNotificationService.ShowAsync. If that line appears
 		// and this one does not, the delegate is not on the notification centre by the time the
-		// notification is raised — which is the one failure that looks exactly like "iOS ignores
+		// notification is raised - which is the one failure that looks exactly like "iOS ignores
 		// our notifications" and is invisible without saying so.
 		DiagnosticLog.Write($"Foreground presentation asked for: {notification.Request.Identifier}.");
 
@@ -81,7 +81,7 @@ public sealed class ThreadNotificationDelegate : UNUserNotificationCenterDelegat
 			// time this runs. The completion handler below is the part iOS is waiting on.
 		}
 
-		// Always called, and always exactly once — iOS logs a warning and eventually kills the app
+		// Always called, and always exactly once - iOS logs a warning and eventually kills the app
 		// for a response handler that never completes.
 		completionHandler();
 	}

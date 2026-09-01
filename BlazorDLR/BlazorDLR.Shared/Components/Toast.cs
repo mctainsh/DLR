@@ -10,8 +10,8 @@ namespace BlazorDLR.Shared.Components;
 /// one's message early.
 /// </para>
 /// <para>
-/// Not a component. The two screens that show one draw it differently — over the map, and beside
-/// the rail — so what is shared is the mechanism and not the markup.
+/// Not a component. The two screens that show one draw it differently - over the map, and beside
+/// the rail - so what is shared is the mechanism and not the markup.
 /// </para>
 /// </summary>
 public sealed class Toast : IDisposable
@@ -31,7 +31,7 @@ public sealed class Toast : IDisposable
 	/// <summary>Creates a slot for one message at a time.</summary>
 	/// <param name="clock">Where the timer comes from, so a test advances it rather than sleeping.</param>
 	/// <param name="dispatch">
-	/// Runs the callback on the owner's renderer and redraws — the timer fires on a thread pool
+	/// Runs the callback on the owner's renderer and redraws - the timer fires on a thread pool
 	/// thread, and Blazor throws if a component's state is touched from off its context.
 	/// </param>
 	public Toast(TimeProvider clock, Action<Action> dispatch)
@@ -67,7 +67,7 @@ public sealed class Toast : IDisposable
 	}
 
 	/// <summary>
-	/// Takes the message off now — what a screen calls when what it was describing is gone. The
+	/// Takes the message off now - what a screen calls when what it was describing is gone. The
 	/// count moves too, so the timer already running does not clear a message shown after this.
 	/// </summary>
 	public void Clear()

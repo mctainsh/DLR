@@ -8,7 +8,7 @@ namespace DLR.Core.Tests.Tracks;
 /// user-supplied file format the project reads.
 /// <para>
 /// None of these is cycling-specific. They are the classic XML attacks, which is precisely what
-/// makes them easy to leave out — nothing about a bike ride suggests you need to think about
+/// makes them easy to leave out - nothing about a bike ride suggests you need to think about
 /// entity expansion.
 /// </para>
 /// </summary>
@@ -29,7 +29,7 @@ public sealed class GpxReaderHostileInputTests
 
 	/// <summary>
 	/// Billion laughs. A few hundred bytes expand to gigabytes in a parser that processes
-	/// entities — so the assertion is not only that it fails, but that it fails <em>fast</em>
+	/// entities - so the assertion is not only that it fails, but that it fails <em>fast</em>
 	/// and without allocating.
 	/// </summary>
 	[Fact]
@@ -46,14 +46,14 @@ public sealed class GpxReaderHostileInputTests
 
 		allocated.ShouldBeLessThan(
 			10 * 1024 * 1024,
-			$"the read allocated {allocated / 1024:N0} KB — an expansion that gets anywhere near " +
+			$"the read allocated {allocated / 1024:N0} KB - an expansion that gets anywhere near " +
 			"running is the attack succeeding slowly rather than failing");
 	}
 
 	/// <summary>
 	/// XXE: the entity that reads a file off the server and posts it back inside a track name.
 	/// The fixture points at a real file with known content, so resolving it would visibly
-	/// succeed — which is the only way to tell "did not resolve" from "resolved and found
+	/// succeed - which is the only way to tell "did not resolve" from "resolved and found
 	/// nothing".
 	/// </summary>
 	[Fact]
@@ -81,7 +81,7 @@ public sealed class GpxReaderHostileInputTests
 				: string.Join("|", document.Tracks.Select(track => track.Name));
 
 			parsed.Contains(secret, StringComparison.Ordinal).ShouldBeFalse(
-				"the entity resolved and put the contents of a local file inside a track name — " +
+				"the entity resolved and put the contents of a local file inside a track name - " +
 				"which is XXE working exactly as intended by whoever sent the file");
 
 			failure.ShouldBeOfType<GpxFormatException>().Problem.ShouldBe(GpxProblem.DtdNotAllowed);
@@ -112,11 +112,11 @@ public sealed class GpxReaderHostileInputTests
 		refused.Message.ShouldContain(cap.ToString("N0", System.Globalization.CultureInfo.CurrentCulture));
 
 		// The whole file is ~20 000 points; stopping at 100 must not have required reading it.
-		// A generous bound, because XmlReader buffers in blocks — the point is the order of
+		// A generous bound, because XmlReader buffers in blocks - the point is the order of
 		// magnitude, not the byte.
 		stream.BytesRead.ShouldBeLessThan(
 			stream.TotalBytes / 2,
-			$"read {stream.BytesRead:N0} of {stream.TotalBytes:N0} bytes — the cap is supposed " +
+			$"read {stream.BytesRead:N0} of {stream.TotalBytes:N0} bytes - the cap is supposed " +
 			"to abort the parse, not audit it afterwards");
 	}
 

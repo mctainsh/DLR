@@ -9,7 +9,7 @@ namespace DLR.Server.Comments;
 /// Reading reaction tallies (§17.4).
 /// <para>
 /// One place, because the thread, the single-comment response and the coalesced broadcast all
-/// need the same shape and would otherwise each build it — and the one that drifted would be the
+/// need the same shape and would otherwise each build it - and the one that drifted would be the
 /// broadcast, which nothing looks at directly.
 /// </para>
 /// </summary>
@@ -46,7 +46,7 @@ public static class CommentReactions
 	/// <param name="forUser">Whose own reaction to report, or null.</param>
 	/// <param name="hidden">
 	/// Accounts the reader has blocked. Their reactions are excluded from the tally, not merely
-	/// from a list of names — §17.7 says blocking hides a person's reactions, and a count that
+	/// from a list of names - §17.7 says blocking hides a person's reactions, and a count that
 	/// still included them would be the one place their presence leaked through.
 	/// </param>
 	/// <param name="cancellationToken">Cancellation.</param>

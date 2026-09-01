@@ -8,7 +8,7 @@ namespace BlazorDLR.Shared.Services;
 /// <strong>Why a gate at all.</strong> A phone's location service does not answer the question
 /// the app is asking. It reports what it has, as often as it can, including the fix it took from
 /// a cell tower while the GPS was still warming up, the one that puts a stationary rider three
-/// streets away because they are parked under a bridge, and — at a red light — the same point
+/// streets away because they are parked under a bridge, and - at a red light - the same point
 /// once a second for two minutes. Publishing all of that costs the rider's battery and uplink,
 /// costs every other member of the ride a redraw, and puts a pin somewhere nobody is.
 /// </para>
@@ -16,17 +16,17 @@ namespace BlazorDLR.Shared.Services;
 /// Five rules. The first two throw a fix out on its own merits; the last three are the rider's
 /// <see cref="LocationUpdateRate"/>, said in the order they are asked:
 /// <list type="number">
-///   <item><strong>Accuracy</strong> — a fix whose own reported accuracy is worse than
+///   <item><strong>Accuracy</strong> - a fix whose own reported accuracy is worse than
 ///     <see cref="MaxAccuracyM"/> says "I am somewhere in this circle", and past a point the
 ///     circle is bigger than the thing being drawn.</item>
-///   <item><strong>Speed sanity</strong> — a jump implying more than <see cref="MaxSpeedMps"/>
+///   <item><strong>Speed sanity</strong> - a jump implying more than <see cref="MaxSpeedMps"/>
 ///     from the last accepted fix did not happen on a motorcycle, so it is a bad fix rather than
 ///     a fast one.</item>
-///   <item><strong>Minimum</strong> — nothing goes inside the rider's floor, whatever else is
+///   <item><strong>Minimum</strong> - nothing goes inside the rider's floor, whatever else is
 ///     true. A fix that has travelled the distance is <em>held</em> here rather than dropped:
 ///     the receiver keeps producing better ones, and the first one past the floor is what goes.</item>
-///   <item><strong>Maximum</strong> — nothing sent for that long and this one goes, moved or not.</item>
-///   <item><strong>Distance</strong> — travelled far enough, so there is something new to say.</item>
+///   <item><strong>Maximum</strong> - nothing sent for that long and this one goes, moved or not.</item>
+///   <item><strong>Distance</strong> - travelled far enough, so there is something new to say.</item>
 /// </list>
 /// The last two are an <em>or</em>: either enough ground or enough time is reason to send. A pure
 /// distance rule leaves a rider stopped at a junction looking stale to everyone waiting for them,
@@ -34,14 +34,14 @@ namespace BlazorDLR.Shared.Services;
 /// </para>
 /// <para>
 /// <strong>Stateful but pure.</strong> It holds the last fix that <em>reached the ride</em>, and
-/// nothing else — no clock, no I/O, no platform. The caller supplies the fix and the fix carries
+/// nothing else - no clock, no I/O, no platform. The caller supplies the fix and the fix carries
 /// its own time, so the whole of §4.2's filter is exercised in tests by feeding it a sequence.
 /// </para>
 /// <para>
 /// <strong>Two calls, not one.</strong> <see cref="Evaluate"/> says whether a fix is worth sending;
 /// <see cref="Confirm"/> says that one arrived. Splitting them is what stops a failed send from
 /// costing a rider the profile's whole interval, and it is why the speed rule needs
-/// <see cref="MaxConsecutiveImplausible"/> — a reference point that is never confirmed, or that is
+/// <see cref="MaxConsecutiveImplausible"/> - a reference point that is never confirmed, or that is
 /// simply wrong, must not be able to silence a rider indefinitely.
 /// </para>
 /// </summary>
@@ -59,7 +59,7 @@ public sealed class PositionGate
 	/// before the gate concludes the fault is its own reference point and starts again.
 	/// <para>
 	/// The rule is asymmetric on purpose and it had to be taught this. A refused fix does not
-	/// become the new reference — that is what makes the rule work at all — so a reference that is
+	/// become the new reference - that is what makes the rule work at all - so a reference that is
 	/// itself wrong refuses <em>everything</em> measured against it, and the only way out was for
 	/// the rider to travel far enough that the arithmetic fell back under
 	/// <see cref="MaxSpeedMps"/>. For a 20 km error that is 222 seconds of a pin that has stopped
@@ -68,7 +68,7 @@ public sealed class PositionGate
 	/// <para>
 	/// Three refusals, so the <em>fourth</em> such fix is the one that goes: one bad fix is the case
 	/// the rule exists for, and a run that survives three more chances to disagree with itself is
-	/// not a receiver correcting itself — it is the reference being stale. The count is of fixes
+	/// not a receiver correcting itself - it is the reference being stale. The count is of fixes
 	/// refused, which is why the escape is one past it rather than on it. At the Balanced cadence
 	/// that is about eight seconds of caution instead of nearly four minutes of silence.
 	/// </para>
@@ -94,7 +94,7 @@ public sealed class PositionGate
 	/// <summary>
 	/// The last fix this gate <em>approved</em>, whether or not it ever reached the ride. Only the
 	/// speed rule reads it, and only because <see cref="_lastAccepted"/> can stay null for a whole
-	/// outage — see <see cref="Evaluate"/>.
+	/// outage - see <see cref="Evaluate"/>.
 	/// </summary>
 	private LocationFix? _lastApproved;
 
@@ -113,13 +113,13 @@ public sealed class PositionGate
 	public double MaxAccuracyM => MaxAccuracyFor(_rate.DistanceM);
 
 	/// <summary>
-	/// The last fix that actually reached the ride, or <c>null</c> before the first one — see
+	/// The last fix that actually reached the ride, or <c>null</c> before the first one - see
 	/// <see cref="Confirm"/> for why it is that and not the last one this gate approved.
 	/// </summary>
 	public LocationFix? LastAccepted => _lastAccepted;
 
 	/// <summary>
-	/// The last fix this gate was willing to publish, whether or not it ever landed — what the
+	/// The last fix this gate was willing to publish, whether or not it ever landed - what the
 	/// keepalive restates when the receiver stops producing fixes at all.
 	/// <para>
 	/// Deliberately not <see cref="LastAccepted"/>: on a link that has been down since the watch
@@ -156,7 +156,7 @@ public sealed class PositionGate
 		if (!double.IsFinite(fix.Latitude) || !double.IsFinite(fix.Longitude)
 			|| fix.Latitude is < -90 or > 90 || fix.Longitude is < -180 or > 180)
 		{
-			// Not a point on the earth. Rare, and always a platform bug or a mocked provider —
+			// Not a point on the earth. Rare, and always a platform bug or a mocked provider -
 			// but it would be stored, drawn, and used to compute somebody's gap to the group.
 			return PositionGateDecision.Rejected(PositionGateReason.NotACoordinate);
 		}
@@ -170,15 +170,15 @@ public sealed class PositionGate
 		// reference point and deliberately leave the run below where it stands.
 		lock (_gate)
 		{
-			// Speed sanity is measured against the freshest fix this gate has any evidence for —
-			// approved or confirmed — and the two are not the same thing.
+			// Speed sanity is measured against the freshest fix this gate has any evidence for -
+			// approved or confirmed - and the two are not the same thing.
 			//
 			// Confirm only runs on a send that succeeded, so on a link that is down _lastAccepted
 			// stays null for the whole outage. Checking the speed rule against that alone meant a
 			// rider with no uplink had no reference at all: every fix took the first-fix branch
 			// below, unchecked, and the first cell-tower jump of the day was published the moment
 			// the link came back. The cadence rules still measure from the confirmed fix, which is
-			// the whole point of the split — a failed send must cost a retry, not an interval.
+			// the whole point of the split - a failed send must cost a retry, not an interval.
 			if (Newest(_lastApproved, _lastAccepted) is { } reference)
 			{
 				TimeSpan since = fix.RecordedUtc - reference.RecordedUtc;
@@ -195,7 +195,7 @@ public sealed class PositionGate
 					}
 
 					// Enough fixes in a row have now disagreed with the reference that the reference
-					// is the thing more likely to be wrong — see MaxConsecutiveImplausible. Both
+					// is the thing more likely to be wrong - see MaxConsecutiveImplausible. Both
 					// references are forgotten, so this fix is judged as a first fix and the next one
 					// is judged against it.
 					_implausibleRun = 0;
@@ -211,7 +211,7 @@ public sealed class PositionGate
 			if (_lastAccepted is not { } previous)
 			{
 				// The first usable fix always goes: a rider who has just turned sharing on wants to
-				// appear on the map now, not at the end of the first interval. Also the retry path —
+				// appear on the map now, not at the end of the first interval. Also the retry path -
 				// nothing has been confirmed yet, so no cadence has started to wait out.
 				return Approve(fix);
 			}
@@ -220,7 +220,7 @@ public sealed class PositionGate
 
 			if (elapsed < TimeSpan.Zero)
 			{
-				// A fix stamped before one already accepted — a platform replaying a cached point, or
+				// A fix stamped before one already accepted - a platform replaying a cached point, or
 				// a clock correction landing mid-ride. Publishing it would move every other rider's
 				// map backwards.
 				return PositionGateDecision.Rejected(PositionGateReason.OutOfOrder);
@@ -229,7 +229,7 @@ public sealed class PositionGate
 			if (elapsed < _rate.Minimum)
 			{
 				// The floor, and it is checked before the other two on purpose: it outranks them.
-				// Nothing is remembered about this fix, because nothing needs to be — the receiver
+				// Nothing is remembered about this fix, because nothing needs to be - the receiver
 				// goes on producing better ones, and the first that clears the floor is measured
 				// against the same reference and carries the same news, only fresher.
 				return PositionGateDecision.Rejected(PositionGateReason.HeldByMinimum);
@@ -294,7 +294,7 @@ public sealed class PositionGate
 	/// <strong>Delivery, not approval, is what moves the cadence on.</strong> The gate used to
 	/// advance the moment it said yes, which meant a fix that then failed to send still spent the
 	/// profile's whole interval: a rider whose link had just come back waited out another 30
-	/// seconds — or a full minute on a coarse rate — before the app would even try again, while the ride
+	/// seconds - or a full minute on a coarse rate - before the app would even try again, while the ride
 	/// looked at a pin that was minutes old. Measuring from the last fix that landed makes a
 	/// failed send cost a retry rather than an interval.
 	/// </para>
@@ -322,7 +322,7 @@ public sealed class PositionGate
 	/// Forgets the last accepted fix, so the next one is treated as a first fix.
 	/// <para>
 	/// What a stop and restart calls. Without it, a rider who stopped sharing in Sydney and
-	/// started again in Melbourne would have their first fix rejected as an implausible speed —
+	/// started again in Melbourne would have their first fix rejected as an implausible speed -
 	/// and the gap between the two is exactly when the app is not watching.
 	/// </para>
 	/// </summary>
@@ -341,14 +341,14 @@ public sealed class PositionGate
 	/// <para>
 	/// §4.2 leaves this to implementation, and it is not something the rider is asked: it is a
 	/// question about whether a fix is worth drawing at all, not about how often to draw one. Four
-	/// times the update distance, clamped to [30 m, 50 m] — it has to stay well above a consumer
+	/// times the update distance, clamped to [30 m, 50 m] - it has to stay well above a consumer
 	/// GPS's good-day error (5–10 m) or a cold start would never produce a publishable fix, and
 	/// well below the point where the error circle is larger than the gaps §5.4 reports.
 	/// </para>
 	/// <para>
 	/// The upper clamp is what stops a 500 m update distance widening this to 2 km. A fix with an
 	/// error circle that size is a cell-tower fix, and drawing one on a group ride's map puts a
-	/// rider two suburbs from where they are — asking for coarse <em>updates</em> is not asking to
+	/// rider two suburbs from where they are - asking for coarse <em>updates</em> is not asking to
 	/// be drawn in the wrong place.
 	/// </para>
 	/// </summary>
@@ -371,7 +371,7 @@ public enum PositionGateReason
 	/// <summary>Stamped before a fix already accepted.</summary>
 	OutOfOrder = 3,
 
-	/// <summary>Too far from the last fix, too fast — bad data rather than speed.</summary>
+	/// <summary>Too far from the last fix, too fast - bad data rather than speed.</summary>
 	ImplausibleSpeed = 4,
 
 	/// <summary>

@@ -10,17 +10,17 @@ namespace DLR.Core.Contracts.Markers;
 /// </summary>
 /// <param name="TrackId">The track it annotates, or null.</param>
 /// <param name="GroupRideId">The ride it belongs to, or null.</param>
-/// <param name="Lat">Latitude, scaled by 1e5 — the same encoding as a position (§5.5).</param>
+/// <param name="Lat">Latitude, scaled by 1e5 - the same encoding as a position (§5.5).</param>
 /// <param name="Lon">Longitude, scaled by 1e5.</param>
 /// <param name="Icon">A key from the curated set, or any storable key a newer client sends.</param>
 /// <param name="Title">
 /// Rendered beside the icon, so its limit is a rendering constraint. <strong>Empty is a marker
-/// with no title</strong> — the icon already carries the meaning of most pins, and the overlay
+/// with no title</strong> - the icon already carries the meaning of most pins, and the overlay
 /// draws the plate alone rather than an empty label. Whitespace-only cleans to the same thing.
 /// </param>
 /// <param name="Note">Shown on tap. Plain text; never rendered as HTML or Markdown.</param>
 /// <param name="DirectionDeg">
-/// Degrees from true north, 0–359, or null. <strong>Null is not zero</strong> — zero is due north,
+/// Degrees from true north, 0–359, or null. <strong>Null is not zero</strong> - zero is due north,
 /// a perfectly good bearing. A fuel stop has no direction; a blind crest does.
 /// </param>
 public sealed record CreateMarkerRequest(
@@ -54,11 +54,11 @@ public sealed record UpdateMarkerRequest(
 /// <param name="GroupRideId">Its ride parent, or null.</param>
 /// <param name="Lat">Latitude, scaled.</param>
 /// <param name="Lon">Longitude, scaled.</param>
-/// <param name="Icon">The icon key as stored — the client falls back if it cannot draw it.</param>
+/// <param name="Icon">The icon key as stored - the client falls back if it cannot draw it.</param>
 /// <param name="Title">The label, or empty for an untitled marker.</param>
 /// <param name="Note">The note.</param>
 /// <param name="DirectionDeg">The bearing, or null for none.</param>
-/// <param name="PhotoId">The attached image, or null — fetched separately, so a marker draws first (§16.4).</param>
+/// <param name="PhotoId">The attached image, or null - fetched separately, so a marker draws first (§16.4).</param>
 /// <param name="CreatedByUserId">Who placed it.</param>
 /// <param name="CreatedByUserName">Their handle (§7.2).</param>
 /// <param name="CreatedUtc">When.</param>

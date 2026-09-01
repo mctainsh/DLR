@@ -10,15 +10,15 @@ namespace DLR.Server.Tracks;
 /// <para>
 /// A private track is the rider's own filing system: two of them may be called the same thing,
 /// and a second copy of the same ride is nobody else's business (§15.3). The browse list is a
-/// catalogue, and both of those become other riders' problem the moment a route is on it — a
+/// catalogue, and both of those become other riders' problem the moment a route is on it - a
 /// name that is on three rows identifies nothing, and the same road listed twice is a page of
 /// results that is mostly one route.
 /// </para>
 /// <para>
 /// <strong>Checked here rather than by a unique index.</strong> The point of the check is the
 /// sentence it produces: <em>this is already shared, as “Coast run north”</em> is something a
-/// rider can act on, and a constraint violation is not. The race it loses to — two riders
-/// pressing Share on the same name in the same instant — puts a second row on a list rather
+/// rider can act on, and a constraint violation is not. The race it loses to - two riders
+/// pressing Share on the same name in the same instant - puts a second row on a list rather
 /// than corrupting anything, and the loser can rename.
 /// </para>
 /// </summary>
@@ -32,13 +32,13 @@ public static class SharedRoutes
 	/// the list.
 	/// </summary>
 	/// <param name="database">The one context.</param>
-	/// <param name="ownerId">Who is publishing. Their own rows are not candidates — see below.</param>
+	/// <param name="ownerId">Who is publishing. Their own rows are not candidates - see below.</param>
 	/// <param name="routeHash">The publishing route's <see cref="RouteFingerprint"/>.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
 	/// <remarks>
 	/// <para>
-	/// Scoped to <em>other</em> owners deliberately. A rider who has the same line twice — a
-	/// recording and the route they planned it from — is entitled to publish whichever of them
+	/// Scoped to <em>other</em> owners deliberately. A rider who has the same line twice - a
+	/// recording and the route they planned it from - is entitled to publish whichever of them
 	/// they consider the good copy, and to change their mind later; refusing that would be this
 	/// check telling somebody they may not share their own route.
 	/// </para>
@@ -129,7 +129,7 @@ public static class SharedRoutes
 /// A route that is already on the browse list, as the two checks above report it.
 /// <para>
 /// The owner is deliberately not carried. Naming the route is enough for the rider to go and
-/// look at it, while naming the rider would say who shared it — including when that is somebody
+/// look at it, while naming the rider would say who shared it - including when that is somebody
 /// the caller has blocked, whose routes §17.7 has already taken off their screen.
 /// </para>
 /// </summary>

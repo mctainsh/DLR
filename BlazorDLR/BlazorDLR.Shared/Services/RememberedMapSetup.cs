@@ -3,12 +3,12 @@ using System.Globalization;
 namespace BlazorDLR.Shared.Services;
 
 /// <summary>
-/// What the rider last typed into the Maps screen (§4.5, §18.6) — the tile server's details — so
+/// What the rider last typed into the Maps screen (§4.5, §18.6) - the tile server's details - so
 /// coming back to it does not mean typing a long URL again.
 /// <para>
 /// <strong>Deliberately separate from <see cref="MapSource"/>.</strong> That one is what the map
 /// is <em>using</em>, and it only ever holds a source that works: <c>MapSource.Normalised</c>
-/// refuses a half-typed template outright. This is the opposite — it is whatever is in the boxes,
+/// refuses a half-typed template outright. This is the opposite - it is whatever is in the boxes,
 /// finished or not. A rider who got as far as <c>https://tiles.example.com/{z}/{x}</c> and was
 /// interrupted is exactly who this is for, and validating on the way in would throw away the one
 /// value worth keeping.
@@ -16,14 +16,14 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// <strong>It used to carry more.</strong> Version 1 put a map-pack link and a name after the zoom;
 /// packs come from the catalogue now (§4.2), which supplies both. Version 2 put the preview map's
-/// camera there instead; the preview frames itself on its source now — the world for a tile server,
-/// the pack's own extent for a pack — so there is nothing left to remember about where it was left.
+/// camera there instead; the preview frames itself on its source now - the world for a tile server,
+/// the pack's own extent for a pack - so there is nothing left to remember about where it was left.
 /// Both are still read, with the trailing fields ignored, because throwing a rider's tile URL away
 /// over a format change they did not ask for would be the one avoidable loss here.
 /// </para>
 /// <para>
 /// Device-local and hand-encoded like <see cref="LiveMapView"/> and <see cref="RouteStyle"/>. It
-/// never travels to the server — a tile server somebody uses is their business.
+/// never travels to the server - a tile server somebody uses is their business.
 /// </para>
 /// </summary>
 /// <param name="TileTemplate">The custom XYZ template, as typed.</param>
@@ -55,12 +55,12 @@ public sealed record RememberedMapSetup(
 		string.IsNullOrWhiteSpace(TileTemplate) && string.IsNullOrWhiteSpace(TileAttribution);
 
 	/// <summary>
-	/// The record as one string, leading <c>2</c> being the format version — the same arrangement as
+	/// The record as one string, leading <c>2</c> being the format version - the same arrangement as
 	/// <see cref="LiveMapView.Encode"/>. The two text fields are percent-encoded: a tile URL carries
 	/// <c>&amp;</c> and braces as a matter of course, and an attribution is free text.
 	/// <para>
 	/// Still a <c>2</c> although the preview camera that version wrote after the zoom is gone, and
-	/// <em>not</em> a version bump — every encoding this has ever had agrees on its first four fields,
+	/// <em>not</em> a version bump - every encoding this has ever had agrees on its first four fields,
 	/// which is what lets <see cref="Decode"/> be a length check rather than a migration. A build that
 	/// still writes the camera has its tile server read here, and this one's shorter string is read
 	/// there.
@@ -79,13 +79,13 @@ public sealed record RememberedMapSetup(
 	/// Reads back what <see cref="Encode"/> wrote, or <c>null</c> for a device that has stored
 	/// nothing or a format this build does not speak.
 	/// <para>
-	/// Everything after the zoom is dropped, whatever wrote it — version 1's map-pack link and name,
+	/// Everything after the zoom is dropped, whatever wrote it - version 1's map-pack link and name,
 	/// or version 2's preview camera. Every encoding agrees on its first four fields precisely so that
 	/// this is a length check rather than a migration.
 	/// </para>
 	/// <para>
 	/// Unlike the other device records, a value that fails to decode costs the rider only some
-	/// retyping — so this is the one place where answering <c>null</c> is genuinely cheap.
+	/// retyping - so this is the one place where answering <c>null</c> is genuinely cheap.
 	/// </para>
 	/// </summary>
 	/// <param name="encoded">A string from <see cref="Encode"/>.</param>

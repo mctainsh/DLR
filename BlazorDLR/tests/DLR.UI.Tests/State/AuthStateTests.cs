@@ -8,15 +8,15 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.State;
 
 /// <summary>
-/// §7.4's single-flight refresh rule: when several callers hit a 401 at once — three
-/// screens plus a hub reconnect — one shared task serves them all, so the token
+/// §7.4's single-flight refresh rule: when several callers hit a 401 at once - three
+/// screens plus a hub reconnect - one shared task serves them all, so the token
 /// endpoint sees one call rather than n. If this regresses, a mid-ride reconnect on a
 /// spotty connection would produce a burst of refreshes and revoke the family (§7.4
 /// treats concurrent replays outside the grace window as theft).
 /// </summary>
 public sealed class AuthStateTests
 {
-	// A fixed instant — architecture rule ClockRules forbids ambient clock reads in test
+	// A fixed instant - architecture rule ClockRules forbids ambient clock reads in test
 	// source (§10.4). The value itself is arbitrary; only the fact that it isn't now matters.
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
@@ -30,7 +30,7 @@ public sealed class AuthStateTests
 		FakeTokenStore tokens = new();
 		FakeTimeProvider clock = new(FixedInstant);
 
-		// Seed a refresh token in the store; no access token — every caller misses the
+		// Seed a refresh token in the store; no access token - every caller misses the
 		// cache and races the refresh.
 		await tokens.WriteRefreshTokenAsync("stored-refresh");
 
@@ -82,7 +82,7 @@ public sealed class AuthStateTests
 			"Any more and the server's family-reuse detector would revoke the family on the next real refresh.");
 		peakInFlight.ShouldBeLessThanOrEqualTo(1,
 			"a second caller reaching the token endpoint before the first returns is the exact regression this test exists to catch.");
-		results.ShouldAllBe(r => r == "access-1", "every caller gets the same result — that is what single-flight means.");
+		results.ShouldAllBe(r => r == "access-1", "every caller gets the same result - that is what single-flight means.");
 	}
 
 	[Fact]
@@ -170,7 +170,7 @@ public sealed class AuthStateTests
 	}
 
 	/// <summary>
-	/// A host that remembers nothing — the browser (§18.5) — still reports the live session's
+	/// A host that remembers nothing - the browser (§18.5) - still reports the live session's
 	/// device, so its revoke button has something to revoke.
 	/// </summary>
 	[Fact]
@@ -283,5 +283,10 @@ public sealed class AuthStateTests
 		public Task<DLR.Core.Contracts.Admin.AdminLogPage> AdminLogsAsync(DateOnly? day = null, string? level = null, int take = 200, bool databaseCommands = true, CancellationToken ct = default) => inner.AdminLogsAsync(day, level, take, databaseCommands, ct);
 		public Task<DLR.Core.Contracts.Admin.AdminStats> AdminStatsAsync(CancellationToken ct = default) => inner.AdminStatsAsync(ct);
 		public Task AdminDeleteUserAsync(Guid userId, DLR.Core.Contracts.Admin.AdminDeleteUserRequest r, CancellationToken ct = default) => inner.AdminDeleteUserAsync(userId, r, ct);
+		public Task<DLR.Core.Contracts.Announcements.StartupCheck> StartupCheckAsync(string? v, CancellationToken ct = default) => inner.StartupCheckAsync(v, ct);
+		public Task<IReadOnlyList<DLR.Core.Contracts.Announcements.AdminAnnouncement>> AdminAnnouncementsAsync(CancellationToken ct = default) => inner.AdminAnnouncementsAsync(ct);
+		public Task<DLR.Core.Contracts.Announcements.AdminAnnouncement> AdminCreateAnnouncementAsync(DLR.Core.Contracts.Announcements.AdminAnnouncementRequest r, CancellationToken ct = default) => inner.AdminCreateAnnouncementAsync(r, ct);
+		public Task AdminUpdateAnnouncementAsync(Guid id, DLR.Core.Contracts.Announcements.AdminAnnouncementRequest r, CancellationToken ct = default) => inner.AdminUpdateAnnouncementAsync(id, r, ct);
+		public Task AdminDeleteAnnouncementAsync(Guid id, CancellationToken ct = default) => inner.AdminDeleteAnnouncementAsync(id, ct);
 	}
 }

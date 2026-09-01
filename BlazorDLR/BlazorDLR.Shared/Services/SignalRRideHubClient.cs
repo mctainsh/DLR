@@ -1,4 +1,5 @@
 using BlazorDLR.Shared.Diagnostics;
+using DLR.Core.Contracts.Announcements;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
@@ -9,7 +10,7 @@ namespace BlazorDLR.Shared.Services;
 /// <summary>
 /// The <see cref="IRideHubClient"/> both hosts use, wrapping <see cref="HubConnection"/>.
 /// <para>
-/// <strong>Reconnect strategy (§5.3).</strong> Automatic reconnect with jitter — the built-in
+/// <strong>Reconnect strategy (§5.3).</strong> Automatic reconnect with jitter - the built-in
 /// <c>WithAutomaticReconnect</c> handles the loop, and this class supplies the delay set with
 /// a jittered exponential curve. On reconnect the client re-joins any ride groups it was in
 /// before the drop; §5.3's rule is <em>fetch snapshot state</em> rather than replay history,
@@ -49,7 +50,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	/// <param name="hubUri">The absolute or origin-relative URL of the ride hub (§5.3).</param>
 	/// <param name="tokenProvider">
 	/// Returns the current access token. Called on connect, on reconnect, and on
-	/// negotiation — mobile reads it out of <c>SecureStorage</c>, web returns null and lets
+	/// negotiation - mobile reads it out of <c>SecureStorage</c>, web returns null and lets
 	/// the cookie do the work (§18.5).
 	/// </param>
 	public SignalRRideHubClient(Uri hubUri, Func<CancellationToken, Task<string?>> tokenProvider)
@@ -94,6 +95,9 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	public event Action<Guid, ReactionCounts>? ReactionsUpdated;
 	/// <inheritdoc />
 	public event Action<Guid, PollResults>? PollUpdated;
+
+	/// <inheritdoc />
+	public event Action<AnnouncementDto>? AnnouncementPosted;
 	/// <inheritdoc />
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
 	/// <inheritdoc />
@@ -138,6 +142,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.On<Guid, bool>("CommentPinChanged", (c, p) => CommentPinChanged?.Invoke(c, p));
 		connection.On<Guid, ReactionCounts>("ReactionsUpdated", (c, counts) => ReactionsUpdated?.Invoke(c, counts));
 		connection.On<Guid, PollResults>("PollUpdated", (c, results) => PollUpdated?.Invoke(c, results));
+		connection.On<AnnouncementDto>("AnnouncementPosted", announcement => AnnouncementPosted?.Invoke(announcement));
 		connection.On<Guid, RidePermissions>("RidePermissionsChanged", (r, p) => PermissionsChanged?.Invoke(r, p));
 		connection.On<Guid, Guid, bool>("MemberSharingChanged", (r, u, s) => MemberSharingChanged?.Invoke(r, u, s));
 		connection.On<Guid, Guid, bool>("MemberPrivacyChanged", (r, u, p) => MemberPrivacyChanged?.Invoke(r, u, p));
@@ -167,7 +172,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 
 		connection.Closed += error =>
 		{
-			DiagnosticLog.Write($"Hub closed: {error?.Message ?? "no error — closed cleanly"}.");
+			DiagnosticLog.Write($"Hub closed: {error?.Message ?? "no error - closed cleanly"}.");
 			ConnectionChanged?.Invoke();
 			return Task.CompletedTask;
 		};
@@ -201,7 +206,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 
 			// Raised on the way out as well. A start that never succeeded is the state a phone
 			// opening a ride in a tunnel is in, and it is exactly the case the map has to be able
-			// to say out loud — the caller swallows this exception (RideSession), so nothing else
+			// to say out loud - the caller swallows this exception (RideSession), so nothing else
 			// would ever mention it.
 			ConnectionChanged?.Invoke();
 			throw;

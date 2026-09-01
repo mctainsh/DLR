@@ -18,7 +18,7 @@ namespace DLR.Server.Tests.Comments;
 /// <summary>
 /// Reactions and polls (§17.4, §17.5).
 /// <para>
-/// A poll is a comment — <c>Kind = Poll</c> with a record hanging off the same row — which is why
+/// A poll is a comment - <c>Kind = Poll</c> with a record hanging off the same row - which is why
 /// there is no separate posting path, no separate permission check and no separate pinning code to
 /// test here. <c>Poll_IsPinnableAndReactableLikeAnyComment</c> is the assertion that says so.
 /// </para>
@@ -46,7 +46,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 
 		ReactionCounts second = await ReactAsync(organiser, post.Id, "love");
 
-		// Replaced, not accumulated — the primary key on (comment, user) is what makes that a
+		// Replaced, not accumulated - the primary key on (comment, user) is what makes that a
 		// property rather than a rule somebody has to remember (§17.4).
 		second.Mine.ShouldBe("love");
 		second.Counts["love"].ShouldBe(1);
@@ -108,7 +108,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 		await ReactAsync(sam, post.Id, "like");
 		await ReactAsync(alex, post.Id, "thanks");
 
-		// Counts, plus the caller's own — and "own" is genuinely per caller.
+		// Counts, plus the caller's own - and "own" is genuinely per caller.
 		CommentPage asAlex = await ThreadAsync(alex, ride.Id);
 
 		ReactionCounts counts = asAlex.Comments.Single().Reactions!;
@@ -201,7 +201,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 			received.Count.ShouldBe(1, "five changes to one comment are one message");
 
 			// The tally as it stands at flush, not five deltas replayed. Both riders who reacted
-			// twice had their first reaction *replaced*, so 'like' is not in this message at all —
+			// twice had their first reaction *replaced*, so 'like' is not in this message at all -
 			// which is the difference between coalescing and batching, and the reason the flush
 			// re-reads the table instead of accumulating events.
 			received[0].Counts.ShouldNotContainKey("like");
@@ -248,7 +248,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 				$"options were [{string.Join(", ", options)}]");
 		}
 
-		// A poll needs a question, and the question is the body — there is no second field for it.
+		// A poll needs a question, and the question is the body - there is no second field for it.
 		using (HttpResponseMessage noQuestion = await organiser.PostAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/comments",
 			new PostCommentRequest(Guid.NewGuid(), Body: null, Poll: new PollSpec(["Yes", "No"]))))
@@ -394,7 +394,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 		// wrong" (§17.5).
 		(await late.Content.ReadAsStringAsync()).ShouldContain("PollClosed");
 
-		// The vote already cast is still counted — closing shows results, it does not discard them.
+		// The vote already cast is still counted - closing shows results, it does not discard them.
 		PollResults after = await ResultsAsync(member, ride.Id, poll.Id);
 
 		after.Options[0].Votes.ShouldBe(1);
@@ -402,7 +402,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// A background job flipping a flag would leave a window in which an elapsed poll still took
-	/// votes — as wide as the job's interval, and widest exactly when the job is behind (§17.5).
+	/// votes - as wide as the job's interval, and widest exactly when the job is behind (§17.5).
 	/// </summary>
 	[Fact]
 	public async Task Poll_ClosesUtcElapsed_RejectsVotesWithoutABackgroundJob()
@@ -429,7 +429,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 
 		await VoteAsync(organiser, poll.Id, [poll.Poll.Options[0].Id]);
 
-		// Past the deadline. Nothing has run — no sweep, no job, no hosted service tick — and the
+		// Past the deadline. Nothing has run - no sweep, no job, no hosted service tick - and the
 		// poll is nonetheless shut, because being shut is a comparison rather than a stored flag.
 		app.Clock.Advance(TimeSpan.FromMinutes(2));
 
@@ -444,7 +444,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 		PollResults results = await ResultsAsync(organiser, ride.Id, poll.Id);
 
 		results.IsClosed.ShouldBeTrue();
-		results.ClosedUtc.ShouldBeNull("nothing closed it — its deadline simply passed");
+		results.ClosedUtc.ShouldBeNull("nothing closed it - its deadline simply passed");
 
 		// And the column was never written, which is what "without a background job" means.
 		DateTimeOffset? stored = await app.WithDatabaseAsync(database =>
@@ -482,7 +482,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 		await VoteAsync(organiser, poll.Id, [yes]);
 		await VoteAsync(sam, poll.Id, [yes]);
 
-		// Results are visible before voting — this is a noticeboard, not a secret ballot, and a
+		// Results are visible before voting - this is a noticeboard, not a secret ballot, and a
 		// rider deciding whether to come wants to know who else already is.
 		PollResults beforeVoting = await ResultsAsync(alex, ride.Id, poll.Id);
 
@@ -662,7 +662,7 @@ public sealed class ReactionAndPollTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Reads a poll back through the thread, which is where a client actually sees it — and which
+	/// Reads a poll back through the thread, which is where a client actually sees it - and which
 	/// therefore also asserts that a poll travels with its comment rather than needing a fetch of
 	/// its own (§17.5).
 	/// </summary>

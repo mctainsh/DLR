@@ -8,12 +8,12 @@ namespace BlazorDLR.Shared.State;
 /// Device-local like <see cref="RouteStyleState"/>, and for a reason particular to this one: the
 /// rate is a battery decision, and the battery belongs to the phone, not to the account. A rider
 /// with a hard-wired bike mount and a rider on a three-day tour want different answers on the same
-/// day, and neither is wrong. That is exactly the argument <see cref="PrivateAreaState"/> fails —
+/// day, and neither is wrong. That is exactly the argument <see cref="PrivateAreaState"/> fails -
 /// where somebody lives is the same on every handset they own, which is why that one moved to the
 /// account (§10.1) and this one did not.
 /// </para>
 /// <para>
-/// Read once, held in memory, <see cref="Changed"/> on every write — the broadcaster asks for the
+/// Read once, held in memory, <see cref="Changed"/> on every write - the broadcaster asks for the
 /// rate every time it starts a watch, and on the phone that must not be a round trip to platform
 /// storage.
 /// </para>
@@ -27,7 +27,7 @@ public sealed class LocationUpdateRateState
 {
 	/// <summary>
 	/// The <see cref="IDeviceSettings"/> key. Unchanged from when this held one of three profile
-	/// names, so a rider's existing choice is still there to be carried across — see
+	/// names, so a rider's existing choice is still there to be carried across - see
 	/// <see cref="LocationUpdateRate.Decode"/>.
 	/// </summary>
 	public const string StorageKey = "dlr.gps-profile";
@@ -53,7 +53,7 @@ public sealed class LocationUpdateRateState
 	public bool IsLoaded => _loaded;
 
 	/// <summary>
-	/// Reads the persisted rate. Idempotent — the settings screen and the broadcaster both call it
+	/// Reads the persisted rate. Idempotent - the settings screen and the broadcaster both call it
 	/// without coordinating.
 	/// <para>
 	/// Callers must run this <em>after</em> first render on the web: the browser store is behind JS
@@ -98,7 +98,7 @@ public sealed class LocationUpdateRateState
 
 		_rate = rate;
 
-		// In memory, then the event, then the store — the same ordering as RouteStyleState. The
+		// In memory, then the event, then the store - the same ordering as RouteStyleState. The
 		// event is what restarts the watch, and it must not queue behind a platform write.
 		Changed?.Invoke();
 		await _settings.SetAsync(StorageKey, rate.Encode(), cancellationToken);

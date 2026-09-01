@@ -7,8 +7,8 @@ namespace DLR.UI.Tests.Fakes;
 /// <summary>
 /// A handler that answers every request with the same body.
 /// <para>
-/// For the two clients that talk to somewhere other than the DLR API — the map-pack catalogue and
-/// the pack downloader — both of which own a credential-free <see cref="HttpClient"/> that a host
+/// For the two clients that talk to somewhere other than the DLR API - the map-pack catalogue and
+/// the pack downloader - both of which own a credential-free <see cref="HttpClient"/> that a host
 /// hands them (§18.5). A test that left the real one in place would reach out to whatever address
 /// it used, which is a unit test with a network dependency and a slow failure when there is no
 /// network at all.
@@ -24,7 +24,7 @@ internal sealed class StubHttpHandler : HttpMessageHandler
 	private readonly byte[] _body;
 	private readonly string _contentType;
 
-	/// <summary>Answers with a text body — JSON, usually.</summary>
+	/// <summary>Answers with a text body - JSON, usually.</summary>
 	/// <param name="body">What to send.</param>
 	/// <param name="contentType">The media type to declare.</param>
 	public StubHttpHandler(string body, string contentType = "application/json")
@@ -32,7 +32,7 @@ internal sealed class StubHttpHandler : HttpMessageHandler
 	{
 	}
 
-	/// <summary>Answers with bytes — a PMTiles archive, usually.</summary>
+	/// <summary>Answers with bytes - a PMTiles archive, usually.</summary>
 	/// <param name="body">What to send.</param>
 	/// <param name="contentType">The media type to declare.</param>
 	public StubHttpHandler(byte[] body, string contentType = "application/octet-stream")
@@ -44,7 +44,7 @@ internal sealed class StubHttpHandler : HttpMessageHandler
 	/// <summary>What to answer with. A non-success status skips the body.</summary>
 	public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
-	/// <summary>Thrown instead of answering — a host that cannot be reached at all.</summary>
+	/// <summary>Thrown instead of answering - a host that cannot be reached at all.</summary>
 	public Exception? Fails { get; set; }
 
 	/// <summary>Where the last request went. What a test asserting URL resolution reads.</summary>

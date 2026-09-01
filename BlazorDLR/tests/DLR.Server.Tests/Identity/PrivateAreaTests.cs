@@ -49,7 +49,7 @@ public sealed class PrivateAreaTests(PostgresFixture postgres)
 
 		await SetAsync(phone, Home);
 
-		// A second client on the same account stands for the rider's next handset — the whole
+		// A second client on the same account stands for the rider's next handset - the whole
 		// reason this stopped being a device setting.
 		using HttpClient newPhone = app.CreateClient().Authenticated(session);
 
@@ -101,7 +101,7 @@ public sealed class PrivateAreaTests(PostgresFixture postgres)
 		PrivateAreaResponse tiny = await SetAsync(authed, Home with { RadiusM = 5 });
 		PrivateAreaResponse huge = await SetAsync(authed, Home with { RadiusM = 500_000 });
 
-		// Clamped rather than refused — the client clamps too, and the response is what the
+		// Clamped rather than refused - the client clamps too, and the response is what the
 		// screen reports, so the two must agree about what was kept.
 		tiny.Area!.RadiusM.ShouldBe(PrivateAreaSettings.MinRadiusM);
 		huge.Area!.RadiusM.ShouldBe(PrivateAreaSettings.MaxRadiusM);
@@ -182,7 +182,7 @@ public sealed class PrivateAreaTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The guarantee that did not change when the storage did: an area is readable by the account
-	/// that set it and by nothing else. Both halves are asserted — the route has no user id to
+	/// that set it and by nothing else. Both halves are asserted - the route has no user id to
 	/// ask with, and the one route that does answer with another rider's fields has no field for
 	/// it (§7.3).
 	/// </summary>

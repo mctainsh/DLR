@@ -16,7 +16,7 @@
 	and the one circle it does none of that inside.
 
 	The private area moved here from the Profile screen. That screen is about what other riders
-	are shown; this one is about the receiver, and the area is what gates the receiver — it is
+	are shown; this one is about the receiver, and the area is what gates the receiver - it is
 	what the broadcaster consults before every fix and what the recorder filters against on the
 	way out. Splitting them meant a rider reading "nothing is sent from inside your private area"
 	had to go to another page to find out whether they had one.
@@ -25,13 +25,13 @@
 	(§10.1). Only the three settings above it belong to this phone.
 
 	This is a phone screen. The web hosts register none of the four states it is built on (§18.6),
-	so everything below the guard is unreachable there and Settings does not link to it — but the
+	so everything below the guard is unreachable there and Settings does not link to it - but the
 	route is in this assembly and therefore still resolves on every host, so a bookmark or a typed
 	URL lands on the short note instead of a crash. Nothing here is stubbed to make that work: the
 	services are resolved, and their absence is the branch.
 *@
 
-<PageTitle>Location — Dumb Luck Routes</PageTitle>
+<PageTitle>Location - Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium location-settings">
 	<PageNav Title="Location" BackHref="/settings" BackLabel="Back to settings" />
@@ -44,7 +44,7 @@
 
 		<p class="note">
 			Location is a phone feature (§18.6). A browser has no GPS the app can trust to keep
-			running with the screen off, so there is nothing here for this device to configure —
+			running with the screen off, so there is nothing here for this device to configure -
 			the update rate, the recording interval and the private area all belong to the phone
 			that produces the fixes, and are set in the app on that phone.
 		</p>
@@ -77,7 +77,7 @@
 					@(Broadcast.Rides.Count == 1
 						? "One group adventure is asking for your location."
 						: $"{Broadcast.Rides.Count} group adventures are asking for your location.")
-					Turn sharing off on an adventure's info page to stop it — the receiver switches off
+					Turn sharing off on an adventure's info page to stop it - the receiver switches off
 					when the last one does.
 				</p>
 			}
@@ -93,7 +93,7 @@
 			{
 				<p class="hint">
 					Open the phone's Settings app, find Dumb Luck Routes, and allow location access.
-					For sharing to keep working with the screen off, choose <em>Always</em> —
+					For sharing to keep working with the screen off, choose <em>Always</em> -
 					<em>While using the app</em> stops the moment you put the phone away.
 				</p>
 			}
@@ -111,7 +111,7 @@
 
 			<p class="note">
 				How often your position is <em>sent</em> to the group adventures you are sharing with.
-				This is the battery setting — it does not change how much detail your own recorded
+				This is the battery setting - it does not change how much detail your own recorded
 				track keeps, which is the interval further down.
 			</p>
 
@@ -132,7 +132,7 @@
 				<span class="what">
 					<strong>Maximum update time</strong>
 					<span class="why">
-						Go this long without sending anything and your current position goes anyway —
+						Go this long without sending anything and your current position goes anyway -
 						so a stop does not leave you as a pin that quietly ages.
 					</span>
 				</span>
@@ -156,7 +156,7 @@
 					<strong>Minimum update time</strong>
 					<span class="why">
 						Never send more often than this, however fast you are going. Travel the
-						update distance inside it and the position waits — what goes when the wait is
+						update distance inside it and the position waits - what goes when the wait is
 						over is where you are then, not where you were when it came due.
 					</span>
 				</span>
@@ -173,7 +173,7 @@
 			@*
 				One sentence per rule, each on its own source line: the rendered markup keeps the
 				line breaks, and a summary split across them reads as three fragments to anything
-				matching on it — a test included.
+				matching on it - a test included.
 			*@
 			<p class="hint">
 				Sending @($"{Rate.DistanceM:0} m") after you move.
@@ -182,7 +182,7 @@
 			</p>
 
 			<p class="hint">
-				The maximum has to stay longer than the minimum — raise the minimum past it and the
+				The maximum has to stay longer than the minimum - raise the minimum past it and the
 				maximum moves up with it. A change takes effect immediately: if the GPS is running,
 				it restarts on the new setting.
 			</p>
@@ -197,7 +197,7 @@
 			<h2>Recording your adventures</h2>
 
 			<p class="note">
-				While the GPS is running, this device can keep a track of where you went — for you,
+				While the GPS is running, this device can keep a track of where you went - for you,
 				not for the adventure. It stays on this phone until you save it, and saving it puts it in
 				<a href="/rides">your tracks</a> like an imported one.
 			</p>
@@ -211,7 +211,7 @@
 			@if (!Recording.IsEnabled)
 			{
 				<p class="hint">
-					Off. Nothing new is being added to a track — anything already recorded is kept
+					Off. Nothing new is being added to a track - anything already recorded is kept
 					until you save or delete it.
 				</p>
 			}
@@ -230,7 +230,7 @@
 			</div>
 
 			<p class="hint">
-				@Recording.IntervalM.ToString("0") m — about @PointsPerKm points a kilometre. Smaller
+				@Recording.IntervalM.ToString("0") m - about @PointsPerKm points a kilometre. Smaller
 				draws a roundabout as a roundabout; larger keeps a long tour to a sensible size. It
 				cannot be finer than the GPS is reporting, so a long minimum update time above will
 				still produce a coarse track however small this is set.
@@ -272,7 +272,7 @@
 				A name is required, not optional (§15.1). This track is about to join a list the
 				rider will later scan looking for one ride out of a season of them, and three rows
 				reading "Untitled" is a list that cannot be used. Asked for here, while the ride is
-				still fresh — the alternative is a rename weeks later against a date and a distance.
+				still fresh - the alternative is a rename weeks later against a date and a distance.
 			*@
 				<label class="name">
 					Name
@@ -298,7 +298,7 @@
 				{
 					<p class="hint name-required">
 						Give this adventure a name and the save button turns on. The delete button does not
-						need one — you are not naming something you are throwing away.
+						need one - you are not naming something you are throwing away.
 					</p>
 				}
 
@@ -321,14 +321,14 @@
 
 		@*
 		The private area (§10.1). Stored on the rider's account and mirrored into this device's
-		settings store, which reverses the original device-only design — that one lost people
+		settings store, which reverses the original device-only design - that one lost people
 		their circle to app updates and reinstalls without ever saying so, and a rider who
 		believes they have one and does not is broadcasting from their doorstep.
 
 		The cache is what keeps it usable with no network: the gate answers from memory, the
 		screen renders the cached circle, and a save is written to this phone before it is sent.
 		A privacy control that is unreachable because the network is down is a privacy control
-		that is unreachable when it matters — so the only thing a failed request costs is the
+		that is unreachable when it matters - so the only thing a failed request costs is the
 		rider's *other* devices, and the copy below says exactly that rather than "could not
 		save".
 	*@
@@ -362,9 +362,9 @@
 			{
 				@*
 				Not loaded, and the read has already failed: the account is unreachable and this
-				phone has never cached an answer. The controls are offered anyway — a rider with
+				phone has never cached an answer. The controls are offered anyway - a rider with
 				no signal must still be able to place a circle, and there is nothing here to
-				overwrite — but the state has to be named, because in it the gate suppresses
+				overwrite - but the state has to be named, because in it the gate suppresses
 				everything, which is not what "no private area" looks like.
 			*@
 				@if (!PrivateAreas.IsLoaded)
@@ -412,7 +412,7 @@
 				<p class="note">
 					Between @PrivateArea.MinRadiusM m and @(PrivateArea.MaxRadiusM / 1000) km. Anything
 					smaller is inside a phone GPS's own error, and anything larger is really
-					"don't share on this adventure" — which is the switch on the adventure itself.
+					"don't share on this adventure" - which is the switch on the adventure itself.
 				</p>
 
 				<div class="area-actions">
@@ -435,8 +435,8 @@
 				   the whole job of this line. *@
 					<p class="status unsaved">
 						@(PrivateAreas.IsSet
-							? "Not saved yet — you are still hidden inside the area you saved before."
-							: "Not saved yet — you are still sharing from here.")
+							? "Not saved yet - you are still hidden inside the area you saved before."
+							: "Not saved yet - you are still sharing from here.")
 					</p>
 				}
 				else if (_areaStatus is not null)
@@ -454,7 +454,7 @@
 				{
 					<p class="status unsaved">
 						Your account could not be reached (@PrivateAreas.SyncError). What is shown is
-						this phone's own copy, and it <em>is</em> being used here — but a circle you
+						this phone's own copy, and it <em>is</em> being used here - but a circle you
 						set on another device may not have arrived yet.
 					</p>
 				}
@@ -471,7 +471,7 @@
 
 	/// <summary>
 	/// Whether this host has a GPS to configure. The MAUI app registers the four states below;
-	/// neither browser host does (§18.6), so their absence is the answer — see the page comment.
+	/// neither browser host does (§18.6), so their absence is the answer - see the page comment.
 	/// </summary>
 	private bool HasReceiver => _broadcast is not null;
 
@@ -508,7 +508,7 @@
 		PrivateAreas.Changed += OnChanged;
 
 		// PrivateAreaState is scoped, so on a second visit it has already read the device and the
-		// picker renders on this first pass — with whatever camera this component was constructed
+		// picker renders on this first pass - with whatever camera this component was constructed
 		// with. Deriving the camera here rather than in OnAfterRenderAsync is what stops the map
 		// opening on the default: a camera changed *after* that first render has to race the base
 		// map's own attach, and a parameter that changes while InitAsync is in flight is not one
@@ -520,7 +520,7 @@
 	}
 
 	/// <summary>
-	/// Reads the two device-local settings and the account's private area after first render —
+	/// Reads the two device-local settings and the account's private area after first render -
 	/// <em>not</em> in <c>OnInitializedAsync</c>. On the MAUI host the device store is MAUI
 	/// Preferences; there is no prerender to race, but the ordering is kept because it is the one
 	/// the states document. The private area also makes a request from here, which is the other
@@ -557,7 +557,7 @@
 			: Task.CompletedTask;
 
 	/// <summary>
-	/// Moves the floor, and the ceiling with it when it has to — see
+	/// Moves the floor, and the ceiling with it when it has to - see
 	/// <see cref="LocationUpdateRate.WithMinimum" />.
 	/// </summary>
 	private Task OnMinimumChanged(ChangeEventArgs args) =>
@@ -591,7 +591,7 @@
 
 	/// <summary>
 	/// Whether the save button is live. Bound to the name box rather than checked on the click, so
-	/// the requirement is visible before the rider commits to anything — and
+	/// the requirement is visible before the rider commits to anything - and
 	/// <see cref="TrackRecordingState.SaveAsync"/> enforces it again, because a disabled button is
 	/// a courtesy and not a rule.
 	/// </summary>
@@ -620,7 +620,7 @@
 			TrackSummary saved = await Recording.SaveAsync(_trackName, _excludePrivateArea);
 
 			_trackName = null;
-			_trackStatus = $"Saved — {saved.PointCount:N0} points are now in your tracks.";
+			_trackStatus = $"Saved - {saved.PointCount:N0} points are now in your tracks.";
 		}
 		catch (Exception exception)
 		{
@@ -653,14 +653,14 @@
 		_trackStatus = "Deleted. A new track starts at the next fix.";
 	}
 
-	// Zero is a real number for distance; null is not, and it shows as "—" rather than "0" (§8).
+	// Zero is a real number for distance; null is not, and it shows as "-" rather than "0" (§8).
 	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
 
 	private static string FormatDuration(double? seconds) =>
-		seconds is null ? "—" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
+		seconds is null ? "-" : TimeSpan.FromSeconds(seconds.Value).ToString(@"h\:mm");
 
 	private static string FormatWhen(DateTimeOffset? instant) =>
-		instant is null ? "—" : instant.Value.ToLocalTime().ToString("d MMM, HH:mm");
+		instant is null ? "-" : instant.Value.ToLocalTime().ToString("d MMM, HH:mm");
 
 	// -- Private area (§10.1, §18.6) ------------------------------------------------------------
 
@@ -736,7 +736,7 @@
 	}
 
 	/// <summary>
-	/// The coordinate boxes are the other half of the same two numbers — typing one moves the
+	/// The coordinate boxes are the other half of the same two numbers - typing one moves the
 	/// camera so the circle does not sit off the edge of the map.
 	/// </summary>
 	private void OnAreaCoordinateTyped()
@@ -786,12 +786,12 @@
 		}
 
 		// Normalised here rather than letting SetAsync throw, so a typed coordinate that is not
-		// on the earth is a sentence about the two boxes above rather than an exception message —
+		// on the earth is a sentence about the two boxes above rather than an exception message -
 		// and so what is composed stays dirty instead of being reported as saved.
 		if (new PrivateArea(latitude, longitude, _areaRadiusM).Normalised() is not { } area)
 		{
 			_areaOffline = false;
-			_areaStatus = "That centre is not a point on the earth — check the latitude and longitude.";
+			_areaStatus = "That centre is not a point on the earth - check the latitude and longitude.";
 			return;
 		}
 
@@ -805,7 +805,7 @@
 		catch (Exception exception)
 		{
 			// SetAsync closes the gate and writes this phone's copy before it uploads, so a
-			// failure here means "you are hidden, your account does not know yet" — a different
+			// failure here means "you are hidden, your account does not know yet" - a different
 			// sentence from "nothing was saved", and the rider needs the true one.
 			_areaOffline = true;
 			_areaStatus = "You are hidden here already, but your account could not be updated: "
@@ -894,7 +894,7 @@
 			color: var(--dlr-error);
 		}
 
-	/* The whole row is the control, label included — a select's own hit area is the box alone,
+	/* The whole row is the control, label included - a select's own hit area is the box alone,
 		   and this screen is read in a car park with gloves on. The label wraps under its select on
 		   a narrow phone rather than squeezing both onto one line. */
 	.location-settings .rate {

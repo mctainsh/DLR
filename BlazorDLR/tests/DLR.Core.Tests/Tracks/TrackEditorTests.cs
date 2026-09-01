@@ -5,14 +5,14 @@ namespace DLR.Core.Tests.Tracks;
 
 /// <summary>
 /// One primitive, three gestures (§15.5). Trim the start, trim the end, cut something out of the
-/// middle — all of them remove a half-open range of raw point indices.
+/// middle - all of them remove a half-open range of raw point indices.
 /// </summary>
 public sealed class TrackEditorTests
 {
 	/// <summary>
 	/// First for a reason (§15.7). An edit that removes nothing must reproduce the stored
 	/// numbers <em>exactly</em>. If a rewrite shifts ascent by a metre on an untouched track,
-	/// the algorithm is order-dependent or accumulating error — and the person it looks wrong
+	/// the algorithm is order-dependent or accumulating error - and the person it looks wrong
 	/// to is the one who rode it.
 	/// </summary>
 	[Fact]
@@ -91,7 +91,7 @@ public sealed class TrackEditorTests
 	/// <summary>
 	/// Splicing the neighbours together would draw a straight line across the gap and add its
 	/// length to the distance, inventing a path the rider never took. So the removed span
-	/// leaves a genuine discontinuity (§15.5) — the same mechanism as a multi-<c>trkseg</c>
+	/// leaves a genuine discontinuity (§15.5) - the same mechanism as a multi-<c>trkseg</c>
 	/// import, which is a sign the concept is right rather than bolted on.
 	/// </summary>
 	[Fact]
@@ -124,7 +124,7 @@ public sealed class TrackEditorTests
 
 	/// <summary>
 	/// The gap is a discontinuity, not a shortcut. Distance and duration are summed within
-	/// segments only, so the removed span contributes neither — and neither does the jump
+	/// segments only, so the removed span contributes neither - and neither does the jump
 	/// across it.
 	/// </summary>
 	[Fact]
@@ -138,7 +138,7 @@ public sealed class TrackEditorTests
 		before.DurationS.ShouldBe(600, "60 legs of ten seconds");
 
 		// Twenty points out of the middle: nineteen interior legs, plus the leg that used to
-		// join point 20 to point 21 and the one joining 40 to 41 — twenty-one legs in all.
+		// join point 20 to point 21 and the one joining 40 to 41 - twenty-one legs in all.
 		TrackGeometry edited = TrackEditor.Remove(original, [new PointRange(21, 41)]).Result;
 
 		TrackStats after = TrackEditor.Restat(edited);
@@ -149,7 +149,7 @@ public sealed class TrackEditorTests
 
 		after.DistanceM.ShouldBeLessThan(before.DistanceM * 0.7);
 
-		// The end timestamps are unchanged — the ride still finished when it finished. Duration
+		// The end timestamps are unchanged - the ride still finished when it finished. Duration
 		// is not end-minus-start on a track with a break in it, and conflating them is how a
 		// trimmed lunch stop reappears in the total.
 		after.StartedUtc.ShouldBe(before.StartedUtc);
@@ -163,8 +163,8 @@ public sealed class TrackEditorTests
 	[Fact]
 	public void Edit_RecomputedAscent_UsesRecorderThreshold()
 	{
-		// Ten points of altitude wander — a rider standing at the lights while GPS altitude
-		// oscillates by a metre — then a genuine twenty-metre climb.
+		// Ten points of altitude wander - a rider standing at the lights while GPS altitude
+		// oscillates by a metre - then a genuine twenty-metre climb.
 		List<TrackPoint> points = [];
 
 		for (int index = 0; index < 10; index++)
@@ -184,7 +184,7 @@ public sealed class TrackEditorTests
 		before.AscentM!.Value.ShouldBe(
 			20,
 			tolerance: 0.001,
-			"the climb counts and the wander does not — without a threshold this reads 25, and " +
+			"the climb counts and the wander does not - without a threshold this reads 25, and " +
 			"a parked bike accrues ascent for as long as it is parked");
 
 		// Trim the climb. What survives is the wander, whose ascent must be exactly what those
@@ -211,7 +211,7 @@ public sealed class TrackEditorTests
 		TrackStats.From(new TrackGeometry(points)).AscentM!.Value.ShouldBe(
 			18,
 			tolerance: 0.001,
-			"twenty one-metre steps, counted in sixes as each one clears the threshold — a " +
+			"twenty one-metre steps, counted in sixes as each one clears the threshold - a " +
 			"per-point comparison would report none of it");
 	}
 

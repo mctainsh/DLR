@@ -4,7 +4,7 @@ namespace DLR.UI.Tests.Components;
 
 /// <summary>
 /// The heading arrow's rotation convention (§5.3). <c>SkiaMapOverlay</c> cannot render in
-/// bUnit — <c>SKCanvasView</c> reaches for browser-only interop — so the one piece with a
+/// bUnit - <c>SKCanvasView</c> reaches for browser-only interop - so the one piece with a
 /// sign in it is asserted here rather than eyeballed on a screenshot. A flipped sign points
 /// every rider the wrong way, which looks plausible right up until someone follows it.
 /// </summary>
@@ -52,7 +52,7 @@ public sealed class MapGeometryTests
 	/// The viewport a base map would actually report for a view turned to a bearing.
 	/// <para>
 	/// <strong>Setting <c>HeadingDeg</c> alone does not model a rotation.</strong> The bounds a
-	/// base map reports are axis-aligned, so turning the map <em>widens and heightens</em> them —
+	/// base map reports are axis-aligned, so turning the map <em>widens and heightens</em> them -
 	/// the box has to enclose the corners of the turned rectangle. A test that holds the bounds
 	/// still and only changes the heading is asserting against a view that cannot exist, and will
 	/// happily pass a projection that gets every off-centre pin wrong on a real screen.
@@ -111,7 +111,7 @@ public sealed class MapGeometryTests
 		CanvasPoint northEast = MapGeometry.ProjectToCanvas(UnitViewport, 0.25, 0.25);
 
 		northEast.X.ShouldBeGreaterThan(500, "east of centre draws right of centre.");
-		northEast.Y.ShouldBeLessThan(500, "north of centre draws *above* centre — Y grows downward.");
+		northEast.Y.ShouldBeLessThan(500, "north of centre draws *above* centre - Y grows downward.");
 	}
 
 	[Fact]
@@ -150,7 +150,7 @@ public sealed class MapGeometryTests
 			.DistanceTo(new CanvasPoint(500, 500));
 
 		turned.ShouldBe(northUp, tolerance: 1e-6,
-			"rotation is an isometry — turning the map must not move a pin nearer to or " +
+			"rotation is an isometry - turning the map must not move a pin nearer to or " +
 			"further from the middle of the screen.");
 	}
 
@@ -160,7 +160,7 @@ public sealed class MapGeometryTests
 		// The reported bug, at the bearing that showed it worst. A pin 200 px due north of the
 		// centre on a north-up 800 x 400 canvas has to be 200 px to the *left* of the centre once
 		// the map is turned to 90 degrees, because north now points left. Deriving the scale by
-		// dividing the axis-aligned span by the canvas side puts it at 100 px instead — the
+		// dividing the axis-aligned span by the canvas side puts it at 100 px instead - the
 		// centre stays put, and the error grows with distance from it. At 0 and 180 the box is
 		// the canvas and the arithmetic is accidentally right, which is why the rider saw it come
 		// good again at half a turn.
@@ -202,7 +202,7 @@ public sealed class MapGeometryTests
 
 		MapGeometry.MetresToCanvasPixels(UnitViewport, 0, MetresPerDegree)
 			.ShouldBe(1000, tolerance: 1,
-				"the private-area circle is a radius on the ground (§10.1) — if this drifts, the " +
+				"the private-area circle is a radius on the ground (§10.1) - if this drifts, the " +
 				"ring stops enclosing the area the setting actually suppresses.");
 
 		MapGeometry.MetresToCanvasPixels(UnitViewport, 0, MetresPerDegree / 2)

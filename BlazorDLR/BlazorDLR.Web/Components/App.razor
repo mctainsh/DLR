@@ -5,7 +5,7 @@
 	<meta charset="utf-8" />
 	@* viewport-fit=cover so the bottom nav bar's env(safe-area-inset-bottom) padding is a
 	   real number on a notched phone. Without it the browser reports 0 and the icons sit
-	   under the home indicator — the web build is used on phones too, not just desktops. *@
+	   under the home indicator - the web build is used on phones too, not just desktops. *@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 	<base href="/" />
 	<ResourcePreloader />
@@ -16,7 +16,7 @@
 	<link rel="stylesheet" href="_content/BlazorDLR.Shared/app.css" />
 	@*
 		The scoped-component bundle. Named for the ASSEMBLY, not the project, and this
-		one's assembly name is DLR.Server (.csproj) — the old `BlazorDLR.Web.styles.css`
+		one's assembly name is DLR.Server (.csproj) - the old `BlazorDLR.Web.styles.css`
 		404'd, which is presumably why it ended up commented out. With it absent the web
 		host rendered every .razor.css in the shared RCL as nothing at all: MainLayout and
 		NavMenu had no rail layout, on the one host where you notice a window resize.
@@ -51,7 +51,7 @@
 	Home is [Authorize]-gated (§7.9). With prerendering on, the SSR pass rendered the gated
 	Home, hit <NotAuthorized>, tried to Nav.NavigateTo("/welcome"), and the redirect thrown
 	inside an interactive-mode boundary surfaced as the yellow error banner rather than as
-	the redirect the browser needed. Auth state is a client-only concept on this host — the
+	the redirect the browser needed. Auth state is a client-only concept on this host - the
 	access token lives in the WASM heap (§7.4, §18.5), so there is nothing for the server to
 	prerender authoritatively. Ship the WASM shell; let the client boot and resolve the route.
 *@

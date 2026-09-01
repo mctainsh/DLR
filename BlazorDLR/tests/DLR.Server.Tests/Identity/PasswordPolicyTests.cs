@@ -17,7 +17,7 @@ namespace DLR.Server.Tests.Identity;
 /// the caller can act on ("must have at least one uppercase letter").
 /// </para>
 /// <para>
-/// v0.23 removed the Pwned Passwords breach lookup entirely, also at operator request — the
+/// v0.23 removed the Pwned Passwords breach lookup entirely, also at operator request - the
 /// security impact of a weak password on this application is judged not to be significant, so
 /// the composition rules above are now the whole policy and there is no third-party call in
 /// the registration path.

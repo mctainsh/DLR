@@ -4,7 +4,7 @@ namespace DLR.Server.Diagnostics;
 /// The log-file's own health at startup, the markers either side of a shutdown, and the two
 /// process-wide hooks an exception nobody was waiting for arrives through (§14.6).
 /// <para>
-/// What this server <em>is</em> — build, folders, database, roster — is <see cref="StartupBanner"/>'s
+/// What this server <em>is</em> - build, folders, database, roster - is <see cref="StartupBanner"/>'s
 /// block, written before the first request. This adds the one fact that block cannot carry: the
 /// writer only discovers a directory it may not create once it has tried, which is after the
 /// banner was composed.
@@ -17,7 +17,7 @@ namespace DLR.Server.Diagnostics;
 /// <param name="lifetime">Started, stopping, stopped.</param>
 /// <param name="fileLog">Whether writing to the log file is working, and the flush on the way down.</param>
 /// <param name="events">Where the lines go.</param>
-/// <param name="started">When this run began — the same anchor the startup block stamps (§10.4).</param>
+/// <param name="started">When this run began - the same anchor the startup block stamps (§10.4).</param>
 public sealed class ServerLifetimeLog(
 	IHostApplicationLifetime lifetime,
 	FileLoggerProvider fileLog,
@@ -103,7 +103,7 @@ public sealed class ServerLifetimeLog(
 	{
 		if (fileLog.Problem is { Length: > 0 } problem)
 		{
-			// This one will not reach the file — that is what the problem *is* — but the console
+			// This one will not reach the file - that is what the problem *is* - but the console
 			// provider beside it still has it, and the administration screen reads the same property.
 			events.Concern(ServerEvents.Areas.Startup, problem);
 		}
@@ -114,7 +114,7 @@ public sealed class ServerLifetimeLog(
 	}
 
 	private void Stopping() =>
-		events.Note(ServerEvents.Areas.Startup, "Shutting down — no longer accepting requests.");
+		events.Note(ServerEvents.Areas.Startup, "Shutting down - no longer accepting requests.");
 
 	private void Stopped() =>
 		events.Note(
@@ -122,7 +122,7 @@ public sealed class ServerLifetimeLog(
 			$"Stopped after {StartupBanner.Age(started.Uptime)}. Anything after this line is a different run.");
 
 	/// <summary>
-	/// A background failure, and then — usually — the process ends. The flush is the point: the
+	/// A background failure, and then - usually - the process ends. The flush is the point: the
 	/// queue that keeps logging off the request path is also what loses the last line of a dying
 	/// process.
 	/// </summary>

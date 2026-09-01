@@ -11,7 +11,7 @@ namespace DLR.UI.Tests.Pages;
 /// The server log screen behind <c>/admin/logs</c> (§14.6).
 /// <para>
 /// Nothing on this page filters anything. EF Core logs every SQL statement it runs at Information,
-/// so no level floor can separate them from the lines about riders and rides — but the screen does
+/// so no level floor can separate them from the lines about riders and rides - but the screen does
 /// not drop them on the way to the list either, because the read is capped and a cap spent on
 /// lines nobody is going to see buys minutes of a busy day instead of the day. It asks the server
 /// not to read them at all. What is pinned here is that the unticked default reaches the server,
@@ -93,7 +93,7 @@ public sealed class AdminLogsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Ticking the box is a new reading of the file, not a new view of the page in hand — that is
+	/// Ticking the box is a new reading of the file, not a new view of the page in hand - that is
 	/// the point of the round trip, because the server is being asked for a different set of lines.
 	/// </summary>
 	[Fact]

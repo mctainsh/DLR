@@ -23,7 +23,7 @@ public static class GrantTypes
 /// <param name="Password">Password grant only.</param>
 /// <param name="RefreshToken">Refresh grant only.</param>
 /// <param name="DeviceName">
-/// What the rider would recognise this installation as — "iPhone 15" (§7.10). Never verified;
+/// What the rider would recognise this installation as - "iPhone 15" (§7.10). Never verified;
 /// it exists so somebody can pick the right row in the session list.
 /// </param>
 /// <param name="DeviceId">

@@ -1,7 +1,7 @@
 namespace DLR.Core.Contracts.Identity;
 
 /// <summary>
-/// <c>POST /api/v1/auth/email</c> — records a recovery address and sends a 24-hour
+/// <c>POST /api/v1/auth/email</c> - records a recovery address and sends a 24-hour
 /// confirmation link (§7.7, §7.14).
 /// </summary>
 /// <param name="Email">Where to send the link.</param>
@@ -44,7 +44,7 @@ public sealed record ForgotPasswordRequest(string Email);
 public sealed record ResetPasswordRequest(Guid UserId, string Token, string NewPassword);
 
 /// <summary>
-/// <c>POST /api/v1/auth/change-password</c> — authed, and requires the current password (§7.7).
+/// <c>POST /api/v1/auth/change-password</c> - authed, and requires the current password (§7.7).
 /// </summary>
 /// <param name="CurrentPassword">Proof this is the account's owner and not a borrowed phone.</param>
 /// <param name="NewPassword">Subject to the same §7.2 policy as registration.</param>

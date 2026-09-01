@@ -11,18 +11,18 @@
 @inject RiderAvatars Avatars
 
 @*
-	Two optional fields and a marker colour (§7.3, §16.3) — everything on this screen is an
+	Two optional fields and a marker colour (§7.3, §16.3) - everything on this screen is an
 	account setting that travels to the server.
 
 	The display name was a third. It is gone from the screen, not from the account: every name a
-	traveller reads — map pin, member list, marker author — has always been the login name (§7.2),
+	traveller reads - map pin, member list, marker author - has always been the login name (§7.2),
 	so the field only offered a second name that nothing rendered. The column, the contract and the
 	sharing switch all stay where they are for a later use, and this page keeps round-tripping the
-	stored values untouched (see _displayName) because PUT /me/profile replaces the whole profile —
+	stored values untouched (see _displayName) because PUT /me/profile replaces the whole profile -
 	a save that left them out would quietly erase what the screen no longer shows.
 
 	The home private area used to sit at the bottom of it and now lives on the Location screen
-	(§10.1). It is stored on the account like the fields above — but it is not one of them: it is
+	(§10.1). It is stored on the account like the fields above - but it is not one of them: it is
 	not a fact other riders may be shown, it is a gate on the receiver, and it belongs beside the
 	receiver it gates and the recording it filters. It is deliberately not part of this form's
 	PUT /me/profile either, for the reason spelled out two paragraphs up: this page replaces the
@@ -30,13 +30,13 @@
 	not been taught about it. It has its own endpoints.
 *@
 
-<PageTitle>Profile — Dumb Luck Routes</PageTitle>
+<PageTitle>Profile - Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium form-page profile">
 	<PageNav Title="Profile" BackHref="/settings" BackLabel="Back to settings" />
 
 	<p class="lead">
-		Two optional fields. Each has a switch, off unless you turn it on — a shared value
+		Two optional fields. Each has a switch, off unless you turn it on - a shared value
 		is visible <em>only</em> to travellers in a group adventure with you, and access ends when
 		you leave that adventure or it is deleted.
 	</p>
@@ -50,7 +50,7 @@
 		@*
 			Outside the form, and it saves on its own. Everything below goes up as one whole-profile
 			PUT; the photograph has its own endpoint so that a client which has not been taught
-			about it cannot clear it by saving the rest (§7.3) — and putting it inside a form whose
+			about it cannot clear it by saving the rest (§7.3) - and putting it inside a form whose
 			Save button does not save it would be the confusing half of that decision.
 		*@
 		<fieldset class="photo">
@@ -58,7 +58,7 @@
 
 			<p class="note">
 				Optional. Add one and it appears as a small circle beside your name everywhere
-				other travellers read it — member lists, adventure chat, markers you place, routes
+				other travellers read it - member lists, adventure chat, markers you place, routes
 				you share. There is no switch: adding it is how you share it, and Remove is how
 				you stop.
 			</p>
@@ -66,12 +66,12 @@
 			<div class="photo-row">
 				@if (_pickedPhoto is not null)
 				{
-					<span class="picked-note"><em>@_pickedPhoto.FileName — @(_pickedPhoto.Bytes.Length / 1024) KB</em></span>
+					<span class="picked-note"><em>@_pickedPhoto.FileName - @(_pickedPhoto.Bytes.Length / 1024) KB</em></span>
 				}
 				else if (Auth.UserName is { Length: > 0 } me)
 				{
 					@* The live component rather than a bare <img>, so what the rider is looking at
-					   is exactly what everybody else will see — same cache, same size, same crop. *@
+					   is exactly what everybody else will see - same cache, same size, same crop. *@
 					<RiderAvatar UserName="@me" Size="RiderAvatar.AvatarSize.Detail" />
 				}
 
@@ -93,7 +93,7 @@
 			</div>
 
 			<p class="note">
-				The server re-encodes every photo and strips its metadata — an EXIF GPS tag from
+				The server re-encodes every photo and strips its metadata - an EXIF GPS tag from
 				your driveway will not travel with it.
 			</p>
 
@@ -144,7 +144,7 @@
 					</label>
 					<p class="note">
 						Sharing an email exposes your recovery address. Turning it off does
-						not delete it — it stays your recovery address either way.
+						not delete it - it stays your recovery address either way.
 						<a href="/settings/account#email">Change it, or resend the confirmation link.</a>
 					</p>
 				}
@@ -161,7 +161,7 @@
 				<p class="note">
 					How you appear on a group adventure's live map. The arrow points the way you are
 					going; it turns into a red dot when you stop. Everyone on the adventure sees this
-					colour — that is the whole point of it.
+					colour - that is the whole point of it.
 				</p>
 
 				<p class="marker-preview">
@@ -205,7 +205,7 @@
 	<p class="note">
 		Looking for the home private area? It has moved to
 		<a href="/settings/location">Location</a>, beside the GPS it switches off. It is saved with
-		your account, so it follows you to a new phone — and it is still shown to nobody else.
+		your account, so it follows you to a new phone - and it is still shown to nobody else.
 	</p>
 </div>
 
@@ -215,7 +215,7 @@
 	/// <summary>
 	/// Read on load and sent straight back, with nothing on the screen that changes them. The
 	/// display name has no editor any more (see the note at the top), but the update is a
-	/// whole-profile replace — a save that omitted these would clear a stored name and the
+	/// whole-profile replace - a save that omitted these would clear a stored name and the
 	/// switch that goes with it.
 	/// </summary>
 	private string? _displayName;
@@ -232,7 +232,7 @@
 	/// <summary>An image chosen but not yet uploaded. See OnPhotoSelectedAsync.</summary>
 	private PickedPhoto? _pickedPhoto;
 
-	/// <summary>Guards the photo buttons on their own — they save separately from the form below.</summary>
+	/// <summary>Guards the photo buttons on their own - they save separately from the form below.</summary>
 	private bool _savingPhoto;
 
 	/// <summary>What the photo section reports, kept apart from the form's own status line.</summary>
@@ -251,11 +251,11 @@
 	/// <summary>The chosen background, as both the preview and the swatch comparison read it.</summary>
 	private string MarkerBackground => MarkerColours.Or(_markerColour);
 
-	/// <summary>Black or white — the ink the map will draw the name and the border in.</summary>
+	/// <summary>Black or white - the ink the map will draw the name and the border in.</summary>
 	private string MarkerForeground => MarkerColours.ForegroundFor(_markerColour);
 
 	/// <summary>
-	/// What the preview pill says. The username, because that — never the display name — is what
+	/// What the preview pill says. The username, because that - never the display name - is what
 	/// a map pin carries (§7.2). "You" while the session is still warming up.
 	/// </summary>
 	private string MarkerLabel => RiderMarker.Label(Auth.UserName ?? "You");
@@ -273,7 +273,7 @@
 
 	/// <summary>
 	/// The colour well's answer. Browsers hand back <c>#rrggbb</c>, and anything else is dropped
-	/// rather than sent — the server would refuse it, and a save that fails over a control the
+	/// rather than sent - the server would refuse it, and a save that fails over a control the
 	/// rider cannot see the state of is a save nobody can fix.
 	/// </summary>
 	private void OnCustomColourChosen(ChangeEventArgs args)
@@ -285,7 +285,7 @@
 	}
 
 	/// <summary>
-	/// Reads the chosen image into memory. Nothing is uploaded until <em>Use this photo</em> —
+	/// Reads the chosen image into memory. Nothing is uploaded until <em>Use this photo</em> -
 	/// cancelling then leaves nothing on the server for the §7.11 sweep to find.
 	/// </summary>
 	private async Task OnPhotoSelectedAsync(InputFileChangeEventArgs args)
@@ -297,7 +297,7 @@
 		{
 			// Said at the keyboard rather than after a 413 from the far end of a phone connection,
 			// which is the case this check exists for.
-			_photoStatus = "That photo is larger than 12 MB — the server would refuse it.";
+			_photoStatus = "That photo is larger than 12 MB - the server would refuse it.";
 			return;
 		}
 
@@ -321,7 +321,7 @@
 	/// <remarks>
 	/// Two calls rather than one, because a photo is a standalone resource (§16.4). The upload
 	/// going through and the account not being updated leaves an orphan the nightly sweep
-	/// collects — a far better failure than an account pointing at bytes that never landed.
+	/// collects - a far better failure than an account pointing at bytes that never landed.
 	/// </remarks>
 	private async Task SavePhotoAsync()
 	{
@@ -339,7 +339,7 @@
 			_profile = await Api.SetAvatarAsync(new SetAvatarRequest(uploaded.PhotoId));
 			_pickedPhoto = null;
 
-			// Every avatar of this rider currently on screen re-resolves — including the preview
+			// Every avatar of this rider currently on screen re-resolves - including the preview
 			// two lines above, which is the same component reading the same cache.
 			Avatars.Forget(Auth.UserName);
 
@@ -388,7 +388,7 @@
 		try
 		{
 			await Api.UpdateProfileAsync(new UpdateProfileRequest(
-				// Unchanged since load, and on the wire for exactly that reason — see _displayName.
+				// Unchanged since load, and on the wire for exactly that reason - see _displayName.
 				DisplayName: string.IsNullOrWhiteSpace(_displayName) ? null : _displayName.Trim(),
 				PhoneNumber: string.IsNullOrWhiteSpace(_phoneNumber) ? null : _phoneNumber.Trim(),
 				ShareDisplayName: _shareDisplayName,
@@ -444,7 +444,7 @@
 
 	/* The preview is the marker the map draws, in HTML: a pill with a rounded end, the rider's
 	   colour behind it and the contrasting ink on top. Not pixel-identical to the Skia version
-	   and not trying to be — what it has to get right is the pairing. */
+	   and not trying to be - what it has to get right is the pairing. */
 	.profile .marker-preview {
 		margin: 0.75rem 0;
 	}

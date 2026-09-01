@@ -14,7 +14,7 @@
 
 			<!--
 				MainPage binds its BackgroundColor to this. It was missing, so the binding
-				resolved to nothing and the native page kept the platform default — which is
+				resolved to nothing and the native page kept the platform default - which is
 				what flashes white behind the WebView on launch and while a rotation
 				re-lays-out. Black matches the status-bar strip (wwwroot/app.css) and the
 				dark palette (BlazorDLR.Shared/wwwroot/app.css) either side of it.

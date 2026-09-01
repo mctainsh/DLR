@@ -8,7 +8,7 @@ namespace DLR.Core.Tests.Tracks;
 /// <para>
 /// The editor addresses full-resolution indices throughout, and every derived number comes from
 /// the raw points. If anything editable or countable ever pointed at the simplified copy it
-/// would delete the wrong points or report a shorter ride — which is why these tests care as
+/// would delete the wrong points or report a shorter ride - which is why these tests care as
 /// much about what simplification must <em>not</em> touch.
 /// </para>
 /// </summary>
@@ -29,7 +29,7 @@ public sealed class TrackSimplifierTests
 	[Fact]
 	public void Simplify_DeviationBeyondTolerance_IsKept()
 	{
-		// A straight line with one point pushed 50 m sideways — a real corner, not noise.
+		// A straight line with one point pushed 50 m sideways - a real corner, not noise.
 		List<TrackPoint> points = [.. Enumerable.Range(0, 21).Select(index => Along(index, 0))];
 
 		points[10] = Along(10, eastMetres: 50);
@@ -53,7 +53,7 @@ public sealed class TrackSimplifierTests
 	{
 		List<TrackPoint> points = [.. Enumerable.Range(0, 21).Select(index => Along(index, 0))];
 
-		// Two metres off the line — inside consumer GPS error, and invisible at any zoom that
+		// Two metres off the line - inside consumer GPS error, and invisible at any zoom that
 		// shows a whole ride.
 		points[10] = Along(10, eastMetres: 2);
 

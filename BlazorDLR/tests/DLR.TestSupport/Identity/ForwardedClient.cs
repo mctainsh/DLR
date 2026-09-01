@@ -4,7 +4,7 @@ namespace DLR.TestSupport.Identity;
 /// Presenting as a client behind the reverse proxy (§7.8).
 /// <para>
 /// The test host connects over loopback, so without a forwarded header every test in the suite
-/// shares one address — which is exactly the production failure this guards against, and would
+/// shares one address - which is exactly the production failure this guards against, and would
 /// make every per-address rule untestable in the same breath.
 /// </para>
 /// </summary>

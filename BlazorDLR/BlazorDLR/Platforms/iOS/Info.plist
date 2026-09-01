@@ -31,12 +31,12 @@
 	
 	<!--
 		`location` is what lets CLLocationManager.AllowsBackgroundLocationUpdates be set at all
-		(§4.3) — without this entry the assignment throws, and with it the app keeps receiving
+		(§4.3) - without this entry the assignment throws, and with it the app keeps receiving
 		fixes with the screen off. See Platforms/iOS/Location/AppleLocationProvider.cs.
 
 		`fetch` was removed in the release that added the receiver. Nothing in this app
 		implements background fetch, and App Review rejects a declared background mode the
-		binary never uses — "the app does not include features that require the persistent use
+		binary never uses - "the app does not include features that require the persistent use
 		of the selected background modes" is a standard 2.5.4 rejection.
 	-->
 	<key>UIBackgroundModes</key>
@@ -62,7 +62,7 @@
 	<!--
 		App Transport Security. Cleartext is permitted in exactly two places and nowhere else.
 
-		NSAllowsArbitraryLoads — which turns ATS off for every host — used to sit here so a debug
+		NSAllowsArbitraryLoads - which turns ATS off for every host - used to sit here so a debug
 		build could talk to `http://` on a developer's laptop, and was removed before the first
 		App Store submission: App Review asks for a justification for a blanket exception and
 		routinely refuses one from an app whose production API is HTTPS
@@ -70,7 +70,7 @@
 
 		NSAllowsLocalNetworking permits cleartext to loopback and link-local addresses, and nothing
 		else. The app needs it for its own map-pack server on 127.0.0.1, which is how MapLibre
-		range-reads a downloaded PMTiles archive it could not otherwise address (§4.5) — and for the
+		range-reads a downloaded PMTiles archive it could not otherwise address (§4.5) - and for the
 		debug API base, which MauiConstants points at http://127.0.0.1:5005/. That covers the
 		simulator, which shares a kernel with the host; a debug build on a *device* pointed at a
 		server on the LAN needs that host added to NSExceptionDomains below, temporarily and never
@@ -82,7 +82,7 @@
 		to it cannot be verified. When it serves one matching its own name, this dict goes and
 		MapPackCatalogue.DefaultUrl becomes https.
 
-		Both the list and the archives travel in the clear — the packs are served from this same host
+		Both the list and the archives travel in the clear - the packs are served from this same host
 		(MapPackCatalogue.PermitsCleartext), which is hundreds of megabytes rendered as the map a
 		rider navigates by, with the published sha256 not yet compared against what arrives
 		(offline-maps-plan.md §4.3 step 3). NSIncludesSubdomains is absent, so this covers exactly
@@ -112,7 +112,7 @@
 
 	<!--
 		Purpose strings. App Review reads these, and 5.1.1 rejections for location are almost
-		always a string that says *what* the app does rather than *why the rider benefits* —
+		always a string that says *what* the app does rather than *why the rider benefits* -
 		so each one names the feature, the audience and the rider's control over it.
 
 		The "always" strings mention the screen being off explicitly, because that is the part
@@ -120,7 +120,7 @@
 		above.
 
 		NSBluetoothAlwaysUsageDescription is here under protest, and the string says so. Nothing in
-		this app touches CoreBluetooth — there is no CBCentralManager anywhere in the tree — but
+		this app touches CoreBluetooth - there is no CBCentralManager anywhere in the tree - but
 		App Store Connect returns ITMS-90683 on upload because its static analysis sees the
 		CoreBluetooth symbols the Microsoft.iOS runtime links in, and the check is on what the
 		binary *references*, not what it calls: "While your app might not use these APIs, a purpose
@@ -128,7 +128,7 @@
 		will eventually harden into a rejection.
 
 		So the string is written for the only Bluetooth use a rider could truthfully be told about
-		— Location Services' own use of nearby radios to sharpen a fix — and it opens by saying the
+		- Location Services' own use of nearby radios to sharpen a fix - and it opens by saying the
 		app itself does not connect to accessories, so that a reviewer comparing the string against
 		the binary finds the two agree. If a release ever does open a CBCentralManager, rewrite this
 		to describe that feature instead; leaving this text in place next to real accessory code
@@ -162,7 +162,7 @@
         .gpx share-sheet / "Open with" integration (SharedFrontend.md §7 Phase 1).
         Two halves of one story:
           CFBundleDocumentTypes announces "this app opens files of this type";
-          UTImportedTypeDeclarations tells iOS what "org.topografix.gpx" is — mime
+          UTImportedTypeDeclarations tells iOS what "org.topografix.gpx" is - mime
           application/gpx+xml, extension .gpx, conforming to public.xml.
         Without the imported-type block the OS will not recognise the identifier
         the CFBundleDocumentTypes entry names, and the app will not appear in the
@@ -171,7 +171,7 @@
         LSSupportsOpeningDocumentsInPlace answers ITMS-90737, which every upload that
         declares CFBundleDocumentTypes gets until one of the two document keys is
         present. NO, not YES, and not UISupportsDocumentBrowser:
-          * there is no UIDocumentBrowserViewController — the app has no file browser;
+          * there is no UIDocumentBrowserViewController - the app has no file browser;
           * this app is an importer, not an editor. It parses a .gpx once and keeps the
             track in its own store; the original file is never written back and never
             read again. NO makes iOS hand over a copy in the app's Inbox, which is

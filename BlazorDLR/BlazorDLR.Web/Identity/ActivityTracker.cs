@@ -9,7 +9,7 @@ namespace DLR.Server.Identity;
 /// <para>
 /// Piggybacked on the refresh a client already makes at app start: no extra endpoint, no extra
 /// round trip, and no client work beyond what it does anyway. Throttled so that opening the app
-/// five times in a morning is one <c>UPDATE</c> rather than five — which is the difference
+/// five times in a morning is one <c>UPDATE</c> rather than five - which is the difference
 /// between a free field and a write on the hot path of every launch.
 /// </para>
 /// </summary>
@@ -19,8 +19,8 @@ public sealed class ActivityTracker(DlrDbContext database, TimeProvider clock)
 {
 	/// <summary>
 	/// How stale the record has to be before it is worth a write. An hour is far below the
-	/// resolution anything reads it at — the inactivity sweep counts in days (§7.11) and the
-	/// session list says "2 hours ago" — so the throttle costs nothing that is looked at.
+	/// resolution anything reads it at - the inactivity sweep counts in days (§7.11) and the
+	/// session list says "2 hours ago" - so the throttle costs nothing that is looked at.
 	/// </summary>
 	public static readonly TimeSpan ThrottleWindow = TimeSpan.FromHours(1);
 
@@ -39,7 +39,7 @@ public sealed class ActivityTracker(DlrDbContext database, TimeProvider clock)
 		//
 		// The warning stamp is cleared in the same statement (§7.11). A rider who was warned at
 		// 150 days and then came back has answered the warning, and leaving the stamp set would
-		// mean the next quiet spell — a year later — ran to deletion with no warning at all,
+		// mean the next quiet spell - a year later - ran to deletion with no warning at all,
 		// because the sweep would find an account it had already told.
 		await database
 			.Set<AppUser>()

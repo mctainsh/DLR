@@ -8,7 +8,7 @@ namespace DLR.Server.Positions;
 /// <strong>Accounting, not durability.</strong> Until v0.33 this also wrote every rider's position
 /// to PostgreSQL on the same tick, and the name meant a flush of the map. Positions now live in
 /// <see cref="RiderPositionCache"/> and nowhere else (§5.5), so what is left on this timer is the
-/// lifetime counter — a number about an account, not a place a person was.
+/// lifetime counter - a number about an account, not a place a person was.
 /// </para>
 /// <para>
 /// It keeps a period rather than counting on every fix because the counts coalesce: a rider sending
@@ -66,7 +66,7 @@ public sealed class PositionCounterFlushService(
 
 		if (counted.Count == 0)
 		{
-			// No scope, no connection, no command. A quiet server must be quiet — otherwise the
+			// No scope, no connection, no command. A quiet server must be quiet - otherwise the
 			// idle cost of the feature is a database round trip every ten seconds, forever.
 			return;
 		}

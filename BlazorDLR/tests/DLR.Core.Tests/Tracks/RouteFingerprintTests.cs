@@ -59,13 +59,13 @@ public sealed class RouteFingerprintTests
 
 		TrackBlobCodec.ContentHash(recorded).ShouldNotBe(
 			TrackBlobCodec.ContentHash(planned),
-			"§15.3's hash answers a different question — two recordings, and the rider keeps both");
+			"§15.3's hash answers a different question - two recordings, and the rider keeps both");
 	}
 
 	/// <summary>
 	/// The way a duplicate actually arrives: somebody exports a shared route and imports the
 	/// file. <see cref="GpxWriter"/> writes seven decimal places, so the doubles that come back
-	/// are not bit-identical to the ones that went out — which is exactly why the fingerprint
+	/// are not bit-identical to the ones that went out - which is exactly why the fingerprint
 	/// rounds before it hashes.
 	/// </summary>
 	[Fact]

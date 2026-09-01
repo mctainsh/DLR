@@ -28,6 +28,6 @@ public sealed class RedirectToWelcomeTests : BunitContext
 		// path ends with /welcome to be independent of the test host's base URI.
 		nav.Uri.EndsWith("/welcome", StringComparison.Ordinal).ShouldBeTrue(
 			$"§7.9: an anonymous caller must land on /welcome; got '{nav.Uri}'.");
-		nav.Uri.ShouldNotBe(before, "the component must actually navigate — a no-op leaves the anonymous user on the gated page.");
+		nav.Uri.ShouldNotBe(before, "the component must actually navigate - a no-op leaves the anonymous user on the gated page.");
 	}
 }

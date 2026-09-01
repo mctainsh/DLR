@@ -8,7 +8,7 @@ namespace DLR.Core.Contracts.Account;
 /// <para>
 /// <strong>An export is a promise about completeness, so the shape is deliberately flat and
 /// exhaustive rather than pretty.</strong> Anything omitted here is data the account holder has
-/// been told they were given and were not — which is a different and worse kind of bug from an
+/// been told they were given and were not - which is a different and worse kind of bug from an
 /// ugly file. Where something is a file rather than a field (a track's points, a photograph) the
 /// record names its path inside the archive, so nothing is silently reduced to an identifier.
 /// </para>
@@ -61,7 +61,7 @@ public sealed record AccountExport(
 /// <param name="PrivateArea">
 /// The home private area the account holds, or null when it has none (§10.1).
 /// <para>
-/// Exported because the server holds it and it is the rider's data — the same reason the
+/// Exported because the server holds it and it is the rider's data - the same reason the
 /// switches above are. It is also the one field in this record that is a location, so an export
 /// containing it is an export that names where somebody lives: the archive is handed to the
 /// account holder over an authenticated request and nowhere else, and that is worth remembering
@@ -89,7 +89,7 @@ public sealed record ExportedProfile(
 /// <param name="Version">How many times it has been edited (§15.4).</param>
 /// <param name="GpxPath">Where the points are in the archive.</param>
 /// <param name="PreviousVersionGpxPath">
-/// The retained pre-edit original, while it exists (§15.6). Present only inside the undo window —
+/// The retained pre-edit original, while it exists (§15.6). Present only inside the undo window -
 /// it is the rider's data for as long as this server holds it, so it is exported with the track
 /// rather than quietly left out of the one file that claims to be everything.
 /// </param>
@@ -111,7 +111,7 @@ public sealed record ExportedTrack(
 /// <param name="GroupRideId">Its parent, when it hangs off a ride.</param>
 /// <param name="Lat">Degrees.</param>
 /// <param name="Lon">Degrees.</param>
-/// <param name="DirectionDeg">Bearing, or null for no bearing — never zero for absent (§16.2).</param>
+/// <param name="DirectionDeg">Bearing, or null for no bearing - never zero for absent (§16.2).</param>
 /// <param name="Icon">The icon key as stored, unknown ones included.</param>
 /// <param name="Title">Its title.</param>
 /// <param name="Note">Its note.</param>
@@ -152,7 +152,7 @@ public sealed record ExportedPhoto(
 /// One ride this account organised or rode in (§5.2).
 /// <para>
 /// <strong>The join code is not here, and that is not an oversight.</strong> It is the ride's entire
-/// access control and it goes only to the organiser (§5.2) — an export handed to a member that
+/// access control and it goes only to the organiser (§5.2) - an export handed to a member that
 /// carried it would let any member re-share the group the organiser curated, through a file nobody
 /// thinks of as a sharing surface.
 /// </para>
@@ -171,13 +171,13 @@ public sealed record ExportedRide(
 	DateTimeOffset JoinedUtc,
 	bool ShareLocation);
 
-/// <summary>One post in a ride thread — polls included, since a poll is a comment (§17.5).</summary>
+/// <summary>One post in a ride thread - polls included, since a poll is a comment (§17.5).</summary>
 /// <param name="Id">The comment.</param>
 /// <param name="GroupRideId">Which ride's thread.</param>
 /// <param name="Kind">Text or poll.</param>
 /// <param name="Body">What it said; a poll's body is its question.</param>
 /// <param name="PhotoId">An attached photograph, if any.</param>
-/// <param name="PostedUtc">When the server received it — the order the thread reads in (§17.2).</param>
+/// <param name="PostedUtc">When the server received it - the order the thread reads in (§17.2).</param>
 /// <param name="CreatedUtc">When it was authored, which differs for a post composed offline.</param>
 /// <param name="EditedUtc">When it was last edited, if it was.</param>
 /// <param name="PollOptions">The options, when this is a poll.</param>
@@ -220,7 +220,7 @@ public sealed record ExportedDevice(
 /// <para>
 /// The current password, because this is the one irreversible action in the API and a stolen
 /// fifteen-minute access token should not be enough to end somebody's account. Every account has a
-/// password — §7.2 makes username and password <em>the</em> account — so requiring it excludes
+/// password - §7.2 makes username and password <em>the</em> account - so requiring it excludes
 /// nobody.
 /// </para>
 /// </summary>

@@ -13,7 +13,7 @@ namespace DLR.UI.Tests.Pages;
 
 /// <summary>
 /// §5.2's two-policy switch. The composer offers the organiser <em>Approval</em> or
-/// <em>Open</em> and defaults to Approval — the safer of the two, because someone with
+/// <em>Open</em> and defaults to Approval - the safer of the two, because someone with
 /// a bare code cannot join without the organiser deciding. The chosen policy has to
 /// reach the API as-selected, and the default-start time has to be driven by
 /// <see cref="TimeProvider"/> (§10.4) so tests advance a fake clock rather than sleeping.
@@ -46,7 +46,7 @@ public sealed class CreateRideTests : PageTestContext
 			.First(r => r.GetAttribute("value") == JoinPolicyDto.Open.ToString());
 
 		approval.GetAttribute("checked").ShouldNotBeNull(
-			"§5.2: Approval is the safer default — nobody enters until the organiser admits them.");
+			"§5.2: Approval is the safer default - nobody enters until the organiser admits them.");
 		open.GetAttribute("checked").ShouldBeNull();
 	}
 
@@ -82,7 +82,7 @@ public sealed class CreateRideTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		CreateRideRequest sent = api.LastCreateRideRequest!;
-		sent.Name.ShouldBe("Sunday morning club run", "the name is trimmed and passed through — §5.2's adventure identity.");
+		sent.Name.ShouldBe("Sunday morning club run", "the name is trimmed and passed through - §5.2's adventure identity.");
 		sent.JoinPolicy.ShouldBe(JoinPolicyDto.Open,
 			"the composer sends whichever policy the organiser last selected; the default is Approval, and the switch to Open must round-trip.");
 	}
@@ -106,7 +106,7 @@ public sealed class CreateRideTests : PageTestContext
 
 	/// <summary>
 	/// The picker offers the caller's own tracks and nothing else (§15.4), plus the empty option
-	/// that is the whole reason it can be ignored — a route is optional at creation.
+	/// that is the whole reason it can be ignored - a route is optional at creation.
 	/// </summary>
 	[Fact]
 	public void RoutePicker_OffersTheCallersTracks_AndAnEmptyOption()
@@ -122,7 +122,7 @@ public sealed class CreateRideTests : PageTestContext
 
 		IReadOnlyList<string> options = [.. component.FindAll("select option").Select(option => option.TextContent.Trim())];
 
-		options[0].ShouldBe("No route — add one later",
+		options[0].ShouldBe("No route - add one later",
 			"the empty option is selected by default, because a route is optional here.");
 		options[1].ShouldContain("Coast loop");
 		options[1].ShouldContain("42.0 km", customMessage: "the distance is what tells two similarly named routes apart.");
@@ -152,7 +152,7 @@ public sealed class CreateRideTests : PageTestContext
 
 		api.LastCreateRideRequest.ShouldNotBeNull();
 		api.AddedRoutes[0].TrackId.ShouldBe(trackId,
-			"the track the organiser picked is the one attached — §5.4's routes are a set, and this seeds it with one.");
+			"the track the organiser picked is the one attached - §5.4's routes are a set, and this seeds it with one.");
 		api.AddedRoutes[0].RideId.ShouldNotBe(Guid.Empty,
 			"the attach is addressed to the ride that was just created, so it cannot happen before the create.");
 
@@ -160,7 +160,7 @@ public sealed class CreateRideTests : PageTestContext
 			.ShouldContain("/group-rides/live/", customMessage: "the organiser still lands on the live map.");
 	}
 
-	/// <summary>Leaving the empty option alone attaches nothing — the route is genuinely optional.</summary>
+	/// <summary>Leaving the empty option alone attaches nothing - the route is genuinely optional.</summary>
 	[Fact]
 	public async Task Submit_WithNoRouteChosen_AttachesNothing()
 	{
@@ -180,8 +180,8 @@ public sealed class CreateRideTests : PageTestContext
 
 	/// <summary>
 	/// A refused attach leaves a perfectly good adventure behind, so it is reported as exactly
-	/// that. The form goes away rather than re-arming — a second Create would make a second
-	/// adventure — and the way on is the ride's own Info screen, where routes are managed.
+	/// that. The form goes away rather than re-arming - a second Create would make a second
+	/// adventure - and the way on is the ride's own Info screen, where routes are managed.
 	/// </summary>
 	[Fact]
 	public async Task Submit_WhenTheAttachIsRefused_KeepsTheAdventure_AndSaysSo()

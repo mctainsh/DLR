@@ -10,7 +10,7 @@ namespace DLR.Server.Tests.Hosting;
 /// database announces itself on the first query, whereas a missing blob root <em>works</em>.
 /// <c>BlobStoreOptions.RootPath</c> defaults to the empty string, <c>Path.Combine</c> makes
 /// that relative, and the server cheerfully writes every uploaded photograph into whatever the
-/// working directory happens to be — the source tree, when it is run from the project folder.
+/// working directory happens to be - the source tree, when it is run from the project folder.
 /// Nothing fails, so nothing gets noticed until the uploads turn up in <c>git status</c>.
 /// </para>
 /// </summary>
@@ -33,7 +33,7 @@ public sealed class RequiredSettingsTests
 	}
 
 	/// <summary>
-	/// A path that does not exist yet is fine — <c>FileSystemBlobStore</c> creates each blob's
+	/// A path that does not exist yet is fine - <c>FileSystemBlobStore</c> creates each blob's
 	/// directory on the way past, and a volume mounted a moment after the container starts is
 	/// ordinary. What cannot be recovered from later is not knowing where to write.
 	/// </summary>
@@ -61,7 +61,7 @@ public sealed class RequiredSettingsTests
 	}
 
 	/// <summary>
-	/// The one that matters. A relative path is not a smaller version of the mistake — it is the
+	/// The one that matters. A relative path is not a smaller version of the mistake - it is the
 	/// same silent write-to-the-working-directory behaviour, merely with a value in the setting
 	/// to make it look configured.
 	/// </summary>

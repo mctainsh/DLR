@@ -61,7 +61,7 @@ public static class AdminRegistration
 	/// Adds the file log provider to the host's logging (§14.6).
 	/// <para>
 	/// Separate from <see cref="AddDlrAdmin"/> because it registers into the logging builder rather
-	/// than the container, and because a deployment can sensibly want one without the other — a
+	/// than the container, and because a deployment can sensibly want one without the other - a
 	/// file log with nobody on the roster is a perfectly good thing to run.
 	/// </para>
 	/// </summary>

@@ -22,8 +22,8 @@ public sealed class RideCommentConfiguration : IEntityTypeConfiguration<RideComm
 	{
 		builder.ToTable("ride_comment", table =>
 		{
-			// A comment with a photo and no text is legitimate — most post-ride posts are exactly
-			// that — so the rule is "at least one of the two", not "body required" (§17.2). In the
+			// A comment with a photo and no text is legitimate - most post-ride posts are exactly
+			// that - so the rule is "at least one of the two", not "body required" (§17.2). In the
 			// database as well as in the endpoint, for the same reason the marker arc is: every
 			// path that ever writes this table inherits the invariant.
 			table.HasCheckConstraint(
@@ -34,7 +34,7 @@ public sealed class RideCommentConfiguration : IEntityTypeConfiguration<RideComm
 			// with neither is a post hanging off nothing that every reader would have to
 			// tolerate; a row with both is a post that appears in two conversations and gets
 			// deleted by whichever of them goes first. Neither is a state the code above can
-			// reach today, which is exactly why it belongs here — it is the state a future write
+			// reach today, which is exactly why it belongs here - it is the state a future write
 			// path would reach by accident.
 			table.HasCheckConstraint(
 				HasOneThreadConstraint,
@@ -54,7 +54,7 @@ public sealed class RideCommentConfiguration : IEntityTypeConfiguration<RideComm
 
 		// Cascade too, and for the same reason: a route that is gone has no thread, and posts
 		// pointing at nothing would fail the constraint above the moment anything touched them.
-		// Deleting a route is the owner's deliberate act on their own row (§15.4) — un-sharing is
+		// Deleting a route is the owner's deliberate act on their own row (§15.4) - un-sharing is
 		// the reversible one, and it leaves the thread alone so that re-sharing brings it back.
 		builder
 			.HasOne(comment => comment.Track)
@@ -63,7 +63,7 @@ public sealed class RideCommentConfiguration : IEntityTypeConfiguration<RideComm
 			.OnDelete(DeleteBehavior.Cascade);
 
 		// The author's *account* going takes their posts with it (§17.6, §10.1). Their merely
-		// leaving the ride does not — deleting half a conversation makes the other half nonsense,
+		// leaving the ride does not - deleting half a conversation makes the other half nonsense,
 		// so that path revokes access and keeps the rows.
 		builder
 			.HasOne(comment => comment.Author)
@@ -71,7 +71,7 @@ public sealed class RideCommentConfiguration : IEntityTypeConfiguration<RideComm
 			.HasForeignKey(comment => comment.AuthorId)
 			.OnDelete(DeleteBehavior.Cascade);
 
-		// Cascade, where a marker's photo is SetNull — and the difference is the CHECK above. A
+		// Cascade, where a marker's photo is SetNull - and the difference is the CHECK above. A
 		// marker keeps a required title, so it survives losing its picture; a photo-only comment
 		// has nothing left and would violate the constraint the moment the column was nulled.
 		// In practice the two rows die together anyway: only your own upload can be attached, so
@@ -82,7 +82,7 @@ public sealed class RideCommentConfiguration : IEntityTypeConfiguration<RideComm
 			.HasForeignKey(comment => comment.PhotoId)
 			.OnDelete(DeleteBehavior.Cascade);
 
-		// The thread, newest first — the query behind every open of the screen (§17.9). One index
+		// The thread, newest first - the query behind every open of the screen (§17.9). One index
 		// per subject rather than one over both: a composite on (group_ride_id, track_id, ...)
 		// would have a null in every row's leading column for half the table, which is an index
 		// the planner reaches for in neither case.
@@ -119,7 +119,7 @@ public sealed class RideCommentConfiguration : IEntityTypeConfiguration<RideComm
 
 		// A second unique index rather than one over both columns, and this is the reason the
 		// pair could not simply be widened: PostgreSQL treats nulls as distinct in a unique index,
-		// so every route comment — whose group_ride_id is null — would satisfy the index above no
+		// so every route comment - whose group_ride_id is null - would satisfy the index above no
 		// matter how many times the same outbox drained. Each thread kind gets an index whose
 		// leading column is never null for the rows it has to decide about.
 		builder

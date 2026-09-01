@@ -7,7 +7,7 @@ namespace DLR.Server.Hubs;
 /// them off its live feed (§5.2, §5.3).
 /// <para>
 /// <strong><see cref="RideHub.JoinRide"/> is a gate, not a standing subscription.</strong> It runs
-/// once, at the moment a connection asks to be added to the group, and nothing re-runs it — while
+/// once, at the moment a connection asks to be added to the group, and nothing re-runs it - while
 /// SignalR can only remove a <em>connection</em> from a group afterwards, never a user. So without
 /// somewhere to look a rider's connection ids up, a member the organiser has just removed keeps
 /// receiving every position batch until their connection happens to drop, which on a phone
@@ -16,7 +16,7 @@ namespace DLR.Server.Hubs;
 /// <para>
 /// A singleton because it is live state, and lost on restart for the reason
 /// <see cref="Positions.RiderPositionCache"/> is: every connection goes with it, so there is
-/// nothing left for it to describe. One process, too — a second instance would evict only from its
+/// nothing left for it to describe. One process, too - a second instance would evict only from its
 /// own connections, which is the per-ride affinity §9.2 already names as the first step in
 /// scaling out rather than a new constraint.
 /// </para>
@@ -26,7 +26,7 @@ public sealed class RideConnections(IHubContext<RideHub, IRideClient> hub)
 {
 	// A lock rather than a dictionary of concurrent sets. Connections churn at app-start rate and
 	// not at fix rate, and the concurrent version cannot drop an account's empty bucket without
-	// racing its next connect — a slow leak of one entry per account that has ever signed in.
+	// racing its next connect - a slow leak of one entry per account that has ever signed in.
 	private readonly Lock _gate = new();
 
 	private readonly Dictionary<Guid, HashSet<string>> _byUser = [];
@@ -68,7 +68,7 @@ public sealed class RideConnections(IHubContext<RideHub, IRideClient> hub)
 	/// <param name="userId">Whose connections.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
 	/// <remarks>
-	/// Called after the membership row is committed, never before — evicting somebody whose
+	/// Called after the membership row is committed, never before - evicting somebody whose
 	/// removal then fails would cut them off a ride they are still on, and only a reconnect would
 	/// put them back.
 	/// </remarks>

@@ -5,7 +5,7 @@
 @inject IMapInterop Map
 @implements IAsyncDisposable
 
-<PageTitle>Map spike — Dumb Luck Routes</PageTitle>
+<PageTitle>Map spike - Dumb Luck Routes</PageTitle>
 
 @*
 	The Phase 0 "20 pins updating every 5 s" spike (SharedFrontend.md §7 and §10.3).
@@ -18,23 +18,23 @@
 
 	Two questions this answers:
 	  1. Does the current host's base map render tiles at a plausible frame rate?
-	  2. Does the Skia overlay hold up with 20 pins that move every 5 seconds — the
+	  2. Does the Skia overlay hold up with 20 pins that move every 5 seconds - the
 		 shape a live 20-rider group ride will produce?
 *@
 
 <div class="page spike-page">
-	<h1>Map spike — 20 pins × 5 s</h1>
+	<h1>Map spike - 20 pins × 5 s</h1>
 
 	<p>
 		This page renders the shared <code>RideMap</code> against the host's
 		<code>IMapInterop</code> (<strong>@Map.Provider</strong>), then updates twenty
 		markers on a five-second timer. Every pin, title and route line is drawn by the
-		shared <code>SkiaMapOverlay</code> — the base map itself draws nothing but tiles.
+		shared <code>SkiaMapOverlay</code> - the base map itself draws nothing but tiles.
 	</p>
 
 	<p class="spike-meta">
 		Tick: <strong>@_tickCount</strong> · Last update:
-		<strong>@(_lastUpdateUtc?.ToString("HH:mm:ss") ?? "—")</strong>
+		<strong>@(_lastUpdateUtc?.ToString("HH:mm:ss") ?? "-")</strong>
 	</p>
 
 	<RideMap @ref="_map"
@@ -98,7 +98,7 @@
 	/// <summary>
 	/// A deterministic-but-plausible walk. Each pin drifts around a fixed anchor point,
 	/// so the page never becomes "twenty pins racing to the same spot" or "twenty pins
-	/// standing still" — both make rendering hiccups hard to see.
+	/// standing still" - both make rendering hiccups hard to see.
 	/// </summary>
 	private static MapMarker MakeMarker(int index, int tick)
 	{
@@ -128,7 +128,7 @@
 		Span<byte> bytes = stackalloc byte[16];
 		BitConverter.TryWriteBytes(bytes[..4], index);
 		bytes[4] = 0xd1; bytes[5] = 0x2c;
-		bytes[6] = 0x40; // version 4 nibble — cosmetic.
+		bytes[6] = 0x40; // version 4 nibble - cosmetic.
 		bytes[8] = 0x80; // variant bits.
 		return new Guid(bytes);
 	}

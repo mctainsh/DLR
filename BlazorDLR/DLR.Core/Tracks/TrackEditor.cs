@@ -16,7 +16,7 @@ public enum TrackEditError
 	OverlappingOrDescending = 3,
 
 	/// <summary>
-	/// Fewer than two points would survive. Below two it is not a line — and deleting the whole
+	/// Fewer than two points would survive. Below two it is not a line - and deleting the whole
 	/// thing is <c>DELETE /tracks/{id}</c>, which already exists.
 	/// </summary>
 	TooFewPointsRemain = 4,
@@ -56,7 +56,7 @@ public readonly record struct TrackEditResult(
 /// <summary>
 /// One primitive, three gestures (§15.5).
 /// <para>
-/// Trim the start, trim the end, cut something out of the middle — all of them are
+/// Trim the start, trim the end, cut something out of the middle - all of them are
 /// <em>remove a half-open range of raw point indices</em>. Trim-start is a range anchored at 0,
 /// trim-end is a range ending at the point count, an interior cut is neither. Three separate
 /// operations would be three places for the index arithmetic to be subtly different.
@@ -95,7 +95,7 @@ public static class TrackEditor
 			if (nextRemoval < removals.Count && removals[nextRemoval].Contains(index))
 			{
 				// Only a gap with something on both sides is a discontinuity. Trimming the
-				// start or the end creates no break — there is nothing on the outside to
+				// start or the end creates no break - there is nothing on the outside to
 				// disconnect from.
 				breakPending = kept.Count > 0;
 
@@ -120,7 +120,7 @@ public static class TrackEditor
 	/// <para>
 	/// Recomputed, never adjusted. Subtracting the removed span's distance from the stored
 	/// total is how an edited track ends up with numbers that no longer describe it after the
-	/// third edit — and it is the same calculator that ran at record and import time, so an
+	/// third edit - and it is the same calculator that ran at record and import time, so an
 	/// untouched half cannot report different climbing (§15.7).
 	/// </para>
 	/// </summary>

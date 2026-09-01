@@ -12,8 +12,8 @@ namespace DLR.UI.Tests.Pages;
 
 /// <summary>
 /// The signed-in tracks list. Three states matter: loading, empty (with a call to
-/// import) and populated. §8's numbers-vs-null rule leans on this page — a null
-/// ascent must render as "—", not as "0", because zero ascent is a real value.
+/// import) and populated. §8's numbers-vs-null rule leans on this page - a null
+/// ascent must render as "-", not as "0", because zero ascent is a real value.
 /// </summary>
 public sealed class MyRidesTests : PageTestContext
 {
@@ -24,7 +24,7 @@ public sealed class MyRidesTests : PageTestContext
 		FakeTrackRepository repo = new();
 		Services.AddSingleton<ITrackRepository>(repo);
 
-		// The browse tab talks to IApiClient directly rather than through the repository — the
+		// The browse tab talks to IApiClient directly rather than through the repository - the
 		// repository is the offline seam and there is no offline answer to "what did strangers
 		// publish today" (§18.6). Registered for every test in here regardless of which tab it
 		// looks at, because Blazor injects the property before either tab renders.
@@ -60,9 +60,9 @@ public sealed class MyRidesTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("No adventures yet", StringComparison.Ordinal).ShouldBeTrue(
-				"an empty list must call out the import path — a blank table is not an answer.");
+				"an empty list must call out the import path - a blank table is not an answer.");
 			component.FindAll("a[href='/import']").ShouldNotBeEmpty(
-				"the Import GPX button is always visible, empty state or not — importing is the primary way adventures land here in Phase 1.");
+				"the Import GPX button is always visible, empty state or not - importing is the primary way adventures land here in Phase 1.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -107,10 +107,10 @@ public sealed class MyRidesTests : PageTestContext
 			markup.Contains("Sunday morning gravel", StringComparison.Ordinal).ShouldBeTrue();
 			markup.Contains("Recorded loop", StringComparison.Ordinal).ShouldBeTrue();
 			markup.Contains("Imported", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-				"the source badge distinguishes imports from recordings — §15.4.");
+				"the source badge distinguishes imports from recordings - §15.4.");
 			// §8: null ascent renders as an em dash, not as zero.
-			markup.Contains("—", StringComparison.Ordinal).ShouldBeTrue(
-				"§8: a null number renders as '—'. Zero ascent (dead flat) would render as '0 m'.");
+			markup.Contains("-", StringComparison.Ordinal).ShouldBeTrue(
+				"§8: a null number renders as '-'. Zero ascent (dead flat) would render as '0 m'.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -125,9 +125,9 @@ public sealed class MyRidesTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("network hiccup", StringComparison.Ordinal).ShouldBeTrue(
-				"the exception message travels to the DOM — a bare 'could not load' is not diagnosable.");
+				"the exception message travels to the DOM - a bare 'could not load' is not diagnosable.");
 			component.FindAll("button").Any(b => b.TextContent.Contains("Retry", StringComparison.Ordinal))
-				.ShouldBeTrue("a transient error is a retryable event — the button offers the retry.");
+				.ShouldBeTrue("a transient error is a retryable event - the button offers the retry.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -201,7 +201,7 @@ public sealed class MyRidesTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			// The filter is the server's job, not the list's. What this asserts is that the text
-			// actually travelled — a client-side filter would pass the row count check below
+			// actually travelled - a client-side filter would pass the row count check below
 			// while leaving the other 4 000 rows on the server unfiltered.
 			Api.SharedTrackQueries.ShouldContain(query => query.Name == "coast");
 			component.FindAll(".shared-list li").Count.ShouldBe(1);
@@ -232,7 +232,7 @@ public sealed class MyRidesTests : PageTestContext
 		component.Find(".filters button[type=submit]").Click();
 
 		// Narrowing the filter while on page 2 must not leave the reader on a page the new
-		// result set may not have — the classic way a filtered list comes back empty for no
+		// result set may not have - the classic way a filtered list comes back empty for no
 		// reason the reader can see.
 		component.WaitForAssertion(() => Api.SharedTrackQueries.Last().Page.ShouldBe(1),
 			timeout: TimeSpan.FromSeconds(3));
@@ -313,7 +313,7 @@ public sealed class MyRidesTests : PageTestContext
 	public void UseMyLocation_ShowsPlaysDisclosureBeforeItTouchesThePlatform()
 	{
 		// The route Play found in 8.0.0.28. One fix for a search box still climbs the whole Android
-		// permission ladder — background rung included — so the app's own words have to come first
+		// permission ladder - background rung included - so the app's own words have to come first
 		// here as much as they do in front of a broadcast (§4.3).
 		WireServices();
 
@@ -321,7 +321,7 @@ public sealed class MyRidesTests : PageTestContext
 		Services.AddSingleton<ILocationProvider>(gps);
 
 		// Over the scoped store AddRideMapServices binds, so the disclosure below can be a
-		// singleton — the shape every other suite that wires a receiver uses.
+		// singleton - the shape every other suite that wires a receiver uses.
 		Services.AddSingleton<IDeviceSettings>(new InMemoryDeviceSettings());
 		Services.AddSingleton<ConfirmService>();
 		Services.AddSingleton<LocationDisclosure>();
@@ -353,13 +353,13 @@ public sealed class MyRidesTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Renders the page on the shared tab, which is a query-string state rather than a field —
+	/// Renders the page on the shared tab, which is a query-string state rather than a field -
 	/// see the note on <c>MyRides.TabName</c> for why.
 	/// </summary>
 	private IRenderedComponent<MyRides> RenderSharedTab()
 	{
 		// Navigated to rather than passed as a parameter, because that is what the query string
-		// is: bUnit refuses to set a [SupplyParameterFromQuery] directly, and rightly — a test
+		// is: bUnit refuses to set a [SupplyParameterFromQuery] directly, and rightly - a test
 		// that could would be testing a state the browser cannot produce.
 		Services.GetRequiredService<NavigationManager>().NavigateTo("/rides?tab=shared");
 

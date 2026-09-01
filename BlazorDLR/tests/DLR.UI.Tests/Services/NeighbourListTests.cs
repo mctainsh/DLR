@@ -19,7 +19,7 @@ public sealed class NeighbourListTests
 
 	private static readonly Guid Me = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-	/// <summary>Sydney Harbour Bridge, give or take — the anchor every fixture below hangs off.</summary>
+	/// <summary>Sydney Harbour Bridge, give or take - the anchor every fixture below hangs off.</summary>
 	private const double BaseLat = -33.852;
 	private const double BaseLon = 151.211;
 
@@ -97,7 +97,7 @@ public sealed class NeighbourListTests
 		panel.Select(row => row.UserName).ShouldBe(
 			["Ahead2", "Me", "Behind1", "Behind2", "Ahead1"],
 			ignoreOrder: true,
-			"nearest is measured along the road in both directions — the traveller 600 m ahead beats the "
+			"nearest is measured along the road in both directions - the traveller 600 m ahead beats the "
 			+ "one 4 km ahead, and being behind is no reason to be dropped.");
 	}
 
@@ -328,7 +328,7 @@ public sealed class NeighbourListTests
 		MemberRow dropped = rows.Single(row => row.UserName == "FlatPhone");
 
 		dropped.AlongMetres!.Value.ShouldBe(1_100, tolerance: 5,
-			"nothing was deleted — the roster the members screen draws is untouched by any of this.");
+			"nothing was deleted - the roster the members screen draws is untouched by any of this.");
 		dropped.FixAge.ShouldBe(TimeSpan.FromMinutes(20),
 			"and it carries the age that says what happened to them.");
 	}
@@ -345,7 +345,7 @@ public sealed class NeighbourListTests
 		IReadOnlyList<MemberRow> rows = Roster((Me, "Me", 1_000), (Rider(1), "Other", 1_200));
 
 		NeighbourList.Nearest(rows, Me, selfAlongMetres: null).ShouldBeEmpty(
-			"an adventure with no route, or a device with no fix yet — either way there is no 'ahead'.");
+			"an adventure with no route, or a device with no fix yet - either way there is no 'ahead'.");
 	}
 
 	[Fact]
@@ -376,7 +376,7 @@ public sealed class NeighbourListTests
 	}
 
 	/// <summary>
-	/// A fix that stopped arriving still names a real place — it is where they were — and the panel
+	/// A fix that stopped arriving still names a real place - it is where they were - and the panel
 	/// keeps it, marked. Dropping it would take the rider in the tunnel off the one screen the group
 	/// is using to decide whether to wait.
 	/// </summary>

@@ -21,7 +21,7 @@ namespace DLR.Server.Tracks;
 public sealed class TrackStore(DlrDbContext database, IBlobStore blobs, TimeProvider clock)
 {
 	/// <summary>
-	/// Builds a track from a geometry and writes its blob. Not saved — the caller decides
+	/// Builds a track from a geometry and writes its blob. Not saved - the caller decides
 	/// whether this is one track or several, and a partly-committed import is worse than none.
 	/// </summary>
 	/// <param name="ownerId">Whose track.</param>
@@ -75,8 +75,8 @@ public sealed class TrackStore(DlrDbContext database, IBlobStore blobs, TimeProv
 	/// <summary>
 	/// The caller's track with this content, if they already have one (§15.3).
 	/// <para>
-	/// Duplicate <em>detection</em>, not prevention. Re-importing on purpose is legitimate — a
-	/// second copy to edit differently — and doing it by accident is the common case. A warning
+	/// Duplicate <em>detection</em>, not prevention. Re-importing on purpose is legitimate - a
+	/// second copy to edit differently - and doing it by accident is the common case. A warning
 	/// serves both; a refusal serves neither.
 	/// </para>
 	/// </summary>
@@ -112,13 +112,13 @@ public sealed class TrackStore(DlrDbContext database, IBlobStore blobs, TimeProv
 	/// <param name="track">The stored track.</param>
 	/// <remarks>
 	/// Every caller of this overload has already scoped its query to the caller's own rows, which
-	/// is why <see cref="TrackSummary.IsMine"/> comes back true and no owner name is carried — it
+	/// is why <see cref="TrackSummary.IsMine"/> comes back true and no owner name is carried - it
 	/// would be the reader's own username on every row of their own list.
 	/// </remarks>
 	public static TrackSummary Summarise(Track track) => Project(track, ownerName: null, isMine: true);
 
 	/// <summary>
-	/// The same projection for a track the caller does not own — a public route opened from the
+	/// The same projection for a track the caller does not own - a public route opened from the
 	/// browse list (§6.2).
 	/// </summary>
 	/// <param name="track">The stored track.</param>

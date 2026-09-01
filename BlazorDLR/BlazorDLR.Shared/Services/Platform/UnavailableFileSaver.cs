@@ -14,5 +14,5 @@ public sealed class UnavailableFileSaver : IFileSaver
 		string contentType,
 		byte[] content,
 		CancellationToken cancellationToken = default) =>
-		Task.FromResult(FileSaveResult.Unavailable("this page is still loading — try again in a moment."));
+		Task.FromResult(FileSaveResult.Unavailable("this page is still loading - try again in a moment."));
 }

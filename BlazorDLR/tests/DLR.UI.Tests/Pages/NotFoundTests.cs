@@ -15,6 +15,6 @@ public sealed class NotFoundTests : PageTestContext
 		IRenderedComponent<NotFound> component = Render<NotFound>();
 
 		component.Markup.Contains("Not Found", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"a 404 that renders blank is worse than one that says the wrong thing — the copy must state what happened.");
+			"a 404 that renders blank is worse than one that says the wrong thing - the copy must state what happened.");
 	}
 }

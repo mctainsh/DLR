@@ -8,8 +8,8 @@ namespace BlazorDLR.Shared.State;
 /// <para>
 /// One instance per app (scoped in each host), the same shape as <see cref="PrivateAreaState"/>:
 /// the persisted value is read once through <see cref="IDeviceSettings"/>, kept in memory
-/// afterwards, and every change fires <see cref="Changed"/>. The alternative — each map frame
-/// reading <c>localStorage</c> — is a JS interop call per repaint on a surface that repaints
+/// afterwards, and every change fires <see cref="Changed"/>. The alternative - each map frame
+/// reading <c>localStorage</c> - is a JS interop call per repaint on a surface that repaints
 /// on every pan.
 /// </para>
 /// </summary>
@@ -24,14 +24,14 @@ public sealed class RouteStyleState
 
 	/// <summary>
 	/// The <see cref="IDeviceSettings"/> key for per-route colours. Its own key, so a device
-	/// that has never pinned a colour carries nothing for it — see <see cref="RouteColourMap"/>.
+	/// that has never pinned a colour carries nothing for it - see <see cref="RouteColourMap"/>.
 	/// </summary>
 	public const string ColoursStorageKey = "dlr.route-colours";
 
 	/// <summary>
 	/// The <see cref="IDeviceSettings"/> key for reversed routes. Its own key for the same reason
-	/// <see cref="ColoursStorageKey"/> is — a device that has never reversed anything carries
-	/// nothing for it — see <see cref="RouteDirectionMap"/>.
+	/// <see cref="ColoursStorageKey"/> is - a device that has never reversed anything carries
+	/// nothing for it - see <see cref="RouteDirectionMap"/>.
 	/// </summary>
 	public const string ReversedStorageKey = "dlr.route-reversed";
 
@@ -66,7 +66,7 @@ public sealed class RouteStyleState
 	/// <list type="number">
 	///   <item>a colour pinned to this track, if the rider has set one;</item>
 	///   <item><see cref="RouteStyle.FillColour"/>, when they have asked for one colour across every route;</item>
-	///   <item><paramref name="paletteColour"/> — what <see cref="RoutePalette"/> assigned by position (§5.4).</item>
+	///   <item><paramref name="paletteColour"/> - what <see cref="RoutePalette"/> assigned by position (§5.4).</item>
 	/// </list>
 	/// <para>
 	/// Most-specific-wins is the only ordering that makes both controls usable: picking a colour
@@ -75,7 +75,7 @@ public sealed class RouteStyleState
 	/// </para>
 	/// <para>
 	/// One method rather than a chain each caller assembles, because the map overlay and the
-	/// swatch beside the route's name both ask — and a swatch that claims a colour the line is
+	/// swatch beside the route's name both ask - and a swatch that claims a colour the line is
 	/// not drawn in is worse than no swatch.
 	/// </para>
 	/// </summary>
@@ -91,7 +91,7 @@ public sealed class RouteStyleState
 	public bool HasRouteColour(Guid trackId) => _routeColours.ContainsKey(trackId);
 
 	/// <summary>
-	/// Whether this route is drawn — and measured along — back to front (§5.4).
+	/// Whether this route is drawn - and measured along - back to front (§5.4).
 	/// <para>
 	/// Everything that reads a route's <em>order</em> has to ask: the chevrons the overlay spaces
 	/// along the line, and the gap list, which defines the leader as whoever is furthest along it.
@@ -136,7 +136,7 @@ public sealed class RouteStyleState
 		return WriteReversedAsync(updated, cancellationToken);
 	}
 
-	/// <summary>Flips one route's direction — what the button on the ride's info page calls.</summary>
+	/// <summary>Flips one route's direction - what the button on the ride's info page calls.</summary>
 	/// <param name="trackId">The route's track.</param>
 	/// <param name="cancellationToken">Cancels the write.</param>
 	public Task ToggleReversedAsync(Guid trackId, CancellationToken cancellationToken = default) =>
@@ -147,7 +147,7 @@ public sealed class RouteStyleState
 		_reversedRoutes = reversed;
 		_loaded = true;
 
-		// In memory, then the event, then the store — same ordering and same reason as SetAsync.
+		// In memory, then the event, then the store - same ordering and same reason as SetAsync.
 		Changed?.Invoke();
 
 		if (reversed.Count == 0)
@@ -162,7 +162,7 @@ public sealed class RouteStyleState
 	}
 
 	/// <summary>
-	/// Reads the persisted style. Idempotent — the map overlay and the settings panel both
+	/// Reads the persisted style. Idempotent - the map overlay and the settings panel both
 	/// call it without coordinating, and whichever renders first pays for the read.
 	/// <para>
 	/// Callers must run this <em>after</em> first render on the web: the browser store is
@@ -196,7 +196,7 @@ public sealed class RouteStyleState
 	/// route" choice for that route alone.
 	/// </summary>
 	/// <param name="trackId">The route's track.</param>
-	/// <param name="colour">A <c>#rrggbb</c> colour. Anything else is ignored rather than stored — see <see cref="RouteStyle.NormaliseColour"/>.</param>
+	/// <param name="colour">A <c>#rrggbb</c> colour. Anything else is ignored rather than stored - see <see cref="RouteStyle.NormaliseColour"/>.</param>
 	/// <param name="cancellationToken">Cancels the write.</param>
 	public Task SetRouteColourAsync(Guid trackId, string colour, CancellationToken cancellationToken = default)
 	{
@@ -235,7 +235,7 @@ public sealed class RouteStyleState
 		_routeColours = colours;
 		_loaded = true;
 
-		// In memory, then the event, then the store — same ordering and same reason as SetAsync.
+		// In memory, then the event, then the store - same ordering and same reason as SetAsync.
 		Changed?.Invoke();
 
 		if (colours.Count == 0)
@@ -264,9 +264,9 @@ public sealed class RouteStyleState
 	}
 
 	/// <summary>
-	/// Forgets everything this device has chosen — the style, every pinned route colour and every
-	/// reversed route — and goes back to <see cref="RouteStyle.Default"/>.
-	/// Removes the keys rather than storing today's defaults — see <see cref="IDeviceSettings.RemoveAsync"/>.
+	/// Forgets everything this device has chosen - the style, every pinned route colour and every
+	/// reversed route - and goes back to <see cref="RouteStyle.Default"/>.
+	/// Removes the keys rather than storing today's defaults - see <see cref="IDeviceSettings.RemoveAsync"/>.
 	/// </summary>
 	/// <param name="cancellationToken">Cancels the removal.</param>
 	public async Task ResetAsync(CancellationToken cancellationToken = default)

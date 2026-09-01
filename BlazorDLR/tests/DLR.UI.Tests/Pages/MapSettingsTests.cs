@@ -14,16 +14,16 @@ namespace DLR.UI.Tests.Pages;
 /// Settings → Maps (§4.5): which tiles go under every map in the app.
 /// <para>
 /// The screen's job is to make a tile URL judgeable. It is the one setting whose value cannot be
-/// checked by reading it — the difference between a working template and a blank map is a
-/// character somewhere in the middle — so the rules it enforces before storing anything are the
+/// checked by reading it - the difference between a working template and a blank map is a
+/// character somewhere in the middle - so the rules it enforces before storing anything are the
 /// substance of these tests, not decoration on top of them.
 /// </para>
 /// </summary>
 public sealed class MapSettingsTests : PageTestContext
 {
 	/// <summary>
-	/// The preview map. <c>InitAsync</c> throws so <c>SkiaMapOverlay</c> — whose canvas is
-	/// browser-only — never mounts; <c>RideMap</c> shows its stated-error branch, which is not
+	/// The preview map. <c>InitAsync</c> throws so <c>SkiaMapOverlay</c> - whose canvas is
+	/// browser-only - never mounts; <c>RideMap</c> shows its stated-error branch, which is not
 	/// what is under test here.
 	/// </summary>
 	private readonly FakeMapInterop _map = new()
@@ -35,7 +35,7 @@ public sealed class MapSettingsTests : PageTestContext
 	private readonly FakeMapPackStore _packs = new();
 
 	/// <summary>
-	/// What the catalogue answers with (§4.2). Two regions unless a test replaces the body — enough
+	/// What the catalogue answers with (§4.2). Two regions unless a test replaces the body - enough
 	/// that the list is a choice rather than a single row, which is the state most of these assert
 	/// against.
 	/// </summary>
@@ -51,14 +51,14 @@ public sealed class MapSettingsTests : PageTestContext
 		""");
 
 	/// <summary>
-	/// What a pack download gets back: a minimal well-formed PMTiles archive — the v3 magic and
+	/// What a pack download gets back: a minimal well-formed PMTiles archive - the v3 magic and
 	/// filler. Stubbed rather than left on a real client so no test here reaches the network; what
 	/// a transfer does with ranges and interruptions is <c>MapPackDownloaderTests</c>' subject.
 	/// </summary>
 	private readonly StubHttpHandler _archive = new(new byte[] { 0x50, 0x4D, 0x54, 0x69, 0x6C, 0x65, 0x73, 0x03 });
 
 	/// <summary>
-	/// Two areas that do not overlap, each publishing the ground it covers (§4.2) — which is what
+	/// Two areas that do not overlap, each publishing the ground it covers (§4.2) - which is what
 	/// puts them on the map picker at all. New South Wales and Tasmania, roughly, plus one across
 	/// the Tasman so that choosing on the map has a country to move away from.
 	/// </summary>
@@ -80,7 +80,7 @@ public sealed class MapSettingsTests : PageTestContext
 		""";
 
 	/// <summary>
-	/// The same, with the whole country over the top of one of its states — which is the ordinary
+	/// The same, with the whole country over the top of one of its states - which is the ordinary
 	/// shape of a real catalogue rather than a contrived one, and the case a tap cannot answer on
 	/// its own.
 	/// </summary>
@@ -97,7 +97,7 @@ public sealed class MapSettingsTests : PageTestContext
 		]
 		""";
 
-	/// <summary>Sydney — inside New South Wales in both catalogues above.</summary>
+	/// <summary>Sydney - inside New South Wales in both catalogues above.</summary>
 	private const double SydneyLatitude = -33.87;
 
 	/// <summary>Sydney.</summary>
@@ -140,7 +140,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Answers the one dialog the app has. Deleting a pack asks first, so a test that wants the
-	/// delete to happen has to say yes — which is the point.
+	/// delete to happen has to say yes - which is the point.
 	/// </summary>
 	private async Task AnswerConfirmAsync(IRenderedComponent<Maps> page, bool confirmed)
 	{
@@ -174,8 +174,8 @@ public sealed class MapSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Lets the base map attach, which the tests about framing need and the rest do not: a fit is
-	/// applied to a map that came up, so <see cref="FakeMapInterop.InitException"/> — the default
-	/// here — would swallow every one of them. Attaching also mounts <c>SkiaMapOverlay</c>, which
+	/// applied to a map that came up, so <see cref="FakeMapInterop.InitException"/> - the default
+	/// here - would swallow every one of them. Attaching also mounts <c>SkiaMapOverlay</c>, which
 	/// talks to its own JS module.
 	/// </summary>
 	private void AttachTheBaseMap()
@@ -204,7 +204,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Stands in for a finger on the base map. The fake interop is registered once and both maps on
-	/// this page listen to it — the preview wires no click handler, so only the picker answers.
+	/// this page listen to it - the preview wires no click handler, so only the picker answers.
 	/// </summary>
 	private Task TapTheMapAsync(IRenderedComponent<Maps> page, double latitude, double longitude) =>
 		page.InvokeAsync(() => _map.RaiseClick(latitude, longitude));
@@ -212,8 +212,8 @@ public sealed class MapSettingsTests : PageTestContext
 	/// <summary>
 	/// Picks the offline radio, which on a phone is the second of the three.
 	/// <para>
-	/// Everything to do with packs is behind it — the pack list, the light / dark choice and the
-	/// download form — so most tests here start with this rather than with the page as it opens.
+	/// Everything to do with packs is behind it - the pack list, the light / dark choice and the
+	/// download form - so most tests here start with this rather than with the page as it opens.
 	/// </para>
 	/// </summary>
 	private static Task ChooseOfflineAsync(IRenderedComponent<Maps> page) =>
@@ -238,7 +238,7 @@ public sealed class MapSettingsTests : PageTestContext
 		IRenderedComponent<Maps> page = RenderPage();
 
 		page.FindAll("input[name=map-source]")[1].HasAttribute("disabled").ShouldBeFalse(
-			"the catalogue is behind this radio — disabling it until a pack exists would seal " +
+			"the catalogue is behind this radio - disabling it until a pack exists would seal " +
 			"off the only route to getting one.");
 		page.Markup.ShouldContain("No map packs on this phone yet");
 
@@ -269,7 +269,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 		await ChooseOfflineAsync(page);
 
-		// One pack is not a choice worth making somebody make — picking Offline takes it.
+		// One pack is not a choice worth making somebody make - picking Offline takes it.
 		state.Chosen.Kind.ShouldBe(MapSourceKind.Offline);
 		state.Chosen.PackId.ShouldBe("sydney");
 		state.Effective.Provider.ShouldBe(MapProvider.Pmtiles);
@@ -283,10 +283,10 @@ public sealed class MapSettingsTests : PageTestContext
 		IRenderedComponent<Maps> page = RenderPage();
 
 		page.FindAll("fieldset.catalogue").ShouldBeEmpty(
-			"a traveller on OpenStreetMap is not part-way through adding a pack — a list of regions and a " +
+			"a traveller on OpenStreetMap is not part-way through adding a pack - a list of regions and a " +
 			"Download button make the screen look like it has a job outstanding.");
 		_catalogue.Requests.ShouldBe(0,
-			"and the list is not fetched for a screen that is not showing it — that is a request to a " +
+			"and the list is not fetched for a screen that is not showing it - that is a request to a " +
 			"host which is not the API, spent on a traveller's connection.");
 
 		await ChooseOfflineAsync(page);
@@ -315,12 +315,12 @@ public sealed class MapSettingsTests : PageTestContext
 		page.FindAll("select.offers option").Count.ShouldBe(3);
 
 		// The size is on the option itself: a native picker shows nothing beside it, and the size is
-		// the number a rider decides on before spending it — a phone's units, not the catalogue's.
-		page.Find("select.offers").TextContent.ShouldContain("New South Wales — 334.8 MB");
+		// the number a rider decides on before spending it - a phone's units, not the catalogue's.
+		page.Find("select.offers").TextContent.ShouldContain("New South Wales - 334.8 MB");
 		page.Find("select.offers").TextContent.ShouldContain("Tasmania");
 
 		page.FindAll("input[placeholder='https://example.com/sydney.pmtiles']").ShouldBeEmpty(
-			"and there is nothing left to type — the id and the name come from the publisher now.");
+			"and there is nothing left to type - the id and the name come from the publisher now.");
 	}
 
 	/// <summary>
@@ -344,7 +344,7 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// There is no search box over either dropdown, however long the catalogue is — and this is here
+	/// There is no search box over either dropdown, however long the catalogue is - and this is here
 	/// so one does not come back by accident.
 	/// <para>
 	/// Both were tried. The area search only ever narrowed what the country dropdown above it had
@@ -369,7 +369,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Nothing picked is not something to download. The button carries the accent colour, so it is
-	/// the loudest control on the screen — it has to be inert until there is an answer for it.
+	/// the loudest control on the screen - it has to be inert until there is an answer for it.
 	/// </summary>
 	[Fact]
 	public async Task TheDownloadButtonIsTheAffirmativeOne_AndWaitsForAChoice()
@@ -392,7 +392,7 @@ public sealed class MapSettingsTests : PageTestContext
 	/// A pack already on the phone is not something to fetch again from here.
 	/// <para>
 	/// This button offered "Download again" for one, which is a second several-hundred-megabyte
-	/// transfer over the top of a file that is already good — and the rider who taps it is nearly
+	/// transfer over the top of a file that is already good - and the rider who taps it is nearly
 	/// always the one who thinks the first one failed. The way to a fresh copy is Delete in the list
 	/// above, which frees the space before it is spent rather than doubling it during the transfer.
 	/// </para>
@@ -410,7 +410,7 @@ public sealed class MapSettingsTests : PageTestContext
 		await ChoosePackToDownloadAsync(page, "au-nsw");
 
 		page.Find("button.download").TextContent.Trim().ShouldBe("Download",
-			"there is no second label — the button is simply not available for this one.");
+			"there is no second label - the button is simply not available for this one.");
 		page.Find("button.download").HasAttribute("disabled").ShouldBeTrue();
 		page.Find("#pack-already-here").TextContent.ShouldContain("Delete it from the list above",
 			customMessage: "a disabled button cannot say why it is grey.");
@@ -423,8 +423,8 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A rider already drawing with a pack arrives with offline <em>adopted</em> rather than chosen —
-	/// no tap, no <c>ChooseAsync</c> — and they are the person most likely to want a second region.
+	/// A rider already drawing with a pack arrives with offline <em>adopted</em> rather than chosen -
+	/// no tap, no <c>ChooseAsync</c> - and they are the person most likely to want a second region.
 	/// Hanging the fetch off the radio alone meant the list stayed empty until they selected
 	/// OpenStreetMap and came back to it.
 	/// </summary>
@@ -462,7 +462,7 @@ public sealed class MapSettingsTests : PageTestContext
 		await ChoosePackToDownloadAsync(page, "au-nsw");
 		await page.InvokeAsync(() => page.Find("button.download").Click());
 
-		// The option saying so is what tells the test the transfer finished — the download runs in
+		// The option saying so is what tells the test the transfer finished - the download runs in
 		// the scoped state so it survives the rider leaving, which also means it does not finish
 		// inside the click.
 		page.WaitForAssertion(
@@ -499,7 +499,7 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// The list is the whole interface here, so failing to read it is not a footnote — and the
+	/// The list is the whole interface here, so failing to read it is not a footnote - and the
 	/// commonest cause is a rider with no signal, who is exactly the person trying to download a map
 	/// for later.
 	/// </summary>
@@ -519,7 +519,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Read the first time the form needs it, then held. A catalogue is rebuilt when somebody
-	/// publishes a new extract — weeks apart — so a second read inside one run of the app is a
+	/// publishes a new extract - weeks apart - so a second read inside one run of the app is a
 	/// request that answers the same thing.
 	/// </summary>
 	[Fact]
@@ -546,7 +546,7 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// With no refresh control, a failed first read has to be retriable — otherwise a rider who
+	/// With no refresh control, a failed first read has to be retriable - otherwise a rider who
 	/// opened this in a tunnel has no route to the list but restarting the app. Coming back to the
 	/// offline source is that gesture.
 	/// </summary>
@@ -611,7 +611,7 @@ public sealed class MapSettingsTests : PageTestContext
 		page.FindAll("button.refresh").ShouldBeEmpty();
 		page.FindAll("fieldset.catalogue button").Select(button => button.TextContent.Trim())
 			.ShouldBe(["Select area from map", "Download"],
-				"two ways to answer which area, and one way to commit to it — nothing else.");
+				"two ways to answer which area, and one way to commit to it - nothing else.");
 	}
 
 	/// <summary>
@@ -727,7 +727,7 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A tap in the ocean is not an error and does not close anything — it is somebody still
+	/// A tap in the ocean is not an error and does not close anything - it is somebody still
 	/// looking, and taking the map away from them would be the wrong answer to a near miss.
 	/// </summary>
 	[Fact]
@@ -773,7 +773,7 @@ public sealed class MapSettingsTests : PageTestContext
 	/// <summary>
 	/// The field is newer than the catalogue riders are fetching from today, so a list with no
 	/// bounds in it is a state that exists in the wild. The button is absent rather than disabled:
-	/// a disabled control says somebody is one step away from something, and here they are not —
+	/// a disabled control says somebody is one step away from something, and here they are not -
 	/// nothing they can do on this device will put boxes on that map.
 	/// </summary>
 	[Fact]
@@ -826,7 +826,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Every other cleartext host is blocked beneath this code, so the transfer would end inside the
-	/// platform. Tapping it has to say that rather than do nothing — a silent no-op reads as a broken
+	/// platform. Tapping it has to say that rather than do nothing - a silent no-op reads as a broken
 	/// button, which is exactly how this was first reported.
 	/// </summary>
 	[Fact]
@@ -892,7 +892,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Delete is a small control in a row next to the radio somebody taps to choose a map, on a
-	/// phone, often in gloves — and what it throws away is the largest thing this app puts on the
+	/// phone, often in gloves - and what it throws away is the largest thing this app puts on the
 	/// device. The cost of a mis-tap is the Wi-Fi they have to find again, which on a trip may not
 	/// exist.
 	/// </summary>
@@ -937,7 +937,7 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// The size is in the question because it is the number that makes the consequence concrete —
+	/// The size is in the question because it is the number that makes the consequence concrete -
 	/// and because reclaiming it is why a rider came to this screen when the phone said it was full.
 	/// </summary>
 	[Fact]
@@ -955,7 +955,7 @@ public sealed class MapSettingsTests : PageTestContext
 		ConfirmService confirm = Services.GetRequiredService<ConfirmService>();
 		page.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 
-		// The catalogue's name for it, not the slug — the same thing the row itself shows.
+		// The catalogue's name for it, not the slug - the same thing the row itself shows.
 		confirm.Current!.Title.ShouldBe("Delete New South Wales?");
 		confirm.Current.Message.ShouldContain("2 KB");
 	}
@@ -969,7 +969,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 		page.FindAll("input[name=map-source]").Count.ShouldBe(2,
 			"§18.6: a browser has nowhere to keep a pack, so the option is not one this device can " +
-			"ever take — OpenStreetMap and a tile server of the traveller's own are the two real answers.");
+			"ever take - OpenStreetMap and a tile server of the traveller's own are the two real answers.");
 		page.Markup.ShouldNotContain("Offline map pack");
 		page.FindAll("fieldset.appearance").ShouldBeEmpty("and nothing behind it, either.");
 	}
@@ -984,7 +984,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 		page.FindAll("fieldset.custom").ShouldNotBeEmpty();
 		state.Chosen.ShouldBe(MapSource.Default,
-			"picking the radio only moves the form — a source with no URL in it cannot draw anything.");
+			"picking the radio only moves the form - a source with no URL in it cannot draw anything.");
 	}
 
 	[Fact]
@@ -1023,7 +1023,7 @@ public sealed class MapSettingsTests : PageTestContext
 	/// <summary>
 	/// A disabled button says why, from the moment the form opens.
 	/// <para>
-	/// The rider cannot press it, so there is no attempt to wait for — and a control they can see
+	/// The rider cannot press it, so there is no attempt to wait for - and a control they can see
 	/// but cannot use, with nothing explaining the gap, is the worst of the available states. Each
 	/// message names the defect in what they typed rather than restating the rule under the field.
 	/// </para>
@@ -1072,8 +1072,8 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Light or dark, and only for a pack (§13 Q26). The archive holds no colour — the theme picks
-	/// between two style documents that both ship with the app — so the other two sources, which
+	/// Light or dark, and only for a pack (§13 Q26). The archive holds no colour - the theme picks
+	/// between two style documents that both ship with the app - so the other two sources, which
 	/// hand back finished raster images, have nothing to offer here.
 	/// </summary>
 	[Fact]
@@ -1107,7 +1107,7 @@ public sealed class MapSettingsTests : PageTestContext
 		await page.InvokeAsync(() => page.FindAll("input[name=map-theme]")[1].Change(true));
 
 		state.Chosen.Kind.ShouldBe(MapSourceKind.Offline);
-		state.Chosen.PackId.ShouldBe("sydney", "the same archive — only the style document changes.");
+		state.Chosen.PackId.ShouldBe("sydney", "the same archive - only the style document changes.");
 		state.Chosen.Theme.ShouldBe(MapTheme.Dark);
 
 		await page.InvokeAsync(() => page.FindAll("input[name=map-theme]")[0].Change(true));
@@ -1118,8 +1118,8 @@ public sealed class MapSettingsTests : PageTestContext
 	/// Picked before a pack has been selected, it waits rather than being lost.
 	/// <para>
 	/// Two packs here, because that is the state in which no source is stored yet: with one, picking
-	/// offline takes it. An offline source needs an archive behind it — <c>MapSource.Normalised</c>
-	/// refuses one without — so a theme chosen first has nothing to be written against, and the
+	/// offline takes it. An offline source needs an archive behind it - <c>MapSource.Normalised</c>
+	/// refuses one without - so a theme chosen first has nothing to be written against, and the
 	/// alternative to carrying it would be silently discarding a choice the rider just made.
 	/// </para>
 	/// </summary>
@@ -1207,13 +1207,13 @@ public sealed class MapSettingsTests : PageTestContext
 
 		// The radio is picked inside the wait, not before it. The page reads the draft after its
 		// first render and then adopts the stored source, which puts the form back on OpenStreetMap
-		// — a selection made before that lands would be undone by it.
+		// - a selection made before that lands would be undone by it.
 		second.WaitForAssertion(() =>
 		{
 			second.FindAll("input[name=map-source]")[2].Change(true);
 			second.Find("input[placeholder^='https://tiles.example.com']")
 				.GetAttribute("value").ShouldBe("https://tiles.example.com/{z}/{x}",
-					"kept even though it is half-typed — MapSource would have refused it.");
+					"kept even though it is half-typed - MapSource would have refused it.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -1233,7 +1233,7 @@ public sealed class MapSettingsTests : PageTestContext
 
 		RenderPage();
 
-		// Recorded even though InitAsync throws — the camera a map opens on is decided before the
+		// Recorded even though InitAsync throws - the camera a map opens on is decided before the
 		// base map gets a chance to fail.
 		_map.LastOptions!.Camera.ShouldBe(new MapCamera(0, 0, 0));
 	}
@@ -1287,7 +1287,7 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// And going back to an online source frames the world again — the preview follows whichever
+	/// And going back to an online source frames the world again - the preview follows whichever
 	/// source it is drawing with, in both directions.
 	/// </summary>
 	[Fact]
@@ -1315,7 +1315,7 @@ public sealed class MapSettingsTests : PageTestContext
 	/// <summary>
 	/// A pack whose entry publishes no box leaves the preview on the world. The field is newer than
 	/// the catalogue travellers are fetching from today, so this is the ordinary case rather than a
-	/// broken one — and the world is a worse frame, not a wrong one.
+	/// broken one - and the world is a worse frame, not a wrong one.
 	/// </summary>
 	[Fact]
 	public async Task APackWithNoPublishedExtent_LeavesThePreviewOnTheWorld()
@@ -1354,7 +1354,7 @@ public sealed class MapSettingsTests : PageTestContext
 	/// <summary>
 	/// The one control on this screen that changes what is drawn on the map rather than what it is
 	/// drawn over. It is here because it is a map preference held on this device, like the tile
-	/// source above it — and, like it, it never reaches the server.
+	/// source above it - and, like it, it never reaches the server.
 	/// </summary>
 	[Fact]
 	public void PinExpiry_OffersTheSixValues_AndOpensOnTenMinutes()
@@ -1381,7 +1381,7 @@ public sealed class MapSettingsTests : PageTestContext
 		await page.InvokeAsync(() => page.Find("fieldset.pin-expiry select").Change("30"));
 
 		(await settings.GetAsync(PinExpiry.StorageKey)).ShouldBe("30",
-			"the live map reads this key when it opens — nothing else carries the choice to it.");
+			"the live map reads this key when it opens - nothing else carries the choice to it.");
 		page.Find("fieldset.pin-expiry select").GetAttribute("value").ShouldBe("30");
 	}
 
@@ -1405,7 +1405,7 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A value from a build that offered something this one does not — the store is on a phone we
+	/// A value from a build that offered something this one does not - the store is on a phone we
 	/// do not control, and the list is meant to be able to change. It lands on an offered value, so
 	/// the dropdown cannot show one thing while the map does another.
 	/// </summary>

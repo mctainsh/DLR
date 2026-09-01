@@ -1517,9 +1517,52 @@ writes, which is its own decision about a third cookie.
 
 ---
 
+### SRV-40 — The launch check, and messages from whoever runs the server ✅
+**Status:** `ClientRelease` in `DLR.Core` holds the two version constants; `GET /api/v1/startup`
+answers the verdict and the live announcements anonymously; the `announcement` table and
+`/api/v1/admin/announcements` are behind the `Admins` roster; `AnnouncementBroadcastService` sweeps
+every 60 s onto `Clients.All`; `AnnouncementNotifier` holds the hub connection for the life of the
+app and `MainLayout` runs the check as a rung of its launch ladder. 538 server tests green, 1264 UI,
+202 core, 29 architecture.
+**First red test:** `Check_BelowMinimum_IsUnsupported`
+**Then:** `Check_ExactlyMinimum_IsNotWalledOff`, `Check_NoVersionAtAll_IsUnsupported`,
+`TheCheck_IsReachableWithoutAuthentication`, `TheCheck_IsStillReachableWithAnUnusableToken`,
+`AnAnnouncementOutsideItsWindow_IsNotServed`, `TheWorstOnesComeFirst_AndOnlyFiveAreServed`,
+`EveryAnnouncementRoute_IsRefusedToAnAccountNotOnTheRoster`, `AWindowThatNeverOpens_IsRefused`,
+`OneThatHasJustGoneLive_ReachesARiderWhoIsInNoRide`, `ItIsSentOnce_HoweverManyTimesTheSweepRuns`,
+`OneWrittenBeforeTheServerStarted_IsLeftToTheLaunchCheck`,
+`ABuildBelowTheServersFloor_ReplacesTheRoutedPage`, `TheWallIsLatchedAtTheFirstCheck`,
+`OneAlreadyCleared_IsNotShownAgain`, `AnExpiredDismissal_IsForgotten`, `AFailedCheck_ChangesNothing`
+**Why.** Two things the server knew and had no way to say. A store build shipped months ago against
+an older contract discovered the break as a screen of failed calls; and an operator with a
+maintenance window had no channel to a rider at all — the only one this project has ever had is a
+push about a rider's own thread (§17.6), which is the wrong instrument.
+**Watch out — the version check only works forward.** A build already in the store never calls the
+endpoint, so this release is the first one that can ever be told it is too old. That is the argument
+for landing it while nothing is broken, not against landing it.
+**Watch out — the endpoint has to be anonymous.** The wall exists for a build too old to talk to
+this server correctly, which includes one too old to authenticate. Behind `[Authorize]` it would be
+unreachable in exactly the case it was written for.
+**Watch out — the wall must never be raised by a flat tunnel.** Every failure in the check is
+swallowed and changes nothing. It is also latched at the first check: a later verdict takes effect
+at the next launch rather than taking the map away from a rider out on a road.
+**Watch out — the hub connection had to outlive the screen.** Nothing connected unless the rider was
+on a ride or a thread screen, so a rider on the adventure list was unreachable. `AnnouncementNotifier`
+now holds one for the session, which costs an idle websocket per open app and incidentally fixes
+`CommentNotifier`, which until now only saw posts when some *other* screen had connected.
+**Watch out — the sweep's window is `(lastTick, now]`.** That is what makes the send once-only with
+no column to mark, and why `lastTick` starts at the boot instant: otherwise every restart re-blasts
+everything published while the process was down.
+**Not done:** no push infrastructure, deliberately (§20.3) — an announcement reaches a running app,
+not a suspended one, which is the trade §17.6 already made. The App Store URL in `ClientRelease` is
+`null` because the listing does not exist yet; on iOS the wall shows the sentence and no button.
+**Refs:** §5.3, §14.6, §17.6, §18.6, §20
+
+---
+
 ## The server list is complete — and two things are owed before real riders
 
-Every task SRV-01 … SRV-39 is marked. 518 server tests green, `dotnet format --verify-no-changes` clean,
+Every task SRV-01 … SRV-40 is marked. 538 server tests green, `dotnet format --verify-no-changes` clean,
 architecture tests green, licence gate exit 0, and the image builds and reports healthy. What is
 *not* done is deliberately listed here rather than left to be discovered:
 

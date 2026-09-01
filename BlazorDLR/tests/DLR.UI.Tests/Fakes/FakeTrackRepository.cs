@@ -5,7 +5,7 @@ namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
 /// An in-memory <see cref="ITrackRepository"/> for the shared UI's Phase 1 tests. Phase 2+
-/// swaps the mobile binding for a SQLite-backed implementation (§4.4) — components resolve
+/// swaps the mobile binding for a SQLite-backed implementation (§4.4) - components resolve
 /// the interface and never the concrete class, so a test can hand any implementation over.
 /// </summary>
 public sealed class FakeTrackRepository : ITrackRepository

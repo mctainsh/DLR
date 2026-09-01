@@ -11,8 +11,8 @@ namespace DLR.Server.Identity;
 /// A stateless, time-limited token for one purpose (§7.7).
 /// <para>
 /// Identity ships <c>DataProtectorTokenProvider</c>, and §7.7's first draft subclassed it. That
-/// type reads <c>DateTimeOffset.UtcNow</c> directly — ASP.NET Core Identity 10 takes no
-/// <c>TimeProvider</c> anywhere — so the two lifespans could be asserted as configuration but
+/// type reads <c>DateTimeOffset.UtcNow</c> directly - ASP.NET Core Identity 10 takes no
+/// <c>TimeProvider</c> anywhere - so the two lifespans could be asserted as configuration but
 /// never as behaviour. <c>ConfirmEmail_TokenJustUnder24Hours_IsAccepted</c> and its opposite are
 /// boundary tests; against the framework provider they could only have been written as a
 /// sleeping test or not at all.
@@ -25,7 +25,7 @@ namespace DLR.Server.Identity;
 /// </para>
 /// <para>
 /// Tokens remain <em>stateless</em>. Validity derives from the protected payload and the
-/// security stamp, not from a row — so there is no "used" flag to inspect and no way to expire
+/// security stamp, not from a row - so there is no "used" flag to inspect and no way to expire
 /// one on demand.
 /// </para>
 /// </summary>
@@ -40,7 +40,7 @@ public abstract class DlrTokenProvider(
 	TimeSpan lifespan) : IUserTwoFactorTokenProvider<AppUser>
 {
 	// The purpose is in the protector's own chain *and* inside the payload, and each stops a
-	// cross-purpose token on its own — both were checked by removing the other. The chain is
+	// cross-purpose token on its own - both were checked by removing the other. The chain is
 	// the stronger of the two, because a token minted for another purpose fails to decrypt at
 	// all rather than being decrypted and then judged; the payload check is what still holds
 	// if somebody later "simplifies" the protector to a single purpose string.
@@ -66,7 +66,7 @@ public abstract class DlrTokenProvider(
 
 	/// <summary>
 	/// Whether this provider can mint a token for the user. Not a two-factor provider in any
-	/// real sense — the interface is simply how Identity names a token provider.
+	/// real sense - the interface is simply how Identity names a token provider.
 	/// </summary>
 	public Task<bool> CanGenerateTwoFactorTokenAsync(UserManager<AppUser> manager, AppUser user) =>
 		Task.FromResult(false);

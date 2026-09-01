@@ -15,12 +15,12 @@ public static class MauiProgram
 		StartLogging();
 
 		// The startup ladder (§14.6.2). Every rung of it is written with the same "Startup:" prefix
-		// so the Log screen's filter box shows the whole sequence and nothing else — and so the
+		// so the Log screen's filter box shows the whole sequence and nothing else - and so the
 		// rung it stops at names what did not finish. A MAUI head that hangs before there is a
 		// screen has no other way of saying where it got to.
 		DiagnosticLog.Write("Startup: MauiProgram building the host.");
 
-		// URLs come from MauiConstants — a compile-time constant per platform with an
+		// URLs come from MauiConstants - a compile-time constant per platform with an
 		// environment-variable override (DLR_API_BASE / DLR_HUB_URL). Never any API key,
 		// and since v0.24 there is no map credential on the client at all: MapLibre over
 		// OSM needs none (§4.5, §14.2, §14.3).
@@ -41,26 +41,26 @@ public static class MauiProgram
 		// Device-specific services used by the BlazorDLR.Shared project.
 		builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
-		// TimeProvider from day one (§10.4). Every timing-dependent decision in the client —
-		// token cache expiry, reconnect windows, staleness gates — resolves it, so tests
+		// TimeProvider from day one (§10.4). Every timing-dependent decision in the client -
+		// token cache expiry, reconnect windows, staleness gates - resolves it, so tests
 		// advance a fake clock rather than sleeping.
 		builder.Services.AddSingleton(TimeProvider.System);
 
 		// Every seam in SharedFrontend.md §4 is registered so the shared pipeline compiles
 		// into this host and DI resolves. Where the capability does not exist here, the
-		// binding comes from BlazorDLR.Shared/Services/Platform/ — those report their
+		// binding comes from BlazorDLR.Shared/Services/Platform/ - those report their
 		// unavailability through an IsSupported/IsAvailable flag, or throw with a message
 		// naming which host cannot answer and what handles the call instead.
 		//
 		// Mobile-only implementations (ILocationProvider on Android/iOS, SecureStorage-
 		// backed ITokenStore, MediaPicker, FCM/APNs) each land in their own file under
 		// BlazorDLR/Services/ or BlazorDLR/Platforms/ in Phase 1. The map is no longer
-		// among them — v0.24 moved it into BlazorDLR.Shared for every host.
+		// among them - v0.24 moved it into BlazorDLR.Shared for every host.
 		// Fully-qualified names on the shared-DI registrations: MAUI ships its own
 		// IMediaPicker in Microsoft.Maui.Media, so the shared abstraction has to be
 		// qualified here to disambiguate. Every other seam has a unique name.
 		//
-		// The API base address is a compile-time constant for now — Phase 1 replaces
+		// The API base address is a compile-time constant for now - Phase 1 replaces
 		// this with a configuration read so a shipped build can point at production
 		// rather than the developer's laptop. For the Phase 0 spike, running the
 		// server locally with `dotnet run --project BlazorDLR.Web` is enough.
@@ -80,7 +80,7 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IApiClient>(
 			sp => sp.GetRequiredService<HttpApiClient>());
 
-		// Auth state — reads the refresh token from SecureStorage on demand, holds the
+		// Auth state - reads the refresh token from SecureStorage on demand, holds the
 		// access token in memory, and broadcasts sign-in / sign-out to AuthorizeView (§7.4).
 		builder.Services.AddScoped<AuthState>();
 		builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthState>());
@@ -92,7 +92,7 @@ public static class MauiProgram
 		builder.Services.AddAuthorizationCore();
 
 		// Real SignalR hub client (§5.3). The token provider now reads from SecureStorage
-		// via AuthState — a valid access token if we have one, null otherwise.
+		// via AuthState - a valid access token if we have one, null otherwise.
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IRideHubClient>(sp => new SignalRRideHubClient(
 			new Uri(hubUrl),
 			async ct => await sp.GetRequiredService<AuthState>().GetOrRefreshAccessTokenAsync(ct)));
@@ -110,7 +110,7 @@ public static class MauiProgram
 		// encoded polyline, and the preference store keeps everything it holds in memory.
 		//
 		// This is the host that has one. Both browser hosts bind UnavailableOfflineStore and
-		// answer "nothing stored" to every read (§18.6) — the phone is the thing in the rider's
+		// answer "nothing stored" to every read (§18.6) - the phone is the thing in the rider's
 		// pocket in a dead zone, which is the whole case for keeping a copy.
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IOfflineStore, FileOfflineStore>();
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.RideSnapshotCache>();
@@ -120,14 +120,14 @@ public static class MauiProgram
 		// these are hundreds of megabytes read in ranges by MapLibre inside the WebView.
 		//
 		// Singletons, both. The store is stateless but the server owns a bound loopback port and a
-		// per-run secret, and a second instance would be a second port serving the same files —
+		// per-run secret, and a second instance would be a second port serving the same files -
 		// which is also why it is disposed with the app rather than with a scope.
 		builder.Services.AddSingleton<BlazorDLR.Shared.Services.IMapPackStore, FileMapPackStore>();
 		builder.Services.AddSingleton<BlazorDLR.Shared.Services.IMapPackServer,
 			BlazorDLR.Shared.Services.Platform.LoopbackMapPackServer>();
 
 		// The downloader owns an HttpClient of its own rather than taking the registered one, which
-		// carries BearerAuthHandler — attaching the rider's access token to a request aimed at a
+		// carries BearerAuthHandler - attaching the rider's access token to a request aimed at a
 		// host they pasted would hand their session to a stranger's web server (§18.5).
 		builder.Services.AddSingleton(sp => new BlazorDLR.Shared.Services.MapPackDownloader(
 			sp.GetRequiredService<BlazorDLR.Shared.Services.IMapPackStore>(),
@@ -144,7 +144,7 @@ public static class MauiProgram
 
 		// GPS (§4.3). The platform providers live under Platforms/, one per target: an Android
 		// foreground service over the fused location provider, and CLLocationManager on iOS.
-		// Both are singletons — each owns one receiver, and a second instance would be a second
+		// Both are singletons - each owns one receiver, and a second instance would be a second
 		// subscription to the same hardware, which on Android is a second foreground service.
 		//
 		// The #if is the one place in the app allowed to have one: this is the MAUI head, where
@@ -160,11 +160,11 @@ public static class MauiProgram
 
 		// The screen stays on while the live map is being read (§4.3). Singleton for the same
 		// reason the receiver is: there is one window and one flag on it, so one thing counts who
-		// has asked for it. Both browser hosts bind the stub — the case for it is a phone on a bar
+		// has asked for it. Both browser hosts bind the stub - the case for it is a phone on a bar
 		// mount, not a laptop with a tab open (§18.6).
 		builder.Services.AddSingleton<BlazorDLR.Shared.Services.IScreenWakeLock, DeviceDisplayScreenWakeLock>();
 
-		// Notifications (§17.6) — local, raised by this device on itself, with no push service
+		// Notifications (§17.6) - local, raised by this device on itself, with no push service
 		// behind them. There is no FCM sender key, no APNs .p8 and no aps-environment entitlement:
 		// the post has already arrived over the hub (§5.3), and these two classes are only the last
 		// step of putting it on a lock screen. That is why this seam ships now rather than waiting
@@ -182,14 +182,14 @@ public static class MauiProgram
 #endif
 
 		// A singleton, and deliberately not scoped: the platform heads reach it from outside Blazor
-		// — MainActivity.OnNewIntent and the iOS notification delegate — where there is no scope to
+		// - MainActivity.OnNewIntent and the iOS notification delegate - where there is no scope to
 		// resolve from. A scoped registration would hand those callers a different instance from
 		// the one the layout is bound to, and the symptom would be a tapped notification that opens
 		// the app and goes nowhere.
 		builder.Services.AddSingleton<BlazorDLR.Shared.State.NotificationRouting>();
 
 		// Watches the hub for posts and raises one for every post that is not the rider's own
-		// (§17.6). Scoped, because everything it depends on is — and resolved by MainLayout, which
+		// (§17.6). Scoped, because everything it depends on is - and resolved by MainLayout, which
 		// renders on every page, so it is alive whether the rider is on the live map, in settings or
 		// nowhere near the thread.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CommentNotifier>();
@@ -201,7 +201,7 @@ public static class MauiProgram
 		// below offers it every fix, and the Location screen is where it is saved or thrown away.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.TrackRecordingState>();
 
-		// Play's prominent disclosure (§4.3), in front of every route to a fix — the broadcaster
+		// Play's prominent disclosure (§4.3), in front of every route to a fix - the broadcaster
 		// below and the "use my location" button on My routes both pass through it. Only this host
 		// registers it, because only this host has a receiver to disclose (§18.6).
 		builder.Services.AddScoped<BlazorDLR.Shared.State.LocationDisclosure>();
@@ -218,7 +218,7 @@ public static class MauiProgram
 		// WebView, so this host writes to the cache and raises the system share sheet.
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IFileSaver, MauiFileSaver>();
 
-		// Social sign-in (§7.16). Scaffolded but not available today — real bindings
+		// Social sign-in (§7.16). Scaffolded but not available today - real bindings
 		// need registrations at the provider that happen with store submission (Phase 3
 		// exit criterion). The Welcome page shows the buttons dimmed until IsAvailable
 		// returns true.
@@ -229,14 +229,14 @@ public static class MauiProgram
 
 		// One base map on every surface (§4.5 v0.24): MapLibre GL JS over OSM tiles, the
 		// same class the web hosts register. The per-target #if that used to live here is
-		// gone with the providers it selected — MapKit JS needed a server-minted token and
+		// gone with the providers it selected - MapKit JS needed a server-minted token and
 		// Google Maps needed a browser API key in the bundle, and MapLibre needs neither,
 		// so there is nothing left for a platform conditional to decide.
 		//
 		// Every rider pin, marker and track lands on the shared Skia overlay, bound below.
 		// Transient, not scoped: one interop instance per <RideMap>. Each owns a JS map and
 		// a DotNetObjectReference bridge, so a shared instance lets one map's teardown
-		// dispose another's bridge — see the note in BlazorDLR.Web.Client/Program.cs.
+		// dispose another's bridge - see the note in BlazorDLR.Web.Client/Program.cs.
 		builder.Services.AddTransient<BlazorDLR.Shared.Services.IMapInterop, BlazorDLR.Shared.Services.MapLibreInterop>();
 
 		// Device-local preferences (§18.6), in MAUI Preferences.
@@ -245,19 +245,19 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IDeviceSettings, PreferencesDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
-		// Whether to offer the administration card on Settings (§14.6). The server decides — this
+		// Whether to offer the administration card on Settings (§14.6). The server decides - this
 		// only caches the answer so the menu does not ask again on every visit.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.AdminAccess>();
 
 		// Which tiles go under the map (§4.5). Scoped like every other device preference, and
-		// scoped is what lets the settings screen's preview restyle as the rider edits it —
+		// scoped is what lets the settings screen's preview restyle as the rider edits it -
 		// RideMap listens to the same instance the settings page writes.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
 		// The private area (§10.1). This is the host that records and publishes fixes, so this
 		// is the host where the gate matters: every fix goes through
 		// PrivateAreaState.HidesLocation before it is stored or sent, and the state answers
-		// "hide" until LoadAsync has an answer — see its remarks.
+		// "hide" until LoadAsync has an answer - see its remarks.
 		//
 		// Not a device preference any more, unlike the two registrations above it: the circle
 		// lives on the rider's account and this store holds a cache of it, which is what lets
@@ -287,6 +287,13 @@ public static class MauiProgram
 		// NoopLocationProvider, so this reads them as the browsers and restores nothing.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.LaunchRestore>();
 
+		// What the server had to say at launch, and the announcements it pushes afterwards (§20).
+		// The notifier is what holds the hub connection open for the whole session - before it,
+		// nothing connected unless the rider was on a ride or a thread screen, so a rider on the
+		// adventure list could not be told anything at all.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.StartupCheckState>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.AnnouncementNotifier>();
+
 		// The one confirm modal for every destructive action in the app (§18.6).
 		builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
 
@@ -295,7 +302,7 @@ public static class MauiProgram
 		// the arrow in the title bar is the only way back short of the rail.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.NavigationHistory>();
 
-		// The Skia overlay is a Blazor component (SkiaMapOverlay.razor), not a DI service —
+		// The Skia overlay is a Blazor component (SkiaMapOverlay.razor), not a DI service -
 		// RideMap.razor renders it directly. No registration needed.
 
 		builder.Services.AddMauiBlazorWebView();
@@ -309,7 +316,7 @@ public static class MauiProgram
 
 		// Named rather than returned inline so the line below is written after the build rather
 		// than before it. ValidateOnBuild is on (§7.4), so this is where a DI-graph mistake throws
-		// — and "services registered" with no "host built" after it is that failure, in the log,
+		// - and "services registered" with no "host built" after it is that failure, in the log,
 		// on the device.
 		MauiApp host = builder.Build();
 
@@ -322,7 +329,7 @@ public static class MauiProgram
 	/// Points <see cref="DiagnosticLog"/> at a file and catches what would otherwise be lost.
 	/// <para>
 	/// <strong>First thing in the host, before any service is registered</strong>, because the
-	/// failures worth reading are the ones that happen during startup — a seam that throws while
+	/// failures worth reading are the ones that happen during startup - a seam that throws while
 	/// being constructed takes the app down before there is a screen to say so on, and on a phone
 	/// that is a splash screen and then nothing.
 	/// </para>
@@ -347,8 +354,8 @@ public static class MauiProgram
 		}
 
 		// Both handlers are last-resort: they run when nothing else caught it, which is exactly
-		// when the app is about to disappear and take the reason with it. Neither can stop that —
-		// IsTerminating is already decided — but a line in the file survives the process, and
+		// when the app is about to disappear and take the reason with it. Neither can stop that -
+		// IsTerminating is already decided - but a line in the file survives the process, and
 		// "what was the last thing it did" is the whole question after an unexplained restart.
 		AppDomain.CurrentDomain.UnhandledException += (_, args) =>
 		{
@@ -359,7 +366,7 @@ public static class MauiProgram
 		};
 
 		// A faulted Task nobody awaited. Observed here so it is recorded rather than swallowed by
-		// the finalizer — several fire-and-forget paths in this app (notifications, cache writes)
+		// the finalizer - several fire-and-forget paths in this app (notifications, cache writes)
 		// would otherwise fail completely silently.
 		TaskScheduler.UnobservedTaskException += (_, args) =>
 		{

@@ -12,12 +12,12 @@ namespace BlazorDLR.Shared.Services;
 /// A thin thing on purpose: JSON in, JSON out, one entry per ride in <see cref="IOfflineStore"/>.
 /// The decision about <em>when</em> to fall back to a copy belongs to <c>RideSession</c>, which is
 /// the only place that can tell "the server says this ride is gone" apart from "the server could
-/// not be reached" — and the two must never be confused, because the first is a reason to forget a
+/// not be reached" - and the two must never be confused, because the first is a reason to forget a
 /// ride and the second is a rider in a tunnel (§5.2).
 /// </para>
 /// <para>
-/// <strong>Nothing here throws.</strong> Every failure — a device with no store, a half-written
-/// file, a payload from a build that shaped the DTOs differently — reads back as <c>null</c>,
+/// <strong>Nothing here throws.</strong> Every failure - a device with no store, a half-written
+/// file, a payload from a build that shaped the DTOs differently - reads back as <c>null</c>,
 /// meaning "you have no copy", and a write that cannot land is dropped. A cache is an optimisation
 /// over the network, and an optimisation that can fail a screen is worse than not having it.
 /// </para>
@@ -31,7 +31,7 @@ public sealed class RideSnapshotCache
 	/// can be wrong about which fields it got.
 	/// <para>
 	/// It has to move whenever the wire types inside a snapshot change shape in a way that would
-	/// deserialise into something misleading rather than into nothing — a field that changed
+	/// deserialise into something misleading rather than into nothing - a field that changed
 	/// meaning rather than one that was added.
 	/// </para>
 	/// </summary>
@@ -44,7 +44,7 @@ public sealed class RideSnapshotCache
 	private const string NamePrefix = "ride-";
 
 	/// <summary>
-	/// The same pipeline <see cref="HttpApiClient"/> parses the server's responses with — web
+	/// The same pipeline <see cref="HttpApiClient"/> parses the server's responses with - web
 	/// defaults, nulls omitted. Deliberately identical: what goes in here came off that wire and
 	/// comes back out to the same screens, and two JSON configurations for one set of DTOs is how
 	/// a cached ride ends up subtly different from a fetched one.
@@ -67,14 +67,14 @@ public sealed class RideSnapshotCache
 	}
 
 	/// <summary>
-	/// Whether this device keeps snapshots at all — false on the browser hosts, where
+	/// Whether this device keeps snapshots at all - false on the browser hosts, where
 	/// <see cref="ReadAsync"/> always answers <c>null</c> because nothing was ever written
 	/// (§18.6).
 	/// </summary>
 	public bool IsSupported => _store.IsSupported;
 
 	/// <summary>
-	/// The stored copy of <paramref name="rideId"/>, or <c>null</c> when this device has none —
+	/// The stored copy of <paramref name="rideId"/>, or <c>null</c> when this device has none -
 	/// a ride never opened here, one that has been forgotten, or a payload this build cannot read.
 	/// </summary>
 	/// <param name="rideId">Which ride.</param>
@@ -94,7 +94,7 @@ public sealed class RideSnapshotCache
 
 			// The version check and the identity check are the same kind of guard: a snapshot that
 			// is not this shape, or that describes a different ride, is not one this caller can be
-			// handed. Both answer "no copy" rather than throwing — see the type's remarks.
+			// handed. Both answer "no copy" rather than throwing - see the type's remarks.
 			return snapshot is { Version: CurrentVersion } && snapshot.Ride.Id == rideId
 				? snapshot
 				: null;
@@ -111,7 +111,7 @@ public sealed class RideSnapshotCache
 	/// Replaces this device's copy of a ride with what the server just said.
 	/// <para>
 	/// Called after a load that fully succeeded, so a snapshot is never a mixture of a fresh ride
-	/// and stale markers — a partial write would be a copy that looks whole and is not.
+	/// and stale markers - a partial write would be a copy that looks whole and is not.
 	/// </para>
 	/// </summary>
 	/// <param name="ride">The ride and its member list.</param>
@@ -153,8 +153,8 @@ public sealed class RideSnapshotCache
 	}
 
 	/// <summary>
-	/// Drops this device's copy of a ride. What a ride that is gone calls — deleted, or one the
-	/// rider has left or been removed from (§5.2) — so a forgotten ride does not come back from
+	/// Drops this device's copy of a ride. What a ride that is gone calls - deleted, or one the
+	/// rider has left or been removed from (§5.2) - so a forgotten ride does not come back from
 	/// the cache the next time somebody types its id.
 	/// </summary>
 	/// <param name="rideId">The ride to forget.</param>
@@ -164,7 +164,7 @@ public sealed class RideSnapshotCache
 
 	/// <summary>
 	/// A ride's entry name. <c>"N"</c> format, so it is the plain-slug shape
-	/// <see cref="IOfflineStore.ReadAsync"/> requires — a hyphenated GUID would still pass, but
+	/// <see cref="IOfflineStore.ReadAsync"/> requires - a hyphenated GUID would still pass, but
 	/// this keeps the name a single token.
 	/// </summary>
 	private static string NameFor(Guid rideId) => NamePrefix + rideId.ToString("N");

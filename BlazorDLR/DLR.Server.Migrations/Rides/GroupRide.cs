@@ -40,7 +40,7 @@ public enum GroupRideRole
 /// A group ride (§5.1, §5.2).
 /// <para>
 /// <strong>The organiser controls both ways in.</strong> A rider reaches another person's live
-/// location only because the organiser handed out a code or pressed <em>Admit</em> — which is a
+/// location only because the organiser handed out a code or pressed <em>Admit</em> - which is a
 /// stronger guarantee than the confirmed-email gate it replaced in v0.5, because a confirmed
 /// email only ever proved somebody could read a mailbox (§7.2, §10.1).
 /// </para>
@@ -85,7 +85,7 @@ public sealed class GroupRide
 	/// <para>
 	/// <strong>Defaults to on, here and in the column.</strong> A group ride is a group of people
 	/// the organiser chose (§5.2); starting from silence would be a strange default for a product
-	/// whose point is riding together. These exist for the ride that needs them — a large public
+	/// whose point is riding together. These exist for the ride that needs them - a large public
 	/// charity ride, or one that has gone sideways.
 	/// </para>
 	/// <para>
@@ -98,7 +98,7 @@ public sealed class GroupRide
 	/// <summary>
 	/// Whether ordinary members may post to the thread (§5.8, §17).
 	/// <para>
-	/// Off stops <em>posting</em> only. Everyone can still read, react and vote — a reaction carries
+	/// Off stops <em>posting</em> only. Everyone can still read, react and vote - a reaction carries
 	/// no free text, no image and no storage cost worth naming, and switching off the ability to
 	/// answer a poll would break the poll rather than moderate it.
 	/// </para>
@@ -109,7 +109,7 @@ public sealed class GroupRide
 	/// Whether ordinary members may attach photographs (§5.8, §16.4).
 	/// <para>
 	/// <strong>Its own switch, not a consequence of the comment switch.</strong> Photos are the
-	/// expensive and awkward half — storage on a 40 GB disk (§9.1), moderation (§17.7) — and the
+	/// expensive and awkward half - storage on a 40 GB disk (§9.1), moderation (§17.7) - and the
 	/// one thing an organiser is most likely to want to stop while leaving conversation alone.
 	/// </para>
 	/// </summary>
@@ -125,7 +125,7 @@ public sealed class GroupRide
 	public ICollection<GroupRideMember> Members { get; set; } = [];
 
 	/// <summary>
-	/// The planned routes, oldest attachment first (§5.4). Several, not one — a day out is
+	/// The planned routes, oldest attachment first (§5.4). Several, not one - a day out is
 	/// commonly the short option and the long option, or the way out and the way home.
 	/// </summary>
 	public ICollection<GroupRideRoute> Routes { get; set; } = [];
@@ -152,7 +152,7 @@ public sealed class GroupRideMember
 	/// <strong>Defaults to false, structurally.</strong> Joining a ride and agreeing to broadcast
 	/// are two separate decisions, and a prompt that treats a swipe-away as consent is not a
 	/// consent prompt. The default lives here rather than in the endpoint so that every path that
-	/// creates a member — code, approval, or anything added later — inherits it.
+	/// creates a member - code, approval, or anything added later - inherits it.
 	/// </para>
 	/// <para>
 	/// Per ride, not per account: a rider who shares with their regular Sunday group and not with
@@ -219,7 +219,7 @@ public sealed class GroupRideJoinRequest
 	public Guid? DecidedBy { get; set; }
 
 	/// <summary>
-	/// Whether the decline also blocks. A blocked rider cannot ask again — the organiser's
+	/// Whether the decline also blocks. A blocked rider cannot ask again - the organiser's
 	/// answer to somebody who will not take a no.
 	/// </summary>
 	public bool Blocked { get; set; }

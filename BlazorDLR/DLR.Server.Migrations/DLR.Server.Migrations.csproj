@@ -3,7 +3,7 @@
 	<!--
 		Persistence: the DbContext, its entity configurations and the EF Core migrations.
 		Split out of DLR.Server so the migrations and the model they describe can live in
-		one assembly without a reference cycle — see the §3 note in the design outline.
+		one assembly without a reference cycle - see the §3 note in the design outline.
 	-->
 	<PropertyGroup>
 		<RootNamespace>DLR.Server.Data</RootNamespace>

@@ -99,7 +99,7 @@ public sealed class TokenEndpointTests(PostgresFixture postgres)
 		(await issuer.ValidateAsync(token.AccessToken)).IsValid.ShouldBeTrue();
 
 		// The issuer stamps `exp` off the project's TimeProvider, so moving that clock moves
-		// the token's expiry — no sleeping, and the fifteen minutes is the real fifteen.
+		// the token's expiry - no sleeping, and the fifteen minutes is the real fifteen.
 		app.Clock.Advance(TimeSpan.FromMinutes(15).Add(TimeSpan.FromSeconds(1)));
 
 		TokenValidationResult expired = await issuer.ValidateAsync(token.AccessToken);
@@ -183,7 +183,7 @@ public sealed class TokenEndpointTests(PostgresFixture postgres)
 		response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
 		// Byte for byte what a wrong password against a real account returns. Any difference
-		// at all — wording, punctuation, field order — is an existence oracle.
+		// at all - wording, punctuation, field order - is an existence oracle.
 		(await response.Content.ReadAsStringAsync())
 			.ShouldContain(TokenEndpoints.InvalidCredentials);
 	}
@@ -193,7 +193,7 @@ public sealed class TokenEndpointTests(PostgresFixture postgres)
 	/// through this endpoint by an enormous margin unless something is done about it.
 	/// <para>
 	/// Asserted one-sidedly and against a median. The security property is that the unknown
-	/// path is not <em>faster</em> — a slow one leaks nothing — so an upper bound would only
+	/// path is not <em>faster</em> - a slow one leaks nothing - so an upper bound would only
 	/// add a way for a loaded CI runner to fail a build for no reason.
 	/// </para>
 	/// </summary>
@@ -211,13 +211,13 @@ public sealed class TokenEndpointTests(PostgresFixture postgres)
 
 		// A fresh account per sample. Nine wrong passwords against one account would trip
 		// §7.8's lockout on the fifth, and a locked account answers *before* the password is
-		// verified — which would make the known path look fast and pass this test for
+		// verified - which would make the known path look fast and pass this test for
 		// precisely the reason it exists to rule out.
 		string[] known = [.. Enumerable.Range(0, Samples).Select(index => $"RiderKnown{index}")];
 		string[] unknown = [.. Enumerable.Range(0, Samples).Select(index => $"RiderUnknown{index}")];
 
 		// One address each. Nine riders are nine people, and §7.8's ladder would otherwise
-		// refuse the fourth of them for want of an email — correctly, and for a reason that has
+		// refuse the fourth of them for want of an email - correctly, and for a reason that has
 		// nothing to do with what this test measures.
 		for (int index = 0; index < known.Length; index++)
 		{
@@ -245,7 +245,7 @@ public sealed class TokenEndpointTests(PostgresFixture postgres)
 	/// <para>
 	/// The fifteen minutes is asserted as configuration rather than as elapsed time, and that
 	/// is a limitation worth stating rather than hiding. ASP.NET Core Identity 10 takes no
-	/// <c>TimeProvider</c> — <c>AccessFailedAsync</c> reads the ambient clock directly — so
+	/// <c>TimeProvider</c> - <c>AccessFailedAsync</c> reads the ambient clock directly - so
 	/// advancing <c>app.Clock</c> here would prove nothing, and reading the wall clock to
 	/// compare against would break §10.4's rule for a test that still could not wait out a
 	/// real quarter of an hour.
@@ -281,7 +281,7 @@ public sealed class TokenEndpointTests(PostgresFixture postgres)
 			failure.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 		}
 
-		// The correct password, refused — which is the whole point of a lockout.
+		// The correct password, refused - which is the whole point of a lockout.
 		using HttpResponseMessage locked = await PostAsync(client, "DaveSmith");
 
 		locked.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);

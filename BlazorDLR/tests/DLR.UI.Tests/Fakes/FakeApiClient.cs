@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Account;
 using DLR.Core.Contracts.Admin;
+using DLR.Core.Contracts.Announcements;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
@@ -14,7 +15,7 @@ namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
 /// A hand-written <see cref="IApiClient"/> that records what the UI asked for and lets
-/// tests hand back canned responses. Deliberately not a mocking framework — the interface
+/// tests hand back canned responses. Deliberately not a mocking framework - the interface
 /// is 30-odd methods and one bespoke fake reads more clearly than 30 lambdas set up per
 /// test.
 /// <para>
@@ -28,23 +29,23 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>Every method name the UI called, in order.</summary>
 	public ConcurrentQueue<string> Calls { get; } = new();
 
-	// Result fields — set from a test, read from the interface method.
+	// Result fields - set from a test, read from the interface method.
 
 	/// <summary>
-	/// What <see cref="GetAboutAsync"/> answers, or <c>null</c> — the default — for a host whose
+	/// What <see cref="GetAboutAsync"/> answers, or <c>null</c> - the default - for a host whose
 	/// client cannot answer About at all.
 	/// <para>
 	/// <strong>Null by default, and that is load-bearing.</strong> <c>SourceOfferFooter</c> sits at
 	/// the foot of every signed-out page (§14.6.2) and keeps its answer in a private <em>static</em>
-	/// so navigations do not refetch it — so any suite whose page happens to carry the footer can
+	/// so navigations do not refetch it - so any suite whose page happens to carry the footer can
 	/// write a value that the footer's own tests then read instead of the one they wired. Worse, it
 	/// can write it <em>late</em>: a footer mounted by a render the test never waited for lands
 	/// after that test has finished, inside somebody else's.
 	/// </para>
 	/// <para>
 	/// Answering null makes that impossible rather than unlikely: the footer catches
-	/// <see cref="NotImplementedException"/>, renders its placeholder — which is what a rider on a
-	/// host with no About endpoint sees anyway — and never touches the cache. A suite that is
+	/// <see cref="NotImplementedException"/>, renders its placeholder - which is what a rider on a
+	/// host with no About endpoint sees anyway - and never touches the cache. A suite that is
 	/// actually testing the footer wires a value here, and clears the cache next to its render
 	/// (<c>SourceOfferFooterCache</c>).
 	/// </para>
@@ -69,7 +70,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>The last <see cref="EditTrackAsync"/> request the UI sent, for §15.5 assertions.</summary>
 	public EditTrackRequest? LastEditTrackRequest { get; private set; }
 
-	/// <summary>Every <see cref="UploadTrackAsync"/> request, in order — what the recorder's tests read.</summary>
+	/// <summary>Every <see cref="UploadTrackAsync"/> request, in order - what the recorder's tests read.</summary>
 	public List<UploadTrackRequest> UploadedTracks { get; } = new();
 
 	/// <summary>Set to make <see cref="UploadTrackAsync"/> throw, for the "save failed" path.</summary>
@@ -81,7 +82,7 @@ public sealed class FakeApiClient : IApiClient
 	/// Typed as the base <see cref="HttpRequestException"/> rather than <see cref="ApiException"/>
 	/// so §7.9's distinction can be tested at the token endpoint: an <see cref="ApiException"/> is
 	/// the server refusing and carries the status it refused with, while a bare
-	/// <see cref="HttpRequestException"/> has no status because there was no response — a rider in
+	/// <see cref="HttpRequestException"/> has no status because there was no response - a rider in
 	/// a tunnel, which must never end a session. <see cref="ApiException"/> derives from it, so a
 	/// test that was already assigning one is unaffected.
 	/// </para>
@@ -97,13 +98,13 @@ public sealed class FakeApiClient : IApiClient
 	private void Record(string method) => Calls.Enqueue(method);
 
 	/// <summary>
-	/// Answers <see cref="AboutResult"/>, or throws the way a host that cannot answer About does —
+	/// Answers <see cref="AboutResult"/>, or throws the way a host that cannot answer About does -
 	/// see that property for why the throwing case is the default.
 	/// </summary>
 	public Task<AboutInfo> GetAboutAsync(CancellationToken cancellationToken = default) =>
 		AboutResult is { } about
 			? Task.FromResult(Recorded(nameof(GetAboutAsync), about))
-			: throw new NotImplementedException("This fake has no About wired — set AboutResult if the test needs one.");
+			: throw new NotImplementedException("This fake has no About wired - set AboutResult if the test needs one.");
 
 	/// <summary>The last registration the UI sent, for asserting on what it said about the device (§7.10).</summary>
 	public RegisterRequest? LastRegisterRequest { get; private set; }
@@ -149,7 +150,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>The last link the confirm page followed (§7.14).</summary>
 	public ConfirmEmailRequest? LastConfirmEmailRequest { get; private set; }
 
-	/// <summary>Set to make <see cref="ConfirmEmailAsync"/> throw — a stale or spent link.</summary>
+	/// <summary>Set to make <see cref="ConfirmEmailAsync"/> throw - a stale or spent link.</summary>
 	public ApiException? ConfirmEmailException { get; set; }
 
 	public Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken = default)
@@ -166,7 +167,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>The last address a reset link was asked for (§7.7).</summary>
 	public ForgotPasswordRequest? LastForgotPasswordRequest { get; private set; }
 
-	/// <summary>Set to make <see cref="ForgotPasswordAsync"/> throw — a transport failure, never "no such address" (§7.8).</summary>
+	/// <summary>Set to make <see cref="ForgotPasswordAsync"/> throw - a transport failure, never "no such address" (§7.8).</summary>
 	public ApiException? ForgotPasswordException { get; set; }
 
 	public Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
@@ -180,7 +181,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>The last reset the UI submitted, for §7.7 assertions.</summary>
 	public ResetPasswordRequest? LastResetPasswordRequest { get; private set; }
 
-	/// <summary>Set to make <see cref="ResetPasswordAsync"/> throw — a stale link, or a refused password.</summary>
+	/// <summary>Set to make <see cref="ResetPasswordAsync"/> throw - a stale link, or a refused password.</summary>
 	public ApiException? ResetPasswordException { get; set; }
 
 	public Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
@@ -239,7 +240,7 @@ public sealed class FakeApiClient : IApiClient
 	public PrivateAreaSettings? PrivateAreaResult { get; set; }
 
 	/// <summary>
-	/// Set to make all three private-area calls throw — the phone in a tunnel, which is the case
+	/// Set to make all three private-area calls throw - the phone in a tunnel, which is the case
 	/// the gate has to keep answering through.
 	/// </summary>
 	public Exception? PrivateAreaException { get; set; }
@@ -293,13 +294,13 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>What every rider's avatar lookup answers, keyed on username. Absent means "no photograph".</summary>
 	public Dictionary<string, Guid?> AvatarsByUserName { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-	/// <summary>Every batch of names the UI looked up, in order — what a test asserts the batching actually did.</summary>
+	/// <summary>Every batch of names the UI looked up, in order - what a test asserts the batching actually did.</summary>
 	public List<IReadOnlyCollection<string>> AvatarLookups { get; } = new();
 
 	/// <summary>Set to make <see cref="SetAvatarAsync"/> and <see cref="ClearAvatarAsync"/> throw.</summary>
 	public Exception? AvatarException { get; set; }
 
-	/// <summary>Set to make <see cref="GetRiderAvatarsAsync"/> throw — the phone in a tunnel.</summary>
+	/// <summary>Set to make <see cref="GetRiderAvatarsAsync"/> throw - the phone in a tunnel.</summary>
 	public Exception? GetRiderAvatarsException { get; set; }
 
 	public Task<OwnProfile> SetAvatarAsync(SetAvatarRequest request, CancellationToken cancellationToken = default)
@@ -331,7 +332,7 @@ public sealed class FakeApiClient : IApiClient
 	}
 
 	/// <summary>
-	/// Answers for every name asked about, exactly as the endpoint does — a name with no entry
+	/// Answers for every name asked about, exactly as the endpoint does - a name with no entry
 	/// gets a row saying "no photograph" rather than no row at all.
 	/// </summary>
 	public Task<IReadOnlyList<RiderAvatarDto>> GetRiderAvatarsAsync(
@@ -421,7 +422,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>Set to make <see cref="RenameTrackAsync"/> throw.</summary>
 	public Exception? RenameTrackException { get; set; }
 
-	/// <summary>Set to make <see cref="DeleteTrackAsync"/> throw — the §15.4 live-route conflict.</summary>
+	/// <summary>Set to make <see cref="DeleteTrackAsync"/> throw - the §15.4 live-route conflict.</summary>
 	public Exception? DeleteTrackException { get; set; }
 
 	public Task<TrackSummary> RenameTrackAsync(Guid trackId, RenameTrackRequest request, CancellationToken cancellationToken = default)
@@ -434,7 +435,7 @@ public sealed class FakeApiClient : IApiClient
 			return Task.FromException<TrackSummary>(RenameTrackException);
 		}
 
-		// The stored summary, not what was typed — the real endpoint trims on the way in, and a
+		// The stored summary, not what was typed - the real endpoint trims on the way in, and a
 		// screen that echoed the raw string would disagree with the list it goes back to.
 		TrackSummary current = TrackDetailResult?.Track
 			?? TracksResult.FirstOrDefault(track => track.Id == trackId)
@@ -474,7 +475,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>What <see cref="ListSharedTracksAsync"/> pages through. The fake filters and pages it the way the server does.</summary>
 	public List<SharedTrackSummary> SharedTracks { get; } = new();
 
-	/// <summary>Every browse query the UI sent, in order — what a test asserts the filter controls actually did.</summary>
+	/// <summary>Every browse query the UI sent, in order - what a test asserts the filter controls actually did.</summary>
 	public List<SharedTrackQuery> SharedTrackQueries { get; } = new();
 
 	/// <summary>Set to make <see cref="ListSharedTracksAsync"/> throw.</summary>
@@ -483,7 +484,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>What <see cref="GetTrackRatingAsync"/> answers, per route (§6.2).</summary>
 	public Dictionary<Guid, TrackRatingSummary> TrackRatings { get; } = new();
 
-	/// <summary>Every rating the UI set, in order — null stars means it was withdrawn.</summary>
+	/// <summary>Every rating the UI set, in order - null stars means it was withdrawn.</summary>
 	public List<(Guid TrackId, int? Stars)> RatingsSet { get; } = new();
 
 	/// <summary>Set to make any of the three rating calls throw.</summary>
@@ -510,7 +511,7 @@ public sealed class FakeApiClient : IApiClient
 
 		// The tally the real endpoint returns, recomputed the way it would be: the caller's own
 		// star replaces whatever they gave before, so a test that taps twice sees one rating and
-		// not two. Nobody else's ratings are modelled — the average moves to what this rider
+		// not two. Nobody else's ratings are modelled - the average moves to what this rider
 		// chose only when they are the only one.
 		TrackRatingSummary before = RatingFor(trackId);
 		int count = before.Mine is null ? before.Count + 1 : before.Count;
@@ -618,7 +619,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <para>
 	/// Typed as the base <see cref="HttpRequestException"/> rather than <see cref="ApiException"/>
 	/// so both halves of §7.9's distinction can be tested: an <see cref="ApiException"/> is the
-	/// server answering — a ride that 404s, or one this rider is not on — and a bare
+	/// server answering - a ride that 404s, or one this rider is not on - and a bare
 	/// <see cref="HttpRequestException"/> with no status is a phone in a tunnel, which is the case
 	/// the offline cache exists for (§4.4). <see cref="ApiException"/> derives from it, so a test
 	/// that was already assigning one is unaffected.
@@ -694,7 +695,7 @@ public sealed class FakeApiClient : IApiClient
 		WithdrawnRequests.Add((rideId, requestId));
 
 		// The list the server hands back afterwards no longer has it, so a page that refetches
-		// after withdrawing sees what it did — the same courtesy DeleteRideAsync does above.
+		// after withdrawing sees what it did - the same courtesy DeleteRideAsync does above.
 		MyRidesResult = MyRidesResult with
 		{
 			Waiting = [.. MyRidesResult.Waiting.Where(row => row.RequestId != requestId)],
@@ -719,7 +720,7 @@ public sealed class FakeApiClient : IApiClient
 	}
 	public List<(Guid RideId, SetSharingRequest Request)> SetSharingRequests { get; } = new();
 
-	/// <summary>Set to make <see cref="SetSharingAsync"/> throw — the phone that went into a tunnel
+	/// <summary>Set to make <see cref="SetSharingAsync"/> throw - the phone that went into a tunnel
 	/// between the rider pressing the rail’s GPS switch and the request landing.</summary>
 	public ApiException? SetSharingException { get; set; }
 
@@ -734,7 +735,7 @@ public sealed class FakeApiClient : IApiClient
 		SetSharingRequests.Add((rideId, request));
 		return Task.CompletedTask;
 	}
-	/// <summary>Set to make <see cref="LeaveRideAsync"/> throw — the organiser's 409, most obviously.</summary>
+	/// <summary>Set to make <see cref="LeaveRideAsync"/> throw - the organiser's 409, most obviously.</summary>
 	public ApiException? LeaveRideException { get; set; }
 
 	/// <summary>Every ride id passed to <see cref="LeaveRideAsync"/>, in order.</summary>
@@ -765,7 +766,7 @@ public sealed class FakeApiClient : IApiClient
 	/// <summary>Every ride id passed to <see cref="DeleteRideAsync"/>, in order.</summary>
 	public List<Guid> DeletedRides { get; } = new();
 
-	/// <summary>Set to make the delete fail — the §5.6 refusal on a ride in progress is the real one.</summary>
+	/// <summary>Set to make the delete fail - the §5.6 refusal on a ride in progress is the real one.</summary>
 	public ApiException? DeleteRideException { get; set; }
 
 	public Task DeleteRideAsync(Guid rideId, CancellationToken cancellationToken = default)
@@ -779,7 +780,7 @@ public sealed class FakeApiClient : IApiClient
 
 		DeletedRides.Add(rideId);
 
-		// The list the server hands back afterwards no longer has it — the fake keeps that true so
+		// The list the server hands back afterwards no longer has it - the fake keeps that true so
 		// a page that refetches after deleting sees what it did.
 		MyRidesResult = new MyRides(
 			[.. MyRidesResult.Organised.Where(row => row.Id != rideId)],
@@ -791,7 +792,7 @@ public sealed class FakeApiClient : IApiClient
 
 	/// <summary>
 	/// What <see cref="ListRideRoutesAsync"/> hands back (§5.4). Mutable rather than a fixed list,
-	/// because attaching and detaching are meant to be visible in a later call — a test that adds
+	/// because attaching and detaching are meant to be visible in a later call - a test that adds
 	/// a route asserts on what the panel shows afterwards.
 	/// </summary>
 	public List<RideRoute> RoutesResult { get; } = new();
@@ -847,7 +848,7 @@ public sealed class FakeApiClient : IApiClient
 	}
 
 	public Task<IReadOnlyList<RiderPositionDto>> GetPositionsSnapshotAsync(Guid rideId, CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(GetPositionsSnapshotAsync), PositionsResult));
-	/// <summary>Fixes that came in over REST — the fallback path when the hub could not carry one (§5.7).</summary>
+	/// <summary>Fixes that came in over REST - the fallback path when the hub could not carry one (§5.7).</summary>
 	public List<PositionUpdate> PublishedPositions { get; } = [];
 
 	/// <summary>Set to make the REST publish fail too, which is the case the UI has to state.</summary>
@@ -855,7 +856,7 @@ public sealed class FakeApiClient : IApiClient
 
 	/// <summary>
 	/// Set to make the REST publish never answer. Paired with the hub's <c>PublishHangs</c>, this
-	/// is a link that has gone quiet without closing — the case that used to stop the fix pump
+	/// is a link that has gone quiet without closing - the case that used to stop the fix pump
 	/// dead for the length of HttpClient's 100-second default.
 	/// </summary>
 	public bool PublishPositionHangs { get; set; }
@@ -885,7 +886,7 @@ public sealed class FakeApiClient : IApiClient
 		return Task.FromResult(new PublishResult(Array.Empty<Guid>()));
 	}
 
-	/// <summary>Private-area crossings that came in over REST — the fallback path (§10.1).</summary>
+	/// <summary>Private-area crossings that came in over REST - the fallback path (§10.1).</summary>
 	public List<PositionPrivacyUpdate> PublishedPrivacy { get; } = [];
 
 	/// <summary>Set to make the REST privacy call fail too.</summary>
@@ -1053,7 +1054,7 @@ public sealed class FakeApiClient : IApiClient
 	public Task<HttpResponseMessage> ExportAccountAsync(CancellationToken cancellationToken = default)
 	{
 		Record(nameof(ExportAccountAsync));
-		// Return a tiny in-memory ZIP-shaped byte array — the composer only cares about
+		// Return a tiny in-memory ZIP-shaped byte array - the composer only cares about
 		// IsSuccessStatusCode and length for the download-link path.
 		HttpResponseMessage response = new(System.Net.HttpStatusCode.OK)
 		{
@@ -1108,8 +1109,8 @@ public sealed class FakeApiClient : IApiClient
 	public string? LastAdminSearch { get; private set; }
 
 	/// <summary>
-	/// Set to make the next user listing fail. A 403 is the ordinary failure on this screen — an
-	/// account taken off the roster while the tab was open — so a test needs to be able to cause one.
+	/// Set to make the next user listing fail. A 403 is the ordinary failure on this screen - an
+	/// account taken off the roster while the tab was open - so a test needs to be able to cause one.
 	/// </summary>
 	public ApiException? AdminUsersFailure { get; set; }
 
@@ -1150,7 +1151,7 @@ public sealed class FakeApiClient : IApiClient
 	public (Guid UserId, string UserName)? LastAdminDelete { get; private set; }
 
 	/// <summary>
-	/// Set to make the next delete fail. The roster refusal is the interesting one — the screen
+	/// Set to make the next delete fail. The roster refusal is the interesting one - the screen
 	/// has to say why rather than leaving the row looking as though nothing happened.
 	/// </summary>
 	public ApiException? AdminDeleteFailure { get; set; }
@@ -1169,6 +1170,86 @@ public sealed class FakeApiClient : IApiClient
 		}
 
 		AdminUsers = [.. AdminUsers.Where(row => row.UserId != userId)];
+
+		return Task.CompletedTask;
+	}
+
+	// -- Startup check and announcements (§20) --
+
+	/// <summary>
+	/// What <see cref="StartupCheckAsync"/> answers, or <c>null</c> - the default - for a server
+	/// that has never heard of the endpoint.
+	/// <para>
+	/// Null by default for <see cref="AboutResult"/>'s reason: <c>MainLayout</c> runs the launch
+	/// check on every render of every page, so a suite whose page happens to carry the layout would
+	/// otherwise be asserting on a value it did not wire. Answering the throw is what a client on a
+	/// server without the endpoint sees, and <c>StartupCheckState</c> swallows it.
+	/// </para>
+	/// </summary>
+	public StartupCheck? StartupResult { get; set; }
+
+	/// <summary>The version string the UI told the server it was.</summary>
+	public string? LastClientVersion { get; private set; }
+
+	public Task<StartupCheck> StartupCheckAsync(string? clientVersion, CancellationToken cancellationToken = default)
+	{
+		LastClientVersion = clientVersion;
+
+		return StartupResult is { } check
+			? Task.FromResult(Recorded(nameof(StartupCheckAsync), check))
+			: throw new NotImplementedException("This fake has no startup check wired - set StartupResult if the test needs one.");
+	}
+
+	/// <summary>What the announcement screen reads, and what its writes land in.</summary>
+	public List<AdminAnnouncement> AdminAnnouncements { get; set; } = [];
+
+	/// <summary>The last announcement written or amended.</summary>
+	public AdminAnnouncementRequest? LastAnnouncementRequest { get; private set; }
+
+	/// <summary>The last announcement deleted.</summary>
+	public Guid? LastAnnouncementDeleted { get; private set; }
+
+	public Task<IReadOnlyList<AdminAnnouncement>> AdminAnnouncementsAsync(CancellationToken cancellationToken = default) =>
+		Task.FromResult(Recorded(nameof(AdminAnnouncementsAsync), (IReadOnlyList<AdminAnnouncement>)[.. AdminAnnouncements]));
+
+	public Task<AdminAnnouncement> AdminCreateAnnouncementAsync(
+		AdminAnnouncementRequest request,
+		CancellationToken cancellationToken = default)
+	{
+		Record(nameof(AdminCreateAnnouncementAsync));
+		LastAnnouncementRequest = request;
+
+		AdminAnnouncement written = new(
+			Guid.NewGuid(),
+			request.Severity,
+			request.Title,
+			request.Body,
+			request.PublishFromUtc,
+			request.ExpiresUtc,
+			request.PublishFromUtc,
+			"admin");
+
+		AdminAnnouncements.Add(written);
+
+		return Task.FromResult(written);
+	}
+
+	public Task AdminUpdateAnnouncementAsync(
+		Guid id,
+		AdminAnnouncementRequest request,
+		CancellationToken cancellationToken = default)
+	{
+		Record(nameof(AdminUpdateAnnouncementAsync));
+		LastAnnouncementRequest = request;
+
+		return Task.CompletedTask;
+	}
+
+	public Task AdminDeleteAnnouncementAsync(Guid id, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(AdminDeleteAnnouncementAsync));
+		LastAnnouncementDeleted = id;
+		AdminAnnouncements = [.. AdminAnnouncements.Where(row => row.Id != id)];
 
 		return Task.CompletedTask;
 	}

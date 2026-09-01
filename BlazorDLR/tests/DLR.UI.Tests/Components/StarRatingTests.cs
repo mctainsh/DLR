@@ -8,15 +8,15 @@ namespace DLR.UI.Tests.Components;
 /// <summary>
 /// The read-only star row draws exactly five stars, whatever the average (§6.2).
 /// <para>
-/// This is a regression file. The row used to be two lines of text — ☆☆☆☆☆ with ★★★★★
-/// clipped over the top to a percentage width — which is only correct if the two characters
+/// This is a regression file. The row used to be two lines of text - ☆☆☆☆☆ with ★★★★★
+/// clipped over the top to a percentage width - which is only correct if the two characters
 /// have the same advance width, and in the font the Android WebView picked they do not. A 4.0
 /// route drew four stars, most of a fifth, and then a sixth outline that nobody had rated:
 /// the clip was a percentage of the empty row’s width being applied to a narrower filled one.
 /// </para>
 /// <para>
 /// Both rows are now the same drawn path, so the count is structural rather than a matter of
-/// font metrics. These tests assert the count, because the count is what went wrong — a
+/// font metrics. These tests assert the count, because the count is what went wrong - a
 /// pixel-accurate half star is not something bUnit can see, but a sixth star is.
 /// </para>
 /// </summary>
@@ -38,7 +38,7 @@ public sealed class StarRatingTests : BunitContext
 		IRenderedComponent<StarRating> component = RenderRow(average, count);
 
 		component.FindAll("svg.star").Count.ShouldBe(TrackRatings.MaxStars,
-			"a five star scale draws five stars at every value — the bug this replaced drew six");
+			"a five star scale draws five stars at every value - the bug this replaced drew six");
 	}
 
 	[Fact]
@@ -73,7 +73,7 @@ public sealed class StarRatingTests : BunitContext
 	public void AnAverageThatIsNotAHalfStep_IsRoundedTheWayTheServerRoundsIt()
 	{
 		// 4.75 rounds to 5 whole stars through TrackRatings.ToHalfStars, not to four and three
-		// quarters — the widget does not get its own opinion about rounding.
+		// quarters - the widget does not get its own opinion about rounding.
 		IRenderedComponent<StarRating> component = RenderRow(4.75, 4);
 
 		component.FindAll("svg.star .fill").Count.ShouldBe(TrackRatings.MaxStars);

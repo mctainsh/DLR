@@ -5,7 +5,7 @@ namespace DLR.Core.Contracts.Identity;
 /// </summary>
 /// <param name="UserName">
 /// The login identifier and the map label, in one field. Permanent from the moment this
-/// request succeeds — there is no endpoint that changes it (§7.2), which is why the client
+/// request succeeds - there is no endpoint that changes it (§7.2), which is why the client
 /// confirms the spelling before sending.
 /// </param>
 /// <param name="Password">

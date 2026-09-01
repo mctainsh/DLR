@@ -17,7 +17,7 @@ namespace DLR.Server.Tests.Tracks;
 /// <para>
 /// The boundary is the same one the sharing tests spend their attention on, asked about a second
 /// verb: a route nobody shared cannot be rated by a stranger, a route somebody blocked cannot be
-/// rated at all, and the scale refuses anything outside it. What is new here is the arithmetic —
+/// rated at all, and the scale refuses anything outside it. What is new here is the arithmetic -
 /// an average is the one thing on this feature that can be quietly, plausibly wrong.
 /// </para>
 /// </summary>
@@ -52,7 +52,7 @@ public sealed class TrackRatingTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The primary key is the rule (<c>TrackRating</c>), so a second rating from the same rider
-	/// replaces rather than accumulates — otherwise anybody could move an average by tapping.
+	/// replaces rather than accumulates - otherwise anybody could move an average by tapping.
 	/// </summary>
 	[Fact]
 	public async Task RatingTwice_ReplacesRatherThanCountingTwice()
@@ -72,7 +72,7 @@ public sealed class TrackRatingTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Withdrawing is a delete, never a zero — a stored nought would average in as the worst
+	/// Withdrawing is a delete, never a zero - a stored nought would average in as the worst
 	/// possible score for every rider who changed their mind.
 	/// </summary>
 	[Fact]
@@ -153,7 +153,7 @@ public sealed class TrackRatingTests(PostgresFixture postgres)
 			$"{TracksUrl}/{track.Id}/rating",
 			new RateTrackRequest(5));
 
-		// 404 and not 403, so a track id — which travels in links — cannot be used to ask which
+		// 404 and not 403, so a track id - which travels in links - cannot be used to ask which
 		// identifiers are real (§15.4).
 		response.StatusCode.ShouldBe(HttpStatusCode.NotFound, await response.Content.ReadAsStringAsync());
 	}
@@ -183,8 +183,8 @@ public sealed class TrackRatingTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A block hides authored content. A rating is anonymous by construction — nothing anywhere
-	/// says who gave a route three stars — so it stays in the tally, and every reader is shown the
+	/// A block hides authored content. A rating is anonymous by construction - nothing anywhere
+	/// says who gave a route three stars - so it stays in the tally, and every reader is shown the
 	/// same number. Filtering it would leak, in the difference between two readers' averages, that
 	/// a blocked rider had rated this route.
 	/// </summary>

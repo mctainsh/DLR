@@ -5,13 +5,13 @@
 	Its own drawable rather than a stock android.R one, for the same reason the location icon
 	has one (see dlr_location_notification.xml): the stock set is not guaranteed across API
 	levels or OEM skins, and a small icon the platform cannot resolve means the notification is
-	never posted at all — silently, which for this feature would read as "notifications don't
+	never posted at all - silently, which for this feature would read as "notifications don't
 	work on my phone".
 
 	A silhouette, white on transparent. From Android 5 the system masks a notification's small
 	icon to its alpha channel and tints it, so anything with colour in it arrives as a white
 	blob. This is a speech bubble with a tail, which reads at 24 dp in a status bar and is
-	distinct at a glance from the location crosshair the ride's ongoing notification carries —
+	distinct at a glance from the location crosshair the ride's ongoing notification carries -
 	the two sit side by side for the whole of a ride.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"

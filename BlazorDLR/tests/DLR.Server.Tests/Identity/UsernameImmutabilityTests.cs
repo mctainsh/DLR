@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DLR.Server.Tests.Identity;
 
 /// <summary>
-/// The username is chosen once and can never be changed — no endpoint, no settings screen,
+/// The username is chosen once and can never be changed - no endpoint, no settings screen,
 /// no support path (§7.2, §7.14).
 /// <para>
 /// That is not a restriction for its own sake. Immutability is what lets every client
@@ -28,7 +28,7 @@ public sealed class UsernameImmutabilityTests(PostgresFixture postgres)
 	/// are, and nothing about you is rewritten.
 	/// <para>
 	/// A named list rather than a cleverer rule, because no reliable signal distinguishes the
-	/// two from a method signature — and the point of the list is that adding to it is a
+	/// two from a method signature - and the point of the list is that adding to it is a
 	/// deliberate act somebody has to justify in a review, which is exactly what §7.14 asks
 	/// for. The same shape as the licence allow-list, for the same reason.
 	/// </para>
@@ -54,7 +54,7 @@ public sealed class UsernameImmutabilityTests(PostgresFixture postgres)
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
-		// Touching the client is what forces the pipeline — and therefore the routing table —
+		// Touching the client is what forces the pipeline - and therefore the routing table -
 		// to be built. Reading EndpointDataSource off a server that has served nothing
 		// reports an empty list and passes for the wrong reason.
 		using HttpClient client = app.CreateClient();

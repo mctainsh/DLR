@@ -4,7 +4,7 @@ namespace DLR.Server.Data.Identity;
 /// One link in a session's chain (§7.4, §7.13).
 /// <para>
 /// Deliberately not a JWT. It has to be revocable, and it is only ever presented to one
-/// endpoint, so there is nothing to gain from making it self-describing — and a real cost if
+/// endpoint, so there is nothing to gain from making it self-describing - and a real cost if
 /// it ends up in a log.
 /// </para>
 /// </summary>
@@ -33,7 +33,7 @@ public sealed class RefreshToken
 	public byte[] TokenHash { get; set; } = [];
 
 	/// <summary>
-	/// What this token was rotated into. The idempotency window in §7.4 is keyed on it — a
+	/// What this token was rotated into. The idempotency window in §7.4 is keyed on it - a
 	/// replay that arrives before the window closes gets this successor back rather than
 	/// being read as theft.
 	/// </summary>

@@ -7,7 +7,7 @@ namespace DLR.Architecture.Tests;
 /// The account entity never reaches the wire (§7.3, §10.4).
 /// <para>
 /// Three sharing switches defaulting to false are easy to get right at creation and easy to get
-/// wrong on a read path — one forgetful mapper returns the entity and a phone number is gone,
+/// wrong on a read path - one forgetful mapper returns the entity and a phone number is gone,
 /// permanently. <c>SharedProfile</c> is the structural answer, and this is what stops somebody
 /// going around it.
 /// </para>
@@ -47,7 +47,7 @@ public sealed class ApiSurfaceRules
 			.ToList();
 
 		offenders.ShouldBeEmpty(
-			$"An endpoint returning {EntityName} ships every column it has — the phone number " +
+			$"An endpoint returning {EntityName} ships every column it has - the phone number " +
 			"nobody agreed to share, the registration IP, the password hash's neighbours. " +
 			"Project to a contract instead; SharedProfile.For is the one for other travellers " +
 			"(§7.3), and it cannot be called without saying who is asking.");

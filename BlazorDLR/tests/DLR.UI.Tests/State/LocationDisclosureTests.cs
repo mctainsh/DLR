@@ -8,7 +8,7 @@ namespace DLR.UI.Tests.State;
 /// <para>
 /// The wording is asserted rather than merely the fact of a dialog, because a rejection here is a
 /// rejection of the whole release and the copy is what gets read at review. Version 8.0.0.28 was
-/// rejected over exactly this — the disclosure named live sharing and never mentioned that the same
+/// rejected over exactly this - the disclosure named live sharing and never mentioned that the same
 /// fixes are written into a track, so one of the two uses of the collected data was undisclosed.
 /// </para>
 /// </summary>
@@ -33,7 +33,7 @@ public sealed class LocationDisclosureTests
 	public void TheCopy_NamesEveryUseTheDataIsPutTo()
 	{
 		// Two uses, not one. Every fix the receiver produces is offered to the recorder before any
-		// publish gate sees it (§15.1), so a saved track is a second use of the same data — and it
+		// publish gate sees it (§15.1), so a saved track is a second use of the same data - and it
 		// is the one the rejected version left out.
 		LocationDisclosure.Message.ShouldContain("show you to the other",
 			customMessage: "live sharing is a use of the data and must be named.");
@@ -100,7 +100,7 @@ public sealed class LocationDisclosureTests
 
 		(await asking).ShouldBeFalse();
 		(await settings.GetAsync(LocationDisclosure.StorageKey)).ShouldBeNull(
-			"a refusal is not an answer to keep — the next attempt has to put the words up again.");
+			"a refusal is not an answer to keep - the next attempt has to put the words up again.");
 	}
 
 	[Fact]

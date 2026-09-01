@@ -54,7 +54,7 @@ public sealed class TrackUploadTests(PostgresFixture postgres)
 	/// <summary>
 	/// The same identifier from a different account is a different track. Scoping the unique
 	/// index to the owner is what stops one rider's client identifier colliding with another's
-	/// — which, since the client picks it, would otherwise be a way to make somebody else's
+	/// - which, since the client picks it, would otherwise be a way to make somebody else's
 	/// upload disappear.
 	/// </summary>
 	[Fact]
@@ -102,7 +102,7 @@ public sealed class TrackUploadTests(PostgresFixture postgres)
 			"the hash identifies the points, so the same adventure hashes the same way wherever it " +
 			"was computed (§15.3)");
 
-		// The blob is a real file on the volume, and it round-trips losslessly — which is what
+		// The blob is a real file on the volume, and it round-trips losslessly - which is what
 		// makes Edit_NoOpEdit_ProducesIdenticalStats true after a save as well as before one.
 		string path = Directory
 			.EnumerateFiles(app.BlobRoot, "*", SearchOption.AllDirectories)
@@ -128,7 +128,7 @@ public sealed class TrackUploadTests(PostgresFixture postgres)
 
 		// Upload order is deliberately the *opposite* of ride order. Sorting on started_utc
 		// would otherwise give the same answer here as sorting on created_utc, and the test
-		// would pass without distinguishing them — PostgreSQL also puts NULLs first on a
+		// would pass without distinguishing them - PostgreSQL also puts NULLs first on a
 		// descending sort, so even the untimed route would land where it belongs by accident.
 		TrackGeometry recent = Geometry(startingAt: DlrWebApplicationFactory.DefaultStart);
 

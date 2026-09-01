@@ -18,7 +18,7 @@ public sealed class ServerLogReaderTests : IDisposable
 {
 	private static readonly DateTimeOffset Start = new(2026, 3, 4, 9, 30, 0, TimeSpan.Zero);
 
-	/// <summary>The day after <see cref="Start"/> — the file a roll at midnight opens.</summary>
+	/// <summary>The day after <see cref="Start"/> - the file a roll at midnight opens.</summary>
 	private static readonly DateOnly Tomorrow = DateOnly.FromDateTime(Start.UtcDateTime).AddDays(1);
 
 	/// <summary>A startup block as <c>StartupBanner</c> builds one: ruled top and bottom.</summary>
@@ -109,7 +109,7 @@ public sealed class ServerLogReaderTests : IDisposable
 	}
 
 	/// <summary>
-	/// The writer is the only thing that puts a block in a file, so a run gets exactly one — at the
+	/// The writer is the only thing that puts a block in a file, so a run gets exactly one - at the
 	/// top, ahead of the entry whose arrival opened the file.
 	/// </summary>
 	[Fact]
@@ -130,7 +130,7 @@ public sealed class ServerLogReaderTests : IDisposable
 
 			AdminLogPage page = await ReadWhenWrittenAsync(reader, 3);
 
-			// Newest first, so the oldest entry — the top of the file — is the last of them.
+			// Newest first, so the oldest entry - the top of the file - is the last of them.
 			page.Entries.Count.ShouldBe(3);
 			page.Entries[^1].Message.ShouldContain(StartupBanner.Rule);
 			page.Entries.Count(entry => entry.Message.Contains(StartupBanner.Rule, StringComparison.Ordinal))
@@ -141,7 +141,7 @@ public sealed class ServerLogReaderTests : IDisposable
 	/// <summary>
 	/// A restart writes its own block, into the same day's file, under the last run's.
 	/// <para>
-	/// Two blocks in one file are not a duplicate — they are where one run ended and the next
+	/// Two blocks in one file are not a duplicate - they are where one run ended and the next
 	/// began, which is the marker an administrator reads the file backwards from.
 	/// </para>
 	/// </summary>
@@ -178,7 +178,7 @@ public sealed class ServerLogReaderTests : IDisposable
 	/// <summary>
 	/// Midnight rolls the file, and the new one opens with the startup block. Without it, every day
 	/// after the one the server came up on begins midway through a sentence and cannot say what is
-	/// running — which is the question the file is opened to answer.
+	/// running - which is the question the file is opened to answer.
 	/// </summary>
 	[Fact]
 	public async Task WhenTheDayRolls_TheNewFileOpensWithTheHeader()
@@ -273,7 +273,7 @@ public sealed class ServerLogReaderTests : IDisposable
 	}
 
 	/// <summary>
-	/// A message carrying a tab must not be able to invent a column — the reader splits three times
+	/// A message carrying a tab must not be able to invent a column - the reader splits three times
 	/// and takes the rest verbatim, and the writer replaces tabs so that stays true.
 	/// </summary>
 	[Fact]
@@ -356,7 +356,7 @@ public sealed class ServerLogReaderTests : IDisposable
 		}
 	}
 
-	/// <summary>Asked for, they come back — and nothing is reported hidden.</summary>
+	/// <summary>Asked for, they come back - and nothing is reported hidden.</summary>
 	[Fact]
 	public async Task StatementLines_ComeBackWhenTheyAreAskedFor()
 	{
@@ -391,7 +391,7 @@ public sealed class ServerLogReaderTests : IDisposable
 	}
 
 	/// <summary>
-	/// A disabled provider must not create the directory or start a writer — a deployment that did
+	/// A disabled provider must not create the directory or start a writer - a deployment that did
 	/// not ask for a log file should not be able to tell the provider is registered.
 	/// </summary>
 	[Fact]
@@ -411,7 +411,7 @@ public sealed class ServerLogReaderTests : IDisposable
 	}
 
 	/// <summary>
-	/// The provider is registered twice — as itself and as <c>ILoggerProvider</c> — and the logging
+	/// The provider is registered twice - as itself and as <c>ILoggerProvider</c> - and the logging
 	/// factory and the container each dispose what they own. The second call must be a no-op, or
 	/// host shutdown throws.
 	/// </summary>
@@ -464,7 +464,7 @@ public sealed class ServerLogReaderTests : IDisposable
 	}
 
 	/// <summary>
-	/// The failure this exists for: switched on, but the directory cannot be made — which in a
+	/// The failure this exists for: switched on, but the directory cannot be made - which in a
 	/// deployment is a service account without permission, and which used to be indistinguishable
 	/// on screen from never having switched it on.
 	/// </summary>
@@ -472,7 +472,7 @@ public sealed class ServerLogReaderTests : IDisposable
 	public async Task WhenTheDirectoryCannotBeCreated_ThePageSaysWhy()
 	{
 		// A file where the directory would go. Portable, and CreateDirectory fails on it the same
-		// way a denied permission does — the provider swallows both and must report both.
+		// way a denied permission does - the provider swallows both and must report both.
 		Directory.CreateDirectory(_directory);
 
 		string blocked = Path.Combine(_directory, "blocked");

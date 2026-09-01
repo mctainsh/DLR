@@ -23,8 +23,8 @@ public interface IMediaPicker
 
 /// <summary>One picked photo, ready to be POSTed to the server (§16.4).</summary>
 /// <param name="Content">The bytes as the user chose them. The server re-encodes and strips metadata.</param>
-/// <param name="ContentType">What the caller thinks the bytes are — a hint only. The server sniffs.</param>
-/// <param name="FileName">What the caller thinks the file is called — never trusted.</param>
+/// <param name="ContentType">What the caller thinks the bytes are - a hint only. The server sniffs.</param>
+/// <param name="FileName">What the caller thinks the file is called - never trusted.</param>
 public sealed record PickedMedia(
 	Stream Content,
 	string ContentType,

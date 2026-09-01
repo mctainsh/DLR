@@ -4,7 +4,7 @@
 @*
 	The poll half of a post composer (§17.5, §17.8).
 
-	A poll is a comment, so this component does not talk to the server itself — the parent
+	A poll is a comment, so this component does not talk to the server itself - the parent
 	thread builds a PostCommentRequest with `Poll = ComposedSpec`. That is what makes polls
 	inherit idempotency, the caps, the rate limit and the content switches without any of
 	them being written twice.
@@ -62,7 +62,7 @@
 @code {
 	private const int MaxOptions = 6;
 
-	// Bound to the parent's composer — the parent reads BuildSpec() when the user submits.
+	// Bound to the parent's composer - the parent reads BuildSpec() when the user submits.
 	[Parameter] public bool AllowMultiple { get; set; }
 	[Parameter] public EventCallback<bool> AllowMultipleChanged { get; set; }
 
@@ -70,7 +70,7 @@
 	/// Raised whenever an edit here could change what <see cref="BuildSpec"/> returns.
 	/// <para>
 	/// The parent's Post button is enabled from that spec, and a keystroke in this component
-	/// renders this component only — so without this the button would go on reading a stale
+	/// renders this component only - so without this the button would go on reading a stale
 	/// answer until something else happened to re-render the page.
 	/// </para>
 	/// </summary>

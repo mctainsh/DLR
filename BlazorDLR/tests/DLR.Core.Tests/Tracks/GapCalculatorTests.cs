@@ -5,7 +5,7 @@ namespace DLR.Core.Tests.Tracks;
 /// <summary>
 /// The gap-along-route / off-route projection is the whole basis of §5.4's gap list.
 /// A silent regression here would be a live-ride screen quietly reporting wrong
-/// distances; the values below are conservative — the projection is metres-per-degree
+/// distances; the values below are conservative - the projection is metres-per-degree
 /// flat, so tolerances allow for that rather than being tight enough to catch a real
 /// bug in the wrong place.
 /// </summary>
@@ -48,7 +48,7 @@ public sealed class GapCalculatorTests
 	}
 
 	/// <summary>
-	/// A point past the far end snaps to the last vertex — its distance-along is the
+	/// A point past the far end snaps to the last vertex - its distance-along is the
 	/// route's full length. §5.4's "who is furthest along" would otherwise report a
 	/// runaway rider as somewhere off the map.
 	/// </summary>
@@ -77,7 +77,7 @@ public sealed class GapCalculatorTests
 		TrackPoint end = new(0, OneMetreDeg * 100);
 		TrackPoint[] route = [start, end];
 
-		// 50 metres east, but also 20 metres north — perpendicular to the west-east line.
+		// 50 metres east, but also 20 metres north - perpendicular to the west-east line.
 		RouteProjection? result = GapCalculator.Project(
 			route,
 			new TrackPoint(OneMetreDeg * 20 * 111_320.0 / 111_132.0, OneMetreDeg * 50));

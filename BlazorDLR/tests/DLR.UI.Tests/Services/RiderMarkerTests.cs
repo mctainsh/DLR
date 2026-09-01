@@ -22,12 +22,12 @@ public sealed class RiderMarkerTests
 			"a speed with no heading has nothing to point along.");
 
 		RiderMarker.IsMoving(speedMps: null, headingDeg: 90).ShouldBeFalse(
-			"a heading with no speed is the compass reading of somebody parked at a café — an " +
+			"a heading with no speed is the compass reading of somebody parked at a café - an " +
 			"arrow drawn from it sends whoever is looking for them down a road nobody is on.");
 	}
 
 	/// <summary>
-	/// Zero is a real bearing — due north (§16.2) — so it must not be mistaken for "no heading".
+	/// Zero is a real bearing - due north (§16.2) - so it must not be mistaken for "no heading".
 	/// </summary>
 	[Fact]
 	public void Moving_HeadingOfZero_IsAHeading() =>

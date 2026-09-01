@@ -9,13 +9,13 @@ namespace DLR.Core.Contracts.Identity;
 /// server never sees. What that argument left out is how the setting is actually lost: an app
 /// update, a reinstall, a cleared web store or a new phone all wipe it, and a rider who thinks
 /// they still have a private area and does not is <em>worse</em> off than one whose server
-/// holds the circle — they are broadcasting from their doorstep believing they are not.
+/// holds the circle - they are broadcasting from their doorstep believing they are not.
 /// </para>
 /// <para>
 /// So the account is now the source of truth and the device keeps a cache of it. What that
 /// costs is stated plainly rather than hidden: the server can read this, an operator with
 /// database access can read it, it is in the nightly backups, and it is in the account export
-/// because it is the rider's data. What it never does is reach another rider — there is no
+/// because it is the rider's data. What it never does is reach another rider - there is no
 /// endpoint that answers with somebody else's area, it is absent from
 /// <see cref="SharedProfile"/> by construction, and no position, track or export handed to a
 /// third party carries it.
@@ -27,7 +27,7 @@ namespace DLR.Core.Contracts.Identity;
 public sealed record PrivateAreaSettings(double Latitude, double Longitude, double RadiusM)
 {
 	/// <summary>
-	/// What a newly-placed area gets. A kilometre is a few streets in every direction — wide
+	/// What a newly-placed area gets. A kilometre is a few streets in every direction - wide
 	/// enough that the centre is not the obvious middle of a small hole in a track, and narrow
 	/// enough that the ride still picks the rider up before the first junction.
 	/// </summary>
@@ -35,7 +35,7 @@ public sealed record PrivateAreaSettings(double Latitude, double Longitude, doub
 
 	/// <summary>
 	/// Smallest radius offered. Below this a consumer GPS's own error is a large fraction of the
-	/// circle, so a fix reported just outside it still comes from inside — the setting would look
+	/// circle, so a fix reported just outside it still comes from inside - the setting would look
 	/// like it was working while doing nothing.
 	/// </summary>
 	public const double MinRadiusM = 100;
@@ -47,7 +47,7 @@ public sealed record PrivateAreaSettings(double Latitude, double Longitude, doub
 	public const double MaxRadiusM = 10_000;
 
 	/// <summary>
-	/// Brings values from a control — or read back from a store that once held something else —
+	/// Brings values from a control - or read back from a store that once held something else -
 	/// into range: the radius is clamped, and a centre that is not a real coordinate is refused.
 	/// <para>
 	/// Lives on the contract rather than in either the client or the server, because both apply
@@ -73,7 +73,7 @@ public sealed record PrivateAreaSettings(double Latitude, double Longitude, doub
 }
 
 /// <summary>
-/// <c>GET /api/v1/me/private-area</c> — the caller's own area, or the fact that they have none.
+/// <c>GET /api/v1/me/private-area</c> - the caller's own area, or the fact that they have none.
 /// <para>
 /// <strong>A wrapper rather than a bare nullable body, and that is the whole point of the
 /// type.</strong> "The account has no private area" and "we could not ask" are different
@@ -85,6 +85,6 @@ public sealed record PrivateAreaSettings(double Latitude, double Longitude, doub
 /// <param name="Area">The area, or <c>null</c> when the account has none set.</param>
 public sealed record PrivateAreaResponse(PrivateAreaSettings? Area)
 {
-	/// <summary>The answer for an account that has not set one — the shipped state.</summary>
+	/// <summary>The answer for an account that has not set one - the shipped state.</summary>
 	public static readonly PrivateAreaResponse None = new(Area: null);
 }

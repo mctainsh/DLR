@@ -7,6 +7,7 @@ using BlazorDLR.Web.Services;
 using DLR.Server;
 using DLR.Server.Account;
 using DLR.Server.Admin;
+using DLR.Server.Announcements;
 using DLR.Server.Api;
 using DLR.Server.Comments;
 using DLR.Server.Data;
@@ -35,7 +36,7 @@ try
 
 	// In every environment, not just Development, which is where the default puts it.
 	//
-	// A captive-dependency bug — a singleton holding something scoped — is a startup failure
+	// A captive-dependency bug - a singleton holding something scoped - is a startup failure
 	// or it is a heisenbug: the scoped service is captured by the first request to build it
 	// and then quietly reused forever, which for anything holding a DbContext means one
 	// connection shared across every caller. The default arrangement means the whole graph is
@@ -49,8 +50,8 @@ try
 	});
 
 	// TimeProvider is registered from day one. Every timing-dependent rule in the
-	// project — token lifespans, the flush interval, the nightly sweeps, the
-	// 180-day inactivity horizon — resolves it, so tests advance a fake clock
+	// project - token lifespans, the flush interval, the nightly sweeps, the
+	// 180-day inactivity horizon - resolves it, so tests advance a fake clock
 	// rather than sleeping. Retrofitting this later is miserable (§10.4).
 	builder.Services.AddSingleton(TimeProvider.System);
 
@@ -82,18 +83,18 @@ try
 
 	// The cache is a singleton because it *is* the live state; the writer is scoped because it
 	// borrows the request context's connection. The flush service bridges the two through a scope
-	// of its own — a background service holding a scoped context is the captive dependency the
+	// of its own - a background service holding a scoped context is the captive dependency the
 	// container validation above exists to catch.
 	builder.Services.Configure<RideOptions>(builder.Configuration.GetSection(RideOptions.Section));
 	builder.Services.AddSingleton<RiderPositionCache>();
 
 	// Same lifetime and the same reasoning as the position cache: it is live presence, not a record.
-	// Deliberately never a column — a durable log of when each account was at home would be a weaker
+	// Deliberately never a column - a durable log of when each account was at home would be a weaker
 	// copy of the very thing the private area withholds (§10.1).
 	builder.Services.AddSingleton<RiderPrivacyCache>();
 
 	// Counts fixes on their way past, for the administration screen (§14.6). A singleton for the
-	// cache's reason — it is live state — and deliberately never on the write path: the flush drains
+	// cache's reason - it is live state - and deliberately never on the write path: the flush drains
 	// it, so a fix arriving never waits on a counter.
 	builder.Services.AddSingleton<PositionActivityMeter>();
 	builder.Services.AddScoped<IPositionCounter, PositionCounter>();
@@ -101,15 +102,15 @@ try
 
 	builder.Services.AddSignalR();
 
-	// Which connections each account holds. A singleton for the position cache's reason — it is
-	// live state — and the only way an ended membership can reach a connection that is already in
+	// Which connections each account holds. A singleton for the position cache's reason - it is
+	// live state - and the only way an ended membership can reach a connection that is already in
 	// a ride's group, since JoinRide's check runs once and nothing re-runs it (§5.2).
 	builder.Services.AddSingleton<RideConnections>();
 	builder.Services.AddSingletonHostedService<RideBroadcastService>();
 	builder.Services.Configure<TrackEditOptions>(builder.Configuration.GetSection(TrackEditOptions.Section));
 	builder.Services.Configure<MarkerOptions>(builder.Configuration.GetSection(MarkerOptions.Section));
 
-	// The one image decode path (§16.4). Singleton and stateless — it holds the caps and nothing
+	// The one image decode path (§16.4). Singleton and stateless - it holds the caps and nothing
 	// else, so a second registration anywhere would be a second ingest, which is the thing the
 	// architecture test exists to prevent.
 	builder.Services.Configure<PhotoOptions>(builder.Configuration.GetSection(PhotoOptions.Section));
@@ -121,15 +122,20 @@ try
 	// an endpoint marking a comment dirty and the timer draining it are the same object (§17.4).
 	builder.Services.AddSingletonHostedService<ReactionBroadcastService>();
 
+	// Sends an announcement the moment it goes live (§20.3). Singleton and hosted from the same
+	// instance for the reason above: the window it has already swept is state on the object, and a
+	// second copy would re-send everything the first one had sent.
+	builder.Services.AddSingletonHostedService<AnnouncementBroadcastService>();
+
 	// The one destructive timer (§7.11). Singleton and hosted from the same instance so an operator
-	// endpoint — or a test — driving one run drives the object the timer drives, not a second copy
+	// endpoint - or a test - driving one run drives the object the timer drives, not a second copy
 	// reading the same settings. Its defaults delete nothing until somebody turns DryRun off.
 	builder.Services.Configure<MaintenanceOptions>(builder.Configuration.GetSection(MaintenanceOptions.Section));
 	builder.Services.Configure<ModerationOptions>(builder.Configuration.GetSection(ModerationOptions.Section));
 	builder.Services.AddSingletonHostedService<NightlyMaintenanceService>();
 
-	// The browser's half of §7.4 (§7.5). Antiforgery covers exactly one endpoint — the cookie-to-
-	// access-token exchange — because that is the only place a cookie is presented as a credential,
+	// The browser's half of §7.4 (§7.5). Antiforgery covers exactly one endpoint - the cookie-to-
+	// access-token exchange - because that is the only place a cookie is presented as a credential,
 	// and the whole cost of choosing a cookie over localStorage is that one endpoint's CSRF exposure.
 	builder.Services.AddAntiforgery(options => options.HeaderName = "X-DLR-Antiforgery");
 	builder.Services.AddSingleton<WebSessionCookie>();
@@ -158,7 +164,7 @@ try
 	builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
 	// SharedFrontend.md §4: the SSR pass renders shared components before the WASM client boots,
-	// so this host needs its own DI for every seam in that section — even though the interactive
+	// so this host needs its own DI for every seam in that section - even though the interactive
 	// session will re-resolve them against BlazorDLR.Web.Client's DI. Where a seam has no
 	// meaningful answer during a static render, the binding comes from
 	// BlazorDLR.Shared/Services/Platform/.
@@ -174,10 +180,10 @@ try
 	builder.Services.AddScoped<ITokenStore, CookieBackedTokenStore>();
 	// The ride screens resolve a device-local cache of the ride (§4.4). This host has no device to
 	// keep one on and the browser it hands off to keeps none either (§18.6), so both bind the store
-	// that answers "nothing stored" — which is what lets the shared screens ask unconditionally.
+	// that answers "nothing stored" - which is what lets the shared screens ask unconditionally.
 	builder.Services.AddScoped<IOfflineStore, UnavailableOfflineStore>();
 	builder.Services.AddScoped<RideSnapshotCache>();
-	// Nor any downloaded map archive, nor a server for one (§18.6) — registered so the prerender
+	// Nor any downloaded map archive, nor a server for one (§18.6) - registered so the prerender
 	// resolves the map seam rather than throwing before WASM can boot.
 	builder.Services.AddScoped<IMapPackStore, UnavailableMapPackStore>();
 	builder.Services.AddScoped<IMapPackServer, UnavailableMapPackServer>();
@@ -215,31 +221,31 @@ try
 	builder.Services.AddScoped<IDeviceSettings, InMemoryDeviceSettings>();
 	builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
-	// Whether to offer the administration card on Settings (§14.6). The server decides — this only
+	// Whether to offer the administration card on Settings (§14.6). The server decides - this only
 	// caches the answer so the menu does not ask again on every visit.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.AdminAccess>();
 
 	// Which tiles go under the map (§4.5). RideMap injects it, so it has to resolve here or the
 	// prerender throws before WASM can boot. The in-memory store answers "nothing chosen", which is
-	// OpenStreetMap — the same map the client re-resolves to once it reads localStorage.
+	// OpenStreetMap - the same map the client re-resolves to once it reads localStorage.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
 	// The ride the nav rail's globe leads back to (§18.6). NavMenu renders in the SSR pass, so
 	// this has to resolve here or the prerender throws before WASM can boot. The in-memory store
-	// answers "no ride", which is the list — the honest destination for a render that cannot see
-	// the device — and the client re-resolves against localStorage the moment it takes over.
+	// answers "no ride", which is the list - the honest destination for a render that cannot see
+	// the device - and the client re-resolves against localStorage the moment it takes over.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();
 
 	// The unread count on the rail's thread item (§17.6). Same reasoning: NavMenu injects it, so it
 	// has to resolve here. It counts posts off the hub, and this host's hub client throws on every
-	// call — so the prerender draws no badge, which is the honest answer for a render that can see
+	// call - so the prerender draws no badge, which is the honest answer for a render that can see
 	// neither the device store nor a live connection.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.UnreadThreadState>();
 	builder.Services.AddScoped<BlazorDLR.Shared.State.ConsentAskedState>();
 
 	// Whether this device has been shown the introduction (§18.6). MainLayout injects it, so it has to
 	// resolve here or the prerender throws before WASM can boot. The in-memory store answers "never
-	// seen" — but the redirect that reads it runs after first render, which the prerender never
+	// seen" - but the redirect that reads it runs after first render, which the prerender never
 	// reaches, so this host cannot bounce anybody into the deck. The client re-resolves against
 	// localStorage the moment it takes over, and that is the answer that decides.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.IntroTourState>();
@@ -254,7 +260,7 @@ try
 	// ILocationProvider, LocationUpdateRateState, TrackRecordingState, PrivateAreaState and
 	// LocationBroadcastState are all absent here and on the WASM client, deliberately. A browser has
 	// no continuous background GPS the app can trust, so every one of them was a stub answering "not
-	// supported" to screens that then had to say so — five registrations, a no-op provider and a
+	// supported" to screens that then had to say so - five registrations, a no-op provider and a
 	// settings screen full of controls that could not do anything on the host reading them.
 	//
 	// The shared screens resolve the broadcaster with GetService rather than @inject and render
@@ -262,19 +268,26 @@ try
 	// rather than present and inert. Receiving is unaffected: other riders' positions arrive over
 	// the hub as data (§5.3), and drawing them was never a GPS concern.
 
+	// The launch check and the announcement dialog (§20). MainLayout injects both, so they have to
+	// resolve here or the prerender throws before WASM can boot. Neither does anything on this
+	// host: the rung that drives them runs after first render, which a static render never reaches,
+	// and this host's hub client throws on every call.
+	builder.Services.AddScoped<BlazorDLR.Shared.State.StartupCheckState>();
+	builder.Services.AddScoped<BlazorDLR.Shared.State.AnnouncementNotifier>();
+
 	// The one confirm modal is mounted in MainLayout, which renders in the SSR pass too;
 	// registering here keeps prerender from throwing on the ConfirmDialog @inject.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.ConfirmService>();
 
 	// PageNav's back arrow asks this whether there is in-app history to step into. A single
 	// static render never navigates, so it answers "no" here and the arrow falls back to the
-	// page's declared parent route — which is the right answer for a prerender, and the WASM
+	// page's declared parent route - which is the right answer for a prerender, and the WASM
 	// client starts its own count the moment it boots.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.NavigationHistory>();
 
 	// Auth state for the SSR pass. Shared pages inject AuthState directly (Welcome) and via
 	// AuthenticationStateProvider (Home, AuthorizeView), so both must resolve on this host
-	// too — otherwise the prerender crashes before the WASM client boots and takes over
+	// too - otherwise the prerender crashes before the WASM client boots and takes over
 	// with the client's own scoped instance. The SSR pass has no refresh cookie the token
 	// store can read, so the principal starts anonymous and NotAuthorized wins.
 	builder.Services.AddAuthorizationCore();
@@ -286,7 +299,7 @@ try
 	// It fetches thumbnails with an HttpClient this host does not have and would not want: the SSR
 	// pass has no refresh cookie the token store can read (see the note above), so it has no bearer
 	// token, so it could not read a photo endpoint even if one were wired. ValidateOnBuild says so
-	// out loud rather than letting it be discovered at render time — registering it here fails
+	// out loud rather than letting it be discovered at render time - registering it here fails
 	// startup on the missing HttpClient, which is the check working.
 	//
 	// RiderAvatar resolves it with GetService and draws nothing without it, so the prerendered
@@ -305,7 +318,7 @@ try
 	//
 	// A one-shot run of the same image rather than a Migrate() call on the way up. Migrating at
 	// startup couples "is this server ready" to "has the schema moved", which is the coupling that
-	// makes a rolling deploy or a second container an outage — and it also means a failed migration
+	// makes a rolling deploy or a second container an outage - and it also means a failed migration
 	// presents as a crash loop rather than as a step that failed. Compose runs this to completion
 	// before the server container starts, and /healthz reports the schema so that forgetting it
 	// entirely is loud rather than silent (§9.1).
@@ -324,7 +337,7 @@ try
 
 	// Refuses to start on a missing, short, or committed signing key (§7.4). After Build
 	// rather than before it, because that is the first point at which the configuration is
-	// final — under the minimal hosting model a host can still contribute sources while the
+	// final - under the minimal hosting model a host can still contribute sources while the
 	// builder is running, and validating early would judge a half-assembled configuration.
 	// Still before the first request, so the failure is "this deployment is misconfigured"
 	// rather than a 500 on somebody's first sign-in attempt.
@@ -332,13 +345,13 @@ try
 
 	// Alongside the signing key and for the same reason, and deliberately not before the
 	// `--migrate` branch: applying a schema needs a database, not somewhere to put photographs.
-	// An unset value is not inert here — it resolves relative to the working directory, so the
+	// An unset value is not inert here - it resolves relative to the working directory, so the
 	// server comes up perfectly happily and writes uploads into the source tree (§9.1).
 	RequiredSettings.ValidateBlobRoot(app.Configuration);
 
 	// Before anything that reads an address. Every per-address rule in §7.8 depends on
 	// this having run, and the ladder in particular breaks registration outright without
-	// it — every signup would look like it came from Caddy.
+	// it - every signup would look like it came from Caddy.
 	app.UseForwardedHeaders();
 
 	// The points endpoint sends ~200 KB of encoded polyline for a long ride (§15.5). Caddy
@@ -351,7 +364,7 @@ try
 	// is also the honest test of file logging itself: it is there, or writing to disk is not working.
 	//
 	// Two sinks, one producer each, so nothing has to recognise and discard a duplicate. The writer
-	// puts the block at the head of every file it opens — a server that stays up rolls a new file at
+	// puts the block at the head of every file it opens - a server that stays up rolls a new file at
 	// each midnight, and the day an administrator opens is far more often one of those than the day the
 	// process started on. Standard output gets its own copy directly, because on a container that is
 	// the only log there is, and it is written unlevelled and unfiltered so that nothing can hide it.
@@ -370,7 +383,7 @@ try
 	// Re-executing a bodyless error response into the razor pipeline is right for a browser
 	// navigation and wrong for every API caller, so it is scoped off /api/* for the same reason
 	// the antiforgery branch below is. The re-execute rewrites the request to GET-or-POST
-	// /not-found, which loses the original path and — worse — changes the status the client sees:
+	// /not-found, which loses the original path and - worse - changes the status the client sees:
 	// a 401 on `PUT /api/v1/me/profile` came back as 405 (the razor endpoint has no PUT), and a
 	// 401 or 403 on any API POST came back as 400 (antiforgery runs on the re-executed path,
 	// which no longer starts with /api). An API client must receive the status the endpoint chose.
@@ -384,7 +397,7 @@ try
 	// Antiforgery middleware runs on the razor-components pipeline (interactive rendering
 	// annotates endpoints with anti-forgery metadata and the framework will not start without
 	// the middleware). It is skipped for /api/* because §7.5 scopes CSRF to exactly one API
-	// endpoint — the cookie-to-access-token exchange — and that endpoint calls
+	// endpoint - the cookie-to-access-token exchange - and that endpoint calls
 	// IAntiforgery.ValidateRequestAsync explicitly inside WebAuthController.TokenAsync. Letting
 	// the middleware run over /api/* rejects legitimate multipart uploads (§15.2, §16.4)
 	// regardless of [IgnoreAntiforgeryToken], which is an MVC filter the middleware does not
@@ -398,7 +411,7 @@ try
 
 	// CloseOnAuthenticationExpiration is left at its default of false, deliberately (§7.6). SignalR
 	// validates the token when the connection opens; closing on expiry would kill a two-hour ride's
-	// connection every fifteen minutes — the access token's lifetime, which has nothing to do with
+	// connection every fifteen minutes - the access token's lifetime, which has nothing to do with
 	// whether the rider is still on the bike. The client's AccessTokenProvider supplies a fresh token
 	// on *reconnect*, which is where rotation belongs. Written out so nobody later "fixes" it.
 	app.MapHub<RideHub>(RideHub.Path);
@@ -406,7 +419,7 @@ try
 	app.MapStaticAssets();
 
 	// The razor host serves the WASM shell for every route. Auth on this app lives entirely in the
-	// WASM heap (§7.4, §18.5) — the server has no cookie or bearer on a razor page GET, so applying
+	// WASM heap (§7.4, §18.5) - the server has no cookie or bearer on a razor page GET, so applying
 	// endpoint-level [Authorize] would 401 the shell before the client could boot. AuthorizeRouteView
 	// (in Routes.razor) is the sole gate; it runs client-side and redirects an anonymous user to
 	// /welcome. AllowAnonymous strips the endpoint metadata the framework otherwise infers from the

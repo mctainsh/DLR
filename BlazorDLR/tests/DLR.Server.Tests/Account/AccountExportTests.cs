@@ -27,7 +27,7 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 	private const string ExportUrl = "/api/v1/me/export";
 
 	/// <summary>
-	/// §15.6 says the retained original is exported with the track — it is the rider's data for as
+	/// §15.6 says the retained original is exported with the track - it is the rider's data for as
 	/// long as this server holds it, and leaving it out would make the archive's claim false for
 	/// exactly the seven days it matters.
 	/// </summary>
@@ -57,7 +57,7 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 		archive.GetEntry(track.PreviousVersionGpxPath!).ShouldNotBeNull(
 			"a path in the manifest with no file behind it is not an export of anything");
 
-		// And it must be the pre-edit points, not a second copy of the current ones — the whole
+		// And it must be the pre-edit points, not a second copy of the current ones - the whole
 		// reason §15.6 keeps it is that the two differ.
 		string current = Text(archive, track.GpxPath);
 		string previous = Text(archive, track.PreviousVersionGpxPath!);
@@ -91,7 +91,7 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// §7.15 names this one. Both halves: the values <em>and</em> the switches — what a rider chose
+	/// §7.15 names this one. Both halves: the values <em>and</em> the switches - what a rider chose
 	/// to share is a decision about their own privacy, and an export showing a phone number without
 	/// saying who could see it answers a different question.
 	/// </summary>
@@ -132,7 +132,7 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The private area is on the account now (§10.1), so it is data the server holds about the
-	/// rider — and an export that claimed completeness while withholding the one setting that
+	/// rider - and an export that claimed completeness while withholding the one setting that
 	/// names where they live would be answering a different question than the one asked.
 	/// </summary>
 	[Fact]
@@ -214,7 +214,7 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A poll is a comment (§17.5), so it exports through the same list — and its options come with
+	/// A poll is a comment (§17.5), so it exports through the same list - and its options come with
 	/// it, since a poll reduced to its question is not the post that was made.
 	/// </summary>
 	[Fact]
@@ -262,7 +262,7 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 	/// <summary>
 	/// The join code is a ride's entire access control and goes only to the organiser (§5.2). An
 	/// export handed to a member that carried it would let any member re-share the group the
-	/// organiser curated — through a file nobody thinks of as a sharing surface.
+	/// organiser curated - through a file nobody thinks of as a sharing surface.
 	/// </summary>
 	[Fact]
 	public async Task Export_NeverCarriesARidesJoinCode()
@@ -278,7 +278,7 @@ public sealed class AccountExportTests(PostgresFixture postgres)
 
 		using ZipArchive archive = await ExportAsync(member);
 
-		// Against the raw manifest text, not against a property — the rule is "the code is not in
+		// Against the raw manifest text, not against a property - the rule is "the code is not in
 		// the file", not "one field is null", which is how SRV-20 asserted the same obligation.
 		Text(archive, AccountExportBuilderManifest)
 			.ShouldNotContain(ride.JoinCode!, Case.Insensitive);

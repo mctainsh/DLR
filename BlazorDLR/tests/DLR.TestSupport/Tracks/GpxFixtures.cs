@@ -7,7 +7,7 @@ namespace DLR.TestSupport.Tracks;
 /// GPX files built in code, both the ordinary and the hostile (§15.3, §14.2).
 /// <para>
 /// <strong>Generated, never recorded.</strong> A real trace starts at somebody's house and ends
-/// there, and this repository is public — so there are no captured files here and there is no
+/// there, and this repository is public - so there are no captured files here and there is no
 /// procedure for adding one. It is also better for testing: a tunnel gap, a GPS spike or a
 /// clock that runs backwards can be constructed exactly, where getting one by riding into it
 /// is a matter of luck.
@@ -64,7 +64,7 @@ public static class GpxFixtures
 		return gpx.ToString();
 	}
 
-	/// <summary>One track in two segments — a tunnel, a pause, a lost signal.</summary>
+	/// <summary>One track in two segments - a tunnel, a pause, a lost signal.</summary>
 	/// <param name="pointsPerSegment">Points in each segment.</param>
 	/// <param name="gapMetres">How far the second segment starts from where the first ended.</param>
 	public static string TrackWithSegmentBreak(int pointsPerSegment = 3, double gapMetres = 5_000)
@@ -196,7 +196,7 @@ public static class GpxFixtures
 	}
 
 	/// <summary>
-	/// A track <em>and</em> waypoints — the ordinary shape of a file somebody exports from a
+	/// A track <em>and</em> waypoints - the ordinary shape of a file somebody exports from a
 	/// mapping tool, and the only shape whose waypoints have a parent to attach to (§16.6).
 	/// </summary>
 	/// <param name="waypoints">How many waypoints.</param>
@@ -263,7 +263,7 @@ public static class GpxFixtures
 		""";
 
 	/// <summary>
-	/// An external entity pointing at a local file — the XXE that reads
+	/// An external entity pointing at a local file - the XXE that reads
 	/// <c>/etc/passwd</c> and posts it back inside a track name.
 	/// </summary>
 	/// <param name="path">A file that exists, so resolving it would visibly succeed.</param>
@@ -277,7 +277,7 @@ public static class GpxFixtures
 	/// <summary>Not XML at all. People upload the wrong file.</summary>
 	public static string NotXml() => "this is a photo of a bicycle, not a gpx file";
 
-	/// <summary>Well-formed XML that is not GPX — an exported spreadsheet, say.</summary>
+	/// <summary>Well-formed XML that is not GPX - an exported spreadsheet, say.</summary>
 	public static string NotGpx() =>
 		"""<?xml version="1.0" encoding="UTF-8"?><workbook><sheet name="rides" /></workbook>""";
 

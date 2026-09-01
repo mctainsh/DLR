@@ -14,8 +14,8 @@ namespace DLR.Server.Comments;
 /// What one caller may do in one thread, whichever kind of thread it is (§17.2, §6.2).
 /// <para>
 /// <strong>This type exists so that <see cref="CommentController"/> does not grow a second copy
-/// of itself.</strong> A shared route's thread and an adventure's are the same conversation —
-/// same posts, same reactions, same polls, same edit window, same pinning, same reporting — and
+/// of itself.</strong> A shared route's thread and an adventure's are the same conversation -
+/// same posts, same reactions, same polls, same edit window, same pinning, same reporting - and
 /// they differ in exactly one place: who is allowed in and who runs it. Pulling that one
 /// difference out into a resolver means the endpoints stay written once, and the two answers to
 /// "may they?" sit side by side where they can be compared.
@@ -28,7 +28,7 @@ namespace DLR.Server.Comments;
 /// </summary>
 /// <param name="Exists">
 /// Whether the thread is one the caller may know about at all. False is answered as <c>404</c>
-/// and never as <c>403</c> — a distinguishable refusal turns a thread id into an oracle for what
+/// and never as <c>403</c> - a distinguishable refusal turns a thread id into an oracle for what
 /// exists and who is in it (§5.2).
 /// </param>
 /// <param name="GroupRideId">The adventure this thread belongs to, or null when it is a route's.</param>
@@ -41,7 +41,7 @@ namespace DLR.Server.Comments;
 /// useful answer than "your post is empty" to somebody who only attached a picture.
 /// </param>
 /// <param name="CanModerate">
-/// Whether the caller may delete somebody else's post and pin things — the organiser of an
+/// Whether the caller may delete somebody else's post and pin things - the organiser of an
 /// adventure, the owner of a route.
 /// </param>
 /// <param name="Refusal">
@@ -120,13 +120,13 @@ public static class CommentThreadAccess
 	/// adventure's thread is visible to the people the organiser admitted and nobody else; a route
 	/// on the browse list has been put in front of every rider on the service on purpose, and a
 	/// conversation about it that only its owner could join would be a comment box with one person
-	/// in it. The permission ladder that still applies is §7.8's — a brand-new account cannot
-	/// post, exactly as it cannot share a route — and that is carried by the endpoint's policy
+	/// in it. The permission ladder that still applies is §7.8's - a brand-new account cannot
+	/// post, exactly as it cannot share a route - and that is carried by the endpoint's policy
 	/// attribute rather than repeated here.
 	/// </para>
 	/// <para>
 	/// Two things take a route's thread away again. Un-sharing it makes the whole route invisible
-	/// to everybody but its owner, thread included — the posts survive, so re-sharing brings the
+	/// to everybody but its owner, thread included - the posts survive, so re-sharing brings the
 	/// conversation back rather than starting a new one. And blocking its owner takes it off the
 	/// blocker's screen entirely (§17.7), for the same reason the browse list already drops their
 	/// routes: a block that hid somebody's routes but left their comment thread reachable would be
@@ -183,7 +183,7 @@ public static class CommentThreadAccess
 	/// <summary>
 	/// The thread an existing comment belongs to, resolved for the caller.
 	/// <para>
-	/// One helper, because every write path — edit, delete, pin, react, vote, close a poll —
+	/// One helper, because every write path - edit, delete, pin, react, vote, close a poll -
 	/// begins by loading a comment and asking the same question about it. The comment comes back
 	/// with the answer so the caller does not read the row twice.
 	/// </para>
@@ -193,8 +193,8 @@ public static class CommentThreadAccess
 	/// <param name="userId">Who is asking.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
 	/// <returns>
-	/// The comment and what the caller may do in its thread. The comment is null — and the access
-	/// is <see cref="ThreadAccess.None"/> — when it does not exist or when the caller may not know
+	/// The comment and what the caller may do in its thread. The comment is null - and the access
+	/// is <see cref="ThreadAccess.None"/> - when it does not exist or when the caller may not know
 	/// that it does, which are deliberately the same answer.
 	/// </returns>
 	public static async Task<(RideComment? Comment, ThreadAccess Access)> ForCommentAsync(

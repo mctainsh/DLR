@@ -23,7 +23,7 @@ public sealed class PositionOutboxTests
 	{
 		// The whole reason this is a slot and not a queue. A sender that is behind used to work
 		// through the backlog in order, spending a round trip each on positions the ride had
-		// already been overtaken by — which is what made one stalled send take minutes to unwind
+		// already been overtaken by - which is what made one stalled send take minutes to unwind
 		// rather than seconds.
 		using PositionOutbox outbox = new();
 
@@ -44,8 +44,8 @@ public sealed class PositionOutboxTests
 	[Fact]
 	public async Task CrossingIntoThePrivateArea_DropsAPositionStillWaitingToGo()
 	{
-		// §10.1. Sending inline got this for free — the fix had already gone by the time the
-		// crossing was noticed — and a slot has to say it out loud. A position read outside the
+		// §10.1. Sending inline got this for free - the fix had already gone by the time the
+		// crossing was noticed - and a slot has to say it out loud. A position read outside the
 		// circle, delivered a moment after the rider is inside it, is the leak the feature exists
 		// to stop.
 		using PositionOutbox outbox = new();

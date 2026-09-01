@@ -7,7 +7,7 @@ namespace DLR.Server.Identity;
 /// <para>
 /// This is not a politeness rule about squatting. The username is the label on a map pin, so
 /// a rider called <c>support</c> or <c>no-reply</c> is a rider who can pose as the service on
-/// somebody else's map — the same impersonation problem that ASCII-only solves for homoglyphs,
+/// somebody else's map - the same impersonation problem that ASCII-only solves for homoglyphs,
 /// arriving by a different route.
 /// </para>
 /// </summary>

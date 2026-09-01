@@ -11,7 +11,7 @@ public enum MapSourceKind
 	/// <summary>A PMTiles archive downloaded onto this device. Phone only (§18.6).</summary>
 	Offline = 1,
 
-	/// <summary>A rider-supplied XYZ raster template — a self-hosted tile server, or a service they hold a key for.</summary>
+	/// <summary>A rider-supplied XYZ raster template - a self-hosted tile server, or a service they hold a key for.</summary>
 	Custom = 2,
 }
 
@@ -19,7 +19,7 @@ public enum MapSourceKind
 /// Which cartography an offline pack is drawn with (§13 Q26).
 /// <para>
 /// <strong>Offline packs only, and that is not an oversight.</strong> A PMTiles archive holds
-/// vector geometry with no colour in it — the colour is entirely in the style document beside it,
+/// vector geometry with no colour in it - the colour is entirely in the style document beside it,
 /// so the same archive draws either way and switching costs no download. The other two sources are
 /// raster: OSM's tiles arrive as finished PNGs and a rider's own tile server serves whatever it
 /// serves, so neither has a theme to choose. <see cref="MapSource.Normalised"/> clears this on
@@ -27,7 +27,7 @@ public enum MapSourceKind
 /// </para>
 /// <para>
 /// <strong>It moves the base map and nothing else.</strong> Every marker, rider pin and route is
-/// drawn by the Skia overlay on top (§4.5 v0.21) and is unaffected — including
+/// drawn by the Skia overlay on top (§4.5 v0.21) and is unaffected - including
 /// <see cref="RouteStyle"/>, whose defaults stay tuned for light ground. A rider who wants a
 /// different line colour over a dark map has that setting already.
 /// </para>
@@ -37,7 +37,7 @@ public enum MapTheme
 	/// <summary>Protomaps' <c>light</c> theme. The default, and what every offline pack drew before this existed.</summary>
 	Light = 0,
 
-	/// <summary>Protomaps' <c>dark</c> theme — the same 68 layers over the same archive, painted for night.</summary>
+	/// <summary>Protomaps' <c>dark</c> theme - the same 68 layers over the same archive, painted for night.</summary>
 	Dark = 1,
 }
 
@@ -52,7 +52,7 @@ public enum MapTheme
 /// <para>
 /// <strong>The base map is only tiles, camera, rotation and attribution.</strong> Every marker,
 /// rider pin and route is drawn by the Skia overlay on top (§4.5 v0.21), so changing this changes
-/// what is <em>under</em> the overlay and nothing else — no screen and no contract moves.
+/// what is <em>under</em> the overlay and nothing else - no screen and no contract moves.
 /// </para>
 /// <para>
 /// <strong>Attribution travels with the source, because the obligation does.</strong> It is not a
@@ -65,12 +65,12 @@ public enum MapTheme
 /// <param name="Kind">Which of the three.</param>
 /// <param name="PackId">
 /// For <see cref="MapSourceKind.Offline"/>, which downloaded archive. Null until the packs
-/// themselves exist — see <see cref="Normalised"/>, which refuses an offline source without one
+/// themselves exist - see <see cref="Normalised"/>, which refuses an offline source without one
 /// rather than leaving the map with nothing to draw.
 /// </param>
 /// <param name="UrlTemplate">
 /// For <see cref="MapSourceKind.Custom"/>, an XYZ template carrying <c>{x}</c>, <c>{y}</c> and
-/// <c>{z}</c>. <strong>HTTPS only</strong> — see <see cref="IsUsableTemplate"/>.
+/// <c>{z}</c>. <strong>HTTPS only</strong> - see <see cref="IsUsableTemplate"/>.
 /// </param>
 /// <param name="Attribution">
 /// For <see cref="MapSourceKind.Custom"/>, the credit the tile server requires. Rendered by
@@ -83,7 +83,7 @@ public enum MapTheme
 /// </param>
 /// <param name="Theme">
 /// For <see cref="MapSourceKind.Offline"/>, which cartography the archive is drawn with. Cleared
-/// on the two raster kinds by <see cref="Normalised"/> — see <see cref="MapTheme"/>.
+/// on the two raster kinds by <see cref="Normalised"/> - see <see cref="MapTheme"/>.
 /// </param>
 public sealed record MapSource(
 	MapSourceKind Kind,
@@ -100,7 +100,7 @@ public sealed record MapSource(
 	public const string StorageKey = "dlr.map-source";
 
 	/// <summary>
-	/// OSM's raster tiles stop here. Requesting z20+ gets 404s — see <see cref="MaxZoom"/>, and
+	/// OSM's raster tiles stop here. Requesting z20+ gets 404s - see <see cref="MaxZoom"/>, and
 	/// the same number in <c>map.maplibre.js</c>, which is where it is enforced on the style.
 	/// </summary>
 	public const int OsmMaxZoom = 19;
@@ -120,7 +120,7 @@ public sealed record MapSource(
 
 	/// <summary>
 	/// What a device that has never chosen gets: OSM, which is what every map drew before this
-	/// type existed. §13 Q26 still has to move that source before public announcement — this
+	/// type existed. §13 Q26 still has to move that source before public announcement - this
 	/// setting does not discharge it, it just stops OSM being the only possible answer.
 	/// </summary>
 	public static MapSource Default { get; } = new(MapSourceKind.Osm, MaxZoom: OsmMaxZoom);
@@ -159,7 +159,7 @@ public sealed record MapSource(
 
 	/// <summary>
 	/// The tile URL this source resolves to, or <c>null</c> for one that is not served over
-	/// XYZ — an offline archive, which the map module reads through the <c>pmtiles://</c>
+	/// XYZ - an offline archive, which the map module reads through the <c>pmtiles://</c>
 	/// protocol instead.
 	/// </summary>
 	public string? TileUrl => Kind switch
@@ -191,7 +191,7 @@ public sealed record MapSource(
 	/// <para>
 	/// All-or-nothing per kind, like <see cref="LiveMapView.Normalised"/> rather than field by
 	/// field: half a tile source is a blank map, and the cost of answering <c>null</c> is that
-	/// the caller falls back to <see cref="Default"/> — which is a working map, and no worse than
+	/// the caller falls back to <see cref="Default"/> - which is a working map, and no worse than
 	/// a device that had stored nothing.
 	/// </para>
 	/// <para>
@@ -233,7 +233,7 @@ public sealed record MapSource(
 
 	/// <summary>
 	/// The record as one string for <see cref="IDeviceSettings"/>, leading <c>1</c> being the
-	/// format version — the same arrangement as <see cref="LiveMapView.Encode"/>.
+	/// format version - the same arrangement as <see cref="LiveMapView.Encode"/>.
 	/// <para>
 	/// The template and the attribution are percent-encoded. A tile URL carries <c>&amp;</c> and
 	/// braces as a matter of course and an attribution is free text with markup in it, and neither
@@ -242,13 +242,13 @@ public sealed record MapSource(
 	/// <para>
 	/// <strong>The theme is a seventh field appended to version 1 rather than a version 2.</strong>
 	/// It only ever <em>adds</em> to what a value means, so both directions survive: this build
-	/// reads a six-field value as light — which is what every device that stored one was drawing —
+	/// reads a six-field value as light - which is what every device that stored one was drawing -
 	/// and a build that predates the field reads the seventh as trailing noise it already ignores.
 	/// A version bump would have thrown away every stored source for a setting that defaults to the
 	/// behaviour they all had.
 	/// </para>
 	/// </summary>
-	/// <exception cref="InvalidOperationException">This source cannot draw a map — see <see cref="Normalised"/>.</exception>
+	/// <exception cref="InvalidOperationException">This source cannot draw a map - see <see cref="Normalised"/>.</exception>
 	public string Encode()
 	{
 		MapSource safe = Normalised()
@@ -291,7 +291,7 @@ public sealed record MapSource(
 		}
 
 		// Absent on every value written before the theme existed, and unparseable if it came from a
-		// build that spells it differently. Either way light, which is what those devices drew — a
+		// build that spells it differently. Either way light, which is what those devices drew - a
 		// cartography this build cannot name is not worth discarding a working source over.
 		MapTheme theme = parts.Length > 6 && Enum.TryParse(parts[6], ignoreCase: true, out MapTheme stored)
 			? stored

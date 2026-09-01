@@ -109,7 +109,7 @@ internal sealed record SourceFile(string Path, string Text)
 	/// <summary>
 	/// The file's lines with comments blanked out and line numbering preserved.
 	/// <para>
-	/// Comments have to go, or every rule fires on the paragraph explaining it — this
+	/// Comments have to go, or every rule fires on the paragraph explaining it - this
 	/// file discusses <c>DateTime</c> and raw SQL at length and must not trip its own
 	/// guards. Blanking rather than deleting keeps reported line numbers honest.
 	/// </para>
@@ -117,7 +117,7 @@ internal sealed record SourceFile(string Path, string Text)
 	public string[] CodeLines => _codeLines ??= StripComments(Text).Split('\n');
 
 	/// <summary>
-	/// 1-based line numbers whose code — not commentary — contains any of
+	/// 1-based line numbers whose code - not commentary - contains any of
 	/// <paramref name="needles"/>.
 	/// </summary>
 	public IReadOnlyList<int> LinesContaining(params string[] needles)
@@ -141,7 +141,7 @@ internal sealed record SourceFile(string Path, string Text)
 	/// <summary>
 	/// Replaces comment content with spaces, leaving newlines and code alone.
 	/// The scanner tracks string and character literals so that a <c>//</c> inside a URL
-	/// does not swallow the rest of the line — a false negative in a guard is worse than
+	/// does not swallow the rest of the line - a false negative in a guard is worse than
 	/// a noisy one.
 	/// </summary>
 	private static string StripComments(string text)

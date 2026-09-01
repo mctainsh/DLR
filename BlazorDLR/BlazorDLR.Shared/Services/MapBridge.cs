@@ -13,8 +13,8 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// <strong>One copy, deliberately.</strong> The method names below are half of a contract
 /// whose other half is a string in each JS module (<c>map/interop.js</c>'s <c>dispatch</c>).
-/// That pairing has already been got wrong once — every viewport event was silently dropped
-/// — and three private copies of it meant three places to get it wrong again. All three
+/// That pairing has already been got wrong once - every viewport event was silently dropped
+/// - and three private copies of it meant three places to get it wrong again. All three
 /// hosts reference this assembly, and this is plain <c>Microsoft.JSInterop</c>, so no host
 /// type leaks into the shared project.
 /// </para>
@@ -58,7 +58,7 @@ public sealed class MapBridge
 	public void OnMapClicked(MapClick click) => _forwardClick(click);
 
 	/// <summary>
-	/// Called when the base map itself reports a problem — a tile that would not load, a style that
+	/// Called when the base map itself reports a problem - a tile that would not load, a style that
 	/// would not parse, a source it could not reach.
 	/// <para>
 	/// These do not throw out of <c>createMap</c>: the map object exists and is happily rendering
@@ -72,19 +72,19 @@ public sealed class MapBridge
 
 	/// <summary>
 	/// Called when the base map settles on a view whose coverage differs from the last one it
-	/// reported — see <see cref="IMapInterop.CoverageChanged"/>.
+	/// reported - see <see cref="IMapInterop.CoverageChanged"/>.
 	/// </summary>
 	/// <param name="coverage">What the map can draw where it is now looking.</param>
 	[JSInvokable]
 	public void OnMapCoverage(MapCoverage coverage) => _forwardCoverage(coverage);
 
 	/// <summary>
-	/// Called when the rider moved the map with their own hand — see <see cref="IMapInterop.Gestured"/>
+	/// Called when the rider moved the map with their own hand - see <see cref="IMapInterop.Gestured"/>
 	/// for what turns on the distinction and why the module rather than this side has to draw it.
 	/// </summary>
 	/// <param name="kind">
 	/// The gesture's name as the module spells it: <c>pan</c> or <c>rotate</c>. A name from a newer
-	/// module is dropped rather than guessed at — an automatic mode cancelled by something nobody
+	/// module is dropped rather than guessed at - an automatic mode cancelled by something nobody
 	/// meant is worse than one that outlives a gesture this build has never heard of.
 	/// </param>
 	[JSInvokable]

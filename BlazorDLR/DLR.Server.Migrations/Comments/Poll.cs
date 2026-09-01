@@ -5,7 +5,7 @@ namespace DLR.Server.Data.Comments;
 /// <summary>
 /// A poll, hanging off the comment that <em>is</em> it (§17.5).
 /// <para>
-/// <strong>The primary key is the comment's id</strong>, not an identity of its own — a poll is
+/// <strong>The primary key is the comment's id</strong>, not an identity of its own - a poll is
 /// <c>Comment.Kind = Poll</c> with this record attached, not a parallel entity. That is worth being
 /// deliberate about: it means polls inherit threading, pinning, reactions, permissions, reporting,
 /// deletion, export and the whole realtime path without a line of new code for any of them. A
@@ -28,7 +28,7 @@ public sealed class Poll
 	/// When it closes on its own, or null for one that stays open until somebody closes it.
 	/// <para>
 	/// <strong>Evaluated on read, never swept.</strong> A background job that flipped a flag would
-	/// leave a window in which an elapsed poll still accepted votes — as wide as the job's interval,
+	/// leave a window in which an elapsed poll still accepted votes - as wide as the job's interval,
 	/// and widest exactly when the job is behind. Comparing against the clock at vote time has no
 	/// such window and no job to fail.
 	/// </para>
@@ -51,7 +51,7 @@ public sealed class Poll
 	public ICollection<PollOption> Options { get; set; } = [];
 
 	/// <summary>
-	/// Whether the poll is shut at the given instant — closed by hand, or past its own deadline.
+	/// Whether the poll is shut at the given instant - closed by hand, or past its own deadline.
 	/// </summary>
 	/// <param name="now">The server clock.</param>
 	public bool IsClosed(DateTimeOffset now) =>
@@ -85,7 +85,7 @@ public sealed class PollOption
 /// <para>
 /// <strong>Attributed, and there is no anonymous mode.</strong> The question people actually ask is
 /// <em>"who's coming on Saturday?"</em>, and an anonymous tally answers a different and less useful
-/// one. It also means a vote needs no separate privacy story — it is visible to exactly the
+/// one. It also means a vote needs no separate privacy story - it is visible to exactly the
 /// audience the ride already has.
 /// </para>
 /// </summary>

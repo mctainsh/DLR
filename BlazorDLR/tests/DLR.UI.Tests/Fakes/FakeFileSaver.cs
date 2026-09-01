@@ -4,8 +4,8 @@ namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
 /// An <see cref="IFileSaver"/> that keeps what it was handed instead of writing anything. The
-/// seam exists because the hosts disagree about what saving means — a browser download on the
-/// web, the system share sheet on a phone — so the thing worth asserting here is that the page
+/// seam exists because the hosts disagree about what saving means - a browser download on the
+/// web, the system share sheet on a phone - so the thing worth asserting here is that the page
 /// got the bytes as far as the seam at all, with a sensible name and content type.
 /// </summary>
 public sealed class FakeFileSaver : IFileSaver

@@ -9,7 +9,7 @@ namespace DLR.Server.Identity;
 /// effectively permanent, so an XSS bug in a browser build that could reach one would hand over the
 /// account outright rather than a session's worth of damage. <c>HttpOnly</c> is the difference
 /// between a bad day and an unrecoverable one, and it is the reason this project accepts the CSRF
-/// exposure that comes with a cookie — on exactly one endpoint, which is antiforgery-protected.
+/// exposure that comes with a cookie - on exactly one endpoint, which is antiforgery-protected.
 /// </para>
 /// </summary>
 /// <param name="options">Where the session length comes from.</param>
@@ -19,14 +19,14 @@ public sealed class WebSessionCookie(IOptions<JwtOptions> options)
 	/// <remarks>
 	/// The <c>__Host-</c> prefix is not decoration: a conforming browser refuses to store the cookie
 	/// at all unless it is <c>Secure</c>, has no <c>Domain</c> and is pathed at <c>/</c>. That makes
-	/// the attributes below unforgeable by a subdomain — which is the attack a plain name leaves
+	/// the attributes below unforgeable by a subdomain - which is the attack a plain name leaves
 	/// open, since any host under the registrable domain can set a cookie the parent will send.
 	/// </remarks>
 	public const string Name = "__Host-dlr-refresh";
 
 	/// <summary>Writes the refresh token into the response.</summary>
 	/// <param name="response">The response to set it on.</param>
-	/// <param name="refreshToken">The token as issued — its only trip outside the database.</param>
+	/// <param name="refreshToken">The token as issued - its only trip outside the database.</param>
 	/// <param name="isHttps">
 	/// Whether the request arrived over TLS. <c>Secure</c> is unconditional in production and would
 	/// make the cookie unusable over the plain-HTTP loopback a test host and a local `dotnet run`
@@ -35,7 +35,7 @@ public sealed class WebSessionCookie(IOptions<JwtOptions> options)
 	public void Write(HttpResponse response, string refreshToken, bool isHttps) =>
 		response.Cookies.Append(Name, refreshToken, Options(isHttps, expire: false));
 
-	/// <summary>Removes it — sign-out, and any refusal that ends the session.</summary>
+	/// <summary>Removes it - sign-out, and any refusal that ends the session.</summary>
 	/// <param name="response">The response to clear it on.</param>
 	/// <param name="isHttps">Whether the request arrived over TLS.</param>
 	/// <remarks>
@@ -59,7 +59,7 @@ public sealed class WebSessionCookie(IOptions<JwtOptions> options)
 		Secure = isHttps,
 
 		// Strict, not Lax. Lax would send the cookie on a top-level GET navigation from another
-		// site, and this cookie is only ever presented to a POST that mints an access token — there
+		// site, and this cookie is only ever presented to a POST that mints an access token - there
 		// is no cross-site flow it needs to survive, so nothing is lost by refusing all of them.
 		SameSite = SameSiteMode.Strict,
 
@@ -69,7 +69,7 @@ public sealed class WebSessionCookie(IOptions<JwtOptions> options)
 		Domain = null,
 
 		// Max-Age rather than Expires, and that is not only style: Expires is an absolute instant,
-		// which would need a clock here — and the project's clock is a fake one in tests, so a
+		// which would need a clock here - and the project's clock is a fake one in tests, so a
 		// cookie stamped from it would be dated 2026 while the browser's own clock said otherwise.
 		// Max-Age is a duration, which is what "sliding" actually means, and it is rewritten on
 		// every rotation. The row is what really decides; this only stops the browser sending a

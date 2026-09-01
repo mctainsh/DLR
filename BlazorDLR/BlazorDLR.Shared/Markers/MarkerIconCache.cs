@@ -17,7 +17,7 @@ namespace BlazorDLR.Shared.Markers;
 /// </para>
 /// <para>
 /// <strong>Raw RGBA, never an encoded image.</strong> The JS side hands back the canvas' pixel
-/// buffer, so nothing on this side runs an image decoder — that stays the sole business of
+/// buffer, so nothing on this side runs an image decoder - that stays the sole business of
 /// <c>BlazorDLR.Web/Photos/</c>, which <c>ImageRules</c> enforces.
 /// </para>
 /// <para>
@@ -29,7 +29,7 @@ public static class MarkerIconCache
 {
 	/// <summary>
 	/// Bitmap edge in pixels, matching the artwork's native 48×48. Rasterising larger would
-	/// resample twice — once here and again as the overlay scales to the display — for detail
+	/// resample twice - once here and again as the overlay scales to the display - for detail
 	/// the source PNG does not contain.
 	/// </summary>
 	public const int RasterSize = 48;
@@ -37,7 +37,7 @@ public static class MarkerIconCache
 	private const string ModulePath = "./_content/BlazorDLR.Shared/map/markers.js";
 
 	/// <summary>
-	/// Icon key to its RGBA pixels, or null for "this host cannot draw it" — a negative entry
+	/// Icon key to its RGBA pixels, or null for "this host cannot draw it" - a negative entry
 	/// so a hopeless icon is asked for once rather than once per repaint.
 	/// </summary>
 	private static readonly Dictionary<string, byte[]?> Pixels = new(StringComparer.Ordinal);
@@ -105,8 +105,8 @@ public static class MarkerIconCache
 				}
 				catch (Exception exception) when (IsTeardown(exception))
 				{
-					// The rider left the map mid-rasterise. Nothing is cached — the next map asks
-					// again — and nothing is reported: this is a normal way for a page to end.
+					// The rider left the map mid-rasterise. Nothing is cached - the next map asks
+					// again - and nothing is reported: this is a normal way for a page to end.
 					return added;
 				}
 				catch (Exception exception)
@@ -119,7 +119,7 @@ public static class MarkerIconCache
 				}
 
 				// Pattern-matched rather than `rgba.Length`, which is what this was and what threw.
-				// The module answers an empty buffer for an icon it cannot draw — but a JS function
+				// The module answers an empty buffer for an icon it cannot draw - but a JS function
 				// that returns undefined, or one a stale cached module never had, deserialises as
 				// null, and the null dereference here left the whole overlay unmounted behind "Map
 				// markers unavailable" over a missing pin.
@@ -164,13 +164,13 @@ public static class MarkerIconCache
 		}
 		catch (Exception exception) when (IsTeardown(exception))
 		{
-			// The WebView went away while the module was importing — the rider left the page.
+			// The WebView went away while the module was importing - the rider left the page.
 			// Not latched: the next map is a new WebView and can import perfectly well.
 			return null;
 		}
 		catch (Exception exception)
 		{
-			// No rasteriser module, no icons. The overlay's plain-pin fallback covers it — a map
+			// No rasteriser module, no icons. The overlay's plain-pin fallback covers it - a map
 			// that draws pins beats a map that throws. Latched: without this the import is retried
 			// on every render, which on a live ride is a thrown-and-caught interop exception per
 			// second for the rest of the session.
@@ -187,7 +187,7 @@ public static class MarkerIconCache
 	/// Whether an exception is the page going away rather than something being wrong.
 	/// <para>
 	/// A prime runs from the overlay's <c>OnAfterRenderAsync</c>, so anything escaping it unmounts
-	/// the overlay through <c>RideMap</c>'s error boundary — and the commonest exception here is
+	/// the overlay through <c>RideMap</c>'s error boundary - and the commonest exception here is
 	/// simply a rider leaving the map while an icon is in flight. Both of these were guarded in
 	/// <c>SkiaMapOverlay.RepaintAsync</c> from the start and in neither of the paths that reach
 	/// this file.

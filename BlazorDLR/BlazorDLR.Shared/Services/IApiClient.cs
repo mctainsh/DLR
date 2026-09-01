@@ -1,5 +1,6 @@
 using DLR.Core.Contracts.Account;
 using DLR.Core.Contracts.Admin;
+using DLR.Core.Contracts.Announcements;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
@@ -14,22 +15,35 @@ namespace BlazorDLR.Shared.Services;
 /// The one seam every shared component crosses to reach the server (§18.2, §18.6).
 /// <para>
 /// <strong>Returns the DTOs from <c>DLR.Core.Contracts</c> unchanged.</strong> A shared
-/// component never invents a parallel model — one break of the wire contract is one build
+/// component never invents a parallel model - one break of the wire contract is one build
 /// failure, in the same assembly the server references (§3).
 /// </para>
 /// <para>
 /// The mobile host binds this to an <c>HttpClient</c> with a bearer-token auth handler; the
 /// web host binds it to an <c>HttpClient</c> with <c>credentials: 'include'</c> so its
 /// <c>HttpOnly</c> cookie travels automatically (§18.5). Neither implementation is a shared
-/// concern — this interface is.
+/// concern - this interface is.
 /// </para>
 /// </summary>
 public interface IApiClient
 {
 	// -- About / licence (§14.6.2) --------------------------------------------------------
 
-	/// <summary><c>GET /api/v1/about</c> — the AGPL §13 source offer.</summary>
+	/// <summary><c>GET /api/v1/about</c> - the AGPL §13 source offer.</summary>
 	Task<AboutInfo> GetAboutAsync(CancellationToken cancellationToken = default);
+
+	// -- Startup check and announcements (§20) ---------------------------------------------
+
+	/// <summary>
+	/// <c>GET /api/v1/startup</c> - whether this client is still one the server will serve, and
+	/// anything the operator is currently telling riders (§20).
+	/// </summary>
+	/// <param name="clientVersion">
+	/// What this build is. The server decides the verdict, so a rule it has never heard of takes
+	/// effect without a client release.
+	/// </param>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	Task<StartupCheck> StartupCheckAsync(string? clientVersion, CancellationToken cancellationToken = default);
 
 	// -- Auth (§7.2, §7.4, §7.7, §7.10, §7.14) --------------------------------------------
 
@@ -53,7 +67,7 @@ public interface IApiClient
 	// -- Home private area (§10.1) ---------------------------------------------------------
 
 	/// <summary>
-	/// <c>GET /api/v1/me/private-area</c> — the circle inside which this account publishes
+	/// <c>GET /api/v1/me/private-area</c> - the circle inside which this account publishes
 	/// nothing, or the fact that it has none (§10.1).
 	/// <para>
 	/// Its own three endpoints rather than three more fields on <c>PUT /me/profile</c>, and the
@@ -66,14 +80,14 @@ public interface IApiClient
 	/// </summary>
 	Task<PrivateAreaResponse> GetPrivateAreaAsync(CancellationToken cancellationToken = default);
 
-	/// <summary><c>PUT /api/v1/me/private-area</c> — places or moves it. The radius is clamped server-side.</summary>
+	/// <summary><c>PUT /api/v1/me/private-area</c> - places or moves it. The radius is clamped server-side.</summary>
 	Task SetPrivateAreaAsync(PrivateAreaSettings request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>DELETE /api/v1/me/private-area</c> — forgets it, so the account shares from everywhere again.</summary>
+	/// <summary><c>DELETE /api/v1/me/private-area</c> - forgets it, so the account shares from everywhere again.</summary>
 	Task ClearPrivateAreaAsync(CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>PUT /api/v1/me/avatar</c> — the photograph shown beside the caller's username (§7.3).
+	/// <c>PUT /api/v1/me/avatar</c> - the photograph shown beside the caller's username (§7.3).
 	/// <para>
 	/// Its own call rather than a field on <see cref="UpdateProfileAsync"/>, for the reason the
 	/// private area above has its own: that request replaces the whole profile, so an avatar
@@ -82,11 +96,11 @@ public interface IApiClient
 	/// </summary>
 	Task<OwnProfile> SetAvatarAsync(SetAvatarRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>DELETE /api/v1/me/avatar</c> — removes it, so the name is drawn on its own again.</summary>
+	/// <summary><c>DELETE /api/v1/me/avatar</c> - removes it, so the name is drawn on its own again.</summary>
 	Task<OwnProfile> ClearAvatarAsync(CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>GET /api/v1/users/avatars</c> — the photographs for a screenful of usernames, in one
+	/// <c>GET /api/v1/users/avatars</c> - the photographs for a screenful of usernames, in one
 	/// request (§7.3).
 	/// <para>
 	/// Callers should go through <c>RiderAvatars</c> rather than here: it is the thing that
@@ -98,7 +112,7 @@ public interface IApiClient
 	// -- Tracks (§6.3, §15) ---------------------------------------------------------------
 
 	/// <summary>
-	/// <c>POST /api/v1/tracks</c> — stores a recorded or imported track (§6.3).
+	/// <c>POST /api/v1/tracks</c> - stores a recorded or imported track (§6.3).
 	/// <para>
 	/// Idempotent on <see cref="UploadTrackRequest.ClientGuid"/>, which is what lets the recorder
 	/// press "save" again after a failure it could not tell from a success (§4.4).
@@ -111,7 +125,7 @@ public interface IApiClient
 	Task<HttpResponseMessage> ExportTrackGpxAsync(Guid trackId, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>PATCH /api/v1/tracks/{id}</c> — renames a stored track, recorded or imported (§15.1).
+	/// <c>PATCH /api/v1/tracks/{id}</c> - renames a stored track, recorded or imported (§15.1).
 	/// <para>
 	/// Carries no version: a rename moves no point, so it cannot conflict with an edit the way one
 	/// edit conflicts with another (§15.5).
@@ -120,12 +134,12 @@ public interface IApiClient
 	Task<TrackSummary> RenameTrackAsync(Guid trackId, RenameTrackRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>DELETE /api/v1/tracks/{id}</c> — deletes the track, its markers and its points.
+	/// <c>DELETE /api/v1/tracks/{id}</c> - deletes the track, its markers and its points.
 	/// Irreversible, and refused while a live ride is using it as a planned route (§15.4).
 	/// </summary>
 	Task DeleteTrackAsync(Guid trackId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>GET /api/v1/tracks/{id}/points</c> — full-resolution points for the editor (§15.5).</summary>
+	/// <summary><c>GET /api/v1/tracks/{id}/points</c> - full-resolution points for the editor (§15.5).</summary>
 	Task<TrackPointsResponse> GetTrackPointsAsync(Guid trackId, CancellationToken cancellationToken = default);
 
 	/// <summary><c>POST /api/v1/tracks/{id}/edit</c> (§15.5).</summary>
@@ -134,11 +148,11 @@ public interface IApiClient
 	/// <summary><c>POST /api/v1/tracks/{id}/edit/undo</c> (§15.6).</summary>
 	Task<TrackEditResponse> UndoTrackEditAsync(Guid trackId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>DELETE /api/v1/tracks/{id}/previous-version</c> — remove the retained original now (§15.6).</summary>
+	/// <summary><c>DELETE /api/v1/tracks/{id}/previous-version</c> - remove the retained original now (§15.6).</summary>
 	Task PurgeTrackPreviousVersionAsync(Guid trackId, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>PATCH /api/v1/tracks/{id}/details</c> — the description, the cover photograph and
+	/// <c>PATCH /api/v1/tracks/{id}/details</c> - the description, the cover photograph and
 	/// whether the route is shared with everyone (§6.2).
 	/// <para>
 	/// All three go together because the screen behind it is one panel with one Save. Carries no
@@ -148,10 +162,10 @@ public interface IApiClient
 	Task<TrackSummary> UpdateTrackDetailsAsync(Guid trackId, UpdateTrackDetailsRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>GET /api/v1/tracks/shared</c> — one page of the routes other riders have shared (§6.2).
+	/// <c>GET /api/v1/tracks/shared</c> - one page of the routes other riders have shared (§6.2).
 	/// <para>
-	/// Not on <see cref="ITrackRepository"/>, deliberately. That interface is the offline seam —
-	/// Phase 2 backs it with SQLite so a rider's own tracks are there in a tunnel (§4.4, §18.6) —
+	/// Not on <see cref="ITrackRepository"/>, deliberately. That interface is the offline seam -
+	/// Phase 2 backs it with SQLite so a rider's own tracks are there in a tunnel (§4.4, §18.6) -
 	/// and browsing what strangers published today is the one track read that has no offline
 	/// answer at all. A repository method that could only ever throw on the phone would be worse
 	/// than not having one.
@@ -160,50 +174,50 @@ public interface IApiClient
 	Task<SharedTrackPage> ListSharedTracksAsync(SharedTrackQuery query, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>GET /api/v1/tracks/{id}/rating</c> — the average, the count and the caller's own star
+	/// <c>GET /api/v1/tracks/{id}/rating</c> - the average, the count and the caller's own star
 	/// rating for one shared route (§6.2).
 	/// </summary>
 	Task<TrackRatingSummary> GetTrackRatingAsync(Guid trackId, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>PUT /api/v1/tracks/{id}/rating</c> — rates a shared route, replacing whatever the caller
+	/// <c>PUT /api/v1/tracks/{id}/rating</c> - rates a shared route, replacing whatever the caller
 	/// gave it before.
 	/// </summary>
 	Task<TrackRatingSummary> RateTrackAsync(Guid trackId, RateTrackRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>DELETE /api/v1/tracks/{id}/rating</c> — withdraws the caller's rating. Never a zero:
+	/// <c>DELETE /api/v1/tracks/{id}/rating</c> - withdraws the caller's rating. Never a zero:
 	/// a stored nought would count as the worst possible score rather than as no opinion.
 	/// </summary>
 	Task<TrackRatingSummary> ClearTrackRatingAsync(Guid trackId, CancellationToken cancellationToken = default);
 
 	// -- Group rides (§5.2, §5.6, §5.8) ---------------------------------------------------
 
-	/// <summary><c>GET /api/v1/group-rides</c> — the caller's rides, split by role.</summary>
+	/// <summary><c>GET /api/v1/group-rides</c> - the caller's rides, split by role.</summary>
 	Task<MyRides> ListMyRidesAsync(CancellationToken cancellationToken = default);
 
 	/// <summary><c>POST /api/v1/group-rides</c>.</summary>
 	Task<RideDetail> CreateRideAsync(CreateRideRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/group-rides/join</c> — the join-code path (§5.2 path 1).</summary>
+	/// <summary><c>POST /api/v1/group-rides/join</c> - the join-code path (§5.2 path 1).</summary>
 	Task<JoinResult> JoinRideByCodeAsync(JoinByCodeRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary><c>GET /api/v1/group-rides/{id}</c>.</summary>
 	Task<RideDetail> GetRideAsync(Guid rideId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>GET /api/v1/group-rides/{id}/join-requests</c> — organiser only.</summary>
+	/// <summary><c>GET /api/v1/group-rides/{id}/join-requests</c> - organiser only.</summary>
 	Task<IReadOnlyList<JoinRequestSummary>> ListJoinRequestsAsync(Guid rideId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/group-rides/{id}/join-requests/{requestId}</c> — admit or decline.</summary>
+	/// <summary><c>POST /api/v1/group-rides/{id}/join-requests/{requestId}</c> - admit or decline.</summary>
 	Task DecideJoinRequestAsync(Guid rideId, Guid requestId, DecideJoinRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>PUT /api/v1/group-rides/{id}/permissions</c> — the organiser's three content switches (§5.8).</summary>
+	/// <summary><c>PUT /api/v1/group-rides/{id}/permissions</c> - the organiser's three content switches (§5.8).</summary>
 	Task UpdatePermissionsAsync(Guid rideId, RidePermissions permissions, CancellationToken cancellationToken = default);
 
-	/// <summary><c>PUT /api/v1/group-rides/{id}/sharing/me</c> — the rider's own sharing decision (§5.6).</summary>
+	/// <summary><c>PUT /api/v1/group-rides/{id}/sharing/me</c> - the rider's own sharing decision (§5.6).</summary>
 	Task SetSharingAsync(Guid rideId, SetSharingRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>DELETE /api/v1/group-rides/{id}/members/me</c> — leave the ride.</summary>
+	/// <summary><c>DELETE /api/v1/group-rides/{id}/members/me</c> - leave the ride.</summary>
 	Task LeaveRideAsync(Guid rideId, CancellationToken cancellationToken = default);
 
 	/// <summary>
@@ -219,11 +233,11 @@ public interface IApiClient
 	/// <param name="cancellationToken">Cancels the call.</param>
 	Task WithdrawJoinRequestAsync(Guid rideId, Guid requestId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>DELETE /api/v1/group-rides/{id}/members/{userId}</c> — organiser removes a member.</summary>
+	/// <summary><c>DELETE /api/v1/group-rides/{id}/members/{userId}</c> - organiser removes a member.</summary>
 	Task RemoveMemberAsync(Guid rideId, Guid userId, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>DELETE /api/v1/group-rides/{id}</c> — the organiser deletes the whole adventure.
+	/// <c>DELETE /api/v1/group-rides/{id}</c> - the organiser deletes the whole adventure.
 	/// <para>
 	/// Irreversible, and the only way to finish one. It takes the thread, the markers and every
 	/// stored position with it, and blanks the map for anyone still on the road.
@@ -234,7 +248,7 @@ public interface IApiClient
 	// -- Planned routes (§5.4) ------------------------------------------------------------
 
 	/// <summary>
-	/// <c>GET /api/v1/group-rides/{id}/routes</c> — the ride's planned routes, oldest first.
+	/// <c>GET /api/v1/group-rides/{id}/routes</c> - the ride's planned routes, oldest first.
 	/// <para>
 	/// The only way a member reads a route somebody else owns: <c>GET /tracks/{id}</c> is
 	/// owner-scoped and answers 404 to everybody else (§15.4).
@@ -242,32 +256,32 @@ public interface IApiClient
 	/// </summary>
 	Task<IReadOnlyList<RideRoute>> ListRideRoutesAsync(Guid rideId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/group-rides/{id}/routes</c> — attach one of the caller's tracks.</summary>
+	/// <summary><c>POST /api/v1/group-rides/{id}/routes</c> - attach one of the caller's tracks.</summary>
 	Task<RideRoute> AddRideRouteAsync(Guid rideId, AddRideRouteRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>DELETE /api/v1/group-rides/{id}/routes/{trackId}</c> — detach; the track is untouched.</summary>
+	/// <summary><c>DELETE /api/v1/group-rides/{id}/routes/{trackId}</c> - detach; the track is untouched.</summary>
 	Task RemoveRideRouteAsync(Guid rideId, Guid trackId, CancellationToken cancellationToken = default);
 
 	// -- Positions (§5.3, §5.7) -----------------------------------------------------------
 
-	/// <summary><c>GET /api/v1/group-rides/{id}/positions</c> — snapshot after reconnect (§5.3).</summary>
+	/// <summary><c>GET /api/v1/group-rides/{id}/positions</c> - snapshot after reconnect (§5.3).</summary>
 	Task<IReadOnlyList<RiderPositionDto>> GetPositionsSnapshotAsync(Guid rideId, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>POST /api/v1/positions</c> — one publish, fanned out server-side to every ride
-	/// the rider is live in (§5.7). Deliberately not the SignalR hub — Phase 2 tolerates
+	/// <c>POST /api/v1/positions</c> - one publish, fanned out server-side to every ride
+	/// the rider is live in (§5.7). Deliberately not the SignalR hub - Phase 2 tolerates
 	/// the extra round trip in exchange for retryable HTTP semantics.
 	/// </summary>
 	Task<PublishResult> PublishPositionAsync(PositionUpdate update, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>POST /api/v1/positions/privacy</c> — the device saying this rider has entered or left
+	/// <c>POST /api/v1/positions/privacy</c> - the device saying this rider has entered or left
 	/// their own private area (§10.1).
 	/// <para>
 	/// <strong>No coordinate travels, in either direction.</strong> A fix from inside the circle is
 	/// dropped where it was read; this is the one bit that goes instead, and it is what turns a pin
 	/// frozen outside somebody's house into a member row that says "private". Going private deletes
-	/// the rider's stored position on the server — suppression, not obfuscation.
+	/// the rider's stored position on the server - suppression, not obfuscation.
 	/// </para>
 	/// <para>
 	/// The hub carries this too and is the ordinary path. This exists because losing it is expensive
@@ -282,7 +296,7 @@ public interface IApiClient
 
 	// -- Markers (§16) --------------------------------------------------------------------
 
-	/// <summary><c>POST /api/v1/markers</c> — attaches to exactly one parent (§16.1).</summary>
+	/// <summary><c>POST /api/v1/markers</c> - attaches to exactly one parent (§16.1).</summary>
 	Task<MarkerDto> CreateMarkerAsync(CreateMarkerRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary><c>GET /api/v1/group-rides/{id}/markers</c>.</summary>
@@ -294,56 +308,56 @@ public interface IApiClient
 	/// <summary><c>DELETE /api/v1/markers/{id}</c>.</summary>
 	Task DeleteMarkerAsync(Guid markerId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>PATCH /api/v1/markers/{id}/photo</c> — attach or detach (§16.4).</summary>
+	/// <summary><c>PATCH /api/v1/markers/{id}/photo</c> - attach or detach (§16.4).</summary>
 	Task AttachMarkerPhotoAsync(Guid markerId, AttachPhotoRequest request, CancellationToken cancellationToken = default);
 
 	// -- Photos (§16.4) -------------------------------------------------------------------
 
 	/// <summary>
-	/// <c>POST /api/v1/photos</c> — one multipart upload. Server re-encodes and strips
+	/// <c>POST /api/v1/photos</c> - one multipart upload. Server re-encodes and strips
 	/// metadata (§16.4). The client passes any bytes it can pick; the server sniffs.
 	/// </summary>
 	Task<PhotoUploaded> UploadPhotoAsync(Stream content, string contentType, string fileName, CancellationToken cancellationToken = default);
 
 	// -- Comments (§17, §6.2) -------------------------------------------------------------
 
-	/// <summary><c>GET /api/v1/group-rides/{id}/comments</c> — thread page, pinned first (§17.8).</summary>
+	/// <summary><c>GET /api/v1/group-rides/{id}/comments</c> - thread page, pinned first (§17.8).</summary>
 	Task<CommentPage> GetThreadAsync(Guid rideId, string? cursor, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/group-rides/{id}/comments</c> — post text, photo or poll.</summary>
+	/// <summary><c>POST /api/v1/group-rides/{id}/comments</c> - post text, photo or poll.</summary>
 	Task<CommentDto> PostCommentAsync(Guid rideId, PostCommentRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>GET /api/v1/tracks/{id}/comments</c> — a shared route's thread, pinned first (§6.2).
+	/// <c>GET /api/v1/tracks/{id}/comments</c> - a shared route's thread, pinned first (§6.2).
 	/// <para>
 	/// A separate pair of methods rather than one that takes a discriminated union, because the
 	/// two paths are the only thing that differs and a union would be a type invented so that two
-	/// string literals could share a method. Everything downstream — editing, deleting, pinning,
-	/// reacting, voting, reporting — already keys on the comment's own id and is shared as it
+	/// string literals could share a method. Everything downstream - editing, deleting, pinning,
+	/// reacting, voting, reporting - already keys on the comment's own id and is shared as it
 	/// stands.
 	/// </para>
 	/// </summary>
 	Task<CommentPage> GetTrackThreadAsync(Guid trackId, string? cursor, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/tracks/{id}/comments</c> — post to a shared route's thread.</summary>
+	/// <summary><c>POST /api/v1/tracks/{id}/comments</c> - post to a shared route's thread.</summary>
 	Task<CommentDto> PostTrackCommentAsync(Guid trackId, PostCommentRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>PATCH /api/v1/comments/{id}</c> — author edit within window.</summary>
+	/// <summary><c>PATCH /api/v1/comments/{id}</c> - author edit within window.</summary>
 	Task<CommentDto> EditCommentAsync(Guid commentId, EditCommentRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>DELETE /api/v1/comments/{id}</c> — author or organiser.</summary>
+	/// <summary><c>DELETE /api/v1/comments/{id}</c> - author or organiser.</summary>
 	Task DeleteCommentAsync(Guid commentId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/comments/{id}/pin</c> — organiser or leader.</summary>
+	/// <summary><c>POST /api/v1/comments/{id}/pin</c> - organiser or leader.</summary>
 	Task PinCommentAsync(Guid commentId, PinCommentRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>PUT /api/v1/comments/{id}/reaction</c> — null clears.</summary>
+	/// <summary><c>PUT /api/v1/comments/{id}/reaction</c> - null clears.</summary>
 	Task SetReactionAsync(Guid commentId, SetReactionRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/comments/{id}/votes</c> — full set of choices (empty clears).</summary>
+	/// <summary><c>POST /api/v1/comments/{id}/votes</c> - full set of choices (empty clears).</summary>
 	Task CastVoteAsync(Guid commentId, CastVoteRequest request, CancellationToken cancellationToken = default);
 
-	/// <summary><c>POST /api/v1/comments/{id}/close-poll</c> — author or organiser.</summary>
+	/// <summary><c>POST /api/v1/comments/{id}/close-poll</c> - author or organiser.</summary>
 	Task ClosePollAsync(Guid commentId, CancellationToken cancellationToken = default);
 
 	// -- Moderation (§17.7) ---------------------------------------------------------------
@@ -360,13 +374,13 @@ public interface IApiClient
 	/// <summary><c>DELETE /api/v1/blocks/{userId}</c>.</summary>
 	Task UnblockUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
-	/// <summary><c>GET /api/v1/blocks</c> — the caller's own list.</summary>
+	/// <summary><c>GET /api/v1/blocks</c> - the caller's own list.</summary>
 	Task<IReadOnlyList<BlockedRider>> ListBlocksAsync(CancellationToken cancellationToken = default);
 
 	// -- Account (§6.3, §10.1) ------------------------------------------------------------
 
 	/// <summary>
-	/// <c>GET /api/v1/me/export</c> — a ZIP containing the caller's data (§6.3). Streamed
+	/// <c>GET /api/v1/me/export</c> - a ZIP containing the caller's data (§6.3). Streamed
 	/// rather than materialised: for a rider with a large ride library this can be tens of
 	/// megabytes, and the browser downloads it directly rather than loading it into memory
 	/// through Blazor.
@@ -374,7 +388,7 @@ public interface IApiClient
 	Task<HttpResponseMessage> ExportAccountAsync(CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>DELETE /api/v1/me</c> — irreversible, and it takes the current password in the
+	/// <c>DELETE /api/v1/me</c> - irreversible, and it takes the current password in the
 	/// body (§6.3). A fifteen-minute access token lifted off a shared machine is not enough
 	/// to end an account.
 	/// </summary>
@@ -387,7 +401,7 @@ public interface IApiClient
 	// flag is a convenience for the menu; these are still checked server-side on every call.
 
 	/// <summary>
-	/// <c>GET /api/v1/admin/users</c> — every account, with what it has put into the service.
+	/// <c>GET /api/v1/admin/users</c> - every account, with what it has put into the service.
 	/// </summary>
 	/// <param name="search">Filters by username, or null for everybody.</param>
 	/// <param name="skip">How many rows to step over.</param>
@@ -400,7 +414,7 @@ public interface IApiClient
 		CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>GET /api/v1/admin/logs</c> — the newest entries in the server's log file.
+	/// <c>GET /api/v1/admin/logs</c> - the newest entries in the server's log file.
 	/// </summary>
 	/// <param name="day">Which day, or null for the newest the server holds.</param>
 	/// <param name="level">Lowest level to include, or null for everything.</param>
@@ -417,25 +431,55 @@ public interface IApiClient
 		bool databaseCommands = true,
 		CancellationToken cancellationToken = default);
 
-	/// <summary><c>GET /api/v1/admin/stats</c> — activity, live rides and fixes per minute.</summary>
+	/// <summary><c>GET /api/v1/admin/stats</c> - activity, live rides and fixes per minute.</summary>
 	/// <param name="cancellationToken">Abandons the call.</param>
 	Task<AdminStats> AdminStatsAsync(CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// <c>DELETE /api/v1/admin/users/{id}</c> — erases an account and everything it owns.
+	/// <c>DELETE /api/v1/admin/users/{id}</c> - erases an account and everything it owns.
 	/// </summary>
 	/// <param name="userId">Which account.</param>
 	/// <param name="request">The handle the caller last saw against that id.</param>
 	/// <param name="cancellationToken">Abandons the call.</param>
 	/// <remarks>
 	/// Irreversible, and refused for the caller's own account and for anyone on the server's
-	/// roster — see the endpoint for why the second of those is a security guard rather than
+	/// roster - see the endpoint for why the second of those is a security guard rather than
 	/// politeness.
 	/// </remarks>
 	Task AdminDeleteUserAsync(
 		Guid userId,
 		AdminDeleteUserRequest request,
 		CancellationToken cancellationToken = default);
+
+	// -- Administration: announcements (§20.2) --------------------------------------------
+
+	/// <summary><c>GET /api/v1/admin/announcements</c> - every announcement, live or not.</summary>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	Task<IReadOnlyList<AdminAnnouncement>> AdminAnnouncementsAsync(CancellationToken cancellationToken = default);
+
+	/// <summary><c>POST /api/v1/admin/announcements</c> - writes one.</summary>
+	/// <param name="request">What it says and when it runs.</param>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	Task<AdminAnnouncement> AdminCreateAnnouncementAsync(
+		AdminAnnouncementRequest request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>PUT /api/v1/admin/announcements/{id}</c> - amends one. A rider who has already cleared
+	/// it does not see the amendment; the id is what a device records.
+	/// </summary>
+	/// <param name="id">Which announcement.</param>
+	/// <param name="request">What it should say now.</param>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	Task AdminUpdateAnnouncementAsync(
+		Guid id,
+		AdminAnnouncementRequest request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary><c>DELETE /api/v1/admin/announcements/{id}</c> - removes one.</summary>
+	/// <param name="id">Which announcement.</param>
+	/// <param name="cancellationToken">Abandons the call.</param>
+	Task AdminDeleteAnnouncementAsync(Guid id, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The AGPL §13 offer, minted server-side (§14.6.2).</summary>

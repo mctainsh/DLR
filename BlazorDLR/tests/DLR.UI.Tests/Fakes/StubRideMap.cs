@@ -8,7 +8,7 @@ namespace DLR.UI.Tests.Fakes;
 /// for something else.
 /// <para>
 /// <strong>Why a subclass rather than a substitute.</strong> The real component's logic is the
-/// part under test — it is what turns an <c>IMapInterop</c> viewport into
+/// part under test - it is what turns an <c>IMapInterop</c> viewport into
 /// <c>OnViewportReported</c> and a provider tap into <c>OnMapClicked</c>. What cannot run is
 /// its <em>rendering</em>: <c>SkiaMapOverlay</c>'s <c>SKCanvasView</c> throws
 /// <c>PlatformNotSupportedException</c> outside a browser, so any test that lets a viewport
@@ -17,7 +17,7 @@ namespace DLR.UI.Tests.Fakes;
 /// pixels.
 /// </para>
 /// <para>
-/// A subclass is also what keeps <c>@ref="_map"</c> working — the page's field is typed
+/// A subclass is also what keeps <c>@ref="_map"</c> working - the page's field is typed
 /// <c>RideMap</c>, and a substitute that was not one would fail the ref assignment with a cast
 /// error before any assertion ran.
 /// </para>
@@ -28,6 +28,6 @@ public sealed class StubRideMap : RideMap
 	/// <param name="builder">Unused.</param>
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{
-		// Intentionally empty — see the class remarks.
+		// Intentionally empty - see the class remarks.
 	}
 }

@@ -11,7 +11,7 @@ namespace DLR.UI.Tests.State;
 /// <para>
 /// The area lives on the rider's account and is cached on the device, which is the reversal of
 /// the original design: device-only storage lost people their circle to app updates and
-/// reinstalls, in silence. What is worth asserting is the behaviour around that pair — that the
+/// reinstalls, in silence. What is worth asserting is the behaviour around that pair - that the
 /// answer before either has spoken is the safe one, that the account wins when both have, that
 /// a phone with no signal still hides what it hid yesterday, and that "the account has no area"
 /// is never confused with "this device has not been told".
@@ -119,7 +119,7 @@ public sealed class PrivateAreaStateTests
 		await phone.SetAsync(Home);
 
 		// The rider signs in on a second handset. Nothing of theirs has ever touched this
-		// device's store — and that used to be the end of the private area.
+		// device's store - and that used to be the end of the private area.
 		(PrivateAreaState newPhone, _, _) = Device(account);
 		await newPhone.LoadAsync();
 
@@ -193,8 +193,8 @@ public sealed class PrivateAreaStateTests
 		await state.LoadAsync();
 
 		// Nothing cached and nothing answered: this device genuinely does not know. Suppressing
-		// costs nothing real here — publishing a position needs the same network the read just
-		// failed on — and the alternative is broadcasting from a doorstep the account knows about.
+		// costs nothing real here - publishing a position needs the same network the read just
+		// failed on - and the alternative is broadcasting from a doorstep the account knows about.
 		state.IsLoaded.ShouldBeFalse();
 		state.HidesLocation(Home.Latitude, Home.Longitude).ShouldBeTrue();
 		state.HidesLocation(0, 0).ShouldBeTrue();
@@ -268,7 +268,7 @@ public sealed class PrivateAreaStateTests
 
 		await Should.ThrowAsync<HttpRequestException>(async () => await state.SetAsync(Home));
 
-		// Thrown so the screen can say the account has not got it — but the circle is in force
+		// Thrown so the screen can say the account has not got it - but the circle is in force
 		// here and cached here, because the rider standing in it asked for that now.
 		state.HidesLocation(Home.Latitude, Home.Longitude).ShouldBeTrue();
 		state.IsFromAccount.ShouldBeFalse();
@@ -286,7 +286,7 @@ public sealed class PrivateAreaStateTests
 		await state.SetAsync(Home with { RadiusM = 5 });
 
 		state.Area!.RadiusM.ShouldBe(PrivateArea.MinRadiusM,
-			"a typed radius is clamped rather than rejected — but the screen then reports what was stored.");
+			"a typed radius is clamped rather than rejected - but the screen then reports what was stored.");
 	}
 
 	[Fact]
@@ -330,7 +330,7 @@ public sealed class PrivateAreaStateTests
 
 		// This reverses the original decision, which removed the key. Removing it makes a rider
 		// who deliberately cleared their area indistinguishable from a device that has never
-		// asked — and the gate treats those differently on purpose, so that rider would find
+		// asked - and the gate treats those differently on purpose, so that rider would find
 		// themselves silently unable to share the next time they opened the app offline.
 		settings.Removed.ShouldNotContain(PrivateAreaState.StorageKey);
 		(await settings.GetAsync(PrivateAreaState.StorageKey)).ShouldBe(PrivateArea.NoneMarker);
@@ -376,7 +376,7 @@ public sealed class PrivateAreaStateTests
 		untold.ShouldBeNull();
 
 		PrivateArea.TryDecodeCached("2|whatever", out PrivateArea? unreadable).ShouldBeFalse(
-			"an unreadable cache is not an account saying \"none\" — ask the server.");
+			"an unreadable cache is not an account saying \"none\" - ask the server.");
 		unreadable.ShouldBeNull();
 	}
 

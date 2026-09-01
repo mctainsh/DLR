@@ -19,7 +19,7 @@ internal static class AuthorizationTestHelpers
 {
 	/// <summary>
 	/// Replace bUnit's placeholder authorization service with the framework's default
-	/// pipeline and register the empty policy provider — enough for
+	/// pipeline and register the empty policy provider - enough for
 	/// <c>@attribute [Authorize]</c> without a specific policy name.
 	/// </summary>
 	public static void AddRealAuthorizationPipeline(this IServiceCollection services)
@@ -44,7 +44,7 @@ internal static class AuthorizationTestHelpers
 	}
 
 	/// <summary>
-	/// Cascade the auth state on the render tree of a <see cref="BunitContext"/> — the
+	/// Cascade the auth state on the render tree of a <see cref="BunitContext"/> - the
 	/// equivalent of wrapping the app in <c>&lt;CascadingAuthenticationState&gt;</c>.
 	/// Call this once per test-class ctor after registering an <see cref="AuthState"/>.
 	/// </summary>

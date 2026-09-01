@@ -14,7 +14,7 @@ public sealed class CommentOptions
 	/// <para>
 	/// Bounded rather than open-ended: a permanently editable thread lets somebody rewrite what a
 	/// poll was actually asking after people have voted on it (§17.2). After the window, delete
-	/// and repost — which leaves a visible gap, as it should.
+	/// and repost - which leaves a visible gap, as it should.
 	/// </para>
 	/// </summary>
 	public int EditWindowMinutes { get; set; } = 15;

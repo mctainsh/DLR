@@ -43,15 +43,21 @@ public static class AdminEndpoints
 /// administration screen that could quietly change data would be a second one without it.
 /// </para>
 /// <para>
+/// <c>AdminAnnouncementController</c> writes freely and does not weaken that rule: what it writes
+/// is content the administration screen authors itself (§20.2), not data somebody else owns. The
+/// rule is about reaching into a rider's rides and photographs, not about the operator having
+/// nothing they can say.
+/// </para>
+/// <para>
 /// <see cref="DeleteUser"/> is the exception, and it is one because erasure is not moderation.
 /// §10.2 obliges this server to delete an account on request, and a rider who has lost their
-/// password cannot reach <c>DELETE /api/v1/me</c> to ask — leaving the operator to do it with a
+/// password cannot reach <c>DELETE /api/v1/me</c> to ask - leaving the operator to do it with a
 /// database client, unlogged and by hand. So it writes a line through <see cref="ServerEvents"/>
 /// rather than being silent, and it shares its implementation with the rider's own delete rather
 /// than being a second erasure that might miss something.
 /// </para>
 /// <para>
-/// The whole controller is behind <see cref="AdminPolicies.Admin"/> — see that policy for why the
+/// The whole controller is behind <see cref="AdminPolicies.Admin"/> - see that policy for why the
 /// roster is read per request rather than carried in the token.
 /// </para>
 /// </summary>
@@ -71,8 +77,8 @@ public sealed class AdminController : ControllerBase
 	/// <returns>One row per account, most recently active first.</returns>
 	/// <remarks>
 	/// One query, with the counts as correlated sub-selects rather than as joins or a second round
-	/// trip per row. A page of 50 accounts is one statement; the obvious alternative — load the
-	/// accounts, then count each one's tracks — is 50 statements, and it is the kind of thing that
+	/// trip per row. A page of 50 accounts is one statement; the obvious alternative - load the
+	/// accounts, then count each one's tracks - is 50 statements, and it is the kind of thing that
 	/// looks fine on a developer's four-row database.
 	/// </remarks>
 	[HttpGet("/api/v1/admin/users", Name = AdminEndpoints.UsersRouteName)]
@@ -130,7 +136,7 @@ public sealed class AdminController : ControllerBase
 		// scan, and a 200-row page would otherwise repeat both 200 times to answer one bool column.
 		IReadOnlySet<string> admins = roster.Everyone();
 
-		// From the cache, because that is the only place a position is (§5.5) — and read once for
+		// From the cache, because that is the only place a position is (§5.5) - and read once for
 		// the page for the same reason the roster above is: a correlated count per row would be a
 		// scan each, to answer one column.
 		Dictionary<Guid, int> held = [];
@@ -169,12 +175,12 @@ public sealed class AdminController : ControllerBase
 	/// <summary>
 	/// The tail of the server's log for one day (§14.6).
 	/// </summary>
-	/// <param name="reader">Reads the file. It owns the directory — see its note on why.</param>
+	/// <param name="reader">Reads the file. It owns the directory - see its note on why.</param>
 	/// <param name="day">Which day, <c>yyyy-MM-dd</c> in UTC. Omitted reads the newest available.</param>
 	/// <param name="level">Lowest level to include, or omitted for everything.</param>
 	/// <param name="take">How many lines, newest first.</param>
 	/// <param name="databaseCommands">
-	/// Whether EF Core's statement lines are included. Omitted means yes — the log as written is
+	/// Whether EF Core's statement lines are included. Omitted means yes - the log as written is
 	/// the honest default for a caller that did not ask for a filter. The screen asks for
 	/// <c>false</c>, because filtering here rather than after the page arrives is what lets
 	/// <paramref name="take"/> buy a day of the interesting lines instead of a few minutes of SQL.
@@ -277,7 +283,7 @@ public sealed class AdminController : ControllerBase
 	/// <para>
 	/// <strong>An account on the roster cannot be deleted here, and that is a security guard
 	/// rather than deference.</strong> The roster names administrators by username, and deleting
-	/// an account frees its username for anybody to register (§7.2) — so deleting a fellow
+	/// an account frees its username for anybody to register (§7.2) - so deleting a fellow
 	/// administrator turns the roster entry into a trap that promotes whoever claims the name
 	/// next. Take them off the roster in configuration first, and the deletion is then an ordinary
 	/// one.
@@ -285,7 +291,7 @@ public sealed class AdminController : ControllerBase
 	/// <para>
 	/// <strong>No password, and the caller's own account is refused.</strong> An administrator
 	/// cannot know somebody else's password, so the re-entry <c>DELETE /api/v1/me</c> demands
-	/// cannot apply here — which is exactly why deleting yourself is sent back to that endpoint
+	/// cannot apply here - which is exactly why deleting yourself is sent back to that endpoint
 	/// rather than made easy from a screen full of other people's rows.
 	/// </para>
 	/// </remarks>
@@ -324,7 +330,7 @@ public sealed class AdminController : ControllerBase
 				statusCode: StatusCodes.Status409Conflict,
 				title: "Administrator account",
 				detail: $"{target.UserName} is named in this server's Admins roster. Remove them from "
-					+ "the configuration first — deleting the account while it is listed would free "
+					+ "the configuration first - deleting the account while it is listed would free "
 					+ "the username for somebody else to register and inherit the roster entry.");
 		}
 

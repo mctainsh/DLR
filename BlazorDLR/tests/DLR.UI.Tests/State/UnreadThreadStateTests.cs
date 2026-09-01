@@ -95,7 +95,7 @@ public sealed class UnreadThreadStateTests
 	public async Task APostToASharedRoutesThread_IsNotCounted()
 	{
 		// A route's thread (§6.2) is not on the rail, so there is nothing for its count to appear
-		// on — and adding it to the adventure's would be a badge for a conversation the tap does
+		// on - and adding it to the adventure's would be a badge for a conversation the tap does
 		// not open.
 		Harness harness = await BuildAsync();
 
@@ -131,7 +131,7 @@ public sealed class UnreadThreadStateTests
 		harness.Hub.RaiseCommentPosted(Post(TheRide, SomebodyElse));
 
 		harness.Unread.CountFor(TheRide).ShouldBe(0,
-			"the rider is looking at the post as it arrives — a badge for a message on screen is a "
+			"the rider is looking at the post as it arrives - a badge for a message on screen is a "
 			+ "badge that has to be dismissed by reading something already read.");
 	}
 
@@ -174,7 +174,7 @@ public sealed class UnreadThreadStateTests
 		first.Hub.RaiseCommentPosted(Post(TheRide, SomebodyElse));
 		first.Hub.RaiseCommentPosted(Post(TheRide, SomebodyElse));
 
-		// The hub callback has nobody to await it, so the write is fire-and-forget — give it the
+		// The hub callback has nobody to await it, so the write is fire-and-forget - give it the
 		// turn of the loop it needs before reading the store through a second instance.
 		await Task.Yield();
 

@@ -23,8 +23,8 @@ public sealed class HealthOptions
 	/// answer for a €4 VPS.
 	/// </para>
 	/// <para>
-	/// 2 GB on a 40 GB disk. Generous enough that there is time to add a Hetzner volume — about
-	/// €0.05/GB and one command — and not so generous that it fires while nothing is wrong.
+	/// 2 GB on a 40 GB disk. Generous enough that there is time to add a Hetzner volume - about
+	/// €0.05/GB and one command - and not so generous that it fires while nothing is wrong.
 	/// </para>
 	/// </summary>
 	public long MinimumFreeMb { get; set; } = 2_048;
@@ -42,7 +42,7 @@ public static class HealthEndpoints
 /// <para>
 /// Three questions, and the two that are not "is the process up" are the interesting ones. A
 /// container that answers HTTP while its schema is a migration behind is the failure mode of a
-/// half-finished deploy, and it does not announce itself — every request works until one touches
+/// half-finished deploy, and it does not announce itself - every request works until one touches
 /// the column that is not there yet. A container on a full disk answers HTTP too, right up until
 /// PostgreSQL cannot write (§9.1).
 /// </para>
@@ -105,7 +105,7 @@ public sealed class HealthController : ControllerBase
 			if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
 			{
 				// Not configured, or not mounted. Either way nothing can be stored, which is not a
-				// healthy server — and a missing mount is precisely the deploy mistake that
+				// healthy server - and a missing mount is precisely the deploy mistake that
 				// otherwise presents as "uploads fail" a day later.
 				return new BlobVolumeHealth(false, 0);
 			}

@@ -34,7 +34,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 	/// The reason <c>ContentReport</c> carries a snapshot at all (§17.7).
 	/// <para>
 	/// Deleting an abusive comment is exactly what an organiser should do. It must not also destroy
-	/// the evidence for the report just filed against it — which is what would happen if the report
+	/// the evidence for the report just filed against it - which is what would happen if the report
 	/// pointed at the row and read through it, and what a foreign key would have enforced.
 	/// </para>
 	/// </summary>
@@ -71,7 +71,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 			database.Set<ContentReport>().SingleAsync());
 
 		// The report is still there, and it still says what the comment said. A foreign key on
-		// TargetId would have cascaded this away or refused the deletion — both wrong.
+		// TargetId would have cascaded this away or refused the deletion - both wrong.
 		report.TargetId.ShouldBe(offending.Id);
 		report.TargetKind.ShouldBe(ReportTargetKind.Comment);
 		report.ResolvedUtc.ShouldBeNull("it is still on the operator's queue");
@@ -88,7 +88,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Blocking is one-directional and it hides the blocked rider's content from the blocker
-	/// (§16.5) — markers as well as posts, because hiding one and not the other leaves the person
+	/// (§16.5) - markers as well as posts, because hiding one and not the other leaves the person
 	/// you blocked writing on the map you are reading.
 	/// </summary>
 	[Fact]
@@ -125,7 +125,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 			blocked.StatusCode.ShouldBe(HttpStatusCode.NoContent, await blocked.Content.ReadAsStringAsync());
 		}
 
-		// Hidden from the blocker — posts and markers both.
+		// Hidden from the blocker - posts and markers both.
 		CommentPage after = await ThreadAsync(organiser, ride.Id);
 
 		after.Comments.Select(comment => comment.Id).ShouldBe([mine.Id]);
@@ -139,14 +139,14 @@ public sealed class ModerationTests(PostgresFixture postgres)
 		forBystander.Comments.Count.ShouldBe(2);
 		(await MarkersAsync(bystander, ride.Id)).Length.ShouldBe(1);
 
-		// And the blocked rider notices nothing at all — their own post is still theirs to see,
+		// And the blocked rider notices nothing at all - their own post is still theirs to see,
 		// and nothing was sent to tell them.
 		CommentPage forNuisance = await ThreadAsync(nuisance, ride.Id);
 
 		forNuisance.Comments.Select(comment => comment.Id).ShouldContain(theirs.Id);
 		app.Emails.Sent.ShouldNotContain(mail => mail.Subject.Contains("block", StringComparison.OrdinalIgnoreCase));
 
-		// Unblocking puts it back — the row is the whole mechanism.
+		// Unblocking puts it back - the row is the whole mechanism.
 		using (HttpResponseMessage unblocked = await organiser.DeleteAsync($"{BlocksUrl}/{nuisanceId}"))
 		{
 			unblocked.StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -236,7 +236,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 			refusedMarker.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 		}
 
-		// An empty reason is refused too — a report nobody can act on is not a report.
+		// An empty reason is refused too - a report nobody can act on is not a report.
 		using (HttpResponseMessage blank = await organiser.PostAsJsonAsync(
 			$"{CommentsUrl}/{post.Id}/report",
 			new ReportContentRequest("   ")))
@@ -276,7 +276,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 		(await app.WithDatabaseAsync(database => database.Set<ContentReport>().CountAsync()))
 			.ShouldBe(1);
 
-		// A different rider reporting the same content is a second, separate report — two people
+		// A different rider reporting the same content is a second, separate report - two people
 		// objecting is genuinely more signal than one.
 		using HttpClient other = await SignedInAsync(app, "AlexLee");
 
@@ -311,7 +311,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 			unknown.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 		}
 
-		// Blocking twice is idempotent, not a conflict — a client re-sending from an outbox must
+		// Blocking twice is idempotent, not a conflict - a client re-sending from an outbox must
 		// not see an error for something that is already true.
 		using HttpClient other = await SignedInAsync(app, "SamJones");
 
@@ -330,7 +330,7 @@ public sealed class ModerationTests(PostgresFixture postgres)
 
 		list.Single().UserName.ShouldBe("SamJones");
 
-		// And the block list is the caller's own — it is not a public fact about anybody.
+		// And the block list is the caller's own - it is not a public fact about anybody.
 		(await other.GetFromJsonAsync<BlockedRider[]>(BlocksUrl))!.ShouldBeEmpty();
 	}
 

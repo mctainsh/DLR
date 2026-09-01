@@ -10,12 +10,12 @@
 	Font Awesome rather than the inline SVGs this used to carry: the icon set is
 	consistent across every destination we will ever add, and a `fa-` class is a
 	line rather than a path definition. It is vendored into
-	`wwwroot/lib/fontawesome/` and linked by each host's shell — never a CDN,
+	`wwwroot/lib/fontawesome/` and linked by each host's shell - never a CDN,
 	because the host most likely to be offline is the phone, and a nav made of
 	icons with no font is a nav made of empty squares.
 
 	**No collapsed state.** The rail is the same list of items at every width; only
-	its position moves (left, or along the bottom under 560 px — see
+	its position moves (left, or along the bottom under 560 px - see
 	MainLayout.razor.css). A hamburger would hide the whole of the app's navigation
 	behind a tap on exactly the screens where the destinations matter most.
 
@@ -26,7 +26,7 @@
 	Every anchor keeps its `title` and `aria-label`. The visible label is small and
 	the icon does most of the work, so the accessible name must not depend on it.
 
-	Three items are not fixed destinations, and all three come from CurrentRideState (§18.6) —
+	Three items are not fixed destinations, and all three come from CurrentRideState (§18.6) -
 	the ride last opened on this device, remembered across a restart, or the group rides
 	list when there is not one yet:
 
@@ -36,22 +36,22 @@
 		count: posts that have landed since the rider last had the thread open, in the red bubble
 		every phone already means "somebody said something" by (UnreadThreadState, §17.6).
 
-	All three routes read group-rides/{what}/{id} — the verb before the id — because
+	All three routes read group-rides/{what}/{id} - the verb before the id - because
 	NavLink lights up on a prefix match: with the id first, the globe's href was a prefix
 	of the other two and stayed lit whichever of the three was on screen. See
 	CurrentRideState for the whole of that argument.
 
 	Each of the three displaced something: "My rides", then the group rides list, then
 	Import GPX. All three of those are still cards on the Home screen, and none of them is
-	a thing anybody opens twice in a ride — importing a GPX least of all, that being a
+	a thing anybody opens twice in a ride - importing a GPX least of all, that being a
 	thing a rider does once, at a desk, before the ride exists. What a rider does open
 	repeatedly, with a phone in a bar mount and gloves on, is the map, the question of
-	where everybody else has got to, and what the group is saying — and a rail is five
+	where everybody else has got to, and what the group is saying - and a rail is five
 	destinations wide.
 
 	After the five, and separated from them: GpsRailButton, the state of the receiver and
 	the switch for it. Last so that it is the bottom of the left rail and the far right of
-	the bottom bar — the corner a thumb reaches without leaving the bars.
+	the bottom bar - the corner a thumb reaches without leaving the bars.
 *@
 
 <AuthorizeView>
@@ -70,7 +70,7 @@
 			   left rail and an equal share of the bottom bar, so a count pinned to its corner would
 			   be a finger's width from the icon at one width and touching it at the other.
 
-			   aria-hidden over both, because ThreadName above already carries the number — an
+			   aria-hidden over both, because ThreadName above already carries the number - an
 			   anchor's aria-label is the whole of what a screen reader reads for the link, so a
 			   count left to announce itself in here would be announced by neither. *@
 			<span class="rail-glyph" aria-hidden="true">
@@ -92,7 +92,7 @@
 
 @code {
 	/// <summary>
-	/// The globe's accessible name, which has to say which of its two destinations is in force —
+	/// The globe's accessible name, which has to say which of its two destinations is in force -
 	/// a rail is glyph-only, so this and the tooltip are the whole of what the item announces, and
 	/// "Current ride" on a device with no ride would be a promise the tap does not keep.
 	/// </summary>
@@ -101,7 +101,7 @@
 	/// <summary>
 	/// The same sentence for the rider list, which shares the globe's two destinations. With no
 	/// ride on this device there are no members to list, so it falls back to the same place the
-	/// globe does — and must say so, rather than promising a list and opening a chooser.
+	/// globe does - and must say so, rather than promising a list and opening a chooser.
 	/// </summary>
 	private string MembersName => CurrentRide.RideId is null ? "Pick a group adventure" : "Live members";
 
@@ -110,7 +110,7 @@
 	/// means no adventure to talk about, so it leads where the other two do.
 	/// <para>
 	/// The unread count is said out loud here rather than left to the badge, because this is the
-	/// anchor's <c>aria-label</c> and a link's accessible name replaces whatever is inside it — a
+	/// anchor's <c>aria-label</c> and a link's accessible name replaces whatever is inside it - a
 	/// red circle nobody can hear is a notification only half the riders get (§17.6).
 	/// </para>
 	/// </summary>
@@ -137,7 +137,7 @@
 	/// Reads the remembered ride and the unread counts after first render, for the same reason
 	/// MainLayout reads the theme there: the device store is behind JS interop on the web, which
 	/// does not exist during the prerender pass. Until it resolves the globe points at the list,
-	/// which is where a device with nothing stored is sent anyway, and the badge is absent — which
+	/// which is where a device with nothing stored is sent anyway, and the badge is absent - which
 	/// is what a rail with nothing to say looks like.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -145,7 +145,7 @@
 		if (firstRender)
 		{
 			// Two keys in the same store and neither needs the other's answer, so they overlap
-			// rather than queue — on the web each one is its own JS interop round trip.
+			// rather than queue - on the web each one is its own JS interop round trip.
 			await Task.WhenAll(CurrentRide.LoadAsync(), Unread.LoadAsync());
 		}
 	}

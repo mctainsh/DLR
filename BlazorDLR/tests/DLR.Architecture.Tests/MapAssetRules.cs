@@ -7,7 +7,7 @@ namespace DLR.Architecture.Tests;
 /// <para>
 /// <strong>This is the rule the offline work rests on.</strong> MapLibre GL JS used to be pulled
 /// from jsDelivr on first use, which meant a phone in a dead zone failed before it requested a
-/// single tile — downloaded tiles would not have helped, because the renderer itself was the
+/// single tile - downloaded tiles would not have helped, because the renderer itself was the
 /// missing piece. The library is vendored now, and this stops it drifting back: a remote asset in
 /// these files is invisible on a developer's desk, on CI and in every simulator, and shows up only
 /// as "the map is blank" from a rider at a trailhead.
@@ -66,7 +66,7 @@ public sealed class MapAssetRules
 
 		offenders.ShouldBeEmpty(
 			"a map module that fetches its library, style, glyphs or sprites from a CDN cannot draw " +
-			"a map without a connection — which is the one thing the offline work exists to give a " +
+			"a map without a connection - which is the one thing the offline work exists to give a " +
 			"traveller at a trailhead, and it fails before a single tile is requested. Vendor the asset " +
 			"under BlazorDLR.Shared/wwwroot/map/lib/ and resolve it through import.meta.url, the way " +
 			"map.maplibre.js loads MapLibre GL JS.");
@@ -81,11 +81,11 @@ public sealed class MapAssetRules
 
 		Directory.Exists(libFolder).ShouldBeTrue(
 			"MapLibre GL JS ships with the app rather than being fetched (§4.5). If this folder has " +
-			"gone, every map is one CDN outage — or one dead zone — away from a blank rectangle.");
+			"gone, every map is one CDN outage - or one dead zone - away from a blank rectangle.");
 
 		File.Exists(Path.Combine(libFolder, "maplibre-gl.js")).ShouldBeTrue("the UMD bundle the module loads.");
 		File.Exists(Path.Combine(libFolder, "maplibre-gl.css")).ShouldBeTrue(
-			"without it the canvas is unpositioned and the attribution is unreadable — and §4.5 makes " +
+			"without it the canvas is unpositioned and the attribution is unreadable - and §4.5 makes " +
 			"the attribution permanent.");
 
 		// The app is AGPL and ships this file (§14.6). Redistributing a 3-Clause BSD library means
@@ -108,7 +108,7 @@ public sealed class MapAssetRules
 		File.Exists(Path.Combine(style, "basemap.json")).ShouldBeTrue("the light style document.");
 		File.Exists(Path.Combine(style, "basemap.dark.json")).ShouldBeTrue("and the dark one.");
 
-		// A style renders no label at all without its glyph ranges, and the failure is silent —
+		// A style renders no label at all without its glyph ranges, and the failure is silent -
 		// roads and coastlines still draw, so an incomplete bundle looks like a cartography choice
 		// rather than a missing file.
 		string glyphs = Path.Combine(style, "glyphs");
@@ -121,7 +121,7 @@ public sealed class MapAssetRules
 
 		// A space here cost an evening. MapLibre substitutes {fontstack} into the glyphs URL with
 		// NO url-encoding, so a stack named "Noto Sans Regular" produces a request carrying literal
-		// spaces — which every host's static-file handler then has to percent-decode identically.
+		// spaces - which every host's static-file handler then has to percent-decode identically.
 		// One that does not returns a 404 body, MapLibre feeds it to the protobuf decoder, and the
 		// whole map dies with "Unimplemented type: 4" naming neither the font nor the URL.
 		List<string> spaced = Directory.EnumerateDirectories(glyphs)
@@ -130,9 +130,9 @@ public sealed class MapAssetRules
 			.ToList()!;
 
 		spaced.ShouldBeEmpty(
-			"a font stack's name becomes a URL path segment verbatim — keep it a slug.");
+			"a font stack's name becomes a URL path segment verbatim - keep it a slug.");
 
-		// A sheet per theme, because the icons are painted for the ground under them — the light
+		// A sheet per theme, because the icons are painted for the ground under them - the light
 		// sheet over the dark document draws dark glyphs on dark ground, which is not a fallback
 		// anybody would choose, and the failure is per icon rather than per map.
 		foreach (string theme in new[] { "light", "dark" })
@@ -141,7 +141,7 @@ public sealed class MapAssetRules
 				$"the symbol layers' icon sheet for the {theme} style.");
 			File.Exists(Path.Combine(style, "sprite", $"{theme}.json")).ShouldBeTrue("and its index.");
 			File.Exists(Path.Combine(style, "sprite", $"{theme}@2x.png")).ShouldBeTrue(
-				"phones are all retina — without the @2x sheet every icon on the map is soft.");
+				"phones are all retina - without the @2x sheet every icon on the map is soft.");
 			File.Exists(Path.Combine(style, "sprite", $"{theme}@2x.json")).ShouldBeTrue("and its index.");
 		}
 
@@ -152,7 +152,7 @@ public sealed class MapAssetRules
 
 	/// <summary>
 	/// The style documents ship pointing at Protomaps' own hosts and a placeholder tile server; the
-	/// module rewrites all three at load. This asserts the rewrite still has something to find — a
+	/// module rewrites all three at load. This asserts the rewrite still has something to find - a
 	/// future style whose fields were named differently would leave the map fetching glyphs from
 	/// the internet, which works on a desk and fails at a trailhead.
 	/// </summary>
@@ -180,7 +180,7 @@ public sealed class MapAssetRules
 	/// The style documents still declare the three ground layers the offline map is floored with.
 	/// <para>
 	/// <strong>What this protects.</strong> A regional pack holds only the tiles its region's box
-	/// touches — one tile at z0 through z3 for Queensland — and MapLibre reads that box out of the
+	/// touches - one tile at z0 through z3 for Queensland - and MapLibre reads that box out of the
 	/// archive and refuses to ask for anything outside it. Everything else on screen is the style's
 	/// background colour, which reads as a dead band of zooms between "the world fits in the pack's
 	/// z0 tile" and "the rider is inside the region". <c>addWorldUnderlay</c> in
@@ -188,7 +188,7 @@ public sealed class MapAssetRules
 	/// at zoom 0, so the pack's own world tile floors the map everywhere.
 	/// </para>
 	/// <para>
-	/// It clones them <em>by id</em>, and it gives up quietly when it finds none — a map with the
+	/// It clones them <em>by id</em>, and it gives up quietly when it finds none - a map with the
 	/// old grey void beats a map that throws on a style this build does not recognise. Quietly is
 	/// the problem: a vendored style that renamed these would bring the void back with nothing
 	/// failing anywhere, so the naming is pinned here instead.
@@ -232,7 +232,7 @@ public sealed class MapAssetRules
 	/// <para>
 	/// The glyphs are shipped once and shared, which is what keeps a second theme at ~290 KB rather
 	/// than ~1 MB. If a future dark style asked for a stack the light one does not, that stack would
-	/// have no <c>.pbf</c> under <c>glyphs/</c> — and a missing range renders no label at all while
+	/// have no <c>.pbf</c> under <c>glyphs/</c> - and a missing range renders no label at all while
 	/// roads and coastlines carry on drawing, so it would read as a cartography choice rather than
 	/// as a missing file.
 	/// </para>
@@ -244,7 +244,7 @@ public sealed class MapAssetRules
 		HashSet<string> dark = FontStacks("basemap.dark.json");
 
 		dark.Except(light).ShouldBeEmpty(
-			"the dark style may only name fonts the light one already ships glyphs for — see glyphs/.");
+			"the dark style may only name fonts the light one already ships glyphs for - see glyphs/.");
 
 		static HashSet<string> FontStacks(string document)
 		{

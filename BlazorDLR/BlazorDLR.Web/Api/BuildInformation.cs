@@ -9,7 +9,7 @@ namespace DLR.Server.Api;
 /// Every value here is embedded by the compiler: <c>InformationalVersion</c> carries the
 /// commit because SourceLink puts <c>SourceRevisionId</c> there, and <c>BuildUtc</c> is
 /// written by <c>Directory.Build.targets</c>. Nothing in this file is maintained by hand,
-/// which is the point — a hand-maintained source pointer is wrong within a week, and a
+/// which is the point - a hand-maintained source pointer is wrong within a week, and a
 /// wrong source pointer is worse than none.
 /// </para>
 /// </summary>
@@ -64,7 +64,7 @@ public sealed class BuildInformation
 
 		if (plus < 0 || plus == informationalVersion.Length - 1)
 		{
-			// No source control information — a build from a tarball, or from a tree that
+			// No source control information - a build from a tarball, or from a tree that
 			// is not a git repository at all. Say so rather than inventing a commit.
 			return (UnknownCommit, false);
 		}

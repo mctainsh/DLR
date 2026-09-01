@@ -1,8 +1,8 @@
 namespace DLR.Server.Maintenance;
 
 /// <summary>
-/// What one run of <see cref="NightlyMaintenanceService"/> did, or — under
-/// <see cref="MaintenanceOptions.DryRun"/> — what it would have done.
+/// What one run of <see cref="NightlyMaintenanceService"/> did, or - under
+/// <see cref="MaintenanceOptions.DryRun"/> - what it would have done.
 /// <para>
 /// <strong>The same shape in both modes, deliberately.</strong> A dry run that reported nothing
 /// would make the switch useless: the point of running for a week and reading the output is that
@@ -51,7 +51,7 @@ public sealed record MaintenanceReport
 /// <summary>An account the inactivity predicate selected (§7.11).</summary>
 /// <param name="Id">Which account.</param>
 /// <param name="UserName">
-/// The name, because that is what makes a dry-run log readable — and because the name is released
+/// The name, because that is what makes a dry-run log readable - and because the name is released
 /// back to the pool on deletion, so it is also the thing an operator might recognise.
 /// </param>
 /// <param name="LastActiveUtc">When the server last heard from it.</param>

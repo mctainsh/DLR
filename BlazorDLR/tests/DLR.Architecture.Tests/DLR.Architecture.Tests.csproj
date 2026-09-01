@@ -3,7 +3,7 @@
 	<!--
 		Conventions that are only real if a build enforces them (§10.4).
 		Assembly-level rules read the compiled output with System.Reflection.Metadata,
-		which is in the framework — an architecture guard should not itself introduce a
+		which is in the framework - an architecture guard should not itself introduce a
 		dependency that has to be licence-checked.
 	-->
 	<PropertyGroup>
@@ -15,12 +15,12 @@
 		<ProjectReference Include="..\..\DLR.Core\DLR.Core.csproj" />
 		<ProjectReference Include="..\..\BlazorDLR.Web\BlazorDLR.Web.csproj" />
 		<ProjectReference Include="..\..\DLR.Server.Migrations\DLR.Server.Migrations.csproj" />
-		<!-- The shared UI library — inspected by UiLayeringRules (SharedFrontend.md §7 Phase 0). -->
+		<!-- The shared UI library - inspected by UiLayeringRules (SharedFrontend.md §7 Phase 0). -->
 		<ProjectReference Include="..\..\BlazorDLR.Shared\BlazorDLR.Shared.csproj" />
 		<!--
 			The UI test project itself is inspected by UiLayeringRules.UiTests_ReferenceNoMobileOnlyAssembly
 			(SharedFrontend.md §7 Phase 4). Referenced so its compiled DLL lands beside the arch test
-			assembly and CompiledAssembly.Load can read it. The reference is metadata-only in intent —
+			assembly and CompiledAssembly.Load can read it. The reference is metadata-only in intent -
 			the arch tests never call anything from the UI tests at runtime.
 		-->
 		<ProjectReference Include="..\DLR.UI.Tests\DLR.UI.Tests.csproj" />

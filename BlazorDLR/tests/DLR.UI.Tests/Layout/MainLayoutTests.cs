@@ -4,6 +4,8 @@ using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
 using Bunit.TestDoubles;
+using DLR.Core.Client;
+using DLR.Core.Contracts.Announcements;
 using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
@@ -15,10 +17,10 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.UI.Tests.Layout;
 
 /// <summary>
-/// The one layout every page composes with. What matters here is the <c>@Body</c> slot —
+/// The one layout every page composes with. What matters here is the <c>@Body</c> slot -
 /// the layout hands the routed page a place to render, and its own chrome (nav rail, confirm
 /// modal) sits around it. The AGPL source-offer footer lives on the
-/// pre-auth pages (Welcome / SignIn / Register / etc.) rather than the layout — see
+/// pre-auth pages (Welcome / SignIn / Register / etc.) rather than the layout - see
 /// <c>SourceOfferFooterTests</c>. The <c>#blazor-error-ui</c> element lives in
 /// <c>BlazorDLR.Web/Components/App.razor</c>, the SSR shell that wraps every route.
 /// </summary>
@@ -49,7 +51,7 @@ public sealed class MainLayoutTests : BunitContext
 		Services.AddSingleton(confirm);
 
 		// The rail this layout mounts carries the current-ride globe (§18.6), which reads the
-		// device store for the ride it points at. In-memory here — no localStorage, no MAUI
+		// device store for the ride it points at. In-memory here - no localStorage, no MAUI
 		// preferences, so a render never has to hit JS.
 		InMemoryDeviceSettings settings = new();
 		Services.AddSingleton<IDeviceSettings>(settings);
@@ -59,7 +61,7 @@ public sealed class MainLayoutTests : BunitContext
 		// whether or not anything has ever been posted.
 		Services.AddSingleton<UnreadThreadState>();
 
-		// The layout is also where the first-run introduction is decided (§18.6) — it is the one
+		// The layout is also where the first-run introduction is decided (§18.6) - it is the one
 		// component above both Home and Welcome, so it is the only place that can own "the first
 		// thing you ever see". In-memory here, which reads as "never seen": see
 		// FirstRun_OpensTheIntroduction below.
@@ -72,13 +74,21 @@ public sealed class MainLayoutTests : BunitContext
 
 		// The layout is where CommentNotifier gets its lifetime (§17.6): injecting it is what
 		// constructs it, and constructing it is what subscribes it to the hub. So these have to
-		// resolve here even though this suite is about the Body slot — a layout that cannot be
+		// resolve here even though this suite is about the Body slot - a layout that cannot be
 		// built is a layout no page renders inside.
 		FakeRideHubClient hub = new();
 		Services.AddSingleton<IRideHubClient>(hub);
 		Services.AddSingleton<INotificationService, NoopNotificationService>();
 		Services.AddSingleton<NotificationRouting>();
 		Services.AddSingleton<CommentNotifier>();
+
+		// And where the launch check runs and the announcement connection is held (§20). Same
+		// reasoning again: the layout injects both, so a layout that cannot build them is a layout
+		// no page renders inside. The fake answers the check with a throw unless a test wires
+		// StartupResult, which reads as "no server to ask".
+		Services.AddSingleton<IFormFactor>(new FakeFormFactor());
+		Services.AddSingleton<StartupCheckState>();
+		Services.AddSingleton<AnnouncementNotifier>();
 
 		// A phone, because the launch restore acts on no other kind of device (§18.6): the receiver
 		// is what a reclaimed app lost, and a host with none has nothing to put back. Every layout
@@ -103,7 +113,7 @@ public sealed class MainLayoutTests : BunitContext
 	private static readonly Guid Ride = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
 	/// <summary>
-	/// A launch that has been through the deck already and has an adventure to go back to — the
+	/// A launch that has been through the deck already and has an adventure to go back to - the
 	/// arrangement both restore tests below start from, and every launch but the first.
 	/// </summary>
 	private async Task<BunitNavigationManager> LaunchMidRideAsync()
@@ -146,7 +156,7 @@ public sealed class MainLayoutTests : BunitContext
 			.Add(p => p.Body, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p>routed page</p>"))));
 
 		// The device store is empty, which is what a phone that has just been installed on looks
-		// like — and the one launch where a rider has no idea what this app is.
+		// like - and the one launch where a rider has no idea what this app is.
 		component.WaitForAssertion(() =>
 			nav.Uri.Contains("/intro", StringComparison.Ordinal).ShouldBeTrue(
 				$"§18.6: a first run must open the introduction; got '{nav.Uri}'."),
@@ -161,7 +171,7 @@ public sealed class MainLayoutTests : BunitContext
 			?? throw new InvalidOperationException("bUnit did not register a BunitNavigationManager.");
 		string before = nav.Uri;
 
-		// Marked seen before the layout is built — the second launch on a device, which is every
+		// Marked seen before the layout is built - the second launch on a device, which is every
 		// launch but one.
 		await Services.GetRequiredService<IntroTourState>().MarkSeenAsync();
 
@@ -212,7 +222,7 @@ public sealed class MainLayoutTests : BunitContext
 		await component.InvokeAsync(() => { });
 
 		nav.Uri.EndsWith("welcome", StringComparison.Ordinal).ShouldBeTrue(
-			"nothing may move the rider off Welcome while the session is still landing — its own "
+			"nothing may move the rider off Welcome while the session is still landing - its own "
 			+ "'you are signed in, go home' is already queued and would overtake it.");
 
 		// And now Welcome sends them home, which is the launch actually landing.
@@ -239,8 +249,8 @@ public sealed class MainLayoutTests : BunitContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		nav.Uri.ShouldBe(asked,
-			"a launch aimed at a screen — a tapped notification, a shared link, a reloaded deep "
-			+ "link — keeps its destination; only the home route means \"wherever I was\".");
+			"a launch aimed at a screen - a tapped notification, a shared link, a reloaded deep "
+			+ "link - keeps its destination; only the home route means \"wherever I was\".");
 
 		// And it does not lie in wait either: the rider walking to Home later is them choosing
 		// Home, not the launch finally landing.
@@ -266,5 +276,45 @@ public sealed class MainLayoutTests : BunitContext
 			component.Markup.Contains("routed page", StringComparison.Ordinal).ShouldBeTrue(
 				"the layout's Body slot must render whatever the router pushes into it."),
 			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void ABuildBelowTheServersFloor_ReplacesTheRoutedPage()
+	{
+		(FakeApiClient api, _, _) = WireServices();
+
+		api.StartupResult = new StartupCheck(ClientSupport.Unsupported, "9.0.0.0", "9.0.0.0", []);
+
+		IRenderedComponent<MainLayout> component = Render<MainLayout>(parameters => parameters
+			.Add(p => p.Body, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p>routed page</p>"))));
+
+		component.WaitForAssertion(
+			() => component.Markup.Contains("Time for an update", StringComparison.Ordinal).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Markup.Contains("routed page", StringComparison.Ordinal).ShouldBeFalse(
+			"the wall goes in the Body's place rather than over the top - that is what makes it a "
+			+ "wall: no route underneath it is reachable, so nothing behind it can call the server");
+	}
+
+	[Fact]
+	public void ASupportedBuild_SeesNoWall()
+	{
+		(FakeApiClient api, _, _) = WireServices();
+
+		api.StartupResult = new StartupCheck(
+			ClientSupport.Supported,
+			ClientRelease.Minimum.ToString(),
+			ClientRelease.Recommended.ToString(),
+			[]);
+
+		IRenderedComponent<MainLayout> component = Render<MainLayout>(parameters => parameters
+			.Add(p => p.Body, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p>routed page</p>"))));
+
+		component.WaitForAssertion(
+			() => component.Markup.Contains("routed page", StringComparison.Ordinal).ShouldBeTrue(),
+			timeout: TimeSpan.FromSeconds(3));
+
+		component.Markup.Contains("Time for an update", StringComparison.Ordinal).ShouldBeFalse();
 	}
 }

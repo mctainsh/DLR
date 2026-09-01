@@ -12,7 +12,7 @@ namespace DLR.Server.Comments;
 /// <para>
 /// <strong>Reactions are the highest-frequency, lowest-value event in the product.</strong> Twelve
 /// members tapping a thumbs-up on the same photo, each tap relayed to the other eleven, is exactly
-/// the O(n²) fan-out §5.3 refused for positions — and for something whose whole payload is a
+/// the O(n²) fan-out §5.3 refused for positions - and for something whose whole payload is a
 /// number. So a change marks the comment dirty and the timer sends the tally, once. A count
 /// arriving three seconds late has cost nobody anything.
 /// </para>
@@ -23,7 +23,7 @@ namespace DLR.Server.Comments;
 /// </para>
 /// </summary>
 /// <param name="hub">Where the messages go.</param>
-/// <param name="scopes">A scope per flush — a background service must not hold a scoped context.</param>
+/// <param name="scopes">A scope per flush - a background service must not hold a scoped context.</param>
 /// <param name="options">The coalescing interval.</param>
 /// <param name="clock">The project clock, so a test drives the timer rather than waiting on it.</param>
 public sealed class ReactionBroadcastService(
@@ -48,7 +48,7 @@ public sealed class ReactionBroadcastService(
 
 	/// <summary>Notes that a comment's reactions changed.</summary>
 	/// <param name="commentId">Which comment.</param>
-	/// <param name="group">Which hub group to tell — <see cref="ThreadAccess.HubGroup"/>.</param>
+	/// <param name="group">Which hub group to tell - <see cref="ThreadAccess.HubGroup"/>.</param>
 	public void ReactionChanged(Guid commentId, string group) => _reactions[commentId] = group;
 
 	/// <summary>Notes that a poll's votes changed.</summary>
@@ -60,9 +60,9 @@ public sealed class ReactionBroadcastService(
 	/// Sends one message per dirty comment and clears the sets.
 	/// <para>
 	/// Public so a test can drive it directly. Advancing a fake clock and waiting for a
-	/// <see cref="PeriodicTimer"/> is a race twice over — <c>StartAsync</c> returns as soon as
+	/// <see cref="PeriodicTimer"/> is a race twice over - <c>StartAsync</c> returns as soon as
 	/// <c>ExecuteAsync</c> reaches its first await, which is not necessarily after the timer
-	/// exists — and SRV-22 already paid for learning that.
+	/// exists - and SRV-22 already paid for learning that.
 	/// </para>
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation.</param>
@@ -150,7 +150,7 @@ public sealed class ReactionBroadcastService(
 			{
 				// A failed tick must not take the service down. The next one re-reads the tally
 				// from the database, so a dropped message costs a client three seconds of a stale
-				// count and nothing else — the row is already committed.
+				// count and nothing else - the row is already committed.
 			}
 		}
 	}

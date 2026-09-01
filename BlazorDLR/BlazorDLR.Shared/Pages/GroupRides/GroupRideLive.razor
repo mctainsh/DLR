@@ -25,26 +25,26 @@
 	using, and every affordance but the two camera modes is reached from the hamburger in
 	the top-right.
 
-	Those two — "follow me" and "heading up" — are buttons in a stack under the hamburger and
+	Those two - "follow me" and "heading up" - are buttons in a stack under the hamburger and
 	live nowhere else. They are the only things on this screen a rider does while actually
 	moving, and everything the menu holds is done at a stop, so they are the ones that have
 	earned a permanent target rather than a tap, a read and a second tap. They are also the
-	only two that outlive the tap that set them, and a lit button is what says so — which is
+	only two that outlive the tap that set them, and a lit button is what says so - which is
 	why the hamburger no longer carries a dot for either of them. Choosing heading up switches
 	following on too: a map that turns about a point the rider is not standing on is worse than
 	a north-up one.
 
-	Why a hamburger here and nowhere else. NavMenu.razor states the app-wide rule — the
+	Why a hamburger here and nowhere else. NavMenu.razor states the app-wide rule - the
 	rail never collapses behind a toggle, because hiding *navigation* is hiding the app.
 	This menu hides no destination: the rail is still on screen next to it. It holds this
 	one screen's *actions*, which is what a screen with no room for a toolbar does.
 
-	Everything that reads rather than acts — who is on the ride, the gaps, the join code,
-	the sharing switch, the organiser's controls — lives on GroupRideInfo, one tap away
+	Everything that reads rather than acts - who is on the ride, the gaps, the join code,
+	the sharing switch, the organiser's controls - lives on GroupRideInfo, one tap away
 	under "Info". A rider looking at a live map wants the map.
 *@
 
-<PageTitle>@Title — Dumb Luck Routes</PageTitle>
+<PageTitle>@Title - Dumb Luck Routes</PageTitle>
 
 <div class="page-full live">
 	@if (_session.Ride is null && _session.Error is null)
@@ -63,18 +63,18 @@
 			   something down, and that is the one time a crosshair is honest.
 
 				ShowUserLocation is the base map's own blue dot, and it is asked for only on a host
-				that has no receiver of its own — the browser (§18.6). It cannot work on the phone:
+				that has no receiver of its own - the browser (§18.6). It cannot work on the phone:
 				MapLibre's GeolocateControl reads navigator.geolocation, which is the *WebView's*
-				permission gate and not the one the app holds for ILocationProvider — MAUI's
+				permission gate and not the one the app holds for ILocationProvider - MAUI's
 				BlazorWebView grants it on neither platform, and it never resolves or errors. It
 				would also only start on a tap of its own button, which nothing here performs.
 
 				The phones draw themselves on the Skia overlay instead, from this device's own fix
-				— see SelfMarker. Note that the browser's dot answers a different question from the
+				- see SelfMarker. Note that the browser's dot answers a different question from the
 				rider pill beside it: where the machine reading the map is, which for somebody
 				watching a ride from a laptop is not where their bike is.
 
-				Bounds is the *opening* frame and nothing else — see _openingBounds. Every other
+				Bounds is the *opening* frame and nothing else - see _openingBounds. Every other
 				map in the app that passes one is showing a fixed extent; this one hands over a
 				box once, the first time a rider opens a given ride, and then never changes it
 				again, so following and panning own the view from the second frame onward.
@@ -88,8 +88,8 @@
 
 		<div class="map-alerts">
 			@*
-				A rail, not a slot. Everything below is a *state* rather than an event — no
-				timeout takes any of them away — and more than one of them is true at once
+				A rail, not a slot. Everything below is a *state* rather than an event - no
+				timeout takes any of them away - and more than one of them is true at once
 				more or less constantly: a phone in a tunnel has no network, no fix and a
 				stale copy of the ride, all three at the same moment. They used to be one
 				`if/else` chain stacked in the same absolute position, so the second one on
@@ -103,8 +103,8 @@
 
 				It has to carry an age. A map of where the group was twenty minutes ago is the
 				most useful thing a rider who has lost signal can be handed and the most dangerous
-				thing to mistake for live — riding towards a pin that stopped moving before the
-				group turned off is exactly the failure — and the only difference between those
+				thing to mistake for live - riding towards a pin that stopped moving before the
+				group turned off is exactly the failure - and the only difference between those
 				two readings is whether the app said which one it was.
 
 				Only while the connection is up: with it down the strip below says the same thing
@@ -115,7 +115,7 @@
 			{
 				<div class="map-error cached" role="status">
 					<i class="fa fa-cloud-arrow-down" aria-hidden="true"></i>
-					<span>Offline — this adventure as it was @CachedAge.</span>
+					<span>Offline - this adventure as it was @CachedAge.</span>
 				</div>
 			}
 
@@ -125,7 +125,7 @@
 				The failure this screen is worst at showing on its own: nothing arrives, so nothing
 				re-renders, and a map whose hub died ten minutes ago is pixel-identical to a map
 				where nobody has moved. Every pin on it is a claim about where somebody is *now*,
-				and that claim quietly stops being true — so the connection has to be stated rather
+				and that claim quietly stops being true - so the connection has to be stated rather
 				than inferred from pins that happen to be still.
 
 				Driven by IRideHubClient.ConnectionChanged, which exists for this: SignalR's
@@ -141,11 +141,11 @@
 					<i class="fa fa-wifi" aria-hidden="true"></i>
 					@if (_session.LoadedFromCache)
 					{
-						<span>No network — nothing is updating. This adventure as it was @CachedAge.</span>
+						<span>No network - nothing is updating. This adventure as it was @CachedAge.</span>
 					}
 					else
 					{
-						<span>No network — nobody's position is updating, and yours is not going out.</span>
+						<span>No network - nobody's position is updating, and yours is not going out.</span>
 					}
 				</div>
 			}
@@ -163,7 +163,7 @@
 			{
 				<div class="map-error gps-disabled error" role="alert">
 					<i class="fa fa-location-crosshairs" aria-hidden="true"></i>
-					<span>GPS is off for this app — nobody can see you until you turn location on in the phone's settings.</span>
+					<span>GPS is off for this app - nobody can see you until you turn location on in the phone's settings.</span>
 				</div>
 			}
 			@*
@@ -171,7 +171,7 @@
 
 				The receiver is running and correct and has nothing to publish: a cold start, a
 				garage, a gorge, a sky full of buildings. Nothing to fix and nothing to tap, which
-				is exactly why it is said — a rider who is not told this reads their own missing
+				is exactly why it is said - a rider who is not told this reads their own missing
 				pin as the app being broken, and the ones who do get told put the phone somewhere
 				with a view of the sky.
 			*@
@@ -179,11 +179,11 @@
 			{
 				<div class="map-error no-gps error" role="alert">
 					<i class="fa fa-satellite-dish" aria-hidden="true"></i>
-					<span>No GPS signal — the group cannot see you move until the phone gets a fix.</span>
+					<span>No GPS signal - the group cannot see you move until the phone gets a fix.</span>
 				</div>
 			}
 			@*
-				The receiver is fine and the fixes are not getting through (§4.3) — a publish the
+				The receiver is fine and the fixes are not getting through (§4.3) - a publish the
 				server refused, or a fallback that keeps failing. Narrowed to Failed: the two
 				permission states NeedsAttention also covers now have the strip above, which says
 				what to do about them rather than describing them.
@@ -201,7 +201,7 @@
 					Sharing is off on a device that could be doing it (§5.6).
 
 					Red, and it stays. The other three strips report something the app is doing or
-					cannot do; this one reports what the rest of the group sees, which is nothing —
+					cannot do; this one reports what the rest of the group sees, which is nothing -
 					and a rider who does not know that is riding on the assumption that somebody
 					would come looking. That assumption is the one this app exists to be worth, so
 					the screen must not be quiet about the state that breaks it. It cannot be
@@ -209,7 +209,7 @@
 					it is to turn sharing on.
 
 					Not the receiver's business, and deliberately not phrased as one: the GPS is
-					*correctly* idle here — nothing has failed, nobody needs to grant a permission,
+					*correctly* idle here - nothing has failed, nobody needs to grant a permission,
 					and the rider has simply chosen not to be seen. Saying "location unavailable"
 					would send them into the phone's settings looking for a fault that is not there.
 
@@ -219,11 +219,11 @@
 				*@
 				<div class="map-error sharing-off error" role="alert">
 					<i class="fa fa-eye-slash" aria-hidden="true"></i>
-					<span>Location sharing is off — nobody on this adventure can see where you are.</span>
+					<span>Location sharing is off - nobody on this adventure can see where you are.</span>
 				</div>
 			}
 
-			@* An error raised by something the menu did — the map underneath is still usable, so
+			@* An error raised by something the menu did - the map underneath is still usable, so
 			   this is a dismissible strip rather than a page that replaced itself with a message. *@
 			@if (_session.Error is { } problem)
 			{
@@ -238,7 +238,7 @@
 			The one mode this screen has: the next tap on the map is a marker's point (§16.1).
 
 			It has to be visible, because an armed map behaves differently from the map the
-			rider was just using — a tap on a pin stops opening its detail — and a mode nobody
+			rider was just using - a tap on a pin stops opening its detail - and a mode nobody
 			can see is a screen that has quietly stopped answering. It carries its own way out
 			for the same reason: the alternative is placing a marker you no longer want just to
 			get the map back.
@@ -256,14 +256,14 @@
 			then gone (§5.3).
 
 			The two automatic modes are the only things on this screen that change what the map
-			does *after* the tap that set them, and one of them — following — can also be
+			does *after* the tap that set them, and one of them - following - can also be
 			cancelled by a gesture the rider made for another reason entirely. Both cases are the
 			same problem: a map that has quietly changed its mind is indistinguishable from a map
 			that is broken. So each transition says so once, in the rider's own words, and then
 			stops taking up the screen.
 
 			Transient rather than a strip that stays, because the standing statement of both modes
-			is already on screen permanently — each has a button in the stack that lights up when
+			is already on screen permanently - each has a button in the stack that lights up when
 			it is on. This is for the *change*.
 
 			aria-live="polite" rather than assertive: nothing here interrupts anything, and a rider
@@ -271,7 +271,7 @@
 			`raised` lifts it clear of the placing strip on the rare frame that has both.
 
 			**`mode-toast`, and never `toast`.** Bootstrap is linked by all three hosts and defines
-			`.toast:not(.show){display:none}` — its own toast is a JS component that is invisible
+			`.toast:not(.show){display:none}` - its own toast is a JS component that is invisible
 			until its script adds `.show`. A plain `toast` class here is therefore not a styling
 			clash that looks a bit wrong, it is an element that renders into the DOM, passes every
 			bUnit assertion, and is painted nowhere at all. It shipped that way once. Nothing else
@@ -296,14 +296,14 @@
 
 			Off by a menu item rather than permanent: it covers a strip of map, and a rider on a
 			ride with no route or on their own has nothing to read in it. Empty renders nothing at
-			all — see NeighbourPanel.
+			all - see NeighbourPanel.
 		*@
 		@if (_showNeighbours)
 		{
 			<NeighbourPanel Rows="_neighbours" />
 		}
 
-		@* Catches the tap that dismisses the menu. It covers the map and nothing else — over
+		@* Catches the tap that dismisses the menu. It covers the map and nothing else - over
 		   the nav rail too and a tap meant for Home would only close a menu. *@
 		@if (_menuOpen)
 		{
@@ -315,7 +315,7 @@
 				The way in to everything this screen does that is not a camera mode.
 
 				It carried a dot once, for whichever mode was still set from inside the menu. Nothing
-				is any more — both modes are lit buttons directly below it — and a second indicator
+				is any more - both modes are lit buttons directly below it - and a second indicator
 				for a state a button beside it already shows is the one that goes stale. Removing it
 				also takes the last reason for this button to have two labels.
 			*@
@@ -330,14 +330,14 @@
 					The one indicator this button carries again, and it is not a mode.
 
 					The dot that used to live here said which camera mode was on, and went when both
-					modes became lit buttons directly below it — a second indicator for a state a
+					modes became lit buttons directly below it - a second indicator for a state a
 					button beside it already shows is the one that goes stale. This is the opposite
 					case: nothing else on this screen says that somebody is waiting to be let in, and
 					the only place that says it at all is two taps away behind Info. An organiser
 					riding a route has no reason to open this menu on the off-chance.
 
 					Organiser-only, because PendingJoinRequests is zero for everybody else and the
-					badge draws nothing at zero — there is no branch here to keep in step.
+					badge draws nothing at zero - there is no branch here to keep in step.
 				*@
 				<PendingBadge Count="_session.PendingJoinRequests" Noun="waiting to join" />
 			</button>
@@ -345,20 +345,20 @@
 			@*
 				"Centre on me and keep me there", on the map rather than in the menu (§5.3).
 
-				One of the two things a rider does to this map while moving — heading-up, directly
-				below, is the other — and everything the menu holds is done at a stop, so these are
+				One of the two things a rider does to this map while moving - heading-up, directly
+				below, is the other - and everything the menu holds is done at a stop, so these are
 				the two that have earned a permanent 48 px target instead of a tap, a read and a
 				second tap. It is also the *only* way to set following: the duplicate under the rule
 				in the menu was removed once this existed, because a mode with two controls is a
 				mode a rider has to check twice.
 
 				aria-pressed rather than a role, because this is a toggle button and not a menu
-				item — and it is what a screen reader reads out as the state, which matters more
+				item - and it is what a screen reader reads out as the state, which matters more
 				here than anywhere else on the page since the visual state is a colour swap.
 
 				The label carries the "waiting for a fix" case the menu item used to state in
-				words. Following with nothing to point at is not a fault — a receiver with no
-				lock yet has nothing to point at — but a lit button over a map that is not
+				words. Following with nothing to point at is not a fault - a receiver with no
+				lock yet has nothing to point at - but a lit button over a map that is not
 				moving needs to be able to say so.
 			*@
 			<button type="button" class="follow @(_followMe ? "on" : null)"
@@ -369,26 +369,26 @@
 			</button>
 
 			@*
-				"Which way up is the map" — north, or the way this rider is pointing — on the map
+				"Which way up is the map" - north, or the way this rider is pointing - on the map
 				rather than in the menu, for the same reason following is.
 
 				It sat under the rule in the menu until now, on the argument that it is set once at
 				the top of a ride and then left alone. That was the wrong half of the pairing to
 				notice: it is the *other* mode that turns the map under a rider after the tap that
-				set it, so a rider who wants it off — because the map is swinging at a roundabout,
-				or because they are trying to read a street name — is asking at exactly the moment
+				set it, so a rider who wants it off - because the map is swinging at a roundabout,
+				or because they are trying to read a street name - is asking at exactly the moment
 				a tap, a read and a second tap costs the most. Both camera modes now sit in the same
 				stack, which is also what lets a rider see the two states at once instead of opening
 				a menu to check one of them.
 
 				aria-pressed and not menuitemcheckbox, because it is a toggle button now and no
-				longer an item in a menu — and the state it reads out is what a screen reader gets
+				longer an item in a menu - and the state it reads out is what a screen reader gets
 				in place of the colour swap.
 
 				Two glyphs rather than one that changes colour: colour alone is the first thing to
 				go through a visor in daylight (§18.6), and this button is read at a glance while
 				moving. The label carries the "waiting for a heading" case the menu item used to
-				state in words — a lit button over a map that is not turning needs to say which of
+				state in words - a lit button over a map that is not turning needs to say which of
 				the two it is, exactly as the follow button does.
 
 				The base map keeps its own compass on the opposite edge, and the two do not
@@ -419,7 +419,7 @@
 						in here is a permanent part of the screen; this one is an errand, and an
 						organiser with nothing pending should not be reading past a row that has
 						nothing behind it for the whole of a ride. It is also why the badge is drawn
-						unconditionally rather than gated a second time — the row exists exactly when
+						unconditionally rather than gated a second time - the row exists exactly when
 						the badge would have something to say.
 					*@
 					@if (_session.IsOrganiser && _session.PendingJoinRequests > 0)
@@ -444,7 +444,7 @@
 					@*
 						Below the rule: what the map itself is doing, as opposed to where the
 						menu can take you. A checkbox rather than a plain item, because it is a
-						mode that stays on after the menu closes — role="menuitemcheckbox" is
+						mode that stays on after the menu closes - role="menuitemcheckbox" is
 						what tells a screen reader that, and aria-checked is what carries it.
 
 						The panel down the left edge naming who is just ahead and just behind (§5.4).
@@ -477,9 +477,9 @@
 					</button>
 
 					@*
-						What this device's own receiver is doing (§4.3). Not a control — sharing is
+						What this device's own receiver is doing (§4.3). Not a control - sharing is
 						a consent decision and lives on the info page beside the words describing
-						it — but a rider mid-ride needs to be able to answer "am I on their map?"
+						it - but a rider mid-ride needs to be able to answer "am I on their map?"
 						without leaving the map, and the honest answer is not "the switch is on".
 
 						Absent on a host with no receiver (§18.6) rather than reporting that it has
@@ -499,7 +499,7 @@
 		</div>
 
 		@*
-			The map's pins carry an icon and a title and nothing else — the Skia overlay is
+			The map's pins carry an icon and a title and nothing else - the Skia overlay is
 			`pointer-events: none` so gestures reach the base map (RideMap), which means a pin
 			cannot be tapped for its detail. This list is where a marker's note, its photo and
 			its delete live (§16.4, §16.5). It used to be a permanent sidebar; on a full-screen
@@ -607,14 +607,14 @@
 	[Parameter] public Guid RideId { get; set; }
 
 	/// <summary>
-	/// Where a ride opens when this device has nothing stored for it. Sydney, at city scale —
+	/// Where a ride opens when this device has nothing stored for it. Sydney, at city scale -
 	/// the same view this page has always opened on, kept as a constant now that
 	/// <see cref="RestoreViewAsync"/> and a change of ride both need something to go back to.
 	/// </summary>
 	private static readonly MapCamera DefaultCamera = new(-33.868, 151.209, 11);
 
 	/// <summary>
-	/// How far in a ride with no planned route opens on the rider's own position — about a
+	/// How far in a ride with no planned route opens on the rider's own position - about a
 	/// suburb across.
 	/// <para>
 	/// Only the routeless case needs a number at all: a ride that has a route is framed on the
@@ -629,7 +629,7 @@
 
 	/// <summary>
 	/// How often a pan may reach the device store. The map reports a viewport on every frame of
-	/// a drag, and <c>localStorage</c> behind JS interop is not a per-frame surface — so the view
+	/// a drag, and <c>localStorage</c> behind JS interop is not a per-frame surface - so the view
 	/// is held in memory and written at this cadence, plus once on the way out
 	/// (<see cref="DisposeAsync"/>), which is the write that actually matters.
 	/// </summary>
@@ -637,7 +637,7 @@
 
 	/// <summary>
 	/// How fast this rider has to be going before their heading is allowed to turn the map, in
-	/// metres per second — about 5 km/h, a walk.
+	/// metres per second - about 5 km/h, a walk.
 	/// <para>
 	/// A GPS heading is derived from successive fixes, so below walking pace it is not a direction
 	/// at all: it is the noise between two readings of a bike leaning against a fence, and it
@@ -663,7 +663,7 @@
 	/// How long the map takes to travel to where the automatic modes have aimed it (§5.3).
 	/// <para>
 	/// <strong>The whole of the fix for a map that lurched.</strong> Following and heading-up re-aim
-	/// on the rider's fixes, which arrive about once a second — so a camera that jumped held the
+	/// on the rider's fixes, which arrive about once a second - so a camera that jumped held the
 	/// ground still for a second and then teleported it a bike-length, and a corner arrived as the
 	/// world snapping round in three or four steps. Neither is what the rider is doing: they are
 	/// travelling, continuously, and the map should say so.
@@ -671,13 +671,13 @@
 	/// <para>
 	/// Just under the arrival cadence rather than equal to it. The move lands a moment before the
 	/// next one starts, so the rider is exactly where the mode promised for an instant every second
-	/// — which is what makes a following map feel <em>accurate</em> rather than merely fluid. Longer
+	/// - which is what makes a following map feel <em>accurate</em> rather than merely fluid. Longer
 	/// than the gap and every move would be cut off part-way, leaving the camera permanently short
 	/// of the rider and getting further behind on every corner.
 	/// </para>
 	/// <para>
 	/// Not tuned to the slower case on purpose. A rider with no receiver of their own is followed
-	/// from the published fan-out instead, which is a 5 s tick (§5.3) — stretching to that would
+	/// from the published fan-out instead, which is a 5 s tick (§5.3) - stretching to that would
 	/// have the map showing where the group was several seconds ago, which is worse than a
 	/// once-per-5 s glide that finishes early and waits.
 	/// </para>
@@ -695,15 +695,15 @@
 	/// Shorter than <see cref="CameraGlide"/> because it answers a tap rather than a fix: nothing is
 	/// following it, so there is no cadence to fit inside, and a control that takes the better part
 	/// of a second to visibly do anything reads as a control that did not work. Long enough that the
-	/// rider sees <em>which way</em> the map turned, which is the whole information a snap loses —
+	/// rider sees <em>which way</em> the map turned, which is the whole information a snap loses -
 	/// on a map that had been swung most of the way round, a snap to north leaves somebody with no
 	/// idea whether the ground in front of them is now behind them.
 	/// </para>
 	/// <para>
 	/// <strong>The only tap on this page that animates, and only because it is a pure rotation.</strong>
 	/// The map turns about a centre that does not move, so there is nothing to travel across. Every
-	/// other tap that moves this camera — switching following on, choosing heading-up, going to a
-	/// marker — can be asked to cross a city, and easing over that distance would drag the base map
+	/// other tap that moves this camera - switching following on, choosing heading-up, going to a
+	/// marker - can be asked to cross a city, and easing over that distance would drag the base map
 	/// through every tile on the way for a view the rider asked to simply <em>be</em> at.
 	/// </para>
 	/// </summary>
@@ -715,7 +715,7 @@
 	/// <summary>
 	/// The pins as the overlay reads them. Replaced whole on every rebuild rather than cleared and
 	/// refilled: the overlay rasterises on a pool thread, so clearing the dictionary it was midway
-	/// through enumerating killed the frame with "Collection was modified" — a live ride's own pin
+	/// through enumerating killed the frame with "Collection was modified" - a live ride's own pin
 	/// moving is enough to hit it (§16.3).
 	/// </summary>
 	private IReadOnlyDictionary<Guid, MapMarker> _markerLayer = new Dictionary<Guid, MapMarker>();
@@ -733,7 +733,7 @@
 	/// <strong>A pan cancels it</strong>, and says so (see <see cref="OnMapGestureAsync"/>). That
 	/// used to be impossible and the reason was written here: telling a rider's drag apart from the
 	/// mode's own move cannot be done from the viewport event, which reports where the map is and
-	/// never who put it there — so the mode stayed on and the map undid the rider's pan a second
+	/// never who put it there - so the mode stayed on and the map undid the rider's pan a second
 	/// later. <see cref="MapGesture"/> is that missing half, straight from MapLibre's own
 	/// <c>originalEvent</c>, and with it "the rider took hold of the map" is a fact rather than a
 	/// guess. What made a self-cancelling mode unacceptable was that it was silent; the toast is
@@ -745,8 +745,8 @@
 	/// <summary>
 	/// Whether the map is turned to this rider's heading rather than held north-up.
 	/// <para>
-	/// A separate switch from <see cref="_followMe"/> — one decides where the screen is centred,
-	/// the other which way the ground is turned — but <strong>the controls never leave this one on
+	/// A separate switch from <see cref="_followMe"/> - one decides where the screen is centred,
+	/// the other which way the ground is turned - but <strong>the controls never leave this one on
 	/// without that one</strong>. The map rotates about the centre of the screen, so a turning map
 	/// the rider is not at the centre of swings the ground around a point that is nobody, which is
 	/// worse than north-up rather than better.
@@ -757,7 +757,7 @@
 	/// switches following off goes through <see cref="StopFollowing"/>, which takes this with it.
 	/// </para>
 	/// <para>
-	/// A stored view can still name the pair — an older build wrote them independently — and
+	/// A stored view can still name the pair - an older build wrote them independently - and
 	/// <see cref="RestoreViewAsync"/> reads back what it was given rather than correcting it. That
 	/// is deliberate: the alternative is a map that opens somewhere the device never said, and the
 	/// first thing the rider does to such a map puts the pairing back anyway.
@@ -765,7 +765,7 @@
 	/// <para>
 	/// The reverse is not true and must not be: following on its own is an ordinary north-up map
 	/// that keeps the rider on screen, which is what most riders want. So a twist of the map, or a
-	/// tap on the base map's compass, cancels this and leaves following alone — both are somebody
+	/// tap on the base map's compass, cancels this and leaves following alone - both are somebody
 	/// stating which way up they want the map, and neither says anything about the centre.
 	/// </para>
 	/// <para>
@@ -784,7 +784,7 @@
 
 	/// <summary>
 	/// The bearing the camera was last turned to for <see cref="_headingUp"/>. The rotation half of
-	/// <see cref="_followedTo"/>, and needed for the same reason — but against a threshold rather
+	/// <see cref="_followedTo"/>, and needed for the same reason - but against a threshold rather
 	/// than for equality, because a heading is a noisy number and an exact comparison would let
 	/// every fix through.
 	/// </summary>
@@ -804,7 +804,7 @@
 	/// <para>
 	/// A latch, not a mode: it goes up once per ride and stays up, which is what keeps
 	/// <see cref="FrameOpeningAsync"/> from re-framing under a rider who has since panned. It is
-	/// reset — with <see cref="_openingBounds"/> — when the page is handed a different ride.
+	/// reset - with <see cref="_openingBounds"/> - when the page is handed a different ride.
 	/// </para>
 	/// </summary>
 	private bool _framed;
@@ -813,8 +813,8 @@
 	/// Whether the device store has been read yet, so a frame is not chosen before we know
 	/// whether this rider already has a view for this ride.
 	/// <para>
-	/// <see cref="OnParametersSetAsync"/> — where the ride loads, and therefore where its routes
-	/// arrive — runs before the first <see cref="OnAfterRenderAsync"/>, which is the first moment
+	/// <see cref="OnParametersSetAsync"/> - where the ride loads, and therefore where its routes
+	/// arrive - runs before the first <see cref="OnAfterRenderAsync"/>, which is the first moment
 	/// there is a device to read at all (§18.6). Without this latch the routes would frame the map
 	/// a moment before <see cref="RestoreViewAsync"/> answered "this rider left it half a mile up
 	/// the road", and the fit and the stored camera would then race for the same view.
@@ -823,8 +823,8 @@
 	private bool _viewRestored;
 
 	/// <summary>
-	/// The ground the map opens framed on the first time this rider opens this ride — the box
-	/// round its planned routes — or null when it has none, or when the view came from somewhere
+	/// The ground the map opens framed on the first time this rider opens this ride - the box
+	/// round its planned routes - or null when it has none, or when the view came from somewhere
 	/// with a better claim (see <see cref="FrameOpeningAsync"/>).
 	/// <para>
 	/// <strong>A box rather than a camera, and only for the opening frame.</strong> A zoom guessed
@@ -853,7 +853,7 @@
 	/// <para>
 	/// <strong>Nobody else sees this.</strong> The server holds the circle for the account that
 	/// set it and answers with it to nobody else: it is not part of the ride's data, no endpoint
-	/// exposes another rider's area, and <c>SharedProfile</c> has no field for one — so there is
+	/// exposes another rider's area, and <c>SharedProfile</c> has no field for one - so there is
 	/// nothing for another member's client to draw even if it wanted to.
 	/// </para>
 	/// </summary>
@@ -883,7 +883,7 @@
 	/// The rows that panel draws, rebuilt when something moves rather than per render.
 	/// <para>
 	/// Deriving them costs one projection onto the route per member (§5.4), and this page renders
-	/// several times a second on a phone that is sharing — most of those for reasons that cannot have
+	/// several times a second on a phone that is sharing - most of those for reasons that cannot have
 	/// changed anybody's place on the road. So it is rebuilt exactly where the map layer is, from the
 	/// two events that can move a rider: a position batch, and this device's own fix.
 	/// </para>
@@ -909,7 +909,7 @@
 	/// <para>
 	/// "Add marker" arms this instead of opening the composer, because the point is a thing the
 	/// rider picks on the map they are already reading. The composer used to open on the centre
-	/// of that view, which is a guess — and the one place a rider never wants to mark is the
+	/// of that view, which is a guess - and the one place a rider never wants to mark is the
 	/// middle of their own screen, because that is where they are.
 	/// </para>
 	/// <para>
@@ -923,7 +923,7 @@
 	private Guid? _openMarkerId;
 
 	/// <summary>
-	/// The markers a tap on the map landed on, nearest first — identified by id rather than
+	/// The markers a tap on the map landed on, nearest first - identified by id rather than
 	/// held as DTOs so the popup follows the session's marker set. An edit arriving on the hub
 	/// updates what is on screen, and a marker deleted underneath simply drops out; keeping
 	/// copies would leave the popup showing a marker nobody else can see any more.
@@ -947,12 +947,12 @@
 	/// Coarse on purpose, and coarser the older it gets: "18 min ago" and "19 min ago" are the
 	/// same fact to somebody deciding whether to trust a pin, and a number that ticks over every
 	/// second is a thing to watch rather than a thing to read. The units are what carry the
-	/// meaning — minutes is a group that has probably not gone far, hours is not.
+	/// meaning - minutes is a group that has probably not gone far, hours is not.
 	/// </para>
 	/// <para>
 	/// Recomputed on render rather than on a timer of its own. On a phone that is sharing, the
 	/// receiver re-renders this page about once a second and the label keeps up; on one that is
-	/// not, it can sit still while the copy ages — which is a stale reading of a stale copy, and
+	/// not, it can sit still while the copy ages - which is a stale reading of a stale copy, and
 	/// the reason the sentence never says "just now" for anything but the first minute.
 	/// </para>
 	/// </summary>
@@ -965,7 +965,7 @@
 				return "when you last had signal";
 			}
 
-			// Negative when the device's clock has moved backwards under a stored stamp — a manual
+			// Negative when the device's clock has moved backwards under a stored stamp - a manual
 			// change, or a phone that picked up network time after being off for a week. Clamped
 			// rather than rendered, because "in 3 hours" is not a thing a cache can be.
 			TimeSpan age = Clock.GetUtcNow() - cached;
@@ -981,11 +981,11 @@
 	}
 
 	/// <summary>
-	/// What the follow button says it is for, and — once it is on — what it is currently managing
+	/// What the follow button says it is for, and - once it is on - what it is currently managing
 	/// to do.
 	/// <para>
 	/// The third case is the one that has to be there. Following with nothing to point at is not a
-	/// fault — a receiver that has not got a lock yet has nothing of its own to point at. It used
+	/// fault - a receiver that has not got a lock yet has nothing of its own to point at. It used
 	/// to be stated in words beside the menu item, and now that the button is the only control it
 	/// is the button that has to say it: a lit control over a map that is not moving otherwise
 	/// reads as broken.
@@ -994,12 +994,12 @@
 	private string FollowLabel => (_followMe, MyPoint) switch
 	{
 		(false, _) => "Centre on me and follow",
-		(true, null) => "Stop following me — waiting for a fix",
+		(true, null) => "Stop following me - waiting for a fix",
 		_ => "Stop following me",
 	};
 
 	/// <summary>
-	/// What the heading-up button says it is for, and — once it is on — whether it has anything to
+	/// What the heading-up button says it is for, and - once it is on - whether it has anything to
 	/// turn the map by.
 	/// <para>
 	/// The third case is the counterpart of <see cref="FollowLabel"/>'s and is there for the same
@@ -1013,7 +1013,7 @@
 	private string HeadingUpLabel => (_headingUp, MyHeadingDeg) switch
 	{
 		(false, _) => "Turn the map to my heading",
-		(true, null) => "North up — waiting for a heading",
+		(true, null) => "North up - waiting for a heading",
 		_ => "North up",
 	};
 
@@ -1060,8 +1060,8 @@
 	/// <summary>
 	/// This rider's own latest fix, or null when the ride has none for them.
 	/// <para>
-	/// The ride's own view of where they are — the same fix everyone else's map is drawing them
-	/// at — rather than a second read of the device's GPS, which a browser has no way to make
+	/// The ride's own view of where they are - the same fix everyone else's map is drawing them
+	/// at - rather than a second read of the device's GPS, which a browser has no way to make
 	/// anyway (§18.6). This is what a host with no receiver falls back to; a phone prefers its own
 	/// reading, see <see cref="MyPoint"/>. On this host the private area does not arise: a
 	/// suppressed fix was never sent, so there is nothing here to draw.
@@ -1075,7 +1075,7 @@
 		Auth.UserId is { } me && _session.Positions.TryGetValue(me, out RiderPositionDto? mine) ? mine : null;
 
 	/// <summary>
-	/// Whether this host reads its own GPS — and therefore whether the ride's copy of this rider is
+	/// Whether this host reads its own GPS - and therefore whether the ride's copy of this rider is
 	/// allowed onto this map at all.
 	/// <para>
 	/// <strong>The one thing that decides it, in both places it is decided.</strong> On a phone the
@@ -1092,14 +1092,14 @@
 	/// receiver and the rider has said yes.
 	/// <para>
 	/// The gate in front of every GPS warning below, and it is what keeps them honest. A receiver
-	/// that is off because nobody asked it for anything is the correct resting state — warning
+	/// that is off because nobody asked it for anything is the correct resting state - warning
 	/// about it would be an app complaining that the rider has not agreed to be tracked.
 	/// </para>
 	/// </summary>
 	private bool ReceiverShouldBeRunning => HasOwnReceiver && _session.Sharing;
 
 	/// <summary>
-	/// Nothing is reaching the hub (§5.3) — the warning a phone gets and a browser does not.
+	/// Nothing is reaching the hub (§5.3) - the warning a phone gets and a browser does not.
 	/// <para>
 	/// Read straight off the client rather than mirrored into a field: the connection changes on
 	/// SignalR's schedule, and a copy of it here would be one more thing that can be stale at the
@@ -1118,7 +1118,7 @@
 			or LocationBroadcastStatus.PermissionBlocked;
 
 	/// <summary>
-	/// The receiver is up and has produced nothing publishable yet — cold, or under a roof, or in
+	/// The receiver is up and has produced nothing publishable yet - cold, or under a roof, or in
 	/// a gorge. <see cref="LocationBroadcastStatus.Starting"/> counts: to a rider standing still
 	/// waiting to appear, the difference between "still asking the platform" and "asking the sky"
 	/// is not one they can act on differently.
@@ -1126,7 +1126,7 @@
 	/// Not <see cref="LocationBroadcastStatus.Suppressed"/>, which is the opposite thing: the
 	/// rider's own private area doing exactly what they set it to do (§10.1). Calling that "no
 	/// signal" would send somebody hunting for a fault they built. It no longer looks the same
-	/// from the map's side either — inside the area the rider's own mark keeps moving and only the
+	/// from the map's side either - inside the area the rider's own mark keeps moving and only the
 	/// hub is kept from the fix, so the one thing left to say about it is that nothing is being
 	/// sent, which is what the receiver's own line says.
 	/// </para>
@@ -1143,8 +1143,8 @@
 	/// <para>
 	/// <strong>Why a phone refuses the round trip rather than merely preferring the local read.</strong>
 	/// The ride's copy is the same fix after a journey: filtered by <c>PositionGate</c> on the way
-	/// out (§4.2) and returned on a 5 s fan-out tick (§5.3). Every one of those is right for showing the <em>other</em> riders — it is the
-	/// best anyone can know about somebody else — and every one is a reason not to show it back to
+	/// out (§4.2) and returned on a 5 s fan-out tick (§5.3). Every one of those is right for showing the <em>other</em> riders - it is the
+	/// best anyone can know about somebody else - and every one is a reason not to show it back to
 	/// the person whose phone produced it, who has the current answer in their hand. Preferring the
 	/// device and falling back to the server was worse than either: the mark would track properly,
 	/// then jump backwards to a stale point the moment the GPS blinked.
@@ -1152,11 +1152,11 @@
 	/// <para>
 	/// <strong>The private area does not enter into this, and it used to.</strong> <c>OwnFix</c>
 	/// answered null while a fix was suppressed, so a rider inside their own circle lost the mark,
-	/// the follow camera and the heading-up rotation together — the map went dead in the driveway
+	/// the follow camera and the heading-up rotation together - the map went dead in the driveway
 	/// and came back at the edge of the circle. There was never anyone to protect by that: this
 	/// value is read to draw one rider's own screen and goes nowhere else, and the person reading
 	/// it is standing in the area. §10.1 stops the fix reaching the hub, which is the part that
-	/// concerns anybody else (§10.1). In a browser the question does not arise — a suppressed fix
+	/// concerns anybody else (§10.1). In a browser the question does not arise - a suppressed fix
 	/// was never sent, so the server has nothing to return, and there the map really is blank.
 	/// </para>
 	/// </summary>
@@ -1166,7 +1166,7 @@
 			: MyPosition is { } mine ? (PositionScale.ToDegrees(mine.Lat), PositionScale.ToDegrees(mine.Lon)) : null;
 
 	/// <summary>
-	/// Which way this rider is travelling, for a map that is turned to match — or null when
+	/// Which way this rider is travelling, for a map that is turned to match - or null when
 	/// nothing on screen should be turned by it.
 	/// <para>
 	/// Split between the device's own reading and the ride's copy on exactly the same rule as
@@ -1175,7 +1175,7 @@
 	/// </para>
 	/// <para>
 	/// <strong>Null is the important case and it has two causes, both of which mean "hold".</strong>
-	/// A fix with no heading at all is the receiver saying it does not know, which is never zero —
+	/// A fix with no heading at all is the receiver saying it does not know, which is never zero -
 	/// zero is due north (§8). And a heading under <see cref="HeadingSpeedFloorMps"/> is arithmetic
 	/// on a bike that is not moving. Answering null for both leaves <see cref="AimCameraAsync"/>
 	/// with nothing to turn to, so the map keeps the bearing it had, which is what a rider stopped
@@ -1214,7 +1214,7 @@
 				return null;
 			}
 
-			// Routes[0] is the route RoutePolyline was derived from — see RideSession.ApplyRoutes.
+			// Routes[0] is the route RoutePolyline was derived from - see RideSession.ApplyRoutes.
 			return _session.Routes.Count > 0 && RouteStyles.IsReversed(_session.Routes[0].TrackId)
 				? [.. line.Reverse()]
 				: line;
@@ -1222,7 +1222,7 @@
 	}
 
 	/// <summary>
-	/// Where this rider is along the planned route, or null when that cannot be answered — no route,
+	/// Where this rider is along the planned route, or null when that cannot be answered - no route,
 	/// or no fix of this device's own yet.
 	/// <para>
 	/// Projected from <see cref="MyPoint"/> rather than read off the ride's copy of this rider, and
@@ -1238,7 +1238,7 @@
 			: null;
 
 	/// <summary>
-	/// This device drawn as itself (§4.3), or null when there is no fix of its own to draw — the
+	/// This device drawn as itself (§4.3), or null when there is no fix of its own to draw - the
 	/// web, or a receiver that is off or still warming up. <em>Not</em> the private area: a rider
 	/// inside their own circle still sees themselves, and only the hub is kept from the fix
 	/// (§10.1).
@@ -1250,7 +1250,7 @@
 	private MapMarker? SelfMarker => _broadcast?.OwnFix is { } fix
 		? new MapMarker(
 			// Keyed on the rider rather than on a sentinel, so this occupies the same slot the
-			// server's copy of them would have — belt and braces behind RebuildMapLayer's skip.
+			// server's copy of them would have - belt and braces behind RebuildMapLayer's skip.
 			Id: Auth.UserId ?? Guid.Empty,
 			Latitude: fix.Latitude,
 			Longitude: fix.Longitude,
@@ -1265,11 +1265,11 @@
 	private const double FocusZoom = 16;
 
 	/// <summary>
-	/// This device's receiver, or <c>null</c> on a host that has none — both browsers (§18.6).
+	/// This device's receiver, or <c>null</c> on a host that has none - both browsers (§18.6).
 	/// <para>
 	/// Resolved rather than <c>@@inject</c>ed because the web hosts do not register it at all: GPS
 	/// is a mobile concern, and a stub answering "not supported" was a registration kept alive so
-	/// one <c>@@inject</c> could succeed. Null is a state this page already knew how to draw — see
+	/// one <c>@@inject</c> could succeed. Null is a state this page already knew how to draw - see
 	/// <see cref="HasOwnReceiver"/>, which is what decides between this device's own fix and the
 	/// ride's round-tripped copy of it.
 	/// </para>
@@ -1294,21 +1294,21 @@
 			StateHasChanged();
 		}));
 
-		// RideSession has taken a nullable broadcaster from the start — see its constructor.
+		// RideSession has taken a nullable broadcaster from the start - see its constructor.
 		_session = new RideSession(Api, Hub, Auth, _broadcast, Cache);
 		_session.Changed += OnSessionChanged;
 
 		if (_broadcast is { } broadcast)
 		{
-			// The receiver's state is drawn on this screen — see the line under the menu and the
-			// strip over the map — and it moves on its own timetable, not the session's.
+			// The receiver's state is drawn on this screen - see the line under the menu and the
+			// strip over the map - and it moves on its own timetable, not the session's.
 			broadcast.Changed += OnBroadcastChanged;
 		}
 
 		if (_privateAreas is { } areas)
 		{
 			// The area can be placed, moved or removed on the settings screen while this page is
-			// still mounted — PrivateAreaState is scoped, so it is the same instance — and the map
+			// still mounted - PrivateAreaState is scoped, so it is the same instance - and the map
 			// should agree with the setting without a reload.
 			areas.Changed += OnPrivateAreaChanged;
 			RebuildPrivateAreaLayer();
@@ -1333,8 +1333,8 @@
 	/// settings screen has already read.
 	/// <para>
 	/// Also where this page takes the screen (§4.3). Here rather than in <c>OnInitialized</c> for
-	/// the same reason as the two reads above — this is the first point at which there is a device
-	/// to talk to rather than a prerender — and it is paired with the release in
+	/// the same reason as the two reads above - this is the first point at which there is a device
+	/// to talk to rather than a prerender - and it is paired with the release in
 	/// <see cref="DisposeAsync"/>.
 	/// </para>
 	/// </summary>
@@ -1352,11 +1352,11 @@
 
 		// Which way round this device reads the ride's route, which is what decides who the
 		// neighbours panel calls "ahead". Idempotent, and the map overlay inside RideMap asks for
-		// the same read — whichever of the two arrives first pays for it.
+		// the same read - whichever of the two arrives first pays for it.
 		await RouteStyles.LoadAsync();
 
 		// How long a silent rider stays drawn, from the same device store (§18.6). Read before the
-		// view is restored so the first frame a rider sees is already filtered — and the layer is
+		// view is restored so the first frame a rider sees is already filtered - and the layer is
 		// rebuilt, because the ride's snapshot may have landed several renders ago and built one
 		// under the default.
 		_pinExpiry = PinExpiry.Decode(await Settings.GetAsync(PinExpiry.StorageKey));
@@ -1374,7 +1374,7 @@
 	/// the meeting point reading who has arrived is looking at the screen exactly as much as one
 	/// doing eighty, and a lock that switches itself off at a state change is one that goes dark
 	/// at the moment the ride starts. On a host without a screen to hold this is a no-op
-	/// (§18.6) — see <see cref="IScreenWakeLock"/>.
+	/// (§18.6) - see <see cref="IScreenWakeLock"/>.
 	/// </para>
 	/// <para>
 	/// The flag guards the pairing rather than the lock: <c>OnAfterRenderAsync</c> and
@@ -1406,7 +1406,7 @@
 	}
 
 	/// <summary>
-	/// The device's receiver moved. On the phone this — not the ride's position batch — is what
+	/// The device's receiver moved. On the phone this - not the ride's position batch - is what
 	/// usually moves the map: this rider's own mark is drawn from the device's fix (see
 	/// <see cref="SelfMarker"/>), the follow camera aims at it (see <see cref="MyPoint"/>) and the
 	/// map's bearing comes off the same fix (see <see cref="MyHeadingDeg"/>), so a fix arriving has
@@ -1417,19 +1417,19 @@
 		RebuildMapLayer();
 		StateHasChanged();
 
-		// Cheap when the rider has neither moved nor turned — see _followedTo and _aimedBearing.
+		// Cheap when the rider has neither moved nor turned - see _followedTo and _aimedBearing.
 		// Glided, because this is the fix-by-fix case: a second of travel arriving at once.
 		await AimCameraAsync(CameraGlide);
 
 		// A ride with no planned route opens on this fix, and on a phone this is where the first
 		// one lands. Latched after the first, so the rest of the ride's fixes cost only the test at
-		// the top of it — see FrameOpeningAsync.
+		// the top of it - see FrameOpeningAsync.
 		await FrameOpeningAsync();
 	});
 
 	/// <summary>
-	/// The hub came up or went away. Nothing to rebuild — the layers are unchanged, and what is on
-	/// them is exactly what has stopped being maintained — so this only re-renders the warnings.
+	/// The hub came up or went away. Nothing to rebuild - the layers are unchanged, and what is on
+	/// them is exactly what has stopped being maintained - so this only re-renders the warnings.
 	/// </summary>
 	private void OnHubConnectionChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -1440,7 +1440,7 @@
 	}
 
 	/// <summary>
-	/// The device's route style moved — which, for this page, means a route may have been turned
+	/// The device's route style moved - which, for this page, means a route may have been turned
 	/// end for end. The overlay redraws itself off the same event; this is the half of it the
 	/// neighbours panel depends on, since reversing a line swaps who is ahead of whom.
 	/// </summary>
@@ -1452,7 +1452,7 @@
 
 	/// <summary>
 	/// Projects the device's area into the overlay's circle list. A fresh list is what tells the
-	/// canvas to repaint, so this runs on change rather than per render — the live map already
+	/// canvas to repaint, so this runs on change rather than per render - the live map already
 	/// repaints about once a second on positions alone.
 	/// </summary>
 	private void RebuildPrivateAreaLayer() =>
@@ -1469,7 +1469,7 @@
 			return;
 		}
 
-		// A different ride in the same component instance — the router reuses this page when only
+		// A different ride in the same component instance - the router reuses this page when only
 		// the route parameter changes. The ride being left keeps the ground it was left on (it is
 		// still _session.RideId at this point, which is what RememberViewAsync stamps), and the
 		// camera goes back to the default: the stored view names one ride, and applying it to
@@ -1482,7 +1482,7 @@
 			_followedTo = null;
 
 			// A different ride is a different question of where the map should open, and the
-			// answer is not the last ride's — see FrameOpeningAsync. The stored view is consulted
+			// answer is not the last ride's - see FrameOpeningAsync. The stored view is consulted
 			// again from memory (_savedView) rather than re-read: it names one ride, and the one
 			// it names is the one just left.
 			_framed = false;
@@ -1503,7 +1503,7 @@
 		_forgotten = false;
 		// Armed on one ride, spent on another is a marker on the wrong ride.
 		_placingMarker = false;
-		// "Following off — you moved the map" is about a map that is no longer on screen.
+		// "Following off - you moved the map" is about a map that is no longer on screen.
 		_toasts!.Clear();
 		// One ride's riders and one ride's gaps. The load below refills it; leaving the old ride's
 		// names on the edge of the new ride's map for the length of a round trip would be worse than
@@ -1514,7 +1514,7 @@
 
 		// This is the ride the rail's globe leads back to from now on, and after the next launch
 		// (§18.6). Written here rather than on the join screen because this is the one page every
-		// route into a ride ends on — a code redeemed, a row tapped in the list, a link followed,
+		// route into a ride ends on - a code redeemed, a row tapped in the list, a link followed,
 		// or the globe itself.
 		//
 		// Only once the snapshot has landed: a ride id that 404s or that this rider is not a member
@@ -1525,7 +1525,7 @@
 		}
 		else if (_session.RideUnavailable)
 		{
-			// The server said this ride is not there for this rider — deleted, or they have been
+			// The server said this ride is not there for this rider - deleted, or they have been
 			// removed from it (§5.2). Forgotten, so the globe stops leading to a page that can only
 			// answer "no such ride". Only this ride: see CurrentRideState.ForgetAsync.
 			//
@@ -1538,8 +1538,8 @@
 		}
 
 		// The ride's routes are in, which is the frame this page prefers. A no-op on the very
-		// first load — the device store has not been read yet, so RestoreViewAsync makes this call
-		// instead — and the whole of it on every change of ride after that, where there is no
+		// first load - the device store has not been read yet, so RestoreViewAsync makes this call
+		// instead - and the whole of it on every change of ride after that, where there is no
 		// second first render to hang it off.
 		await FrameOpeningAsync();
 
@@ -1571,7 +1571,7 @@
 			}
 
 			// Every position batch is a chance that this rider moved, and this is the only place
-			// that learns about one. Cheap when they did not — see _followedTo. Glided for the same
+			// that learns about one. Cheap when they did not - see _followedTo. Glided for the same
 			// reason as the receiver fix above.
 			await AimCameraAsync(CameraGlide);
 
@@ -1617,7 +1617,7 @@
 	/// <para>
 	/// <strong>No toast, unlike the two modes below the same rule.</strong> Those change what the map
 	/// does <em>after</em> the tap that set them, which is why a rider who has forgotten one is on
-	/// reads the map moving by itself as a fault — the sentence is what pays for that. This one is
+	/// reads the map moving by itself as a fault - the sentence is what pays for that. This one is
 	/// visible the instant the menu closes over it: it is either there or it is not, and announcing
 	/// a panel that is already on screen is one more thing to read while riding.
 	/// </para>
@@ -1632,7 +1632,7 @@
 		_showNeighbours = !_showNeighbours;
 
 		// Switching it on has to fill it now. The rebuild otherwise waits on the next position batch,
-		// which on a ride nobody is moving in — a group at the meeting point — is a panel that stays
+		// which on a ride nobody is moving in - a group at the meeting point - is a panel that stays
 		// empty for as long as the rider is prepared to look at it.
 		RebuildNeighbours();
 
@@ -1640,12 +1640,12 @@
 	}
 
 	/// <summary>
-	/// Turns "keep me centred" on or off, and acts on it at once — a rider who has just panned
+	/// Turns "keep me centred" on or off, and acts on it at once - a rider who has just panned
 	/// away and switched it on is asking to be brought back now, not at the next fix.
 	/// <para>
 	/// Reached from the button over the map, and from nowhere else. It briefly had a duplicate
 	/// under the rule in the menu; that went as soon as the button existed, because two controls
-	/// for one mode is a mode a rider has to check twice — and the one they would check is the
+	/// for one mode is a mode a rider has to check twice - and the one they would check is the
 	/// one on screen.
 	/// </para>
 	/// <para>
@@ -1668,7 +1668,7 @@
 			(_, bool wasHeadingUp) = StopFollowing();
 
 			// The map is left at whatever bearing it is on. The rider pressed "stop following",
-			// not "north up" — straightening the map would be a second thing they did not ask for,
+			// not "north up" - straightening the map would be a second thing they did not ask for,
 			// and the base map's own compass is a permanent control for exactly that.
 			_toasts!.Show($"{NameStopped(wasFollowing: true, wasHeadingUp)}.");
 		}
@@ -1680,7 +1680,7 @@
 			// when the rider has not moved since.
 			_followedTo = null;
 
-			_toasts!.Show("Following you — the map stays centred as you travel.");
+			_toasts!.Show("Following you - the map stays centred as you travel.");
 		}
 
 		// Not glided: switching following on brings a rider back from wherever they had panned to,
@@ -1692,13 +1692,13 @@
 
 	/// <summary>
 	/// Takes following off, and heading-up with it. <strong>The one place either of those is ever
-	/// switched off by something other than the rider choosing the opposite mode</strong> — the
+	/// switched off by something other than the rider choosing the opposite mode</strong> - the
 	/// follow button, a pan, and choosing a marker to look at all come through here, so the pairing
 	/// cannot hold on two of the three routes and quietly not on the third.
 	/// <para>
 	/// <strong>Why heading-up cannot outlive following.</strong> The map rotates about the centre of
 	/// the screen. A turning map the rider is not at the centre of swings the ground around a point
-	/// that is nobody, which is worse than a north-up map rather than better — so the moment the
+	/// that is nobody, which is worse than a north-up map rather than better - so the moment the
 	/// rider stops being the centre, there is nothing left for the rotation to mean. The same fact
 	/// makes <see cref="ToggleHeadingUpAsync"/> switch following <em>on</em>; this is it read
 	/// backwards.
@@ -1728,7 +1728,7 @@
 
 	/// <summary>
 	/// Names the modes that have just stopped, as the opening of the sentence saying why. One
-	/// wording for all three routes out — the button, a pan, and choosing a marker — because they
+	/// wording for all three routes out - the button, a pan, and choosing a marker - because they
 	/// are the same event to a rider, differing only in what caused it.
 	/// </summary>
 	/// <param name="wasFollowing">Whether the map had been keeping this rider centred.</param>
@@ -1747,7 +1747,7 @@
 	/// <para>
 	/// Reached from the button over the map, and from nowhere else. It lived under the rule in the
 	/// menu until following got a button of its own; it went out to the stack beside that one for
-	/// the reason given in the markup — both modes keep moving the map after the tap that set them,
+	/// the reason given in the markup - both modes keep moving the map after the tap that set them,
 	/// so both are read and changed while riding, and neither is reachable from two places.
 	/// </para>
 	/// <para>
@@ -1755,26 +1755,26 @@
 	/// the centre of the screen, so heading-up only says what it means when the rider <em>is</em>
 	/// that centre: turned to somebody's heading while they sit off in a corner, the ground swings
 	/// around a point that is nobody, which is worse than north-up rather than better. Asking for a
-	/// map that behaves like a bike computer and being handed half of one — and having to find a
-	/// second control to get the rest — is not a reading of the request anybody holds.
+	/// map that behaves like a bike computer and being handed half of one - and having to find a
+	/// second control to get the rest - is not a reading of the request anybody holds.
 	/// </para>
 	/// <para>
 	/// One direction only. Turning heading-up back <em>off</em> leaves following exactly as it is:
 	/// a north-up map that keeps the rider on screen is an ordinary thing to want, and it is what
-	/// most riders are already using. The pairing is enforced from the other end instead — every
+	/// most riders are already using. The pairing is enforced from the other end instead - every
 	/// route that stops following takes heading-up with it (<see cref="StopFollowing"/>), which is
 	/// the same fact read backwards.
 	/// </para>
 	/// <para>
 	/// <strong>Turning it off puts the map back to north, and that is the whole of the setting.</strong>
-	/// "North up" is not the absence of a mode, it is the other choice — so choosing it moves the
+	/// "North up" is not the absence of a mode, it is the other choice - so choosing it moves the
 	/// camera exactly as choosing the other one does. The rider is left looking at the ground they
 	/// were already looking at; only the bearing changes.
 	/// </para>
 	/// <para>
 	/// Note what is <em>not</em> here: the gesture path (<see cref="OnMapGestureAsync"/>) turns the
-	/// mode off without straightening the map. A rider who has just turned the map by hand — or
-	/// tapped the compass, which has already turned it to north itself — has said where they want
+	/// mode off without straightening the map. A rider who has just turned the map by hand - or
+	/// tapped the compass, which has already turned it to north itself - has said where they want
 	/// the bearing, and a camera move on top of that would be the app arguing with them.
 	/// </para>
 	/// </summary>
@@ -1791,7 +1791,7 @@
 		{
 			// See the remarks: a turning map is only legible with the rider at the centre of it.
 			// Unconditional rather than "if it was off", so the forgotten _followedTo below applies
-			// either way and the recentre happens now — a rider who chooses this from off in a
+			// either way and the recentre happens now - a rider who chooses this from off in a
 			// corner of the map is asking to be brought back, not to wait for the next fix.
 			_followMe = true;
 			_followedTo = null;
@@ -1801,7 +1801,7 @@
 		// the same slot. It names both halves because both are true and the rider only asked for
 		// one of them.
 		_toasts!.Show(_headingUp
-			? "Heading up — the map turns as you travel, centred on you."
+			? "Heading up - the map turns as you travel, centred on you."
 			: "North up.");
 
 		if (_headingUp)
@@ -1830,7 +1830,7 @@
 				_mapViewport?.ZoomLevel ?? _camera.ZoomLevel,
 				HeadingDeg: 0),
 
-			// Turned rather than snapped — see TurnGlide. The centre is held, so this is the one
+			// Turned rather than snapped - see TurnGlide. The centre is held, so this is the one
 			// camera on this page that a tap may animate without dragging the map across ground.
 			TurnGlide);
 
@@ -1842,13 +1842,13 @@
 	/// A drag takes both modes off; a twist takes only the bearing.
 	/// </para>
 	/// <para>
-	/// A twist is a statement about which way up the map is and nothing else — the rider is still
+	/// A twist is a statement about which way up the map is and nothing else - the rider is still
 	/// happy to be carried along with the group, so following survives it. A drag is a statement
 	/// about where the centre of the screen is, and heading-up cannot survive losing that: the map
 	/// rotates about the centre, so a turning map that is no longer centred on the rider swings the
 	/// ground around a point that is nobody. That is the same fact that makes
 	/// <see cref="ToggleHeadingUpAsync"/> switch following <em>on</em>, read in the other direction
-	/// — the mode is only legible with the rider at the middle, so it goes when the middle does.
+	/// - the mode is only legible with the rider at the middle, so it goes when the middle does.
 	/// </para>
 	/// <para>
 	/// Neither path moves the camera. The rider has just said where they want it, and straightening
@@ -1858,11 +1858,11 @@
 	/// The toast is not decoration here, it is what makes a self-cancelling mode acceptable at all:
 	/// the modes are set and then left, and a rider who has forgotten one is on reads its silent
 	/// disappearance as the app having lost the setting. Saying which gesture did it also teaches
-	/// the gesture — the next rider who wants the map back does not have to go looking.
+	/// the gesture - the next rider who wants the map back does not have to go looking.
 	/// </para>
 	/// <para>
 	/// Nothing is written to the device store on this path beyond the ordinary throttled view save,
-	/// which <see cref="OnMapViewportReportedAsync"/> is already doing for the same gesture — the
+	/// which <see cref="OnMapViewportReportedAsync"/> is already doing for the same gesture - the
 	/// mode's new value rides along in it.
 	/// </para>
 	/// </summary>
@@ -1875,7 +1875,7 @@
 		{
 			(bool wasFollowing, bool wasHeadingUp) = StopFollowing();
 
-			_toasts!.Show($"{NameStopped(wasFollowing, wasHeadingUp)} — you moved the map.");
+			_toasts!.Show($"{NameStopped(wasFollowing, wasHeadingUp)} - you moved the map.");
 			changed = true;
 		}
 
@@ -1887,7 +1887,7 @@
 			// Names the mode that stopped, not the one that did not start. "North up is off" was
 			// the first wording and it says the opposite of what happened: the map is no longer
 			// being turned for the rider, which if anything is north-up coming back.
-			_toasts!.Show("Heading up off — you turned the map yourself.");
+			_toasts!.Show("Heading up off - you turned the map yourself.");
 		}
 
 		if (!changed)
@@ -1936,8 +1936,8 @@
 	/// </para>
 	/// <para>
 	/// The zoom used to ride along as well, so the composer's own picker could re-open at the
-	/// scale the point was chosen at. That picker is gone — this tap is now the only place the
-	/// point is chosen — so nothing reads a zoom on that route and it is no longer sent.
+	/// scale the point was chosen at. That picker is gone - this tap is now the only place the
+	/// point is chosen - so nothing reads a zoom on that route and it is no longer sent.
 	/// </para>
 	/// <para>
 	/// Built at tap time, not baked into an <c>href</c>: keeping one current would mean
@@ -1960,7 +1960,7 @@
 	// -- The map ------------------------------------------------------------------------------
 
 	/// <summary>
-	/// Nothing on screen depends on the viewport until <see cref="GoToComposer"/> reads it — so no
+	/// Nothing on screen depends on the viewport until <see cref="GoToComposer"/> reads it - so no
 	/// render here. What it does do is remember where the rider is looking, throttled, so the map
 	/// re-opens on this ground rather than on the app's default.
 	/// <para>
@@ -1972,13 +1972,13 @@
 	{
 		_mapViewport = viewport;
 
-		// Only on the *first* frame each mode has seen — the null is what says "opened with this
+		// Only on the *first* frame each mode has seen - the null is what says "opened with this
 		// on and never acted on it yet". Re-aiming on every report would be a camera move per
 		// frame of the rider's own drag, which is the map fighting the hand that is moving it.
 		if ((_followMe && _followedTo is null) || (_headingUp && _aimedBearing is null))
 		{
 			// Not glided: this is the map opening, and the camera it is opening *from* is wherever
-			// the ride was framed — a mode restored from the device store would otherwise slide the
+			// the ride was framed - a mode restored from the device store would otherwise slide the
 			// map in from the other side of the route on every open.
 			await AimCameraAsync(TimeSpan.Zero);
 		}
@@ -1992,7 +1992,7 @@
 	/// left exactly as the rider had it in whichever of the two axes is nobody's business.
 	/// <para>
 	/// <strong>One method for both, because they share a camera.</strong> Two would each have to
-	/// send a whole <see cref="MapCamera"/> — there is no "set the bearing only" — so each would
+	/// send a whole <see cref="MapCamera"/> - there is no "set the bearing only" - so each would
 	/// overwrite the other's axis with a stale copy, and a rider being followed round a corner
 	/// would watch the map snap back and forth between two half-right cameras once a second.
 	/// </para>
@@ -2003,27 +2003,27 @@
 	/// </para>
 	/// <para>
 	/// Every unheld axis is read back from the last reported viewport rather than from
-	/// <see cref="_camera"/>, so a rider who has panned while only the bearing is being driven —
-	/// or turned the map while only the centre is — keeps what they did.
+	/// <see cref="_camera"/>, so a rider who has panned while only the bearing is being driven -
+	/// or turned the map while only the centre is - keeps what they did.
 	/// </para>
 	/// <para>
 	/// <strong>The move is animated, and that is what stops the map lurching.</strong> Both modes
 	/// re-aim on fixes arriving about once a second, so each one is a whole second's travel that
-	/// used to land in a single frame — see <see cref="CameraGlide"/>.
+	/// used to land in a single frame - see <see cref="CameraGlide"/>.
 	/// </para>
 	/// </summary>
 	/// <param name="animation">
 	/// How long the move should take. <see cref="CameraGlide"/> for the mode's own re-aiming, which
 	/// is every caller but one: the first aim after a map opens with a mode already on has nothing
-	/// to travel <em>from</em> — the camera is wherever the ride was framed, which can be the other
-	/// side of a city — so that one jumps.
+	/// to travel <em>from</em> - the camera is wherever the ride was framed, which can be the other
+	/// side of a city - so that one jumps.
 	/// </param>
 	private async Task AimCameraAsync(TimeSpan animation)
 	{
 		(double Latitude, double Longitude)? centre = _followMe ? MyPoint : null;
 		double? bearing = _headingUp ? MyHeadingDeg : null;
 
-		// Neither mode has anything to say — either both are off, or they are on and waiting for a
+		// Neither mode has anything to say - either both are off, or they are on and waiting for a
 		// fix, which the menu states rather than treating as a fault.
 		if (centre is null && bearing is null)
 		{
@@ -2052,7 +2052,7 @@
 			_aimedBearing = aimedAt;
 		}
 
-		// Through the component only — _camera is deliberately left where it was. It is the
+		// Through the component only - _camera is deliberately left where it was. It is the
 		// camera the map *opens* on, and a following map re-aims about once a second: writing
 		// each of those into the parameter would have every render re-issue the move the
 		// component had already made, a second interop call a tick for nothing.
@@ -2067,7 +2067,7 @@
 
 	/// <summary>
 	/// The angle between two bearings, 0–180°. Compass degrees wrap, so the plain difference calls
-	/// a swing from 359° to 1° a 358° turn — which would be a whole extra rotation of the map every
+	/// a swing from 359° to 1° a 358° turn - which would be a whole extra rotation of the map every
 	/// time a rider drifted across north.
 	/// </summary>
 	/// <param name="from">Degrees clockwise from north.</param>
@@ -2099,7 +2099,7 @@
 
 		// A device with nothing stored still has to come out the bottom of this method, not out of
 		// the top of it: the whole of the opening frame is downstream of _viewRestored, and a first
-		// run — a device that has never opened a live map — is exactly the case it exists for.
+		// run - a device that has never opened a live map - is exactly the case it exists for.
 		if (stored is not null)
 		{
 			_savedView = stored;
@@ -2107,14 +2107,14 @@
 			_headingUp = stored.HeadingUp;
 
 			// Carried across rides like the two above it. A device that has never chosen reads back
-			// as on — see LiveMapView.Neighbours — so this is only ever a rider's own "no" arriving.
+			// as on - see LiveMapView.Neighbours - so this is only ever a rider's own "no" arriving.
 			_showNeighbours = stored.Neighbours;
 			RebuildNeighbours();
 
 			if (stored.IsFor(RideId))
 			{
 				// The rider was on this ride minutes ago and left the map somewhere on purpose.
-				// Nothing downstream gets to move it — see FrameOpeningAsync.
+				// Nothing downstream gets to move it - see FrameOpeningAsync.
 				_framed = true;
 				_camera = stored.ToCamera();
 				await ApplyCameraAsync(_camera);
@@ -2124,15 +2124,15 @@
 		await InvokeAsync(StateHasChanged);
 
 		// After the camera, so a rider who left it following ends up on themselves rather than on
-		// the ground they were looking at a ride ago. Silent — no toast: restoring a mode the rider
+		// the ground they were looking at a ride ago. Silent - no toast: restoring a mode the rider
 		// set on a previous screen is not a change of mind, and a map that announced its own
 		// settings on every open would be one more thing to dismiss at the start of every ride.
-		// Not glided, for the same reason as the first frame above — this *is* the map opening.
+		// Not glided, for the same reason as the first frame above - this *is* the map opening.
 		await AimCameraAsync(TimeSpan.Zero);
 
 		// Only now, and after the aim: the device has answered, so "this rider has nothing stored
 		// for this ride" is a fact rather than a read that has not come back yet, and the modes
-		// have already said whether they want this map — see FrameOpeningAsync.
+		// have already said whether they want this map - see FrameOpeningAsync.
 		_viewRestored = true;
 		await FrameOpeningAsync();
 	}
@@ -2142,8 +2142,8 @@
 	/// <see cref="_camera"/>.
 	/// <para>
 	/// <strong>Why this is not simply <c>_camera.HeadingDeg</c>.</strong> Heading-up turns the map
-	/// through the component and deliberately leaves <see cref="_camera"/> alone — see
-	/// <see cref="AimCameraAsync"/> — so the field lags a turning map by as much as the whole
+	/// through the component and deliberately leaves <see cref="_camera"/> alone - see
+	/// <see cref="AimCameraAsync"/> - so the field lags a turning map by as much as the whole
 	/// rotation. Anything that <em>does</em> write the field has to put the current bearing back
 	/// with it, because <c>RideMap</c> re-applies the parameter on the render that follows: build
 	/// a camera on <c>_camera.HeadingDeg</c> and the next frame straightens the map under a rider
@@ -2164,7 +2164,7 @@
 	/// </para>
 	/// <para>
 	/// <strong>Once per ride, latched.</strong> <see cref="_framed"/> goes up the first time this
-	/// answers and every later call returns at the top — which matters because this runs off
+	/// answers and every later call returns at the top - which matters because this runs off
 	/// position batches and device fixes, both of which arrive about once a second. Re-framing on
 	/// those would drag the map back off whatever the rider had panned to, once per second, for
 	/// the length of the ride. The second and every later open reads the stored view instead
@@ -2173,7 +2173,7 @@
 	/// <para>
 	/// <strong>Following outranks both, when it has something to follow.</strong> A rider who left
 	/// the last ride centred on themselves has said where they want the map, and it is not a fact
-	/// about this ride's ground — so the frame stands down rather than fitting a route that
+	/// about this ride's ground - so the frame stands down rather than fitting a route that
 	/// <see cref="AimCameraAsync"/> would pull off a second later. With no fix yet it does
 	/// <em>not</em> stand down: a following map with nothing to follow is the default camera, and
 	/// the route is better than that until the first fix lands.
@@ -2181,7 +2181,7 @@
 	/// </summary>
 	private async Task FrameOpeningAsync()
 	{
-		// Before the store has answered, "nothing is stored for this ride" is not yet knowable —
+		// Before the store has answered, "nothing is stored for this ride" is not yet knowable -
 		// see _viewRestored.
 		if (_framed || !_viewRestored)
 			return;
@@ -2197,7 +2197,7 @@
 
 		// Every route the ride carries, not the first: §5.4 lets a ride hold the short option and
 		// the long one, and framing on one of them puts the other off the screen. Ill-formed boxes
-		// are dropped rather than merged — one corner at a longitude of 1000 would frame the map
+		// are dropped rather than merged - one corner at a longitude of 1000 would frame the map
 		// on the whole world and hide the routes that were fine.
 		if (TrackBounds.Around([.. _session.Routes
 			.Select(route => route.Bounds)
@@ -2208,7 +2208,7 @@
 			_openingBounds = routes;
 
 			// Both, exactly as the track pages do it: the camera is what a base map that has not
-			// attached yet opens on — it needs a centre before it has a canvas to measure — and
+			// attached yet opens on - it needs a centre before it has a canvas to measure - and
 			// the fit is the correction once there is one. The zoom carried here is a placeholder
 			// for that one frame, so it does not matter that it is the default's.
 			_camera = new MapCamera(
@@ -2223,7 +2223,7 @@
 
 		if (MyPoint is { } here)
 		{
-			// No route, so there is no box — just the one point worth opening on. A zoom has to be
+			// No route, so there is no box - just the one point worth opening on. A zoom has to be
 			// guessed here and only here; see OpeningZoomLevel.
 			_framed = true;
 			_camera = new MapCamera(here.Latitude, here.Longitude, OpeningZoomLevel, CurrentBearingDeg);
@@ -2238,7 +2238,7 @@
 
 	/// <summary>
 	/// Holds the current view for the next time this map opens, and lets it through to the device
-	/// store at most every <see cref="SaveInterval"/> — or immediately when the caller says so.
+	/// store at most every <see cref="SaveInterval"/> - or immediately when the caller says so.
 	/// </summary>
 	/// <param name="now">
 	/// True for a deliberate act (the follow toggle, leaving the page, leaving the ride), false for
@@ -2288,7 +2288,7 @@
 		_pendingView = null;
 		_savedView = view;
 
-		// IDeviceSettings never throws — a browser with site data blocked answers the same as a
+		// IDeviceSettings never throws - a browser with site data blocked answers the same as a
 		// first run, and a view that cannot be persisted is not worth failing a live map over.
 		await Settings.SetAsync(LiveMapView.StorageKey, view.Encode());
 	}
@@ -2298,13 +2298,13 @@
 	/// <para>
 	/// Driven through the component rather than by assigning <see cref="_camera"/> alone: a
 	/// parameter only moves the map when its value differs from the last one applied, so asking
-	/// for the same camera twice — following a rider back to a point they had panned away from,
-	/// or choosing the same marker again — would do nothing at all the second time.
+	/// for the same camera twice - following a rider back to a point they had panned away from,
+	/// or choosing the same marker again - would do nothing at all the second time.
 	/// </para>
 	/// </summary>
 	/// <param name="camera">Where the map should be looking.</param>
 	/// <param name="animation">
-	/// How long to take getting there. Zero — the default — is the jump this page has always made
+	/// How long to take getting there. Zero - the default - is the jump this page has always made
 	/// when it <em>asserts</em> a view: opening on the stored camera, framing the ride, going to a
 	/// marker. <see cref="CameraGlide"/> is what the two automatic modes use instead; see there.
 	/// </param>
@@ -2359,7 +2359,7 @@
 	private void CloseNearby() => _nearbyMarkerIds = Array.Empty<Guid>();
 
 	/// <summary>
-	/// Expands a row and brings the map to it. Collapsing leaves the camera alone — somebody
+	/// Expands a row and brings the map to it. Collapsing leaves the camera alone - somebody
 	/// closing a panel is done reading, not asking to be taken somewhere.
 	/// </summary>
 	private async Task ToggleMarkerAsync(MarkerDto marker)
@@ -2376,12 +2376,12 @@
 
 	/// <summary>
 	/// Centres the map on a marker and zooms in, without zooming <em>out</em> on somebody who
-	/// is already closer than <see cref="FocusZoom"/> — pulling the view back would throw away
+	/// is already closer than <see cref="FocusZoom"/> - pulling the view back would throw away
 	/// detail they had chosen.
 	/// <para>
 	/// Stops following, and says so. Being carried to a marker and then dragged back to yourself a
 	/// second later is not a reading of "show me that pin" anybody holds; the rider asked to look
-	/// at something, and the mode has to yield to that — but silently dropping a mode is exactly
+	/// at something, and the mode has to yield to that - but silently dropping a mode is exactly
 	/// the surprise <see cref="OnMapGestureAsync"/> exists to avoid, and this drops one for the
 	/// same reason and deserves the same sentence.
 	/// </para>
@@ -2391,7 +2391,7 @@
 	/// heading would be rotating about a pin nobody is standing on.
 	/// </para>
 	/// <para>
-	/// The bearing itself is left where it is — see the camera below. Choosing a marker says which
+	/// The bearing itself is left where it is - see the camera below. Choosing a marker says which
 	/// ground to look at, not which way up.
 	/// </para>
 	/// </summary>
@@ -2406,7 +2406,7 @@
 
 		if (wasFollowing || wasHeadingUp)
 		{
-			_toasts!.Show($"{NameStopped(wasFollowing, wasHeadingUp)} — showing you that marker.");
+			_toasts!.Show($"{NameStopped(wasFollowing, wasHeadingUp)} - showing you that marker.");
 		}
 
 		double zoom = Math.Max(_mapViewport?.ZoomLevel ?? FocusZoom, FocusZoom);
@@ -2416,7 +2416,7 @@
 			PositionScale.ToDegrees(marker.Lon),
 			zoom,
 			// Carried rather than defaulted. MapCamera's heading defaults to north, so building one
-			// from three arguments is a silent instruction to straighten the map — which on a map
+			// from three arguments is a silent instruction to straighten the map - which on a map
 			// the rider has turned, or that "heading up" is turning for them, is a second
 			// thing this did that nobody asked for.
 			_mapViewport?.HeadingDeg ?? _camera.HeadingDeg);
@@ -2431,14 +2431,14 @@
 	private void RebuildMapLayer()
 	{
 		// The lines arrive already encoded (§15.5), so this is a projection of the session's list
-		// rather than any geometry work — the overlay decodes each line once and keeps it.
+		// rather than any geometry work - the overlay decodes each line once and keeps it.
 		// The track id rides along so the overlay can honour a colour the rider has pinned to
 		// this particular route on the info page (§18.6). Without it the line would fall back
 		// to its position in the list, which is the palette's answer, not theirs.
 		_routeLayer = [.. _session.Routes.Select((route, index) =>
 			new RouteOverlay(route.EncodedPolyline, RoutePalette.At(index), route.TrackId))];
 
-		// Built aside and published at the end — see _markerLayer for why the overlay must never be
+		// Built aside and published at the end - see _markerLayer for why the overlay must never be
 		// handed a dictionary this method is still filling.
 		Dictionary<Guid, MapMarker> markers = new(_markerLayer.Count);
 
@@ -2450,21 +2450,21 @@
 		{
 			if (HasOwnReceiver && position.UserId == Auth.UserId)
 			{
-				// This rider, as the server has them — dropped on a host that reads its own GPS,
+				// This rider, as the server has them - dropped on a host that reads its own GPS,
 				// and dropped there whether or not the device currently has a fix.
 				//
 				// It is this phone's own fix after a round trip (§4.2, §5.3), so at best it is a
 				// worse copy of what SelfMarker already draws and at worst it is a second mark for
 				// one person: at a standstill they sit on top of each other, and at speed they read
-				// as two riders a few seconds apart. When there is no device fix — the GPS off, or
-				// warming up — the honest answer is that this phone does not currently know where
+				// as two riders a few seconds apart. When there is no device fix - the GPS off, or
+				// warming up - the honest answer is that this phone does not currently know where
 				// it is, not a point from before it stopped knowing. A fix inside the private area
 				// is not one of those cases: it is drawn, and it is only the server that never
 				// received it (§10.1).
 				//
 				// A browser keeps it, and draws it as an ordinary rider pill: it has no receiver to
 				// do better with (§18.6), and what it is showing really is the server's view of
-				// this rider — the same one everybody else on the ride is looking at. See
+				// this rider - the same one everybody else on the ride is looking at. See
 				// HasOwnReceiver.
 				continue;
 			}
@@ -2472,11 +2472,11 @@
 			// Too long since this rider was last heard from to keep claiming to know where they are
 			// (§18.6). A position stays in the ride's cache until sharing stops, and it is rebroadcast
 			// every tick whether or not it moved, so a phone that went flat leaves a pin that reads
-			// exactly like somebody standing there — which is how a group ends up riding back for
+			// exactly like somebody standing there - which is how a group ends up riding back for
 			// one. How long is the rider's own answer; see PinExpiry.
 			//
 			// The map and the neighbours panel, which are the two things on this screen that cannot
-			// say how old what they are showing is — a pin has no age on it and "300 m ahead" is a
+			// say how old what they are showing is - a pin has no age on it and "300 m ahead" is a
 			// claim about now. Their row on the members list stays, with the age of that fix written
 			// beside it (see MemberRoster), which is where somebody goes to find out what happened
 			// to them.
@@ -2484,8 +2484,8 @@
 				continue;
 
 			// The colour and the name both come off the member row, not the fix. A position
-			// batch carries neither (§5.3) — the username because it is immutable and would be
-			// bytes repeated every tick, the colour for the same reason — so the fix says where
+			// batch carries neither (§5.3) - the username because it is immutable and would be
+			// bytes repeated every tick, the colour for the same reason - so the fix says where
 			// somebody is and the member list says who and how they are drawn.
 			RideMemberSummary? member = _session.Member(position.UserId);
 
@@ -2536,7 +2536,7 @@
 	/// this panel and the members screen would start naming different leaders.
 	/// </para>
 	/// <para>
-	/// The reader's own place on the route is handed in separately — see <see cref="MyAlongMetres"/>
+	/// The reader's own place on the route is handed in separately - see <see cref="MyAlongMetres"/>
 	/// for why the ride's round-tripped copy of this phone's own fix is not good enough to measure
 	/// everybody else against.
 	/// </para>
@@ -2544,7 +2544,7 @@
 	/// Narrowed by the same <see cref="PinExpiry"/> the pins are, and for a sharper version of the
 	/// same reason: a gap is a claim about where somebody is <em>now</em>. A traveller nobody has
 	/// heard from in an hour would otherwise hold one of the four lines while drifting backwards
-	/// down it. Their row on the members list is untouched — that screen writes the age of the fix
+	/// down it. Their row on the members list is untouched - that screen writes the age of the fix
 	/// beside every number it draws from it.
 	/// </para>
 	/// </summary>
@@ -2553,7 +2553,7 @@
 		if (!_showNeighbours || _session.Ride is not { } ride)
 		{
 			// Nothing on screen to fill, so nothing is spent filling it. Toggling the panel back on
-			// rebuilds — see ToggleNeighboursAsync.
+			// rebuilds - see ToggleNeighboursAsync.
 			_neighbours = [];
 			return;
 		}
@@ -2569,7 +2569,7 @@
 				MemberSort.AlongRoute,
 
 				// So the reader keeps their own place on the route while they are inside their own
-				// private area (§10.1). Nobody else's row is filled from it — a rider who has gone
+				// private area (§10.1). Nobody else's row is filled from it - a rider who has gone
 				// private has no place in this panel, which is the point.
 				HasOwnReceiver ? _broadcast?.OwnFix : null),
 			Auth.UserId,
@@ -2596,7 +2596,7 @@
 			await _session.DeleteMarkerAsync(marker.Id);
 
 			// Somebody's own delete can land while its detail is open. Collapsing it is the
-			// honest response — the alternative is an expanded panel describing a marker that
+			// honest response - the alternative is an expanded panel describing a marker that
 			// no longer exists.
 			if (_openMarkerId == marker.Id)
 			{
@@ -2638,7 +2638,7 @@
 		Hub.ConnectionChanged -= OnHubConnectionChanged;
 
 		// The screen goes back to the rider's own timeout. First, because everything below it can
-		// await the network — and a page that has left the screen should not be holding the device
+		// await the network - and a page that has left the screen should not be holding the device
 		// awake for the length of a hub disconnect on a dead link.
 		//
 		// Note that this is the map's lock and not the ride's: stepping to the info page or the
@@ -2663,7 +2663,7 @@
 }
 
 <style>
-	/* The map is the page — it fills the shell that .page-full pinned to the content area. */
+	/* The map is the page - it fills the shell that .page-full pinned to the content area. */
 	.live .map-fill {
 		position: absolute;
 		inset: 0;
@@ -2696,7 +2696,7 @@
 		gap: 0.5rem;
 	}
 
-	/* One geometry for every button in this stack — and the same 48 px the nav rail and the base
+	/* One geometry for every button in this stack - and the same 48 px the nav rail and the base
 	   map's compass use (app.css). They are read at speed and pressed with gloves on, so they are
 	   a matched set rather than three sizes that happen to be similar. */
 	.live .chrome > button {
@@ -2723,7 +2723,7 @@
 		button's flex row where it would shove the bars aside.
 
 		Here and not in PendingBadge's own file. The badge draws the pill; where it sits is a fact
-		about this button — a 48 px control in a stack over a map — and every number in it is in px
+		about this button - a 48 px control in a stack over a map - and every number in it is in px
 		for that reason: the offsets have to hold against a fixed-size button and a 2 px border,
 		not against whatever type size the badge inherited.
 
@@ -2752,14 +2752,14 @@
 	}
 
 	/*
-		The two camera modes — "centre on me and follow", and "turn the map to my heading" — with
+		The two camera modes - "centre on me and follow", and "turn the map to my heading" - with
 		nothing switched on.
 
 		Deliberately quieter than the hamburger: colours reversed, so the surface is the map's
 		chrome rather than the accent. Three accent-filled buttons stacked on top of each other
 		read as one control split in thirds, and the hamburger is the one that has to be found
 		first by a rider who does not yet know this screen. It also leaves the accent meaning one
-		thing in this stack — "this mode is on" — rather than two.
+		thing in this stack - "this mode is on" - rather than two.
 	*/
 	.live .chrome > button.follow,
 	.live .chrome > button.heading-up {
@@ -2771,7 +2771,7 @@
 	/*
 		On. The state has to survive a visor in daylight, so it is a filled button and not a tint:
 		colour alone is the first thing to go, and these are read at a glance while moving. It is
-		also now the only statement either mode makes with the menu closed — the dot that used to
+		also now the only statement either mode makes with the menu closed - the dot that used to
 		sit on the hamburger's corner went when the second button arrived, because two indicators
 		for one mode is one of them going stale.
 	*/
@@ -2853,7 +2853,7 @@
 	}
 
 	/* The receiver's state. Reads as a caption under the menu's items rather than as another
-	   one of them — it is the only row that is not a control, and a row that looks tappable
+	   one of them - it is the only row that is not a control, and a row that looks tappable
 	   and is not is worse than one that is plainly a label. */
 	.live .menu .gps {
 		display: flex;
@@ -2886,7 +2886,7 @@
 	}
 
 	/*
-		The permanent warnings — no network, GPS off, no fix — plus sharing-off and the dismissible
+		The permanent warnings - no network, GPS off, no fix - plus sharing-off and the dismissible
 		one beside them.
 
 		Tighter than app.css's `.error` box, which is sized for a form. Three of these are on
@@ -2900,12 +2900,12 @@
 	}
 
 	/*
-		"Offline — this ride as it was 12 min ago."
+		"Offline - this ride as it was 12 min ago."
 
 		Shares the .map-error slot with the two above it, and is deliberately not styled as an
 		error: nothing has failed in a way the rider can act on, and a red strip that cannot be
 		dismissed and cannot be fixed at the side of a road becomes something to ignore. It is a
-		plain surface chip like the placing strip at the other end of the map — legible over
+		plain surface chip like the placing strip at the other end of the map - legible over
 		whatever the tiles are doing, and stating a fact rather than raising an alarm.
 
 		It carries its own box because .map-error is only geometry; the red one gets its
@@ -2939,7 +2939,7 @@
 		270 px to say anything in. The bottom is empty, it is where the thumb already is for
 		the Cancel button, and it leaves the ground the rider is aiming at unobscured.
 
-		Inside .page-full, which on a phone already stops above the nav bar — the safe-area
+		Inside .page-full, which on a phone already stops above the nav bar - the safe-area
 		term is what keeps it off the home indicator in landscape, where the map does run to
 		the bottom of the screen.
 	*/
@@ -2963,7 +2963,7 @@
 
 	.live .placing button {
 		flex-shrink: 0;
-		/* The same 48 px tap target the hamburger and the rail use — this one is pressed with
+		/* The same 48 px tap target the hamburger and the rail use - this one is pressed with
 		   gloves on, at the side of a road, to get out of a mode. */
 		min-height: 48px;
 		padding: 0 0.9rem;
@@ -2980,19 +2980,19 @@
 	}
 
 	/*
-		"Following you — the map stays centred as you ride."
+		"Following you - the map stays centred as you ride."
 
 		Along the bottom for the same reasons the placing strip is: the top edge is spoken for by
 		the compass on one side and the control stack on the other, and what is left between them
-		on a phone is about 270 px. The bottom is empty, and it leaves the middle of the map — the
-		part a rider being followed is looking at — clear.
+		on a phone is about 270 px. The bottom is empty, and it leaves the middle of the map - the
+		part a rider being followed is looking at - clear.
 
 		Not dismissible, and not a control of any kind. It states what just happened and then goes;
 		a close button would be a 48 px target for something that removes itself in a few seconds,
 		and a rider taking a hand off the bars to press it is exactly the wrong trade.
 
 		The class is `mode-toast` because Bootstrap owns `.toast` and hides it with
-		`display: none` until its own JS adds `.show` — see the markup for what that cost.
+		`display: none` until its own JS adds `.show` - see the markup for what that cost.
 		`display` is set here anyway, so the rule states its own layout rather than relying on
 		nothing else having an opinion about it.
 	*/
@@ -3017,7 +3017,7 @@
 	}
 
 	/* The one frame that has both: a rider who armed "add marker" and then reached for the follow
-	   button. The placing strip owns the bottom edge — it carries the way out of a mode — so the
+	   button. The placing strip owns the bottom edge - it carries the way out of a mode - so the
 	   toast steps up over it rather than under it. */
 	.live .mode-toast.raised {
 		bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 4rem);
@@ -3027,7 +3027,7 @@
 		The alert rail: everything the map has to say about itself, stacked down from the top edge.
 
 		One positioned box holding many strips, rather than each strip positioning itself. They are
-		states, not events — no network, no fix, sharing off, an old copy of the ride — and on a
+		states, not events - no network, no fix, sharing off, an old copy of the ride - and on a
 		phone in a valley several are true at once. Positioned individually they all landed on the
 		same coordinates and the rider read whichever rendered last.
 
@@ -3035,8 +3035,8 @@
 		than a full-width bar; the cap keeps a long sentence off the compass and the hamburger,
 		which own the two top corners.
 
-		Taps fall through the rail's own empty width to the map underneath — it spans the gaps
-		between strips and would otherwise swallow a pin tap in the middle of the screen — and are
+		Taps fall through the rail's own empty width to the map underneath - it spans the gaps
+		between strips and would otherwise swallow a pin tap in the middle of the screen - and are
 		taken back by the strips themselves, one of which carries a dismiss button.
 	*/
 	.live .map-alerts {
@@ -3077,7 +3077,7 @@
 	}
 
 	/*
-		One modal treatment for both popups — the tapped-pin list and the markers panel. On a
+		One modal treatment for both popups - the tapped-pin list and the markers panel. On a
 		phone the map fills the screen, so anything anchored to a point sits under the finger.
 	*/
 	.live .overlay {
@@ -3136,7 +3136,7 @@
 		border-top: 1px solid #ffffff1f;
 	}
 
-	/* The whole row is the disclosure control, so it is a button — but it has to read as a
+	/* The whole row is the disclosure control, so it is a button - but it has to read as a
 	   list row, which means unpicking the button chrome rather than styling around it. */
 	.live .marker-head {
 		display: flex;
@@ -3179,7 +3179,7 @@
 				opacity: 0.7;
 			}
 
-			/* The author line carries a circle now, so it is a flex row rather than a block —
+			/* The author line carries a circle now, so it is a flex row rather than a block -
 			   the rule above still truncates the name, and min-width:0 is what lets it. */
 			.live .marker-head .what em.who {
 				display: flex;
@@ -3204,7 +3204,7 @@
 			opacity: 0.7;
 		}
 
-		/* A note is free text somebody typed at the side of a road — it keeps its own line
+		/* A note is free text somebody typed at the side of a road - it keeps its own line
 		   breaks, and a long unbroken string must not widen the card. */
 		.live .marker-body .note {
 			margin: 0 0 0.5rem;

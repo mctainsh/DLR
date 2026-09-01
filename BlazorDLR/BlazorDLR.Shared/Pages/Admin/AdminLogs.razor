@@ -16,7 +16,7 @@
 	itself, so there is no way to ask it for a file of your choosing. See ServerLogReader.
 
 	Newest first, because a log is read from the end. The level filter is a floor rather than an
-	exact match — "warnings" means warnings, errors and criticals, which is what somebody
+	exact match - "warnings" means warnings, errors and criticals, which is what somebody
 	looking for a problem means by it.
 
 	Every filter on this page is the server's, including the database-command tick box. It costs a
@@ -25,7 +25,7 @@
 	of a busy day.
 *@
 
-<PageTitle>Server log — Administration — Dumb Luck Routes</PageTitle>
+<PageTitle>Server log - Administration - Dumb Luck Routes</PageTitle>
 
 <div class="page page-wide admin-logs">
 	<PageNav Title="Server log" BackHref="/admin" BackLabel="Back to administration" />
@@ -60,7 +60,7 @@
 		@*
 			A filter rather than a level, because the level cannot separate these: EF Core logs
 			every statement it runs at Information, alongside the lines about riders and rides.
-			Off by default — on a server doing anything at all, most of a minute's log is SQL, and
+			Off by default - on a server doing anything at all, most of a minute's log is SQL, and
 			an administrator opening this screen is looking for the one line that is not.
 		*@
 		<label class="switch">
@@ -85,7 +85,7 @@
 	{
 		@*
 			Several very different reasons for an empty list, and an administrator who cannot tell
-			them apart will go looking for a fault that is a setting — or, worse, re-check a setting
+			them apart will go looking for a fault that is a setting - or, worse, re-check a setting
 			that was right all along. So the server says which of them it is: switched off, switched
 			on but unable to write, or writing to a directory that is simply still empty.
 		*@
@@ -93,7 +93,7 @@
 			@if (!log.Enabled)
 			{
 				<text>
-					No log files. Writing one is off by default — set <code>FileLog:Enabled</code> to
+					No log files. Writing one is off by default - set <code>FileLog:Enabled</code> to
 					true in the server's configuration and restart it.
 				</text>
 			}
@@ -115,7 +115,7 @@
 			{
 				@* Not "nothing here": there is something here, and this page is hiding all of it. *@
 				<text>
-					Nothing at this level on this day but database commands — @log.DatabaseCommandsHidden
+					Nothing at this level on this day but database commands - @log.DatabaseCommandsHidden
 					of them. Tick <strong>Database commands</strong> to see them.
 				</text>
 			}
@@ -133,7 +133,7 @@
 				{
 					<li class="@LevelClass(entry.Level)">
 						<span class="when">@Stamp(entry)</span>
-						<span class="level">@(entry.Level.Length == 0 ? "—" : entry.Level)</span>
+						<span class="level">@(entry.Level.Length == 0 ? "-" : entry.Level)</span>
 						<span class="category" title="@entry.Category">@Short(entry.Category)</span>
 						<span class="message">@entry.Message</span>
 					</li>
@@ -210,7 +210,7 @@
 	/// Asks for the day again, with or without the statement lines.
 	/// <para>
 	/// A round trip, deliberately. The read is capped, and dropping the statements here would mean
-	/// the cap had already been spent filling the page with them — on a server doing anything at
+	/// the cap had already been spent filling the page with them - on a server doing anything at
 	/// all that is most of a file, so unticking the box would leave an administrator looking at
 	/// minutes of history where the same cap could have given them the day. The server steps over
 	/// them while reading instead, and the wait buys that much more of the log.
@@ -254,7 +254,7 @@
 	private static string Stamp(AdminLogEntry entry) =>
 		entry.Utc is { } utc
 			? utc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture)
-			: "—";
+			: "-";
 
 	/// <summary>
 	/// The last two segments of a category. Full type names are the widest thing on the row and
@@ -264,7 +264,7 @@
 	{
 		if (category.Length == 0)
 		{
-			return "—";
+			return "-";
 		}
 
 		string[] parts = category.Split('.');
@@ -301,7 +301,7 @@
 			color: var(--dlr-fg-muted);
 		}
 
-		/* 44 px, because this is still the app and the app is used with gloves on — even if this
+		/* 44 px, because this is still the app and the app is used with gloves on - even if this
 		   particular screen is mostly read at a desk. */
 		.admin-logs .controls select {
 			min-height: 44px;
@@ -355,7 +355,7 @@
 		}
 
 		/* pre-wrap, because the reader unfolds the newlines the writer folded out of a stack
-		   trace — a trace collapsed onto one line is a trace nobody reads. */
+		   trace - a trace collapsed onto one line is a trace nobody reads. */
 		.admin-logs .message {
 			white-space: pre-wrap;
 			word-break: break-word;

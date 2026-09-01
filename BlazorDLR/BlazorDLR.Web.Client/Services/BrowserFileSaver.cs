@@ -6,7 +6,7 @@ namespace BlazorDLR.Web.Client.Services;
 /// <summary>
 /// The web's <see cref="IFileSaver"/>: a Blob URL on a synthetic <c>&lt;a download&gt;</c>
 /// click (see <c>_content/BlazorDLR.Shared/download.js</c>). The browser takes it from
-/// there — its own download UI is the confirmation, so nothing is reported back.
+/// there - its own download UI is the confirmation, so nothing is reported back.
 /// </summary>
 public sealed class BrowserFileSaver : IFileSaver, IAsyncDisposable
 {

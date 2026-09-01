@@ -76,7 +76,7 @@ public sealed class TokenController : ControllerBase
 		// Both §7.8 rows, and they answer different attacks: per address stops one machine
 		// working through a password list, per username stops a distributed attempt on one
 		// account that the address limit would never see. Non-short-circuiting `&` on purpose
-		// — both counters must record the attempt, or the cheaper limit hides the other.
+		// - both counters must record the attempt, or the cheaper limit hides the other.
 		// Checked before the lookup, so a throttled caller learns nothing about who exists.
 		bool withinLimits =
 			throttle.TryAcquire(
@@ -152,7 +152,7 @@ public sealed class TokenController : ControllerBase
 		if (outcome.Status is RefreshStatus.FamilyRevoked)
 		{
 			// Said plainly, because the client has to stop retrying and sign the rider in
-			// again. §7.10 also emails a security alert here when an address is known —
+			// again. §7.10 also emails a security alert here when an address is known -
 			// which is where that lands, since this is the one branch that means theft.
 			return Problem(
 				statusCode: StatusCodes.Status401Unauthorized,
@@ -192,7 +192,7 @@ public sealed class TokenController : ControllerBase
 
 		if (user is null)
 		{
-			// The account went away under a live session — the inactivity sweep (§7.11) is
+			// The account went away under a live session - the inactivity sweep (§7.11) is
 			// the way that happens. A distinguishable reason is owed to the client so it can
 			// say something better than "something went wrong".
 			return Problem(
@@ -212,7 +212,7 @@ public sealed class TokenController : ControllerBase
 	/// <summary>
 	/// Being locked out is stated plainly rather than folded into the generic message.
 	/// <para>
-	/// It leaks that the account exists — but §7.2 already publishes that, since usernames
+	/// It leaks that the account exists - but §7.2 already publishes that, since usernames
 	/// are unique handles drawn on a map and registration has to say when one is taken. What
 	/// it buys is a rider who stops retyping a password that was never going to work, which
 	/// is the difference between waiting fifteen minutes and filing a support request.

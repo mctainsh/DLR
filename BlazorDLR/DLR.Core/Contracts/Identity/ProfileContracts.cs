@@ -1,12 +1,12 @@
 namespace DLR.Core.Contracts.Identity;
 
 /// <summary>
-/// <c>GET /api/v1/me/profile</c> — the owner's own view (§7.14).
+/// <c>GET /api/v1/me/profile</c> - the owner's own view (§7.14).
 /// <para>
 /// Not a <see cref="SharedProfile"/>: this is the rider looking at their own settings, so it
 /// carries the values <em>and</em> the switches, including values that are recorded but not
 /// shared. <see cref="SharedProfile"/> is what anybody else gets, and it is a different type on
-/// purpose — one of them can be handed to a stranger and the other cannot.
+/// purpose - one of them can be handed to a stranger and the other cannot.
 /// </para>
 /// </summary>
 /// <param name="DisplayName">Recorded value, shared or not.</param>
@@ -20,7 +20,7 @@ namespace DLR.Core.Contracts.Identity;
 /// The background of this rider's marker on a live ride map, as <c>#rrggbb</c>, or null for
 /// <c>MarkerColours.Default</c> (§16.3).
 /// <para>
-/// No sharing switch, unlike the three fields above it. It is not a fact about the rider — it is
+/// No sharing switch, unlike the three fields above it. It is not a fact about the rider - it is
 /// how they appear on a map co-members are already looking at, and a colour nobody else could see
 /// would be a setting with no effect.
 /// </para>
@@ -30,7 +30,7 @@ namespace DLR.Core.Contracts.Identity;
 /// <para>
 /// No sharing switch, on <paramref name="MarkerColour"/>'s reasoning rather than the three above
 /// it: a profile photograph has no private use, so adding one is the consent and removing it is
-/// how that is withdrawn. It is read-only here — <c>PUT /me/avatar</c> sets it, so that a client
+/// how that is withdrawn. It is read-only here - <c>PUT /me/avatar</c> sets it, so that a client
 /// which has not been taught about it cannot clear it by saving the rest of the form. See
 /// <see cref="SetAvatarRequest"/>.
 /// </para>
@@ -39,7 +39,7 @@ namespace DLR.Core.Contracts.Identity;
 /// Whether this account is named in the server's administration roster (§14.6).
 /// <para>
 /// Read-only, and here rather than in the token because it is the same answer the server checks
-/// per request — a client asking "should I offer the administration screens" and a server asking
+/// per request - a client asking "should I offer the administration screens" and a server asking
 /// "may this caller read them" must not be able to disagree, and a claim minted an hour ago can.
 /// </para>
 /// <para>
@@ -74,7 +74,7 @@ public sealed record OwnProfile(
 /// <param name="ShareEmail">Off unless said otherwise.</param>
 /// <param name="MarkerColour">
 /// <c>#rrggbb</c>, or null to go back to the default marker colour (§16.3). Anything else is a
-/// 400 rather than a silent fallback — see <c>MarkerColours.TryNormalise</c>.
+/// 400 rather than a silent fallback - see <c>MarkerColours.TryNormalise</c>.
 /// </param>
 public sealed record UpdateProfileRequest(
 	string? DisplayName = null,

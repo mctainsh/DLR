@@ -20,7 +20,7 @@ public static class TrackExportEndpoint
 }
 
 /// <summary>
-/// <c>GET /api/v1/tracks/{id}/gpx</c> — the track and its markers, back out again (§16.6).
+/// <c>GET /api/v1/tracks/{id}/gpx</c> - the track and its markers, back out again (§16.6).
 /// <para>
 /// A file exported here and re-imported produces the same markers, which is the test that says the
 /// mapping is honest rather than merely present. Photos are not in GPX and are not attempted: the

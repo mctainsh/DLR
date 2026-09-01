@@ -9,7 +9,7 @@ namespace DLR.UI.Tests.Services;
 /// Reading the list of offline map packs on offer (§4.2).
 /// <para>
 /// The catalogue is a JSON file on a web host, which makes every field in it a claim rather than a
-/// fact — and one of them, the id, becomes a directory name on the phone. So the tests that matter
+/// fact - and one of them, the id, becomes a directory name on the phone. So the tests that matter
 /// here are the ones about what does <em>not</em> get through: an id the pack store would refuse, a
 /// URL that will not resolve, a body that is a login page. The happy path is one test; the rest of
 /// this file is the boundary.
@@ -20,7 +20,7 @@ public sealed class MapPackCatalogueTests
 	/// <summary>Where the catalogue lives in these tests, and the base a relative pack URL resolves against.</summary>
 	private static readonly Uri Address = new("https://packs.example.com/maps/catalogue.json");
 
-	/// <summary>Roughly New South Wales — the ground one extract covers, as the catalogue states it.</summary>
+	/// <summary>Roughly New South Wales - the ground one extract covers, as the catalogue states it.</summary>
 	private const string DefaultBounds = """
 		"bounds": { "minLatitude": -37.52, "minLongitude": 140.99, "maxLatitude": -28.15, "maxLongitude": 153.65 }
 		""";
@@ -29,11 +29,11 @@ public sealed class MapPackCatalogueTests
 	/// A catalogue entry, written the way <c>Build-AuMapPacks.ps1</c> writes one.
 	/// </summary>
 	/// <param name="region">
-	/// Omitted from the JSON entirely when null, because that is the catalogue on the host today —
+	/// Omitted from the JSON entirely when null, because that is the catalogue on the host today -
 	/// the field is newer than the packs riders have already downloaded from it.
 	/// </param>
 	/// <param name="bounds">
-	/// The <c>bounds</c> member as JSON, or null to leave it out altogether — which is the catalogue
+	/// The <c>bounds</c> member as JSON, or null to leave it out altogether - which is the catalogue
 	/// on the host today, since the field is newer than the packs riders have downloaded from it.
 	/// </param>
 	private static string Entry(
@@ -90,7 +90,7 @@ public sealed class MapPackCatalogueTests
 
 	/// <summary>
 	/// The catalogue riders are fetching from today predates the field, so this is the ordinary case
-	/// rather than the odd one. It costs the offer its place on the map picker and nothing else —
+	/// rather than the odd one. It costs the offer its place on the map picker and nothing else -
 	/// the dropdowns still list it, and it still downloads.
 	/// </summary>
 	[Fact]
@@ -121,7 +121,7 @@ public sealed class MapPackCatalogueTests
 
 		MapPackCatalogueResult result = await Build(handler).ReadAsync();
 
-		result.Packs.Single().Bounds.ShouldBeNull("and the entry itself survives — see the remarks.");
+		result.Packs.Single().Bounds.ShouldBeNull("and the entry itself survives - see the remarks.");
 	}
 
 	/// <summary>
@@ -166,7 +166,7 @@ public sealed class MapPackCatalogueTests
 
 	/// <summary>
 	/// So a publisher can list a file beside the catalogue and move hosts without rewriting every
-	/// entry. Resolved rather than concatenated — the base is a <see cref="Uri"/> and the rules for
+	/// entry. Resolved rather than concatenated - the base is a <see cref="Uri"/> and the rules for
 	/// what a relative reference means are not ones to reimplement with string joins.
 	/// </summary>
 	[Fact]
@@ -187,7 +187,7 @@ public sealed class MapPackCatalogueTests
 	/// <summary>
 	/// Listed rather than dropped, unlike a bad id: the entry is legible, the rider can see the
 	/// region exists, and the reason it cannot be fetched may be fixed by the time they look again.
-	/// Tapping it costs a message and no connection — see <c>MapPackDownloaderTests</c>.
+	/// Tapping it costs a message and no connection - see <c>MapPackDownloaderTests</c>.
 	/// </summary>
 	[Fact]
 	public async Task APlainHttpArchiveFromAnywhereElse_IsListedButCannotBeFetched()
@@ -206,7 +206,7 @@ public sealed class MapPackCatalogueTests
 	/// <summary>
 	/// The one exception, and the reason the packs can be fetched at all today: the host serves a
 	/// certificate for another domain, so both platform configs name it and this agrees with them.
-	/// The three have to say the same thing — a host permitted in one and not the others is either
+	/// The three have to say the same thing - a host permitted in one and not the others is either
 	/// a button that fails inside the platform or a download this app refuses to start.
 	/// </summary>
 	[Fact]
@@ -260,7 +260,7 @@ public sealed class MapPackCatalogueTests
 
 	/// <summary>
 	/// The country is the settings screen's first dropdown, and it comes from the publisher rather
-	/// than from anything worked out here — a table on the phone saying which slug belongs to which
+	/// than from anything worked out here - a table on the phone saying which slug belongs to which
 	/// country is a copy of the pack table that ships a release behind it.
 	/// </summary>
 	[Fact]

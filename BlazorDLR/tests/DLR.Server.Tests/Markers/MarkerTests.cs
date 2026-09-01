@@ -149,7 +149,7 @@ public sealed class MarkerTests(PostgresFixture postgres)
 		MarkerIcons.IsKnown(placed.Icon).ShouldBeFalse(
 			"this version cannot draw it, which is exactly the case being tested");
 
-		// Length and character set are still enforced — "stored, not rejected" is about
+		// Length and character set are still enforced - "stored, not rejected" is about
 		// membership, not about anything at all being acceptable.
 		using HttpResponseMessage nonsense = await organiser.PostAsJsonAsync(
 			MarkersUrl,
@@ -175,7 +175,7 @@ public sealed class MarkerTests(PostgresFixture postgres)
 
 		(await refused.Content.ReadAsStringAsync()).ShouldContain("40");
 
-		// Exactly at the limit is fine — an off-by-one here is a rejected marker for no reason.
+		// Exactly at the limit is fine - an off-by-one here is a rejected marker for no reason.
 		MarkerDto placed = await CreateAsync(
 			organiser,
 			Request(ride.Id) with { Title = new string('x', 40) });
@@ -185,7 +185,7 @@ public sealed class MarkerTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// A title is optional (§16.2). The icon is what carries the meaning of a pin read at speed,
-	/// and "gravel" typed under a gravel pin is the word twice — so an empty one is a marker,
+	/// and "gravel" typed under a gravel pin is the word twice - so an empty one is a marker,
 	/// not a 400. It is stored as empty rather than null: the column is NOT NULL, and every
 	/// reader already treats "" as "draw the icon alone".
 	/// </summary>
@@ -202,7 +202,7 @@ public sealed class MarkerTests(PostgresFixture postgres)
 
 		MarkerDto placed = await CreateAsync(organiser, Request(ride.Id) with { Title = title });
 
-		placed.Title.ShouldBeEmpty("whitespace cleans to the same thing as empty — one untitled marker.");
+		placed.Title.ShouldBeEmpty("whitespace cleans to the same thing as empty - one untitled marker.");
 
 		string stored = await app.WithDatabaseAsync(database =>
 			database.Set<Marker>()
@@ -213,7 +213,7 @@ public sealed class MarkerTests(PostgresFixture postgres)
 		stored.ShouldBeEmpty();
 
 		// And an edit can take a label off one that has it, which is the same rule running the
-		// other way — a title you can add but never remove is a trap.
+		// other way - a title you can add but never remove is a trap.
 		MarkerDto titled = await CreateAsync(organiser, Request(ride.Id) with { Title = "Gravel" });
 
 		using HttpResponseMessage cleared = await organiser.PutAsJsonAsync(
@@ -247,7 +247,7 @@ public sealed class MarkerTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Any admitted member, not just the organiser — the useful marker is "gravel across the whole
+	/// Any admitted member, not just the organiser - the useful marker is "gravel across the whole
 	/// corner at the 40 km mark", and the person who found it is whoever hit it first (§16.5).
 	/// </summary>
 	[Fact]
@@ -389,7 +389,7 @@ public sealed class MarkerTests(PostgresFixture postgres)
 
 		refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
 
-		// The ride is nowhere near its own cap — somebody else may still add one.
+		// The ride is nowhere near its own cap - somebody else may still add one.
 		MarkerDto theirs = await CreateAsync(organiser, Request(ride.Id) with { Title = "Organiser's" });
 
 		theirs.Id.ShouldNotBe(Guid.Empty);

@@ -8,7 +8,7 @@
 @inject IApiClient Api
 @inject NavigationManager Nav
 
-<PageTitle>Add marker — Dumb Luck Routes</PageTitle>
+<PageTitle>Add marker - Dumb Luck Routes</PageTitle>
 
 @*
 	Marker editor for a group ride (§16.1, §16.2).
@@ -23,14 +23,14 @@
 		 (MarkerIconGlyphs.Name).
 
 	WHAT IS DELIBERATELY NOT HERE: a direction. The bearing is still a field on the
-	marker — it is stored, it round-trips through GPX, and the overlay rotates a pin that
+	marker - it is stored, it round-trips through GPX, and the overlay rotates a pin that
 	has one (§16.2's null-is-not-zero rule is unchanged, and it is the DTO and the server
 	that hold it). What went is the switch-and-bearing-box pair on this screen: typing a
 	number of degrees at the side of a road is not how anybody says which way a hazard
 	faces, and a control nobody can use correctly is worse than no control. Markers placed
 	here have no direction; ones imported from a file keep theirs.
 
-	WHAT IS ALSO NOT HERE: a place picker. The point is chosen before this screen opens —
+	WHAT IS ALSO NOT HERE: a place picker. The point is chosen before this screen opens -
 	"Add marker" on the live ride arms the full-screen map, and the tap that answers it
 	hands the point over on the query string (see PointLatitude). This screen used to
 	re-show it in a 22 rem map with a pair of coordinate boxes under it, which asked the
@@ -43,7 +43,7 @@
 
 	Photo attaches through PATCH /markers/{id}/photo after upload (§16.4). Web callers
 	reach the file through <InputFile>; phones can also use IMediaPicker (Phase 2 keeps
-	<InputFile> as the shared path — it works on every host).
+	<InputFile> as the shared path - it works on every host).
 *@
 
 <div class="page page-medium form-page">
@@ -71,7 +71,7 @@
 				   of artwork is the right way to answer this question and the wrong thing to leave
 				   standing above the title box afterwards, on a phone, when the answer is already in.
 
-				   The radios are rendered whether the grid is open or shut — only its display goes.
+				   The radios are rendered whether the grid is open or shut - only its display goes.
 				   The checked state, the arrow-key group and the labelling stay exactly where the
 				   browser and a screen reader expect them, instead of being rebuilt on every open. *@
 				<button type="button" class="icon-current" @onclick="TogglePicker"
@@ -116,12 +116,12 @@
 				else
 				{
 					<p>
-						<em>@_photo.FileName selected — @(_photo.Bytes.Length / 1024) KB.</em>
+						<em>@_photo.FileName selected - @(_photo.Bytes.Length / 1024) KB.</em>
 						<button type="button" class="primary" @onclick="() => _photo = null">Remove</button>
 					</p>
 				}
 				<p class="hint">
-					The server re-encodes every photo and strips its metadata (§16.4) — an
+					The server re-encodes every photo and strips its metadata (§16.4) - an
 					EXIF GPS tag from your driveway will not travel.
 				</p>
 			</fieldset>
@@ -153,7 +153,7 @@
 	[Parameter] public Guid RideId { get; set; }
 
 	/// <summary>
-	/// The point the author tapped on the live ride map (§16.1) — a decision the rider has
+	/// The point the author tapped on the live ride map (§16.1) - a decision the rider has
 	/// already made, on a full screen of map they were reading.
 	/// <para>
 	/// It used to be the centre of the view they had open, which is why the composer once
@@ -162,7 +162,7 @@
 	/// </para>
 	/// <para>
 	/// Required. Absent only when the composer is reached by a hand-typed or bookmarked URL,
-	/// and then there is no marker to compose — see <see cref="_hasPoint"/>.
+	/// and then there is no marker to compose - see <see cref="_hasPoint"/>.
 	/// </para>
 	/// </summary>
 	[SupplyParameterFromQuery(Name = "lat")] public double? PointLatitude { get; set; }
@@ -175,7 +175,7 @@
 
 	/// <summary>
 	/// Whether a point reached this screen. False renders the "nothing to compose" state
-	/// instead of the form — the alternative is a composer that looks ready and files the
+	/// instead of the form - the alternative is a composer that looks ready and files the
 	/// marker at whatever the fields happened to default to, which is a wrong pin on a ride
 	/// somebody is following.
 	/// </summary>
@@ -187,7 +187,7 @@
 	/// Whether the grid of icons is showing.
 	/// <para>
 	/// Shut on arrival and shut again the moment a choice is made. The grid is the right way to
-	/// answer "which icon" — twenty-nine pictures, all at once, glance and tap — and the wrong
+	/// answer "which icon" - twenty-nine pictures, all at once, glance and tap - and the wrong
 	/// thing to leave standing once it is answered, because on a phone it pushes the title box
 	/// and the save button off the screen for the rest of the session.
 	/// </para>
@@ -231,7 +231,7 @@
 	/// <summary>
 	/// Takes the point the rider chose on the live map (§16.1) off the query string.
 	/// <para>
-	/// This screen no longer reads the ride to work out where to open a picker — there is no
+	/// This screen no longer reads the ride to work out where to open a picker - there is no
 	/// picker to open, so a ride whose markers or positions cannot be fetched no longer costs
 	/// the composer two requests it does nothing with.
 	/// </para>
@@ -257,7 +257,7 @@
 			const long MaxBytes = 12L * 1024 * 1024;
 			if (file.Size > MaxBytes)
 			{
-				_error = new ApiError(default, "That photo is larger than 12 MB — the server would refuse it.", Array.Empty<string>());
+				_error = new ApiError(default, "That photo is larger than 12 MB - the server would refuse it.", Array.Empty<string>());
 				return;
 			}
 			await using Stream stream = file.OpenReadStream(MaxBytes);
@@ -273,7 +273,7 @@
 
 	private async Task SaveAsync()
 	{
-		// The form is not rendered without a point, so this is unreachable through the UI —
+		// The form is not rendered without a point, so this is unreachable through the UI -
 		// stated anyway, because "save whatever is in _latDeg" is the one failure on this
 		// screen that produces a plausible-looking marker in the wrong place.
 		if (_busy || !_hasPoint) return;
@@ -289,7 +289,7 @@
 				Icon: _icon,
 				Title: _title.Trim(),
 				Note: string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
-				// Always absent from this screen — see the note at the top. Null, never zero:
+				// Always absent from this screen - see the note at the top. Null, never zero:
 				// zero is due north, and a marker that claimed one would be lying (§16.2).
 				DirectionDeg: null));
 
@@ -389,7 +389,7 @@
 	   a word this page must not contain anywhere: AddMarkerTests greps the entire rendered
 	   markup, style block and all, to prove the composer offers no way to set a bearing. It is
 	   a blunt guard, but it guards the right thing, so the layout gives way rather than the
-	   test. Mind this when adding CSS here — and note the test name itself is unquotable. */
+	   test. Mind this when adding CSS here - and note the test name itself is unquotable. */
 	.page .icon-choice {
 		display: grid;
 		justify-items: center;
@@ -403,7 +403,7 @@
 		font-size: 0.72rem;
 	}
 
-		/* Visually hidden, not display:none — the radio still has to take focus and reach a
+		/* Visually hidden, not display:none - the radio still has to take focus and reach a
 		   screen reader, which is the whole reason this is a radio group and not a div of
 		   click handlers. */
 		.page .icon-choice input {

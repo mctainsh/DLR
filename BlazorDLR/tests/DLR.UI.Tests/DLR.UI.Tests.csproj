@@ -3,7 +3,7 @@
 	<!--
 		bUnit against BlazorDLR.Shared: every screen renders once and is tested once,
 		with no simulator, no emulator and no browser (§18.7). The tests here are the
-		shared UI's answer to "how do we know the components still work" — and, per
+		shared UI's answer to "how do we know the components still work" - and, per
 		§14.6.3, bUnit is MIT so it passes the licence gate without a decision.
 	-->
 	<PropertyGroup>

@@ -8,7 +8,7 @@ namespace DLR.UI.Tests.Diagnostics;
 /// thousands.
 /// <para>
 /// The rule has two halves and both are here: another transient line overwrites it, and anything
-/// else settles it where it stands — so a finished log holds the totals as they were at each thing
+/// else settles it where it stands - so a finished log holds the totals as they were at each thing
 /// that happened, and the current totals at the end.
 /// </para>
 /// </summary>

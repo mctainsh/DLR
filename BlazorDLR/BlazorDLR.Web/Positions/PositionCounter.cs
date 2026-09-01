@@ -8,7 +8,7 @@ namespace DLR.Server.Positions;
 /// <summary>Banks each rider's fix count into their lifetime total (§14.6).</summary>
 /// <remarks>
 /// <strong>This is the only thing a fix ever writes to disk.</strong> The position itself lives in
-/// <see cref="RiderPositionCache"/> and nowhere else (§5.5) — what persists is the number of them,
+/// <see cref="RiderPositionCache"/> and nowhere else (§5.5) - what persists is the number of them,
 /// which is a statistic about an account rather than a place a person was.
 /// </remarks>
 public interface IPositionCounter
@@ -37,7 +37,7 @@ public sealed class PositionCounter(DlrDbContext database) : IPositionCounter
 	/// The statement.
 	/// <para>
 	/// A rider deleted between the fix and the drain simply matches nothing, which is the right
-	/// answer — an account that has gone does not need its total kept up to date.
+	/// answer - an account that has gone does not need its total kept up to date.
 	/// </para>
 	/// </summary>
 	private const string AddCounts = """

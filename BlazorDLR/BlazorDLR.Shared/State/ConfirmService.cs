@@ -6,7 +6,7 @@ namespace BlazorDLR.Shared.State;
 /// the modal component mounted in <c>MainLayout</c> renders whatever this service is holding.
 /// <para>
 /// Scoped rather than singleton: each user's session has one active dialog at a time, and
-/// concurrent asks queue by cancelling the outstanding one — a second ask means the first
+/// concurrent asks queue by cancelling the outstanding one - a second ask means the first
 /// answer is no longer awaited.
 /// </para>
 /// </summary>
@@ -40,7 +40,7 @@ public sealed class ConfirmService
 	/// <param name="message">The paragraph below.</param>
 	/// <param name="confirmText">The confirm button label; defaults to <c>OK</c>.</param>
 	/// <param name="danger">
-	/// True for destructive actions — the confirm button turns red so accidental clicks look
+	/// True for destructive actions - the confirm button turns red so accidental clicks look
 	/// like accidents rather than routine.
 	/// </param>
 	public Task<bool> AskAsync(string title, string message, string confirmText = "OK", bool danger = false) =>

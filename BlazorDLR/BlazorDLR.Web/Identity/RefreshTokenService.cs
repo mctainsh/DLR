@@ -49,7 +49,7 @@ public sealed class RefreshTokenService(
 	/// <para>
 	/// Read from the <em>device</em> rather than carried on the token, so a rotation cannot change
 	/// it. A browser whose successor came back with a mobile lifetime would have converted a
-	/// thirty-day session into a permanent one by refreshing once — and it would have done it on
+	/// thirty-day session into a permanent one by refreshing once - and it would have done it on
 	/// the very call the client makes at every start-up.
 	/// </para>
 	/// </summary>
@@ -75,7 +75,7 @@ public sealed class RefreshTokenService(
 
 		if (token is null)
 		{
-			// Unknown — which is usually a guess, and occasionally the last token of an account
+			// Unknown - which is usually a guess, and occasionally the last token of an account
 			// the §7.11 sweep deleted. The tombstone is the only thing that can tell the two
 			// apart, and telling them apart is what lets the app say "this account was removed
 			// after 180 days without use" instead of something that reads as a bug.
@@ -125,10 +125,10 @@ public sealed class RefreshTokenService(
 	}
 
 	/// <summary>
-	/// Ends the family a raw token belongs to — a browser signing out (§7.5).
+	/// Ends the family a raw token belongs to - a browser signing out (§7.5).
 	/// <para>
 	/// The whole family, not just the token presented. A browser holds one chain, and revoking only
-	/// the current link would leave its predecessor redeemable by anything that kept a copy — which
+	/// the current link would leave its predecessor redeemable by anything that kept a copy - which
 	/// on the shared computer that made web sessions expire at all is the entire scenario.
 	/// </para>
 	/// </summary>
@@ -148,7 +148,7 @@ public sealed class RefreshTokenService(
 			.Select(row => row.FamilyId)
 			.SingleOrDefaultAsync(cancellationToken);
 
-		// An unknown token signs out nothing and says nothing. Sign-out answers 204 either way —
+		// An unknown token signs out nothing and says nothing. Sign-out answers 204 either way -
 		// a distinguishable refusal would make it an oracle for whether a token is live.
 		if (familyId != Guid.Empty)
 		{
@@ -210,7 +210,7 @@ public sealed class RefreshTokenService(
 
 	/// <summary>
 	/// A token presented twice. Either the client asked concurrently, or the token exists in
-	/// two places — and the whole difference is the ten seconds in between.
+	/// two places - and the whole difference is the ten seconds in between.
 	/// </summary>
 	private async Task<RefreshOutcome> ReplayAsync(
 		RefreshToken token,
@@ -227,7 +227,7 @@ public sealed class RefreshTokenService(
 				.SingleOrDefaultAsync(row => row.Id == successorId, cancellationToken);
 
 			// An already-used successor means the chain moved on, so this is not the
-			// duplicate of a single request — it is a third party holding an old token.
+			// duplicate of a single request - it is a third party holding an old token.
 			if (successor is { UsedUtc: null, RevokedUtc: null }
 				&& grace.TryGet(successorId, out string raw))
 			{
@@ -236,7 +236,7 @@ public sealed class RefreshTokenService(
 
 			if (successor is { UsedUtc: null, RevokedUtc: null })
 			{
-				// Inside the window but nothing cached — the process restarted. That is not
+				// Inside the window but nothing cached - the process restarted. That is not
 				// evidence of theft, so the family survives and the client re-authenticates.
 				logger.LogInformation(
 					"Refresh replay inside the grace window with no cached successor; " +
@@ -262,7 +262,7 @@ public sealed class RefreshTokenService(
 	/// <summary>
 	/// Adds an unsaved token to the chain. Returns the entity so the caller can point a
 	/// predecessor's <c>successor_id</c> at it, and the raw value because this is the only
-	/// moment it exists — after the save there is a hash and nothing else.
+	/// moment it exists - after the save there is a hash and nothing else.
 	/// </summary>
 	private (RefreshToken Entity, string Raw) Issue(
 		Guid userId,
@@ -309,7 +309,7 @@ public readonly record struct RefreshOutcome(
 	Guid DeviceId,
 	string? RefreshToken)
 {
-	/// <summary>Rotated, or replayed inside the grace window — the same answer either way.</summary>
+	/// <summary>Rotated, or replayed inside the grace window - the same answer either way.</summary>
 	public static RefreshOutcome Rotated(Guid userId, Guid deviceId, string refreshToken) =>
 		new(RefreshStatus.Rotated, userId, deviceId, refreshToken);
 

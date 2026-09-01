@@ -68,13 +68,13 @@ public sealed class RideSnapshotCacheTests
 		read.ShouldNotBeNull();
 		read.CachedUtc.ShouldBe(FixedInstant, "the stamp is what the map reports the copy's age from.");
 
-		// The roster — "officers" — with everything the map labels and colours a pin from.
+		// The roster - "officers" - with everything the map labels and colours a pin from.
 		read.Ride.Name.ShouldBe("Old Pacific Highway");
 		read.Ride.Members.Count.ShouldBe(1);
 		read.Ride.Members[0].UserName.ShouldBe("DaveSmith");
 		read.Ride.Members[0].Role.ShouldBe("Leader");
 		read.Ride.Members[0].MarkerColour.ShouldBe("#ff8800",
-			"a position batch carries no colour (§5.3) — losing it here would redraw the whole group in the default.");
+			"a position batch carries no colour (§5.3) - losing it here would redraw the whole group in the default.");
 		read.Ride.Members[0].Sharing.ShouldBeTrue();
 
 		read.Markers.Count.ShouldBe(1);
@@ -83,7 +83,7 @@ public sealed class RideSnapshotCacheTests
 
 		read.Routes.Count.ShouldBe(1);
 		read.Routes[0].EncodedPolyline.ShouldBe("_p~iF~ps|U_ulLnnqC_mqNvxq`@",
-			"the line is stored encoded and decoded by PolylineCodec on the way out (§15.5) — a mangled string is a route drawn off the Gulf of Guinea.");
+			"the line is stored encoded and decoded by PolylineCodec on the way out (§15.5) - a mangled string is a route drawn off the Gulf of Guinea.");
 
 		read.Positions.Count.ShouldBe(1);
 		read.Positions[0].Lat.ShouldBe(-3386810);
@@ -106,7 +106,7 @@ public sealed class RideSnapshotCacheTests
 		await cache.WriteAsync(SampleRide(), [], [], []);
 
 		(await cache.ReadAsync(Guid.Parse("99999999-9999-9999-9999-999999999999"))).ShouldBeNull(
-			"one entry per adventure — a stored adventure must never answer for another one.");
+			"one entry per adventure - a stored adventure must never answer for another one.");
 	}
 
 	[Fact]
@@ -148,7 +148,7 @@ public sealed class RideSnapshotCacheTests
 		await store.WriteAsync("ride-" + RideId.ToString("N"), "{\"version\":1,\"ride\":{\"id\"");
 
 		(await cache.ReadAsync(RideId)).ShouldBeNull(
-			"a cache must never turn a bad payload into a failed screen — the caller falls back to the network.");
+			"a cache must never turn a bad payload into a failed screen - the caller falls back to the network.");
 	}
 
 	[Fact]
@@ -165,6 +165,6 @@ public sealed class RideSnapshotCacheTests
 		await store.WriteAsync(name, stored.Replace("\"version\":1", "\"version\":0", StringComparison.Ordinal));
 
 		(await cache.ReadAsync(RideId)).ShouldBeNull(
-			"the migration for a cache is to throw it away — the data is one round trip from being refetched.");
+			"the migration for a cache is to throw it away - the data is one round trip from being refetched.");
 	}
 }

@@ -1,5 +1,5 @@
 /*
-    App-wide colours and typography. ONE palette — the design's dark one (§18.6) — and it
+    App-wide colours and typography. ONE palette - the design's dark one (§18.6) - and it
     is the only one there has ever effectively been. Every component reads through
     var(--dlr-*) rather than a hard-coded colour, so a designer can retune the whole app
     from this block without touching a component.
@@ -7,7 +7,7 @@
     There was a light twin here, selected by `data-theme` and offered from Settings →
     Profile. It never applied: the selectors were `:root[data-theme=…]`, which match
     <html>, and the attribute was written onto MainLayout's `<div class="app">`, so the
-    values below were always the ones in force. It is deleted rather than repaired —
+    values below were always the ones in force. It is deleted rather than repaired -
     this app is read through a visor in daylight, and dark IS the design.
 
     A NOTE ON SCREENSHOTS. The reference screenshot uses a very dark navy background,
@@ -19,15 +19,15 @@
     color-scheme: dark;
 
     /* Surfaces */
-    --dlr-bg:            #0f172a; /* page body — very dark navy */
+    --dlr-bg:            #0f172a; /* page body - very dark navy */
     --dlr-surface:       #1e293b; /* card / tile panels */
     --dlr-surface-2:     #334155; /* input backgrounds */
-    --dlr-rail:          #0b1220; /* icon rail — a touch darker than the body */
+    --dlr-rail:          #0b1220; /* icon rail - a touch darker than the body */
     --dlr-border:        #334155;
     --dlr-border-strong: #475569;
 
     /* Text */
-    --dlr-fg:            #e2e8f0; /* primary text — off-white */
+    --dlr-fg:            #e2e8f0; /* primary text - off-white */
     --dlr-fg-muted:      #94a3b8; /* labels, hints */
     --dlr-fg-quiet:      #64748b; /* separators, quiet copy */
 
@@ -39,10 +39,22 @@
     /* Semantic */
     --dlr-error:         #f87171;
     --dlr-error-bg:      #451818;
-    --dlr-error-border:  #7f1d1d; /* the destructive button's edge — reads as red against #451818 */
-    --dlr-warn:          #fbbf24; /* "working on it" — a GPS warming up, a fix going stale */
+    --dlr-error-border:  #7f1d1d; /* the destructive button's edge - reads as red against #451818 */
+    --dlr-warn:          #fbbf24; /* "working on it" - a GPS warming up, a fix going stale */
     --dlr-warn-bg:       #422006;
     --dlr-good:          #4ade80;
+
+    /* One height for every button, dropdown and date picker in the app. See the rule that
+       applies it, under "Form controls", for why it is a token and not a sum.
+
+       Controls take the height directly, as `min-height`. Buttons cannot: every compact button
+       in the app - a reaction chip, a map chrome key, a tab - is compact by overriding padding
+       and mentions no height, so a min-height none of them names would inflate the lot. They get
+       the padding below instead, which those rules already override. THE TWO MOVE TOGETHER: this
+       padding is what makes a full-size button the height above, so changing one without the
+       other is what puts a button and the dropdown beside it a few pixels apart. */
+    --dlr-control-height: 2.5rem;
+    --dlr-control-pad-y: 0.6rem;
 
     /* Rail sizes */
     /* Wide enough for the longest rail label ("Settings") at the caption size, and for
@@ -50,13 +62,13 @@
     --dlr-rail-width:    72px;
     --dlr-rail-height:   60px;
 
-    /* Controls floated over a map — the live ride's hamburger, the base map's compass.
+    /* Controls floated over a map - the live ride's hamburger, the base map's compass.
        One tap target and one inset, defined here rather than per page, because the whole
        point is that they line up: two controls at the same height on opposite edges read
        as a pair, and two that are a few pixels apart read as a mistake.
 
        The inset respects the safe area. Without it a control sits under the notch on a
-       phone — which is exactly how the compass first shipped.
+       phone - which is exactly how the compass first shipped.
 
        The top is the safe area PLUS the inset, not the larger of the two. `max()` puts the
        control's top edge exactly on the status bar's bottom edge, with nothing between
@@ -68,43 +80,43 @@
 
     /* The air above the first thing on a page.
 
-       This is what a page with NO title bar gets above its heading — Home, Welcome. A page
+       This is what a page with NO title bar gets above its heading - Home, Welcome. A page
        WITH one keeps the margin and overrides the air: PageNav cancels this whole value
        with a negative margin and re-pads with its own, tighter 0.75rem, because a title bar
        should read as a compact strip rather than a heading floating in 2rem of space.
 
-       ALL of it, and it lives on `.page` alone — `.content` deliberately has no top
+       ALL of it, and it lives on `.page` alone - `.content` deliberately has no top
        padding (MainLayout.razor.css). That is not tidiness: PageNav's bar is
        `position: sticky` and has to pull itself up through this gap to sit flush against
        the top of the scroll area, and it can only do that exactly if there is one value
        to cancel rather than two rules that happen to add up. Splitting this back across
        two rules puts a sliver of gap above the stuck bar for scrolled text to show
-       through — and on a phone that sliver is where the clock is.
+       through - and on a phone that sliver is where the clock is.
 
        THE SAFE AREA IS PART OF THAT ONE VALUE, and it is a sum rather than a `max()` for
        the same reason as --dlr-map-control-top: the inset is the height of the thing
        covering the top of the screen, so a heading needs the inset *plus* its ordinary
        air to clear the notch by the margin it clears everything else by. PageNav's
-       replacement padding therefore has to carry an inset term of its own — the negative
-       margin cancelled the one in here — which is a sum, not a double-count.
+       replacement padding therefore has to carry an inset term of its own - the negative
+       margin cancelled the one in here - which is a sum, not a double-count.
 
        It has to be here and not on PageNav alone, because Home and Welcome need the notch
        clearance too. That used to arrive by accident: the MAUI host's status-bar strip
        (BlazorDLR/wwwroot/app.css) was `position: sticky`, so it took an inset of *flow*
        space above #app and shoved every page down. PageNav then added the inset a second
        time, which is why the iOS title bar sat an inset too low and slid up by exactly
-       that much before latching. The strip is `position: fixed` now — it paints, it
-       reserves nothing — and this is the single place the inset is reserved in flow. */
+       that much before latching. The strip is `position: fixed` now - it paints, it
+       reserves nothing - and this is the single place the inset is reserved in flow. */
     --dlr-page-top: calc(2rem + env(safe-area-inset-top));
 }
 
 /*
-    THE SIDE SAFE AREAS — always these, never env(safe-area-inset-left/right) directly.
+    THE SIDE SAFE AREAS - always these, never env(safe-area-inset-left/right) directly.
 
     In landscape iOS reports the SAME non-zero side inset on both edges, whichever edge the
     camera cutout is physically on: UIKit mirrors it so a layout does not jump when the
     phone is flipped end for end. Honouring both leaves a cutout's width of dead space on
-    the edge that has no cutout — the strip that showed to the left of the nav rail's icons
+    the edge that has no cutout - the strip that showed to the left of the nav rail's icons
     in landscape with the island on the right.
 
     safe-area.js reads the orientation angle, which does know, and publishes `data-notch` on
@@ -124,7 +136,7 @@
 :root[data-notch="right"] { --dlr-safe-left:  0px; }
 
 /* Portrait. The cutout is on the top edge, which the side insets do not describe and iOS
-   reports as 0 anyway — stated so the tokens do not depend on that staying true. */
+   reports as 0 anyway - stated so the tokens do not depend on that staying true. */
 :root[data-notch="none"] {
     --dlr-safe-left:  0px;
     --dlr-safe-right: 0px;
@@ -153,8 +165,8 @@ a, .btn-link {
 }
 
 /* `.content { padding-top: 1.1rem }` used to sit here, from the Blazor template. It has
-   never had any effect — MainLayout.razor.css sets the padding shorthand on the same
-   element and its scope attribute outranks a bare class — and now that the top of the
+   never had any effect - MainLayout.razor.css sets the padding shorthand on the same
+   element and its scope attribute outranks a bare class - and now that the top of the
    scroll area is load-bearing for PageNav's sticky bar, a second rule claiming that
    property is a trap rather than dead weight. The top spacing is `--dlr-page-top` on
    `.page`, and nowhere else. */
@@ -163,7 +175,7 @@ h1:focus {
     outline: none;
 }
 
-/* Form controls read the same palette by default — pages that hand-style their inputs
+/* Form controls read the same palette by default - pages that hand-style their inputs
    are the exception, not the rule. */
 input, textarea, select {
     background: var(--dlr-surface-2);
@@ -175,6 +187,33 @@ input, textarea, select {
 input:focus, textarea:focus, select:focus {
     outline: none;
     border-color: var(--dlr-accent);
+}
+
+/*
+    ONE HEIGHT FOR EVERY CONTROL.
+
+    The rule above gives a control this app's colours and leaves its metrics to the browser - so a
+    <select> and a date picker kept the UA font and the UA padding while the button beside them did
+    not, and came out visibly shorter. Pages that noticed fixed it locally, which is why the stacked
+    forms looked right and every other screen was on its own.
+
+    Said once, here. The height is a token rather than the sum of a padding and whatever
+    line-height the platform gives a <select>: that sum is not the same on Android, iOS and a
+    desktop browser, and two controls on one row must not be able to disagree about it.
+
+    2.5rem sits between the two heights this app already had - the 36 px a bare button came to, and
+    the 44 px `.form-page select` asked for as a glove-friendly tap target. Everything is now that
+    one number, including that select, whose own min-height is this token below.
+
+    Checkboxes, radios, ranges and file pickers are excluded. None of them is a box with text in
+    it, and padding on a checkbox resizes the control rather than its inside.
+*/
+select,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) {
+    box-sizing: border-box;
+    min-height: var(--dlr-control-height);
+    padding: 0.5rem;
+    font: inherit; /* the OS control font is not this app's, as `.page button` already says */
 }
 
 .valid.modified:not([type=checkbox]) {
@@ -192,7 +231,7 @@ input:focus, textarea:focus, select:focus {
 /*
     Blazor's built-in "unhandled error" banner. Hidden by default; blazor.web.js
     toggles it to `display: block` when the circuit raises an unhandled exception.
-    Must NOT live in a scoped stylesheet — the built-in JS manipulates the raw
+    Must NOT live in a scoped stylesheet - the built-in JS manipulates the raw
     id and never sees the compiler-minted `b-xxxxx` attribute.
 */
 #blazor-error-ui {
@@ -242,7 +281,7 @@ input:focus, textarea:focus, select:focus {
 /*
     SHARED PAGE SCAFFOLDING.
 
-    Every page is a `.page` container holding the same handful of building blocks —
+    Every page is a `.page` container holding the same handful of building blocks -
     a tagline, a card grid, cards, a phase note. They are defined once, here, so a
     page never restates them in a local <style> block: a change to the card border
     is a change to one rule, not to a dozen pages that drifted apart.
@@ -260,7 +299,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* Text for a screen reader and nobody else. Off-screen rather than display:none, which would
-   take it away from both — the whole point is that it is still read out.
+   take it away from both - the whole point is that it is still read out.
 
    Here rather than in the one component that first needed it because there are now two, which
    is the threshold: a utility class with a single consumer is a component's own rule wearing a
@@ -281,28 +320,28 @@ input:focus, textarea:focus, select:focus {
 .page-medium { --dlr-page-width: 40rem; }
 .page-wide   { --dlr-page-width: 80rem; }
 
-/* Sign-in, register, reset — reached without the app's chrome, so they sit lower
+/* Sign-in, register, reset - reached without the app's chrome, so they sit lower
    down the viewport than a page you navigated to from the rail. Measured from the top of
    the scroll area, which is why this is 4rem and not the 3rem it was when `.content`
    still contributed a rem of its own.
 
    Written as a sum on `--dlr-page-top` rather than a flat `4rem`, because this replaces
    the margin `.page` set and a flat value would drop the safe-area inset that token
-   carries — putting a sign-in heading under the notch on the one screen a new rider sees
+   carries - putting a sign-in heading under the notch on the one screen a new rider sees
    first. It is 2rem *more* air than an ordinary page, on whatever an ordinary page has. */
 .page-standalone { margin-top: calc(2rem + var(--dlr-page-top)); }
 
 /*
-    FULL-BLEED PAGES — opt in with `class="page-full"` INSTEAD of `class="page"`.
+    FULL-BLEED PAGES - opt in with `class="page-full"` INSTEAD of `class="page"`.
 
     For the screen where the content IS the viewport: the live ride map. A `.page`
-    column cannot express that, however wide you make it — a centred column with a
+    column cannot express that, however wide you make it - a centred column with a
     max-width and margins is the opposite of what a map wants.
 
     A fixed layer pinned to the content area, not a `height: 100%` child, because the
     nav rail is `position: sticky` (wide) or `position: fixed` (narrow) and neither
     leaves a box in the flow for a child to measure itself against. The offsets below
-    therefore restate the rail's geometry — which is why they read from the same
+    therefore restate the rail's geometry - which is why they read from the same
     --dlr-rail-* variables and use the same 560 px breakpoint as MainLayout.razor.css.
     Change the breakpoint there and change it here.
 
@@ -314,7 +353,7 @@ input:focus, textarea:focus, select:focus {
     top: 0;
     right: 0;
     bottom: 0;
-    /* The rail's total width, safe area included — `--dlr-rail-width` of icons plus what a
+    /* The rail's total width, safe area included - `--dlr-rail-width` of icons plus what a
        landscape cutout on that side costs it. Restating only the variable would park the
        map's left edge under the rail's far side. */
     left: calc(var(--dlr-rail-width) + var(--dlr-safe-left));
@@ -374,7 +413,7 @@ input:focus, textarea:focus, select:focus {
     The rest of this file is everything that was being retyped in page <style> blocks:
     the h1-plus-action row, the back link, the empty state, the small muted note. Each
     is written once. A page's own <style> is now only for what is genuinely unique to
-    that page — and if a rule there matches one below, it belongs up here instead.
+    that page - and if a rule there matches one below, it belongs up here instead.
 
     Order matters within this file. Where two rules have equal specificity the later
     one wins, so the narrower rules (.error ul, .switch input, .radio input) are placed
@@ -382,10 +421,10 @@ input:focus, textarea:focus, select:focus {
 */
 
 /* The page heading, the back arrow beside it and any actions opposite are all PageNav's
-   now (Components/PageNav.razor.css) — `.header` and `.back` used to live here and have no
+   now (Components/PageNav.razor.css) - `.header` and `.back` used to live here and have no
    callers left. A page needing a heading row builds it from <PageNav>. */
 
-/* "Loading…", "No rides yet" — a centred placeholder where content will be. */
+/* "Loading…", "No rides yet" - a centred placeholder where content will be. */
 .empty {
     text-align: center;
     opacity: 0.7;
@@ -415,7 +454,7 @@ input:focus, textarea:focus, select:focus {
 
 /* ---- Structure inside a page ------------------------------------------- */
 
-/* Lists on a page are content, not navigation — no bullets, no browser indent. */
+/* Lists on a page are content, not navigation - no bullets, no browser indent. */
 .page ul {
     list-style: none;
     padding: 0;
@@ -439,12 +478,12 @@ input:focus, textarea:focus, select:focus {
 .page legend { font-weight: 600; padding: 0 0.5rem; }
 
 /*
-    THE NEUTRAL BUTTON — Cancel, Retry, Previous, Next, and every other button that is
+    THE NEUTRAL BUTTON - Cancel, Retry, Previous, Next, and every other button that is
     not the affirmative action and not the destructive one.
 
     This used to set padding and nothing else, which left every unclassed button as the
     browser's own control: a light grey bevelled slab. On a near-black page that is the
-    brightest thing on screen, sitting next to a flat blue .primary that was styled — so
+    brightest thing on screen, sitting next to a flat blue .primary that was styled - so
     the quiet option drew more attention than the one the rider is meant to press, and
     the pair looked like two controls from two different applications.
 
@@ -453,12 +492,14 @@ input:focus, textarea:focus, select:focus {
     than giving the element a default. `.primary` and `.danger` below both re-state their
     own padding and colours, and both out-specify this on the element+class pair.
 
-    Anything smaller — a row action, a chip, an icon button — still says so locally:
+    Anything smaller - a row action, a chip, an icon button - still says so locally:
     every one of those rules is scoped under its page or component class, which beats
     this, and every one of them declares its own background.
 */
 .page button {
-    padding: 0.5rem 1rem;
+    /* Height comes from the token's padding - see --dlr-control-pad-y for why buttons are sized
+       this way and controls are not. */
+    padding: var(--dlr-control-pad-y) 1rem;
     background: var(--dlr-surface-2);
     color: var(--dlr-fg);
     border: 1px solid var(--dlr-border-strong);
@@ -472,7 +513,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 /*
-    STACKED FORMS — opt in with `class="page form-page"`.
+    STACKED FORMS - opt in with `class="page form-page"`.
 
     Deliberately not `.page label` / `.page input`: components rendered inside a page
     (the poll composer, the comment box) have their own inline layouts, and a global
@@ -490,11 +531,12 @@ input:focus, textarea:focus, select:focus {
     font-size: 1rem;
 }
 
-/* A select is a tap that opens the platform's own picker, and a small one on a phone in
-   gloves is a mis-tap — the same 44 px target the map settings give theirs. The colours are
-   named rather than left to the UA so the control does not stay light in the dark theme. */
+/* A select is a tap that opens the platform's own picker, and a small one on a phone in gloves is
+   a mis-tap. That is what the 44 px here was for; the height is now `--dlr-control-height` for
+   every control in the app, so this states the heavier border and the darker fill a stacked form
+   wants and takes its height from the same place as everything else. The colours are named rather
+   than left to the UA so the control does not stay light in the dark theme. */
 .form-page select {
-    min-height: 44px;
     border: 1px solid var(--dlr-border-strong);
     border-radius: 6px;
     background: var(--dlr-bg);
@@ -503,7 +545,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .form-page button[type="submit"] {
-    padding: 0.6rem 1.25rem;
+    padding: var(--dlr-control-pad-y) 1.25rem;
     margin-top: 0.75rem;
 }
 
@@ -541,17 +583,20 @@ label.radio, .radio {
 /* The affirmative button. Padding is here so a bare `.primary` looks right; a page
    that sizes all its buttons still wins, being later in the document. */
 .primary, button.primary {
-    padding: 0.5rem 1.25rem;
+    /* Padding and a transparent edge, so this comes to `--dlr-control-height` like everything
+       else. The border used to be `none`, which made the affirmative button two pixels shorter
+       than the neutral one beside it - visible whenever the two sit in the same row. */
+    padding: var(--dlr-control-pad-y) 1.25rem;
     background: #2563eb;
     color: white;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 4px;
 }
 
 /*
     A button that cannot be pressed has to look like it. Blue is this app's "do the thing"
     colour, so a disabled .primary in full blue reads as the affirmative action of the screen
-    and simply fails to respond — which the rider blames on the app rather than on the form
+    and simply fails to respond - which the rider blames on the app rather than on the form
     above it. Settings -> Maps is where that showed: "Use this tile server" sits under a URL
     that is not valid yet, and looked ready the whole time.
 
@@ -560,17 +605,17 @@ label.radio, .radio {
 
     From the tokens rather than a literal grey, unlike the two rules below it. This page is dark
     (--dlr-bg is near-black navy), so the light grey a disabled button wants on white would be
-    the brightest thing on the screen — an inert control drawing more attention than the live
+    the brightest thing on the screen - an inert control drawing more attention than the live
     one beside it. --dlr-surface-2 is what an input is filled with, which is the right weight:
     present, and plainly not the affirmative action.
 
     Applies to every disabled button, not just .primary: the same is true of a plain one, and
-    the two disabled buttons on that screen — this and Download — should not disagree.
+    the two disabled buttons on that screen - this and Download - should not disagree.
 
     THE LONG SELECTOR LIST IS SPECIFICITY, NOT SUPERSTITION. `.page button` above and
     `.page button.danger` below are both scoped to the page, so the short forms
     (`button:disabled`, `.danger:disabled`) lose to them on specificity no matter which
-    order the rules appear in — a disabled Delete would have gone on rendering in full
+    order the rules appear in - a disabled Delete would have gone on rendering in full
     destructive red while refusing to be pressed. Each `.page`-scoped selector here exists
     to out-specify exactly one rule that would otherwise win.
 */
@@ -588,7 +633,7 @@ button.primary:disabled,
 }
 
 /*
-    Destructive, but not the point of the page — revoke a device, remove a photo, delete
+    Destructive, but not the point of the page - revoke a device, remove a photo, delete
     a track.
 
     Retuned from a pale pink pill (#fdecea on #a91c1c) that was written for a light theme
@@ -596,12 +641,12 @@ button.primary:disabled,
     near-black navy it rendered as a near-white block: the loudest control on the screen,
     for the action a rider is least often reaching for.
 
-    Dark red fill, red text, red edge — from the tokens, so it retunes with everything
+    Dark red fill, red text, red edge - from the tokens, so it retunes with everything
     else. It reads as destructive without shouting, which is the balance the comment above
     it always claimed: `.primary` is still the brightest thing on any screen that has one.
 */
 .danger, button.danger, .page button.danger {
-    padding: 0.5rem 1.25rem;
+    padding: var(--dlr-control-pad-y) 1.25rem;
     background: var(--dlr-error-bg);
     color: var(--dlr-error);
     border: 1px solid var(--dlr-error-border);
@@ -615,14 +660,17 @@ button.primary:disabled,
 /* An <a> that reads as a button. */
 .button {
     display: inline-block;
-    padding: 0.5rem 1rem;
+    /* The transparent edge is for `.primary`'s reason: this is an <a> and has no border of its
+       own, so without one it would sit shorter than the buttons it is standing in for. */
+    padding: var(--dlr-control-pad-y) 1rem;
     background: #2563eb;
     color: white;
+    border: 1px solid transparent;
     border-radius: 4px;
     text-decoration: none;
 }
 
-/* `color: inherit` is load-bearing — Bootstrap's own .badge sets white text, which
+/* `color: inherit` is load-bearing - Bootstrap's own .badge sets white text, which
    is invisible on these pale backgrounds. */
 .badge {
     font-size: 0.75rem;
@@ -645,7 +693,7 @@ button.primary:disabled,
 
 .error strong { display: block; margin-bottom: 0.25rem; color:white; }
 
-/* Per-rule validation errors read as a list, so the bullets come back — .page ul
+/* Per-rule validation errors read as a list, so the bullets come back - .page ul
    above took them away. */
 .error ul {
     list-style: disc;
@@ -656,7 +704,7 @@ button.primary:disabled,
 
 .error li { margin: 0.15rem 0; color: white; }
 
-/* "Saved", "Export started" — the calm counterpart to .error. */
+/* "Saved", "Export started" - the calm counterpart to .error. */
 .status {
     padding: 0.5rem 0.75rem;
     background: #eff6ff20;
@@ -664,7 +712,7 @@ button.primary:disabled,
     border-radius: 4px;
 }
 
-/* "You gave up account recovery" — a warning the user must read, not an error. */
+/* "You gave up account recovery" - a warning the user must read, not an error. */
 .callout {
     margin: 0.75rem 0;
     padding: 0.75rem 1rem;
@@ -674,7 +722,7 @@ button.primary:disabled,
     font-size: 0.9rem;
 }
 
-/* ---- Striped row list — the ride's member and gap panels ---------------- */
+/* ---- Striped row list - the ride's member and gap panels ---------------- */
 
 .row-list h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 .row-list ul { list-style: none; padding: 0; margin: 0; }

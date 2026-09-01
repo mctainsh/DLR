@@ -1,12 +1,12 @@
 /*
 	The two-placement layout (§18.6, SharedFrontend.md §7 UI).
 
-	Wide — the rail is a left-hand column. Under 560 px — it is a bar along the bottom.
+	Wide - the rail is a left-hand column. Under 560 px - it is a bar along the bottom.
 	The switch is a single `@media (max-width: 559.98px)` block; every other dimension
 	follows from --dlr-rail-width and --dlr-rail-height.
 
 	**Width, not orientation.** This used to key off `orientation: landscape`, which put
-	the bar along the bottom of a wide desktop window and up the side of a tall phone —
+	the bar along the bottom of a wide desktop window and up the side of a tall phone -
 	exactly backwards. What decides whether a left rail is affordable is how many
 	horizontal pixels the content has left after it, and that is a width question. A
 	phone in landscape is 700-odd px wide and keeps the left rail; the same phone
@@ -21,7 +21,7 @@
 
 	**The inset is added to the rail's size, never taken out of it.** The rail is
 	`box-sizing: border-box` (bootstrap's reset), so a bare `height: var(--dlr-rail-height)`
-	with an inset-sized padding leaves the icons whatever is left over — 60 px minus a 34 px
+	with an inset-sized padding leaves the icons whatever is left over - 60 px minus a 34 px
 	home indicator is 26 px of bar, and the rest of the app still reserves the full
 	`rail-height + inset` for it (`.page-full`, `.content`). That mismatch is the strip of
 	page background that showed between an iOS live map and the bottom bar. Same story for
@@ -72,7 +72,7 @@
 
 	**These live here, not in a NavMenu.razor.css, and that is load-bearing.** Blazor's CSS
 	isolation stamps its `b-*` scope attribute onto plain HTML elements written in a
-	component's own markup — never onto the markup a child *component* renders. NavMenu's
+	component's own markup - never onto the markup a child *component* renders. NavMenu's
 	items are `<NavLink>` components, so the `<a>` that comes out carries no scope attribute
 	and a `.rail-item` rule sitting in NavMenu's own stylesheet matches nothing whatsoever.
 	It looked fine in the left rail purely by accident: with no item rules at all, the
@@ -80,7 +80,7 @@
 	showed, as icons parked in the top-left corner of a stretched cell.
 
 	`.rail` is a plain element in *this* component's markup, so it gets a scope attribute,
-	and `::deep` lifts the requirement from everything under it — which is how these rules
+	and `::deep` lifts the requirement from everything under it - which is how these rules
 	reach an anchor that NavLink rendered.
 */
 .rail ::deep .rail-item {
@@ -120,7 +120,7 @@
 	wherever the rail is.
 
 	px, not em: the offsets have to hold against a fixed-size icon rather than against whatever
-	type size the badge inherited — same reason as the live map's hamburger.
+	type size the badge inherited - same reason as the live map's hamburger.
 */
 .rail ::deep .rail-glyph {
 	position: relative;
@@ -143,7 +143,7 @@
 }
 
 /*
-	The GPS switch (GpsRailButton) — the one thing on the rail that does something rather than
+	The GPS switch (GpsRailButton) - the one thing on the rail that does something rather than
 	going somewhere, so it is a <button> and arrives with browser chrome the rail-item rules
 	above cannot see past.
 
@@ -153,7 +153,7 @@
 
 	The tone is colour ONLY. Every status already has its own glyph (see GpsRailButton), because
 	amber against green is the pair a red-green rider cannot separate and this is read through a
-	visor in daylight — the shape is what they go by and the colour only grades it.
+	visor in daylight - the shape is what they go by and the colour only grades it.
 */
 .rail ::deep .gps-switch {
 	background: none;
@@ -190,7 +190,7 @@
 }
 
 /*
-	What the switch just did, beside the rail rather than over the middle of the page — it is the
+	What the switch just did, beside the rail rather than over the middle of the page - it is the
 	rail's own message, and the rail is what the rider just touched.
 
 	`fixed`, not `absolute`: the rail is sticky at one width and fixed at the other, so an
@@ -222,7 +222,7 @@
 }
 
 /*
-	No top padding, deliberately — the whole of a page's top spacing is `.page`'s
+	No top padding, deliberately - the whole of a page's top spacing is `.page`'s
 	`--dlr-page-top` margin (app.css). PageNav's sticky bar cancels that one value to sit
 	flush against the top of the scroll area, and it cannot cancel a gap that two rules
 	contribute to. Sides and bottom are this element's business as before.
@@ -256,7 +256,7 @@
 		gap: 0.25rem;
 		width: 100%;
 		/* The bar is rail-height of icons *plus* whatever the home indicator claims under
-		   it — the same total `.page-full` and `.content` reserve. See the note at the top
+		   it - the same total `.page-full` and `.content` reserve. See the note at the top
 		   of this file for why the inset is added rather than absorbed. */
 		height: calc(var(--dlr-rail-height) + env(safe-area-inset-bottom));
 		border-right: none;

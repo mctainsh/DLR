@@ -67,7 +67,7 @@ public sealed class MarkerController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status400BadRequest,
 				title: "Exactly one parent",
-				detail: "A marker hangs off a track or a group adventure — one of them, and not both.");
+				detail: "A marker hangs off a track or a group adventure - one of them, and not both.");
 		}
 
 		if (Validate(request.Lat, request.Lon, request.Icon, request.Title, request.DirectionDeg, limits)
@@ -107,7 +107,7 @@ public sealed class MarkerController : ControllerBase
 			Icon = request.Icon.Trim(),
 			// Empty, not null: the column is NOT NULL and an untitled marker is the absence of a
 			// label rather than a missing row value. Every reader already treats "" as "no title"
-			// — the overlay skips the plate's text, the lists fall back to the icon's name.
+			// - the overlay skips the plate's text, the lists fall back to the icon's name.
 			Title = MarkerText.Clean(request.Title) ?? string.Empty,
 			Note = MarkerText.Clean(request.Note),
 			CreatedUtc = now,
@@ -120,7 +120,7 @@ public sealed class MarkerController : ControllerBase
 
 		MarkerDto dto = await DescribeAsync(database, marker.Id);
 
-		// A discrete authored event, not a telemetry tick — so it travels as its own message
+		// A discrete authored event, not a telemetry tick - so it travels as its own message
 		// rather than folded into the 5 s position batch, where dropping one would be data loss
 		// rather than a skipped frame (§16.6).
 		if (marker.GroupRideId is { } broadcastTo)
@@ -208,7 +208,7 @@ public sealed class MarkerController : ControllerBase
 		marker.Lon = request.Lon;
 		marker.DirectionDeg = request.DirectionDeg;
 		marker.Icon = request.Icon.Trim();
-		// Same rule as creation: cleared is untitled, not rejected — so an edit can take a label
+		// Same rule as creation: cleared is untitled, not rejected - so an edit can take a label
 		// off a pin as well as put one on.
 		marker.Title = MarkerText.Clean(request.Title) ?? string.Empty;
 		marker.Note = MarkerText.Clean(request.Note);
@@ -301,8 +301,8 @@ public sealed class MarkerController : ControllerBase
 		if (request.PhotoId is { } photoId)
 		{
 			// Attaching is where AllowMemberPhotos bites, not the upload (§5.8). A photo is a
-			// standalone resource with no ride context — it is taken at the top of a hill and
-			// uploaded whenever there is signal — so the ride's switch can only be consulted at
+			// standalone resource with no ride context - it is taken at the top of a hill and
+			// uploaded whenever there is signal - so the ride's switch can only be consulted at
 			// the moment the image is bound to something in that ride.
 			if (marker.GroupRideId is { } photoRideId
 				&& await MembershipAsync(database, photoRideId, userId) is { Ride: not null } membership
@@ -355,7 +355,7 @@ public sealed class MarkerController : ControllerBase
 
 		if (membership?.Ride is null)
 		{
-			// Any admitted member may place one — the useful marker is "gravel across the whole
+			// Any admitted member may place one - the useful marker is "gravel across the whole
 			// corner at the 40 km mark", and the person who found it is whoever hit it first.
 			return Problem(
 				statusCode: StatusCodes.Status403Forbidden,
@@ -496,7 +496,7 @@ public sealed class MarkerController : ControllerBase
 		// No title is a marker, not a mistake. The icon is the thing that carries the meaning on
 		// a map read at speed, and "gravel" typed under a gravel pin is the word twice; the
 		// overlay draws the plate alone when there is no label. What is still checked is the
-		// length of one that IS there — that limit is a rendering constraint, not a rule about
+		// length of one that IS there - that limit is a rendering constraint, not a rule about
 		// whether the field was filled in.
 		string cleaned = MarkerText.Clean(title) ?? string.Empty;
 
@@ -504,7 +504,7 @@ public sealed class MarkerController : ControllerBase
 			? Problem(
 				statusCode: StatusCodes.Status400BadRequest,
 				title: "Title too long",
-				detail: $"A title is at most {limits.TitleMaxChars} characters — it is drawn on the map, " +
+				detail: $"A title is at most {limits.TitleMaxChars} characters - it is drawn on the map, " +
 				"and a longer one covers the road it refers to.")
 			: null;
 	}

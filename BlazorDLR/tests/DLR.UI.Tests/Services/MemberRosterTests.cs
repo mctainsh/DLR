@@ -6,7 +6,7 @@ using DLR.Core.Tracks;
 namespace DLR.UI.Tests.Services;
 
 /// <summary>
-/// The rules behind the "Live members" screen (§5.3, §5.4, §5.6) — the three presence
+/// The rules behind the "Live members" screen (§5.3, §5.4, §5.6) - the three presence
 /// states, the four figures on each row, and the four orders the list can be read in.
 /// <para>
 /// Pure logic, tested without a renderer: that is why it is a static class in
@@ -19,7 +19,7 @@ public sealed class MemberRosterTests
 {
 	private static readonly DateTimeOffset Now = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 
-	/// <summary>Sydney Harbour Bridge, give or take — the anchor every fixture below hangs off.</summary>
+	/// <summary>Sydney Harbour Bridge, give or take - the anchor every fixture below hangs off.</summary>
 	private const double BaseLat = -33.852;
 	private const double BaseLon = 151.211;
 
@@ -66,7 +66,7 @@ public sealed class MemberRosterTests
 			sort: MemberSort.Name);
 
 		rows.Single(row => row.UserId == quiet).Presence.ShouldBe(MemberPresence.NoSignal,
-			"§5.6: sharing with nothing arriving is 'no signal' — their last point is still on the map.");
+			"§5.6: sharing with nothing arriving is 'no signal' - their last point is still on the map.");
 		rows.Single(row => row.UserId == off).Presence.ShouldBe(MemberPresence.NotSharing,
 			"§5.6: not sharing is a decision, not a network condition, and collapsing the two is "
 			+ "the ambiguity that leaves somebody behind at a junction.");
@@ -117,7 +117,7 @@ public sealed class MemberRosterTests
 	[Fact]
 	public void WithNoPositionSetAtAll_TheSnapshotsOwnFlagIsTheWholeOfWhatIsKnown()
 	{
-		// A caller that has no positions — the list rendered before the snapshot's fixes land.
+		// A caller that has no positions - the list rendered before the snapshot's fixes land.
 		// Freshness is not a question that can be asked, so HasPosition is the answer.
 		Guid rider = Guid.NewGuid();
 
@@ -132,7 +132,7 @@ public sealed class MemberRosterTests
 
 		MemberRow row = rows.ShouldHaveSingleItem();
 		row.Presence.ShouldBe(MemberPresence.Sharing);
-		row.FixAge.ShouldBeNull("no fix was supplied, so there is no age — and null is not zero.");
+		row.FixAge.ShouldBeNull("no fix was supplied, so there is no age - and null is not zero.");
 	}
 
 	// -- The figures ------------------------------------------------------------------------------
@@ -203,7 +203,7 @@ public sealed class MemberRosterTests
 		rows[1].UserId.ShouldBe(back);
 		rows[1].IsLeader.ShouldBeFalse();
 
-		// 0.03 degrees of longitude at this latitude — about 2.8 km back.
+		// 0.03 degrees of longitude at this latitude - about 2.8 km back.
 		rows[1].GapMetres.ShouldNotBeNull().ShouldBe(2_780, tolerance: 100);
 	}
 
@@ -373,7 +373,7 @@ public sealed class MemberRosterTests
 	public void RowsWithNothingToSortOn_GoLast_InEveryOrder()
 	{
 		// A rider who is not sharing has no age, no range and no place on the route. Floating them
-		// to the top — where a null sorts by default — fills the head of the list with the rows
+		// to the top - where a null sorts by default - fills the head of the list with the rows
 		// carrying the least information.
 		Guid quiet = Guid.NewGuid();
 		Guid live = Guid.NewGuid();
@@ -473,7 +473,7 @@ public sealed class MemberRosterTests
 	[Fact]
 	public void APrivateRider_CarriesNoneOfTheFourFigures()
 	{
-		// Range, along, gap and off-route are all derived from a position the ride no longer holds —
+		// Range, along, gap and off-route are all derived from a position the ride no longer holds -
 		// and the leader is worked out over the same column, so a private rider cannot be one.
 		Guid home = Guid.NewGuid();
 		Guid moving = Guid.NewGuid();
@@ -505,7 +505,7 @@ public sealed class MemberRosterTests
 	public void TheReadersOwnRow_KeepsItsFigures_FromTheirOwnDevice_WhileTheyArePrivate()
 	{
 		// §10.1 is a rule about what leaves the phone. On the phone there is nobody to hide the
-		// rider's house from — they are standing in it — so their own row reads exactly as it did
+		// rider's house from - they are standing in it - so their own row reads exactly as it did
 		// before they got home.
 		Guid me = Guid.NewGuid();
 
@@ -557,7 +557,7 @@ public sealed class MemberRosterTests
 	// -- Formatting -------------------------------------------------------------------------------
 
 	[Theory]
-	[InlineData(null, "—")]
+	[InlineData(null, "-")]
 	[InlineData(0d, "0 m")]
 	[InlineData(340d, "340 m")]
 	[InlineData(999.6d, "1000 m")]
@@ -567,7 +567,7 @@ public sealed class MemberRosterTests
 
 	[Fact]
 	public void FormatAge_SaysNothingKnown_RatherThanZero_WhenThereIsNoFix() =>
-		MemberRoster.FormatAge(null).ShouldBe("—",
+		MemberRoster.FormatAge(null).ShouldBe("-",
 			"'0 s' would claim a fix arrived this instant, which is the opposite of what null means.");
 
 	[Theory]

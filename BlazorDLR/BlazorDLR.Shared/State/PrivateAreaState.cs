@@ -5,7 +5,7 @@ namespace BlazorDLR.Shared.State;
 
 /// <summary>
 /// The <see cref="PrivateArea"/> in force for this account, and the one gate that decides whether
-/// a fix may be broadcast — and, at save time, whether a recorded one may be uploaded (§10.1,
+/// a fix may be broadcast - and, at save time, whether a recorded one may be uploaded (§10.1,
 /// §18.6).
 /// <para>
 /// <strong>The account is the source of truth; the device store is a cache of it.</strong> This
@@ -19,7 +19,7 @@ namespace BlazorDLR.Shared.State;
 /// <para>
 /// The cache is not an optimisation, it is what keeps the gate answerable with no network. The
 /// caller with the tightest budget is a recorder asking "may I send this?" once a second, and it
-/// must not make a round trip — of any kind — to find out; and a phone that starts in a tunnel
+/// must not make a round trip - of any kind - to find out; and a phone that starts in a tunnel
 /// still has to know where not to broadcast from.
 /// </para>
 /// <para>
@@ -29,7 +29,7 @@ namespace BlazorDLR.Shared.State;
 /// around their house, and the two ways of being wrong are not equivalent: a few suppressed
 /// fixes at startup cost a rider a moment of being unplaced on somebody's map, while a few
 /// published ones cost them the thing the feature exists to protect. On a device that has never
-/// been told and cannot reach the server the gate simply stays shut — which costs nothing real,
+/// been told and cannot reach the server the gate simply stays shut - which costs nothing real,
 /// because publishing a position needs the same network the read just failed on.
 /// </para>
 /// <para>
@@ -69,7 +69,7 @@ public sealed class PrivateAreaState
 	/// <summary>The area in force, or <c>null</c> when there is none. <c>null</c> until <see cref="LoadAsync"/> has run.</summary>
 	public PrivateArea? Area => _area;
 
-	/// <summary>Whether an area is set — what the settings screen offers "remove" against.</summary>
+	/// <summary>Whether an area is set - what the settings screen offers "remove" against.</summary>
 	public bool IsSet => _area is not null;
 
 	/// <summary>
@@ -95,7 +95,7 @@ public sealed class PrivateAreaState
 	public string? SyncError => _syncError;
 
 	/// <summary>
-	/// Whether a position must not be sent — the question the publisher asks about every fix, and
+	/// Whether a position must not be sent - the question the publisher asks about every fix, and
 	/// the only place that decision is made.
 	/// <para>
 	/// The recorder does not ask this: it keeps the fix on the device and
@@ -117,7 +117,7 @@ public sealed class PrivateAreaState
 	public bool HidesLocation(LocationFix fix) => HidesLocation(fix.Latitude, fix.Longitude);
 
 	/// <summary>
-	/// Whether the rider is <em>known</em> to be inside a circle they drew — which is a narrower
+	/// Whether the rider is <em>known</em> to be inside a circle they drew - which is a narrower
 	/// question than <see cref="HidesLocation(double, double)"/> and must not be confused with it.
 	/// <para>
 	/// The gate answers "hide" while this device has no answer yet, because a suppressed fix costs a
@@ -139,7 +139,7 @@ public sealed class PrivateAreaState
 	/// <summary>
 	/// Reads the area: this device's cached copy first, then the account, which wins.
 	/// <para>
-	/// Idempotent once the account has answered — the host's startup and the settings screen both
+	/// Idempotent once the account has answered - the host's startup and the settings screen both
 	/// call it without coordinating. While it has not, every call retries, because the alternative
 	/// is a rider stuck behind a shut gate for the rest of the session over one failed request.
 	/// </para>
@@ -196,7 +196,7 @@ public sealed class PrivateAreaState
 		}
 		catch (Exception exception)
 		{
-			// _loaded is left exactly as the cache left it — true when this device holds an
+			// _loaded is left exactly as the cache left it - true when this device holds an
 			// answer, false when it does not, and a false gate is a shut gate.
 			_syncError = exception.Message;
 		}
@@ -253,7 +253,7 @@ public sealed class PrivateAreaState
 	/// <para>
 	/// The cache is set to <see cref="PrivateArea.NoneMarker"/> rather than removed. Removing the
 	/// key would make a rider who deliberately cleared their area indistinguishable from a device
-	/// that has never asked the server — and the gate treats those differently on purpose, so the
+	/// that has never asked the server - and the gate treats those differently on purpose, so the
 	/// first of them would find themselves silently unable to share the next time they opened the
 	/// app offline.
 	/// </para>
@@ -288,7 +288,7 @@ public sealed class PrivateAreaState
 	}
 
 	/// <summary>
-	/// Mirrors the account's answer onto this device. Never throws — a device store that cannot
+	/// Mirrors the account's answer onto this device. Never throws - a device store that cannot
 	/// be written is a slower next start, not a failed save (<see cref="IDeviceSettings"/>).
 	/// </summary>
 	private ValueTask CacheAsync(PrivateArea? area, CancellationToken cancellationToken) =>

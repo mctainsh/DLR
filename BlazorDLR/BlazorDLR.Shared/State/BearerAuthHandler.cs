@@ -20,7 +20,7 @@ namespace BlazorDLR.Shared.State;
 /// </para>
 /// <para>
 /// <strong>One retry, ever.</strong> A second 401 after a fresh token means the token
-/// endpoint returned a value the resource endpoint refuses — a bug the client cannot fix,
+/// endpoint returned a value the resource endpoint refuses - a bug the client cannot fix,
 /// and looping would turn it into a self-inflicted denial of service. The 401 propagates
 /// and the caller decides what to do.
 /// </para>
@@ -39,7 +39,7 @@ public sealed class BearerAuthHandler : DelegatingHandler
 		HttpRequestMessage request,
 		CancellationToken cancellationToken)
 	{
-		// Never attach a bearer to the token endpoint itself — it authenticates by the
+		// Never attach a bearer to the token endpoint itself - it authenticates by the
 		// refresh grant, and adding a stale access token would surface as a 401 on the
 		// call the app depends on to un-401 itself.
 		bool isTokenEndpoint = request.RequestUri is { AbsolutePath: string path }
@@ -49,7 +49,7 @@ public sealed class BearerAuthHandler : DelegatingHandler
 				|| path.Equals("/api/v1/auth/reset-password", StringComparison.OrdinalIgnoreCase)
 				// Followed from an emailed link, in whatever browser opened the mail. The token in
 				// the body is the proof and the endpoint is anonymous, so attaching a bearer would
-				// only mean refreshing — or signing out — a session that has nothing to do with it.
+				// only mean refreshing - or signing out - a session that has nothing to do with it.
 				|| path.Equals("/api/v1/auth/confirm-email", StringComparison.OrdinalIgnoreCase)
 				|| path.Equals("/api/v1/auth/web/token", StringComparison.OrdinalIgnoreCase));
 
@@ -71,14 +71,14 @@ public sealed class BearerAuthHandler : DelegatingHandler
 			return response;
 		}
 
-		// The one retry. The server's view is authoritative — it refused a token we thought
-		// was valid — so we refresh unconditionally rather than trusting our own cache.
+		// The one retry. The server's view is authoritative - it refused a token we thought
+		// was valid - so we refresh unconditionally rather than trusting our own cache.
 		response.Dispose();
 
 		string? refreshed = await auth.RefreshNowAsync(cancellationToken);
 		if (refreshed is null)
 		{
-			// The refresh failed and AuthState signed us out. There is nothing to try — hand
+			// The refresh failed and AuthState signed us out. There is nothing to try - hand
 			// back a 401 the caller can surface. Cloning is not needed because the original
 			// response is already disposed.
 			return new HttpResponseMessage(HttpStatusCode.Unauthorized);
@@ -91,7 +91,7 @@ public sealed class BearerAuthHandler : DelegatingHandler
 	}
 
 	/// <summary>
-	/// <see cref="HttpRequestMessage"/> cannot be re-sent — <see cref="HttpClient"/>
+	/// <see cref="HttpRequestMessage"/> cannot be re-sent - <see cref="HttpClient"/>
 	/// consumes the content stream on the first send. Clone the parts a retry cares
 	/// about and drop the parts it does not.
 	/// </summary>
@@ -109,8 +109,8 @@ public sealed class BearerAuthHandler : DelegatingHandler
 		if (original.Content is not null)
 		{
 			// Read once, in memory, and hand that back. The requests this handler sees are
-			// small — token requests, profile puts, GPX previews are handled by a separate
-			// upload path — so materialising is fine and lets a retry succeed.
+			// small - token requests, profile puts, GPX previews are handled by a separate
+			// upload path - so materialising is fine and lets a retry succeed.
 			byte[] bytes = await original.Content.ReadAsByteArrayAsync(cancellationToken);
 			clone.Content = new ByteArrayContent(bytes);
 			foreach (var header in original.Content.Headers)

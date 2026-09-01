@@ -10,7 +10,7 @@ namespace DLR.UI.Tests.Components;
 /// §17.5's 2–6 bound and the close-time optional gate. The composer must:
 /// <list type="bullet">
 ///   <item>Start with two option inputs and no remove button.</item>
-///   <item>Stop offering "Add option" once six options exist — the seventh would make
+///   <item>Stop offering "Add option" once six options exist - the seventh would make
 ///     it a survey, and the design outline draws the line there.</item>
 ///   <item>Emit a null <see cref="PollSpec.ClosesUtc"/> when the "close automatically"
 ///     switch is off, and a UTC-normalised value when the switch is on.</item>
@@ -31,9 +31,9 @@ public sealed class PollComposerMoreTests : BunitContext
 		IRenderedComponent<PollComposer> component = Render<PollComposer>();
 
 		component.FindAll("input[placeholder^='Option']").Count.ShouldBe(2,
-			"§17.5: the minimum poll is two options — the composer opens on that floor.");
+			"§17.5: the minimum poll is two options - the composer opens on that floor.");
 		component.FindAll("button.remove").Count.ShouldBe(0,
-			"§17.5: with two options nothing can be removed — the button must not be there to tempt.");
+			"§17.5: with two options nothing can be removed - the button must not be there to tempt.");
 	}
 
 	[Fact]
@@ -53,7 +53,7 @@ public sealed class PollComposerMoreTests : BunitContext
 
 		component.FindAll("input[placeholder^='Option']").Count.ShouldBe(6);
 		component.FindAll("button.add").Count.ShouldBe(0,
-			"§17.5: the composer stops offering Add once six options exist — the seventh would make it a survey.");
+			"§17.5: the composer stops offering Add once six options exist - the seventh would make it a survey.");
 	}
 
 	[Fact]
@@ -80,7 +80,7 @@ public sealed class PollComposerMoreTests : BunitContext
 
 		component.FindAll("input[placeholder^='Option']").Count.ShouldBe(2);
 		component.FindAll("button.remove").Count.ShouldBe(0,
-			"§17.5: at the two-option floor the remove buttons must vanish — the composer must not offer a removal that would break the minimum.");
+			"§17.5: at the two-option floor the remove buttons must vanish - the composer must not offer a removal that would break the minimum.");
 	}
 
 	[Fact]
@@ -113,7 +113,7 @@ public sealed class PollComposerMoreTests : BunitContext
 		spec.ShouldNotBeNull();
 		spec!.ClosesUtc.ShouldNotBeNull("§17.5: with the switch on the spec must carry a ClosesUtc.");
 		spec.ClosesUtc!.Value.Offset.ShouldBe(TimeSpan.Zero,
-			"ClosesUtc must be UTC — the server does not want to guess a client's offset.");
+			"ClosesUtc must be UTC - the server does not want to guess a client's offset.");
 	}
 
 	[Fact]
@@ -141,6 +141,6 @@ public sealed class PollComposerMoreTests : BunitContext
 		});
 
 		component.Instance.BuildSpec()!.AllowMultiple.ShouldBeTrue(
-			"the switch toggles the spec — a poll that needs multi-select depends on this round-trip.");
+			"the switch toggles the spec - a poll that needs multi-select depends on this round-trip.");
 	}
 }

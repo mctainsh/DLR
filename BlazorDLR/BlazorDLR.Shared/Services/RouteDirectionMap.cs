@@ -5,7 +5,7 @@ namespace BlazorDLR.Shared.Services;
 /// the set of tracks a rider has reversed, stored on the device beside <see cref="RouteColourMap"/>
 /// and under a key of its own.
 /// <para>
-/// <strong>What reversing is for.</strong> A track is a direction as well as a shape — it is what
+/// <strong>What reversing is for.</strong> A track is a direction as well as a shape - it is what
 /// the chevrons along the line point at, and it is the order §5.4's gap list measures "distance
 /// along the route" in. A GPX recorded riding a loop clockwise, attached to a ride going
 /// anti-clockwise, draws arrows pointing back at the group and ranks the leader last. Reversing is
@@ -17,7 +17,7 @@ namespace BlazorDLR.Shared.Services;
 /// a rider has ever looked at would grow the value with no change in meaning.
 /// </para>
 /// <para>
-/// <strong>Keyed on track id, not on position in the ride</strong> — the same choice
+/// <strong>Keyed on track id, not on position in the ride</strong> - the same choice
 /// <see cref="RouteColourMap"/> makes and for the same reason. The direction belongs to that GPX,
 /// so it follows the file onto next month's ride instead of following whatever ends up second in
 /// some other list.
@@ -32,7 +32,7 @@ public static class RouteDirectionMap
 	/// The set as one string for <see cref="IDeviceSettings"/>: a format version, then one track
 	/// id per reversed route.
 	/// <para>
-	/// Same shape and same reasoning as <see cref="RouteColourMap.Encode"/> — one key, one round
+	/// Same shape and same reasoning as <see cref="RouteColourMap.Encode"/> - one key, one round
 	/// trip, and no reflection-based serialiser in an assembly that gets trimmed into a WASM
 	/// download.
 	/// </para>
@@ -50,8 +50,8 @@ public static class RouteDirectionMap
 	/// <summary>
 	/// Reads back what <see cref="Encode"/> wrote.
 	/// <para>
-	/// Entry by entry: one unparseable id costs that route its reversal — which draws the way the
-	/// GPX was recorded, and looks stock — rather than costing every other route its own. The
+	/// Entry by entry: one unparseable id costs that route its reversal - which draws the way the
+	/// GPX was recorded, and looks stock - rather than costing every other route its own. The
 	/// value comes off a device we do not control.
 	/// </para>
 	/// </summary>

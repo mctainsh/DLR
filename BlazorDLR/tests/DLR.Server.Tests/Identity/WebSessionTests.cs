@@ -64,14 +64,14 @@ public sealed class WebSessionTests(PostgresFixture postgres)
 
 		TokenResponse session = (await signedIn.Content.ReadFromJsonAsync<TokenResponse>())!;
 
-		session.AccessToken.ShouldNotBeNullOrEmpty("the access token still comes back — in memory only");
+		session.AccessToken.ShouldNotBeNullOrEmpty("the access token still comes back - in memory only");
 		session.RefreshToken.ShouldBeEmpty();
 	}
 
 	/// <summary>
 	/// <c>Secure</c> follows the request rather than being hard-coded on, because a cookie marked
 	/// Secure over the plain-HTTP loopback that a test host and a local <c>dotnet run</c> both use
-	/// is a cookie the browser discards — the sign-in appears to work and the next request is
+	/// is a cookie the browser discards - the sign-in appears to work and the next request is
 	/// anonymous, which is §7.5's named failure mode arriving by a different door.
 	/// </summary>
 	[Fact]
@@ -97,8 +97,8 @@ public sealed class WebSessionTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// §18.5's thirty sliding days. The row is what decides — a cookie's own expiry is the client's
-	/// to ignore — so the test advances past it and asks the server.
+	/// §18.5's thirty sliding days. The row is what decides - a cookie's own expiry is the client's
+	/// to ignore - so the test advances past it and asks the server.
 	/// </summary>
 	[Fact]
 	public async Task WebAuth_SessionExpiresAfterConfiguredDays()
@@ -131,13 +131,13 @@ public sealed class WebSessionTests(PostgresFixture postgres)
 			"a browser left alone for a month signs in again (§18.5)");
 
 		// And the browser is told to forget it, rather than left presenting a value the server
-		// will never accept — which would make every start-up look broken instead of signed out.
+		// will never accept - which would make every start-up look broken instead of signed out.
 		SetCookie(expired).ShouldContain("max-age=0", Case.Insensitive);
 	}
 
 	/// <summary>
 	/// The counterpart, and the reason the two are one test each rather than one assertion. §7.4's
-	/// permanence is not withdrawn — it is scoped to the device it was reasoned about.
+	/// permanence is not withdrawn - it is scoped to the device it was reasoned about.
 	/// </summary>
 	[Fact]
 	public async Task MobileAuth_SessionStillNeverExpires()
@@ -163,7 +163,7 @@ public sealed class WebSessionTests(PostgresFixture postgres)
 	/// <summary>
 	/// The cost of putting a credential in a cookie is that the browser attaches it to requests
 	/// other sites can cause. <c>SameSite=Strict</c> refuses those, but it is one attribute in one
-	/// place — §7.5 asks for antiforgery on this endpoint specifically, and this is it.
+	/// place - §7.5 asks for antiforgery on this endpoint specifically, and this is it.
 	/// </summary>
 	[Fact]
 	public async Task WebAuth_TokenExchangeWithoutAnAntiforgeryToken_IsRefused()
@@ -189,7 +189,7 @@ public sealed class WebSessionTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Signing out revokes server-side rather than merely forgetting. Clearing the cookie alone
-	/// would leave a working token in whatever else holds a copy — which, on the shared computer
+	/// would leave a working token in whatever else holds a copy - which, on the shared computer
 	/// that made web sessions expire at all, is the entire scenario.
 	/// </summary>
 	[Fact]
@@ -221,7 +221,7 @@ public sealed class WebSessionTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A browser is a device like any other in §7.10's list — it just does not get §7.4's
+	/// A browser is a device like any other in §7.10's list - it just does not get §7.4's
 	/// permanence. The kind is server-decided, from the endpoint reached, never from the request.
 	/// </summary>
 	[Fact]
@@ -247,7 +247,7 @@ public sealed class WebSessionTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// §7.8's login limits are not relaxed because the caller is a browser — a new route is a new
+	/// §7.8's login limits are not relaxed because the caller is a browser - a new route is a new
 	/// place for the same attack, not a new attack.
 	/// </summary>
 	[Fact]

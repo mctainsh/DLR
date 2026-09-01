@@ -39,7 +39,7 @@ public sealed class PollConfiguration : IEntityTypeConfiguration<Poll>
 	{
 		builder.ToTable("poll");
 
-		// The comment's id, not one of its own — one poll per comment is then impossible to
+		// The comment's id, not one of its own - one poll per comment is then impossible to
 		// violate rather than merely unlikely (§17.5).
 		builder.HasKey(poll => poll.CommentId);
 

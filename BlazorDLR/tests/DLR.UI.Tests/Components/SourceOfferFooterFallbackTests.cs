@@ -13,8 +13,8 @@ namespace DLR.UI.Tests.Components;
 /// The happy-path renders are covered by <see cref="SourceOfferFooterTests"/>;
 /// this file pins:
 /// <list type="bullet">
-///   <item>A short commit renders in full — the truncation is length-conditional.</item>
-///   <item>An empty commit renders as "unknown" — never a blank between two separators
+///   <item>A short commit renders in full - the truncation is length-conditional.</item>
+///   <item>An empty commit renders as "unknown" - never a blank between two separators
 ///     that would look like the footer was cut off.</item>
 ///   <item>An API failure (either <see cref="NotImplementedException"/> from a host whose
 ///     client cannot answer About, or any other exception) falls back to the placeholder
@@ -38,14 +38,14 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 		};
 		Services.AddSingleton<IApiClient>(api);
 
-		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		// Cleared here, next to the render, and never in a constructor - see SourceOfferFooterCache.
 		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains(">abc123<", StringComparison.Ordinal).ShouldBeTrue(
-				"a commit shorter than the truncation limit renders in full — the truncation is length-conditional.");
+				"a commit shorter than the truncation limit renders in full - the truncation is length-conditional.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -63,14 +63,14 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 		};
 		Services.AddSingleton<IApiClient>(api);
 
-		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		// Cleared here, next to the render, and never in a constructor - see SourceOfferFooterCache.
 		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("unknown", StringComparison.Ordinal).ShouldBeTrue(
-				"an empty commit is rendered as 'unknown' rather than as a blank between two separators — a blank looks like a bug.");
+				"an empty commit is rendered as 'unknown' rather than as a blank between two separators - a blank looks like a bug.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -78,20 +78,20 @@ public sealed class SourceOfferFooterFallbackTests : BunitContext
 	public void ApiThrowsNotImplemented_FootersFallsBackToPlaceholder_WithLicenceLine()
 	{
 		// A host whose IApiClient cannot answer About throws NotImplementedException rather
-		// than returning a fabricated value — see InProcessAboutApiClient's SSR guard. The
+		// than returning a fabricated value - see InProcessAboutApiClient's SSR guard. The
 		// footer must catch it and render the placeholder line.
 		IApiClient api = Substitute.For<IApiClient>();
 		api.GetAboutAsync(Arg.Any<CancellationToken>())
 			.ThrowsAsync(new NotImplementedException("this host cannot answer /about"));
 		Services.AddSingleton(api);
 
-		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		// Cleared here, next to the render, and never in a constructor - see SourceOfferFooterCache.
 		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
 		component.WaitForAssertion(() =>
 		{
-			// The About endpoint failed — the placeholder line is what a caller sees,
+			// The About endpoint failed - the placeholder line is what a caller sees,
 			// which is still honest about the licence (that is not endpoint-dependent).
 			string markup = component.Markup;
 			markup.Contains("AGPL-3.0-only", StringComparison.Ordinal).ShouldBeTrue(

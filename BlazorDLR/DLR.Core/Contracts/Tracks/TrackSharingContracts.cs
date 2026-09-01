@@ -1,13 +1,13 @@
 namespace DLR.Core.Contracts.Tracks;
 
 /// <summary>
-/// <c>PATCH /api/v1/tracks/{id}/details</c> — the description, the cover photograph and whether
+/// <c>PATCH /api/v1/tracks/{id}/details</c> - the description, the cover photograph and whether
 /// the route is shared with everyone (§6.2, §6.3).
 /// <para>
 /// <strong>All three together, and every field is an assignment rather than a suggestion.</strong>
 /// The screen behind this is one panel with one Save button, and a partial update would mean a
 /// rider who cleared the description and pressed Save could not tell whether the empty box meant
-/// "remove it" or "leave it alone". Sending the whole panel back makes that unambiguous — null
+/// "remove it" or "leave it alone". Sending the whole panel back makes that unambiguous - null
 /// clears, a value sets.
 /// </para>
 /// <para>
@@ -21,7 +21,7 @@ namespace DLR.Core.Contracts.Tracks;
 /// </param>
 /// <param name="PhotoId">
 /// A photograph the caller uploaded to <c>POST /api/v1/photos</c>, or null to remove the cover.
-/// Somebody else's photo identifier is refused rather than silently ignored — otherwise a guessed
+/// Somebody else's photo identifier is refused rather than silently ignored - otherwise a guessed
 /// identifier would republish their photograph under a route of the caller's choosing.
 /// </param>
 /// <param name="Visibility">
@@ -38,7 +38,7 @@ public sealed record UpdateTrackDetailsRequest(
 /// <para>
 /// Deliberately not a <see cref="TrackSummary"/>. This list is somebody else's routes, and a
 /// browse row needs the owner's name and how far away the route is, while it has no use at all
-/// for a version, a point count or a segment count — every one of which is an edit concern on a
+/// for a version, a point count or a segment count - every one of which is an edit concern on a
 /// track the caller cannot edit.
 /// </para>
 /// </summary>
@@ -46,11 +46,11 @@ public sealed record UpdateTrackDetailsRequest(
 /// <param name="Name">What it is called.</param>
 /// <param name="Description">What the owner wrote, or null.</param>
 /// <param name="PhotoId">The cover photograph, or null.</param>
-/// <param name="OwnerName">Whose route it is — the username, never a self-chosen display name (§7.3).</param>
+/// <param name="OwnerName">Whose route it is - the username, never a self-chosen display name (§7.3).</param>
 /// <param name="DistanceM">Metres along the ground.</param>
 /// <param name="AscentM">Metres climbed, or null when the source carried no elevation.</param>
 /// <param name="SharedUtc">When it was first shared. What the list sorts on when no area filter is set.</param>
-/// <param name="CentreLat">Latitude of the route's bounding-box centre — enough to put a pin on it.</param>
+/// <param name="CentreLat">Latitude of the route's bounding-box centre - enough to put a pin on it.</param>
 /// <param name="CentreLon">Longitude of the same.</param>
 /// <param name="AwayKm">
 /// Great-circle kilometres from the point the caller filtered around, or null when they did not
@@ -59,7 +59,7 @@ public sealed record UpdateTrackDetailsRequest(
 /// <param name="RatingAverage">
 /// The mean of every star given, or null when nobody has rated it yet (§6.2). On the row rather
 /// than fetched per route, because the whole point of a rating on a catalogue is choosing between
-/// rows without opening any of them — twenty extra round trips to draw one page would make the
+/// rows without opening any of them - twenty extra round trips to draw one page would make the
 /// feature cost more than it is worth.
 /// </param>
 /// <param name="RatingCount">
@@ -94,7 +94,7 @@ public sealed record SharedTrackSummary(
 /// <param name="Page">Which page this is, one-based.</param>
 /// <param name="PageSize">How many rows a full page holds.</param>
 /// <param name="TotalCount">
-/// How many routes match the filter across every page — counted after the filter, so narrowing
+/// How many routes match the filter across every page - counted after the filter, so narrowing
 /// the search is visibly narrowing something.
 /// </param>
 public sealed record SharedTrackPage(
@@ -122,7 +122,7 @@ public sealed record SharedTrackPage(
 /// <param name="Latitude">The point to measure from, paired with <paramref name="Longitude"/>.</param>
 /// <param name="Longitude">The other half of the point.</param>
 /// <param name="WithinKm">
-/// How far from that point a route's centre may be. Null — or a point that is not supplied —
+/// How far from that point a route's centre may be. Null - or a point that is not supplied -
 /// means no area filter at all.
 /// </param>
 /// <param name="Page">One-based page number.</param>

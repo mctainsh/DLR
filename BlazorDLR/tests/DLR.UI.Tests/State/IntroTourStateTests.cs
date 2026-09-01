@@ -9,7 +9,7 @@ namespace DLR.UI.Tests.State;
 /// <para>
 /// The persistence is one call into whichever platform store the host bound, so what is worth
 /// asserting is the behaviour around it: that a device with nothing stored is shown the deck,
-/// that a device that has been through it is not shown it again — including after a restart —
+/// that a device that has been through it is not shown it again - including after a restart -
 /// that a value it cannot read is the same as no value, and that resetting brings it back.
 /// </para>
 /// </summary>
@@ -66,7 +66,7 @@ public sealed class IntroTourStateTests
 	[Fact]
 	public async Task MarkingItSeenTwice_WritesOnce()
 	{
-		// Skip, then Get started on a deck reopened from Settings — a device write per press, on
+		// Skip, then Get started on a deck reopened from Settings - a device write per press, on
 		// the phone a Preferences round trip, for a value that has not moved.
 		RecordingSettings settings = new();
 		IntroTourState state = new(settings);

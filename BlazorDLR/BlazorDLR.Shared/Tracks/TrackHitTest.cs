@@ -13,7 +13,7 @@ namespace BlazorDLR.Shared.Tracks;
 /// </para>
 /// <para>
 /// <strong>Screen space, not ground distance.</strong> A tap is aimed at something the eye can
-/// see, so "near" has to mean near the drawn line — a metre tolerance would make the track
+/// see, so "near" has to mean near the drawn line - a metre tolerance would make the track
 /// impossible to hit when zoomed out and trivially hittable when zoomed in.
 /// </para>
 /// </summary>
@@ -23,7 +23,7 @@ public static class TrackHitTest
 	/// How close to the line a tap has to land, in canvas pixels.
 	/// <para>
 	/// Wider than the 4 px the overlay strokes the route at, because the thing doing the tapping
-	/// is a thumb and the thing being tapped is a line. Missing entirely is the safe outcome —
+	/// is a thumb and the thing being tapped is a line. Missing entirely is the safe outcome -
 	/// the cursor stays where it was rather than jumping to whichever end of the ride happened
 	/// to be closest to a tap on bare map.
 	/// </para>
@@ -56,7 +56,7 @@ public static class TrackHitTest
 		double nearestDistance = double.MaxValue;
 
 		// A plain scan. A 12-hour tour is ~43 000 points (§15.5) and this runs once per tap, so
-		// the projection cost is a millisecond or so against a gesture — an index would be more
+		// the projection cost is a millisecond or so against a gesture - an index would be more
 		// code to keep correct through every trim for no perceptible gain.
 		for (int index = 0; index < points.Count; index++)
 		{

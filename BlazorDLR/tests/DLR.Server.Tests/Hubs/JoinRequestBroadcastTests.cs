@@ -15,16 +15,16 @@ namespace DLR.Server.Tests.Hubs;
 /// <summary>
 /// Announcing a join request over the hub (§5.2, §5.3).
 /// <para>
-/// The waiting count is drawn on two screens — the info page's "Accept join requests" button and
-/// the live map's hamburger — and until these messages existed it could only move on a reload. An
+/// The waiting count is drawn on two screens - the info page's "Accept join requests" button and
+/// the live map's hamburger - and until these messages existed it could only move on a reload. An
 /// organiser riding a route does not reload.
 /// </para>
 /// <para>
 /// What this file is really about is the <em>audience</em>. A pending request carries the asker's
 /// handle and whatever they wrote to get in, and they are somebody the organiser has not yet
 /// agreed to have on the ride; the ride's own group is fifty people it is not about. So the
-/// delivery is to <see cref="RideHub.DecidersGroup"/> — exactly the set
-/// <c>RideController.CanDecideAsync</c> would let call the list endpoint — and the tests that
+/// delivery is to <see cref="RideHub.DecidersGroup"/> - exactly the set
+/// <c>RideController.CanDecideAsync</c> would let call the list endpoint - and the tests that
 /// matter most here are the two negative ones.
 /// </para>
 /// </summary>
@@ -93,7 +93,7 @@ public sealed class JoinRequestBroadcastTests(PostgresFixture postgres)
 			await JoinAsync(riderClient, ride.JoinCode!);
 			await RequireApprovalAsync(app, ride.Id);
 
-			// A full member, on the ride's group, receiving positions — and still not entitled to
+			// A full member, on the ride's group, receiving positions - and still not entitled to
 			// read a request the organiser has not answered.
 			await using HubConnection riderHub = await HubClient.ConnectAsync(app, rider);
 			await riderHub.InvokeAsync(nameof(RideHub.JoinRide), ride.Id);
@@ -106,7 +106,7 @@ public sealed class JoinRequestBroadcastTests(PostgresFixture postgres)
 
 			finished.ShouldNotBe(
 				leaked,
-				"a pending request names somebody the organiser may be about to decline — the ride's "
+				"a pending request names somebody the organiser may be about to decline - the ride's "
 				+ "other members are not an audience for it");
 		}
 	}
@@ -168,7 +168,7 @@ public sealed class JoinRequestBroadcastTests(PostgresFixture postgres)
 
 			asked.RequestId.ShouldNotBeNull("the fixture is only meaningful while somebody is waiting");
 
-			// A second device of the organiser's — the map left open on a handlebar mount while the
+			// A second device of the organiser's - the map left open on a handlebar mount while the
 			// decision is made on a phone. This is the connection the message exists for.
 			await using HubConnection organiserHub = await HubClient.ConnectAsync(app, organiser);
 			await organiserHub.InvokeAsync(nameof(RideHub.JoinRide), ride.Id);
@@ -193,8 +193,8 @@ public sealed class JoinRequestBroadcastTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The third way a request stops being pending, and the badge has to follow it too: the asker
-	/// changed their mind. Its own message rather than a decision with a false in it — nobody decided
-	/// anything — but it moves the count the same way.
+	/// changed their mind. Its own message rather than a decision with a false in it - nobody decided
+	/// anything - but it moves the count the same way.
 	/// </summary>
 	[Fact]
 	public async Task Deciders_AreToldWhenTheAskerTakesItBack()
@@ -294,7 +294,7 @@ public sealed class JoinRequestBroadcastTests(PostgresFixture postgres)
 		response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 	}
 
-	/// <summary>An Open, Live ride — one anybody with the code walks straight into.</summary>
+	/// <summary>An Open, Live ride - one anybody with the code walks straight into.</summary>
 	private static async Task<RideDetail> OpenRideAsync(
 		DlrWebApplicationFactory app,
 		HttpClient organiser)
@@ -313,7 +313,7 @@ public sealed class JoinRequestBroadcastTests(PostgresFixture postgres)
 		return ride;
 	}
 
-	/// <summary>The same ride, already on approval — nobody gets in without being admitted.</summary>
+	/// <summary>The same ride, already on approval - nobody gets in without being admitted.</summary>
 	private static async Task<RideDetail> ApprovalRideAsync(
 		DlrWebApplicationFactory app,
 		HttpClient organiser)

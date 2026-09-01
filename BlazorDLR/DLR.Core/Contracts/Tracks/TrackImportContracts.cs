@@ -14,7 +14,7 @@ public enum ImportedFrom
 /// One track a GPX file yielded (§15.3).
 /// </summary>
 /// <param name="TrackId">
-/// What was created, or null on a dry run — which is the one difference between a preview and
+/// What was created, or null on a dry run - which is the one difference between a preview and
 /// a commit, and the reason both use this shape.
 /// </param>
 /// <param name="Name">From the file, if it named it.</param>
@@ -47,7 +47,7 @@ public sealed record ImportedTrackResult(
 /// <para>
 /// Preview is <c>?dryRun=true</c> against this same endpoint, not server-side staging. Holding a
 /// parsed result between two calls would need its own storage, its own expiry sweep and its own
-/// orphan cleanup — a whole mechanism to save re-uploading a file capped at 25 MB. On the app
+/// orphan cleanup - a whole mechanism to save re-uploading a file capped at 25 MB. On the app
 /// the preview costs nothing at all, because the parse already happened locally.
 /// </para>
 /// </summary>
@@ -84,7 +84,7 @@ public sealed record TrackImportResult(
 /// <param name="ElevationDecimetres">
 /// Decimetres, delta-encoded, or null when the track carried no elevation. A point that is
 /// missing one inside a track that has them is <c>PolylineCodec.MissingElevation</c>, never
-/// zero — zero is a real height.
+/// zero - zero is a real height.
 /// </param>
 /// <param name="SegmentStarts">Indices where each segment begins; a pause or a signal gap.</param>
 public sealed record TrackPointsResponse(

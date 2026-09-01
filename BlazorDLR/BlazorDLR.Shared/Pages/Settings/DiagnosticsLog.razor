@@ -4,7 +4,7 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
-<PageTitle>Log — Dumb Luck Routes</PageTitle>
+<PageTitle>Log - Dumb Luck Routes</PageTitle>
 
 @*
 	The app's log, on the device that made it.
@@ -12,12 +12,12 @@
 	This page exists because every other way of reading a phone's log needs a laptop: a paired
 	IDE for Debug.WriteLine, Console.app and a cable for NSLog, Xcode's container download for
 	the file sink. When the question is "did that code run on this handset", all three are a
-	round trip — so this answers it where the rider is already standing.
+	round trip - so this answers it where the rider is already standing.
 
 	It is a diagnostic, not a feature: no filtering by level, no upload. **This run** is
 	DiagnosticLog's ring (1 000 lines) and dies with the process; **Previous run** is the file the
 	last launch wrote, moved aside when this one opened its own (DiagnosticLog.UseFile). That
-	second view is the whole point of the pair — the run worth reading is usually the one that
+	second view is the whole point of the pair - the run worth reading is usually the one that
 	would not come up, and by definition it is not the one doing the reading.
 
 	**Full-bleed, like the live map and nothing else in Settings.** `.page-full` rather than a
@@ -85,7 +85,7 @@
 	{
 		<p class="file">
 			The launch before this one, read from <code>@DiagnosticLog.PreviousFilePath</code>. It
-			is replaced each time the app starts, so this is the one run back — not an archive.
+			is replaced each time the app starts, so this is the one run back - not an archive.
 		</p>
 	}
 	else if (DiagnosticLog.FilePath is { } path)
@@ -101,7 +101,7 @@
 		<p class="empty">
 			@(_previous
 				? "The previous run's file is empty."
-				: "Nothing logged yet. The first lines arrive as the app starts — if this stays empty after a restart, nothing is calling DiagnosticLog.Write on this host.")
+				: "Nothing logged yet. The first lines arrive as the app starts - if this stays empty after a restart, nothing is calling DiagnosticLog.Write on this host.")
 		</p>
 	}
 </div>
@@ -145,7 +145,7 @@
 	/// Switches between this run and the one before it.
 	/// <para>
 	/// The read is pushed off the render thread: a rolled file is two megabytes, and this is a
-	/// WebView on a phone. <c>Task.Run</c> on the browser hosts merely queues — they have no
+	/// WebView on a phone. <c>Task.Run</c> on the browser hosts merely queues - they have no
 	/// previous file to read, so the button that calls this is not rendered there at all.
 	/// </para>
 	/// </summary>
@@ -165,8 +165,8 @@
 	}
 
 	/// <summary>
-	/// Refreshes from the ring. Raised on whatever thread wrote the line — a hub callback, the
-	/// main thread, a background service — so this marshals before touching state.
+	/// Refreshes from the ring. Raised on whatever thread wrote the line - a hub callback, the
+	/// main thread, a background service - so this marshals before touching state.
 	/// <para>
 	/// Ignored while the previous run is on screen: that file does not change, and a line written
 	/// by this run must not scroll a rider's view of the last one out from under them.
@@ -187,7 +187,7 @@
 	/// <summary>
 	/// Puts the visible lines on the clipboard, so a log gets off the phone and into a message.
 	/// <para>
-	/// <c>navigator.clipboard</c> first — it is the API that works — with the old
+	/// <c>navigator.clipboard</c> first - it is the API that works - with the old
 	/// <c>execCommand</c> selection dance behind it, because a MAUI WebView is not always a secure
 	/// context and the modern call is refused outright when it is not. The textarea is already on
 	/// the page and already holds exactly the text being copied, so the fallback selects that
@@ -227,7 +227,7 @@
 	/// Reads the textarea and copies it, answering true only when the platform confirms it took.
 	/// <para>
 	/// Deliberately synchronous in its result: <c>navigator.clipboard.writeText</c> returns a
-	/// promise, and awaiting it through <c>eval</c> is not something Blazor's JS interop can do —
+	/// promise, and awaiting it through <c>eval</c> is not something Blazor's JS interop can do -
 	/// so the modern path is fired and the legacy one is what actually reports. When the promise
 	/// succeeds the copy has happened either way, and when it rejects <c>execCommand</c> has
 	/// already put the same text there.
@@ -274,8 +274,8 @@
 
 		--dlr-page-top is zeroed rather than left alone. PageNav cancels that token with a
 		negative margin so its bar sits flush against the top of a `.page` column's margin
-		(PageNav.razor.css); there is no such margin here — `.page-full` is pinned to the top
-		of the content area already — and an uncancelled -2rem would drag the title bar up
+		(PageNav.razor.css); there is no such margin here - `.page-full` is pinned to the top
+		of the content area already - and an uncancelled -2rem would drag the title bar up
 		under the status bar and out of the clipped layer. The bar keeps its own padding, so
 		it still clears a notch.
 	*/
@@ -285,7 +285,7 @@
 		flex-direction: column;
 		/* `.page-full`'s `left` already steps over the rail and a left-edge cutout with it.
 		   The right edge is this page's own to clear, and the bottom is only a home
-		   indicator's business on a wide screen — narrow, the rail is already down there and
+		   indicator's business on a wide screen - narrow, the rail is already down there and
 		   the layer stops above it. */
 		padding-top: 0;
 		padding-right: max(1rem, var(--dlr-safe-right));
@@ -312,7 +312,7 @@
 	.log-page .count { margin: 0 0 0.35rem; font-size: 0.85rem; opacity: 0.7; }
 	/*
 		The box fills what is left. `flex: 1 1 0` and not `flex: 1`: a textarea's flex-basis
-		would otherwise come from its rows attribute, which is why the attribute is gone —
+		would otherwise come from its rows attribute, which is why the attribute is gone -
 		two things claiming to set the same height is how one of them ends up wrong. The
 		min-height is the floor a short landscape phone lands on rather than collapsing the
 		box to nothing, and `resize: none` because a corner grip on a box that already fills

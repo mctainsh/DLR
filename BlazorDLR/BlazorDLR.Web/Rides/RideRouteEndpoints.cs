@@ -32,7 +32,7 @@ public static class RideRouteEndpoints
 	/// <param name="cancellationToken">Abandons the read.</param>
 	/// <remarks>
 	/// Asked of the attachment table rather than of the ride, because a track may be attached to
-	/// several adventures at once — a club running the same loop on two days — and one is enough.
+	/// several adventures at once - a club running the same loop on two days - and one is enough.
 	/// Lives here rather than in <c>Tracks</c> because the fact belongs to the attachment; both
 	/// the edit guard and the delete guard read it.
 	/// </remarks>
@@ -50,7 +50,7 @@ public static class RideRouteEndpoints
 /// <para>
 /// <strong>A set, not a single route.</strong> The outline's <c>PUT /group-rides/{id}/route</c>
 /// could only express "this ride has one line on it", and a real day out is commonly two or
-/// three — the short option and the long option, the way out and the way home. Attaching is
+/// three - the short option and the long option, the way out and the way home. Attaching is
 /// therefore additive and removal is by track id.
 /// </para>
 /// <para>
@@ -106,7 +106,7 @@ public sealed class RideRouteController : ControllerBase
 
 		Guid userId = User.UserId()!.Value;
 
-		// The caller's own track, and 404 rather than 403 for anybody else's — the same answer
+		// The caller's own track, and 404 rather than 403 for anybody else's - the same answer
 		// GET /tracks/{id} gives (§15.4). A shared route is handed over as a GPX and imported;
 		// that round trip is the copy feature, so nothing here reaches into another library.
 		Track? track = await database
@@ -193,7 +193,7 @@ public sealed class RideRouteController : ControllerBase
 			return Unauthorized();
 		}
 
-		// The track's owner may always withdraw their own line — whatever their role here, and
+		// The track's owner may always withdraw their own line - whatever their role here, and
 		// whether or not they are still on the adventure. §19.2's rule about un-sharing a route
 		// is the same one: what happens to your own row is your call. Without it the §15.4 guard
 		// on editing is a permanent lock, because a leader who attached a track and later left
@@ -217,7 +217,7 @@ public sealed class RideRouteController : ControllerBase
 		}
 
 		// The attachment goes; the track does not. Detaching a route from a ride is not an
-		// instruction to destroy the owner's copy of it — same rule as §5.8's switches, where
+		// instruction to destroy the owner's copy of it - same rule as §5.8's switches, where
 		// revoking a permission never deletes what was already permitted.
 		database.Remove(route);
 

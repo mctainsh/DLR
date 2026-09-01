@@ -12,7 +12,7 @@ namespace DLR.UI.Tests.Services;
 /// <para>
 /// <strong>These run against a real socket.</strong> That is the whole reason the server lives in
 /// the shared project rather than the MAUI head: an HTTP server is a thing to get wrong in a dozen
-/// small ways — a range off by one, a missing CORS header, a 416 with no length — and every one of
+/// small ways - a range off by one, a missing CORS header, a 416 with no length - and every one of
 /// them surfaces on a phone as a blank map with nothing useful in the console. Here they surface
 /// as a red test in <c>dotnet test</c>.
 /// </para>
@@ -23,7 +23,7 @@ namespace DLR.UI.Tests.Services;
 /// </summary>
 public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 {
-	/// <summary>Sixteen bytes, each its own index — so an assertion on a range reads as its offsets.</summary>
+	/// <summary>Sixteen bytes, each its own index - so an assertion on a range reads as its offsets.</summary>
 	private static readonly byte[] Archive = [.. Enumerable.Range(0, 16).Select(i => (byte)i)];
 
 	private readonly FakeMapPackStore _store = new();
@@ -203,7 +203,7 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 	public async Task ManyRangesAtOnce_AreAllServedCorrectly()
 	{
 		// A pan asks for a screenful of tiles at once. Each connection is served on its own task,
-		// and they share one store — if the handler held state across connections this is where
+		// and they share one store - if the handler held state across connections this is where
 		// it would show.
 		Uri url = await UrlAsync();
 
@@ -269,14 +269,14 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 	public async Task ConnectionsThatAreResetBeforeTheyAreServed_DoNotStopTheServer()
 	{
 		// The regression this exists for. Every style swap and every `map.remove()` aborts the tile
-		// fetches that were in flight, and the WebView resets those connections — some of them
+		// fetches that were in flight, and the WebView resets those connections - some of them
 		// before the accept has completed, which surfaces on this side as a SocketException against
 		// a listener that is perfectly healthy.
 		//
 		// The accept loop used to return on one of those. The port then stopped answering for the
 		// rest of the run while the resolved URL carried on naming it, so every offline map
-		// afterwards failed at the fetch with the browser's bare "Load failed" — no status, no
-		// body, nothing in the log — and only restarting the app brought the map back. That is what
+		// afterwards failed at the fetch with the browser's bare "Load failed" - no status, no
+		// body, nothing in the log - and only restarting the app brought the map back. That is what
 		// a rider sees as "downloading the second pack broke the first one".
 		Uri url = await UrlAsync();
 
@@ -301,14 +301,14 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 	public async Task AListenerThatDiedWithoutFailingAnAccept_IsReplacedOnTheNextResolve()
 	{
 		// The overnight failure, reproduced. iOS tears the listening socket down under a suspended
-		// app and AcceptTcpClientAsync does not throw — it simply never completes again. Nothing is
+		// app and AcceptTcpClientAsync does not throw - it simply never completes again. Nothing is
 		// counted, so the server carries on handing out a port nothing answers: the log says the
 		// pack "is being served from port 51277", every tile fails with the WebView's bare
 		// "TypeError: Load failed", and re-resolving returns the identical dead URL. Switching to
 		// OSM and back is no help either, and only restarting the app brings the map back.
 		//
 		// Stopping the listener is the only way to kill the socket from a test, and stopping it does
-		// raise the accept failure the phone never gets — so that verdict is waited for and then put
+		// raise the accept failure the phone never gets - so that verdict is waited for and then put
 		// back, which leaves exactly the state the phone was in.
 		Uri dead = await UrlAsync();
 
@@ -325,7 +325,7 @@ public sealed class LoopbackMapPackServerTests : IAsyncLifetime
 	}
 
 	/// <summary>
-	/// Leaves <see cref="_server"/> believing it is listening on a port whose socket has gone — the
+	/// Leaves <see cref="_server"/> believing it is listening on a port whose socket has gone - the
 	/// one state that is invisible from inside the server, and the reason a resolve now probes.
 	/// <para>
 	/// Reaching for the private fields is the point rather than a shortcut: what is being set up is

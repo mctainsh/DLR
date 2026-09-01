@@ -10,7 +10,7 @@ namespace DLR.Core.Display;
 /// </para>
 /// <para>
 /// <strong>Only the background is chosen.</strong> The text and the border are
-/// <see cref="ForegroundFor"/>'s answer — black or white, whichever is legible on it — because a
+/// <see cref="ForegroundFor"/>'s answer - black or white, whichever is legible on it - because a
 /// rider who could pick both could pick yellow on white and vanish from the ride, and the person
 /// who suffers for that is whoever is trying to find them at a junction.
 /// </para>
@@ -31,8 +31,8 @@ public static class MarkerColours
 	/// <para>
 	/// A curated list rather than a free colour wheel: these are picked to stay apart from each
 	/// other and from OSM's own tile palette at arm's length in sunlight, which is not a property
-	/// a colour wheel has any way to enforce. Anything that validates is still stored — the wire
-	/// accepts any <c>#rrggbb</c> — so a later screen may widen the choice without a migration.
+	/// a colour wheel has any way to enforce. Anything that validates is still stored - the wire
+	/// accepts any <c>#rrggbb</c> - so a later screen may widen the choice without a migration.
 	/// </para>
 	/// </summary>
 	public static IReadOnlyList<string> Palette { get; } =
@@ -54,7 +54,7 @@ public static class MarkerColours
 	/// <summary>
 	/// Validates a colour on its way in from a client.
 	/// <para>
-	/// Null and blank are <em>valid</em> and mean "no choice recorded" — that is how a rider goes
+	/// Null and blank are <em>valid</em> and mean "no choice recorded" - that is how a rider goes
 	/// back to <see cref="Default"/>, and rejecting it would make the setting one-way. A non-blank
 	/// string that is not <c>#rrggbb</c> is a client bug and is refused rather than silently
 	/// defaulted, so it is found by whoever wrote it instead of by a rider wondering why their
@@ -96,7 +96,7 @@ public static class MarkerColours
 	public static string Or(string? colour) => HexColour.Normalise(colour, Default);
 
 	/// <summary>
-	/// The ink for text and border on top of <paramref name="colour"/> — black or white, whichever
+	/// The ink for text and border on top of <paramref name="colour"/> - black or white, whichever
 	/// reads (§16.3).
 	/// </summary>
 	/// <param name="colour">The rider's stored choice, or null.</param>

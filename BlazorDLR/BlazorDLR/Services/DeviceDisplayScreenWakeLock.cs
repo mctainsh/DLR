@@ -3,12 +3,12 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Services;
 
 /// <summary>
-/// The mobile binding for <see cref="IScreenWakeLock"/> — MAUI's
+/// The mobile binding for <see cref="IScreenWakeLock"/> - MAUI's
 /// <see cref="IDeviceDisplay.KeepScreenOn"/>, which is <c>UIApplication.IdleTimerDisabled</c> on
 /// iOS and the <c>FLAG_KEEP_SCREEN_ON</c> window flag on Android (§4.3).
 /// <para>
 /// <strong>Both of those are the right primitive rather than the strong one.</strong> Neither
-/// holds the CPU, neither survives the app being backgrounded, and neither needs a permission —
+/// holds the CPU, neither survives the app being backgrounded, and neither needs a permission -
 /// Android's <c>WAKE_LOCK</c> is for <c>PowerManager</c>, which this deliberately does not use, so
 /// the manifest is untouched. A rider who puts the phone away gets their battery back, and the
 /// fixes keep coming from the receiver's foreground service, which is the component that <em>is</em>
@@ -72,7 +72,7 @@ public sealed class DeviceDisplayScreenWakeLock : IScreenWakeLock
 	/// Sets the flag, on the main thread and without ever letting a failure out.
 	/// <para>
 	/// Both platforms reach a window or an application object here, and both want the UI thread to
-	/// do it — the same marshalling the location providers do for permissions. A window that has
+	/// do it - the same marshalling the location providers do for permissions. A window that has
 	/// gone away underneath the call throws, and there is nothing useful to do with that: the map
 	/// is already on screen and working, and "the screen may turn itself off" is not a sentence
 	/// worth putting in front of a rider, because they cannot act on it either.

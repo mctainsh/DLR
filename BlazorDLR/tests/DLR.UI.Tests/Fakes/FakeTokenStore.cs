@@ -4,7 +4,7 @@ namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
 /// An in-memory <see cref="ITokenStore"/> for tests. Mirrors the shape of the mobile
-/// SecureStorage-backed store — reading and writing a single "refresh" key — without
+/// SecureStorage-backed store - reading and writing a single "refresh" key - without
 /// touching a Keychain.
 /// </summary>
 public sealed class FakeTokenStore : ITokenStore

@@ -4,7 +4,7 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Services;
 
 /// <summary>
-/// The mobile binding for <see cref="IMapPackStore"/> — PMTiles archives under
+/// The mobile binding for <see cref="IMapPackStore"/> - PMTiles archives under
 /// <c>FileSystem.AppDataDirectory/mappacks/</c> (§4.5, §13 Q26).
 /// <para>
 /// <strong>App data, not the cache directory</strong>, for the same reason
@@ -15,7 +15,7 @@ namespace BlazorDLR.Services;
 /// </para>
 /// <para>
 /// <strong>One directory per pack: <c>mappacks/{packId}/v{version}.pmtiles</c>.</strong> The
-/// obvious flat layout — <c>{packId}.v{version}.pmtiles</c> — cannot be parsed back reliably,
+/// obvious flat layout - <c>{packId}.v{version}.pmtiles</c> - cannot be parsed back reliably,
 /// because a catalogue id is free to contain a dot and the version then stops being findable.
 /// A directory per pack makes the id a name rather than a prefix, makes deleting a pack a
 /// directory removal, and makes replacing a version a write-then-delete inside a folder nothing
@@ -167,7 +167,7 @@ public sealed class FileMapPackStore : IMapPackStore
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
 			// A full disk is the common one, and it is worth the caller reporting rather than
-			// throwing from here — see IMapPackStore's posture.
+			// throwing from here - see IMapPackStore's posture.
 			return ValueTask.FromResult<Stream?>(null);
 		}
 	}
@@ -217,7 +217,7 @@ public sealed class FileMapPackStore : IMapPackStore
 			File.Move(partial, PathFor(folder, version), overwrite: true);
 
 			// Only now are the older ones redundant. A map holding one open keeps reading it until
-			// it closes — the delete unlinks the name, and both platforms let the open handle live.
+			// it closes - the delete unlinks the name, and both platforms let the open handle live.
 			foreach (string path in Directory.EnumerateFiles(folder, FilePrefix + "*" + FileExtension))
 			{
 				if (!string.Equals(path, PathFor(folder, version), StringComparison.Ordinal))
@@ -271,7 +271,7 @@ public sealed class FileMapPackStore : IMapPackStore
 	/// <para>
 	/// Refused rather than sanitised, exactly as <see cref="FileOfflineStore"/> does it: every id
 	/// comes from the server's catalogue and is a slug by construction, so anything else is a bug
-	/// rather than input to clean up — and refusing means no id can contain a separator or a
+	/// rather than input to clean up - and refusing means no id can contain a separator or a
 	/// <c>..</c> and address a directory outside this one.
 	/// </para>
 	/// </summary>

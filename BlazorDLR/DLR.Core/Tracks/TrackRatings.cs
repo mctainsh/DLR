@@ -4,8 +4,8 @@ namespace DLR.Core.Tracks;
 /// The star scale a shared route is rated on (§6.2).
 /// <para>
 /// <strong>One to five whole stars, and no half stars.</strong> The scale is here rather than in
-/// the endpoint because three places have to agree about it — the server that refuses a six, the
-/// database's check constraint, and the widget that draws the row — and a scale that only two of
+/// the endpoint because three places have to agree about it - the server that refuses a six, the
+/// database's check constraint, and the widget that draws the row - and a scale that only two of
 /// them knew would be a widget drawing four boxes for a column that accepts ten values.
 /// </para>
 /// <para>

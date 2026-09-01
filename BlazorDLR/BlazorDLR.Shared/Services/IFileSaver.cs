@@ -5,7 +5,7 @@ namespace BlazorDLR.Shared.Services;
 /// (§15.2 GPX export, §17.3 account export).
 /// <para>
 /// <strong>Web:</strong> a Blob URL on a synthetic <c>&lt;a download&gt;</c> click, which is the
-/// only thing a browser gives a page. <strong>Mobile:</strong> that same trick does nothing —
+/// only thing a browser gives a page. <strong>Mobile:</strong> that same trick does nothing -
 /// Android's WebView never implemented the <c>download</c> attribute and WKWebView will not
 /// follow a <c>blob:</c>/<c>data:</c> anchor it did not open itself, so the click is swallowed
 /// and the rider sees the button do nothing at all. The phone hosts write the bytes to the
@@ -37,7 +37,7 @@ public interface IFileSaver
 /// <summary>How a <see cref="IFileSaver.SaveAsync"/> call ended.</summary>
 public enum FileSaveStatus
 {
-	/// <summary>The file reached the rider — downloaded, or handed to the app they chose.</summary>
+	/// <summary>The file reached the rider - downloaded, or handed to the app they chose.</summary>
 	Saved,
 
 	/// <summary>The rider dismissed the share sheet or picker. Not an error; say nothing.</summary>
@@ -52,7 +52,7 @@ public enum FileSaveStatus
 
 /// <param name="Status">The outcome the page branches on.</param>
 /// <param name="Detail">
-/// A sentence fit to show a rider — a path on the desktop hosts, an error message on
+/// A sentence fit to show a rider - a path on the desktop hosts, an error message on
 /// <see cref="FileSaveStatus.Failed"/>, and usually null when the host has already shown
 /// its own UI (a browser download shelf, a share sheet).
 /// </param>

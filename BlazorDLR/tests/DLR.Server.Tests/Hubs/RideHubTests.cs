@@ -42,7 +42,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 			await using HubConnection connection = await HubClient.ConnectAsync(app, outsider);
 
-			// The token was accepted — the connection is open. That is exactly the point: being
+			// The token was accepted - the connection is open. That is exactly the point: being
 			// signed in is not being in the ride.
 			connection.State.ShouldBe(HubConnectionState.Connected);
 
@@ -105,7 +105,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// §7.6's second rule. A 15-minute access token must not kill a two-hour ride's connection
-	/// every quarter of an hour — <c>CloseOnAuthenticationExpiration</c> stays at its default.
+	/// every quarter of an hour - <c>CloseOnAuthenticationExpiration</c> stays at its default.
 	/// </summary>
 	[Fact]
 	public async Task Hub_LongLivedConnection_SurvivesAccessTokenExpiry()
@@ -130,7 +130,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 			connection.State.ShouldBe(HubConnectionState.Connected);
 
-			// Still functional, not merely still open — the distinction matters, because a
+			// Still functional, not merely still open - the distinction matters, because a
 			// connection that has silently lost its principal would still report Connected.
 			Task<PositionBatch> batch = HubClient.NextBatchAsync(connection, ride.Id);
 
@@ -218,7 +218,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 			batch.Positions.Count.ShouldBe(2, "one batch carries everybody, not one message each");
 
-			// Both members get it — the group is the unit of delivery.
+			// Both members get it - the group is the unit of delivery.
 			(await seenByRider.WaitAsync(TimeSpan.FromSeconds(10))).Positions.Count.ShouldBe(2);
 		}
 	}
@@ -267,7 +267,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 	/// <summary>
 	/// Removal has to reach the connection and not only the row (§5.2). <c>JoinRide</c>'s
 	/// membership check runs once, so without an eviction the rider just removed keeps the live
-	/// map until their connection happens to drop — which on a phone mid-ride is hours.
+	/// map until their connection happens to drop - which on a phone mid-ride is hours.
 	/// </summary>
 	[Fact]
 	public async Task Removal_TakesTheRemovedMemberOffTheLiveFeed()
@@ -307,7 +307,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 			await BroadcastAsync(app);
 
-			// The ride keeps its feed — the eviction is one account's connections, not a teardown.
+			// The ride keeps its feed - the eviction is one account's connections, not a teardown.
 			await stillDelivered.WaitAsync(TimeSpan.FromSeconds(10));
 
 			Task finished = await Task.WhenAny(afterRemoval, Task.Delay(TimeSpan.FromSeconds(2)));
@@ -320,7 +320,7 @@ public sealed class RideHubTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The same obligation on the way out under one's own steam. The client calls
-	/// <c>LeaveRide</c> as well, and that is not something the server may rely on — a rider who
+	/// <c>LeaveRide</c> as well, and that is not something the server may rely on - a rider who
 	/// leaves on one device with the adventure open on another would keep the feed on the second.
 	/// </summary>
 	[Fact]

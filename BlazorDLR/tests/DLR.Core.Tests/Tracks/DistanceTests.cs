@@ -4,7 +4,7 @@ namespace DLR.Core.Tests.Tracks;
 
 /// <summary>
 /// The great-circle distance used everywhere in stats and the gap list. Haversine
-/// is not a routing library — it computes the straight-line arc on a sphere — but
+/// is not a routing library - it computes the straight-line arc on a sphere - but
 /// several rides' worth of legs (and every "off route" call) depend on it being
 /// symmetric and non-negative.
 /// </summary>
@@ -24,7 +24,7 @@ public sealed class DistanceTests
 		double metres = Distance.BetweenM(new TrackPoint(0.0, 0.0), new TrackPoint(1.0, 0.0));
 
 		metres.ShouldBeInRange(110_000, 112_000,
-			"one degree of latitude ≈ 111 km — the haversine implementation must produce this to be usable for gap-list distances.");
+			"one degree of latitude ≈ 111 km - the haversine implementation must produce this to be usable for gap-list distances.");
 	}
 
 	[Fact]
@@ -37,7 +37,7 @@ public sealed class DistanceTests
 		double ba = Distance.BetweenM(b, a);
 
 		ab.ShouldBe(ba, tolerance: 1e-6,
-			"the leg from A to B must be identical to the leg from B to A — an asymmetric distance would make the gap list flicker.");
+			"the leg from A to B must be identical to the leg from B to A - an asymmetric distance would make the gap list flicker.");
 	}
 
 	[Fact]
@@ -47,7 +47,7 @@ public sealed class DistanceTests
 		double metres = Distance.BetweenM(new TrackPoint(0.0, 0.0), new TrackPoint(0.0, 180.0));
 
 		metres.ShouldBeInRange(19_900_000, 20_100_000,
-			"antipodal points along the equator are half the earth's circumference apart — sanity check on the arc formula.");
+			"antipodal points along the equator are half the earth's circumference apart - sanity check on the arc formula.");
 	}
 
 	[Fact]
@@ -61,7 +61,7 @@ public sealed class DistanceTests
 		double metres = Distance.BetweenM(west, east);
 
 		metres.ShouldBeLessThan(15_000,
-			"haversine picks the great-circle short way across the date line — an implementation that summed longitude naively would report ~40 000 km.");
+			"haversine picks the great-circle short way across the date line - an implementation that summed longitude naively would report ~40 000 km.");
 	}
 }
 
@@ -80,14 +80,14 @@ public sealed class PointRangeTests
 	public void IsEmpty_WhenToEqualsFrom()
 	{
 		new PointRange(5, 5).IsEmpty.ShouldBeTrue(
-			"a zero-length span is empty — the editor uses this to skip no-op removals.");
+			"a zero-length span is empty - the editor uses this to skip no-op removals.");
 	}
 
 	[Fact]
 	public void IsEmpty_WhenToLessThanFrom()
 	{
 		new PointRange(10, 5).IsEmpty.ShouldBeTrue(
-			"a reversed range is empty rather than negative-length — the editor must not compute Length as -5.");
+			"a reversed range is empty rather than negative-length - the editor must not compute Length as -5.");
 	}
 
 	[Fact]
@@ -97,7 +97,7 @@ public sealed class PointRangeTests
 
 		range.Contains(10).ShouldBeTrue("From is inclusive.");
 		range.Contains(19).ShouldBeTrue("the last included index is To - 1.");
-		range.Contains(20).ShouldBeFalse("To is exclusive — the point AT To is the first one KEPT.");
+		range.Contains(20).ShouldBeFalse("To is exclusive - the point AT To is the first one KEPT.");
 		range.Contains(9).ShouldBeFalse("below the span");
 	}
 

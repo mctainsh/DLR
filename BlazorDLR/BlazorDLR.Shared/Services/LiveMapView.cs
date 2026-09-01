@@ -3,14 +3,14 @@ using System.Globalization;
 namespace BlazorDLR.Shared.Services;
 
 /// <summary>
-/// Where the live ride map was last looking, and whether it was following the rider — so
+/// Where the live ride map was last looking, and whether it was following the rider - so
 /// re-opening it puts the same ground back on screen instead of the app's default camera
 /// (§5.3).
 /// <para>
 /// <strong>Why this is persisted at all.</strong> The live map is a page, so leaving it for
 /// the info screen, the marker composer or the ride thread disposes it, and every one of
 /// those is a one-tap round trip a rider makes repeatedly mid-ride. Rebuilding the view by
-/// hand each time — pan back to the group, zoom back in, at the side of a road — is the sort
+/// hand each time - pan back to the group, zoom back in, at the side of a road - is the sort
 /// of small repeated cost that makes a map feel hostile.
 /// </para>
 /// <para>
@@ -18,11 +18,11 @@ namespace BlazorDLR.Shared.Services;
 /// device has ever opened would grow without a bound and without anything to prune it by;
 /// the view that matters is the one the rider was just looking at. <see cref="RideId"/> is
 /// what stops the stored camera being applied to a <em>different</em> ride, which would open
-/// a Melbourne ride over Sydney — see <see cref="IsFor"/>.
+/// a Melbourne ride over Sydney - see <see cref="IsFor"/>.
 /// </para>
 /// <para>
 /// Device-local like <see cref="RouteStyle"/>: same store, same hand-rolled versioned encoding,
-/// same "a value we cannot parse means the default" posture. It never travels to the server —
+/// same "a value we cannot parse means the default" posture. It never travels to the server -
 /// where one rider last panned to is not the ride's business. (<see cref="PrivateArea"/> used to
 /// be the third of that set and is not: it is an account setting cached in the same store, §10.1.)
 /// </para>
@@ -40,13 +40,13 @@ namespace BlazorDLR.Shared.Services;
 /// <param name="HeadingUp">
 /// Whether the map was being turned to the rider's heading rather than held north-up.
 /// <para>
-/// Carried for the same reason as <see cref="FollowMe"/> and read back the same way — which way
+/// Carried for the same reason as <see cref="FollowMe"/> and read back the same way - which way
 /// up somebody reads a map is a standing preference, not a fact about one ride's ground.
 /// </para>
 /// <para>
 /// A flag of its own rather than a second state of <see cref="FollowMe"/>. The two are not
-/// independent on the live page — a turning map is only legible with the rider at the centre of
-/// it, so heading-up is never on there without following — but that is a rule about the controls,
+/// independent on the live page - a turning map is only legible with the rider at the centre of
+/// it, so heading-up is never on there without following - but that is a rule about the controls,
 /// enforced where the controls are, and this is a record of what the map was doing. Storing it
 /// separately means a value written by a build with different rules still reads back as what it
 /// said, rather than being reinterpreted by whichever pairing is current.
@@ -67,7 +67,7 @@ namespace BlazorDLR.Shared.Services;
 /// <strong>Defaulted to on, which is the one field here whose missing value is not "off".</strong>
 /// The other two are modes that move the map under the rider, so a build that never wrote them
 /// should not surprise a device by starting one. This is a read-out that covers a corner of the
-/// map and takes no tap, and a panel nobody knows exists is a panel nobody turns on — so a device
+/// map and takes no tap, and a panel nobody knows exists is a panel nobody turns on - so a device
 /// that has never expressed a preference gets it, and the menu is how it goes away. See
 /// <see cref="Decode"/>, which reads an absent field as <c>true</c> rather than as <c>false</c>.
 /// </para>
@@ -87,7 +87,7 @@ public sealed record LiveMapView(
 	/// </summary>
 	public const string StorageKey = "dlr.live-map-view";
 
-	/// <summary>Widest view any of the three base maps offers — the whole world.</summary>
+	/// <summary>Widest view any of the three base maps offers - the whole world.</summary>
 	public const double MinZoomLevel = 0;
 
 	/// <summary>Closest view any of the three base maps offers.</summary>
@@ -105,8 +105,8 @@ public sealed record LiveMapView(
 	public MapCamera ToCamera() => new(Latitude, Longitude, ZoomLevel);
 
 	/// <summary>
-	/// Brings a view built from a live viewport — or read back from a device that once stored
-	/// something else — into range: the zoom is clamped, and a centre that is not a real
+	/// Brings a view built from a live viewport - or read back from a device that once stored
+	/// something else - into range: the zoom is clamped, and a centre that is not a real
 	/// coordinate is refused.
 	/// </summary>
 	/// <returns>The usable view, or <c>null</c> when the centre is not a point on the earth.</returns>
@@ -129,7 +129,7 @@ public sealed record LiveMapView(
 
 	/// <summary>
 	/// The whole record as one string for <see cref="IDeviceSettings"/>, leading <c>1</c> being
-	/// the format version — the same arrangement as <see cref="RouteStyle.Encode"/> and for the
+	/// the format version - the same arrangement as <see cref="RouteStyle.Encode"/> and for the
 	/// same reasons.
 	/// <para>
 	/// Five decimal places on the centre, which is about a metre: the same resolution positions
@@ -167,14 +167,14 @@ public sealed record LiveMapView(
 	/// <strong>The field count is a floor, not an equality, and that is what let <see cref="HeadingUp"/>
 	/// arrive without a version bump.</strong> A flag appended to the tail reads as its default on a
 	/// build that has never heard of it, and a value written by an older build reads as its default
-	/// here — so a rider moving between the two loses a preference at worst, rather than the whole
+	/// here - so a rider moving between the two loses a preference at worst, rather than the whole
 	/// camera. A field whose <em>meaning</em> changed would need the version, which is what it is for.
 	/// </para>
 	/// <para>
 	/// <strong>"Absent" is read as each field's own default, and they are not all the same default.</strong>
 	/// <see cref="HeadingUp"/> reads back as <c>false</c> because north-up is what the build that
 	/// wrote the short value always drew. <see cref="Neighbours"/> reads back as <c>true</c> because
-	/// a device that has never been asked has not said no — see that field for why a read-out is not
+	/// a device that has never been asked has not said no - see that field for why a read-out is not
 	/// treated like a mode.
 	/// </para>
 	/// </summary>

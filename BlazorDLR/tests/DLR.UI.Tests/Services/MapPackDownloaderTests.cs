@@ -11,7 +11,7 @@ namespace DLR.UI.Tests.Services;
 /// The interesting cases are all failures, and they share a shape: a map pack is tens or hundreds
 /// of megabytes over a phone connection, so <em>every</em> way a transfer can end badly is one a
 /// rider will actually meet. The one that matters most is the server that ignores a
-/// <c>Range</c> header — appending a whole file onto a partial one produces a corrupt archive of
+/// <c>Range</c> header - appending a whole file onto a partial one produces a corrupt archive of
 /// exactly the expected length, which nothing downstream can detect.
 /// </para>
 /// </summary>
@@ -82,7 +82,7 @@ public sealed class MapPackDownloaderTests
 	{
 		// The failure this test exists for: appending a whole file onto a partial one gives an
 		// archive of exactly the expected length with 20 bytes of garbage at the front. Nothing
-		// downstream can spot that — the length checks pass and the map silently fails to draw.
+		// downstream can spot that - the length checks pass and the map silently fails to draw.
 		byte[] archive = Archive(64);
 		FakeMapPackStore store = new();
 
@@ -147,7 +147,7 @@ public sealed class MapPackDownloaderTests
 
 	/// <summary>
 	/// The one cleartext host both platform configs name, because it serves a certificate for
-	/// another domain. Without this the packs cannot be fetched at all today — the catalogue
+	/// another domain. Without this the packs cannot be fetched at all today - the catalogue
 	/// publishes <c>http://</c> URLs on that host, and refusing them made the screen offer a reason
 	/// where a Download button should be.
 	/// </summary>
@@ -279,7 +279,7 @@ public sealed class MapPackDownloaderTests
 				Content = new ByteArrayContent(body),
 			};
 
-			// The declared length is the whole remaining slice even when the body is cut short —
+			// The declared length is the whole remaining slice even when the body is cut short -
 			// which is exactly how a dropped connection looks from the client's side.
 			response.Content.Headers.ContentLength = slice.Length;
 

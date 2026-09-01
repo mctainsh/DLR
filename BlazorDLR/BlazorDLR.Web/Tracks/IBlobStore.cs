@@ -4,7 +4,7 @@ namespace DLR.Server.Tracks;
 /// Where track blobs and photos live (§9.1).
 /// <para>
 /// A Docker volume on the VPS, not object storage. One place to back up, no S3 credentials in
-/// the running process, and no egress bill — and the workload is two to three orders of
+/// the running process, and no egress bill - and the workload is two to three orders of
 /// magnitude inside a CX22's 20 TB allowance, so a CDN and a bucket would solve a problem this
 /// project does not have.
 /// </para>
@@ -26,7 +26,7 @@ public interface IBlobStore
 	Task<Stream?> OpenAsync(string blobRef, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// Removes a blob. Deleting one that is already gone is not an error — the nightly sweep
+	/// Removes a blob. Deleting one that is already gone is not an error - the nightly sweep
 	/// for orphaned blobs (§7.11) would otherwise have to distinguish "already tidy" from
 	/// "failed", and both mean the same thing.
 	/// </summary>
@@ -40,7 +40,7 @@ public interface IBlobStore
 	Task<bool> ExistsAsync(string blobRef, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// Every blob in the store, with when it was written — the input to the orphan sweep (§7.11).
+	/// Every blob in the store, with when it was written - the input to the orphan sweep (§7.11).
 	/// <para>
 	/// <c>ON DELETE CASCADE</c> reaches rows and not files, so the only way to find a blob nothing
 	/// points at is to enumerate what is there and subtract what is referenced. Streamed rather
@@ -54,7 +54,7 @@ public interface IBlobStore
 /// <summary>One stored blob, as the orphan sweep sees it.</summary>
 /// <param name="BlobRef">The reference, as a row would hold it.</param>
 /// <param name="WrittenUtc">
-/// When it was written. <strong>Read from the store, never from the database</strong> — the whole
+/// When it was written. <strong>Read from the store, never from the database</strong> - the whole
 /// question the sweep is asking is what the database does not know about.
 /// </param>
 public readonly record struct BlobEntry(string BlobRef, DateTimeOffset WrittenUtc);

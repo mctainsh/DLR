@@ -44,7 +44,7 @@ public sealed class EmailController : ControllerBase
 
 		string address = request.Email.Trim();
 
-		// Set unconfirmed. Recovery is enabled by confirming, never by typing — an address
+		// Set unconfirmed. Recovery is enabled by confirming, never by typing - an address
 		// somebody mistyped, or somebody else's address typed deliberately, must not become a
 		// path into this account (§7.7).
 		user.Email = address;

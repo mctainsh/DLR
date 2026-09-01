@@ -12,8 +12,8 @@ namespace BlazorDLR.Shared.Services;
 /// platform API holds the string.
 /// </para>
 /// <para>
-/// <strong>Values are opaque strings.</strong> The backing stores — browser
-/// <c>localStorage</c> and MAUI <c>Preferences</c> — are string stores, and keeping the
+/// <strong>Values are opaque strings.</strong> The backing stores - browser
+/// <c>localStorage</c> and MAUI <c>Preferences</c> - are string stores, and keeping the
 /// encoding in the caller means the store cannot be wrong about a type it never inspects.
 /// A caller that needs structure encodes it (see <see cref="RouteStyle.Encode"/>).
 /// </para>
@@ -39,7 +39,7 @@ public interface IDeviceSettings
 
 	/// <summary>
 	/// Forgets a value, so the next read answers <c>null</c> and the caller falls back to its
-	/// default. This is what "reset to defaults" writes — storing the current defaults instead
+	/// default. This is what "reset to defaults" writes - storing the current defaults instead
 	/// would pin them, and a later change to what the app ships as default would not reach a
 	/// device that had once pressed reset.
 	/// </summary>

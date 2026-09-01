@@ -6,7 +6,7 @@ namespace DLR.Core.Contracts.Rides;
 /// One track attached to a group ride as a planned route (§5.2, §5.4).
 /// <para>
 /// <strong>A ride has a list of these, not one.</strong> The original outline said
-/// <c>PUT /group-rides/{id}/route</c> — attach or replace a single planned route — and a real
+/// <c>PUT /group-rides/{id}/route</c> - attach or replace a single planned route - and a real
 /// day out does not fit that shape: the short option and the long option, the way out and the
 /// way home, a detour somebody added the night before. So the attachment is a set, and the
 /// screens draw all of it.
@@ -21,7 +21,7 @@ namespace DLR.Core.Contracts.Rides;
 /// </summary>
 /// <param name="TrackId">The track this route is.</param>
 /// <param name="Name">
-/// What the track is called, or null when it was never named — nullable for the same reason
+/// What the track is called, or null when it was never named - nullable for the same reason
 /// <see cref="Tracks.TrackSummary.Name"/> is, so a screen chooses its own placeholder rather
 /// than the server inventing one.
 /// </param>
@@ -46,8 +46,8 @@ public sealed record RideRoute(
 /// <summary>
 /// <c>POST /api/v1/group-rides/{id}/routes</c> (§5.2).
 /// <para>
-/// The track must be the caller's own. §15.4 already draws that line for editing — "not the
-/// group-ride organiser, even for a route they were handed" — and attaching is the same
+/// The track must be the caller's own. §15.4 already draws that line for editing - "not the
+/// group-ride organiser, even for a route they were handed" - and attaching is the same
 /// question asked in the other direction: a rider hands a route over by exporting the GPX,
 /// which is the copy feature, so no endpoint needs to reach into somebody else's library.
 /// </para>

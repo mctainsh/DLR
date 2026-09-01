@@ -27,7 +27,7 @@ public sealed record SetReactionRequest(string? Reaction);
 /// Attached to <see cref="PostCommentRequest"/> rather than sent to an endpoint of its own, because
 /// <strong>a poll is a comment</strong>. One posting path means polls inherit idempotency, the
 /// caps, the rate limit, the content switches and the archived-ride rule without any of them being
-/// written twice — which is the entire argument of §17.5, applied to the API surface as well as to
+/// written twice - which is the entire argument of §17.5, applied to the API surface as well as to
 /// the schema. The question is the comment's body, so there is no second place for text to live.
 /// </para>
 /// </summary>
@@ -74,7 +74,7 @@ public sealed record PollVoter(Guid UserId, string UserName);
 /// <summary>
 /// A poll and where it has got to (§17.5).
 /// <para>
-/// Results are <strong>always visible, before and after voting</strong> — this is a ride's
+/// Results are <strong>always visible, before and after voting</strong> - this is a ride's
 /// noticeboard, not a secret ballot.
 /// </para>
 /// </summary>
@@ -84,7 +84,7 @@ public sealed record PollVoter(Guid UserId, string UserName);
 /// <param name="ClosesUtc">Its deadline, if it has one.</param>
 /// <param name="ClosedUtc">When somebody closed it early.</param>
 /// <param name="IsClosed">
-/// Whether it is shut <em>now</em> — closed by hand or past its deadline. Computed against the
+/// Whether it is shut <em>now</em> - closed by hand or past its deadline. Computed against the
 /// server clock on every read rather than stored, so an elapsed poll is closed the instant it
 /// elapses rather than when a job next runs.
 /// </param>

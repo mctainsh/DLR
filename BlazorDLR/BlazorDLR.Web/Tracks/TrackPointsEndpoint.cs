@@ -17,11 +17,11 @@ public static class TrackPointsEndpoint
 }
 
 /// <summary>
-/// <c>GET /api/v1/tracks/{id}/points</c> — the editor's source (§15.5).
+/// <c>GET /api/v1/tracks/{id}/points</c> - the editor's source (§15.5).
 /// <para>
 /// The map draws a simplified polyline for performance, and the editor must not. If the browser
 /// sent "delete the 412th point I am displaying" it would delete a different point on the
-/// server — plausibly hundreds of metres away, invisibly, and only on tracks dense enough for
+/// server - plausibly hundreds of metres away, invisibly, and only on tracks dense enough for
 /// simplification to have done anything. So the editor loads the real thing, and the indices it
 /// manipulates are the server's indices throughout. One index space, no mapping layer, no class
 /// of bug.

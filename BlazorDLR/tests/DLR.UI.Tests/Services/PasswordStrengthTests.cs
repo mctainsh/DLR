@@ -57,7 +57,7 @@ public sealed class PasswordStrengthTests
 	}
 
 	/// <summary>
-	/// Scraping past the rules is the floor, not an endorsement — §7.2's minimum is six
+	/// Scraping past the rules is the floor, not an endorsement - §7.2's minimum is six
 	/// characters, and six characters is a weak password whatever shape it has.
 	/// </summary>
 	[Fact]
@@ -72,7 +72,7 @@ public sealed class PasswordStrengthTests
 
 	/// <summary>
 	/// Repetition is not length. <c>Aa1Aa1Aa1Aa1Aa1Aa1</c> satisfies every rule and is
-	/// eighteen characters, but there are three distinct ones in it — scoring it on length
+	/// eighteen characters, but there are three distinct ones in it - scoring it on length
 	/// would be the meter telling a plain lie.
 	/// </summary>
 	[Fact]
@@ -102,7 +102,7 @@ public sealed class PasswordStrengthTests
 	/// <summary>
 	/// The one the removal of the breach check makes worth stating out loud: <c>Passw0rd1</c>
 	/// is in every corpus there is, and nothing in the client can know that. The meter says
-	/// "Fair" — which is the honest answer to what it can actually measure, and the reason
+	/// "Fair" - which is the honest answer to what it can actually measure, and the reason
 	/// §7.2 no longer claims a leaked password will be caught.
 	/// </summary>
 	[Fact]

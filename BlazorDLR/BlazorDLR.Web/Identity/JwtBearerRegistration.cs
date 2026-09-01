@@ -17,7 +17,7 @@ public static class JwtBearerRegistration
 			.AddJwtBearer();
 
 		// Configured through the options system rather than in the AddJwtBearer callback, so
-		// the validation parameters are the ones JwtOptions builds — the same object the
+		// the validation parameters are the ones JwtOptions builds - the same object the
 		// issuer signs against. Two hand-written copies of a key list is how a rotation ends
 		// with tokens that verify in a test and not in production.
 		services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureFromJwtOptions>();
@@ -43,7 +43,7 @@ public static class JwtBearerRegistration
 			bearer.MapInboundClaims = false;
 
 			// Browsers cannot set headers on a WebSocket handshake, so SignalR sends the token as
-			// ?access_token=. §7.6 lifts it for the ride hub and *only* for the ride hub —
+			// ?access_token=. §7.6 lifts it for the ride hub and *only* for the ride hub -
 			// accepting it globally would scatter credentials through access logs, referrer
 			// headers and browser history for every route in the API.
 			bearer.Events = new JwtBearerEvents

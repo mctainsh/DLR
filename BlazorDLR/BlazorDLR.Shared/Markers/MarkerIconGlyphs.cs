@@ -8,12 +8,12 @@ namespace BlazorDLR.Shared.Markers;
 /// <para>
 /// <strong>This lives on the client, not in <see cref="MarkerIcons"/>.</strong> §16.2's rule
 /// is that the server validates the key's length and character set and the client owns the
-/// drawing — a picture is drawing. Keeping it here means a newer client can render
+/// drawing - a picture is drawing. Keeping it here means a newer client can render
 /// <c>ferry</c> without the server knowing what a ferry looks like.
 /// </para>
 /// <para>
 /// The artwork is a 48×48 PNG per key in <c>wwwroot/markers/</c>, shipped by the shared RCL so
-/// all three hosts draw the identical bytes — one picture per key, the same on iOS, Android and
+/// all three hosts draw the identical bytes - one picture per key, the same on iOS, Android and
 /// the web, and one we can draw for keys no font has a symbol for.
 /// </para>
 /// </summary>
@@ -29,7 +29,7 @@ public static class MarkerIconGlyphs
 	/// while pulled over.
 	/// <para>
 	/// This is the single list. A key present in <see cref="MarkerIcons.Known"/> but absent
-	/// here is a real omission, and <c>AddMarkerTests</c> is what says so — an earlier
+	/// here is a real omission, and <c>AddMarkerTests</c> is what says so - an earlier
 	/// version quietly appended the stragglers with the note glyph and their raw key as a
 	/// label, which made that assertion unfailable and the mistake invisible.
 	/// </para>
@@ -100,11 +100,11 @@ public static class MarkerIconGlyphs
 	}
 
 	/// <summary>
-	/// What to call a marker in a row, a heading or a confirmation — its title, or the icon's
+	/// What to call a marker in a row, a heading or a confirmation - its title, or the icon's
 	/// name when it has none (§16.2).
 	/// <para>
 	/// A title is optional: on the map that is the point, because the pin is its icon and the
-	/// overlay simply draws no label. In a <em>list</em> it is not — a row reading only
+	/// overlay simply draws no label. In a <em>list</em> it is not - a row reading only
 	/// "Alice" with a blank where the name goes looks like data that failed to load rather
 	/// than like a marker somebody chose not to name. "Gravel" is what they would have typed.
 	/// </para>

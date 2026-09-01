@@ -5,7 +5,7 @@ namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
 /// An in-memory <see cref="IOfflineStore"/>. Stands in for the phone's file-backed store without
-/// touching a disk, and — the part that matters for a cache — survives being read after the thing
+/// touching a disk, and - the part that matters for a cache - survives being read after the thing
 /// that wrote it has gone, which is how a test spells "the app was restarted".
 /// </summary>
 public sealed class FakeOfflineStore : IOfflineStore
@@ -26,7 +26,7 @@ public sealed class FakeOfflineStore : IOfflineStore
 
 	public ValueTask WriteAsync(string name, string content, CancellationToken cancellationToken = default)
 	{
-		// Mirrors the real store, which drops writes it cannot land rather than throwing — a test
+		// Mirrors the real store, which drops writes it cannot land rather than throwing - a test
 		// playing the browser must see the same silence a browser does.
 		if (IsSupported)
 		{

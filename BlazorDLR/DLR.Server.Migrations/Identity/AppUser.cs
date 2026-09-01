@@ -10,7 +10,7 @@ namespace DLR.Server.Data.Identity;
 /// <para>
 /// <c>UserName</c> is the whole of the identity: it is the login identifier <em>and</em> the
 /// name other riders read off a map pin. There is no separate display name to default, to
-/// keep in sync, or to choose between at render time — and because it is chosen once and can
+/// keep in sync, or to choose between at render time - and because it is chosen once and can
 /// never be changed, every client is free to denormalise it onto a cached member row, a stored
 /// ride summary or an exported GPX with no invalidation logic anywhere.
 /// </para>
@@ -24,8 +24,8 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	/// <summary>
 	/// The last time the server heard from this account (§7.10).
 	/// <para>
-	/// Written by the refresh that a client already makes at app start — no extra endpoint, no
-	/// extra round trip — and throttled to one write an hour, so opening the app five times in
+	/// Written by the refresh that a client already makes at app start - no extra endpoint, no
+	/// extra round trip - and throttled to one write an hour, so opening the app five times in
 	/// a morning is one <c>UPDATE</c> rather than five.
 	/// </para>
 	/// <para>
@@ -44,14 +44,14 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	/// How many GPS fixes this account has ever published (§5.5).
 	/// <para>
 	/// <strong>A counter, because the rows it counts are deleted.</strong> Positions are swept as
-	/// soon as the ride carrying them stops being live, so there is no table left to count — a
+	/// soon as the ride carrying them stops being live, so there is no table left to count - a
 	/// <c>SELECT count(*)</c> over <c>rider_position</c> answers "how many fixes are on a map right
 	/// now", which is a different and much smaller question. This is the only record that a rider
 	/// who has been out every weekend for a year is not a new account.
 	/// </para>
 	/// <para>
 	/// Written by the position flush in one batched statement per tick, never on the publish path
-	/// itself — a fix arriving must not wait on a row lock, and at 500 riders publishing every
+	/// itself - a fix arriving must not wait on a row lock, and at 500 riders publishing every
 	/// second that lock would be the whole cost of the feature.
 	/// </para>
 	/// <para>
@@ -67,7 +67,7 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	/// <para>
 	/// <strong>Not derivable from the other two columns, which is why it is a column.</strong> The
 	/// warning window is thirty days wide and the job runs nightly, so "warn when idle ≥ 150 days"
-	/// with nothing recorded emails the same person on thirty consecutive mornings — which reads as
+	/// with nothing recorded emails the same person on thirty consecutive mornings - which reads as
 	/// a broken service rather than as a courtesy, and is exactly the shape of thing that gets a
 	/// sending domain blocked.
 	/// </para>
@@ -81,7 +81,7 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	/// <summary>
 	/// The address this account was registered from (§7.8).
 	/// <para>
-	/// Personal data, and treated as such: the nightly job nulls it after 30 days (§7.11) —
+	/// Personal data, and treated as such: the nightly job nulls it after 30 days (§7.11) -
 	/// long enough to be useful for throttling, short enough not to be a standing record of
 	/// where people signed up. Null therefore means "not recorded any more", not "unknown".
 	/// </para>
@@ -103,7 +103,7 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 
 	/// <summary>
 	/// A name to show beside the username in a ride's member list (§7.3). Optional, editable,
-	/// and never the map label — pins carry the username, which is the one that cannot change.
+	/// and never the map label - pins carry the username, which is the one that cannot change.
 	/// </summary>
 	public string? DisplayName { get; set; }
 
@@ -112,15 +112,15 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	/// null for an account that has not added one.
 	/// <para>
 	/// <strong>No sharing switch, and the reasoning is <see cref="MarkerColour"/>'s rather than
-	/// <see cref="DisplayName"/>'s.</strong> The three switched fields are facts about a person —
-	/// a phone number, an address — that a rider might record for themselves and not want read.
+	/// <see cref="DisplayName"/>'s.</strong> The three switched fields are facts about a person -
+	/// a phone number, an address - that a rider might record for themselves and not want read.
 	/// A profile photograph has no private use: its entire purpose is to be the thing next to the
 	/// name, so a photograph nobody could see would be a setting with no effect. Adding one is the
 	/// consent, and removing it is how it is withdrawn.
 	/// </para>
 	/// <para>
 	/// It therefore travels exactly as far as the username does and no further, which is already
-	/// every signed-in rider — a member list, a comment, a marker's author, a shared route's
+	/// every signed-in rider - a member list, a comment, a marker's author, a shared route's
 	/// byline. It is not gated on sharing a live adventure, because the name beside it is not.
 	/// </para>
 	/// <para>
@@ -176,7 +176,7 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	/// <strong>What that makes this column.</strong> Sensitive personal data at rest: readable by
 	/// the server, by an operator with database access, present in the nightly backups (§9) and
 	/// in the account export (§6.3), which is the rider's own data. What it is not is visible to
-	/// another rider — no endpoint answers with anybody else's area, it is absent from
+	/// another rider - no endpoint answers with anybody else's area, it is absent from
 	/// <c>SharedProfile</c> by construction, and nothing published to a ride carries it. Treat any
 	/// new read of these three columns as a privacy decision (§10.1).
 	/// </para>
@@ -199,8 +199,8 @@ public sealed class AppUser : IdentityUser<Guid>, IProfileOwner
 	public double? PrivateAreaRadiusM { get; set; }
 
 	/// <summary>
-	/// Whether a home private area is set. The three columns move together — the endpoint writes
-	/// them in one statement and nulls them in one — so any one of them would answer this; the
+	/// Whether a home private area is set. The three columns move together - the endpoint writes
+	/// them in one statement and nulls them in one - so any one of them would answer this; the
 	/// property is here to say that reading them apart is a bug.
 	/// </summary>
 	public bool HasPrivateArea =>

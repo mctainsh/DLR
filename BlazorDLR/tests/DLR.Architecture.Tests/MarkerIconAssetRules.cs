@@ -6,7 +6,7 @@ namespace DLR.Architecture.Tests;
 /// <summary>
 /// Every curated icon key has artwork, and every piece of artwork has a key (§16.2, §16.3).
 /// <para>
-/// The lookup from key to picture is string concatenation — <c>markers/{key}.png</c> — which is
+/// The lookup from key to picture is string concatenation - <c>markers/{key}.png</c> - which is
 /// what makes a newer client's unknown key resolvable at all. The cost of that simplicity is
 /// that a typo or a missing file is not a compile error: <c>Known</c> would advertise a key the
 /// composer offers, the rider would pick it, and the map would draw the plain-pin fallback
@@ -51,7 +51,7 @@ public sealed class MarkerIconAssetRules
 
 	/// <summary>
 	/// The other direction. Unreferenced artwork is not a correctness bug, but it ships in every
-	/// app bundle and it is nearly always half of a change that stopped short — the PNG landed
+	/// app bundle and it is nearly always half of a change that stopped short - the PNG landed
 	/// and the key never made it into <see cref="MarkerIcons.Known"/>, so nothing can select it.
 	/// <para>
 	/// Scoped to files whose name could be a key at all (<see cref="MarkerIcons.IsStorable"/>).
@@ -70,6 +70,6 @@ public sealed class MarkerIconAssetRules
 
 		orphans.ShouldBeEmpty(
 			$"artwork in {IconFolder} with no matching key in MarkerIcons.Known cannot be chosen " +
-			"by anybody — it is dead weight in the bundle. Either register the key or delete the file.");
+			"by anybody - it is dead weight in the bundle. Either register the key or delete the file.");
 	}
 }

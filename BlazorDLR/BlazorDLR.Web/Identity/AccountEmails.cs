@@ -14,7 +14,7 @@ public sealed class AccountLinkOptions
 	/// <para>
 	/// <c>https://</c> universal links with a web fallback page, so reset works whether or not
 	/// the app is installed (§7.7). An account that cannot be recovered from a browser is an
-	/// account that cannot be recovered from a phone that has been lost — which is the case
+	/// account that cannot be recovered from a phone that has been lost - which is the case
 	/// the whole feature exists for.
 	/// </para>
 	/// </summary>
@@ -28,7 +28,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 {
 	/// <summary>Sends the 24-hour confirmation link.</summary>
 	/// <param name="user">Who is confirming.</param>
-	/// <param name="address">Where to send it — the new address, not necessarily the stored one.</param>
+	/// <param name="address">Where to send it - the new address, not necessarily the stored one.</param>
 	/// <param name="token">The confirmation token.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
 	public Task SendConfirmationAsync(
@@ -51,7 +51,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 
 				{link}
 
-				The link works for 24 hours. Until you use it, this address does nothing —
+				The link works for 24 hours. Until you use it, this address does nothing -
 				including letting you reset your password.
 
 				If you did not ask for this, ignore it. Nothing has changed on your account.
@@ -82,7 +82,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 				{link}
 
 				The link works for one hour. Using it signs you out on every device, which is
-				deliberate — if somebody else prompted this, they are signed out too.
+				deliberate - if somebody else prompted this, they are signed out too.
 
 				If you did not ask for this, ignore it. Your password has not changed and
 				nobody has been given access to your account.
@@ -111,7 +111,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 				Somebody just tried to create a Dumb Luck Routes account using this email
 				address. Your account has not changed and nobody has been given access to it.
 
-				If that was you, you already have an account — sign in as {owner.UserName}, or
+				If that was you, you already have an account - sign in as {owner.UserName}, or
 				reset your password if you have forgotten it.
 
 				If it was not you, there is nothing to do. We did not tell them whether this
@@ -148,7 +148,7 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 
 				Yours will be removed on or after {deleteAfterUtc:D}.
 
-				To keep it, just open the app and sign in. That is all — there is nothing to
+				To keep it, just open the app and sign in. That is all - there is nothing to
 				click here, and we will never email you a link that keeps an account alive.
 
 				If you would rather it went, do nothing.

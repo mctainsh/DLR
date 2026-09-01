@@ -8,8 +8,8 @@ namespace BlazorDLR.Shared.State;
 /// Username to profile photograph, for every screen that draws somebody's name (§7.3).
 /// <para>
 /// <strong>This exists because the alternative does not scale.</strong> A ride thread, a member
-/// list and a browse page each render dozens of names at once, and the obvious implementation —
-/// each little avatar fetching its own — is forty round trips to open a screen, then forty more
+/// list and a browse page each render dozens of names at once, and the obvious implementation -
+/// each little avatar fetching its own - is forty round trips to open a screen, then forty more
 /// when the list re-renders. Worse, the same photograph is downloaded once per row it appears in.
 /// </para>
 /// <para>
@@ -24,7 +24,7 @@ namespace BlazorDLR.Shared.State;
 ///   </description></item>
 ///   <item><description>
 ///     <strong>Remembers, including the negative answers.</strong> "This rider has no photograph"
-///     is the common case and is worth caching exactly as hard as a photo id — without it, every
+///     is the common case and is worth caching exactly as hard as a photo id - without it, every
 ///     re-render asks the server about the same names again.
 ///   </description></item>
 ///   <item><description>
@@ -36,7 +36,7 @@ namespace BlazorDLR.Shared.State;
 /// </list>
 /// <para>
 /// Scoped, like <see cref="AuthState"/>: one cache per browser tab or per app session, emptied
-/// with it. Nothing here is persisted — a stale avatar surviving a restart would be the one bug
+/// with it. Nothing here is persisted - a stale avatar surviving a restart would be the one bug
 /// worth avoiding, and the cost of not persisting is one small request at startup.
 /// </para>
 /// </summary>
@@ -57,7 +57,7 @@ public sealed class RiderAvatars : IDisposable
 	/// The most photographs held as decoded <c>data:</c> URLs at once.
 	/// <para>
 	/// A thumbnail is a few tens of kilobytes and base64 adds a third, so this is single-figure
-	/// megabytes at the worst — a bound rather than a budget. Past it the cache is emptied whole
+	/// megabytes at the worst - a bound rather than a budget. Past it the cache is emptied whole
 	/// rather than evicted cleverly: an LRU here would be machinery in service of a case (a
 	/// session that scrolls past two hundred distinct riders) that costs one refetch when it is
 	/// wrong.
@@ -92,7 +92,7 @@ public sealed class RiderAvatars : IDisposable
 	private bool _disposed;
 
 	/// <summary>
-	/// Raised when a cached answer stops being true — today, when the signed-in rider changes
+	/// Raised when a cached answer stops being true - today, when the signed-in rider changes
 	/// their own photograph. Rendered avatars subscribe so the change is visible on the screen
 	/// that made it without a reload.
 	/// </summary>
@@ -101,7 +101,7 @@ public sealed class RiderAvatars : IDisposable
 	/// <summary>Builds the cache.</summary>
 	/// <param name="api">Where the batch lookup goes.</param>
 	/// <param name="http">The bearer-decorated client the thumbnails are fetched with.</param>
-	/// <param name="clock">The project's clock (§10.4) — this is what arms the batch window.</param>
+	/// <param name="clock">The project's clock (§10.4) - this is what arms the batch window.</param>
 	public RiderAvatars(IApiClient api, HttpClient http, TimeProvider clock)
 	{
 		_api = api;
@@ -117,7 +117,7 @@ public sealed class RiderAvatars : IDisposable
 	/// <param name="cancellationToken">Cancellation.</param>
 	/// <remarks>
 	/// Never throws. An avatar that could not be resolved is drawn as no avatar, which is the same
-	/// thing the screen shows for the riders who have not set one — a name with a broken image
+	/// thing the screen shows for the riders who have not set one - a name with a broken image
 	/// beside it would be worse than a name.
 	/// </remarks>
 	public async Task<string?> ImageUrlAsync(string? userName, CancellationToken cancellationToken = default)
@@ -155,7 +155,7 @@ public sealed class RiderAvatars : IDisposable
 	/// <param name="userName">Whose. Null or blank forgets nothing.</param>
 	/// <remarks>
 	/// Called after the signed-in rider changes their own photograph. Only the name is forgotten,
-	/// not the downloaded images — the bytes behind a photo id never change, because ingest gives
+	/// not the downloaded images - the bytes behind a photo id never change, because ingest gives
 	/// every upload a new id (§16.4).
 	/// </remarks>
 	public void Forget(string? userName)
@@ -223,7 +223,7 @@ public sealed class RiderAvatars : IDisposable
 	}
 
 	/// <summary>
-	/// Sends one lookup for everything waiting and answers every waiter — including on failure,
+	/// Sends one lookup for everything waiting and answers every waiter - including on failure,
 	/// where the answer is "no photograph". A waiter left hanging is a row that never renders.
 	/// </summary>
 	private async Task FlushAsync()
@@ -251,7 +251,7 @@ public sealed class RiderAvatars : IDisposable
 		}
 		catch (Exception)
 		{
-			// Not cached. See ImageUrlAsync — a failed lookup must not become a permanent "no
+			// Not cached. See ImageUrlAsync - a failed lookup must not become a permanent "no
 			// photograph" for the rest of the session.
 			Answer(names, answers: [], remember: false);
 
@@ -281,7 +281,7 @@ public sealed class RiderAvatars : IDisposable
 			{
 				// A name the server did not answer for is treated as "no photograph". The endpoint
 				// answers for every name it is asked about, so this is the shape of a client and a
-				// server that disagree — and a missing avatar is the right way to be wrong.
+				// server that disagree - and a missing avatar is the right way to be wrong.
 				Guid? photoId = byName.TryGetValue(name, out Guid? found) ? found : null;
 
 				if (remember)
@@ -296,7 +296,7 @@ public sealed class RiderAvatars : IDisposable
 			}
 
 			// Names that arrived while the request was in flight. They have no timer of their own,
-			// because one was already armed when they joined — so without this they wait forever.
+			// because one was already armed when they joined - so without this they wait forever.
 			if (_waiting.Count > 0 && !_disposed)
 			{
 				_batch ??= _clock.CreateTimer(
@@ -339,7 +339,7 @@ public sealed class RiderAvatars : IDisposable
 			download = existing;
 		}
 
-		// The shared download is never cancelled by one caller — a row that went away must not
+		// The shared download is never cancelled by one caller - a row that went away must not
 		// abort the fetch the other nineteen rows are waiting on. Only this caller's wait ends.
 		return download.WaitAsync(cancellationToken);
 	}
@@ -363,7 +363,7 @@ public sealed class RiderAvatars : IDisposable
 
 			lock (_gate)
 			{
-				// Emptied whole rather than evicted — see MaxCachedImages.
+				// Emptied whole rather than evicted - see MaxCachedImages.
 				if (_imageByPhotoId.Count >= MaxCachedImages)
 				{
 					_imageByPhotoId.Clear();

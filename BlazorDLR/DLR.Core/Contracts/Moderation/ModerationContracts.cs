@@ -3,7 +3,7 @@ namespace DLR.Core.Contracts.Moderation;
 /// <summary>Reporting a marker or a post (§17.7).</summary>
 /// <param name="Reason">
 /// What the reporter says is wrong with it. Free text, because the useful report is usually a
-/// sentence — a fixed category list can be added later without changing what is stored.
+/// sentence - a fixed category list can be added later without changing what is stored.
 /// </param>
 public sealed record ReportContentRequest(string Reason);
 

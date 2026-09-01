@@ -25,12 +25,12 @@ public enum TrimRefusal
 /// <para>
 /// <strong>Nothing here touches the network.</strong> Trims accumulate against a local mask and
 /// each one is undoable a step at a time, right back to the track as loaded. Only
-/// <see cref="Removals"/> ever leaves — handed to <c>POST /tracks/{id}/edit</c> when the rider
+/// <see cref="Removals"/> ever leaves - handed to <c>POST /tracks/{id}/edit</c> when the rider
 /// hits Apply, at which point it is permanent and this session is thrown away.
 /// </para>
 /// <para>
 /// <strong>A trim eats the cursor point and the cursor follows the cut.</strong> The cursor is
-/// the leading edge of the bite, not a fixed anchor beside it — press back twice and the second
+/// the leading edge of the bite, not a fixed anchor beside it - press back twice and the second
 /// bite continues where the first stopped. Leaving the cursor standing and moving it to the far
 /// side of the gap instead was tried and is worse than either: the point it vacates ends up
 /// stranded between two gaps, so a rider chewing back to the start leaves a spike behind every
@@ -38,7 +38,7 @@ public enum TrimRefusal
 /// stop doing.
 /// </para>
 /// <para>
-/// <strong>Indices are raw throughout</strong> — positions in the full-resolution point list from
+/// <strong>Indices are raw throughout</strong> - positions in the full-resolution point list from
 /// <c>GET /tracks/{id}/points</c>, never into the simplified line the map draws. That is §15.5's
 /// central constraint and the reason this class exists as a separate, testable thing rather than
 /// as fields on a Razor page: "the tenth point along from here" has to mean the tenth
@@ -55,7 +55,7 @@ public sealed class TrackTrimSession
 
 	/// <summary>
 	/// One entry per trim, holding exactly what that trim struck out and where the cursor stood
-	/// before it. Undo pops one and puts both back — recomputing either is not possible after a
+	/// before it. Undo pops one and puts both back - recomputing either is not possible after a
 	/// later trim, because by then "the ten behind the cursor" is a different ten and the cursor
 	/// itself has moved on.
 	/// </summary>
@@ -100,7 +100,7 @@ public sealed class TrackTrimSession
 
 	/// <summary>
 	/// Puts the cursor on a raw index. Refuses an index that is out of range or already struck
-	/// out — the cursor is where the next bite starts, and a bite cannot start on a point that
+	/// out - the cursor is where the next bite starts, and a bite cannot start on a point that
 	/// is already gone.
 	/// </summary>
 	/// <param name="rawIndex">A raw point index, normally from <see cref="TrackHitTest"/>.</param>
@@ -118,7 +118,7 @@ public sealed class TrackTrimSession
 
 	/// <summary>
 	/// Strikes out the cursor point and the surviving points behind it, then leaves the cursor on
-	/// the point the bite stopped at — one step back along the track.
+	/// the point the bite stopped at - one step back along the track.
 	/// </summary>
 	/// <param name="count">
 	/// How many points to take, the cursor included. Fewer are taken if fewer are there, so a
@@ -128,14 +128,14 @@ public sealed class TrackTrimSession
 
 	/// <summary>
 	/// Strikes out the cursor point and the surviving points ahead of it, then leaves the cursor
-	/// on the point the bite stopped at — one step forward along the track.
+	/// on the point the bite stopped at - one step forward along the track.
 	/// </summary>
 	/// <param name="count">How many points to take, the cursor included.</param>
 	public TrimRefusal TrimForward(int count) => Strike(count, back: false);
 
 	/// <summary>
 	/// Reverses the most recent trim, points and cursor together. Repeated calls walk back to the
-	/// track as loaded, with the cursor retracing the path it took on the way out — an undo that
+	/// track as loaded, with the cursor retracing the path it took on the way out - an undo that
 	/// restored the points but left the cursor where the bite ended would put the next trim
 	/// somewhere the rider never chose.
 	/// </summary>
@@ -220,7 +220,7 @@ public sealed class TrackTrimSession
 		// Where the cursor lands, read off the survivors *before* they are struck: the points
 		// either side of the bite are outside it and therefore still standing afterwards. It
 		// prefers the direction of travel and falls back to the other side, which is what
-		// happens when the bite reached the end of the track — there the cursor turns round
+		// happens when the bite reached the end of the track - there the cursor turns round
 		// onto the new first or last point rather than having nowhere to be.
 		int? behind = first > 0 ? _survivingIndices[first - 1] : null;
 		int? ahead = last < _survivingIndices.Length ? _survivingIndices[last] : null;
@@ -250,7 +250,7 @@ public sealed class TrackTrimSession
 
 	/// <summary>
 	/// Recomputes the surviving view. Held rather than computed on demand because the map
-	/// redraws and the hit test runs against it, and both would otherwise walk the raw list —
+	/// redraws and the hit test runs against it, and both would otherwise walk the raw list -
 	/// 43 000 points on a long tour (§15.5).
 	/// </summary>
 	private void Rebuild()

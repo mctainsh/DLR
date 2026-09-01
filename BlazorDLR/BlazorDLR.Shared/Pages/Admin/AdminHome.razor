@@ -5,8 +5,8 @@
 @*
 	The administration screens' front door (§14.6).
 
-	Three destinations and nothing else on it, in the same card shape Settings uses, because
-	it is reached the same way and by the same person — the entry on Settings is the only
+	Four destinations and nothing else on it, in the same card shape Settings uses, because
+	it is reached the same way and by the same person - the entry on Settings is the only
 	link to it anywhere in the app.
 
 	**Not on the nav rail.** The rail is five destinations for what a rider opens twice in a
@@ -15,11 +15,11 @@
 	that list does not grow.
 
 	The gate here is a courtesy, not the control. It stops an administrator's browser
-	offering three screens that would only ever answer 403, and it is checked again — against
-	the server's own roster, per request — by everything behind it.
+	offering three screens that would only ever answer 403, and it is checked again - against
+	the server's own roster, per request - by everything behind it.
 *@
 
-<PageTitle>Administration — Dumb Luck Routes</PageTitle>
+<PageTitle>Administration - Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium">
 	<PageNav Title="Administration" BackHref="/settings" BackLabel="Back to settings" />
@@ -32,7 +32,7 @@
 	{
 		<p class="error">
 			This account is not an administrator of this server. Administrators are named in the
-			server's own configuration — there is nothing to switch on from in here.
+			server's own configuration - there is nothing to switch on from in here.
 		</p>
 	}
 	else
@@ -48,9 +48,14 @@
 				<p>Who is active, what is live right now, and GPS fixes per minute over the day.</p>
 			</a>
 
+			<a class="card" href="/admin/notices">
+				<h2><i class="fa fa-fw fa-bullhorn" aria-hidden="true"></i> Notices</h2>
+				<p>What every rider sees when the app is open. Live, and at their next launch.</p>
+			</a>
+
 			<a class="card" href="/admin/logs">
 				<h2><i class="fa fa-fw fa-file-lines" aria-hidden="true"></i> Server log</h2>
-				<p>What the server has been doing. Not this device's log — that one is under Settings.</p>
+				<p>What the server has been doing. Not this device's log - that one is under Settings.</p>
 			</a>
 		</div>
 	}
@@ -59,7 +64,7 @@
 @code {
 	/// <summary>
 	/// Whether this account may be here. Null while the answer is still being fetched, which is
-	/// drawn as "loading" rather than as "no" — flashing a refusal at an administrator on every
+	/// drawn as "loading" rather than as "no" - flashing a refusal at an administrator on every
 	/// visit would teach them to ignore it.
 	/// </summary>
 	private bool? _allowed;

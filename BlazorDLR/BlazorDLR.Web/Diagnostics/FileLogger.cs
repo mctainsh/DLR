@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace DLR.Server.Diagnostics;
 
 /// <summary>
-/// One category's view of <see cref="FileLoggerProvider"/> — formats an entry and hands it to the
+/// One category's view of <see cref="FileLoggerProvider"/> - formats an entry and hands it to the
 /// queue (§14.6).
 /// </summary>
 /// <param name="provider">Owns the queue, the clock and the level.</param>
@@ -16,8 +16,8 @@ internal sealed class FileLogger(FileLoggerProvider provider, string category) :
 	/// The field separator.
 	/// <para>
 	/// A tab, and the message is the last field on purpose: a reader can split three times from the
-	/// left and take the rest verbatim, so a message containing tabs, pipes or brackets — a SQL
-	/// statement, a stack trace, a rider's own text — cannot be mistaken for another column.
+	/// left and take the rest verbatim, so a message containing tabs, pipes or brackets - a SQL
+	/// statement, a stack trace, a rider's own text - cannot be mistaken for another column.
 	/// </para>
 	/// </summary>
 	private const char Separator = '\t';
@@ -51,7 +51,7 @@ internal sealed class FileLogger(FileLoggerProvider provider, string category) :
 	/// One entry as it appears on disk: stamp, level, category, message, tab-separated.
 	/// <para>
 	/// Shared with <see cref="FileLoggerProvider"/>, which writes the startup block at the head of
-	/// each new day's file without going through a logger — the header has to be the file's first
+	/// each new day's file without going through a logger - the header has to be the file's first
 	/// line, and anything queued would land behind whatever line caused the roll.
 	/// </para>
 	/// </summary>
@@ -71,7 +71,7 @@ internal sealed class FileLogger(FileLoggerProvider provider, string category) :
 		StringBuilder line = new();
 
 		// Round-trip format: sorts lexically, carries the offset, and parses back without a culture
-		// — which matters because InvariantGlobalization is on solution-wide.
+		// - which matters because InvariantGlobalization is on solution-wide.
 		line.Append(moment.ToString("O", CultureInfo.InvariantCulture))
 			.Append(Separator)
 			.Append(Level(level))

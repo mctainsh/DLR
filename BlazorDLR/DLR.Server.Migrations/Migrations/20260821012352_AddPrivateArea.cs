@@ -11,7 +11,7 @@ namespace DLR.Server.Data.Migrations;
 /// circle only ever existed on the device that set it, and the server has never been told one.
 /// Every account therefore starts here with no area, and the first phone to open the Location
 /// screen after the update pushes whatever it still holds. A rider whose device store had
-/// already been cleared — the reason this moved — sets it again, which is the outcome the old
+/// already been cleared - the reason this moved - sets it again, which is the outcome the old
 /// design gave them silently and this one at least makes visible.
 /// </para>
 /// <para>

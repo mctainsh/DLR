@@ -25,7 +25,7 @@ public static class TrackSharingEndpoints
 /// The description, the cover photograph and public sharing of a route (§6.2, §6.3).
 /// <para>
 /// Separate from <see cref="TrackController"/> on purpose. That controller is about a track as a
-/// recording — its points, its stats, its edits — and every action on it is owner-scoped by
+/// recording - its points, its stats, its edits - and every action on it is owner-scoped by
 /// definition. This one is about a track as something published, and it is the first place in the
 /// project where one rider reads another rider's track at all.
 /// </para>
@@ -75,7 +75,7 @@ public sealed class TrackSharingController : ControllerBase
 					+ $"this one is {description.Length}.");
 		}
 
-		// Owner-scoped, and 404 to everybody else — the same answer a rename gives, so this
+		// Owner-scoped, and 404 to everybody else - the same answer a rename gives, so this
 		// cannot be used to ask whether a track id exists (§15.4).
 		Track? track = await database
 			.Set<Track>()
@@ -103,7 +103,7 @@ public sealed class TrackSharingController : ControllerBase
 
 		if (request.PhotoId is { } photoId)
 		{
-			// Their own upload, not merely one that exists — MarkerController's reasoning
+			// Their own upload, not merely one that exists - MarkerController's reasoning
 			// exactly: a guessed identifier would otherwise republish somebody else's
 			// photograph as the cover of a route of the caller's choosing.
 			bool ownsIt = await database
@@ -137,13 +137,13 @@ public sealed class TrackSharingController : ControllerBase
 				return Problem(
 					statusCode: StatusCodes.Status409Conflict,
 					title: "Already shared",
-					detail: $"Another rider has already shared this route as {sameRoad.Describe} — it "
+					detail: $"Another rider has already shared this route as {sameRoad.Describe} - it "
 						+ "follows exactly the same points. Look for it on the shared list rather than "
 						+ "putting a second copy of the same road on there.");
 			}
 
 			// An unnamed route is still shareable. Uniqueness is about telling two entries on a
-			// list apart, and refusing the share outright would be inventing a second rule — the
+			// list apart, and refusing the share outright would be inventing a second rule - the
 			// one place a name is compulsory is where somebody was asked for one (§15.1).
 			if (TrackNaming.Clean(track.Name) is { Length: > 0 } name
 				&& await SharedRoutes.NamedAsync(database, track.Id, name, cancellationToken) is { } sameName)
@@ -227,7 +227,7 @@ public sealed class TrackSharingController : ControllerBase
 		}
 
 		// Zero when no area was asked for. The distance is still computed in that case and simply
-		// never read — see ScoredTrack for why one expression beats two query shapes.
+		// never read - see ScoredTrack for why one expression beats two query shapes.
 		double centreLat = query.HasArea ? query.Latitude!.Value : 0;
 		double centreLon = query.HasArea ? query.Longitude!.Value : 0;
 		double radiusKm = query.HasArea ? Math.Min(query.WithinKm!.Value, SharedTrackQuery.MaxWithinKm) : 0;
@@ -276,7 +276,7 @@ public sealed class TrackSharingController : ControllerBase
 
 			// Newest shared first otherwise, tiebroken on Id for the reason §17.8 gives: the fake
 			// clock does not tick unless a test moves it and a real one has finite resolution, so
-			// two routes genuinely share an instant — and a sort without a tiebreak drops one row
+			// two routes genuinely share an instant - and a sort without a tiebreak drops one row
 			// and repeats another across a page boundary.
 			: scored
 				.OrderByDescending(row => row.Track!.FirstSharedUtc)
@@ -300,8 +300,8 @@ public sealed class TrackSharingController : ControllerBase
 				row.Track.DistanceM,
 				row.Track.AscentM,
 
-				// Never null on a public row — FirstSharedUtc is stamped by the transition that
-				// makes a track public — but the column is nullable, so the projection says so.
+				// Never null on a public row - FirstSharedUtc is stamped by the transition that
+				// makes a track public - but the column is nullable, so the projection says so.
 				row.Track.FirstSharedUtc ?? row.Track.CreatedUtc,
 				(row.Track.BoundsMinLat + row.Track.BoundsMaxLat) / 2,
 				(row.Track.BoundsMinLon + row.Track.BoundsMaxLon) / 2,
@@ -321,7 +321,7 @@ public sealed class TrackSharingController : ControllerBase
 	/// Fills the star average and count in for a page of browse rows (§6.2).
 	/// <para>
 	/// One grouped query for the whole page rather than a correlated sub-select per row, and after
-	/// the projection rather than inside it — a thread page hydrates its reaction tallies the same
+	/// the projection rather than inside it - a thread page hydrates its reaction tallies the same
 	/// way and for the same two reasons. An aggregate over a second table does not belong in the
 	/// translated <c>Select</c> that builds a row, and twenty round trips to draw one page is the
 	/// N+1 that makes a fast feature feel broken.
@@ -370,12 +370,12 @@ public sealed class TrackSharingController : ControllerBase
 	/// <strong>The reason this type exists is that the haversine has to be written as an
 	/// expression tree, not called as a method.</strong> Every operation in it is one Npgsql
 	/// emits (<c>sin</c>, <c>cos</c>, <c>asin</c>, <c>sqrt</c>, <c>least</c>), but a call into a
-	/// C# method is not translatable at all — EF would refuse the query outright. Projecting once
+	/// C# method is not translatable at all - EF would refuse the query outright. Projecting once
 	/// into this and then filtering, ordering and reading <see cref="AwayKm"/> keeps the formula
 	/// in one place instead of three copies drifting apart.
 	/// </para>
 	/// <para>
-	/// It is computed even when no area was asked for, and simply not read — the alternative is
+	/// It is computed even when no area was asked for, and simply not read - the alternative is
 	/// two whole query shapes, and the cost is some trigonometry Postgres does on the twenty rows
 	/// of one page.
 	/// </para>
@@ -383,7 +383,7 @@ public sealed class TrackSharingController : ControllerBase
 	/// The formula is <see cref="Distance.BetweenM"/>'s, deliberately: §15.7's rule is that one
 	/// distance implementation serves the whole project, and a browse list saying a route is 48 km
 	/// away while the map that draws it disagrees would be that rule breaking quietly. The
-	/// half-angle sine also handles the antimeridian on its own — a longitude difference of 359°
+	/// half-angle sine also handles the antimeridian on its own - a longitude difference of 359°
 	/// and one of −1° give the same value once halved and squared.
 	/// </para>
 	/// </summary>
@@ -399,7 +399,7 @@ public sealed class TrackSharingController : ControllerBase
 	/// <summary>
 	/// The fingerprint of a stored track's line, read back from its blob (§6.2).
 	/// <para>
-	/// Only ever needed for a row written before <c>route_hash</c> existed — every path that
+	/// Only ever needed for a row written before <c>route_hash</c> existed - every path that
 	/// writes points computes it as it goes. Publishing is a deliberate, once-per-route action,
 	/// so reading one blob to close that gap costs nothing anybody will notice.
 	/// </para>
@@ -407,7 +407,7 @@ public sealed class TrackSharingController : ControllerBase
 	/// <param name="blobs">Where the points are.</param>
 	/// <param name="blobRef">Which blob.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
-	/// <returns>The fingerprint, or empty when the blob is gone — which means "do not compare".</returns>
+	/// <returns>The fingerprint, or empty when the blob is gone - which means "do not compare".</returns>
 	private static async Task<byte[]> FingerprintAsync(IBlobStore blobs, string blobRef, CancellationToken cancellationToken)
 	{
 		await using Stream? blob = await blobs.OpenAsync(blobRef, cancellationToken);

@@ -15,7 +15,7 @@ namespace DLR.Server.Diagnostics;
 /// resolved to, and what it is talking to (§14.6).
 /// <para>
 /// <strong>Resolved values, not configured ones.</strong> Half the questions asked of a deployment
-/// — why is it writing there, why is that folder empty, why is it reading the wrong settings — are
+/// - why is it writing there, why is that folder empty, why is it reading the wrong settings - are
 /// answered by the difference between what a setting says and what it became. A relative blob path
 /// resolves against the content root, which is not the working folder, which is not the folder the
 /// executable is in; naming all three costs four lines and settles the argument.
@@ -23,8 +23,8 @@ namespace DLR.Server.Diagnostics;
 /// <para>
 /// Deliberately overlapping with <see cref="ServerLifetimeLog"/>, which writes the same facts one
 /// line at a time so the administration screen has scannable rows. This is the block a human
-/// reading the file top-down wants, and it is written earlier — before the first request rather
-/// than after the addresses bind — so a log that ends in a crash still opens with what crashed.
+/// reading the file top-down wants, and it is written earlier - before the first request rather
+/// than after the addresses bind - so a log that ends in a crash still opens with what crashed.
 /// </para>
 /// </summary>
 public static class StartupBanner
@@ -50,7 +50,7 @@ public static class StartupBanner
 		{
 			// The banner describes the server; it is not the server. Whatever could not be read,
 			// say so and let the thing start.
-			Line(text, "Incomplete", $"could not read every value — {exception.GetType().Name}: {exception.Message}");
+			Line(text, "Incomplete", $"could not read every value - {exception.GetType().Name}: {exception.Message}");
 		}
 
 		return text.Append('\n').Append(Rule).ToString();
@@ -118,8 +118,8 @@ public static class StartupBanner
 			text,
 			"User",
 			$"{Environment.UserDomainName}\\{Environment.UserName}"
-				+ (Environment.UserInteractive ? " (interactive)" : " (non-interactive — service or container)"));
-		Line(text, "Process", $"{Environment.ProcessId} — {Environment.ProcessPath ?? "executable path unknown"}");
+				+ (Environment.UserInteractive ? " (interactive)" : " (non-interactive - service or container)"));
+		Line(text, "Process", $"{Environment.ProcessId} - {Environment.ProcessPath ?? "executable path unknown"}");
 		Line(text, "Working folder", Folder(Environment.CurrentDirectory));
 		Line(text, "Content root", Folder(environment.ContentRootPath));
 		Line(
@@ -131,7 +131,7 @@ public static class StartupBanner
 		Line(text, "Database", RedactConnectionString(configuration.GetConnectionString("Dlr")));
 		Line(text, "Listening on", configuration["urls"] is { Length: > 0 } urls ? urls : "addresses chosen by the host");
 		Line(text, "Administrators", $"[{string.Join(", ", admins.Users)}]");
-		Line(text, "    Log enabled", logSettings.Enabled ? "yes" : "no — nothing is written to disk");
+		Line(text, "    Log enabled", logSettings.Enabled ? "yes" : "no - nothing is written to disk");
 		Line(text, "    Log folder", Folder(fileLog.Directory));
 		Line(text, "    Log level", logSettings.MinimumLevel.ToString());
 		Line(text, "    Log retention", $"{logSettings.RetainDays} days, swept by the nightly job");
@@ -155,7 +155,7 @@ public static class StartupBanner
 		moment.ToUniversalTime().ToString("u", CultureInfo.InvariantCulture);
 
 	/// <summary>
-	/// An elapsed time, in the one format this server writes them in — see
+	/// An elapsed time, in the one format this server writes them in - see
 	/// <see cref="ServerLifetimeLog"/>, which closes the file with the same shape so the two can be
 	/// read against each other.
 	/// </summary>

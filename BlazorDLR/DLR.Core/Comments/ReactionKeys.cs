@@ -32,7 +32,7 @@ public static class ReactionKeys
 	public static bool IsKnown(string reaction) => Known.Contains(reaction);
 
 	/// <summary>
-	/// Whether a key is <em>storable</em> — length and character set only, not membership.
+	/// Whether a key is <em>storable</em> - length and character set only, not membership.
 	/// </summary>
 	/// <param name="reaction">The key.</param>
 	public static bool IsStorable(string? reaction) =>

@@ -29,7 +29,7 @@ public sealed class BlobStoreOptions
 /// whether a blob is unreferenced or merely <em>not referenced yet</em> by how old it is, so the
 /// file's timestamp and the horizon it is compared against have to be in the same frame. Stamping
 /// it from the ambient clock and comparing it against <c>TimeProvider</c> would put a real August
-/// date beside a fake January one and make every blob look ancient — which is the grace window
+/// date beside a fake January one and make every blob look ancient - which is the grace window
 /// silently not existing.
 /// </param>
 public sealed class FileSystemBlobStore(IOptions<BlobStoreOptions> options, TimeProvider clock)
@@ -145,7 +145,7 @@ public sealed class FileSystemBlobStore(IOptions<BlobStoreOptions> options, Time
 	/// A blob's path on disk, two levels of fan-out deep.
 	/// <para>
 	/// Flat would put every track and every photo in one directory, which most filesystems
-	/// tolerate and every tool that has to list it does not — including the backup.
+	/// tolerate and every tool that has to list it does not - including the backup.
 	/// </para>
 	/// </summary>
 	private string PathFor(string blobRef)

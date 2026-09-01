@@ -16,8 +16,8 @@ namespace DLR.Server.Tests.Rides;
 /// <summary>
 /// The organiser's three content switches (§5.8).
 /// <para>
-/// The switches exist for the ride that needs them — a large public charity ride, or one that has
-/// gone sideways — which is why all three default <em>on</em>. The two rules that are easy to get
+/// The switches exist for the ride that needs them - a large public charity ride, or one that has
+/// gone sideways - which is why all three default <em>on</em>. The two rules that are easy to get
 /// backwards are that turning one off deletes nothing, and that it never applies to the organiser
 /// who set it.
 /// </para>
@@ -56,7 +56,7 @@ public sealed class PermissionTests(PostgresFixture postgres)
 		// Distinguishable, so a client can tell "you may not" from "that failed" (§5.8).
 		refused.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
 
-		// And the one already placed is untouched — asserted here as well as in its own test,
+		// And the one already placed is untouched - asserted here as well as in its own test,
 		// because this is the moment somebody would be tempted to tidy up.
 		before.Id.ShouldNotBe(Guid.Empty);
 
@@ -70,8 +70,8 @@ public sealed class PermissionTests(PostgresFixture postgres)
 	/// The photo switch is its own, not a consequence of the comment one (§5.8).
 	/// <para>
 	/// <strong>Enforcement is on the attach, not the upload.</strong> A photo is a standalone
-	/// resource with no ride context — taken at the top of a hill, uploaded whenever there is
-	/// signal (§16.4) — so the ride's switch can only be consulted when the image is bound to
+	/// resource with no ride context - taken at the top of a hill, uploaded whenever there is
+	/// signal (§16.4) - so the ride's switch can only be consulted when the image is bound to
 	/// something in that ride.
 	/// </para>
 	/// </summary>
@@ -139,7 +139,7 @@ public sealed class PermissionTests(PostgresFixture postgres)
 			ride.Id,
 			new RidePermissions(AllowMemberMarkers: false, AllowMemberComments: false, AllowMemberPhotos: false));
 
-		// Still there, still readable, still carrying its photograph — by the member who is now
+		// Still there, still readable, still carrying its photograph - by the member who is now
 		// forbidden from creating another.
 		MarkerDto[] markers = (await member.GetFromJsonAsync<MarkerDto[]>(
 			$"{RidesUrl}/{ride.Id}/markers"))!;
@@ -190,7 +190,7 @@ public sealed class PermissionTests(PostgresFixture postgres)
 			attached.StatusCode.ShouldBe(HttpStatusCode.OK, await attached.Content.ReadAsStringAsync());
 		}
 
-		// So is a leader — §5.8 exempts both, and a check written as "is the owner" would pass
+		// So is a leader - §5.8 exempts both, and a check written as "is the owner" would pass
 		// every assertion above and fail this one.
 		await CreateMarkerAsync(leader, ride.Id);
 
@@ -220,7 +220,7 @@ public sealed class PermissionTests(PostgresFixture postgres)
 			refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 		}
 
-		// And somebody not in the ride gets a 404, not a 403 — a ride id is shareable, so a
+		// And somebody not in the ride gets a 404, not a 403 - a ride id is shareable, so a
 		// distinguishable refusal would make this an oracle for who is in which ride (§5.2).
 		using HttpResponseMessage unknown = await stranger.PutAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/permissions",

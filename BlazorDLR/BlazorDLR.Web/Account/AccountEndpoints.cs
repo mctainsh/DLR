@@ -48,7 +48,7 @@ public sealed class AccountController : ControllerBase
 		}
 
 		// Buffered rather than streamed straight to the response. ZipArchive in Create mode needs a
-		// seekable stream for its central directory, and the alternative — a streamed archive — buys
+		// seekable stream for its central directory, and the alternative - a streamed archive - buys
 		// nothing here: an export is a handful of megabytes, taken once, by the one person entitled
 		// to it. Making it complicated would be optimising the wrong thing.
 		MemoryStream buffer = new();
@@ -77,14 +77,14 @@ public sealed class AccountController : ControllerBase
 	/// <strong>Deleting the account deletes the rides it organises, and everyone else's membership
 	/// of them.</strong> That follows from `group_ride.owner_id ON DELETE CASCADE`, and it is
 	/// stated here rather than discovered: there is no transfer-of-ownership feature, so the
-	/// alternative would be refusing the deletion — and a hard block on erasure is not defensible
+	/// alternative would be refusing the deletion - and a hard block on erasure is not defensible
 	/// under §10.2's applicable law. The organiser is told before it happens; the copy is a UI task.
 	/// </para>
 	/// </remarks>
 	[HttpDelete("/api/v1/me", Name = AccountEndpoints.DeleteRouteName)]
 	[EndpointSummary("Deletes the account, its content and its blobs. Irreversible.")]
 	public async Task<IActionResult> DeleteAsync(
-		// Explicit, because minimal APIs will not infer a body on DELETE — and the body is where
+		// Explicit, because minimal APIs will not infer a body on DELETE - and the body is where
 		// the password belongs. A query string would put it in Caddy's access log and the
 		// browser's history, which is the exact hazard §7.6's query-string token lift is scoped
 		// so narrowly to avoid.
@@ -100,7 +100,7 @@ public sealed class AccountController : ControllerBase
 
 		// Re-entered, not inferred from the bearer token. A fifteen-minute access token lifted off
 		// a shared machine should not be enough to end somebody's account, and every account has a
-		// password — §7.2 makes username and password *the* account — so this excludes nobody.
+		// password - §7.2 makes username and password *the* account - so this excludes nobody.
 		if (!await users.CheckPasswordAsync(user, request.CurrentPassword))
 		{
 			return Problem(

@@ -16,7 +16,7 @@ namespace DLR.Server.Tests.Identity;
 /// The interesting property is the one that is <em>not</em> like the three switched fields beside
 /// it: this has no sharing switch and no gate, because it exists to sit beside the username and the
 /// username is already readable by every signed-in rider (§7.2). The tests below pin that down in
-/// both directions — anybody signed in can read it, and nobody at all can set somebody else's.
+/// both directions - anybody signed in can read it, and nobody at all can set somebody else's.
 /// </para>
 /// </summary>
 public sealed class AvatarTests(PostgresFixture postgres)
@@ -43,7 +43,7 @@ public sealed class AvatarTests(PostgresFixture postgres)
 
 		read.AvatarPhotoId.ShouldBe(photo.PhotoId);
 
-		// And what everybody else sees. No switch was turned on, because there is not one —
+		// And what everybody else sees. No switch was turned on, because there is not one -
 		// adding the photograph is the consent.
 		RiderAvatarDto only = (await LookupAsync(reader, "DaveSmith")).ShouldHaveSingleItem();
 
@@ -62,14 +62,14 @@ public sealed class AvatarTests(PostgresFixture postgres)
 
 		await SetAvatarAsync(rider, photo.PhotoId);
 
-		// The two share no ride at all. §7.3's gate gives a stranger nothing —
+		// The two share no ride at all. §7.3's gate gives a stranger nothing -
 		SharedProfile profile = (await stranger.GetFromJsonAsync<SharedProfile>(
 			$"/api/v1/users/{await IdOfAsync(app, "DaveSmith")}/profile"))!;
 
 		profile.DisplayName.ShouldBeNull();
 		profile.PhoneNumber.ShouldBeNull();
 
-		// — and the avatar deliberately travels further, because the name beside it already does.
+		// - and the avatar deliberately travels further, because the name beside it already does.
 		(await LookupAsync(stranger, "DaveSmith")).ShouldHaveSingleItem().PhotoId.ShouldBe(photo.PhotoId);
 
 		// The bytes are reachable too, or the identifier would be useless to the screen holding it.
@@ -136,7 +136,7 @@ public sealed class AvatarTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The whole-profile PUT must not be able to clear a photograph it knows nothing about — the
+	/// The whole-profile PUT must not be able to clear a photograph it knows nothing about - the
 	/// reason the avatar is its own sub-resource, and the same trap §10.1's private area avoids.
 	/// </summary>
 	[Fact]
@@ -173,7 +173,7 @@ public sealed class AvatarTests(PostgresFixture postgres)
 		IReadOnlyList<RiderAvatarDto> answers = await LookupAsync(reader, "DaveSmith", "RileyJones", "NoSuchRider");
 
 		// A row per question, not per row found. A caller that had to tell "no photograph" from
-		// "no such account" by the absence of a row would be holding a username oracle — and a
+		// "no such account" by the absence of a row would be holding a username oracle - and a
 		// client that could not cache the negative answer would ask again on every render.
 		answers.Count.ShouldBe(3);
 		answers.Single(row => row.UserName == "DaveSmith").PhotoId.ShouldBe(photo.PhotoId);
@@ -183,7 +183,7 @@ public sealed class AvatarTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// A caller holding a name off a cached row may not have the casing the account was created
-	/// with, and the name it gets back has to be the one it asked with — otherwise its cache never
+	/// with, and the name it gets back has to be the one it asked with - otherwise its cache never
 	/// hits (§7.2).
 	/// </summary>
 	[Fact]

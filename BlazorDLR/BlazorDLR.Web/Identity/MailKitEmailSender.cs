@@ -14,7 +14,7 @@ public sealed class EmailOptions
 	/// <summary>
 	/// The SMTP host.
 	/// <para>
-	/// Zoho's is <em>region-specific</em> — an account in the Australian datacentre is
+	/// Zoho's is <em>region-specific</em> - an account in the Australian datacentre is
 	/// <c>smtp.zoho.com.au</c>, and pointing at <c>smtp.zoho.com</c> surfaces as an
 	/// <em>authentication</em> failure rather than a region mismatch. That sends you hunting
 	/// for a credential bug that is not there, so it is written down here rather than
@@ -36,7 +36,7 @@ public sealed class EmailOptions
 	public string Password { get; set; } = string.Empty;
 
 	/// <summary>
-	/// Must be the authenticated mailbox or a verified alias — Zoho rejects arbitrary senders,
+	/// Must be the authenticated mailbox or a verified alias - Zoho rejects arbitrary senders,
 	/// so <c>no-reply@…</c> has to exist as a real alias. It ends up in every template and in
 	/// users' allow-lists, so it is worth deciding once.
 	/// </summary>
@@ -50,7 +50,7 @@ public sealed class EmailOptions
 /// The real transport (§7.12).
 /// <para>
 /// MailKit rather than <c>System.Net.Mail.SmtpClient</c>, which is obsolete for new
-/// development — and it is what makes the eventual move from Zoho Mail to ZeptoMail free:
+/// development - and it is what makes the eventual move from Zoho Mail to ZeptoMail free:
 /// ZeptoMail speaks SMTP too, so the cutover is a host and a credential in configuration with
 /// no code change behind <see cref="IEmailSender"/>.
 /// </para>

@@ -8,14 +8,14 @@ namespace BlazorDLR.Shared.Markers;
 /// Which markers a tap on the base map landed on (§16.4).
 /// <para>
 /// <strong>Why this is not in the overlay.</strong> <c>SkiaMapOverlay</c> draws the pins but
-/// is <c>pointer-events: none</c> so gestures reach the base map beneath it — it never sees a
+/// is <c>pointer-events: none</c> so gestures reach the base map beneath it - it never sees a
 /// tap and cannot hit-test one. The base map raises the tap as lat/lon, and the answer to
 /// "what is under the finger" is therefore worked out here, in screen space, against the same
 /// projection the overlay drew with.
 /// </para>
 /// <para>
-/// Extracted from the page because a page hosting the overlay cannot render in bUnit — the
-/// <c>SKCanvasView</c> is browser-only — and this is the part with arithmetic in it.
+/// Extracted from the page because a page hosting the overlay cannot render in bUnit - the
+/// <c>SKCanvasView</c> is browser-only - and this is the part with arithmetic in it.
 /// </para>
 /// </summary>
 public static class MarkerHitTest
@@ -35,7 +35,7 @@ public static class MarkerHitTest
 	/// Every marker drawn within <paramref name="radiusPx"/> of the tapped point, nearest first.
 	/// </summary>
 	/// <param name="viewport">The base map's current view. A viewport with no measured canvas
-	/// yields nothing — with no pixels there is no "near", and answering anything else would
+	/// yields nothing - with no pixels there is no "near", and answering anything else would
 	/// mean returning every marker on the ride.</param>
 	/// <param name="markers">The markers on screen, in wire form (scaled integer degrees).</param>
 	/// <param name="click">Where the user tapped, in decimal degrees.</param>

@@ -36,7 +36,7 @@ public sealed record JoinByCodeRequest(string Code, string? Message = null);
 /// <summary>
 /// What a join attempt produced (§5.2).
 /// <para>
-/// Both paths end at the location-sharing prompt (§5.6) — joining a ride and agreeing to
+/// Both paths end at the location-sharing prompt (§5.6) - joining a ride and agreeing to
 /// broadcast are separate decisions, and the second one defaults to off.
 /// </para>
 /// </summary>
@@ -84,18 +84,18 @@ public sealed record RideDetail(
 /// <para>
 /// All default <strong>on</strong>. A group ride is a group of people the organiser chose, so
 /// starting from silence would be a strange default for a product whose point is riding together;
-/// these exist for the ride that needs them — a large public charity ride, or one that has gone
+/// these exist for the ride that needs them - a large public charity ride, or one that has gone
 /// sideways.
 /// </para>
 /// <para>
 /// <strong>Turning one off stops new content and deletes nothing.</strong> Same rule as §7.3's
-/// profile sharing, for the same reason — revoking a permission is not an instruction to destroy
+/// profile sharing, for the same reason - revoking a permission is not an instruction to destroy
 /// what was already permitted.
 /// </para>
 /// </summary>
 /// <param name="AllowMemberMarkers">Whether ordinary members may place markers (§16.5).</param>
 /// <param name="AllowMemberComments">
-/// Whether ordinary members may post. Off leaves reading, reacting and voting alone — a reaction
+/// Whether ordinary members may post. Off leaves reading, reacting and voting alone - a reaction
 /// carries no free text, and switching off the ability to answer a poll would break the poll
 /// rather than moderate it.
 /// </param>
@@ -115,7 +115,7 @@ public sealed record RidePermissions(
 /// <param name="JoinedUtc">When they joined.</param>
 /// <param name="Sharing">
 /// Whether they broadcast to this ride (§5.6). A rider may be in a ride without sharing, and the
-/// control is <em>visibility, not enforcement</em> — the list makes the asymmetry legible so a
+/// control is <em>visibility, not enforcement</em> - the list makes the asymmetry legible so a
 /// group that cares can say something, which is a social fix for a social problem.
 /// </param>
 /// <param name="HasPosition">
@@ -147,7 +147,7 @@ public sealed record RidePermissions(
 /// <para>
 /// It says <em>that</em> they are private and never <em>where</em>: the circle itself lives on
 /// their profile and reaches no other rider (see <c>PrivateAreaSettings</c>). While this is set the
-/// ride holds no position for them at all — the rows are deleted, not withheld — so every figure
+/// ride holds no position for them at all - the rows are deleted, not withheld - so every figure
 /// derived from a position (range, along the route, gap, off-route) is absent for them by
 /// construction rather than by a client agreeing to hide it.
 /// </para>
@@ -174,7 +174,7 @@ public sealed record RideMemberSummary(
 /// <param name="IsOrganiser">Whether the caller runs it.</param>
 /// <param name="MemberCount">How many are in.</param>
 /// <param name="JoinCode">
-/// Same rule as <see cref="RideDetail.JoinCode"/> — sent to every member, so a joined ride shows
+/// Same rule as <see cref="RideDetail.JoinCode"/> - sent to every member, so a joined ride shows
 /// its code on the list as an organised one does.
 /// </param>
 public sealed record RideSummary(
@@ -197,11 +197,11 @@ public sealed record RideSummary(
 /// <para>
 /// The name is here, and it is the one thing this does disclose to a non-member. It has to be:
 /// the alternative is a list that tells a rider they are waiting on something without saying
-/// what. They already hold a valid join code for it — that is what §5.2 treats as permission to
-/// ask about a ride at all — and the organiser is looking at their handle either way.
+/// what. They already hold a valid join code for it - that is what §5.2 treats as permission to
+/// ask about a ride at all - and the organiser is looking at their handle either way.
 /// </para>
 /// </summary>
-/// <param name="RideId">Which adventure. Not openable until admitted — the detail endpoint
+/// <param name="RideId">Which adventure. Not openable until admitted - the detail endpoint
 /// answers a non-member the same 404 a stranger gets.</param>
 /// <param name="RequestId">The pending request itself.</param>
 /// <param name="Name">What the adventure is called.</param>
@@ -224,7 +224,7 @@ public sealed record WaitingRide(
 /// <param name="Waiting">
 /// Adventures the caller has asked to join and is still waiting on. A third list rather than a
 /// flag on the second, for the reason the first two are split: these are not rides the caller is
-/// on, and nothing that works on a joined ride — opening it, its map, its thread — works on one
+/// on, and nothing that works on a joined ride - opening it, its map, its thread - works on one
 /// of these.
 /// </param>
 public sealed record MyRides(

@@ -15,13 +15,13 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// The three screens the recovery emails need on the other end (§7.7, §7.14). Without them the
 /// server sends links that land on nothing, which is the same as an account that cannot be
-/// recovered — the exact outcome registration warns about.
+/// recovered - the exact outcome registration warns about.
 /// <list type="bullet">
-///   <item><c>ForgotPassword</c> — asks for a link, and says the same thing whether or not the
+///   <item><c>ForgotPassword</c> - asks for a link, and says the same thing whether or not the
 ///     address belongs to anyone (§7.8).</item>
-///   <item><c>ResetPassword</c> — the emailed <c>userId</c> + <c>token</c> pair, a new password,
+///   <item><c>ResetPassword</c> - the emailed <c>userId</c> + <c>token</c> pair, a new password,
 ///     and the sign-out on every device that a reset means.</item>
-///   <item><c>ConfirmEmail</c> — follows the link on arrival and adopts the session it answers
+///   <item><c>ConfirmEmail</c> - follows the link on arrival and adopts the session it answers
 ///     with, so the fresh claims land rather than waiting out the old token.</item>
 /// </list>
 /// </summary>
@@ -55,7 +55,7 @@ public sealed class RecoveryTests : PageTestContext
 	/// <summary>
 	/// Puts the browser on the emailed link before rendering, so the page reads its two halves
 	/// out of the query the way a real arrival does. The URL shape mirrors
-	/// <c>AccountEmails.Link</c> — <c>?userId=…&amp;token=…</c>.
+	/// <c>AccountEmails.Link</c> - <c>?userId=…&amp;token=…</c>.
 	/// </summary>
 	private void ArriveAt(string route, Guid userId, string token) =>
 		Services.GetRequiredService<NavigationManager>()
@@ -81,7 +81,7 @@ public sealed class RecoveryTests : PageTestContext
 
 	/// <summary>
 	/// The enumeration rule, on screen (§7.8). The endpoint answers 202 for an address that
-	/// belongs to nobody, so this screen must not have a second message it could show instead —
+	/// belongs to nobody, so this screen must not have a second message it could show instead -
 	/// a page that said "sent" only for real addresses would be a membership test for any
 	/// mailbox somebody cared to type.
 	/// </summary>
@@ -102,7 +102,7 @@ public sealed class RecoveryTests : PageTestContext
 			markup.Contains("If that address belongs to an account", StringComparison.Ordinal).ShouldBeTrue(
 				"§7.8: the answer is conditional on screen because it is conditional on the wire.");
 			markup.Contains("one hour", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-				"the link's life is stated — somebody who comes back tomorrow needs to know why it failed.");
+				"the link's life is stated - somebody who comes back tomorrow needs to know why it failed.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -150,7 +150,7 @@ public sealed class RecoveryTests : PageTestContext
 		ResetPasswordRequest sent = api.LastResetPasswordRequest!;
 		sent.UserId.ShouldBe(userId, "the link's userId is what the endpoint resets against.");
 		sent.Token.ShouldBe("reset-token+with/base64",
-			"the token survives the query round trip — Identity's tokens carry '+' and '/', and a " +
+			"the token survives the query round trip - Identity's tokens carry '+' and '/', and a " +
 			"mangled one is indistinguishable from an expired link.");
 		sent.NewPassword.ShouldBe("NewPass9");
 	}
@@ -158,14 +158,14 @@ public sealed class RecoveryTests : PageTestContext
 	/// <summary>
 	/// A reset revokes every refresh token on the account (§7.7), so the session this device was
 	/// holding is already dead when the call returns. Keeping it would leave the app carrying a
-	/// token it cannot refresh — and a relaunch adopting the remembered account behind it.
+	/// token it cannot refresh - and a relaunch adopting the remembered account behind it.
 	/// </summary>
 	[Fact]
 	public async Task Reset_SignsThisDeviceOut_AndSaysEveryOtherOneToo()
 	{
 		Wire();
 
-		// Signed in on this device when the reset happens — the case where it matters.
+		// Signed in on this device when the reset happens - the case where it matters.
 		await _auth.ApplySessionAsync(new TokenResponse(
 			"access", 900, "refresh", new AuthenticatedUser(Guid.NewGuid(), "Dave", true, true)));
 
@@ -191,14 +191,14 @@ public sealed class RecoveryTests : PageTestContext
 	{
 		FakeApiClient api = Wire();
 
-		// No query at all — a mail client that broke the URL over a line break.
+		// No query at all - a mail client that broke the URL over a line break.
 		IRenderedComponent<ResetPassword> component = Render<ResetPassword>();
 
 		component.Markup.Contains("not complete", StringComparison.OrdinalIgnoreCase).ShouldBeTrue();
 		component.FindAll("a[href='/forgot-password']").ShouldNotBeEmpty(
 			"the only useful action on a broken link is asking for another one.");
 		component.FindAll("input[type=password]").ShouldBeEmpty(
-			"there is nothing to submit — a form here would fail on send for a reason the traveller cannot see.");
+			"there is nothing to submit - a form here would fail on send for a reason the traveller cannot see.");
 		api.Calls.ShouldNotContain(nameof(IApiClient.ResetPasswordAsync));
 	}
 
@@ -228,7 +228,7 @@ public sealed class RecoveryTests : PageTestContext
 			component.Markup.Contains("Passwords must be at least 6 characters.", StringComparison.Ordinal)
 				.ShouldBeTrue("§18.2: the rule that was broken is the whole answer.");
 			component.FindAll("input[type=password]").ShouldNotBeEmpty(
-				"the link is still good for an hour — the traveller tries again here, not from a new email.");
+				"the link is still good for an hour - the traveller tries again here, not from a new email.");
 			component.FindAll("a[href='/forgot-password']").ShouldBeEmpty(
 				"asking for a new link would be wrong advice: nothing is wrong with this one.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -271,12 +271,12 @@ public sealed class RecoveryTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			api.LastConfirmEmailRequest.ShouldNotBeNull(
-				"the traveller already decided when they tapped the link — a second confirm button is a step to get wrong.");
+				"the traveller already decided when they tapped the link - a second confirm button is a step to get wrong.");
 			api.LastConfirmEmailRequest!.UserId.ShouldBe(userId);
 			api.LastConfirmEmailRequest.Token.ShouldBe("confirm-token+slash/and+plus");
 
 			// §7.8's ladder drops the `rst` claim on confirmation, so the fresh session is the
-			// point rather than a side effect — the old access token would stay restricted.
+			// point rather than a side effect - the old access token would stay restricted.
 			_auth.UserId.ShouldBe(userId);
 			component.Markup.Contains("Confirmed", StringComparison.Ordinal).ShouldBeTrue();
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -294,7 +294,7 @@ public sealed class RecoveryTests : PageTestContext
 	}
 
 	/// <summary>
-	/// The link is single-use, so the commonest failure here is somebody opening it twice — and
+	/// The link is single-use, so the commonest failure here is somebody opening it twice - and
 	/// on that path nothing is actually wrong. The screen offers both ways out rather than
 	/// guessing, because it cannot tell a spent link from a forged one without asking about an
 	/// account it may not be signed in to.

@@ -5,7 +5,7 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// <strong>Why a seam and not just a file path.</strong> The renderer is JavaScript inside a
 /// WebView, and PMTiles is read by HTTP range request. A path on disk is not something the WebView
-/// can address — <c>file://</c> is blocked from the app's own origin on both platforms, and the
+/// can address - <c>file://</c> is blocked from the app's own origin on both platforms, and the
 /// BlazorWebView serves the app from a scheme it owns. Something has to turn "a file" into "a
 /// URL", and this is the seam that does it.
 /// </para>
@@ -26,7 +26,7 @@ public interface IMapPackServer
 
 	/// <summary>
 	/// The URL MapLibre should read <paramref name="packId"/> from, starting the server if it is
-	/// not already running — or <c>null</c> when this host serves nothing, or the device does not
+	/// not already running - or <c>null</c> when this host serves nothing, or the device does not
 	/// hold that archive.
 	/// <para>
 	/// A <c>null</c> is not an error to report: it is the answer that sends

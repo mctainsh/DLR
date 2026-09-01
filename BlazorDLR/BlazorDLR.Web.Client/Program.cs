@@ -18,17 +18,17 @@ internal class Program
 		// Device-specific services used by the BlazorDLR.Shared project.
 		builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
-		// TimeProvider from day one (§10.4). Every timing decision in the client — token
-		// caches, staleness gates, the map spike's own last-update stamp — resolves it.
+		// TimeProvider from day one (§10.4). Every timing decision in the client - token
+		// caches, staleness gates, the map spike's own last-update stamp - resolves it.
 		builder.Services.AddSingleton(TimeProvider.System);
 
-		// The API base address is the origin the WASM bundle was served from — Caddy fronts
+		// The API base address is the origin the WASM bundle was served from - Caddy fronts
 		// Kestrel in production (§9.1), and dev serves from the same origin in Development.
 		// credentials: include is not needed here because Blazor WASM already respects the
 		// browser's default cookie policy for same-origin requests; the __Host- cookie's
 		// SameSite=Strict does the rest (§7.5, §18.5).
 		//
-		// Api:BaseUrl and Api:HubUrl in appsettings override same-origin when set — a
+		// Api:BaseUrl and Api:HubUrl in appsettings override same-origin when set - a
 		// deployment that fronts the WASM host and the API from different origins can set
 		// them without a code change. Empty means "use the WASM origin" (§14.3, §18.5).
 		//
@@ -57,7 +57,7 @@ internal class Program
 		builder.Services.AddScoped<IApiClient>(sp => sp.GetRequiredService<HttpApiClient>());
 
 		// Auth state. The AuthenticationStateProvider is a scoped service that pulls its
-		// initial claims from IApiClient and re-broadcasts on ApplySessionAsync — the
+		// initial claims from IApiClient and re-broadcasts on ApplySessionAsync - the
 		// Welcome page and the SSR cookie handoff both drive it.
 		builder.Services.AddScoped<AuthState>();
 		builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthState>());
@@ -69,7 +69,7 @@ internal class Program
 		builder.Services.AddAuthorizationCore();
 
 		// Live positions and hub events (§5.3, §5.7). The token provider hands SignalR the
-		// current access token from AuthState — the same one BearerAuthHandler attaches to
+		// current access token from AuthState - the same one BearerAuthHandler attaches to
 		// API requests. The refresh cookie is HttpOnly and unreachable from WASM, and the
 		// server accepts ?access_token= only on the ride hub path (§7.6).
 		builder.Services.AddScoped<IRideHubClient>(sp => new SignalRRideHubClient(
@@ -82,10 +82,10 @@ internal class Program
 		builder.Services.AddScoped<ITrackRepository, HttpTrackRepository>();
 
 		// The web's token is an HttpOnly cookie the JS heap cannot read (§18.5), so
-		// this store is a no-op on purpose — writing is silent, reading returns null.
+		// this store is a no-op on purpose - writing is silent, reading returns null.
 		builder.Services.AddScoped<ITokenStore, CookieBackedTokenStore>();
 
-		// No device-local copy of a ride in the browser — §18.6 keeps offline-first a property of
+		// No device-local copy of a ride in the browser - §18.6 keeps offline-first a property of
 		// the phone. Registered rather than omitted because the shared ride screens resolve the
 		// cache unconditionally; this one answers "nothing stored" and drops every write, which is
 		// the truthful answer here and keeps the screens free of a host check.
@@ -110,9 +110,9 @@ internal class Program
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapPackState>();
 
 		// No notifications in the browser in v1 (§18.2). Since v0.26 the mobile hosts raise local
-		// ones rather than taking a push — but the surface that feature exists for is a phone on a
+		// ones rather than taking a push - but the surface that feature exists for is a phone on a
 		// bar mount, and a laptop with the tab open is already showing the thread. The screen lock
-		// is the same answer for a different reason — the API exists here, the case for it does not
+		// is the same answer for a different reason - the API exists here, the case for it does not
 		// (see UnavailableScreenWakeLock). GPS is not on this list at all any more: see the block
 		// below where the receiver used to be registered.
 		builder.Services.AddScoped<IScreenWakeLock, UnavailableScreenWakeLock>();
@@ -123,14 +123,14 @@ internal class Program
 		builder.Services.AddSingleton<BlazorDLR.Shared.State.NotificationRouting>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CommentNotifier>();
 
-		// Web IMediaPicker uses <InputFile> plumbed through a static holder — real
+		// Web IMediaPicker uses <InputFile> plumbed through a static holder - real
 		// implementation in BlazorDLR.Web.Client/Services/BrowserMediaPicker.cs.
 		builder.Services.AddScoped<IMediaPicker, BrowserMediaPicker>();
 
 		// Downloads go the only way a browser offers: a Blob URL on a synthetic anchor click.
 		builder.Services.AddScoped<IFileSaver, BrowserFileSaver>();
 
-		// Social sign-in (§7.16). Scaffolded but not available today — real bindings
+		// Social sign-in (§7.16). Scaffolded but not available today - real bindings
 		// need registrations at the provider that happen with store submission (Phase 3
 		// exit criterion). The Welcome page shows the buttons dimmed until IsAvailable
 		// returns true.
@@ -138,12 +138,12 @@ internal class Program
 		builder.Services.AddScoped<IExternalSignInProvider>(_ => new UnavailableExternalSignInProvider(ExternalProvider.Google));
 
 		// MapLibre GL JS + OSM is the base map here and on the phones alike (§4.5 v0.24,
-		// §18.3) — the same shared class, because it needs no credential to differ over.
+		// §18.3) - the same shared class, because it needs no credential to differ over.
 		// Base-map role only; every rider pin, marker and track goes into the Skia overlay.
 		// Transient, not scoped: one interop instance per <RideMap>, because each instance
 		// owns a JS map and a DotNetObjectReference bridge. Shared scoped, navigating
 		// ride → marker composer let the outgoing RideMap's DisposeAsync tear down the
-		// *incoming* one's bridge — the JS map lived on and every viewport and click then
+		// *incoming* one's bridge - the JS map lived on and every viewport and click then
 		// died against "no tracked object with id N", so the map drew but nothing it
 		// reported ever reached C#.
 		builder.Services.AddTransient<IMapInterop, MapLibreInterop>();
@@ -154,11 +154,11 @@ internal class Program
 		builder.Services.AddScoped<IDeviceSettings, LocalStorageDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
-		// Whether to offer the administration card on Settings (§14.6). The server decides — this
+		// Whether to offer the administration card on Settings (§14.6). The server decides - this
 		// only caches the answer so the menu does not ask again on every visit.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.AdminAccess>();
 
-		// Which tiles go under the map (§4.5). The offline option resolves to OpenStreetMap here —
+		// Which tiles go under the map (§4.5). The offline option resolves to OpenStreetMap here -
 		// this host has no pack store (§18.6), which MapSourceState reads off IOfflineStore.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
@@ -180,6 +180,12 @@ internal class Program
 		// a reloaded tab lost no receiver, because this host never had one to lose.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.LaunchRestore>();
 
+		// What the server had to say at launch, and the announcements it pushes afterwards (§20).
+		// The notifier holds the hub connection for the life of the tab, which is what lets an
+		// announcement reach a rider who is not on a ride screen.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.StartupCheckState>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.AnnouncementNotifier>();
+
 		// No GPS on this host, and nothing standing in for one (§18.6).
 		//
 		// ILocationProvider, LocationUpdateRateState, TrackRecordingState, PrivateAreaState and
@@ -187,7 +193,7 @@ internal class Program
 		// background, high-cadence fixes a live ride needs, so every one of them was a stub
 		// answering "not supported" to screens that then had to explain themselves. The private
 		// area is on the account now (§10.1) rather than on the device, so a browser could in
-		// principle edit it — but it gates a receiver this host does not have, and the screen it
+		// principle edit it - but it gates a receiver this host does not have, and the screen it
 		// lives on is the one describing that receiver, so it stays with the rest of the set.
 		//
 		// The shared screens resolve the broadcaster with GetService rather than @inject and
@@ -201,7 +207,7 @@ internal class Program
 
 		// PageNav's back arrow asks this whether stepping back lands inside the app. Counted
 		// here rather than read from window.history.length, which also counts the pages the
-		// tab visited before this one — see the type's remarks.
+		// tab visited before this one - see the type's remarks.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.NavigationHistory>();
 
 		await builder.Build().RunAsync();

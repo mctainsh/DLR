@@ -41,7 +41,7 @@
 }
 
 /*
- * The RideMap host — a plain sized box the JS module attaches to. Enough on Phase 0
+ * The RideMap host - a plain sized box the JS module attaches to. Enough on Phase 0
  * to render usefully; per-screen layout takes over from Phase 1.
  */
 .dlr-map-host {

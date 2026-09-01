@@ -15,7 +15,7 @@ namespace DLR.Server.Tests.Rides;
 /// <para>
 /// A weekend away with a big organised event running inside a small group of mates is the ordinary
 /// case, not a corner one. The rider publishes <em>once</em> and the server decides which rides the
-/// fix lands in, by each ride's own consent flag — because a client making that decision is a
+/// fix lands in, by each ride's own consent flag - because a client making that decision is a
 /// client that can get it wrong in the direction that leaks.
 /// </para>
 /// </summary>
@@ -25,7 +25,7 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Consent is filtered on the write. A rider sharing with A and not B has <strong>no row in
-	/// B at all</strong> — not a hidden pin, because a hidden pin is still in the database, still
+	/// B at all</strong> - not a hidden pin, because a hidden pin is still in the database, still
 	/// in the fan-out and still on the wire.
 	/// </summary>
 	[Fact]
@@ -52,7 +52,7 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 		result.RideIds.ShouldBe([sunday.Id]);
 
 		app.PositionCount(sunday.Id).ShouldBe(1);
-		app.PositionCount(charity.Id).ShouldBe(0, "nothing held in B at all — not a hidden pin");
+		app.PositionCount(charity.Id).ShouldBe(0, "nothing held in B at all - not a hidden pin");
 
 		// And nothing of theirs is visible to the charity ride's members either.
 		List<RiderPositionDto> seen =
@@ -86,7 +86,7 @@ public sealed class MultiRideTests(PostgresFixture postgres)
 			rides.Add(ride.Id);
 		}
 
-		// One call. Not one per ride — publishing per ride would multiply the rider's uplink and
+		// One call. Not one per ride - publishing per ride would multiply the rider's uplink and
 		// battery by the number of rides, for data the server can trivially copy.
 		PublishResult result = await PublishAsync(rider, -33.86, 151.20);
 

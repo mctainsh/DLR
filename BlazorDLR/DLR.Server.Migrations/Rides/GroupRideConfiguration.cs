@@ -106,7 +106,7 @@ public sealed class GroupRideJoinRequestConfiguration : IEntityTypeConfiguration
 			.HasForeignKey(request => request.UserId)
 			.OnDelete(DeleteBehavior.Cascade);
 
-		// One *live* request per rider per ride, and history kept for the decided ones — the
+		// One *live* request per rider per ride, and history kept for the decided ones - the
 		// partial index is what lets both be true at once. A declined-and-blocked row is what
 		// stops somebody asking again, so deleting history would be deleting the block (§7.13).
 		builder

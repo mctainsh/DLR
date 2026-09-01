@@ -16,7 +16,7 @@ public class FormFactor : IFormFactor
 
 	/// <inheritdoc />
 	/// <remarks>
-	/// The handset's own name first — "John's iPhone" is what a rider recognises. Android often
+	/// The handset's own name first - "John's iPhone" is what a rider recognises. Android often
 	/// has none, so the model stands in; both are what the phone says about itself and neither is
 	/// verified server-side (§7.10).
 	/// </remarks>

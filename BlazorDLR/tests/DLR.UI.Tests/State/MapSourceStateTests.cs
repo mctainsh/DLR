@@ -6,7 +6,7 @@ using DLR.UI.Tests.Fakes;
 namespace DLR.UI.Tests.State;
 
 /// <summary>
-/// The tile source held in memory and broadcast (§4.5) — the same shape as
+/// The tile source held in memory and broadcast (§4.5) - the same shape as
 /// <see cref="RouteStyleState"/>, plus the one thing that is specific to maps: what a device does
 /// with an offline source it cannot serve.
 /// </summary>
@@ -67,7 +67,7 @@ public sealed class MapSourceStateTests
 		await state.SetAsync(Custom);
 
 		changes.ShouldBe(1,
-			"RideMap listens to this — without the broadcast the settings screen's preview would not move.");
+			"RideMap listens to this - without the broadcast the settings screen's preview would not move.");
 	}
 
 	[Fact]
@@ -100,7 +100,7 @@ public sealed class MapSourceStateTests
 	public async Task OnAHostWithNowhereToKeepAPack_OfflineDrawsOpenStreetMapInstead()
 	{
 		// §18.6: offline is a phone property. A rider who set a pack on their phone and then opens
-		// the site must get a working map, not a blank one — the routes and pins drawn on top are
+		// the site must get a working map, not a blank one - the routes and pins drawn on top are
 		// what the screen is for.
 		(MapSourceState phone, InMemoryDeviceSettings settings) = Phone();
 		await phone.SetAsync(MapSource.OfflinePack("au-nsw"));
@@ -163,6 +163,6 @@ public sealed class MapSourceStateTests
 
 		state.Chosen.ShouldBe(MapSource.Default);
 		(await settings.GetAsync(MapSource.StorageKey)).ShouldBeNull(
-			"the key is removed rather than set to today's default — a later change to what ships must reach this device.");
+			"the key is removed rather than set to today's default - a later change to what ships must reach this device.");
 	}
 }

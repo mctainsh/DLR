@@ -7,7 +7,7 @@ namespace DLR.Server.Admin;
 /// <para>
 /// <strong>A list of usernames in configuration, not a column and not a role table.</strong> The
 /// context deliberately extends <c>IdentityUserContext</c> rather than <c>IdentityDbContext</c>
-/// because ride access is decided by membership and consent rather than by granted roles — adding
+/// because ride access is decided by membership and consent rather than by granted roles - adding
 /// the four role tables to carry a list of two names would undo that for the one case it does not
 /// fit. This list also has a property no column has: it is set by whoever controls the deployment,
 /// so an administrator cannot appoint another one through the app.
@@ -30,7 +30,7 @@ public sealed class AdminRoster(IOptions<AdminOptions> options)
 	/// <returns><c>true</c> only for a non-blank name that appears in the configured list.</returns>
 	/// <remarks>
 	/// Case-insensitive, because Identity normalises usernames and the person editing the config
-	/// file is typing from memory. Blank is never an administrator — an empty entry in the list
+	/// file is typing from memory. Blank is never an administrator - an empty entry in the list
 	/// would otherwise promote every caller whose token carried no name.
 	/// </remarks>
 	public bool IsAdmin(string? userName) =>
@@ -54,7 +54,7 @@ public sealed class AdminRoster(IOptions<AdminOptions> options)
 /// <para>
 /// The section is a bare JSON array, so it binds through <see cref="Users"/> with
 /// <c>Bind(section, o =&gt; o.Users)</c> rather than the usual <c>Configure&lt;T&gt;(section)</c>
-/// — see <c>AdminRegistration</c>. Keeping the shape in the file is worth the small awkwardness
+/// - see <c>AdminRegistration</c>. Keeping the shape in the file is worth the small awkwardness
 /// here: <c>"Admins": [ "JRM" ]</c> is what an operator expects to write.
 /// </para>
 /// </summary>

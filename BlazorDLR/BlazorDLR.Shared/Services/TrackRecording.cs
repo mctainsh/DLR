@@ -8,7 +8,7 @@ namespace BlazorDLR.Shared.Services;
 /// (§4.4, §15.1, §18.6).
 /// <para>
 /// <strong>Separate from <see cref="PositionGate"/>, and deliberately.</strong> That gate decides
-/// what is worth <em>publishing</em> — it spends a rider's uplink and every other rider's redraw,
+/// what is worth <em>publishing</em> - it spends a rider's uplink and every other rider's redraw,
 /// so it is tuned as a battery decision. This decides what is worth <em>keeping</em>, which costs
 /// nothing but device storage and is the rider's own record of where they went. A rider publishing
 /// every 50 m who wants a 5 m track should get one; the two settings answer different questions
@@ -35,19 +35,19 @@ public static class TrackRecording
 	/// </summary>
 	public const double DefaultIntervalM = 10;
 
-	/// <summary>Whether a device that has never chosen records at all. It does — see §15.1.</summary>
+	/// <summary>Whether a device that has never chosen records at all. It does - see §15.1.</summary>
 	public const bool DefaultEnabled = true;
 
 	/// <summary>
 	/// A hole this long in the fixes starts a new segment rather than drawing a line across it
-	/// (§15.3). A tunnel, a car park, a phone that lost the sky — the ride did not happen in a
+	/// (§15.3). A tunnel, a car park, a phone that lost the sky - the ride did not happen in a
 	/// straight line between the two ends of it.
 	/// </summary>
 	public static readonly TimeSpan SegmentGap = TimeSpan.FromMinutes(5);
 
 	/// <summary>
 	/// Where the recorder stops appending. Twelve hours at 1 Hz is about 43 000 points (§15.5), so
-	/// this is several days of touring — and it is a stop rather than a wrap, because silently
+	/// this is several days of touring - and it is a stop rather than a wrap, because silently
 	/// dropping the start of somebody's ride is worse than telling them to save it.
 	/// </summary>
 	public const int MaxPoints = 200_000;
@@ -121,7 +121,7 @@ public static class TrackRecording
 	/// <para>
 	/// The break is the whole point of doing this here rather than with a <c>Where</c>. Riding out
 	/// of a private area and back into it leaves two runs of track with a hole between them, and a
-	/// single segment across that hole would draw a straight line through the rider's house — which
+	/// single segment across that hole would draw a straight line through the rider's house - which
 	/// is precisely the coordinate the setting exists to keep off other people's screens.
 	/// </para>
 	/// </summary>
@@ -167,7 +167,7 @@ public static class TrackRecording
 	/// client identifier the upload is idempotent on (§4.4), and the §15.7 blob in Base64.
 	/// <para>
 	/// The blob rather than a text encoding of the points, because the store behind this interface
-	/// is browser <c>localStorage</c> on one host — a few megabytes for everything the app keeps —
+	/// is browser <c>localStorage</c> on one host - a few megabytes for everything the app keeps -
 	/// and a day's touring is tens of thousands of points. Gzip is what makes that fit. Reusing the
 	/// codec rather than inventing a second one is the same rule §15.7 states about stats: one
 	/// implementation, or a recorded track and an imported one quietly stop being the same thing.
@@ -187,7 +187,7 @@ public static class TrackRecording
 	/// <summary>
 	/// Reads back what <see cref="Encode"/> wrote.
 	/// <para>
-	/// Anything not wholly readable answers <c>null</c> — "this device has no track in progress" —
+	/// Anything not wholly readable answers <c>null</c> - "this device has no track in progress" -
 	/// on <see cref="PrivateArea.Decode"/>'s reasoning rather than <see cref="RouteStyle.Decode"/>'s:
 	/// half a ride recovered from a truncated blob is a shape the rider never rode, and it would be
 	/// uploaded under their name without anybody being told.
@@ -224,7 +224,7 @@ public static class TrackRecording
 /// <summary>What the recorder should do with one fix.</summary>
 public enum RecordDecision
 {
-	/// <summary>Nothing new to keep — too close to the last point, or not a point on the earth.</summary>
+	/// <summary>Nothing new to keep - too close to the last point, or not a point on the earth.</summary>
 	Drop = 0,
 
 	/// <summary>Append it to the segment in progress.</summary>

@@ -35,7 +35,7 @@ public sealed class SessionController : ControllerBase
 		Guid? current = User.DeviceId();
 
 		// A device is shown only while it still holds a non-revoked refresh token. The row
-		// itself lives on after RevokeAsync — that is the audit trail — but the screen is
+		// itself lives on after RevokeAsync - that is the audit trail - but the screen is
 		// headed "Signed-in devices", and a revoked device is not signed in.
 		List<DeviceSession> sessions = await database
 			.Set<Device>()
@@ -78,7 +78,7 @@ public sealed class SessionController : ControllerBase
 
 		// Every family on that device, not just the newest. A device that signed in twice has
 		// two chains, and leaving the older one alive would make "revoke" mean "revoke one of
-		// them" — which is not what somebody who has lost a phone is asking for.
+		// them" - which is not what somebody who has lost a phone is asking for.
 		List<Guid> families = await database
 			.Set<RefreshToken>()
 			.Where(token => token.DeviceId == deviceId && token.RevokedUtc == null)

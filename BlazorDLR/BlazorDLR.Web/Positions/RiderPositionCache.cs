@@ -41,7 +41,7 @@ public sealed record PositionEntry(
 /// <strong>The cost, stated plainly:</strong> a restart loses every pin. Each rider's next push is
 /// about five seconds away and puts theirs back, so what a restart actually costs is a few seconds
 /// of empty map for riders who are moving, and the rest of the ride for one whose phone has gone
-/// quiet — which <c>PinExpiry</c> was hiding from the map anyway (§5.3, §18.6).
+/// quiet - which <c>PinExpiry</c> was hiding from the map anyway (§5.3, §18.6).
 /// </para>
 /// </summary>
 public sealed class RiderPositionCache
@@ -92,7 +92,7 @@ public sealed class RiderPositionCache
 		}
 	}
 
-	/// <summary>Every ride currently holding a position — what the broadcast ticks over (§5.3).</summary>
+	/// <summary>Every ride currently holding a position - what the broadcast ticks over (§5.3).</summary>
 	public IReadOnlyList<Guid> RideIds() =>
 	[
 		.. rides.Where(ride => !ride.Value.IsEmpty).Select(ride => ride.Key),
@@ -111,8 +111,8 @@ public sealed class RiderPositionCache
 	/// <returns>The rider ids, or empty when the ride holds nothing.</returns>
 	/// <remarks>
 	/// <see cref="ForRide"/> snapshots every <see cref="PositionEntry"/> so a caller can read the
-	/// values safely. A caller that only wants to know <em>who</em> is out there — the statistics
-	/// screen counting distinct riders — would pay for a copy it immediately discards.
+	/// values safely. A caller that only wants to know <em>who</em> is out there - the statistics
+	/// screen counting distinct riders - would pay for a copy it immediately discards.
 	/// </remarks>
 	public IEnumerable<Guid> RiderIds(Guid rideId) =>
 		rides.TryGetValue(rideId, out ConcurrentDictionary<Guid, PositionEntry>? ride)
@@ -139,7 +139,7 @@ public sealed class RiderPositionCache
 		}
 	}
 
-	/// <summary>Drops one rider from one ride — sharing off, leaving, removal (§5.6).</summary>
+	/// <summary>Drops one rider from one ride - sharing off, leaving, removal (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
 	/// <param name="userId">Which rider.</param>
 	public void Remove(Guid rideId, Guid userId)
@@ -151,10 +151,10 @@ public sealed class RiderPositionCache
 	}
 
 	/// <summary>
-	/// Drops one rider from every ride at once — what entering a private area asks for (§10.1).
+	/// Drops one rider from every ride at once - what entering a private area asks for (§10.1).
 	/// <para>
 	/// A sweep rather than a loop over the rides the caller believes the rider is in. The two lists
-	/// can disagree — a ride that ended, a membership that changed while the phone was in a tunnel —
+	/// can disagree - a ride that ended, a membership that changed while the phone was in a tunnel -
 	/// and the direction the disagreement must not go is "a position left behind in a ride nobody
 	/// remembered to ask about".
 	/// </para>
@@ -166,7 +166,7 @@ public sealed class RiderPositionCache
 		.. rides.Where(ride => ride.Value.TryRemove(userId, out _)).Select(ride => ride.Key),
 	];
 
-	/// <summary>Drops a whole ride — what deleting an adventure takes with it (§5.6).</summary>
+	/// <summary>Drops a whole ride - what deleting an adventure takes with it (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
 	public void RemoveRide(Guid rideId) => rides.TryRemove(rideId, out _);
 }

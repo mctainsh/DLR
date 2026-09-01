@@ -11,7 +11,7 @@ namespace DLR.UI.Tests.State;
 /// The one path a fix takes from the receiver to the ride (§4.2, §4.3, §5.7, §10.1).
 /// <para>
 /// The platform receivers need a phone; everything above them does not, and this is where the
-/// rules that matter live — that a fix from inside the rider's private area never leaves the
+/// rules that matter live - that a fix from inside the rider's private area never leaves the
 /// device, that the receiver runs exactly while a ride is asking for it, and that a hub which is
 /// reconnecting does not silently take a rider off the map.
 /// </para>
@@ -137,7 +137,7 @@ public sealed class LocationBroadcastStateTests
 	[Fact]
 	public async Task AFixFromInsideThePrivateArea_NeverLeavesTheDevice()
 	{
-		// §10.1's whole point. Not filtered, not queued, not retried — dropped where it was read,
+		// §10.1's whole point. Not filtered, not queued, not retried - dropped where it was read,
 		// and the status says the setting is working rather than that something failed.
 		Harness harness = new Harness().Build();
 		await harness.PrivateAreas.SetAsync(new PrivateArea(Latitude, Longitude, 1_000));
@@ -165,7 +165,7 @@ public sealed class LocationBroadcastStateTests
 	{
 		// The other half of §10.1, and the reason the rider stops being a pin frozen outside their
 		// own house: the fix is dropped, and one bit goes in its place. Nothing on the wire is a
-		// coordinate — several edge-snapped points would bound the centre, which is the one number
+		// coordinate - several edge-snapped points would bound the centre, which is the one number
 		// this protects.
 		Harness harness = new Harness().Build();
 		await harness.PrivateAreas.SetAsync(new PrivateArea(Latitude, Longitude, 1_000));
@@ -191,7 +191,7 @@ public sealed class LocationBroadcastStateTests
 
 		harness.Hub.PublishedPrivacy.Count.ShouldBe(1);
 
-		// And leaving says so explicitly rather than leaving the published fix to imply it — the
+		// And leaving says so explicitly rather than leaving the published fix to imply it - the
 		// §4.2 gate can refuse fixes for a while after a rider rolls out of their street.
 		harness.Provider.Emit(Fix(latitude: -33.900, secondsIn: 10));
 
@@ -250,7 +250,7 @@ public sealed class LocationBroadcastStateTests
 	public async Task TheDeviceKnowsWhereItIs_WhetherOrNotTheFixWentAnywhere()
 	{
 		// OwnFix is what this rider's own map draws (§4.3). It must not wait on the server, which
-		// fans out on a 5 s tick (§5.3) — a phone with a lock in hand that draws nothing reads as
+		// fans out on a 5 s tick (§5.3) - a phone with a lock in hand that draws nothing reads as
 		// a broken app.
 		Harness harness = new Harness().Build();
 		harness.Hub.PublishException = new InvalidOperationException("hub reconnecting");
@@ -270,7 +270,7 @@ public sealed class LocationBroadcastStateTests
 			"both publish paths to refuse the fix");
 
 		harness.Broadcast.OwnFix.ShouldNotBeNull(
-			"nothing reached the adventure — which is a different fact from where the phone is.");
+			"nothing reached the adventure - which is a different fact from where the phone is.");
 		harness.Broadcast.OwnFix!.Latitude.ShouldBe(Latitude);
 		harness.Broadcast.OwnFix.Longitude.ShouldBe(Longitude);
 	}
@@ -279,7 +279,7 @@ public sealed class LocationBroadcastStateTests
 	public async Task InsideThePrivateArea_TheRiderStillSeesThemselves()
 	{
 		// This asserted the opposite until riders reported the symptom: inside the circle the mark
-		// stopped moving, the follow camera had nothing to follow and heading-up stopped turning —
+		// stopped moving, the follow camera had nothing to follow and heading-up stopped turning -
 		// the map went dead in the driveway and came back at the edge of the area.
 		//
 		// The rule §10.1 buys is that nobody else can see the fix, and that is enforced by not
@@ -338,8 +338,8 @@ public sealed class LocationBroadcastStateTests
 	public async Task EveryFix_TellsTheUi_EvenWhenNothingElseChanged()
 	{
 		// The rider's own mark moves off this event and nothing else. Status is a no-op between two
-		// fixes of a steadily broadcasting phone — which is the whole steady state of a working
-		// receiver — so raising only on a status change left the mark frozen on the first fix.
+		// fixes of a steadily broadcasting phone - which is the whole steady state of a working
+		// receiver - so raising only on a status change left the mark frozen on the first fix.
 		Harness harness = new Harness().Build();
 
 		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
@@ -360,7 +360,7 @@ public sealed class LocationBroadcastStateTests
 		await harness.UntilAsync(() => raised > 0, "the UI to be told the device moved");
 
 		harness.Broadcast.Status.ShouldBe(LocationBroadcastStatus.Broadcasting,
-			"the status did not move — which is exactly the case that used to raise nothing.");
+			"the status did not move - which is exactly the case that used to raise nothing.");
 	}
 
 	[Fact]
@@ -409,7 +409,7 @@ public sealed class LocationBroadcastStateTests
 
 		harness.Hub.Published.Count.ShouldBe(1);
 		harness.Broadcast.Status.ShouldBe(LocationBroadcastStatus.Broadcasting,
-			"a traveller stopped at a junction is still on the map — the refusal is about bytes, not presence.");
+			"a traveller stopped at a junction is still on the map - the refusal is about bytes, not presence.");
 	}
 
 	[Fact]
@@ -465,7 +465,7 @@ public sealed class LocationBroadcastStateTests
 		// The reported bug, in the smallest form that reproduces it. Publishing used to be awaited
 		// inline in the fix loop, so a socket that had gone quiet without closing stopped
 		// everything behind it: the rider's own mark, the recorder, and every fix waiting. On a
-		// cell radio at speed that is minutes, and riders saw exactly that — a pin frozen for over
+		// cell radio at speed that is minutes, and riders saw exactly that - a pin frozen for over
 		// a minute and three kilometres, then a jump, then normal movement.
 		Harness harness = new Harness().Build();
 		harness.Hub.PublishHangs = true;
@@ -478,7 +478,7 @@ public sealed class LocationBroadcastStateTests
 		await harness.UntilAsync(() => harness.Broadcast.OwnFix is not null, "the first fix");
 
 		// Both transports are still hanging. The loop that reads fixes has to have carried on
-		// regardless — this is the assertion the old code could not make.
+		// regardless - this is the assertion the old code could not make.
 		const double MovedLatitude = Latitude + 0.01;
 		harness.Provider.Emit(Fix(latitude: MovedLatitude, secondsIn: 2));
 
@@ -490,8 +490,8 @@ public sealed class LocationBroadcastStateTests
 	[Fact]
 	public async Task ASendThatNeverAnswers_IsGivenUpOn_AndSaidOutLoud()
 	{
-		// Neither transport bounds itself usefully — a hub invoke waits for the server's completion
-		// message and HttpClient's default is 100 seconds — so the deadline is this app's, and it
+		// Neither transport bounds itself usefully - a hub invoke waits for the server's completion
+		// message and HttpClient's default is 100 seconds - so the deadline is this app's, and it
 		// is driven off TimeProvider so this test does not have to wait out eight real ones.
 		Harness harness = new Harness().Build();
 		harness.Hub.PublishHangs = true;
@@ -503,7 +503,7 @@ public sealed class LocationBroadcastStateTests
 		harness.Provider.Emit(Fix());
 
 		// Each deadline is armed immediately before its send, and the REST one is not armed until
-		// the hub's has expired — so each is waited for and then run out in turn. Advancing blind
+		// the hub's has expired - so each is waited for and then run out in turn. Advancing blind
 		// would race the sender and leave a timer that starts after the clock has already moved.
 		await harness.UntilAsync(() => harness.Hub.PublishAttempts == 1, "the hub send to be in flight");
 		harness.Clock.Advance(LocationBroadcastState.SendTimeout);
@@ -527,7 +527,7 @@ public sealed class LocationBroadcastStateTests
 	{
 		// The other half of the stall, and the half that made it take minutes to unwind rather
 		// than seconds. The queue behind a hung send used to be worked through in order, spending
-		// a round trip each on positions the ride had already been overtaken by — so recovery
+		// a round trip each on positions the ride had already been overtaken by - so recovery
 		// published a trail of history before it reached where the rider actually was.
 		Harness harness = new Harness().Build();
 		harness.Hub.PublishHangs = true;
@@ -542,7 +542,7 @@ public sealed class LocationBroadcastStateTests
 		await harness.UntilAsync(() => harness.Hub.PublishAttempts == 1, "the first send to get stuck");
 
 		// Three more while the first is stuck in the hub, each far enough past the profile's min
-		// distance to be worth publishing — and each a step a motorcycle could actually have made.
+		// distance to be worth publishing - and each a step a motorcycle could actually have made.
 		// A hundred metres in two seconds is about 200 km/h; the 0.01° steps this used to take were
 		// 1.1 km in two seconds, which §4.2's speed rule refuses as bad data, and rightly.
 		harness.Provider.Emit(Fix(latitude: Latitude + 0.001, secondsIn: 2));
@@ -715,7 +715,7 @@ public sealed class LocationBroadcastStateTests
 	[Fact]
 	public async Task TheDisclosure_IsShownOncePerDevice()
 	{
-		// Asked every ride, it becomes something riders dismiss without reading — which is the
+		// Asked every ride, it becomes something riders dismiss without reading - which is the
 		// opposite of what a disclosure is for.
 		Harness harness = new Harness().Build(disclosureAccepted: false);
 
@@ -737,7 +737,7 @@ public sealed class LocationBroadcastStateTests
 	public async Task AParkedPhone_KeepsReachingTheRide_WithoutTheReceiverSayingAnything()
 	{
 		// The bug this exists for. Android's fused request carries a minimum displacement, so a
-		// phone that has not moved is told nothing at all — and every publishing rule in the app
+		// phone that has not moved is told nothing at all - and every publishing rule in the app
 		// runs on a fix arriving. A rider parked at the start of a ride sent two positions in
 		// twenty-five minutes and the screen said "Sharing your location" throughout.
 		Harness harness = new Harness().Build();
@@ -771,7 +771,7 @@ public sealed class LocationBroadcastStateTests
 
 		harness.Broadcast.LastPublishedUtc.ShouldBe(Start + interval);
 
-		// The totals reach the log too — the line that would have made this diagnosable from the
+		// The totals reach the log too - the line that would have made this diagnosable from the
 		// rider's own log rather than by inference from what the status did not say.
 		capture.Text.ShouldContain("GPS totals:");
 	}
@@ -781,7 +781,7 @@ public sealed class LocationBroadcastStateTests
 	{
 		// A restatement is stamped with the moment it was sent, and a platform stamp trails
 		// wall-clock. Confirmed into the gate, it would make the next genuine fix look like a fix
-		// from the past — refused as out of order, for a whole interval, every interval.
+		// from the past - refused as out of order, for a whole interval, every interval.
 		Harness harness = new Harness().Build();
 
 		await harness.Broadcast.ShareWithAsync(Guid.NewGuid());
@@ -796,7 +796,7 @@ public sealed class LocationBroadcastStateTests
 		harness.Clock.Advance(interval);
 		await harness.UntilAsync(() => harness.Hub.Published.Count == 2, "the restatement");
 
-		// The receiver comes back with a fix stamped a second before the restatement was sent —
+		// The receiver comes back with a fix stamped a second before the restatement was sent -
 		// the ordinary case, not a contrived one.
 		harness.Provider.Emit(Fix(latitude: Latitude + 0.001, secondsIn: (int)interval.TotalSeconds - 1));
 
@@ -812,8 +812,8 @@ public sealed class LocationBroadcastStateTests
 	public async Task ARefusedFix_DoesNotOverwrite_AReportedFailure()
 	{
 		// A refusal is proof the receiver is alive and proof of nothing else. It used to be allowed
-		// to move any status at all, so the reason a rider's pin had stopped — named by the
-		// transport that refused it — was replaced two seconds later by "waiting for a GPS fix",
+		// to move any status at all, so the reason a rider's pin had stopped - named by the
+		// transport that refused it - was replaced two seconds later by "waiting for a GPS fix",
 		// which is a fault in the sky rather than in the network.
 		Harness harness = new Harness().Build();
 		harness.Hub.PublishException = new InvalidOperationException("hub refused");
@@ -858,8 +858,8 @@ public sealed class LocationBroadcastStateTests
 			"the first fix to reach the hub");
 
 		// Both transports go quiet without refusing anything, which is what a black-holed cell
-		// socket does. Sends are then abandoned as superseded rather than failed — the one outcome
-		// that reports nothing — so nothing after this lands and nothing says so.
+		// socket does. Sends are then abandoned as superseded rather than failed - the one outcome
+		// that reports nothing - so nothing after this lands and nothing says so.
 		harness.Hub.PublishHangs = true;
 		harness.Api.PublishPositionHangs = true;
 
@@ -901,7 +901,7 @@ public sealed class LocationBroadcastStateTests
 	public async Task Suspending_ClearsTheFlagOnTheServer_AsWellAsStoppingTheReceiver()
 	{
 		// The half that is easy to forget. A receiver stopped while the flag still stands leaves
-		// this rider’s last pin on everybody else’s map with nothing arriving to move it — stopped,
+		// this rider’s last pin on everybody else’s map with nothing arriving to move it - stopped,
 		// a few streets from wherever they went dark, which is worse than not being on it at all.
 		Harness harness = new Harness().Build();
 		Guid ride = Guid.NewGuid();
@@ -951,7 +951,7 @@ public sealed class LocationBroadcastStateTests
 
 		harness.Broadcast.ResumeTargets(current).ShouldBe([current]);
 		harness.Broadcast.ResumeTargets(currentRideId: null).ShouldBeEmpty(
-			"there is no such thing as broadcasting to nobody — the caller has to be able to say so.");
+			"there is no such thing as broadcasting to nobody - the caller has to be able to say so.");
 	}
 
 	[Fact]

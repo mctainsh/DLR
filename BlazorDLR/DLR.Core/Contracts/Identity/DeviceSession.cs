@@ -4,13 +4,13 @@ namespace DLR.Core.Contracts.Identity;
 /// One row of Settings → Signed-in devices (§7.10).
 /// <para>
 /// This screen carries more weight here than in most applications. Sessions are permanent, so
-/// revoking one is the only thing that ever ends it — there is no expiry quietly cleaning up
+/// revoking one is the only thing that ever ends it - there is no expiry quietly cleaning up
 /// after a phone that was sold, lost, or handed on.
 /// </para>
 /// </summary>
 /// <param name="DeviceId">What to pass to the revoke endpoint.</param>
 /// <param name="Name">
-/// What the rider will recognise it as. Client-supplied and never verified — it exists so
+/// What the rider will recognise it as. Client-supplied and never verified - it exists so
 /// somebody can pick the right row, not to prove anything.
 /// </param>
 /// <param name="LastSeenUtc">

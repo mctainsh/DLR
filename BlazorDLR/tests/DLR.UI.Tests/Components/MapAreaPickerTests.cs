@@ -11,10 +11,10 @@ namespace DLR.UI.Tests.Components;
 /// <summary>
 /// Choosing which offline map pack to download by pointing at the ground it covers (§4.2).
 /// <para>
-/// What the settings page's own tests cover is the outcome — an area selected, the form filled in,
+/// What the settings page's own tests cover is the outcome - an area selected, the form filled in,
 /// nothing downloaded. What is here is the part of the window that is not visible from outside it:
 /// which boxes get drawn, and which tiles they get drawn over. Neither can be asserted through the
-/// rendered markup, because the boxes are pixels on a Skia canvas that does not exist in bUnit —
+/// rendered markup, because the boxes are pixels on a Skia canvas that does not exist in bUnit -
 /// so the assertion is on what the component handed the map.
 /// </para>
 /// </summary>
@@ -64,7 +64,7 @@ public sealed class MapAreaPickerTests : BunitContext
 
 	/// <summary>
 	/// An offer that published no bounds cannot be drawn and cannot be pointed at. It is left out
-	/// rather than guessed at — the alternative is a box somewhere it does not belong, which a
+	/// rather than guessed at - the alternative is a box somewhere it does not belong, which a
 	/// rider would tap and download the wrong several hundred megabytes.
 	/// </summary>
 	[Fact]
@@ -81,7 +81,7 @@ public sealed class MapAreaPickerTests : BunitContext
 
 	/// <summary>
 	/// While the rider is choosing between overlapping areas, the ones in question are redrawn
-	/// emphasised — a list of names cannot say <em>which</em> of the shapes on screen each one is,
+	/// emphasised - a list of names cannot say <em>which</em> of the shapes on screen each one is,
 	/// and they may know neither by name.
 	/// </summary>
 	[Fact]
@@ -106,7 +106,7 @@ public sealed class MapAreaPickerTests : BunitContext
 	}
 
 	/// <summary>
-	/// Putting the list away leaves the map up and nothing chosen — a rider who tapped the wrong
+	/// Putting the list away leaves the map up and nothing chosen - a rider who tapped the wrong
 	/// place should not have to reopen the window to try again.
 	/// </summary>
 	[Fact]
@@ -134,7 +134,7 @@ public sealed class MapAreaPickerTests : BunitContext
 
 	/// <summary>
 	/// The one map in the app that cannot be drawn from an offline pack. A pack is a single region,
-	/// so a world map made of one is that region and then nothing — and this is the screen where the
+	/// so a world map made of one is that region and then nothing - and this is the screen where the
 	/// rest of the world is the whole point.
 	/// </summary>
 	[Fact]
@@ -160,7 +160,7 @@ public sealed class MapAreaPickerTests : BunitContext
 	}
 
 	/// <summary>
-	/// A tile server of the rider's own is left alone — it is a world map and probably works. If it
+	/// A tile server of the rider's own is left alone - it is a world map and probably works. If it
 	/// does not, this is the answer, and it has to be: the commonest way to arrive here with a
 	/// broken one is to have just typed it in on the screen behind.
 	/// </summary>

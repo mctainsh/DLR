@@ -4,27 +4,27 @@
 @inject IntroTourState Tour
 @inject NavigationManager Nav
 
-<PageTitle>How this works — Dumb Luck Routes</PageTitle>
+<PageTitle>How this works - Dumb Luck Routes</PageTitle>
 
 @*
 	The introduction slide show (§18.6): five cards saying what the app is for, shown once on a
 	device's first run and reachable from Settings ever after.
 
 	NOT [Authorize], deliberately. The launch it exists for is the first one, which is before
-	there is an account — a rider who has to register in order to find out what they are
+	there is an account - a rider who has to register in order to find out what they are
 	registering for is a rider who does neither. It is the only screen besides Welcome and the
 	recovery pages that an anonymous caller can reach.
 
 	**Skip is on the first frame and every frame after it.** This screen stands between a rider
 	and the app; the one thing it must never be is a thing they cannot get out of. Skipping
-	marks the deck seen exactly as finishing does — see IntroTourState.MarkSeenAsync.
+	marks the deck seen exactly as finishing does - see IntroTourState.MarkSeenAsync.
 
 	**Three ways forward, and they are the same code.** The buttons are what the SSR pass and a
 	screen reader get, the swipe is what a thumb on a phone reaches for, and the arrow keys are
 	what a desktop keyboard tries. All three call Advance/Retreat rather than each carrying its
 	own idea of where the deck is.
 
-	**The content is not here.** IntroTour.Slides holds the deck — adding or reordering a card is
+	**The content is not here.** IntroTour.Slides holds the deck - adding or reordering a card is
 	an edit there and nothing else. The copy shipping today is placeholder, and says so.
 
 	The rail stays on screen throughout (this is a `.page`, not a `.page-full`). A rider who
@@ -54,7 +54,7 @@
 	</section>
 
 	@*
-		Dots are the progress indicator AND the jump control — a rider who wants the card they
+		Dots are the progress indicator AND the jump control - a rider who wants the card they
 		just swiped past should not have to swipe back through the ones after it. Each is a real
 		button with an accessible name, because a row of 8 px circles is unusable to anyone not
 		pointing at it.
@@ -84,14 +84,14 @@
 	</div>
 </div>
 
-@* AGPL §13 source offer — this screen is reachable signed out, like Welcome (§14.6.2). *@
+@* AGPL §13 source offer - this screen is reachable signed out, like Welcome (§14.6.2). *@
 @* <BlazorDLR.Shared.Components.SourceOfferFooter /> *@
 
 @code {
 	/// <summary>How far a thumb has to travel across the card before it counts as a swipe.</summary>
 	/// <remarks>
-	/// In CSS pixels, and generous. Under this, a tap that drifts — which is most taps taken with
-	/// gloves on, one-handed, on a moving vehicle — would page the deck the rider was reading.
+	/// In CSS pixels, and generous. Under this, a tap that drifts - which is most taps taken with
+	/// gloves on, one-handed, on a moving vehicle - would page the deck the rider was reading.
 	/// </remarks>
 	private const double SwipeThreshold = 48;
 
@@ -103,8 +103,8 @@
 
 	/// <summary>
 	/// Where to go when the deck is done. Supplied by the launch redirect in
-	/// <c>MainLayout</c> so a first run that arrived on a deep link — a shared invitation, a
-	/// tapped notification — still lands where it was going once the introduction is out of the
+	/// <c>MainLayout</c> so a first run that arrived on a deep link - a shared invitation, a
+	/// tapped notification - still lands where it was going once the introduction is out of the
 	/// way. Absent (Settings' "How this works" card) means home.
 	/// </summary>
 	[SupplyParameterFromQuery(Name = "return")]
@@ -119,7 +119,7 @@
 	/// <summary>
 	/// Where <see cref="FinishAsync"/> navigates: the requested route, or home.
 	/// <para>
-	/// Only a path is honoured — one leading slash, and not two. <c>ReturnTo</c> arrives off the
+	/// Only a path is honoured - one leading slash, and not two. <c>ReturnTo</c> arrives off the
 	/// query string, so it is whatever was in the URL that opened this screen; an absolute or
 	/// protocol-relative value there would make the last button of the app's welcome mat an
 	/// open redirect to somebody else's site.
@@ -132,7 +132,7 @@
 
 	/// <summary>
 	/// Takes the focus so the arrow keys work without a click first. The surface carries
-	/// <c>tabindex</c> for the same reason — <c>FocusOnNavigate</c> aims at the <c>h1</c>, which
+	/// <c>tabindex</c> for the same reason - <c>FocusOnNavigate</c> aims at the <c>h1</c>, which
 	/// is inside this element, so a key pressed there bubbles here either way.
 	/// </summary>
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -142,7 +142,7 @@
 	}
 
 	/// <summary>
-	/// Next card, or out of the deck on the last one — the same button, because "Next" and "Get
+	/// Next card, or out of the deck on the last one - the same button, because "Next" and "Get
 	/// started" are the same gesture and a rider should not have to find a different control for
 	/// the last of five taps.
 	/// </summary>
@@ -163,13 +163,13 @@
 	}
 
 	/// <summary>
-	/// Marks the deck seen and leaves. Reached by Skip, by Done, and by "Get started" — all three
+	/// Marks the deck seen and leaves. Reached by Skip, by Done, and by "Get started" - all three
 	/// are a rider saying they are finished with this screen, and all three have to stop it
 	/// opening by itself again.
 	/// </summary>
 	private async Task FinishAsync()
 	{
-		// A double tap on Get started would otherwise navigate twice — harmless on the web, and a
+		// A double tap on Get started would otherwise navigate twice - harmless on the web, and a
 		// visible flash on the phone's WebView.
 		if (_finishing) return;
 		_finishing = true;
@@ -214,7 +214,7 @@
 		if (travelled <= -SwipeThreshold)
 		{
 			// A swipe past the last card does NOT finish the deck. Leaving the app has to be a
-			// deliberate press — a flick that overshoots would otherwise dismiss the screen and
+			// deliberate press - a flick that overshoots would otherwise dismiss the screen and
 			// leave a rider with no idea what they just did or how to get it back.
 			if (!IsLast) _index++;
 		}
@@ -263,7 +263,7 @@
 			letter-spacing: 0.04em;
 		}
 
-		/* Quiet, but a real 44 px tap target — this is the control a rider in a hurry needs. */
+		/* Quiet, but a real 44 px tap target - this is the control a rider in a hurry needs. */
 		.intro .intro-skip {
 			padding: 0.5rem 0.75rem;
 			background: transparent;
@@ -280,7 +280,7 @@
 			padding: 2rem 1.5rem;
 			text-align: center;
 			/* Every card is the height of the tallest one, so the dots and the buttons under
-			   them do not jump as the deck is paged — a moving Next button is a mis-tap. */
+			   them do not jump as the deck is paged - a moving Next button is a mis-tap. */
 			min-height: 15rem;
 			display: flex;
 			flex-direction: column;
@@ -311,7 +311,7 @@
 		}
 
 		/* The dot is 10 px; the button around it is a finger wide. Padding rather than a bigger
-		   circle — the target has to grow, not the mark. */
+		   circle - the target has to grow, not the mark. */
 		.intro .intro-dot {
 			width: 2rem;
 			height: 2rem;

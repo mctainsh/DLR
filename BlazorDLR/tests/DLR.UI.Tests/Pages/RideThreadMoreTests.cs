@@ -151,7 +151,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 		{
 			component.Markup.Contains("Adventure thread", StringComparison.Ordinal).ShouldBeTrue();
 			component.FindAll(".live-note").ShouldBeEmpty(
-				"§17.6: comments push in every ride state now — a Live adventure has no silence to explain.");
+				"§17.6: comments push in every ride state now - a Live adventure has no silence to explain.");
 			component.Markup.Contains("silently", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
 				"§17.6: no copy may still tell a rider their posts arrive silently while the adventure is Live.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -189,7 +189,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.FindAll("button.more").Count.ShouldBe(0,
-				"§17.8: null NextCursor means the thread is exhausted — the button must not offer another page.");
+				"§17.8: null NextCursor means the thread is exhausted - the button must not offer another page.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -222,7 +222,7 @@ public sealed class RideThreadMoreTests : PageTestContext
 		PostCommentRequest sent = api.PostCommentRequests[0];
 		sent.Body.ShouldBe("Hello, adventure.", "the body is trimmed before the wire.");
 		sent.ClientGuid.ShouldNotBe(Guid.Empty,
-			"§4.4: every post carries a fresh ClientGuid — the server's idempotency key for retries.");
+			"§4.4: every post carries a fresh ClientGuid - the server's idempotency key for retries.");
 		sent.Poll.ShouldBeNull("a plain post must not carry a poll spec.");
 	}
 }

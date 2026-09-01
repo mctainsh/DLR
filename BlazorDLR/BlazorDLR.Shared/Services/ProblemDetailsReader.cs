@@ -24,7 +24,7 @@ public static class ProblemDetailsReader
 
 	/// <summary>
 	/// Given an <see cref="HttpResponseMessage"/> that was not successful, read the
-	/// <c>ProblemDetails</c> body and return the messages it holds. Never throws — a body
+	/// <c>ProblemDetails</c> body and return the messages it holds. Never throws - a body
 	/// that fails to parse becomes a one-line <see cref="ApiError"/> quoting the status.
 	/// </summary>
 	public static async Task<ApiError> ReadAsync(HttpResponseMessage response, CancellationToken cancellationToken = default)
@@ -76,7 +76,7 @@ public static class ProblemDetailsReader
 
 	/// <summary>
 	/// Convenience for the common shape: a caller caught an <see cref="HttpRequestException"/>
-	/// and wants to know why. The exception itself does not carry the response body — the
+	/// and wants to know why. The exception itself does not carry the response body - the
 	/// caller has to have kept the <see cref="HttpResponseMessage"/>, so this overload takes
 	/// the exception and a fallback message and gives back whatever it can.
 	/// </summary>
@@ -89,7 +89,7 @@ public static class ProblemDetailsReader
 		return new ApiError(default, fallback, []);
 	}
 
-	// The wire shape covers both ProblemDetails and ValidationProblemDetails — the latter is
+	// The wire shape covers both ProblemDetails and ValidationProblemDetails - the latter is
 	// just the former with an `errors` dictionary added.
 	private sealed record WireProblem(
 		string? Title,
@@ -100,7 +100,7 @@ public static class ProblemDetailsReader
 
 /// <summary>A parsed API error a screen can render.</summary>
 /// <param name="StatusCode">The HTTP status the server answered.</param>
-/// <param name="Title">Short, human-readable — "Sign-in failed", "Antiforgery check failed".</param>
+/// <param name="Title">Short, human-readable - "Sign-in failed", "Antiforgery check failed".</param>
 /// <param name="Messages">
 /// Zero or more specific reasons. For a 401 sign-in this is typically one line ("This account
 /// no longer exists"); for a 400 register it is one line per rule the password broke

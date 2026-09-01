@@ -7,7 +7,7 @@ namespace DLR.Server.Identity;
 /// The two username rules Identity has no setting for: length, and the reserved list (§7.2).
 /// <para>
 /// Registered alongside Identity's own <see cref="UserValidator{TUser}"/> rather than
-/// replacing it — that one owns the allowed-character check and the uniqueness lookup, and
+/// replacing it - that one owns the allowed-character check and the uniqueness lookup, and
 /// re-implementing either in order to add a length bound would be trading a bug for a
 /// feature.
 /// </para>

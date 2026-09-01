@@ -13,10 +13,10 @@ namespace DLR.UI.Tests.State;
 /// both ends: <strong>on-device sign-in state is "a refresh token exists", not "the access token
 /// is valid"</strong>.
 /// <list type="bullet">
-/// <item><see cref="Restore_WithNoNetwork_KeepsTheRiderSignedIn"/> — a relaunch in a dead zone must
+/// <item><see cref="Restore_WithNoNetwork_KeepsTheRiderSignedIn"/> - a relaunch in a dead zone must
 /// not land on the Welcome screen asking a rider to sign in to an account they never signed out
 /// of.</item>
-/// <item><see cref="Refresh_ThatCouldNotReachTheServer_DoesNotSignOut"/> — the outline's named
+/// <item><see cref="Refresh_ThatCouldNotReachTheServer_DoesNotSignOut"/> - the outline's named
 /// test <c>Offline_401WithNoConnectivity_DoesNotSignUserOut</c>. Getting this wrong signs riders
 /// out mid-ride, in the middle of nowhere, which is where the app matters most.</item>
 /// </list>
@@ -72,7 +72,7 @@ public sealed class AuthStateOfflineTests
 	{
 		Device device = await SignedInDeviceAsync();
 
-		// Relaunch, in a dead zone. The token endpoint cannot be reached at all — no status, no
+		// Relaunch, in a dead zone. The token endpoint cannot be reached at all - no status, no
 		// ProblemDetails, because there was no response to take either from.
 		FakeApiClient offline = new()
 		{
@@ -85,7 +85,7 @@ public sealed class AuthStateOfflineTests
 		auth.UserId.ShouldBe(UserId, "the traveller is who this device says they are until the server says otherwise.");
 		auth.UserName.ShouldBe("DaveSmith");
 		auth.IsOffline.ShouldBeTrue();
-		auth.AccessToken.ShouldBeNull("nothing minted a token — being signed in locally is not being authorised.");
+		auth.AccessToken.ShouldBeNull("nothing minted a token - being signed in locally is not being authorised.");
 		device.Tokens.StoredToken.ShouldBe("refresh", "§7.9: a tunnel is not a credential failure.");
 
 		Microsoft.AspNetCore.Components.Authorization.AuthenticationState state =
@@ -165,7 +165,7 @@ public sealed class AuthStateOfflineTests
 		(await auth.RefreshNowAsync()).ShouldBeNull();
 
 		device.Tokens.StoredToken.ShouldBe("refresh",
-			"backing off is the answer to a 429 — signing the traveller out is not.");
+			"backing off is the answer to a 429 - signing the traveller out is not.");
 	}
 
 	[Fact]
@@ -188,7 +188,7 @@ public sealed class AuthStateOfflineTests
 	public async Task Restore_AfterASignIn_LeavesTheLiveSessionAlone()
 	{
 		// MainLayout calls this on first render, and nothing about a layout guarantees it renders
-		// once — nor that it renders before the rider has signed in on the Welcome screen.
+		// once - nor that it renders before the rider has signed in on the Welcome screen.
 		Device device = new(new FakeTokenStore(), new InMemoryDeviceSettings());
 		FakeApiClient api = new();
 
@@ -225,6 +225,6 @@ public sealed class AuthStateOfflineTests
 	public void RememberedAccount_ThatCannotBeRead_IsNoAccount(string? stored)
 	{
 		RememberedAccount.Decode(stored).ShouldBeNull(
-			"half an identity is worse than none — the half that survives is the half the app renders as somebody's name.");
+			"half an identity is worse than none - the half that survives is the half the app renders as somebody's name.");
 	}
 }

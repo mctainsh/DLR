@@ -4,7 +4,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace DLR.Server.Tests.Positions;
 
 /// <summary>
-/// The write-behind cache's own rules (§5.5). No database — these are about the data structure.
+/// The write-behind cache's own rules (§5.5). No database - these are about the data structure.
 /// </summary>
 public sealed class RiderPositionCacheTests
 {

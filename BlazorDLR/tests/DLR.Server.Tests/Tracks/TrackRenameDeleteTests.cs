@@ -19,7 +19,7 @@ namespace DLR.Server.Tests.Tracks;
 /// <summary>
 /// Renaming and deleting a stored track (§15.1, §15.4, §15.5).
 /// <para>
-/// Both apply to a recorded track and an imported one without distinction — §15.1 makes them one
+/// Both apply to a recorded track and an imported one without distinction - §15.1 makes them one
 /// entity, and <c>Source</c> is display and support information, never authorisation. The tests
 /// below therefore prove the pair once against each source rather than twice against one.
 /// </para>
@@ -165,7 +165,7 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 		response.StatusCode.ShouldBe(
 			HttpStatusCode.NotFound,
-			"the same answer the detail read gives — a distinguishable one would be a way to ask " +
+			"the same answer the detail read gives - a distinguishable one would be a way to ask " +
 			"whether a track id exists");
 
 		TrackSummary unchanged = (await dave.GetFromJsonAsync<TrackDetail>($"{TracksUrl}/{track.Id}"))!.Track;
@@ -205,8 +205,8 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The retained original is the rider's data while it exists (§15.6) and goes with the track.
-	/// Leaving it behind would keep the pre-trim line — the one that still has their address on it
-	/// — on the disk after they deleted the ride it belonged to.
+	/// Leaving it behind would keep the pre-trim line - the one that still has their address on it
+	/// - on the disk after they deleted the ride it belonged to.
 	/// </summary>
 	[Fact]
 	public async Task Delete_TakesTheRetainedOriginalAndItsBlob()
@@ -242,7 +242,7 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Markers hang off exactly one parent (§16.1). The track going takes them with it — a marker
+	/// Markers hang off exactly one parent (§16.1). The track going takes them with it - a marker
 	/// whose parent no longer exists is a pin on nothing.
 	/// </summary>
 	[Fact]
@@ -310,7 +310,7 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The §15.4 precondition an edit meets, and a delete meets it for a stronger reason: an edit
-	/// moves the line an adventure is measured against, and a delete takes it away — the
+	/// moves the line an adventure is measured against, and a delete takes it away - the
 	/// attachment cascades and every rider's place in §5.4's gap list goes with it, mid-ride.
 	/// </summary>
 	[Fact]
@@ -338,9 +338,9 @@ public sealed class TrackRenameDeleteTests(PostgresFixture postgres)
 
 		// Renaming it meanwhile is fine: it moves nobody, and a route the organiser mislabelled is
 		// exactly the thing worth fixing while the ride is running.
-		TrackSummary renamed = await RenameAsync(organiser, track.Id, "Saturday loop — long option");
+		TrackSummary renamed = await RenameAsync(organiser, track.Id, "Saturday loop - long option");
 
-		renamed.Name.ShouldBe("Saturday loop — long option");
+		renamed.Name.ShouldBe("Saturday loop - long option");
 
 		// Detaching is the way through, and then the delete goes.
 		using (HttpResponseMessage detached = await organiser.DeleteAsync(

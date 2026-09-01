@@ -13,7 +13,7 @@ namespace DLR.UI.Tests.Tracks;
 ///   <item>"ten" means ten <em>surviving</em> points, so a trim reaches past an earlier hole
 ///     rather than re-striking points that are already gone;</item>
 ///   <item>undo walks back one trim at a time to the track as loaded, cursor included;</item>
-///   <item>what leaves for the wire is ascending, disjoint, half-open raw ranges — merged where
+///   <item>what leaves for the wire is ascending, disjoint, half-open raw ranges - merged where
 ///     two trims abut, so the server sees the same edit however the rider got there.</item>
 /// </list>
 /// </summary>
@@ -63,7 +63,7 @@ public sealed class TrackTrimSessionTests
 		// A cursor that stayed put would re-measure from 10 and a cursor that jumped the gap
 		// without being eaten would leave the point it vacated stranded between two holes.
 		session.Removals().ShouldBe([new IndexRange(5, 11)],
-			"two abutting bites merge into one range — the mask is the state, not the trim log.");
+			"two abutting bites merge into one range - the mask is the state, not the trim log.");
 		session.Cursor.ShouldBe(4);
 		session.StruckCount.ShouldBe(6);
 	}
@@ -79,7 +79,7 @@ public sealed class TrackTrimSessionTests
 
 		session.Removals().ShouldBe([new IndexRange(9, 11)]);
 		session.Cursor.ShouldBe(11,
-			"forward from 9 has nothing left before 11 — the bite skips the hole it just made.");
+			"forward from 9 has nothing left before 11 - the bite skips the hole it just made.");
 	}
 
 	[Fact]
@@ -139,7 +139,7 @@ public sealed class TrackTrimSessionTests
 	public void Trim_IsRefused_WithoutACursor()
 	{
 		Session().TrimBack(1).ShouldBe(TrimRefusal.NoCursor,
-			"back from WHERE — there is nothing to bite from.");
+			"back from WHERE - there is nothing to bite from.");
 	}
 
 	[Fact]
@@ -171,7 +171,7 @@ public sealed class TrackTrimSessionTests
 	{
 		TrackTrimSession session = Session();
 		session.PlaceCursor(10);
-		session.TrimBack(3);          // strikes 8, 9, 10 — cursor → 7
+		session.TrimBack(3);          // strikes 8, 9, 10 - cursor → 7
 
 		session.PlaceCursor(9).ShouldBeFalse("a deleted point is not somewhere a bite can start.");
 		session.Cursor.ShouldBe(7, "a refused placement leaves the cursor where it was.");

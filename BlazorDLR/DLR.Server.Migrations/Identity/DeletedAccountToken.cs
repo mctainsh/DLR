@@ -9,13 +9,13 @@ namespace DLR.Server.Data.Identity;
 /// <strong>It exists so the app can say what happened.</strong> §7.11 requires the next refresh
 /// after a deletion to fail with a <em>distinguishable</em> reason, so the device can say "this
 /// account was removed after 180 days without use" and offer to create a new one. A generic
-/// sign-in failure looks like a bug and is indistinguishable from a bad password — which is how a
+/// sign-in failure looks like a bug and is indistinguishable from a bad password - which is how a
 /// rider who has done nothing wrong ends up filing a support request about an account that was
 /// deleted exactly as the notice at signup said it would be.
 /// </para>
 /// <para>
-/// <strong>Keyed on the hash, not on the account.</strong> The account is gone — that is the whole
-/// premise — and its username has been released back to the pool, so there is nothing left to point
+/// <strong>Keyed on the hash, not on the account.</strong> The account is gone - that is the whole
+/// premise - and its username has been released back to the pool, so there is nothing left to point
 /// at. Holding the hash means only the device that actually held the token gets the specific
 /// answer; anybody presenting a guess still gets "that refresh token is not valid", so this is not
 /// an oracle for whether an account ever existed.

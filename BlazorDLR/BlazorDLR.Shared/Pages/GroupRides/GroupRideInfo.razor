@@ -16,7 +16,7 @@
 @implements IAsyncDisposable
 
 @*
-	Everything about a group ride that is not the map (§5.4, §5.6, §5.8) — who is on it,
+	Everything about a group ride that is not the map (§5.4, §5.6, §5.8) - who is on it,
 	how far apart they are, the join code, this rider's sharing switch, and the organiser's
 	routes, permissions and join requests.
 
@@ -29,7 +29,7 @@
 	Those are things you do while riding, and they stay one tap from the map.
 *@
 
-<PageTitle>@Title — Dumb Luck Routes</PageTitle>
+<PageTitle>@Title - Dumb Luck Routes</PageTitle>
 
 <div class="page page-medium ride-info">
 	@* Outside the load branches: the way back to the map has to be there while the ride
@@ -124,7 +124,7 @@
 								@*
 									A track is a direction as well as a shape (§5.4). A GPX recorded the
 									other way round draws its chevrons pointing back at the group and ranks
-									the leader last, and this is the one-tap answer to both — it changes the
+									the leader last, and this is the one-tap answer to both - it changes the
 									order the same points are read in, and nothing else.
 
 									A toggle rather than a one-way action, so aria-pressed carries the state
@@ -195,12 +195,12 @@
 							else if (Attachable.Count == 0)
 							{
 								@*
-									Only the caller's own tracks can be attached (§15.4) — a route
+									Only the caller's own tracks can be attached (§15.4) - a route
 									somebody sent you is added by importing the GPX they sent, which
 									is the copy feature and needs no endpoint of its own.
 								*@
 								<p class="hint">
-									Nothing left to add. Routes come from your own tracks —
+									Nothing left to add. Routes come from your own tracks -
 									<a href="/import">import a GPX</a> or record an adventure first.
 								</p>
 							}
@@ -228,7 +228,7 @@
 
 			@*
 				How this device draws those routes (§18.6). It sits directly under the route
-				list because that list is the thing it changes the look of — the swatches above
+				list because that list is the thing it changes the look of - the swatches above
 				follow these controls, so the effect of a choice is visible without leaving the
 				panel.
 
@@ -273,7 +273,7 @@
 				@* The two colour controls overlap, and which wins is not guessable. Said once,
 				   here, next to the switch it qualifies. *@
 				<p class="note">
-					To colour one route on its own, tap its swatch in the list above — that
+					To colour one route on its own, tap its swatch in the list above - that
 					beats whichever of these applies. The ⇄ beside it turns that route round,
 					which is what the arrows point along and what the gaps are measured from.
 				</p>
@@ -314,7 +314,7 @@
 			</div>
 
 			@*
-				This rider's own sharing (§5.6) — and only on a host that can actually do it.
+				This rider's own sharing (§5.6) - and only on a host that can actually do it.
 
 				A browser has no receiver (§18.6), so on the web this section is absent rather
 				than present-and-inert. It used to render there with the GPS status underneath
@@ -334,7 +334,7 @@
 					</label>
 					<p class="hint">
 						You can turn this off at any moment. Turning it off deletes the
-						stored fix — merely stopping the broadcast would leave a last-known
+						stored fix - merely stopping the broadcast would leave a last-known
 						point on the map.
 					</p>
 
@@ -370,7 +370,7 @@
 				a rider reaches for while riding, and every item on it is reversible. This one ends
 				the membership, and getting back on needs the join code or a new request.
 
-				Not offered to the organiser, and not because it is dangerous — the server refuses
+				Not offered to the organiser, and not because it is dangerous - the server refuses
 				it outright (409, "a ride nobody organises has nobody to decide who is in it"), so a
 				button here would be a control that cannot work. Their way out is End ride, below.
 			*@
@@ -378,7 +378,7 @@
 			{
 				<div class="membership">
 					<h3>This adventure</h3>
-					@* app.css's `.danger`: destructive, but not the point of the page — the same
+					@* app.css's `.danger`: destructive, but not the point of the page - the same
 					   treatment revoking a device gets, rather than the filled red of a delete
 					   that happens on the tap. This one opens a confirm. *@
 					<button type="button" class="danger leave" @onclick="LeaveRideAsync" disabled="@_session.Busy">
@@ -386,7 +386,7 @@
 					</button>
 					<p class="hint">
 						Your sharing stops, the position the adventure holds for you is deleted, and the
-						adventure drops off your rail. You would need the join code — or a new request —
+						adventure drops off your rail. You would need the join code - or a new request -
 						to get back on.
 					</p>
 				</div>
@@ -400,7 +400,7 @@
 						A button rather than the link it was, because it is the one thing in this
 						section that can have work waiting behind it, and a line of blue text
 						cannot carry a count. An organiser had to open the list to find out
-						whether anybody was in it — which, on most days, is opening it for nothing.
+						whether anybody was in it - which, on most days, is opening it for nothing.
 
 						The number is on the badge and not in the label. A button reading
 						"Accept join requests (3)" beside a circle reading 3 is one fact drawn
@@ -463,7 +463,7 @@
 		}
 	}
 
-	/// <summary>How this device draws routes. Read through, never copied — a stale copy would
+	/// <summary>How this device draws routes. Read through, never copied - a stale copy would
 	/// leave the swatches disagreeing with the map the controls just changed.</summary>
 	private RouteStyle Style => RouteStyles.Style;
 
@@ -477,7 +477,7 @@
 	/// list called the last rider the leader.
 	/// </para>
 	/// <para>
-	/// A copy, and only when the route is reversed — the session's own list is shared with the
+	/// A copy, and only when the route is reversed - the session's own list is shared with the
 	/// live map and is not this page's to turn round. The cost is one reversal of a simplified
 	/// polyline per render of a panel that only exists while a ride is Live; <c>GapCalculator</c>
 	/// already walks the whole line once per rider per render, which is the larger number.
@@ -492,7 +492,7 @@
 				return null;
 			}
 
-			// Routes[0] is the same route RoutePolyline was derived from — see RideSession.ApplyRoutes.
+			// Routes[0] is the same route RoutePolyline was derived from - see RideSession.ApplyRoutes.
 			return _session.Routes.Count > 0 && RouteStyles.IsReversed(_session.Routes[0].TrackId)
 				? [.. line.Reverse()]
 				: line;
@@ -500,11 +500,11 @@
 	}
 
 	/// <summary>
-	/// This device's receiver, or <c>null</c> on a host that has none — both browsers (§18.6).
+	/// This device's receiver, or <c>null</c> on a host that has none - both browsers (§18.6).
 	/// <para>
 	/// Resolved rather than <c>@@inject</c>ed because the web hosts do not register it at all: GPS
 	/// is a mobile concern, and a stub that answered "not supported" was five registrations kept
-	/// alive so one <c>@@inject</c> could succeed. Null here is the whole answer — the sharing
+	/// alive so one <c>@@inject</c> could succeed. Null here is the whole answer - the sharing
 	/// section below is simply absent, because a switch labelled "broadcast my location" on a
 	/// laptop is a control that cannot do the thing it names.
 	/// </para>
@@ -515,7 +515,7 @@
 	{
 		_broadcast = Services.GetService<LocationBroadcastState>();
 
-		// RideSession has taken a nullable broadcaster from the start — see its constructor.
+		// RideSession has taken a nullable broadcaster from the start - see its constructor.
 		_session = new RideSession(Api, Hub, Auth, _broadcast, Cache);
 		_session.Changed += OnSessionChanged;
 
@@ -532,7 +532,7 @@
 	{
 		if (firstRender)
 		{
-			// Not in OnInitialized — the web binding reads localStorage over JS interop, which
+			// Not in OnInitialized - the web binding reads localStorage over JS interop, which
 			// is unreachable on the prerender pass. Idempotent, so this costs nothing on a
 			// device where a map has already loaded it.
 			await RouteStyles.LoadAsync();
@@ -558,7 +558,7 @@
 
 	/// <summary>
 	/// Opens the list the badge is counting. A handler rather than an <c>href</c> because the
-	/// control is a button now — see the comment above it.
+	/// control is a button now - see the comment above it.
 	/// </summary>
 	private void GoToRequests() => Nav.NavigateTo($"/group-rides/{RideId}/requests");
 
@@ -611,14 +611,14 @@
 	// -- Route display (§18.6) ----------------------------------------------------------------
 	//
 	// Each control writes straight through: there is no Save button, because there is nothing
-	// to fail and nothing to validate — the map behind this page is already drawing the new
+	// to fail and nothing to validate - the map behind this page is already drawing the new
 	// value by the time the slider stops moving, which is the only confirmation worth having.
 
 	/// <summary>
 	/// Switches between "each route its own colour" and one colour for all of them.
 	/// <para>
-	/// Turning it on seeds the override with the palette's first entry — the colour a
-	/// single-route ride is already drawn in — so the control does something visible without
+	/// Turning it on seeds the override with the palette's first entry - the colour a
+	/// single-route ride is already drawn in - so the control does something visible without
 	/// jumping to a colour the rider never chose.
 	/// </para>
 	/// </summary>
@@ -687,7 +687,7 @@
 	/// direction belongs to that GPX, so a track imported backwards stays fixed on the next ride
 	/// it is attached to rather than needing the same tap again.
 	/// <para>
-	/// Nothing is sent to the server and the track is not rewritten — this records which end of
+	/// Nothing is sent to the server and the track is not rewritten - this records which end of
 	/// the stored points to start from. Everything that reads the route's order follows from the
 	/// one flag: the map's chevrons, and <see cref="GapRoute"/>.
 	/// </para>
@@ -704,7 +704,7 @@
 		_session.SetSharingAsync(args.Value is bool wants && wants);
 
 	/// <summary>
-	/// Leaves the ride (§5.2), then takes the rider to the list — the page they are on is about a
+	/// Leaves the ride (§5.2), then takes the rider to the list - the page they are on is about a
 	/// ride they are no longer on, and the server would answer 404 to the next thing it asked for.
 	/// <para>
 	/// Confirmed first, through the app's one dialog rather than <c>window.confirm</c>: it is not
@@ -815,12 +815,12 @@
 		color: var(--dlr-fg-muted);
 	}
 
-		/* Something the rider can act on — permission, or fixes not landing. */
+		/* Something the rider can act on - permission, or fixes not landing. */
 		.ride-info .sharing .gps-state.warn {
 			color: var(--dlr-error);
 		}
 
-	/* The 48 px target the rest of the app uses for anything pressed with gloves on — this one
+	/* The 48 px target the rest of the app uses for anything pressed with gloves on - this one
 	   is pressed once, deliberately, and must not sit within a thumb's width of Reset. */
 	.ride-info .membership .leave {
 		min-height: 48px;
@@ -921,7 +921,7 @@
 			border-top: 1px solid #ffffff1f;
 		}
 
-	/* The colour this route is drawn in on the map, so the list and the map agree — and the
+	/* The colour this route is drawn in on the map, so the list and the map agree - and the
 	   control that changes it. Sized as a tap target rather than as the 0.9 rem chip it used
 	   to be: a swatch you are meant to press on a phone in a bar mount cannot be 14 px. */
 	.ride-info .route-list .swatch {
@@ -935,7 +935,7 @@
 		cursor: pointer;
 	}
 
-	/* Sits between the name and Remove. Deliberately quieter than either — it undoes a
+	/* Sits between the name and Remove. Deliberately quieter than either - it undoes a
 	   preference, which is not a destructive action and should not compete with one. */
 	.ride-info .route-list .auto-colour {
 		flex: 0 0 auto;
@@ -951,8 +951,8 @@
 	}
 
 	/*
-		Turns this route round. Sized as a tap target for the same reason the swatch is — it is
-		pressed on a phone in a bar mount — and square, because the glyph is the label and a
+		Turns this route round. Sized as a tap target for the same reason the swatch is - it is
+		pressed on a phone in a bar mount - and square, because the glyph is the label and a
 		wider box would read as a text button with a missing word.
 	*/
 	.ride-info .route-list .reverse {
@@ -980,7 +980,7 @@
 		border-color: var(--dlr-accent, #2563eb);
 	}
 
-	/* The same fact as the button's pressed state, in the row's own words — see the markup. */
+	/* The same fact as the button's pressed state, in the row's own words - see the markup. */
 	.ride-info .route-list .reversed-note {
 		margin-left: 0.35rem;
 	}
@@ -1084,7 +1084,7 @@
 		enough to read as a column would make it look like a separate control.
 
 		Quieter than the two `.primary` buttons under it. Those start and end the adventure; this
-		one opens a list, and it is the badge that is meant to catch the eye here — an accent-
+		one opens a list, and it is the badge that is meant to catch the eye here - an accent-
 		filled button with a red circle on it is two things shouting at once.
 	*/
 	.ride-info .organiser .requests {

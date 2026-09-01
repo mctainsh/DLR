@@ -13,7 +13,7 @@ namespace DLR.Server.Account;
 /// <para>
 /// <strong>One implementation, because there are two doors to it.</strong> A rider deletes their
 /// own account with their password; an administrator deletes somebody else's from the roster
-/// screen (§14.6). The authorisation differs and nothing else does — and the parts that are easy
+/// screen (§14.6). The authorisation differs and nothing else does - and the parts that are easy
 /// to forget are the ones that are not a cascade: the blob list has to be read before the rows go,
 /// <c>user_block.blocked_id</c> has to be cleared by hand, and the account's live hub connections
 /// have to be evicted. A second copy of this would be a second chance to miss one.
@@ -46,7 +46,7 @@ public sealed class AccountDeletion(
 		// rows and not a filesystem.
 		IReadOnlyList<string> owned = await AccountBlobs.OwnedByAsync(database, userId, cancellationToken);
 
-		// user_block.blocked_id is NO ACTION, not a cascade — two cascade paths into asp_net_users
+		// user_block.blocked_id is NO ACTION, not a cascade - two cascade paths into asp_net_users
 		// through one table is an error in PostgreSQL (§16.5). The nightly sweep does the same
 		// thing for the same reason; both would fail the whole delete without it.
 		await database

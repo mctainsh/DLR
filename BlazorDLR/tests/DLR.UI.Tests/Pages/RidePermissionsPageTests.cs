@@ -10,7 +10,7 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// §5.8's three permission switches. Two properties that matter:
 /// <list type="bullet">
-///   <item>The three switches (markers / comments / photos) are independent — the
+///   <item>The three switches (markers / comments / photos) are independent - the
 ///     composer must send the exact combination the organiser last selected. Photos
 ///     is not a consequence of comments even though the two are often paired.</item>
 ///   <item>Non-organisers see a plain refusal and no controls. The server enforces
@@ -55,7 +55,7 @@ public sealed class RidePermissionsPageTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("Only the organiser can change these", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.8: a member looking at this page sees a plain refusal — not the switches.");
+				"§5.8: a member looking at this page sees a plain refusal - not the switches.");
 			component.FindAll("input[type=checkbox]").Count.ShouldBe(0,
 				"showing the switches to a member is a lie about who owns the adventure.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -73,7 +73,7 @@ public sealed class RidePermissionsPageTests : PageTestContext
 		component.WaitForAssertion(() =>
 			component.FindAll("input[type=checkbox]").Count.ShouldBe(3), timeout: TimeSpan.FromSeconds(3));
 
-		// Uncheck the third switch — photos.
+		// Uncheck the third switch - photos.
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement[] switches = component.FindAll("input[type=checkbox]").ToArray();
@@ -90,8 +90,8 @@ public sealed class RidePermissionsPageTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		RidePermissions sent = api.LastUpdatedPermissions!;
-		sent.AllowMemberMarkers.ShouldBeTrue("markers were left on — the switch is independent.");
-		sent.AllowMemberComments.ShouldBeTrue("comments were left on — turning off photos does not silence conversation.");
+		sent.AllowMemberMarkers.ShouldBeTrue("markers were left on - the switch is independent.");
+		sent.AllowMemberComments.ShouldBeTrue("comments were left on - turning off photos does not silence conversation.");
 		sent.AllowMemberPhotos.ShouldBeFalse("photos is its own switch, not a consequence of comments.");
 	}
 }

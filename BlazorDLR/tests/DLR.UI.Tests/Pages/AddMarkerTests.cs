@@ -11,7 +11,7 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// §16.2's marker composer. Two rules that the DTO leans on:
 /// <list type="bullet">
-///   <item><em>Direction is nullable-not-zero.</em> Zero is due north — a real bearing.
+///   <item><em>Direction is nullable-not-zero.</em> Zero is due north - a real bearing.
 ///     Null means "no direction". The switch is off by default; only when it is on is
 ///     the bearing field visible, and only then does it reach the API as a non-null
 ///     value.</item>
@@ -21,7 +21,7 @@ namespace DLR.UI.Tests.Pages;
 /// </list>
 /// The composer does <em>not</em> own the point: §16.1 places a marker by tapping the live
 /// ride map, and that tap hands the point over on the query string. This screen takes it as
-/// an input — so almost every test here renders at a point, and the one that does not is
+/// an input - so almost every test here renders at a point, and the one that does not is
 /// asserting what the screen does when nobody supplied one.
 /// </summary>
 public sealed class AddMarkerTests : PageTestContext
@@ -42,7 +42,7 @@ public sealed class AddMarkerTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Renders the composer the way the live map opens it — with the chosen point on the query
+	/// Renders the composer the way the live map opens it - with the chosen point on the query
 	/// string, which is the only route into this screen.
 	/// </summary>
 	private IRenderedComponent<AddMarker> RenderAt(Guid rideId, double lat = Lat, double lon = Lon)
@@ -68,7 +68,7 @@ public sealed class AddMarkerTests : PageTestContext
 	/// twenty-nine pictures is the right way to answer "which icon" and the wrong thing to leave
 	/// standing above the title box once it is answered.
 	/// <para>
-	/// Shut means hidden, not unrendered — the radios stay in the DOM so the checked state and
+	/// Shut means hidden, not unrendered - the radios stay in the DOM so the checked state and
 	/// the group live in one place. That is why this asserts on the class rather than on the
 	/// cells being gone.
 	/// </para>
@@ -81,7 +81,7 @@ public sealed class AddMarkerTests : PageTestContext
 		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
 
 		component.FindAll(".icon-grid.shut").ShouldNotBeEmpty(
-			"the grid starts collapsed — the choice is one tap, and the cells that were not it cost the screen below them.");
+			"the grid starts collapsed - the choice is one tap, and the cells that were not it cost the screen below them.");
 		component.Find(".icon-current").GetAttribute("aria-expanded").ShouldBe("false");
 		component.Find(".icon-current-name").TextContent.Trim().ShouldBe(
 			MarkerIconGlyphs.Label(DLR.Core.Markers.MarkerIcons.Fallback),
@@ -106,7 +106,7 @@ public sealed class AddMarkerTests : PageTestContext
 	}
 
 	/// <summary>
-	/// And picking from the open list closes it again, on the icon that was picked — the row is
+	/// And picking from the open list closes it again, on the icon that was picked - the row is
 	/// then the answer, not the question.
 	/// </summary>
 	[Fact]
@@ -137,7 +137,7 @@ public sealed class AddMarkerTests : PageTestContext
 
 		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
 
-		// §16.2's curated set is authoritative — each key must be reachable in the picker.
+		// §16.2's curated set is authoritative - each key must be reachable in the picker.
 		foreach (string key in DLR.Core.Markers.MarkerIcons.Known)
 		{
 			component.Markup.Contains($"value=\"{key}\"", StringComparison.Ordinal).ShouldBeTrue(
@@ -164,7 +164,7 @@ public sealed class AddMarkerTests : PageTestContext
 	public void EveryCuratedIcon_HasItsOwnArtwork_AndUnknownKeysDegrade()
 	{
 		// A key added to MarkerIcons.Known without an entry here would silently render as
-		// the note icon — reachable, but wrong and hard to spot by eye.
+		// the note icon - reachable, but wrong and hard to spot by eye.
 		foreach (string key in DLR.Core.Markers.MarkerIcons.Known)
 		{
 			if (key == DLR.Core.Markers.MarkerIcons.Fallback)
@@ -188,8 +188,8 @@ public sealed class AddMarkerTests : PageTestContext
 	}
 
 	/// <summary>
-	/// The composer offers no direction at all. The field is still on the marker — it is stored,
-	/// it round-trips through GPX and the overlay rotates a pin that has one — but typing a
+	/// The composer offers no direction at all. The field is still on the marker - it is stored,
+	/// it round-trips through GPX and the overlay rotates a pin that has one - but typing a
 	/// bearing in degrees at the side of a road is not how anybody says which way a hazard faces,
 	/// so this screen no longer asks. What it must never do is send a zero instead of a null:
 	/// zero is due north (§16.2).
@@ -202,7 +202,7 @@ public sealed class AddMarkerTests : PageTestContext
 		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid());
 
 		component.Markup.IndexOf("Bearing", StringComparison.Ordinal).ShouldBe(-1,
-			"the bearing box went with the switch — a hidden but present <input> would still submit.");
+			"the bearing box went with the switch - a hidden but present <input> would still submit.");
 		component.Markup.IndexOf("direction", StringComparison.OrdinalIgnoreCase).ShouldBe(-1,
 			"and so did the switch that revealed it.");
 	}
@@ -213,7 +213,7 @@ public sealed class AddMarkerTests : PageTestContext
 	/// The picker is a radio group rather than a <c>&lt;select&gt;</c>, because an option element
 	/// may hold text and nothing else and the icons are pictures. Radios put the checked state in
 	/// the DOM where the browser also mutates it, which is the classic way for a rebuild of this
-	/// control to look right and bind nothing — every other test here would still pass, because
+	/// control to look right and bind nothing - every other test here would still pass, because
 	/// they all save on the default key.
 	/// </para>
 	/// </summary>
@@ -259,7 +259,7 @@ public sealed class AddMarkerTests : PageTestContext
 
 		CreateMarkerRequest sent = api.LastCreateMarkerRequest!;
 		sent.DirectionDeg.ShouldBeNull(
-			"§16.2: with the direction switch off, the request must carry null — never a default zero, which is a real bearing.");
+			"§16.2: with the direction switch off, the request must carry null - never a default zero, which is a real bearing.");
 		sent.Title.ShouldBe("Gravel");
 		sent.Icon.ShouldBe("note", "the composer starts on the 'note' icon; assert it survives the round trip.");
 	}
@@ -286,7 +286,7 @@ public sealed class AddMarkerTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		api.LastCreateMarkerRequest!.Title.ShouldBeEmpty(
-			"an untitled marker travels as an empty title — the overlay draws the plate alone.");
+			"an untitled marker travels as an empty title - the overlay draws the plate alone.");
 	}
 
 	/// <summary>
@@ -301,7 +301,7 @@ public sealed class AddMarkerTests : PageTestContext
 
 		IRenderedComponent<AddMarker> component = RenderAt(Guid.NewGuid(), lat: -37.81402, lon: 144.96328);
 
-		component.FindAll(".picker").ShouldBeEmpty("the second map is gone — the point arrives decided.");
+		component.FindAll(".picker").ShouldBeEmpty("the second map is gone - the point arrives decided.");
 		component.FindAll("input[type=number]").ShouldBeEmpty(
 			"and so did the coordinate boxes that were its other half.");
 		component.Markup.IndexOf("Tap the map", StringComparison.OrdinalIgnoreCase).ShouldBe(-1,
@@ -310,7 +310,7 @@ public sealed class AddMarkerTests : PageTestContext
 
 	/// <summary>
 	/// The live map hands the point over on the query string (§16.1), and that is the point
-	/// that gets filed — no second tap, and no default standing in for one.
+	/// that gets filed - no second tap, and no default standing in for one.
 	/// </summary>
 	[Fact]
 	public async Task ThePointHandedOverByTheLiveMap_IsWhatGetsSaved()
@@ -338,7 +338,7 @@ public sealed class AddMarkerTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Reached without a point — a bookmark, or a hand-typed URL. There is nothing to compose,
+	/// Reached without a point - a bookmark, or a hand-typed URL. There is nothing to compose,
 	/// and the screen has to say so: a composer that rendered its form here would file a
 	/// plausible-looking marker at whatever the fields defaulted to, onto a ride people are
 	/// following.
@@ -352,7 +352,7 @@ public sealed class AddMarkerTests : PageTestContext
 			.Add(p => p.RideId, Guid.NewGuid()));
 
 		component.FindAll("form").ShouldBeEmpty(
-			"with no point there is no marker to compose — offering the form invites a pin in the wrong place.");
+			"with no point there is no marker to compose - offering the form invites a pin in the wrong place.");
 		component.Markup.Contains("point you have already chosen", StringComparison.Ordinal).ShouldBeTrue(
 			"and the screen says where the point is meant to come from rather than failing silently.");
 		component.FindAll("a.button").ShouldNotBeEmpty("with a way back to the adventure to go and choose one.");

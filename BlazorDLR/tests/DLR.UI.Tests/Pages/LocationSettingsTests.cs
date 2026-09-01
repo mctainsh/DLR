@@ -15,12 +15,12 @@ namespace DLR.UI.Tests.Pages;
 /// Three groups of rules meet on one screen, and the reason they are on one screen is that riders
 /// conflate them:
 /// <list type="bullet">
-///   <item>the accuracy profile, which is how often a position is <em>sent</em> — a battery
+///   <item>the accuracy profile, which is how often a position is <em>sent</em> - a battery
 ///     decision;</item>
 ///   <item>the recording interval, which is how much of a ride this phone <em>keeps</em> for the
 ///     rider themselves, and the save that puts it in their tracks;</item>
 ///   <item>the private area, which is the circle neither of the above happens out of. It moved
-///     here from the Profile screen — the tests below came with it.</item>
+///     here from the Profile screen - the tests below came with it.</item>
 /// </list>
 /// </para>
 /// </summary>
@@ -32,8 +32,8 @@ public sealed class LocationSettingsTests : PageTestContext
 	private const double Longitude = 151.209;
 
 	/// <summary>
-	/// The map behind the private-area picker. <c>InitAsync</c> throws so <c>SkiaMapOverlay</c> —
-	/// whose <c>SKCanvasView</c> is browser-only — never mounts; <c>RideMap</c> shows its
+	/// The map behind the private-area picker. <c>InitAsync</c> throws so <c>SkiaMapOverlay</c> -
+	/// whose <c>SKCanvasView</c> is browser-only - never mounts; <c>RideMap</c> shows its
 	/// stated-error branch and still forwards taps, which is what these tests drive.
 	/// </summary>
 	private readonly FakeMapInterop _map = new()
@@ -65,7 +65,7 @@ public sealed class LocationSettingsTests : PageTestContext
 
 	/// <summary>
 	/// Renders the screen and waits for the private-area picker, which appears only once
-	/// <c>PrivateAreaState</c> has an answer — the section shows "Reading your account…" until
+	/// <c>PrivateAreaState</c> has an answer - the section shows "Reading your account…" until
 	/// then, because a screen that offered the controls first would be inviting somebody to
 	/// overwrite an area it had not looked at yet.
 	/// </summary>
@@ -215,7 +215,7 @@ public sealed class LocationSettingsTests : PageTestContext
 
 	/// <summary>
 	/// §15.1: the save waits for a name. The rider is asked while the ride is fresh, because the
-	/// alternative is naming it weeks later against a date and a distance — and a list of rides
+	/// alternative is naming it weeks later against a date and a distance - and a list of rides
 	/// three of which read "Untitled" is a list nobody can use.
 	/// </summary>
 	[Fact]
@@ -312,7 +312,7 @@ public sealed class LocationSettingsTests : PageTestContext
 		await component.InvokeAsync(() =>
 			component.Find(".track-actions button.danger").Click());
 
-		// The one dialog in the app, rather than window.confirm — and it is asked before anything
+		// The one dialog in the app, rather than window.confirm - and it is asked before anything
 		// is thrown away.
 		component.WaitForAssertion(() => confirm.Current.ShouldNotBeNull(), timeout: TimeSpan.FromSeconds(3));
 		recording.HasTrack.ShouldBeTrue("nothing may be deleted before the traveller has answered.");
@@ -332,7 +332,7 @@ public sealed class LocationSettingsTests : PageTestContext
 	public void UpdateRate_OffersEveryValue_AndSaysWhatTheThreeDoTogether()
 	{
 		// The screen is the only place these numbers are stated to a rider, so it prints them from
-		// LocationUpdateRate rather than repeating them — a copy that drifted would be a lie about
+		// LocationUpdateRate rather than repeating them - a copy that drifted would be a lie about
 		// the rider's own battery.
 		Wire();
 
@@ -425,7 +425,7 @@ public sealed class LocationSettingsTests : PageTestContext
 		_api.Calls.ShouldContain(nameof(IApiClient.SetPrivateAreaAsync));
 		_api.Calls.ShouldNotContain(nameof(IApiClient.UpdateProfileAsync));
 
-		// And it is nowhere near the track upload either — a saved track is filtered against the
+		// And it is nowhere near the track upload either - a saved track is filtered against the
 		// area, it never carries it.
 		_api.Calls.ShouldNotContain(nameof(IApiClient.UploadTrackAsync));
 	}
@@ -449,7 +449,7 @@ public sealed class LocationSettingsTests : PageTestContext
 
 			string markup = component.Markup;
 			markup.Contains("hidden here already", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-				"\"could not save\" would be false — the gate is closed and the phone has its copy.");
+				"\"could not save\" would be false - the gate is closed and the phone has its copy.");
 			markup.Contains("other devices", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
 				"and the half that must not be overstated: the account has not got it yet.");
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -485,7 +485,7 @@ public sealed class LocationSettingsTests : PageTestContext
 	{
 		Wire();
 
-		// Deliberately nowhere near the camera the picker opens on when nothing is stored — an
+		// Deliberately nowhere near the camera the picker opens on when nothing is stored - an
 		// area placed *at* the default would make every assertion below true either way.
 		const double PerthLatitude = -31.95;
 		const double PerthLongitude = 115.86;
@@ -497,7 +497,7 @@ public sealed class LocationSettingsTests : PageTestContext
 		first.WaitForAssertion(() => state.IsSet.ShouldBeTrue(), timeout: TimeSpan.FromSeconds(3));
 
 		// Reopen the screen. PrivateAreaState is scoped, so it has already read the device and the
-		// picker renders on the *first* pass — before any OnAfterRender work could move it.
+		// picker renders on the *first* pass - before any OnAfterRender work could move it.
 		IRenderedComponent<Location> reopened = RenderPage();
 
 		reopened.WaitForAssertion(() =>
@@ -524,9 +524,9 @@ public sealed class LocationSettingsTests : PageTestContext
 		// area moved onto the account. Three claims, and the middle one is the one a doc rewrite
 		// is most likely to quietly drop.
 		markup.Contains("saved with your account", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"the traveller is entitled to know the circle follows them — that is why it moved.");
+			"the traveller is entitled to know the circle follows them - that is why it moved.");
 		markup.Contains("present", StringComparison.OrdinalIgnoreCase).ShouldBeTrue(
-			"§5.6: inside the area you are still in the adventure — you simply have no position on the map.");
+			"§5.6: inside the area you are still in the adventure - you simply have no position on the map.");
 	}
 
 	/// <summary>Rides north from the fixture's origin, one fix every <paramref name="stepM"/> metres.</summary>

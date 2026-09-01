@@ -6,8 +6,8 @@ namespace DLR.Server.Diagnostics;
 /// Where the server writes its log, and how much of it it keeps (§14.6).
 /// <para>
 /// A file rather than a table. The log has to survive the process that could not finish writing to
-/// a database — a connection failure, a migration half-applied, the startup validation refusing to
-/// boot — and those are precisely the times an administrator opens it. A table would be missing
+/// a database - a connection failure, a migration half-applied, the startup validation refusing to
+/// boot - and those are precisely the times an administrator opens it. A table would be missing
 /// exactly the entries worth reading.
 /// </para>
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class FileLogOptions
 	/// The directory the daily files live in, absolute or relative to the content root.
 	/// <para>
 	/// The only path the reader will ever open. It is resolved once at startup and every read is
-	/// checked to fall inside it — see <c>ServerLogReader</c>, and the note there about why a
+	/// checked to fall inside it - see <c>ServerLogReader</c>, and the note there about why a
 	/// filename never comes off the wire.
 	/// </para>
 	/// </summary>

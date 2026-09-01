@@ -35,7 +35,7 @@ public static class ReactionEndpoints
 /// <para>
 /// Which also means this file did not have to learn that a shared route has a thread now (§6.2).
 /// It asks <see cref="CommentThreadAccess"/> the same question it always asked and gets an answer
-/// for either kind — the reactions, the votes, the coalescing and the tallies are unchanged.
+/// for either kind - the reactions, the votes, the coalescing and the tallies are unchanged.
 /// </para>
 /// </summary>
 [ApiController]
@@ -79,7 +79,7 @@ public sealed class ReactionController : ControllerBase
 		}
 		else
 		{
-			// Length and character set, not membership — the same forward-compatibility rule as
+			// Length and character set, not membership - the same forward-compatibility rule as
 			// marker icons (§16.2, §17.4). A newer client's key is stored and rendered generically.
 			if (!ReactionKeys.IsStorable(request.Reaction))
 			{
@@ -100,7 +100,7 @@ public sealed class ReactionController : ControllerBase
 			}
 			else
 			{
-				// Replaces, never accumulates — which the primary key already guarantees, but
+				// Replaces, never accumulates - which the primary key already guarantees, but
 				// updating in place is what makes that a single row rather than a delete and an
 				// insert racing each other.
 				existing.Reaction = request.Reaction;
@@ -156,7 +156,7 @@ public sealed class ReactionController : ControllerBase
 
 		DateTimeOffset now = clock.GetUtcNow();
 
-		// Closed by hand, or past its own deadline — decided here, against the clock, with no job
+		// Closed by hand, or past its own deadline - decided here, against the clock, with no job
 		// involved. A distinguishable 409, so a client can say "this poll has closed" rather than
 		// "something went wrong" (§17.5).
 		if (poll.IsClosed(now))
@@ -204,7 +204,7 @@ public sealed class ReactionController : ControllerBase
 			.ToListAsync(cancellationToken);
 
 		// The request is the full set the voter now holds, for both kinds. Single-select therefore
-		// replaces and multi-select toggles, without the endpoint needing two shapes — and an
+		// replaces and multi-select toggles, without the endpoint needing two shapes - and an
 		// empty list clears, which is the only way to un-vote.
 		foreach (PollVote vote in held.Where(vote => !chosen.Contains(vote.PollOptionId)))
 		{

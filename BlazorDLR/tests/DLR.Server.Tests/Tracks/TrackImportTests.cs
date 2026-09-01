@@ -25,7 +25,7 @@ public sealed class TrackImportTests(PostgresFixture postgres)
 	/// <summary>
 	/// Preview is <c>?dryRun=true</c> against this same endpoint, not server-side staging
 	/// (§15.3). Holding a parsed result between two calls would need its own storage, its own
-	/// expiry sweep and its own orphan cleanup — a whole mechanism to save re-uploading a file
+	/// expiry sweep and its own orphan cleanup - a whole mechanism to save re-uploading a file
 	/// capped at 25 MB.
 	/// </summary>
 	[Fact]
@@ -70,7 +70,7 @@ public sealed class TrackImportTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Duplicate <em>detection</em>, not prevention (§15.3). Re-importing on purpose is
-	/// legitimate — a second copy to edit differently — and doing it by accident is the common
+	/// legitimate - a second copy to edit differently - and doing it by accident is the common
 	/// case. A warning serves both; a refusal serves neither.
 	/// </summary>
 	[Fact]
@@ -87,7 +87,7 @@ public sealed class TrackImportTests(PostgresFixture postgres)
 
 		Guid originalId = first.Tracks[0].TrackId!.Value;
 
-		// A month later, which is the case the warning is written for — and long past the
+		// A month later, which is the case the warning is written for - and long past the
 		// fifteen-minute access token, so the rider signs in again exactly as they would have.
 		app.Clock.Advance(TimeSpan.FromDays(30));
 
@@ -104,7 +104,7 @@ public sealed class TrackImportTests(PostgresFixture postgres)
 			"'you imported this on 3 June' needs the date, not just the fact");
 
 		repeated.TrackId.ShouldNotBeNull();
-		repeated.TrackId.ShouldNotBe(originalId, "it proceeded — there are two tracks now");
+		repeated.TrackId.ShouldNotBe(originalId, "it proceeded - there are two tracks now");
 
 		(await app.WithDatabaseAsync(database => database.Set<Track>().CountAsync())).ShouldBe(2);
 	}
@@ -356,7 +356,7 @@ public sealed class TrackImportTests(PostgresFixture postgres)
 		return app.CreateClient().Authenticated(session);
 	}
 
-	/// <summary>A fresh token for an account that already exists — the password grant (§7.4).</summary>
+	/// <summary>A fresh token for an account that already exists - the password grant (§7.4).</summary>
 	private static async Task<HttpClient> SignedInAgainAsync(
 		DlrWebApplicationFactory app,
 		string userName)

@@ -21,7 +21,7 @@ namespace DLR.Server.Tests.Positions;
 /// </para>
 /// <para>
 /// So going private <em>deletes</em>, and says so. What these tests pin down is the pair: no
-/// position anywhere — cache, database or snapshot — and a member row that still exists and reads
+/// position anywhere - cache, database or snapshot - and a member row that still exists and reads
 /// "private", so the ride can tell "at home" from "in a tunnel" (§5.6's rule, applied to a third
 /// reason a pin can be missing).
 /// </para>
@@ -54,7 +54,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 			"a pin left where the rider stopped is what the private area exists to prevent.");
 
 		app.PositionCount().ShouldBe(0,
-			"the delete does not wait for a flush — the row is what a rider is asking you not to keep.");
+			"the delete does not wait for a flush - the row is what a rider is asking you not to keep.");
 
 		RideDetail seen = (await organiser.GetFromJsonAsync<RideDetail>($"{RidesUrl}/{ride.Id}"))!;
 		RideMemberSummary member = seen.Members.Single(row => row.UserName == "SamJones");
@@ -145,7 +145,7 @@ public sealed class PositionPrivacyTests(PostgresFixture postgres)
 	/// The whole trade v0.33 made, asserted so nobody can quietly undo it (§5.5, §10.1).
 	/// <para>
 	/// A position lives in <c>RiderPositionCache</c> and nowhere else, so a restart forgets every
-	/// pin — and there is nothing on disk for a backup, a restore or an operator with a database
+	/// pin - and there is nothing on disk for a backup, a restore or an operator with a database
 	/// client to find. This test fails the moment somebody reintroduces a write.
 	/// </para>
 	/// </summary>

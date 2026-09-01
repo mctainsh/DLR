@@ -2,8 +2,8 @@
 	Which edge the camera cutout is on, published to CSS as `data-notch` on <html>.
 
 	WHY THIS EXISTS. In landscape, iOS reports env(safe-area-inset-left) AND
-	env(safe-area-inset-right) as the same non-zero number — 44 pt on a notched iPhone,
-	more on a Dynamic Island one — whichever side the cutout is physically on. UIKit
+	env(safe-area-inset-right) as the same non-zero number - 44 pt on a notched iPhone,
+	more on a Dynamic Island one - whichever side the cutout is physically on. UIKit
 	mirrors the inset so that a layout does not jump when the phone is flipped end for
 	end. A layout that honours both therefore keeps the cutout's width of clearance on
 	the edge that has no cutout, which is the strip of dead rail that showed to the left
@@ -16,7 +16,7 @@
 	opposite signs for landscape on iOS, and picking the wrong one would put the icons
 	back under the cutout in exactly one of the two orientations. Per the Screen
 	Orientation spec the angle is counter-clockwise from the device's natural
-	orientation, so at 90° the natural top edge — the one the camera lives on — has
+	orientation, so at 90° the natural top edge - the one the camera lives on - has
 	swung round to the LEFT, and at 270° to the right.
 
 	No attribute at all when the angle is unreadable. That is deliberate: the CSS
@@ -53,7 +53,7 @@
 	function apply() {
 		var side = notchSide();
 
-		// Written only on a change — this runs on every resize event, and re-setting an
+		// Written only on a change - this runs on every resize event, and re-setting an
 		// attribute to the value it already holds still invalidates style.
 		if (side === null) {
 			root.removeAttribute("data-notch");

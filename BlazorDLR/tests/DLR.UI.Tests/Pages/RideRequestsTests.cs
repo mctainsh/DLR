@@ -10,7 +10,7 @@ namespace DLR.UI.Tests.Pages;
 
 /// <summary>
 /// §5.2's organiser panel: pending requests, admit / decline / decline-and-block.
-/// The three buttons must reach the API as three distinct decisions — a wrong wire
+/// The three buttons must reach the API as three distinct decisions - a wrong wire
 /// on decline-and-block is a case §7.7's reporting flow depends on.
 /// </summary>
 public sealed class RideRequestsTests : PageTestContext
@@ -67,7 +67,7 @@ public sealed class RideRequestsTests : PageTestContext
 		component.WaitForAssertion(() => api.DecideJoinRequests.Count.ShouldBe(1),
 			timeout: TimeSpan.FromSeconds(3));
 		(Guid ride, Guid requestId, DecideJoinRequest decision) = api.DecideJoinRequests[0];
-		ride.ShouldBe(rideId, "the adventure id must round-trip — a decision on the wrong adventure is a bug that would silently admit the wrong people.");
+		ride.ShouldBe(rideId, "the adventure id must round-trip - a decision on the wrong adventure is a bug that would silently admit the wrong people.");
 		requestId.ShouldBe(alice.Id);
 		decision.Admit.ShouldBeTrue();
 		decision.Block.ShouldBeFalse();
@@ -110,7 +110,7 @@ public sealed class RideRequestsTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("I ride Sunday with the same club", StringComparison.Ordinal).ShouldBeTrue(
-				"§5.2: the joiner's message is what the organiser reads before deciding — it must render.");
+				"§5.2: the joiner's message is what the organiser reads before deciding - it must render.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 }

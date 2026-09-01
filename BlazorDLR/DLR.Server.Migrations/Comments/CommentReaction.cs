@@ -22,7 +22,7 @@ public sealed class CommentReaction
 	/// <summary>
 	/// A key from the fixed set (§17.4).
 	/// <para>
-	/// Stored as a string, and stored even when this version does not know it — the same
+	/// Stored as a string, and stored even when this version does not know it - the same
 	/// forward-compatibility rule as marker icons (§16.2). A newer client's reaction renders as a
 	/// generic one on an older client rather than crashing it, and survives the round trip.
 	/// </para>

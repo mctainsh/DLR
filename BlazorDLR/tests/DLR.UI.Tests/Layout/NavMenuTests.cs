@@ -14,7 +14,7 @@ namespace DLR.UI.Tests.Layout;
 
 /// <summary>
 /// The one navigation surface both hosts share. §7.9 says the unauthenticated landing
-/// is Welcome — everything else redirects there — so the nav's job is to expose the
+/// is Welcome - everything else redirects there - so the nav's job is to expose the
 /// signed-in surface only when the user is signed in, and to expose Welcome when the
 /// user is not. Getting this wrong on either side would either give an anonymous
 /// caller broken links or hide the app from a signed-in one.
@@ -39,13 +39,13 @@ public sealed class NavMenuTests : BunitContext
 		Services.AddSingleton<AuthenticationStateProvider>(auth);
 		Services.AddRealAuthorizationPipeline();
 
-		// The globe's destination comes off the device store (§18.6) — the in-memory stand-in,
+		// The globe's destination comes off the device store (§18.6) - the in-memory stand-in,
 		// as everywhere else in these tests.
 		Services.AddSingleton<IDeviceSettings>(_settings);
 		Services.AddSingleton<CurrentRideState>();
 
 		// The thread item's unread count (§17.6), which the rail draws from posts arriving on the
-		// hub — so a nav rendered without one would not compile a badge at all.
+		// hub - so a nav rendered without one would not compile a badge at all.
 		Services.AddSingleton<IRideHubClient>(_hub);
 		Services.AddSingleton<UnreadThreadState>();
 
@@ -75,9 +75,9 @@ public sealed class NavMenuTests : BunitContext
 		component.WaitForAssertion(() =>
 		{
 			component.FindAll("a[href='welcome']").ShouldNotBeEmpty(
-				"§7.9: an anonymous nav must lead to Welcome — that is the only signed-out destination.");
+				"§7.9: an anonymous nav must lead to Welcome - that is the only signed-out destination.");
 			component.FindAll("a[href='settings']").Count.ShouldBe(0,
-				"§7.9: the signed-in surface must not appear on an anonymous nav — its links are dead until sign-in.");
+				"§7.9: the signed-in surface must not appear on an anonymous nav - its links are dead until sign-in.");
 			component.FindAll("a[href='group-rides']").Count.ShouldBe(0,
 				"the globe, the traveller list and the thread all fall back to the group adventures "
 				+ "list, so an anonymous rail must not carry that either.");
@@ -101,13 +101,13 @@ public sealed class NavMenuTests : BunitContext
 			foreach (AngleSharp.Dom.IElement link in links)
 			{
 				link.HasAttribute("aria-label").ShouldBeTrue(
-					"a font glyph has no accessible name of its own — the anchor must carry one.");
+					"a font glyph has no accessible name of its own - the anchor must carry one.");
 				link.HasAttribute("title").ShouldBeTrue(
 					"a mouse hover surfaces the destination name via the title attribute.");
 
 				AngleSharp.Dom.IElement glyph = link.QuerySelectorAll("i").ShouldHaveSingleItem();
 				glyph.ClassList.ShouldContain("fa",
-					"the rail is drawn with Font Awesome — `fa` is what resolves the family and the solid weight.");
+					"the rail is drawn with Font Awesome - `fa` is what resolves the family and the solid weight.");
 				glyph.ClassList.Any(name => name.StartsWith("fa-", StringComparison.Ordinal)
 					&& name != "fa-fw").ShouldBeTrue("each item names an actual icon, not just the fixed-width modifier.");
 				glyph.GetAttribute("aria-hidden").ShouldBe("true",
@@ -115,7 +115,7 @@ public sealed class NavMenuTests : BunitContext
 
 				link.TextContent.Trim().ShouldBeEmpty(
 					"the rail is glyph-only. Which is exactly why the two attributes above are not "
-					+ "optional — with no caption, they are the only name the destination has.");
+					+ "optional - with no caption, they are the only name the destination has.");
 			}
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -135,13 +135,13 @@ public sealed class NavMenuTests : BunitContext
 			component.FindAll("a[href='group-rides']").ShouldNotBeEmpty();
 			component.FindAll("a[href='settings']").ShouldNotBeEmpty();
 
-			// And the Welcome link is gone — a signed-in user has no reason for it.
+			// And the Welcome link is gone - a signed-in user has no reason for it.
 			component.FindAll("a[href='welcome']").Count.ShouldBe(0,
 				"§7.9: the Welcome link is the signed-out entry point and disappears once the user signs in.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
-	/// <summary>The globe, found by its glyph — one of the three rail items whose href moves.</summary>
+	/// <summary>The globe, found by its glyph - one of the three rail items whose href moves.</summary>
 	private static AngleSharp.Dom.IElement Globe(IRenderedComponent<NavMenu> component) =>
 		component.FindAll("a.rail-item").Single(link => link.QuerySelector("i.fa-globe") is not null);
 
@@ -157,7 +157,7 @@ public sealed class NavMenuTests : BunitContext
 	public async Task Members_OnADeviceWithNoRide_LeadsToTheGroupRidesList()
 	{
 		// There are no members to list until a ride has been opened, so the item falls back to
-		// where the globe does — and has to say so rather than promising a list and opening a
+		// where the globe does - and has to say so rather than promising a list and opening a
 		// chooser.
 		await SignInAsync();
 
@@ -196,7 +196,7 @@ public sealed class NavMenuTests : BunitContext
 	{
 		// Nothing written to the device store: the rider has not opened a ride on this device, so
 		// the one destination that makes sense is the list they pick one from. An item that led
-		// nowhere — or was absent until a ride existed — would be a rail that changes shape.
+		// nowhere - or was absent until a ride existed - would be a rail that changes shape.
 		await SignInAsync();
 
 		IRenderedComponent<NavMenu> component = Render<NavMenu>();
@@ -253,7 +253,7 @@ public sealed class NavMenuTests : BunitContext
 	public async Task Thread_OnADeviceWithNoRide_LeadsToTheGroupRidesList()
 	{
 		// No adventure means no conversation about one, so the item falls back where the globe and
-		// the traveller list do — and says so, rather than promising a thread and opening a chooser.
+		// the traveller list do - and says so, rather than promising a thread and opening a chooser.
 		await SignInAsync();
 
 		IRenderedComponent<NavMenu> component = Render<NavMenu>();
@@ -292,7 +292,7 @@ public sealed class NavMenuTests : BunitContext
 	[Fact]
 	public async Task Thread_WhenAPostArrives_WearsTheCount_AndSaysItInTheName()
 	{
-		// The rail is on screen and the thread is not — a rider on the live map, which is where
+		// The rail is on screen and the thread is not - a rider on the live map, which is where
 		// they are for most of a ride. Nothing else on any screen says the group is talking.
 		Guid rideId = Guid.NewGuid();
 		await _settings.SetAsync(CurrentRideState.StorageKey, rideId.ToString("N"));
@@ -311,7 +311,7 @@ public sealed class NavMenuTests : BunitContext
 			thread.QuerySelector(".count-badge").ShouldNotBeNull().TextContent.Trim().ShouldBe("2");
 
 			// The rail is glyph-only, so the anchor's name is the whole of what a screen reader
-			// gets — and a link's name replaces anything inside it, badge included.
+			// gets - and a link's name replaces anything inside it, badge included.
 			thread.GetAttribute("aria-label").ShouldBe("Adventure thread, 2 unread");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
@@ -359,7 +359,7 @@ public sealed class NavMenuTests : BunitContext
 	{
 		// Order is the whole of the placement rule: last child is the foot of the left rail and the
 		// far right of the bar along the bottom, which is the corner a thumb reaches without leaving
-		// the bars. Nothing in the CSS moves it — see MainLayout.razor.css.
+		// the bars. Nothing in the CSS moves it - see MainLayout.razor.css.
 		await SignInAsync();
 		Services.AddSingleton<ILocationProvider>(new FakeLocationProvider());
 		Services.AddSingleton<ConfirmService>();
@@ -378,7 +378,7 @@ public sealed class NavMenuTests : BunitContext
 				items.Length.ShouldBe(6, "the five destinations, and the switch after them.");
 				items[^1].ClassList.ShouldContain("gps-switch");
 				items[^1].TagName.ShouldBe("BUTTON",
-					"it does something rather than going somewhere — which is also why the rail still has five links.");
+					"it does something rather than going somewhere - which is also why the rail still has five links.");
 			},
 			timeout: TimeSpan.FromSeconds(3));
 	}

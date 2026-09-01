@@ -4,7 +4,7 @@ namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
 /// An <see cref="IScreenWakeLock"/> that counts holders instead of touching a window. Mirrors the
-/// mobile binding's reference counting, because that is the behaviour a page has to get right —
+/// mobile binding's reference counting, because that is the behaviour a page has to get right -
 /// leaving the live map and coming back must not strand the screen either way.
 /// </summary>
 public sealed class FakeScreenWakeLock : IScreenWakeLock
@@ -12,7 +12,7 @@ public sealed class FakeScreenWakeLock : IScreenWakeLock
 	/// <summary>Whether this host can hold its screen on. Settable, so a test can play the browser (§18.6).</summary>
 	public bool IsSupported { get; set; } = true;
 
-	/// <summary>How many holders there currently are — zero means the screen is the rider's again.</summary>
+	/// <summary>How many holders there currently are - zero means the screen is the rider's again.</summary>
 	public int Holders { get; private set; }
 
 	/// <summary>Whether the screen is being held right now.</summary>

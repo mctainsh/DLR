@@ -17,7 +17,7 @@ namespace DLR.Server.Tests.Rides;
 /// <summary>
 /// Deleting an adventure (§5.2).
 /// <para>
-/// <strong>Delete is not End.</strong> §5.6's End stops the location sharing and keeps the day —
+/// <strong>Delete is not End.</strong> §5.6's End stops the location sharing and keeps the day -
 /// the thread, the markers, who was there. This takes all of it, for every member and not only
 /// for the organiser, which is why the two rules below are the ones worth holding: only the
 /// organiser may do it, and not while the adventure is running.
@@ -34,7 +34,7 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 	private const string TracksUrl = "/api/v1/tracks";
 
 	/// <summary>
-	/// The whole delete, in one statement, reaching everything that hangs off the ride — and
+	/// The whole delete, in one statement, reaching everything that hangs off the ride - and
 	/// stopping exactly at the track, which is the organiser's and was only ever borrowed.
 	/// </summary>
 	[Fact]
@@ -59,7 +59,7 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 			.ShouldBe(0, "the ride itself is gone");
 
 		(await app.WithDatabaseAsync(database => database.Set<GroupRideMember>().CountAsync(row => row.GroupRideId == ride.Id)))
-			.ShouldBe(0, "the members cascade — both of them, not only the organiser");
+			.ShouldBe(0, "the members cascade - both of them, not only the organiser");
 
 		(await app.WithDatabaseAsync(database => database.Set<GroupRideRoute>().CountAsync(row => row.GroupRideId == ride.Id)))
 			.ShouldBe(0, "the route attachments cascade");
@@ -68,7 +68,7 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 		// a delete that took the organiser's own route with it would be a data loss nobody asked
 		// for and no screen warned about.
 		(await app.WithDatabaseAsync(database => database.Set<Track>().CountAsync(row => row.Id == track.Id)))
-			.ShouldBe(1, "the organiser's track is theirs — attaching it was never a transfer");
+			.ShouldBe(1, "the organiser's track is theirs - attaching it was never a transfer");
 	}
 
 	/// <summary>
@@ -97,7 +97,7 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A member is not an organiser, and the answer is 404 rather than 403 — a ride id is
+	/// A member is not an organiser, and the answer is 404 rather than 403 - a ride id is
 	/// shareable (§5.2), so an answer that confirmed the ride existed would be a probe.
 	/// </summary>
 	[Fact]
@@ -136,7 +136,7 @@ public sealed class RideDeleteTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The second press. It answers 404 rather than 204 for the same reason the stranger does —
+	/// The second press. It answers 404 rather than 204 for the same reason the stranger does -
 	/// a 204 to any id at all would make this endpoint a way to ask whether a ride exists.
 	/// </summary>
 	[Fact]

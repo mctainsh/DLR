@@ -144,7 +144,7 @@ public sealed class SessionTests(PostgresFixture postgres)
 
 		afterRefresh.ShouldBe(DlrWebApplicationFactory.DefaultStart.AddDays(3));
 
-		// The device row moves with it — the session list reads that one, not the account's.
+		// The device row moves with it - the session list reads that one, not the account's.
 		Device device = await app.WithDatabaseAsync(async database =>
 			await database.Set<Device>().SingleAsync(row => row.Id == DeviceIdOf(session)));
 
@@ -179,7 +179,7 @@ public sealed class SessionTests(PostgresFixture postgres)
 		(await LastActiveAsync(app, session.User.Id)).ShouldBe(recorded,
 			"a second launch twenty minutes later must not cost a write");
 
-		// And once the window has passed, it moves again — the throttle is a delay, not a stop.
+		// And once the window has passed, it moves again - the throttle is a delay, not a stop.
 		app.Clock.Advance(TimeSpan.FromMinutes(41));
 
 		await RefreshAsync(client, third.RefreshToken);
@@ -188,7 +188,7 @@ public sealed class SessionTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A sign-in from a device the account has not seen before is worth an email — and cannot
+	/// A sign-in from a device the account has not seen before is worth an email - and cannot
 	/// be sent when there is no address, which is another line in §7.2's trade-off.
 	/// </summary>
 	[Fact]
@@ -277,7 +277,7 @@ public sealed class SessionTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The id is in the <c>dev</c> claim either way, but a client should not have to read its own
-	/// JWT to find out what to send back — so the body says it too, on every grant.
+	/// JWT to find out what to send back - so the body says it too, on every grant.
 	/// </summary>
 	[Fact]
 	public async Task EverySession_SaysWhichDeviceItBelongsTo()

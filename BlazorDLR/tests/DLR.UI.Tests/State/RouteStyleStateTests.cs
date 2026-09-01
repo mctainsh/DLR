@@ -8,7 +8,7 @@ namespace DLR.UI.Tests.State;
 /// The in-memory half of the route-style preference (§18.6): what the map reads on every
 /// repaint, and the broadcast that tells it to repaint at all.
 /// <para>
-/// The persistence itself is a one-line call into whichever platform store the host bound —
+/// The persistence itself is a one-line call into whichever platform store the host bound -
 /// what is worth testing is the behaviour around it: that the read happens once, that a change
 /// reaches the canvas without waiting on a JS round trip, and that "reset" forgets rather than
 /// pins today's defaults.
@@ -67,7 +67,7 @@ public sealed class RouteStyleStateTests
 		await state.LoadAsync();
 		await state.LoadAsync();
 
-		// Three keys — the style, the per-route colours and the reversed routes — read once
+		// Three keys - the style, the per-route colours and the reversed routes - read once
 		// between them, not once per caller. On the web each of these is a JS interop round trip.
 		settings.Reads.ShouldBe(3);
 		state.Style.LineWidthPx.ShouldBe(9);
@@ -144,7 +144,7 @@ public sealed class RouteStyleStateTests
 		await state.SetAsync(RouteStyle.Default with { FillColour = "#000000" });
 		await state.SetRouteColourAsync(pinned, "#ff8800");
 
-		// If the blanket colour won, the per-route picker would silently do nothing — which is
+		// If the blanket colour won, the per-route picker would silently do nothing - which is
 		// the one ordering that makes the pair of controls unusable.
 		state.ColourFor(pinned, "#16a34a").ShouldBe("#ff8800");
 		state.ColourFor(plain, "#16a34a").ShouldBe("#000000");
@@ -208,7 +208,7 @@ public sealed class RouteStyleStateTests
 
 		state.Style.LineWidthPx.ShouldBe(9);
 		state.ColourFor(trackId, "#16a34a").ShouldBe("#ff8800");
-		changes.ShouldBe(1, "two reads, one repaint — the canvas draws from whatever is in memory when it runs.");
+		changes.ShouldBe(1, "two reads, one repaint - the canvas draws from whatever is in memory when it runs.");
 	}
 
 	// -- Reversed routes (§5.4) ---------------------------------------------------------------
@@ -222,7 +222,7 @@ public sealed class RouteStyleStateTests
 		// never touched the control: a track is drawn the way its GPX recorded it.
 		state.IsReversed(Guid.NewGuid()).ShouldBeFalse();
 
-		// A line that is not a saved track — the editor's working copy — cannot be reversed and
+		// A line that is not a saved track - the editor's working copy - cannot be reversed and
 		// must not throw for asking.
 		state.IsReversed(null).ShouldBeFalse();
 	}
@@ -237,7 +237,7 @@ public sealed class RouteStyleStateTests
 		await state.SetReversedAsync(trackId, true);
 		state.IsReversed(trackId).ShouldBeTrue();
 
-		// The direction belongs to the track, so it is still reversed after a relaunch — and on
+		// The direction belongs to the track, so it is still reversed after a relaunch - and on
 		// the next ride the same GPX is attached to.
 		RouteStyleState reopened = new(settings);
 		await reopened.LoadAsync();
@@ -281,8 +281,8 @@ public sealed class RouteStyleStateTests
 		await state.SetReversedAsync(trackId, true);
 		await state.SetReversedAsync(Guid.NewGuid(), false);
 
-		// Every Changed is a full Skia repaint of whatever maps are on screen — see
-		// SkiaMapOverlay.OnRouteStyleChanged — and neither call changes a frame.
+		// Every Changed is a full Skia repaint of whatever maps are on screen - see
+		// SkiaMapOverlay.OnRouteStyleChanged - and neither call changes a frame.
 		changes.ShouldBe(0);
 	}
 

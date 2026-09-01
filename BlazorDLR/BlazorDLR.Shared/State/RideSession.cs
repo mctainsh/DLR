@@ -12,7 +12,7 @@ namespace BlazorDLR.Shared.State;
 /// The live-ride map and the ride's info page are two views of the same thing: the same
 /// snapshot, the same hub deltas on top, the same organiser actions. Both used to be one
 /// component; splitting the screen in two meant either duplicating ~200 lines of hub
-/// wiring or lifting it here. This is that lift — the pages below it hold layout and
+/// wiring or lifting it here. This is that lift - the pages below it hold layout and
 /// nothing else.
 /// </para>
 /// <para>
@@ -51,14 +51,14 @@ public sealed class RideSession : IAsyncDisposable
 	/// pin never moves, and a receiver left running for a ride nobody is sharing with is a
 	/// foreground service and a battery bill for nothing. This is the one place both the toggle and
 	/// the load of an already-sharing ride pass through, so it is the one place they are kept in
-	/// step — rather than each of the two pages remembering to do it.
+	/// step - rather than each of the two pages remembering to do it.
 	/// </para>
 	/// <para>
 	/// <strong>Null on the browser hosts, and that is the shipping arrangement rather than a
 	/// concession.</strong> They register no receiver at all (§18.6), so the ride screens resolve
 	/// one with <c>GetService</c>, hand whatever they get to this, and hide their sharing controls
-	/// when it is null. Everything below this parameter — the snapshot, the hub, the markers, the
-	/// members, the positions of everybody else — is unaffected: receiving was never a GPS
+	/// when it is null. Everything below this parameter - the snapshot, the hub, the markers, the
+	/// members, the positions of everybody else - is unaffected: receiving was never a GPS
 	/// concern. Also optional so a test that only cares about markers or members can leave it out.
 	/// </para>
 	/// </param>
@@ -66,7 +66,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// This device's copy of the ride (§4.4), or <c>null</c> for a caller that keeps none.
 	/// <para>
 	/// A successful load writes through it, and a load that could not reach the server reads back
-	/// from it — see <see cref="LoadAsync"/>. Optional for the same reason
+	/// from it - see <see cref="LoadAsync"/>. Optional for the same reason
 	/// <paramref name="broadcast"/> is, and null on the browser hosts in all but name: the store
 	/// behind it answers "nothing" there (§18.6).
 	/// </para>
@@ -100,13 +100,13 @@ public sealed class RideSession : IAsyncDisposable
 	public string? Error { get; private set; }
 
 	/// <summary>
-	/// Whether the last load was told this ride is not there for this rider — it was deleted, or
+	/// Whether the last load was told this ride is not there for this rider - it was deleted, or
 	/// they are no longer a member of it (§5.2).
 	/// <para>
 	/// <strong>Not the same as <see cref="Error"/> being set.</strong> A tunnel, a dead Wi-Fi
 	/// captive portal and a server restart all set an error too, and none of them is a reason to
-	/// act as though the ride is gone. Only the server saying so — a 404, which is also the answer
-	/// a non-member gets so that a ride id cannot be probed for existence, or a 403 — sets this.
+	/// act as though the ride is gone. Only the server saying so - a 404, which is also the answer
+	/// a non-member gets so that a ride id cannot be probed for existence, or a 403 - sets this.
 	/// </para>
 	/// <para>
 	/// What acts on it is <c>CurrentRideState</c>: the rail's globe must not keep leading back to a
@@ -117,7 +117,7 @@ public sealed class RideSession : IAsyncDisposable
 
 	/// <summary>
 	/// Whether what is on screen came out of this device's own copy rather than off the wire
-	/// (§4.4) — the server could not be reached, and the last snapshot it gave us was drawn
+	/// (§4.4) - the server could not be reached, and the last snapshot it gave us was drawn
 	/// instead.
 	/// <para>
 	/// <strong>Screens must say so.</strong> A map of where everybody was twenty minutes ago is
@@ -127,7 +127,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// </para>
 	/// <para>
 	/// Cleared by the next load that reaches the server. Note that a hub that comes up while this
-	/// is set will start moving pins around underneath it — that is a good thing, and it is why
+	/// is set will start moving pins around underneath it - that is a good thing, and it is why
 	/// <see cref="CachedUtc"/> is stated as an age rather than the whole screen being labelled
 	/// stale.
 	/// </para>
@@ -140,7 +140,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// </summary>
 	public DateTimeOffset? CachedUtc { get; private set; }
 
-	/// <summary>Whether a mutating call is in flight — the caller's cue to disable its controls.</summary>
+	/// <summary>Whether a mutating call is in flight - the caller's cue to disable its controls.</summary>
 	public bool Busy { get; private set; }
 
 	/// <summary>Every sharing member's latest fix, keyed by user (§5.3).</summary>
@@ -159,7 +159,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// The points §5.4's gap list projects riders against, or null when the ride has no routes.
 	/// <para>
 	/// <strong>The first route, when there are several.</strong> "Distance along the route" needs
-	/// one line to be along, and the oldest attachment is the stable choice — it does not move when
+	/// one line to be along, and the oldest attachment is the stable choice - it does not move when
 	/// the organiser adds the long option the night before, so nobody's place in the list changes
 	/// because somebody else attached a file.
 	/// </para>
@@ -173,15 +173,15 @@ public sealed class RideSession : IAsyncDisposable
 	public bool IsOrganiser => Ride?.IsOrganiser == true;
 
 	/// <summary>
-	/// How many join requests are waiting on a decision (§5.2) — the number both ride screens
+	/// How many join requests are waiting on a decision (§5.2) - the number both ride screens
 	/// draw in the badge beside "Join requests".
 	/// <para>
 	/// Zero for anybody who is not the organiser, and zero until the snapshot lands: only the
 	/// organiser may list them, so counting on a member's behalf would be a call that 403s.
 	/// </para>
 	/// <para>
-	/// Counted here rather than by each screen because both of them draw it — the info page
-	/// beside the link that opens the list, the live map on its hamburger — and two screens
+	/// Counted here rather than by each screen because both of them draw it - the info page
+	/// beside the link that opens the list, the live map on its hamburger - and two screens
 	/// counting the same thing separately is how they come to disagree.
 	/// </para>
 	/// </summary>
@@ -191,7 +191,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// Who may attach or detach a planned route: the organiser, or a leader (§5.4).
 	/// <para>
 	/// Mirrors <c>RideRouteController.AuthoriseWriteAsync</c> so the controls are simply absent
-	/// rather than there and 403-ing — the same arrangement as <see cref="CanDelete"/>, and for
+	/// rather than there and 403-ing - the same arrangement as <see cref="CanDelete"/>, and for
 	/// the same reason: the server stays the one that decides either way.
 	/// </para>
 	/// </summary>
@@ -206,7 +206,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// One member of the ride, or null for a user id the snapshot does not know about.
 	/// <para>
 	/// The live map asks this per rider per repaint, for the name and the colour their marker is
-	/// drawn in (§16.3) — neither of which travels with a position fix. A scan rather than an
+	/// drawn in (§16.3) - neither of which travels with a position fix. A scan rather than an
 	/// index: a ride is capped at fifty members, and an index would be a second copy of the member
 	/// list to keep in step with every join, departure and sharing change on the hub.
 	/// </para>
@@ -219,7 +219,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// <summary>
 	/// Who may remove a marker: the rider who placed it, or the ride's organiser (§16.5).
 	/// Mirrors <c>MarkerController.CanWriteAsync</c> so the button is simply absent rather than
-	/// there and 403-ing — the server stays the one that decides either way.
+	/// there and 403-ing - the server stays the one that decides either way.
 	/// </summary>
 	public bool CanDelete(MarkerDto marker) =>
 		marker.CreatedByUserId == _auth.UserId || IsOrganiser;
@@ -233,10 +233,10 @@ public sealed class RideSession : IAsyncDisposable
 
 	/// <summary>
 	/// Fetches the snapshot for <paramref name="rideId"/> and joins its hub group. Safe to call
-	/// again for a different ride — the previous ride's group is left first.
+	/// again for a different ride - the previous ride's group is left first.
 	/// <para>
 	/// A load that succeeds writes what it got to this device (§4.4); a load that could not reach
-	/// the server reads it back — see <see cref="LoadFromCacheAsync"/>. The two failure modes are
+	/// the server reads it back - see <see cref="LoadFromCacheAsync"/>. The two failure modes are
 	/// kept strictly apart: the server <em>saying</em> the ride is not there is never answered
 	/// from a cache, because the copy would be of a ride this rider is no longer on.
 	/// </para>
@@ -266,12 +266,12 @@ public sealed class RideSession : IAsyncDisposable
 
 			// The server is authoritative about sharing, so this is where a relaunched app learns
 			// that its receiver should be on: the flag survived the process, the GPS did not. It is
-			// also why the globe (§18.6) matters — opening the ride is what gets the rider back on
+			// also why the globe (§18.6) matters - opening the ride is what gets the rider back on
 			// the map after the OS reclaimed the app mid-ride.
 			//
 			// Started, not awaited. Bringing a receiver up can put a modal on screen (the
 			// background-location disclosure) and can wait on a platform permission dialog, and
-			// neither is something a ride's snapshot should be held behind — the map has landed and
+			// neither is something a ride's snapshot should be held behind - the map has landed and
 			// belongs on screen. The receiver reports its own progress through
 			// LocationBroadcastState, which is what the ride screens render.
 			if (Sharing)
@@ -290,19 +290,19 @@ public sealed class RideSession : IAsyncDisposable
 				_markers[marker.Id] = marker;
 			}
 
-			// The ride-scoped route endpoint, not GET /tracks/{id} — that one is owner-scoped and
+			// The ride-scoped route endpoint, not GET /tracks/{id} - that one is owner-scoped and
 			// answers 404 to every member but the organiser (§15.4). Fetched here rather than
 			// waiting for a hub event, so a ride opened with the hub unreachable still draws its
 			// routes: §5.3's rule is that the snapshot is authoritative and the hub is the delta.
 			ApplyRoutes(await _api.ListRideRoutesAsync(rideId));
 
-			// Last of the load, and the only call here that is allowed to fail quietly — see
+			// Last of the load, and the only call here that is allowed to fail quietly - see
 			// RefreshJoinRequestsAsync. The four above are the ride; this one is a badge on it.
 			await RefreshJoinRequestsAsync();
 
 			// Everything landed, so this is a whole ride and worth keeping. After the four calls
 			// and before the hub, so the copy is exactly what the server said and carries none of
-			// the deltas that arrive on top of it — §5.3's rule, applied to storage: the snapshot
+			// the deltas that arrive on top of it - §5.3's rule, applied to storage: the snapshot
 			// is authoritative, and a snapshot with a few minutes of hub events folded into it is
 			// no longer a snapshot of anything the server would agree with.
 			//
@@ -335,8 +335,8 @@ public sealed class RideSession : IAsyncDisposable
 
 			// The snapshot is the only call whose failure says anything about whether the ride is
 			// still the caller's. The three that follow it are about parts of a ride we have
-			// already been handed — a 404 from the marker list is a missing endpoint, not a
-			// missing ride — but they cannot 404 for a member anyway, and the first call is the
+			// already been handed - a 404 from the marker list is a missing endpoint, not a
+			// missing ride - but they cannot 404 for a member anyway, and the first call is the
 			// one that fails when the ride is gone.
 			RideUnavailable = apiException.Error.StatusCode
 				is HttpStatusCode.NotFound or HttpStatusCode.Forbidden or HttpStatusCode.Gone;
@@ -344,7 +344,7 @@ public sealed class RideSession : IAsyncDisposable
 			if (RideUnavailable)
 			{
 				// The ride is gone, or this rider is not on it. The stored copy describes a ride
-				// they may not look at any more, so it goes with the membership — the alternative
+				// they may not look at any more, so it goes with the membership - the alternative
 				// is a removed rider still opening the map from a cache, which is the one thing a
 				// removal has to be able to stop.
 				await ForgetCacheAsync(rideId);
@@ -361,7 +361,7 @@ public sealed class RideSession : IAsyncDisposable
 		}
 		catch (Exception exception)
 		{
-			// A transport failure — no status, no statement from the server. It stays an error and
+			// A transport failure - no status, no statement from the server. It stays an error and
 			// nothing more: a ride must never be forgotten because a phone went through a tunnel.
 			Error = exception.Message;
 
@@ -378,18 +378,18 @@ public sealed class RideSession : IAsyncDisposable
 	/// Draws this ride out of the device's own copy, when the server could not be reached (§4.4).
 	/// <para>
 	/// Called from both failure paths above, and does nothing at all on a host with no store or a
-	/// ride this device has never held — which leaves the stated error exactly as it was, because
+	/// ride this device has never held - which leaves the stated error exactly as it was, because
 	/// "the request failed" is still the whole truth there.
 	/// </para>
 	/// <para>
 	/// <strong>The hub is deliberately not attempted.</strong> Reaching here means the network is
 	/// not answering, and a SignalR connect against a dead link spends its whole timeout budget
-	/// before failing — with the map, which is already fully drawable, held behind it. A rider who
+	/// before failing - with the map, which is already fully drawable, held behind it. A rider who
 	/// gets signal back re-opens the ride and takes the live path.
 	/// </para>
 	/// <para>
 	/// <strong>The receiver still comes up.</strong> A phone with no signal still has a GPS, and
-	/// the rider's own mark is drawn from the device's fix rather than the ride's copy of it — so
+	/// the rider's own mark is drawn from the device's fix rather than the ride's copy of it - so
 	/// following themselves along a cached route is exactly what still works out here. The
 	/// publishes fail and <c>LocationBroadcastState</c> says so, which is the honest report.
 	/// </para>
@@ -414,7 +414,7 @@ public sealed class RideSession : IAsyncDisposable
 		CachedUtc = snapshot.CachedUtc;
 
 		// The error the caller stated is replaced rather than kept beside this. A screen showing a
-		// ride does not also need a transport exception's wording over the top of it — being on a
+		// ride does not also need a transport exception's wording over the top of it - being on a
 		// cached copy is the fact that matters, and LoadedFromCache is how the screen says it.
 		Error = null;
 
@@ -454,7 +454,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// with it (§5.7).
 	/// <para>
 	/// The server first, the GPS second. The flag is what decides whether a fix is copied into this
-	/// ride at all, so a receiver started before it was set would publish fixes the server drops —
+	/// ride at all, so a receiver started before it was set would publish fixes the server drops -
 	/// and, worse on the way out, a receiver stopped before the flag was cleared would leave the
 	/// rider's last position sitting on everyone's map with nothing arriving to move it.
 	/// </para>
@@ -468,7 +468,7 @@ public sealed class RideSession : IAsyncDisposable
 
 			if (share)
 			{
-				// Not awaited — see LoadAsync. The switch has already done its job; leaving it
+				// Not awaited - see LoadAsync. The switch has already done its job; leaving it
 				// spinning while a permission dialog is up would disable the screen behind it.
 				StartBroadcast(_rideId);
 			}
@@ -504,7 +504,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// Organiser or leader: attaches one of their own tracks as a planned route (§5.4).
 	/// <para>
 	/// The server broadcasts <c>RideRoutesChanged</c> and <see cref="OnRoutesChanged"/> would
-	/// refetch — but only for a client whose hub connection came up, so the caller applies the
+	/// refetch - but only for a client whose hub connection came up, so the caller applies the
 	/// answer it was given. Both paths end at the same list.
 	/// </para>
 	/// </summary>
@@ -517,7 +517,7 @@ public sealed class RideSession : IAsyncDisposable
 		});
 
 	/// <summary>
-	/// Organiser or leader: detaches a planned route (§5.4). The track itself is untouched — this
+	/// Organiser or leader: detaches a planned route (§5.4). The track itself is untouched - this
 	/// removes it from the ride, not from the owner's library.
 	/// </summary>
 	/// <param name="trackId">Which route.</param>
@@ -540,8 +540,8 @@ public sealed class RideSession : IAsyncDisposable
 	/// Answers whether it worked, unlike the other actions here, because the caller has a
 	/// navigation to decide on: leaving means the ride's screens are no longer the caller's to
 	/// show, and a failed leave must leave them exactly where they were with the server's
-	/// sentence on screen. The organiser is the case that matters — the server answers 409 rather
-	/// than dissolving a ride nobody runs — though the control is not offered to them (§5.2).
+	/// sentence on screen. The organiser is the case that matters - the server answers 409 rather
+	/// than dissolving a ride nobody runs - though the control is not offered to them (§5.2).
 	/// </para>
 	/// </summary>
 	/// <returns>True when the server accepted it.</returns>
@@ -554,7 +554,7 @@ public sealed class RideSession : IAsyncDisposable
 			await _api.LeaveRideAsync(_rideId);
 
 			// This rider is no longer a member, so the ride's screens must stop claiming to be
-			// showing one — the same state a load that 404s leaves behind, and what tells the
+			// showing one - the same state a load that 404s leaves behind, and what tells the
 			// caller's CurrentRideState to forget it.
 			RideUnavailable = true;
 
@@ -563,7 +563,7 @@ public sealed class RideSession : IAsyncDisposable
 			await ForgetCacheAsync(_rideId);
 
 			// And the receiver stops caring about this ride. It keeps running if another ride is
-			// still being shared with — see LocationBroadcastState.StopSharingAsync.
+			// still being shared with - see LocationBroadcastState.StopSharingAsync.
 			if (_broadcast is not null)
 			{
 				await _broadcast.StopSharingAsync(_rideId);
@@ -585,7 +585,7 @@ public sealed class RideSession : IAsyncDisposable
 
 	/// <summary>
 	/// Removes a marker. The server broadcasts MarkerRemoved to the ride group and
-	/// <see cref="OnMarkerRemoved"/> would do exactly this — but only for a client whose hub
+	/// <see cref="OnMarkerRemoved"/> would do exactly this - but only for a client whose hub
 	/// connection came up, so the caller drops its own copy too. Both paths are one dictionary
 	/// remove and are happy to run one after the other.
 	/// </summary>
@@ -605,7 +605,7 @@ public sealed class RideSession : IAsyncDisposable
 	}
 
 	/// <summary>
-	/// Re-counts the waiting join requests. Does nothing for a member — only the organiser may
+	/// Re-counts the waiting join requests. Does nothing for a member - only the organiser may
 	/// list them, and the endpoint says so with a 403.
 	/// <para>
 	/// Swallows its own failures. This is a badge on two screens: a ride whose snapshot landed
@@ -628,7 +628,7 @@ public sealed class RideSession : IAsyncDisposable
 		}
 		catch
 		{
-			// See the summary — no badge beats no ride.
+			// See the summary - no badge beats no ride.
 		}
 	}
 
@@ -673,7 +673,7 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MemberSharingChanged += OnMemberSharing;
 		_hub.MemberPrivacyChanged += OnMemberPrivacy;
 		_hub.MarkerAdded += OnMarkerUpserted;
-		_hub.MarkerUpdated += OnMarkerUpserted; // same treatment — upsert
+		_hub.MarkerUpdated += OnMarkerUpserted; // same treatment - upsert
 		_hub.MarkerRemoved += OnMarkerRemoved;
 		_hub.RoutesChanged += OnRoutesChanged;
 		_hub.PermissionsChanged += OnPermissionsChanged;
@@ -718,8 +718,8 @@ public sealed class RideSession : IAsyncDisposable
 	/// Somebody is now on the ride (§5.2, §5.3).
 	/// <para>
 	/// An upsert rather than an append, on the same reasoning as the markers above. The ordinary
-	/// case is a name this list has never held — the snapshot is fetched before the hub group is
-	/// joined, so a rider who arrives in that window is missed rather than duplicated — but a
+	/// case is a name this list has never held - the snapshot is fetched before the hub group is
+	/// joined, so a rider who arrives in that window is missed rather than duplicated - but a
 	/// reconnect replays nothing and guarantees nothing (§5.3), and a member list that can show
 	/// the same person twice is a worse failure than one that is briefly a row short.
 	/// </para>
@@ -740,7 +740,7 @@ public sealed class RideSession : IAsyncDisposable
 
 		if (userId == _auth.UserId)
 		{
-			// The member who left is the one reading the screen — an organiser removed them (§5.2).
+			// The member who left is the one reading the screen - an organiser removed them (§5.2).
 			// The snapshot on screen describes a ride that is no longer theirs, and everything on
 			// it is about to start answering 404, so the ride goes rather than being left as a
 			// facsimile they can still tap around in.
@@ -755,7 +755,7 @@ public sealed class RideSession : IAsyncDisposable
 			_markers.Clear();
 
 			// Nothing this device sends would be copied into this ride any more, so the receiver
-			// stops running for it — a removed rider must not go on paying battery for a ride they
+			// stops running for it - a removed rider must not go on paying battery for a ride they
 			// are not on.
 			Sharing = false;
 			_ = _broadcast?.StopSharingAsync(_rideId);
@@ -798,7 +798,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// <para>
 	/// The position goes with the flag, and it goes on the client as well as on the server. The
 	/// server has already deleted it, but the batch that arrives is only ever the riders it
-	/// <em>has</em> a fix for — nothing in it says "and this one is gone" — so a client that only
+	/// <em>has</em> a fix for - nothing in it says "and this one is gone" - so a client that only
 	/// took the flag would keep drawing the last pin before the driveway until the ride ended. That
 	/// pin, stopped, a few streets from somebody's house, is a better clue to where they live than
 	/// most of what the private area withholds.
@@ -855,7 +855,7 @@ public sealed class RideSession : IAsyncDisposable
 		{
 			// Routes the client cannot fetch leave the ones it already had on screen. Dropping
 			// them would blank the map because a single request failed, and the next change to
-			// the set — or the next load of the ride — refetches anyway.
+			// the set - or the next load of the ride - refetches anyway.
 		}
 
 		Raise();
@@ -865,7 +865,7 @@ public sealed class RideSession : IAsyncDisposable
 	/// Takes a fetched route list and derives what §5.4 projects riders against.
 	/// <para>
 	/// The lines arrive encoded (§15.5) and are decoded through <see cref="PolylineCodec"/>,
-	/// which is the encoder the server used — a second decoder is how a Sydney ride ended up
+	/// which is the encoder the server used - a second decoder is how a Sydney ride ended up
 	/// drawn off the Gulf of Guinea once already.
 	/// </para>
 	/// </summary>
@@ -875,7 +875,7 @@ public sealed class RideSession : IAsyncDisposable
 
 		// The first route, and only the first. "Distance along the route" needs one line to be
 		// along; the oldest attachment is the one that does not move when the organiser adds
-		// another option. A simplified line is fine here — GapCalculator's error against it is
+		// another option. A simplified line is fine here - GapCalculator's error against it is
 		// bounded by the simplifier's tolerance (§15.5), well below the off-route threshold.
 		RoutePolyline = routes.Count == 0
 			? null
@@ -904,7 +904,7 @@ public sealed class RideSession : IAsyncDisposable
 	}
 
 	/// <summary>
-	/// A request was admitted or declined — on the requests page, or on a co-organiser's
+	/// A request was admitted or declined - on the requests page, or on a co-organiser's
 	/// device. Either way one fewer is waiting.
 	/// <para>
 	/// Clamped at zero rather than trusted: this is a delta on a count that a reconnect can
@@ -922,7 +922,7 @@ public sealed class RideSession : IAsyncDisposable
 
 	/// <summary>
 	/// The asker changed their mind before anybody answered (§5.2). One fewer waiting, exactly as
-	/// a decision is — the count does not care which of the two took the request away, and the
+	/// a decision is - the count does not care which of the two took the request away, and the
 	/// same clamp applies for the same reason.
 	/// </summary>
 	private void OnJoinRequestWithdrawn(Guid rideId, Guid requestId)

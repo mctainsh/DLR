@@ -4,7 +4,7 @@ namespace DLR.Server.Maintenance;
 /// The brakes on the one destructive timer in the project (§7.11).
 /// <para>
 /// Every other background service in this codebase either writes rows or stops a broadcast. This
-/// one deletes accounts, and it runs while nobody is watching — so the defaults here are chosen so
+/// one deletes accounts, and it runs while nobody is watching - so the defaults here are chosen so
 /// that a deployment which never reads this section deletes <em>nothing</em>.
 /// </para>
 /// </summary>
@@ -18,7 +18,7 @@ public sealed class MaintenanceOptions
 	/// <para>
 	/// <strong>It gates every sweep, not only the account deletion.</strong> §7.11 describes it in
 	/// terms of accounts because that is the sweep worth reading the output of, but a dry run that
-	/// still deleted refresh tokens, positions and photo blobs would be a dry run in name only — and
+	/// still deleted refresh tokens, positions and photo blobs would be a dry run in name only - and
 	/// an operator who turns this on has said "show me, do not touch it". One switch that means one
 	/// thing is worth more than a switch that means it for the frightening sweep and not the others.
 	/// </para>
@@ -26,7 +26,7 @@ public sealed class MaintenanceOptions
 	public bool DryRun { get; set; } = true;
 
 	/// <summary>
-	/// The kill switch for the 180-day sweep alone (§7.11) — off without a redeploy.
+	/// The kill switch for the 180-day sweep alone (§7.11) - off without a redeploy.
 	/// <para>
 	/// Separate from <see cref="DryRun"/> on purpose: this turns off account deletion while leaving
 	/// the tidying sweeps running, which is what you want at 3 a.m. when the predicate has done
@@ -67,7 +67,7 @@ public sealed class MaintenanceOptions
 	public int OrphanBlobGraceHours { get; set; } = 24;
 
 	/// <summary>
-	/// How often the job runs. <strong>Zero or less means no timer at all</strong> — for a
+	/// How often the job runs. <strong>Zero or less means no timer at all</strong> - for a
 	/// deployment that would rather drive it from <c>cron</c>, and for tests, which call
 	/// <c>RunAsync</c> directly rather than advancing a fake clock a whole day into a
 	/// <see cref="PeriodicTimer"/>.
@@ -79,7 +79,7 @@ public sealed class MaintenanceOptions
 	/// <para>
 	/// <strong>"A destructive job you do not watch is a destructive job you will regret."</strong>
 	/// The dry-run log is only read by somebody who goes looking; this arrives. It carries the
-	/// counts and the candidate usernames — which is what makes a week of dry runs a thing an
+	/// counts and the candidate usernames - which is what makes a week of dry runs a thing an
 	/// operator actually does rather than intends to.
 	/// </para>
 	/// <para>

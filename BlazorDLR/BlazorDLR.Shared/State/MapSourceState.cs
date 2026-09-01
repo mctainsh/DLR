@@ -14,7 +14,7 @@ namespace BlazorDLR.Shared.State;
 /// <para>
 /// <strong><see cref="Chosen"/> and <see cref="Effective"/> are deliberately two things.</strong>
 /// The settings screen renders what the rider picked; the map draws what can actually be drawn.
-/// They differ whenever an offline source is stored on a device that cannot serve it — a browser,
+/// They differ whenever an offline source is stored on a device that cannot serve it - a browser,
 /// which has no pack store at all (§18.6), or a phone whose pack has been deleted. Collapsing them
 /// would mean either a settings screen that silently forgets the rider's choice, or a map with
 /// nothing under it.
@@ -32,7 +32,7 @@ public sealed class MapSourceState
 	/// <summary>Creates the state over a host's device store.</summary>
 	/// <param name="settings">Where the choice is persisted.</param>
 	/// <param name="packs">
-	/// Where downloaded archives live. Answers whether this host can hold one at all — the browser
+	/// Where downloaded archives live. Answers whether this host can hold one at all - the browser
 	/// hosts bind a store that holds nothing (§18.6), which is what makes <see cref="CanUseOffline"/>
 	/// false there.
 	/// </param>
@@ -53,7 +53,7 @@ public sealed class MapSourceState
 	/// when this device cannot serve it.
 	/// <para>
 	/// The fallback is OSM rather than a stated error because a base map is not the point of any
-	/// screen it appears on — the routes, the pins and the rider positions are, and they are all
+	/// screen it appears on - the routes, the pins and the rider positions are, and they are all
 	/// drawn by the overlay on top. A working map under them beats an explanation.
 	/// </para>
 	/// </summary>
@@ -63,11 +63,11 @@ public sealed class MapSourceState
 			: _chosen;
 
 	/// <summary>
-	/// Whether this host can hold a downloaded archive — false on both browser hosts (§18.6).
+	/// Whether this host can hold a downloaded archive - false on both browser hosts (§18.6).
 	/// <para>
 	/// This says nothing about whether one has actually been <em>downloaded</em>. A device that
 	/// could hold a pack but holds none still resolves an offline source to OSM, because
-	/// <c>IMapPackServer</c> answers no URL for a pack that is not there — see
+	/// <c>IMapPackServer</c> answers no URL for a pack that is not there - see
 	/// <c>MapLibreInterop.DescribeAsync</c>, which is where that fallback happens.
 	/// </para>
 	/// </summary>
@@ -77,7 +77,7 @@ public sealed class MapSourceState
 	public bool IsLoaded => _loaded;
 
 	/// <summary>
-	/// Reads the persisted choice. Idempotent — every map calls it on first render and none of them
+	/// Reads the persisted choice. Idempotent - every map calls it on first render and none of them
 	/// has to coordinate with the others.
 	/// <para>
 	/// Callers must run this <em>after</em> first render on the web: the browser store is reached
@@ -130,14 +130,14 @@ public sealed class MapSourceState
 
 		_chosen = usable;
 
-		// In memory, then the event, then the store — the same ordering as RouteStyleState. The map
+		// In memory, then the event, then the store - the same ordering as RouteStyleState. The map
 		// is what the rider is waiting to see, and it must not queue behind a device write.
 		Changed?.Invoke();
 		await _settings.SetAsync(MapSource.StorageKey, usable.Encode(), cancellationToken);
 	}
 
 	/// <summary>
-	/// Goes back to the shipped default. Removes the key rather than storing the current default —
+	/// Goes back to the shipped default. Removes the key rather than storing the current default -
 	/// see <see cref="IDeviceSettings.RemoveAsync"/>, which is the same reasoning every other
 	/// device setting uses.
 	/// </summary>

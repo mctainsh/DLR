@@ -1,15 +1,15 @@
 namespace BlazorDLR.Shared.Services;
 
 /// <summary>
-/// How often this device sends its position to the adventures it is sharing with (§4.2) — three
+/// How often this device sends its position to the adventures it is sharing with (§4.2) - three
 /// numbers the rider sets, and the only description of the publish rate in the app.
 /// <para>
 /// <strong>Three rules, and they answer different questions.</strong>
 /// <list type="number">
-///   <item><see cref="DistanceM"/> — travel this far and the new position goes.</item>
-///   <item><see cref="Maximum"/> — go this long without sending anything and the current position
+///   <item><see cref="DistanceM"/> - travel this far and the new position goes.</item>
+///   <item><see cref="Maximum"/> - go this long without sending anything and the current position
 ///     goes anyway, so a rider stopped at a servo is not a pin that quietly ages.</item>
-///   <item><see cref="Minimum"/> — never send more often than this, however fast the ground is
+///   <item><see cref="Minimum"/> - never send more often than this, however fast the ground is
 ///     moving. A distance trigger inside this window is <em>held</em>, not dropped: the position
 ///     that goes when the window closes is the latest one, not the one that rang the bell.</item>
 /// </list>
@@ -24,7 +24,7 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// <strong>The invariant is structural.</strong> Every value is snapped to one of the lists below
 /// on the way in, and <see cref="Maximum"/> is chosen from the ones greater than
-/// <see cref="Minimum"/> — so an instance that says "send at most every 60 s and at least every
+/// <see cref="Minimum"/> - so an instance that says "send at most every 60 s and at least every
 /// 10 s" cannot be constructed, from the settings screen, from the device store, or from a test.
 /// </para>
 /// </summary>
@@ -125,7 +125,7 @@ public sealed record LocationUpdateRate
 	/// <para>
 	/// <strong>The old profile is carried across rather than dropped.</strong> Eco, Balanced and
 	/// Precise were a distance and a maximum, and all six of those numbers are on the lists above,
-	/// so the translation is exact — a rider who chose Precise for a track day keeps 5 m and 10 s
+	/// so the translation is exact - a rider who chose Precise for a track day keeps 5 m and 10 s
 	/// instead of silently waking up on the new default.
 	/// </para>
 	/// </summary>

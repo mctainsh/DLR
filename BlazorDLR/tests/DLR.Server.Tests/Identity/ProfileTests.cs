@@ -36,7 +36,7 @@ public sealed class ProfileTests(PostgresFixture postgres)
 		profile.DisplayName.ShouldBeNull();
 		profile.PhoneNumber.ShouldBeNull();
 
-		// And in the database, not just in the projection — a default that only exists in a
+		// And in the database, not just in the projection - a default that only exists in a
 		// DTO is a default a stray INSERT walks straight past.
 		AppUser stored = await app.WithDatabaseAsync(async database =>
 			await database.Users.SingleAsync(user => user.Id == session.User.Id));
@@ -115,7 +115,7 @@ public sealed class ProfileTests(PostgresFixture postgres)
 	/// <summary>
 	/// SMS verification needs a paid provider the €4 budget does not want, and an SMS reset
 	/// path would add an account-takeover surface for no benefit. Identity's column is reused
-	/// and this flag stays false forever — a future contributor who sees it will otherwise
+	/// and this flag stays false forever - a future contributor who sees it will otherwise
 	/// assume verification happened somewhere (§7.3).
 	/// </summary>
 	[Fact]
@@ -144,7 +144,7 @@ public sealed class ProfileTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The map label does not change (§7.3). A shared display name appears in the member list
-	/// beside the username, never instead of it — which is what stops a rider labelling
+	/// beside the username, never instead of it - which is what stops a rider labelling
 	/// themselves <c>RideLeader</c> on somebody else's map.
 	/// </summary>
 	[Fact]
@@ -251,7 +251,7 @@ public sealed class ProfileTests(PostgresFixture postgres)
 
 		stored.MarkerColour.ShouldBeNull();
 		stored.DisplayName.ShouldBeNull(
-			"the colour is validated before anything is written — a rejected request changes nothing.");
+			"the colour is validated before anything is written - a rejected request changes nothing.");
 	}
 
 	[Fact]

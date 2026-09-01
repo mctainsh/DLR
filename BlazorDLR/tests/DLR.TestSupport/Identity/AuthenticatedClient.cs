@@ -19,7 +19,7 @@ public static class AuthenticatedClient
 	}
 
 	/// <summary>
-	/// A fresh token for an account that already exists — the §7.4 password grant.
+	/// A fresh token for an account that already exists - the §7.4 password grant.
 	/// <para>
 	/// Needed more often than it looks. An access token lives fifteen minutes, so any test that
 	/// advances the clock past that and then calls an authed endpoint gets a <c>401</c> for a

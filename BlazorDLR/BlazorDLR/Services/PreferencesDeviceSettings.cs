@@ -3,7 +3,7 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Services;
 
 /// <summary>
-/// The mobile binding for <see cref="IDeviceSettings"/> — MAUI <c>Preferences</c>, which is
+/// The mobile binding for <see cref="IDeviceSettings"/> - MAUI <c>Preferences</c>, which is
 /// <c>NSUserDefaults</c> on iOS and <c>SharedPreferences</c> on Android. Survives app
 /// restarts, is scoped to the install, and never leaves the handset.
 /// <para>

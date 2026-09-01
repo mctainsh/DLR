@@ -29,7 +29,7 @@ public static class TrackDescription
 	/// <param name="description">What the rider typed.</param>
 	/// <remarks>
 	/// <see cref="MarkerText.Clean"/> keeps newlines and tabs and drops the rest of the control
-	/// range, which is what a paragraph of prose needs — a description is the one field on a track
+	/// range, which is what a paragraph of prose needs - a description is the one field on a track
 	/// most likely to be written over several lines and pasted in from somewhere else.
 	/// </remarks>
 	public static string? Clean(string? description) => MarkerText.Clean(description);

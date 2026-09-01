@@ -11,7 +11,7 @@ namespace DLR.Server.Data.Migrations;
 /// <para>
 /// One nullable column and no backfill, because there is nothing to backfill from and nothing to
 /// be careful about: every account starts here with no photograph, which is exactly the state the
-/// app rendered before this ran. Nobody becomes visible to anybody as a result of this migration —
+/// app rendered before this ran. Nobody becomes visible to anybody as a result of this migration -
 /// the username beside the empty space was already readable by every signed-in rider (§7.2).
 /// </para>
 /// <para>
@@ -19,8 +19,8 @@ namespace DLR.Server.Data.Migrations;
 /// losing a photograph must not delete the account it belonged to.
 /// </para>
 /// <para>
-/// The index on the column is the one EF creates for the foreign key. Nothing queries by it — the
-/// batch lookup goes the other way, from a set of usernames to their photo ids — but it is what
+/// The index on the column is the one EF creates for the foreign key. Nothing queries by it - the
+/// batch lookup goes the other way, from a set of usernames to their photo ids - but it is what
 /// makes deleting a <c>photo</c> row a lookup rather than a scan of the user table.
 /// </para>
 /// </summary>

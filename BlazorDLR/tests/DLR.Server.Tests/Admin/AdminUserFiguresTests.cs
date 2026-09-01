@@ -15,7 +15,7 @@ namespace DLR.Server.Tests.Admin;
 /// The figures beside each account (§14.6).
 /// <para>
 /// The counts are correlated sub-selects inside one projection, which is exactly the kind of query
-/// that compiles, runs, and quietly counts the wrong thing — a predicate on the wrong owner column
+/// that compiles, runs, and quietly counts the wrong thing - a predicate on the wrong owner column
 /// returns a number rather than an error. So each column is asserted against content one account
 /// made and another did not.
 /// </para>
@@ -76,7 +76,7 @@ public sealed class AdminUserFiguresTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A fresh account is all zeros and a real created date — not nulls, and not a lifetime GPS
+	/// A fresh account is all zeros and a real created date - not nulls, and not a lifetime GPS
 	/// count inherited from whoever registered before it.
 	/// </summary>
 	[Fact]
@@ -151,8 +151,8 @@ public sealed class AdminUserFiguresTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The email address is on this screen on purpose — it is how somebody is reached when
-	/// something has gone wrong — but nothing else off the account row may travel with it.
+	/// The email address is on this screen on purpose - it is how somebody is reached when
+	/// something has gone wrong - but nothing else off the account row may travel with it.
 	/// </summary>
 	[Fact]
 	public async Task TheRow_CarriesNoCredentialFields()

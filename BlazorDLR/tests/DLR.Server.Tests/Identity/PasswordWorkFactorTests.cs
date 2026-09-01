@@ -15,7 +15,7 @@ namespace DLR.Server.Tests.Identity;
 /// The suite runs at <see cref="DlrWebApplicationFactory.CheapPasswordHasherIterations"/>, which
 /// is a tenth of what the application ships, because hundreds of registrations at the real cost
 /// is most of a minute of <c>dotnet test</c> spent re-proving PBKDF2. That trade is only safe
-/// while something asserts the shipped number is still the shipped number — otherwise the day
+/// while something asserts the shipped number is still the shipped number - otherwise the day
 /// somebody lowers it in production is the day the whole suite agrees with them.
 /// </para>
 /// <para>
@@ -47,7 +47,7 @@ public sealed class PasswordWorkFactorTests
 
 		options.IterationCount.ShouldBe(
 			DlrWebApplicationFactory.ShippedPasswordHasherIterations,
-			"AddDlrIdentity must not lower the work factor — the tests run at a tenth of it, " +
+			"AddDlrIdentity must not lower the work factor - the tests run at a tenth of it, " +
 			"and a production reduction would arrive looking exactly like a green suite");
 
 		options.IterationCount.ShouldBeGreaterThanOrEqualTo(

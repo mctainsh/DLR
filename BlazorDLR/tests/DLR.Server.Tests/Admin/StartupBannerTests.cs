@@ -15,8 +15,8 @@ namespace DLR.Server.Tests.Admin;
 /// <summary>
 /// The block <c>Program</c> writes before the server accepts anything (§14.6).
 /// <para>
-/// The two things worth pinning are that every value can be read — the block catches its own
-/// failures, so a missing registration would otherwise degrade quietly to a shorter banner — and
+/// The two things worth pinning are that every value can be read - the block catches its own
+/// failures, so a missing registration would otherwise degrade quietly to a shorter banner - and
 /// that the connection string arrives without its password.
 /// </para>
 /// </summary>

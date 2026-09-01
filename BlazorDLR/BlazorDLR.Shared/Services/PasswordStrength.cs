@@ -25,13 +25,13 @@ public enum PasswordStrengthLevel
 /// <strong>This is a hint, not a policy.</strong> The server decides what it accepts, and
 /// <see cref="Unmet"/> only mirrors the rules Identity is configured with so the rider learns
 /// what is missing while they are still in the field, rather than at submit. If the two ever
-/// disagree the server wins, which is why nothing here disables the button — a meter that
+/// disagree the server wins, which is why nothing here disables the button - a meter that
 /// blocks submission on a rule the server does not have is a rider who cannot register.
 /// </para>
 /// <para>
 /// The breach-corpus lookup that used to sit behind registration was removed at v0.23, so
 /// there is no longer anything to tell a rider that <c>Passw0rd1</c> is a password the whole
-/// world already has. The meter cannot replace that — it can only be honest that a short
+/// world already has. The meter cannot replace that - it can only be honest that a short
 /// password scraping past the rules is <see cref="PasswordStrengthLevel.Weak"/>.
 /// </para>
 /// </summary>
@@ -66,15 +66,15 @@ public readonly record struct PasswordAssessment(
 /// </summary>
 public static class PasswordStrength
 {
-	/// <summary>Identity's <c>RequiredLength</c> (§7.2, v0.22). Kept in step by hand — see the class remarks.</summary>
+	/// <summary>Identity's <c>RequiredLength</c> (§7.2, v0.22). Kept in step by hand - see the class remarks.</summary>
 	public const int MinimumLength = 6;
 
 	/// <summary>Segments in the bar, so the view and the score agree on how full "Strong" is.</summary>
 	public const int Segments = 4;
 
 	/// <summary>
-	/// Below this many distinct characters, length is an illusion — <c>aaaaaaaaaaaa</c> is
-	/// twelve characters and one guess — so the score is capped at
+	/// Below this many distinct characters, length is an illusion - <c>aaaaaaaaaaaa</c> is
+	/// twelve characters and one guess - so the score is capped at
 	/// <see cref="PasswordStrengthLevel.Weak"/> however long the string is.
 	/// </summary>
 	private const int VarietyFloor = 5;

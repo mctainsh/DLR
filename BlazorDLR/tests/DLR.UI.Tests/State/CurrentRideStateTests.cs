@@ -61,7 +61,7 @@ public sealed class CurrentRideStateTests
 		CurrentRideState state = new(new ControllableSettings());
 
 		// The rail renders on every page, including the prerender pass that cannot read a device
-		// at all. "I do not know yet" and "there is no adventure" are the same destination — the list —
+		// at all. "I do not know yet" and "there is no adventure" are the same destination - the list -
 		// so a rail rendered cold is less specific, never broken.
 		state.IsLoaded.ShouldBeFalse();
 		state.RideId.ShouldBeNull();
@@ -172,7 +172,7 @@ public sealed class CurrentRideStateTests
 	{
 		// The rail's read starts at first render and the page under it can open a ride before the
 		// store answers. Applying the older value then would point the globe at the ride the rider
-		// has just left — and it would do it silently.
+		// has just left - and it would do it silently.
 		ControllableSettings settings = new();
 		Guid previous = Guid.NewGuid();
 		await settings.SetAsync(CurrentRideState.StorageKey, previous.ToString("N"));

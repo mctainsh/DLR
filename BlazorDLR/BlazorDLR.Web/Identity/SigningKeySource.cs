@@ -9,7 +9,7 @@ namespace DLR.Server.Identity;
 /// "Never <c>appsettings.json</c>" is the kind of rule that holds until the afternoon somebody
 /// needs the app to run and puts the key where the other settings are. It survives a deadline
 /// only as a startup failure, and it has to be a startup failure rather than a review comment
-/// because the consequence — a signing key in git history — is permanent in practice: the fix
+/// because the consequence - a signing key in git history - is permanent in practice: the fix
 /// is rotation, not deletion.
 /// </para>
 /// <para>
@@ -25,7 +25,7 @@ public static class SigningKeySource
 
 	/// <summary>
 	/// The same setting as an environment variable. The separator is a <em>double</em>
-	/// underscore — a single one is a different key and binds to nothing, silently.
+	/// underscore - a single one is a different key and binds to nothing, silently.
 	/// </summary>
 	public const string EnvironmentVariableName =
 		$"{JwtOptions.Section}__{nameof(JwtOptions.SigningKey)}";
@@ -41,15 +41,15 @@ public static class SigningKeySource
 		if (string.IsNullOrWhiteSpace(key))
 		{
 			// The rule is "not a file that ships with the code", and the message has to say
-			// what to do rather than only what is forbidden. User secrets satisfy it — that
-			// file lives in the developer's profile, not the repository — and saying so here
+			// what to do rather than only what is forbidden. User secrets satisfy it - that
+			// file lives in the developer's profile, not the repository - and saying so here
 			// is the difference between a one-line fix and a hunt through the design document.
 			throw new InvalidOperationException(
 				$"""
 				No signing key: {KeyPath} is not set, and the server cannot issue an access
 				token without one.
 
-				Locally, use user secrets — they live in your profile rather than in the
+				Locally, use user secrets - they live in your profile rather than in the
 				repository, so they satisfy §7.4:
 
 				    dotnet user-secrets set "{KeyPath}" "<at least {JwtOptions.MinimumSigningKeyBytes} characters>" --project Web/src/DLR.Server

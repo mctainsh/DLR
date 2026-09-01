@@ -34,7 +34,7 @@ public static class MembershipEndpoints
 }
 
 /// <summary>
-/// Consent, leaving and removal — the three ways a rider stops broadcasting (§5.6).
+/// Consent, leaving and removal - the three ways a rider stops broadcasting (§5.6).
 /// <para>
 /// They are grouped deliberately. Each one has the same obligation attached to it, and every one
 /// of them discharges it by calling <see cref="PositionStore.StopSharing"/> rather than by
@@ -91,7 +91,7 @@ public sealed class MembershipController : ControllerBase
 
 		// Nothing is deleted here, and that is the rule rather than an omission (§5.8). Turning a
 		// switch off stops new content; the markers and comments already posted stay exactly where
-		// they are. Same reasoning as §7.3's profile sharing — revoking a permission is not an
+		// they are. Same reasoning as §7.3's profile sharing - revoking a permission is not an
 		// instruction to destroy what was already permitted.
 		ride.AllowMemberMarkers = request.AllowMemberMarkers;
 		ride.AllowMemberComments = request.AllowMemberComments;
@@ -175,7 +175,7 @@ public sealed class MembershipController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status409Conflict,
 				title: "The organiser cannot leave",
-				detail: "Delete the adventure instead — an adventure nobody organises has nobody to " +
+				detail: "Delete the adventure instead - an adventure nobody organises has nobody to " +
 					"decide who is in it.");
 		}
 

@@ -7,8 +7,8 @@
 @*
 	An <img> tag for authenticated endpoints (§16.4). The <img> element cannot attach an
 	Authorization header, so a plain src="/api/v1/photos/{id}" reaches the server anonymous
-	and 401s. This component fetches the bytes with HttpClient — which BearerAuthHandler
-	decorates on both hosts — then hands the browser a data: URL to render.
+	and 401s. This component fetches the bytes with HttpClient - which BearerAuthHandler
+	decorates on both hosts - then hands the browser a data: URL to render.
 
 	data: URLs rather than blob:. A blob URL needs JS interop to allocate and to release;
 	a data: URL is a plain string the browser drops when the DOM node goes away. The extra

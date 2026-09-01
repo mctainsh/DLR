@@ -1,4 +1,5 @@
 using BlazorDLR.Shared.Services;
+using DLR.Core.Contracts.Announcements;
 using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
@@ -39,6 +40,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
 	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
+	public event Action<AnnouncementDto>? AnnouncementPosted;
 #pragma warning restore CS0067
 
 	/// <summary>Raised by <see cref="ConnectAsync"/> and by <see cref="SetConnected"/>.</summary>
@@ -97,11 +99,11 @@ public sealed class FakeRideHubClient : IRideHubClient
 	/// <summary>Every fix the device published through the hub, in order (§5.7).</summary>
 	public List<PositionUpdate> Published { get; } = [];
 
-	/// <summary>Set to make the hub refuse a publish — the reconnecting case the REST path covers.</summary>
+	/// <summary>Set to make the hub refuse a publish - the reconnecting case the REST path covers.</summary>
 	public Exception? PublishException { get; set; }
 
 	/// <summary>
-	/// Set to make a publish never answer — a socket that has gone quiet without closing, which
+	/// Set to make a publish never answer - a socket that has gone quiet without closing, which
 	/// is what a cell radio does at speed and what <c>LocationBroadcastState.SendTimeout</c> is
 	/// for. The send completes only when the caller's own token cancels it.
 	/// </summary>
@@ -109,7 +111,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 
 	/// <summary>
 	/// How many position publishes have been *started* here, including ones that hung or threw.
-	/// A test that needs a send to be in flight before it moves the clock waits on this — the
+	/// A test that needs a send to be in flight before it moves the clock waits on this - the
 	/// deadline is armed immediately before the call, so an attempt observed is a timer running.
 	/// </summary>
 	public int PublishAttempts { get; private set; }
@@ -169,4 +171,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public void RaiseMarkerAdded(Guid rideId, MarkerDto marker) => MarkerAdded?.Invoke(rideId, marker);
 	public void RaiseMarkerRemoved(Guid rideId, Guid markerId) => MarkerRemoved?.Invoke(rideId, markerId);
 	public void RaisePositionsUpdated(PositionBatch batch) => PositionsUpdated?.Invoke(batch);
+
+	/// <summary>A message from whoever runs the server arrived (§20.3).</summary>
+	public void RaiseAnnouncementPosted(AnnouncementDto announcement) => AnnouncementPosted?.Invoke(announcement);
 }

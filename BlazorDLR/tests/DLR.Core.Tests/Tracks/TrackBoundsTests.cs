@@ -23,8 +23,8 @@ public sealed class TrackBoundsTests
 	}
 
 	[Theory]
-	[InlineData(-27.47, 153.03)] // Brisbane — north of the top edge.
-	[InlineData(-37.81, 144.96)] // Melbourne — south of the bottom edge.
+	[InlineData(-27.47, 153.03)] // Brisbane - north of the top edge.
+	[InlineData(-37.81, 144.96)] // Melbourne - south of the bottom edge.
 	[InlineData(-33.87, 115.75)] // West of the western edge.
 	public void APointOutside_IsNot(double latitude, double longitude)
 	{
@@ -82,7 +82,7 @@ public sealed class TrackBoundsTests
 
 	/// <summary>
 	/// What a group ride's map opens framed on. A ride carries a set of planned routes rather than
-	/// one (§5.4), so framing on the first of them would put the long option — or the way home —
+	/// one (§5.4), so framing on the first of them would put the long option - or the way home -
 	/// off the screen at the moment the rider is deciding which to take.
 	/// </summary>
 	[Fact]
@@ -108,7 +108,7 @@ public sealed class TrackBoundsTests
 
 	/// <summary>
 	/// Null rather than a box round nothing, exactly as the point overload answers for a track with
-	/// no points — the caller's question is "what should the map be framed on", and "nothing" is a
+	/// no points - the caller's question is "what should the map be framed on", and "nothing" is a
 	/// real answer to it that a zero-sized box at the origin is not.
 	/// </summary>
 	[Fact]
@@ -117,7 +117,7 @@ public sealed class TrackBoundsTests
 		TrackBounds.Around(Array.Empty<TrackBounds>()).ShouldBeNull();
 	}
 
-	/// <summary>A single point is a legitimate box — degenerate, but nothing here has to refuse it.</summary>
+	/// <summary>A single point is a legitimate box - degenerate, but nothing here has to refuse it.</summary>
 	[Fact]
 	public void AZeroSizedBoxIsWellFormed()
 	{

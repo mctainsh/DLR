@@ -9,7 +9,7 @@ namespace DLR.Core.Tracks;
 /// The app parses with it offline, the server re-parses everything the app sends with it, and
 /// the editor re-stats with it. One implementation is what makes
 /// <c>Import_AppAndServerParsers_ProduceIdenticalTracks</c> a real guarantee rather than a
-/// tautology — and what stops a track's ascent depending on which door it came in through.
+/// tautology - and what stops a track's ascent depending on which door it came in through.
 /// </para>
 /// <para>
 /// This is the first user-supplied file format the project reads, and GPX is XML, so the
@@ -361,7 +361,7 @@ public static class GpxReader
 	/// The text of the element the reader is on, leaving it positioned on that element's
 	/// <em>end</em> tag.
 	/// <para>
-	/// Deliberately not <c>ReadElementContentAsString</c>, which advances past the end tag —
+	/// Deliberately not <c>ReadElementContentAsString</c>, which advances past the end tag -
 	/// so a caller looping on <c>Read()</c> then skips the following sibling. That is a
 	/// silent bug rather than a loud one: it reads every other child, which for a
 	/// <c>&lt;trkpt&gt;</c> means the elevation arrives and the timestamp does not.
@@ -435,7 +435,7 @@ public static class GpxReader
 				"need one, and processing it would allow a file to reference things outside itself.")
 			: isTruncated
 				? (GpxProblem.Truncated,
-					"This file ends in the middle of an element — it looks truncated. Check the " +
+					"This file ends in the middle of an element - it looks truncated. Check the " +
 					"upload completed, then try again.")
 				: (GpxProblem.NotXml, $"This file is not valid XML: {exception.Message}");
 

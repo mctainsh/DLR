@@ -6,7 +6,7 @@ namespace BlazorDLR.Services;
 /// <summary>
 /// The phone's <see cref="IFileSaver"/> (§15.2, §17.3).
 /// <para>
-/// The web trick — a Blob URL on an <c>&lt;a download&gt;</c> — is silently inert inside a
+/// The web trick - a Blob URL on an <c>&lt;a download&gt;</c> - is silently inert inside a
 /// <c>BlazorWebView</c>. Android's WebView has never implemented the <c>download</c>
 /// attribute and hands nothing to its <c>DownloadListener</c> for a <c>blob:</c> or
 /// <c>data:</c> URL, and WKWebView refuses to navigate to one it did not open. The click
@@ -14,8 +14,8 @@ namespace BlazorDLR.Services;
 /// whole of the "Download GPX does nothing on mobile" bug.
 /// </para>
 /// <para>
-/// So write the bytes into the app's own cache — the one directory MAUI's generated
-/// <c>FileProvider</c> is already allowed to grant a content URI on — and put the file
+/// So write the bytes into the app's own cache - the one directory MAUI's generated
+/// <c>FileProvider</c> is already allowed to grant a content URI on - and put the file
 /// through the system share sheet, which is where "Save to Files" (iOS) and "Save to
 /// Downloads" (Android) live. The desktop targets have no share sheet for files, so they
 /// fall back to writing into the documents folder and saying where it went.
@@ -51,7 +51,7 @@ public sealed class MauiFileSaver : IFileSaver
 				});
 
 				// The share sheet reports neither the app chosen nor a dismissal, so there is
-				// nothing truthful to add — what the rider saw is the receipt.
+				// nothing truthful to add - what the rider saw is the receipt.
 				return FileSaveResult.Saved();
 			}
 			catch (FeatureNotSupportedException)
@@ -92,7 +92,7 @@ public sealed class MauiFileSaver : IFileSaver
 
 	/// <summary>
 	/// A route is named by its owner, so the name arriving here is user input that is about to
-	/// become a path. Strip anything the file system would object to — or, worse, obey — and
+	/// become a path. Strip anything the file system would object to - or, worse, obey - and
 	/// keep the extension the caller asked for.
 	/// </summary>
 	private static string Sanitise(string fileName)

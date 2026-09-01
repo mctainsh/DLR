@@ -6,7 +6,7 @@ namespace BlazorDLR.Shared.Services.Platform;
 /// §18.6 keeps offline-first a mobile property: the phone has a file system, a background
 /// receiver and a rider in a dead zone, and the web app is the big-screen surface for planning
 /// and reading. Rather than have shared code ask which host it is in, this answers every read
-/// with "you have no copy" — which is the truthful answer for a browser — and drops every
+/// with "you have no copy" - which is the truthful answer for a browser - and drops every
 /// write.
 /// </para>
 /// <para>

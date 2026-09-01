@@ -5,7 +5,7 @@ public static class HostedServiceRegistration
 {
 	/// <summary>
 	/// Registers <typeparamref name="T"/> as a singleton <em>and</em> hosts it. Endpoints resolve
-	/// the same object the timer drives — a second registration would leave two copies reading
+	/// the same object the timer drives - a second registration would leave two copies reading
 	/// the same settings, which is precisely what the container validation exists to catch.
 	/// </summary>
 	public static IServiceCollection AddSingletonHostedService<T>(this IServiceCollection services)

@@ -8,13 +8,13 @@
 @inject HttpClient Http
 @inject NavigationManager Nav
 
-<PageTitle>Import GPX — Dumb Luck Routes</PageTitle>
+<PageTitle>Import GPX - Dumb Luck Routes</PageTitle>
 
 @*
 	GPX import (§15.2). The same page compiles for both hosts.
 
 	The web picks files through <InputFile> because a browser has no callable file API
-	(§18.2). The phone uses MAUI's FilePicker via MauiMediaPicker.PickGpxAsync — the
+	(§18.2). The phone uses MAUI's FilePicker via MauiMediaPicker.PickGpxAsync - the
 	static helper on that class, called by name from a small per-host code path below.
 
 	The preview posts the file with ?dryRun=true so the user sees stats before committing.
@@ -59,7 +59,7 @@
 						{
 							<p class="hint">
 								You imported the same content on @track.DuplicateImportedUtc?.ToLocalTime().ToString("d MMM yyyy").
-								A second copy is fine — a warning, not a block.
+								A second copy is fine - a warning, not a block.
 							</p>
 						}
 					</li>
@@ -68,7 +68,7 @@
 			@if (_preview.WaypointCount > 0)
 			{
 				<p class="hint">
-					Also contains @_preview.WaypointCount waypoints — imported as markers in Phase 2.
+					Also contains @_preview.WaypointCount waypoints - imported as markers in Phase 2.
 				</p>
 			}
 			@if (_preview.TracksTruncated)

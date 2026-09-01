@@ -10,7 +10,7 @@
 
 	**A table, and one of the few in the app.** Everything else here is a list of cards because
 	everything else is read on a phone at the side of a road; this is read at a desk, and the
-	question it answers — who is this, and is this account doing anything — is a comparison
+	question it answers - who is this, and is this account doing anything - is a comparison
 	across rows. Comparison is what a table is for. It scrolls sideways inside its own box
 	rather than making the page do it.
 
@@ -20,7 +20,7 @@
 	    swept as soon as the ride carrying them stops being live, so nothing could be counted
 	    after the fact. Accounts that predate the counter read zero, and that is honest rather
 	    than fixable.
-	  - **Live** beside it is the row count — fixes on a map right now — which is nearly always
+	  - **Live** beside it is the row count - fixes on a map right now - which is nearly always
 	    zero and is the only one of the two that says anything about this minute.
 
 	**Hours** is recorded riding time, summed from the account's own tracks. It is not time
@@ -28,7 +28,7 @@
 	would be a guess wearing a measurement's clothes.
 *@
 
-<PageTitle>Travellers — Administration — Dumb Luck Routes</PageTitle>
+<PageTitle>Travellers - Administration - Dumb Luck Routes</PageTitle>
 
 <div class="page page-wide admin-users">
 	<PageNav Title="Travellers" BackHref="/admin" BackLabel="Back to administration" />
@@ -72,7 +72,7 @@
 				@*
 					The columns are declared, not inferred. With table-layout: auto the browser
 					sizes each column from its widest content, and on this table that produced
-					header cells and body cells that did not share a track — the numbers ended up
+					header cells and body cells that did not share a track - the numbers ended up
 					bunched to the left of headings that marched off to the right. Fixed layout
 					takes every width from this colgroup and nothing else, so a heading and the
 					figures under it cannot disagree about where the column is.
@@ -194,7 +194,7 @@
 	/// <para>
 	/// Without it, typing six characters starts six requests whose answers can land in any order,
 	/// and the list ends up showing the results for whichever one the server happened to finish
-	/// last — which is not necessarily what is in the box.
+	/// last - which is not necessarily what is in the box.
 	/// </para>
 	/// </summary>
 	private CancellationTokenSource? _inFlight;
@@ -237,8 +237,8 @@
 		}
 		catch (ApiException failure)
 		{
-			// Both refusals a caller can actually hit here — a roster account, and a row that has
-			// gone stale — are 409s carrying a sentence written for this screen, so the message is
+			// Both refusals a caller can actually hit here - a roster account, and a row that has
+			// gone stale - are 409s carrying a sentence written for this screen, so the message is
 			// worth more than the title on its own.
 			_deleteError = failure.Error.Messages.FirstOrDefault() ?? failure.Error.Title;
 		}
@@ -276,14 +276,14 @@
 		{
 			// 403 here is the ordinary case rather than a fault: somebody followed a link, or was
 			// taken off the roster while the tab was open. It is said in the same place as any
-			// other failure because the reader's next move is the same — go back.
+			// other failure because the reader's next move is the same - go back.
 			_error = failure.Error.Title;
 			_rows = null;
 		}
 	}
 
 	/// <summary>
-	/// How long ago, coarsely. The exact stamp is on the cell's title — this column is scanned
+	/// How long ago, coarsely. The exact stamp is on the cell's title - this column is scanned
 	/// down for "who has gone quiet", which is a question about order of magnitude.
 	/// </summary>
 	private string Ago(DateTimeOffset instant)
@@ -339,7 +339,7 @@
 
 	/* min-width, so a viewport narrower than the twelve columns need scrolls the table inside
 	   .scroller rather than crushing the columns into each other. table-layout: fixed is what
-	   makes the colgroup above authoritative — see the note there. */
+	   makes the colgroup above authoritative - see the note there. */
 	.admin-users table {
 		width: 100%;
 		min-width: 72rem;
@@ -355,7 +355,7 @@
 	}
 
 	/* Headings may wrap inside their column and break a word if they have to, because under
-	   fixed layout anything that will not fit overflows the cell instead of widening it — and an
+	   fixed layout anything that will not fit overflows the cell instead of widening it - and an
 	   overflowing heading is exactly the misalignment this table had. Bottom-aligned so a
 	   heading that takes two lines still sits on the same line as its neighbours. */
 	.admin-users thead th {
@@ -381,7 +381,7 @@
 		The numeric columns.
 
 		**Named `num`, and never `figure`.** Bootstrap is linked on every host and its own
-		`.figure` component is `display: inline-block` — which, applied to a cell, stops it being
+		`.figure` component is `display: inline-block` - which, applied to a cell, stops it being
 		a cell. The nine numeric columns then fall out of the table's column tracks and stack up
 		the side of it, which is exactly what this screen did until the class was renamed. Any
 		class on shared markup has to survive being read by Bootstrap's stylesheet too.
@@ -413,7 +413,7 @@
 			color: var(--dlr-fg-quiet);
 
 			/* Addresses have no spaces to break at, and this is the one column with no declared
-			   width — without this a long one would overflow the cell it is in. */
+			   width - without this a long one would overflow the cell it is in. */
 			overflow-wrap: anywhere;
 		}
 

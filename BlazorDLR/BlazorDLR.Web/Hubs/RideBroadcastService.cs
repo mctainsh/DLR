@@ -8,7 +8,7 @@ namespace DLR.Server.Hubs;
 /// <summary>
 /// One batch per ride per 5 s (§5.3).
 /// <para>
-/// The alternative — relaying each fix as it arrives — is <c>n × n</c> messages per tick, so a
+/// The alternative - relaying each fix as it arrives - is <c>n × n</c> messages per tick, so a
 /// fifty-rider ride would send 2,500 messages every five seconds instead of fifty. Batching is
 /// what makes the live map affordable on the €4 VPS, and it is why the cache exists at all.
 /// </para>
@@ -45,7 +45,7 @@ public sealed class RideBroadcastService(
 		}
 		catch (OperationCanceledException)
 		{
-			// Shutdown. Nothing to drain — a missed batch is a skipped frame, not data loss.
+			// Shutdown. Nothing to drain - a missed batch is a skipped frame, not data loss.
 		}
 	}
 

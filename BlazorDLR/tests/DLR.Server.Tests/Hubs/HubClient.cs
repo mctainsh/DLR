@@ -53,7 +53,7 @@ public static class HubClient
 				// The token goes in the query string, put there by hand.
 				//
 				// The .NET client would set an Authorization header on ClientWebSocketOptions,
-				// which TestServer's WebSocketClient has no way to carry — but more importantly a
+				// which TestServer's WebSocketClient has no way to carry - but more importantly a
 				// header is not what the code under test is for. §7.6's lift exists because a
 				// *browser* cannot set headers on a WebSocket handshake and SignalR's JavaScript
 				// client therefore sends `?access_token=`. Appending it here reproduces the

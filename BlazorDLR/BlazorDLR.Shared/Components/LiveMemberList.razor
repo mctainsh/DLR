@@ -5,18 +5,18 @@
 @inject TimeProvider Clock
 
 @*
-	Who is on the ride and what their position is doing (§5.3, §5.4, §5.6) — the list behind
+	Who is on the ride and what their position is doing (§5.3, §5.4, §5.6) - the list behind
 	the "Ride members live" screen.
 
 	It replaces the plain member list that used to sit on the ride's info page. That one
 	carried a name and one of three words; this carries the same three words plus the four
-	numbers a rider actually asks the app for at the side of a road — how old that fix is,
+	numbers a rider actually asks the app for at the side of a road - how old that fix is,
 	how far away they are, how far along the route they have got, and how far back from the
 	leader. Two lists of the same people, one of them a strict subset of the other, is a
 	screen a rider has to visit twice.
 
 	Every row is derived by MemberRoster, which is where the rules, all four orders and the words
-	for the four states live — see that file for why they are not in here. This component is
+	for the four states live - see that file for why they are not in here. This component is
 	layout: a name wearing that rider's marker colour, a state glyph and four figures.
 
 	NeighbourPanel, the other list of live riders, draws the same pill at its own smaller size, so
@@ -24,17 +24,17 @@
 
 	**One state per reason, never a shared grey row** (§5.6, §10.1):
 
-	  - Sharing — broadcasting, with a fix fresh enough to believe.
-	  - No signal — broadcasting, but nothing recent is arriving. Their last point is still
+	  - Sharing - broadcasting, with a fix fresh enough to believe.
+	  - No signal - broadcasting, but nothing recent is arriving. Their last point is still
 	    on the map, and it is not moving.
-	  - Not sharing — they chose not to. Their pin is not on the map at all.
-	  - Private — inside their own private area. Sharing is on, the ride holds no position
+	  - Not sharing - they chose not to. Their pin is not on the map at all.
+	  - Private - inside their own private area. Sharing is on, the ride holds no position
 	    for them, and their pin is not on anybody else's map until they ride out of it.
 
 	Collapsing any two of those is exactly the ambiguity that gets somebody left behind at a
-	junction, so each gets its own glyph — a different shape, not the same shape in a different
+	junction, so each gets its own glyph - a different shape, not the same shape in a different
 	colour, and the word behind it for a screen reader and a long press. The last one also takes
-	the four figures away with it — see the note beside them.
+	the four figures away with it - see the note beside them.
 *@
 
 <div class="live-members row-list">
@@ -43,8 +43,8 @@
 
 		@*
 			The order is a control, not a preference buried somewhere: which question this list
-			answers changes several times over a ride — who has gone quiet, who is nearest, who
-			is off the front — and each of those is one of these.
+			answers changes several times over a ride - who has gone quiet, who is nearest, who
+			is off the front - and each of those is one of these.
 
 			A select rather than four buttons. On a phone it is one tap and the platform's own
 			picker, which is a bigger target than anything four buttons could be given in a row
@@ -78,14 +78,14 @@
 						<RiderAvatar UserName="@row.UserName" />
 
 						@*
-							The name wearing that rider's marker colour (§16.3) — the same pairing the
+							The name wearing that rider's marker colour (§16.3) - the same pairing the
 							map label and the profile preview are drawn with: the rider picks only the
 							background, and MarkerColours derives the ink, so a white marker cannot end
 							up white on white. It replaces the swatch that used to sit beside the name,
 							because one thing carrying both the colour and the words beats a coloured
 							square that has to be matched to a name by eye.
 
-							The ink is named once and the border takes it from there — an unqualified
+							The ink is named once and the border takes it from there - an unqualified
 							`border: 1px solid` in the stylesheet resolves to currentColor, which is
 							this colour, so stating it twice would be two places to keep in step.
 
@@ -96,7 +96,7 @@
 
 							Italic for the reader's own row, in place of the "you" chip it replaces. It
 							is a name the rider already knows, so the slant is a reminder rather than
-							the only way to tell — the accent edge down the left of the row is the other.
+							the only way to tell - the accent edge down the left of the row is the other.
 						*@
 						<strong class="name" style="background: @row.Colour; color: @MarkerColours.ForegroundFor(row.Colour);">@row.UserName</strong>
 
@@ -115,7 +115,7 @@
 						The word goes with it, because §5.6 is about telling the four states apart and
 						a glyph nobody can name does not do that: in the span a screen reader reads,
 						and in the key under the list for everybody else. The title is a desktop
-						nicety on top of those two rather than the answer for either — a WebView on a
+						nicety on top of those two rather than the answer for either - a WebView on a
 						phone, which is what this screen is written for, has no hover to show it on.
 					*@
 					<span class="state presence @StateClass(row.Presence)" title="@MemberRoster.Label(row.Presence)">
@@ -125,14 +125,14 @@
 
 					@*
 						The four figures, each labelled. A bare row of numbers is unreadable on a
-						screen this narrow — "340 m" and "4.2 km" are different measurements of
+						screen this narrow - "340 m" and "4.2 km" are different measurements of
 						different things, and which is which cannot be inferred from the order they
 						happen to be laid out in.
 
 						A private rider gets none of them, and gets no columns of dashes either
 						(§10.1). Every one of the four is derived from a position the ride no longer
 						holds, so four em dashes would be four invitations to wonder whether the app
-						has lost them — where the glyph at the end of their name line has already given
+						has lost them - where the glyph at the end of their name line has already given
 						the whole answer. Off-route goes with them: a rider who is at home is not off route,
 						they are somewhere this ride has agreed not to measure.
 					*@
@@ -183,7 +183,7 @@
 
 		@*
 			The key. A glyph is worth exactly what the reader can name, and the four that replaced
-			§5.6's four words are not glyphs anybody arrives already knowing — so the list says
+			§5.6's four words are not glyphs anybody arrives already knowing - so the list says
 			what they mean, once, under the rows where it is out of the way of them.
 
 			All four states every time, not only the ones on screen. The question this answers is
@@ -198,7 +198,7 @@
 					<dt class="presence @StateClass(presence)">
 						<i class="fa fa-fw @StateIcon(presence)" aria-hidden="true"></i>
 					</dt>
-					<dd><strong>@MemberRoster.Label(presence)</strong> — @MemberRoster.Describe(presence)</dd>
+					<dd><strong>@MemberRoster.Label(presence)</strong> - @MemberRoster.Describe(presence)</dd>
 				</div>
 			}
 		</dl>
@@ -210,7 +210,7 @@
 	[Parameter, EditorRequired] public IReadOnlyList<RideMemberSummary> Members { get; set; } = [];
 
 	/// <summary>
-	/// Everyone's latest fix, keyed by rider (§5.3), or null for a caller that has none — a list
+	/// Everyone's latest fix, keyed by rider (§5.3), or null for a caller that has none - a list
 	/// rendered before the snapshot's positions land, or off a ride that carries none.
 	/// </summary>
 	[Parameter] public IReadOnlyDictionary<Guid, RiderPositionDto>? Positions { get; set; }
@@ -222,7 +222,7 @@
 	[Parameter] public IReadOnlyList<TrackPoint>? Route { get; set; }
 
 	/// <summary>
-	/// Where the reader is, for the range column, or null when this device does not know — a
+	/// Where the reader is, for the range column, or null when this device does not know - a
 	/// browser with nothing shared, or a phone still waiting on its first fix.
 	/// </summary>
 	[Parameter] public (double Latitude, double Longitude)? From { get; set; }
@@ -261,8 +261,8 @@
 	/// <summary>
 	/// The rows, rebuilt on every render rather than cached against the parameters.
 	/// <para>
-	/// The ages have to move on their own — the screen holding this ticks a timer at them, and
-	/// nothing in the parameter set changes when it does — so a cache keyed on parameters would
+	/// The ages have to move on their own - the screen holding this ticks a timer at them, and
+	/// nothing in the parameter set changes when it does - so a cache keyed on parameters would
 	/// freeze the one column that exists to keep counting. The cost is one projection per member
 	/// per repaint, which is what the gap list this replaces already spent (§5.4).
 	/// </para>
@@ -306,7 +306,7 @@
 	/// The glyph for each of §5.6's four states. Four shapes, not one shape in four colours, for
 	/// the reason <c>GroupRideLive</c>'s own receiver glyph gives: the list is read through a visor
 	/// in daylight and the colour is the first thing to go. The same glyphs that screen uses for
-	/// the same facts — a dish for a receiver being heard, a locked house for a private area.
+	/// the same facts - a dish for a receiver being heard, a locked house for a private area.
 	/// </summary>
 	private static string StateIcon(MemberPresence presence) => presence switch
 	{
@@ -373,7 +373,7 @@
 	}
 
 		/* The map's rider tag, in HTML: the rider's colour behind the name and the contrasting
-		   ink on top and around it. The same pill the profile preview draws, at list size — not
+		   ink on top and around it. The same pill the profile preview draws, at list size - not
 		   pixel-identical to the Skia label and not trying to be, because what it has to get
 		   right is the pairing a rider matches the two by. The border is in the ink rather than
 		   a fixed grey for the one colour that needs it: white on a light row is a name floating
@@ -403,7 +403,7 @@
 
 	/* The presence glyph, held at the right-hand end of the name line. margin-left is auto
 	   rather than a fixed column because .who is the part that grows: the glyph lands in the
-	   same place on every row either way, which is the whole point of it being a glyph — four
+	   same place on every row either way, which is the whole point of it being a glyph - four
 	   rows are read down one column rather than one row at a time. */
 	.live-members .state {
 		position: relative;
@@ -412,21 +412,21 @@
 		font-size: 1rem;
 	}
 
-		/* The word itself is hidden by app.css's .visually-hidden — see the note there. The class
+		/* The word itself is hidden by app.css's .visually-hidden - see the note there. The class
 		   stays on it so this markup still says which span carries the word. */
 
 	/* Colour still separates them, but it is now the second thing that does. On .presence rather
-	   than .state so the key's glyphs and the rows' are painted by one rule — a key drawn in
+	   than .state so the key's glyphs and the rows' are painted by one rule - a key drawn in
 	   different colours from the thing it is a key to is worse than no key. */
 	.live-members .presence.sharing { color: var(--dlr-good); }
 	.live-members .presence.not-sharing { color: var(--dlr-fg-muted); }
 	.live-members .presence.no-signal { color: var(--dlr-error); }
-	/* The one of the four with no token behind it — a private area is not a state anything else in
+	/* The one of the four with no token behind it - a private area is not a state anything else in
 	   the app paints, so a --dlr-* entry would have exactly one reader. */
 	.live-members .presence.private { color: #7c3aed; }
 
 	/* The key. Quiet and small: it is read once, by somebody who has just met the glyphs, and
-	   then never again by that rider — so it must not compete with the rows above it. */
+	   then never again by that rider - so it must not compete with the rows above it. */
 	.live-members .key {
 		margin: 0.75rem 0 0;
 		padding-top: 0.5rem;
@@ -448,7 +448,7 @@
 			font-size: 0.9rem;
 		}
 
-		/* Only to drop the user agent's list indent — the sentence wraps on its own. */
+		/* Only to drop the user agent's list indent - the sentence wraps on its own. */
 		.live-members .key dd {
 			margin: 0;
 		}
@@ -495,7 +495,7 @@
 		color: var(--dlr-error);
 	}
 
-	/* Below the rail's breakpoint the figures go under the name rather than beside it — four
+	/* Below the rail's breakpoint the figures go under the name rather than beside it - four
 	   columns and a name on a 320 px screen is four columns of one character each. */
 	@@media (max-width: 560px) {
 		.live-members .stats {

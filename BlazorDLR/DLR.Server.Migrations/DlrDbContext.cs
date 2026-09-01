@@ -34,7 +34,7 @@ public sealed class DlrDbContext(DbContextOptions<DlrDbContext> options)
 	/// Puts Identity's four tables into the schema's own casing (§7.13).
 	/// <para>
 	/// The snake_case convention rewrites names it derives and leaves alone names that were
-	/// configured explicitly — and Identity's model configures all four by calling
+	/// configured explicitly - and Identity's model configures all four by calling
 	/// <c>ToTable("AspNetUsers")</c> itself. So every column, key and index around these
 	/// tables would come out snake_case while the tables they belong to did not.
 	/// </para>

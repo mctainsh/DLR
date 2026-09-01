@@ -65,7 +65,7 @@ public sealed class ModerationController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status400BadRequest,
 				title: "A report needs a reason",
-				detail: "Say what is wrong with it — an empty report cannot be acted on.");
+				detail: "Say what is wrong with it - an empty report cannot be acted on.");
 		}
 
 		RideComment? comment = await database
@@ -76,7 +76,7 @@ public sealed class ModerationController : ControllerBase
 
 		// Reachable, not merely in a ride. A shared route's thread is open to every signed-in rider
 		// (§6.2), so "are you a member?" is the wrong question there and would leave the most
-		// public thread on the service as the one thing nobody could report — which is precisely
+		// public thread on the service as the one thing nobody could report - which is precisely
 		// the review requirement this file exists to satisfy.
 		if (comment is null
 			|| !(await CommentThreadAccess.ForCommentAsync(database, id, userId, cancellationToken)).Access.Exists)
@@ -132,7 +132,7 @@ public sealed class ModerationController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status400BadRequest,
 				title: "A report needs a reason",
-				detail: "Say what is wrong with it — an empty report cannot be acted on.");
+				detail: "Say what is wrong with it - an empty report cannot be acted on.");
 		}
 
 		Marker? marker = await database

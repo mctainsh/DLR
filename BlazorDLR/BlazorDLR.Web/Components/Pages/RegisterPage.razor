@@ -2,7 +2,7 @@
 @using BlazorDLR.Shared.Components
 
 @*
-	Web registration — statically rendered, form-posts to /api/v1/auth/web/register (§7.5).
+	Web registration - statically rendered, form-posts to /api/v1/auth/web/register (§7.5).
 	Same reasoning as /login: the cookie must be set by the endpoint, so the form is not
 	inside a running WASM client.
 
@@ -11,14 +11,14 @@
 	email field. That copy is not marketing; it is what §7.2 requires.
 *@
 
-<PageTitle>Register — Dumb Luck Routes</PageTitle>
+<PageTitle>Register - Dumb Luck Routes</PageTitle>
 
 <div class="page page-standalone page-form form-page">
 	<h1>Register</h1>
 
 	<form method="post" action="/api/v1/auth/web/register">
 		<label>
-			User name — <em>permanent</em>
+			User name - <em>permanent</em>
 			<input name="userName" autocomplete="off" required autofocus placeholder="DaveSmith" />
 		</label>
 
@@ -39,7 +39,7 @@
 		<div class="callout">
 			<strong>No email means no recovery and no warning.</strong>
 			If you forget your password or lose this device, this account and everything
-			in it is gone — a password cannot be reset without an email. An unused account
+			in it is gone - a password cannot be reset without an email. An unused account
 			holding no saved adventures is deleted after 6 months, and with no email address we
 			cannot warn you before it happens. You can add one later.
 		</div>

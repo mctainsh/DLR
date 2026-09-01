@@ -18,7 +18,7 @@ public sealed class TrackRatingConfiguration : IEntityTypeConfiguration<TrackRat
 	{
 		builder.ToTable("track_rating", table =>
 
-			// The scale, in the database as well as in the endpoint — the same marker arc the
+			// The scale, in the database as well as in the endpoint - the same marker arc the
 			// comment table's "body or photo" rule follows. The endpoint is what produces a
 			// sentence a rider can act on; this is what makes the rule true of every path that
 			// ever writes the table, including a repair script run at two in the morning.
@@ -43,7 +43,7 @@ public sealed class TrackRatingConfiguration : IEntityTypeConfiguration<TrackRat
 
 		// The average and the count for a page of twenty browse rows, in one grouped pass. The
 		// primary key already leads on TrackId, so this index earns its place only by carrying
-		// Stars as well — which turns the tally into an index-only scan instead of twenty trips
+		// Stars as well - which turns the tally into an index-only scan instead of twenty trips
 		// to the heap per page (§6.2).
 		builder
 			.HasIndex(rating => new { rating.TrackId, rating.Stars })

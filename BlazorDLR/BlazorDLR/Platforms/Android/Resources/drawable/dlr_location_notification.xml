@@ -4,7 +4,7 @@
 
 	Its own drawable rather than a stock android.R one: the stock set is not guaranteed across
 	API levels or OEM skins, and a missing small icon makes the notification fail to post at
-	all — which on this app means the foreground service cannot start and a ride silently
+	all - which on this app means the foreground service cannot start and a ride silently
 	never begins.
 
 	A silhouette, white on transparent. From Android 5 the system masks a notification's small

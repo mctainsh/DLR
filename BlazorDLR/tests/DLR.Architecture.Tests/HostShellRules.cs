@@ -6,7 +6,7 @@ namespace DLR.Architecture.Tests;
 /// What each host's HTML shell has to link for the shared UI to actually look like itself.
 /// <para>
 /// These are the failures nothing else catches. A missing stylesheet is not a compile error,
-/// not a bUnit failure — bUnit asserts on markup and never loads CSS — and not something a
+/// not a bUnit failure - bUnit asserts on markup and never loads CSS - and not something a
 /// server-side integration test can see. It is a page that renders every element in the right
 /// order with none of the layout, which is exactly what the web host was doing.
 /// </para>
@@ -32,7 +32,7 @@ public sealed class HostShellRules
 	}
 
 	/// <summary>
-	/// The nav is drawn with Font Awesome classes, so every host has to link the font — and
+	/// The nav is drawn with Font Awesome classes, so every host has to link the font - and
 	/// link the vendored copy, not a CDN. The phone is the host most likely to be offline and
 	/// the one whose whole navigation is icons; a CDN turns a tunnel into a row of empty
 	/// squares with no way back to the ride list.
@@ -45,14 +45,14 @@ public sealed class HostShellRules
 			string markup = Read(shell);
 
 			markup.ShouldContain(IconFontCss,
-				customMessage: $"{shell} must link the vendored Font Awesome stylesheet — NavMenu draws "
+				customMessage: $"{shell} must link the vendored Font Awesome stylesheet - NavMenu draws "
 					+ "every destination with `fa-` classes and renders blank without it.");
 
 			markup.Contains("fontawesome", StringComparison.OrdinalIgnoreCase).ShouldBeTrue();
 			markup.Contains("cdn.jsdelivr.net/npm/@fortawesome", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
-				$"{shell} must not pull the icon font from a CDN — see the vendoring rule above.");
+				$"{shell} must not pull the icon font from a CDN - see the vendoring rule above.");
 			markup.Contains("use.fontawesome.com", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
-				$"{shell} must not pull the icon font from a CDN — see the vendoring rule above.");
+				$"{shell} must not pull the icon font from a CDN - see the vendoring rule above.");
 		}
 	}
 
@@ -81,7 +81,7 @@ public sealed class HostShellRules
 	/// The scoped-component bundle is named for the <em>assembly</em>, and this project's
 	/// assembly name is <c>DLR.Server</c> rather than <c>BlazorDLR.Web</c> (§ the .csproj, kept
 	/// that way so <c>WebApplicationFactory&lt;Program&gt;</c> binds). Linking the project name
-	/// gives a 404 and silently drops every <c>.razor.css</c> in the shared RCL — the layout,
+	/// gives a 404 and silently drops every <c>.razor.css</c> in the shared RCL - the layout,
 	/// the nav rail, the lot.
 	/// </summary>
 	[Fact]
@@ -92,6 +92,6 @@ public sealed class HostShellRules
 		markup.ShouldContain("DLR.Server.styles.css",
 			customMessage: "the scoped-CSS bundle is served as {AssemblyName}.styles.css. Without this link "
 				+ "MainLayout.razor.css and NavMenu.razor.css do not reach the browser, and the nav has "
-				+ "no rail — on the one host where a window gets resized across the breakpoint.");
+				+ "no rail - on the one host where a window gets resized across the breakpoint.");
 	}
 }

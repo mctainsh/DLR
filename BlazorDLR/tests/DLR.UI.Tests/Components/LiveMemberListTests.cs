@@ -89,7 +89,7 @@ public sealed class LiveMemberListTests : BunitContext
 		states.ShouldContain("no signal");
 		states.ShouldContain("not sharing");
 
-		// And the shape a rider actually sees is a different one per state — three glyphs in three
+		// And the shape a rider actually sees is a different one per state - three glyphs in three
 		// colours would be one glyph, which is the thing §5.6 is written against.
 		string[] glyphs = [.. component.FindAll(".live-members .state i").Select(Glyph)];
 
@@ -119,7 +119,7 @@ public sealed class LiveMemberListTests : BunitContext
 			.. component.FindAll(".live-members .key dd strong").Select(entry => entry.TextContent.Trim()),
 		];
 
-		// Exact and in order, not four substring checks over one blob of text — "sharing" appears
+		// Exact and in order, not four substring checks over one blob of text - "sharing" appears
 		// inside "not sharing", so a key that said one word four times would pass that.
 		named.ShouldBe(
 		[
@@ -145,7 +145,7 @@ public sealed class LiveMemberListTests : BunitContext
 
 		// §16.3: the name here and the label out on the map have to be the same tag, or the colour
 		// is worse than no colour. Background and ink both, because the ink is derived from the
-		// background rather than chosen — a white marker with white text is a rider who vanished.
+		// background rather than chosen - a white marker with white text is a rider who vanished.
 		string style = component.Find(".live-members .name").GetAttribute("style") ?? string.Empty;
 
 		style.ShouldContain("#dc2626");
@@ -162,7 +162,7 @@ public sealed class LiveMemberListTests : BunitContext
 			.Add(p => p.SelfUserId, me));
 
 		// One row, and it is the reader's. The slant that says so is a stylesheet rule on .self,
-		// which is the part a bUnit render cannot see — what it can see, and what that rule hangs
+		// which is the part a bUnit render cannot see - what it can see, and what that rule hangs
 		// off, is that exactly one row is marked and it is the one carrying the reader's name.
 		component.FindAll(".live-members li.self").Count.ShouldBe(1);
 		component.Find(".live-members li.self .name").TextContent.Trim().ShouldBe("Me");
@@ -183,7 +183,7 @@ public sealed class LiveMemberListTests : BunitContext
 			})
 			.Add(p => p.Route, EastwardRoute())
 			// The reader sits a kilometre north of the rider, who is two along the route from its
-			// start — so range and distance-along are deliberately different numbers here. Two
+			// start - so range and distance-along are deliberately different numbers here. Two
 			// columns that always agreed would prove nothing about which is which.
 			.Add(p => p.From, (BaseLat + 0.01, BaseLon + 0.02)));
 
@@ -201,9 +201,9 @@ public sealed class LiveMemberListTests : BunitContext
 			.Add(p => p.Members, [Member(Guid.NewGuid(), "Off", sharing: false, hasPosition: false)])
 			.Add(p => p.Positions, new Dictionary<Guid, RiderPositionDto>()));
 
-		component.Find(".live-members .age dd").TextContent.Trim().ShouldBe("—",
+		component.Find(".live-members .age dd").TextContent.Trim().ShouldBe("-",
 			"'0 s' would claim a fix arrived this instant from a traveller who is not sharing at all.");
-		component.Find(".live-members .range dd").TextContent.Trim().ShouldBe("—");
+		component.Find(".live-members .range dd").TextContent.Trim().ShouldBe("-");
 	}
 
 	[Fact]

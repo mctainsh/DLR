@@ -15,8 +15,8 @@
 	justify-content: center;
 
 	/*
-		A circle, not a lozenge. min-width and height are the same number so a single digit — which
-		is what nearly every one of these carries — comes out round; the padding is only there so
+		A circle, not a lozenge. min-width and height are the same number so a single digit - which
+		is what nearly every one of these carries - comes out round; the padding is only there so
 		that "12" and "99+" grow sideways instead of overflowing or shrinking the type.
 
 		Tight on purpose. A badge is read as a shape first and a number second, and one padded out

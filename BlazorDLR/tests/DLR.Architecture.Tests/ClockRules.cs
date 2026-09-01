@@ -15,7 +15,7 @@ namespace DLR.Architecture.Tests;
 public sealed class ClockRules
 {
 	/// <summary>
-	/// DLR.TestSupport is the one project allowed to read the real clock — it is where
+	/// DLR.TestSupport is the one project allowed to read the real clock - it is where
 	/// the fake one is anchored.
 	/// </summary>
 	private const string ExemptProject = "tests/DLR.TestSupport/";

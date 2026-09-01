@@ -39,7 +39,7 @@ public sealed class NeighbourPanelTests : BunitContext
 		component.FindAll(".live-neighbours li")
 			.Select(row => row.QuerySelector(".name")!.TextContent.Trim())
 			.ShouldBe(["First", "Me", "Last"],
-				"the list arrives in road order and the panel must not resort it — the shape of it is "
+				"the list arrives in road order and the panel must not resort it - the shape of it is "
 				+ "the answer to 'am I off the front or off the back'.");
 	}
 
@@ -110,7 +110,7 @@ public sealed class NeighbourPanelTests : BunitContext
 			.Add(p => p.Rows, []));
 
 		component.FindAll(".live-neighbours").ShouldBeEmpty(
-			"the map is the page — a panel announcing that it has nothing is a strip of map covered "
+			"the map is the page - a panel announcing that it has nothing is a strip of map covered "
 			+ "for no reason.");
 	}
 }

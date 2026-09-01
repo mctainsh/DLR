@@ -10,7 +10,7 @@ namespace BlazorDLR.Shared.State;
 /// <para>
 /// The sharing flag is on the server and survives the process; the receiver and the open screen do
 /// not. So the server is asked what this rider is still sharing with, and only a phone is asked at
-/// all — <see cref="LocationBroadcastState.IsSupported"/> is the gate, which is null on both
+/// all - <see cref="LocationBroadcastState.IsSupported"/> is the gate, which is null on both
 /// browsers and false on the MAUI desktop stubs (§18.6).
 /// </para>
 /// </summary>
@@ -25,7 +25,7 @@ public sealed class LaunchRestore
 
 	/// <summary>Builds the restore over the session, the remembered adventure and the receiver.</summary>
 	/// <param name="api">Where the sharing flag is read from.</param>
-	/// <param name="auth">Who is back — a launch with no session has nothing to restore.</param>
+	/// <param name="auth">Who is back - a launch with no session has nothing to restore.</param>
 	/// <param name="currentRide">Which adventure this device was on.</param>
 	/// <param name="broadcast">The device's receiver (§5.7), or <c>null</c> on a host with none.</param>
 	public LaunchRestore(
@@ -57,7 +57,7 @@ public sealed class LaunchRestore
 
 		_ran = true;
 
-		// Not a phone — see the remarks. First, because it settles the whole question.
+		// Not a phone - see the remarks. First, because it settles the whole question.
 		if (_broadcast is not { IsSupported: true })
 		{
 			DiagnosticLog.Write("Startup: no GPS on this device, so nothing is restored.");

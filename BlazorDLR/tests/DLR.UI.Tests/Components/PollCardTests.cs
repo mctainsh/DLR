@@ -7,7 +7,7 @@ namespace DLR.UI.Tests.Components;
 
 /// <summary>
 /// A single-select PollCard: tapping the current choice clears it; tapping another
-/// option replaces it. Votes are always attributed (§17.5) — voter names appear
+/// option replaces it. Votes are always attributed (§17.5) - voter names appear
 /// inline with the tallies.
 /// </summary>
 public sealed class PollCardTests : BunitContext
@@ -53,7 +53,7 @@ public sealed class PollCardTests : BunitContext
 		markup.Contains("Mountain road", StringComparison.Ordinal).ShouldBeTrue();
 		// One element per voter rather than one joined string, so each name can carry the rider's
 		// photograph beside it (§7.3). What §17.5 asks for is that the votes are attributed and in
-		// order, which is what this reads — the separator between them is now the stylesheet's job.
+		// order, which is what this reads - the separator between them is now the stylesheet's job.
 		component.FindAll(".voters .voter").Select(voter => voter.TextContent.Trim())
 			.ShouldBe(["Alice", "Bob", "Cass", "Dave"],
 				"§17.5: votes are attributed and voter names are on the card.");

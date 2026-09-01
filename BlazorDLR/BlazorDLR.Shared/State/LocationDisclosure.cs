@@ -7,7 +7,7 @@ namespace BlazorDLR.Shared.State;
 /// it does with it, shown before the platform's permission dialog is ever reached (§4.3, §10.2).
 /// <para>
 /// <strong>A store requirement with a specific shape, not a nicety.</strong> Play's policy requires
-/// the app's own UI to name the data — location — and <em>every</em> use it is put to, in the form
+/// the app's own UI to name the data - location - and <em>every</em> use it is put to, in the form
 /// "collects location data to enable [feature], even when the app is closed or not in use", with an
 /// explicit accept and deny, before the runtime permission request. It is checked against a video at
 /// review, and an app that goes straight to the system dialog is rejected however good its
@@ -17,7 +17,7 @@ namespace BlazorDLR.Shared.State;
 /// <strong>Its own type, so that there is one copy of the words and one gate in front of every
 /// route to a fix.</strong> The disclosure used to live inside <see cref="LocationBroadcastState"/>,
 /// which covers sharing and recording but not <c>My adventures</c> asking the platform for one fix
-/// to centre a search on — and that route reaches the same three-rung Android permission ladder,
+/// to centre a search on - and that route reaches the same three-rung Android permission ladder,
 /// background rung included, with nothing said first. Version 8.0.0.28 was rejected for exactly
 /// that class of hole.
 /// </para>
@@ -44,7 +44,7 @@ public sealed class LocationDisclosure(IDeviceSettings settings, ConfirmService 
 	public const string StorageKey = "dlr.location-disclosure.2";
 
 	/// <summary>
-	/// The heading. States the collection outright rather than asking a question about sharing —
+	/// The heading. States the collection outright rather than asking a question about sharing -
 	/// what Play found inadequate in 8.0.0.28 was a disclosure that read as a feature prompt.
 	/// </summary>
 	public const string Title = "Dumb Luck Routes collects location data";
@@ -55,7 +55,7 @@ public sealed class LocationDisclosure(IDeviceSettings settings, ConfirmService 
 	/// <strong>The first paragraph is Play's required form and every clause in it is load-bearing:
 	/// what is collected, both things it is used for, and "even when the app is closed or not in
 	/// use". Revise the rest freely; leave that sentence alone.</strong> The recording half is the
-	/// one the rejected version was missing — every fix the receiver produces is offered to the
+	/// one the rejected version was missing - every fix the receiver produces is offered to the
 	/// recorder before any publish gate sees it (§15.1), so a track is a second use of the same
 	/// data and has to be disclosed as one.
 	/// </para>

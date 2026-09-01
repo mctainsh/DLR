@@ -15,8 +15,8 @@ namespace DLR.UI.Tests.Layout;
 /// turns it off and on.
 /// <para>
 /// Two rules carry the weight here. The state has to be readable by <em>shape</em> and not only by
-/// colour — this is read through a visor, in daylight, by riders a fair number of whom cannot tell
-/// the amber from the green — and turning the GPS off has to clear the sharing flag on the server
+/// colour - this is read through a visor, in daylight, by riders a fair number of whom cannot tell
+/// the amber from the green - and turning the GPS off has to clear the sharing flag on the server
 /// as well as stopping the receiver, or the rider's last pin stands on everybody else's map with
 /// nothing arriving to move it.
 /// </para>
@@ -34,7 +34,7 @@ public sealed class GpsRailButtonTests : BunitContext
 	private readonly FakeTimeProvider _clock = new(FixedInstant);
 
 	/// <summary>
-	/// Everything the switch stands on, with the receiver registered — the MAUI host's graph.
+	/// Everything the switch stands on, with the receiver registered - the MAUI host's graph.
 	/// The disclosure is already accepted, as it is on every launch after the first; the one test
 	/// that cares about the receiver never starting does not need a dialog to say so.
 	/// </summary>
@@ -123,7 +123,7 @@ public sealed class GpsRailButtonTests : BunitContext
 	public void WhereTheGpsCannotRun_TheSwitchIsShownButNotOffered()
 	{
 		// A MAUI desktop head, whose platform provider is a stub. The state is still worth drawing
-		// — it is the answer to "why am I not on the map" — but there is nothing for a tap to do.
+		// - it is the answer to "why am I not on the map" - but there is nothing for a tap to do.
 		Wire();
 		_provider.IsSupported = false;
 
@@ -225,7 +225,7 @@ public sealed class GpsRailButtonTests : BunitContext
 	{
 		// It states what just happened and then leaves. A close button would be a 48 px target for
 		// something that removes itself in a few seconds, pressed by a rider taking a hand off the
-		// bars — which is exactly the wrong trade.
+		// bars - which is exactly the wrong trade.
 		Wire();
 
 		IRenderedComponent<GpsRailButton> component = Render<GpsRailButton>();
@@ -248,7 +248,7 @@ public sealed class GpsRailButtonTests : BunitContext
 	public void TheSwitchNamesItsStateAndWhatTheTapWillDo()
 	{
 		// A glyph has no accessible name and there is no caption beside it, so the anchor's own
-		// name is the whole of what a screen reader — or a tooltip — has to go on.
+		// name is the whole of what a screen reader - or a tooltip - has to go on.
 		Wire();
 
 		IRenderedComponent<GpsRailButton> component = Render<GpsRailButton>();

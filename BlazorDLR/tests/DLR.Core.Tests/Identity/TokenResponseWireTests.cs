@@ -14,7 +14,7 @@ public sealed class TokenResponseWireTests
 
 	/// <summary>
 	/// The shape a client compiled before the field still declares. Reading the new payload into
-	/// it must not throw — which it would the moment anything set
+	/// it must not throw - which it would the moment anything set
 	/// <c>JsonUnmappedMemberHandling.Disallow</c>, and that is what this pins.
 	/// </summary>
 	private sealed record OlderContract(
@@ -43,7 +43,7 @@ public sealed class TokenResponseWireTests
 
 	/// <summary>
 	/// And the other way: an answer from a server that predates the field reads back as no device
-	/// at all, which is what <c>AuthState</c> treats as "this installation has nothing to claim" —
+	/// at all, which is what <c>AuthState</c> treats as "this installation has nothing to claim" -
 	/// the behaviour every client had before any of this.
 	/// </summary>
 	[Fact]
@@ -67,6 +67,6 @@ public sealed class TokenResponseWireTests
 
 		session.AccessToken.ShouldBe("access");
 		session.DeviceId.ShouldBe(Guid.Empty,
-			"no device id on the wire is not an error — it is a server that cannot name one yet");
+			"no device id on the wire is not an error - it is a server that cannot name one yet");
 	}
 }

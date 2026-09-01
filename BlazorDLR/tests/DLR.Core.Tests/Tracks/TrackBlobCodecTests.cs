@@ -58,7 +58,7 @@ public sealed class TrackBlobCodecTests
 		TrackGeometry decoded = Decode(Encode(original));
 
 		decoded.Points[0].ElevationM.ShouldBeNull(
-			"§8: null must not travel as zero — sending zero elevation would claim sea level for a point that was never measured.");
+			"§8: null must not travel as zero - sending zero elevation would claim sea level for a point that was never measured.");
 		decoded.Points[0].TimeUtc.ShouldBeNull();
 		decoded.Points[1].ElevationM.ShouldBe(100);
 		decoded.Points[1].TimeUtc.ShouldBeNull("elevation-only point kept time null through the round trip.");
@@ -87,7 +87,7 @@ public sealed class TrackBlobCodecTests
 		TrackStats after = TrackStats.From(Decode(Encode(original)));
 
 		before.DistanceM.ShouldBe(after.DistanceM, tolerance: 1e-9,
-			"§15.7: a save/load round-trip must produce identical distance — otherwise an untouched half of an edited ride would report a different number.");
+			"§15.7: a save/load round-trip must produce identical distance - otherwise an untouched half of an edited ride would report a different number.");
 		before.AscentM.ShouldBe(after.AscentM);
 		before.DurationS.ShouldBe(after.DurationS);
 	}
@@ -102,7 +102,7 @@ public sealed class TrackBlobCodecTests
 		byte[] h2 = TrackBlobCodec.ContentHash(g2);
 
 		h1.SequenceEqual(h2).ShouldBeTrue(
-			"§15.3: two blobs with identical content must hash identically — that's the whole point of the content hash for duplicate detection.");
+			"§15.3: two blobs with identical content must hash identically - that's the whole point of the content hash for duplicate detection.");
 	}
 
 	[Fact]
@@ -121,7 +121,7 @@ public sealed class TrackBlobCodecTests
 	public void Read_WrongMagicInsideValidGzip_ThrowsInvalidData()
 	{
 		// Build a valid gzip payload whose first four bytes are NOT the DLR1 magic. The
-		// codec must recognise the mismatch and refuse — reading it as ours would produce
+		// codec must recognise the mismatch and refuse - reading it as ours would produce
 		// nonsense stats or crash somewhere further in.
 		using MemoryStream ms = new();
 		using (System.IO.Compression.GZipStream gzip = new(ms, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))

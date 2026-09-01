@@ -62,7 +62,7 @@ public sealed class TrackEditController : ControllerBase
 
 		// 403 rather than 404, which is the one place in this API that distinction goes the
 		// other way (§15.4). A share link makes a track's id legitimately known to people who
-		// do not own it, so "you cannot edit this" is the honest answer — and a recipient who
+		// do not own it, so "you cannot edit this" is the honest answer - and a recipient who
 		// wants their own variant exports the GPX and re-imports it.
 		if (track.OwnerId != callerId)
 		{
@@ -86,13 +86,13 @@ public sealed class TrackEditController : ControllerBase
 			return ConflictProblem(
 				"Track has changed",
 				$"This edit was written against version {request.Version} and the track is now " +
-				$"version {track.Version}. Reload it — the indices in the edit no longer point " +
+				$"version {track.Version}. Reload it - the indices in the edit no longer point " +
 				"at the same places.");
 		}
 
 		// The Live-ride precondition (§15.4), checkable now that a track can actually be attached
 		// to a ride as a planned route. Changing the geometry of a route a ride is *on* silently
-		// moves every rider's position in §5.4's gap list — nobody rode anywhere, and the list
+		// moves every rider's position in §5.4's gap list - nobody rode anywhere, and the list
 		// reorders. Attaching and detaching whole routes stays allowed while Live: adding the long
 		// option mid-ride moves nobody, because the gap list projects against the oldest one.
 		if (await Rides.RideRouteEndpoints.IsTrackAttachedAsync(database, id))
@@ -208,7 +208,7 @@ public sealed class TrackEditController : ControllerBase
 		await ApplyAsync(track, original, blobs, clock);
 
 		// The revision is consumed rather than replaced by the edited state. §15.6 is explicit
-		// that this is a safety net for the last action — turning it into a redo would make it
+		// that this is a safety net for the last action - turning it into a redo would make it
 		// the history feature it declines to be.
 		database.Remove(revision);
 

@@ -1,0 +1,137 @@
+@using BlazorDLR.Shared.State
+@using DLR.Core.Contracts.Announcements
+@inject StartupCheckState Startup
+@implements IDisposable
+
+@*
+	What whoever runs this server is telling riders (§20.2), and the offer of an update when this
+	build is behind (§20.1). Mounted once in MainLayout beside ConfirmDialog, so a message can be
+	drawn over whatever screen the rider happens to be on - which is the whole point of an
+	announcement arriving over the hub rather than only at launch.
+
+	One at a time, announcements first. Two stacked dialogs is a rider dismissing whichever is on
+	top without reading either.
+
+	No backdrop dismissal and no Escape, unlike ConfirmDialog. There the safe answer has to be the
+	accidental one because the other button destroys something; here the only button clears the
+	message for good, so it should take a deliberate press.
+*@
+
+@if (Startup.Current is { } announcement)
+{
+	<div class="notice-backdrop">
+		<div class="notice-dialog @Tone(announcement.Severity)" role="alertdialog" aria-modal="true"
+			 aria-labelledby="notice-title" aria-describedby="notice-body">
+			<h2 id="notice-title">
+				<i class="fa fa-fw @Glyph(announcement.Severity)" aria-hidden="true"></i>
+				@announcement.Title
+			</h2>
+			<div id="notice-body">
+				@foreach (string paragraph in Paragraphs(announcement.Body))
+				{
+					<p>@paragraph</p>
+				}
+			</div>
+			<div class="notice-actions">
+				<button type="button" class="notice-ok" @onclick="DismissAsync">Got it</button>
+			</div>
+		</div>
+	</div>
+}
+else if (Startup.UpdateOffered)
+{
+	<div class="notice-backdrop">
+		<div class="notice-dialog information" role="alertdialog" aria-modal="true"
+			 aria-labelledby="notice-title" aria-describedby="notice-body">
+			<h2 id="notice-title">
+				<i class="fa fa-fw fa-circle-arrow-up" aria-hidden="true"></i>
+				There is a newer version
+			</h2>
+			<div id="notice-body">
+				<p>
+					This app is version @(StartupCheckState.ClientVersion ?? "unknown"). Version
+					@Startup.RecommendedVersion is out, and it is worth having.
+				</p>
+				<p>Most things still work in the meantime.</p>
+			</div>
+			<div class="notice-actions">
+				@if (Startup.UpdateUrl is { } store)
+				{
+					<a class="notice-store" href="@store" target="_blank" rel="noopener">Get it</a>
+				}
+				<button type="button" class="notice-ok" @onclick="DismissAsync">Not now</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	protected override void OnInitialized() => Startup.Changed += OnChanged;
+
+	/// <summary>
+	/// Marshalled through <c>InvokeAsync</c>: an announcement arriving over the hub is raised on
+	/// whatever thread SignalR chose, and a component may only be re-rendered on the renderer's.
+	/// </summary>
+	private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+	private Task DismissAsync() => Startup.DismissAsync();
+
+	/// <summary>One paragraph per line, as ConfirmDialog does - a wall of text is not read.</summary>
+	private static IEnumerable<string> Paragraphs(string body) =>
+		body.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+	private static string Tone(NoticeSeverity severity) => severity switch
+	{
+		NoticeSeverity.Urgent => "urgent",
+		NoticeSeverity.Warning => "warning",
+		_ => "information",
+	};
+
+	private static string Glyph(NoticeSeverity severity) => severity switch
+	{
+		NoticeSeverity.Urgent => "fa-triangle-exclamation",
+		NoticeSeverity.Warning => "fa-circle-exclamation",
+		_ => "fa-circle-info",
+	};
+
+	public void Dispose() => Startup.Changed -= OnChanged;
+}
+
+<style>
+	.notice-backdrop {
+		position: fixed; inset: 0; z-index: 1000;
+		background: rgba(0, 0, 0, 0.55);
+		display: flex; align-items: center; justify-content: center;
+		padding: 1rem;
+	}
+	.notice-dialog {
+		background: var(--dlr-surface);
+		color: var(--dlr-fg);
+		border: 1px solid var(--dlr-border); border-left-width: 4px; border-radius: 8px;
+		box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+		padding: 1.25rem 1.25rem 1rem;
+		min-width: min(24rem, 100%);
+		max-width: 32rem;
+		display: flex; flex-direction: column;
+		max-height: calc(100dvh - 2rem);
+	}
+	/* The severity is carried by the edge and the glyph, never by colour alone. */
+	.notice-dialog.information { border-left-color: var(--dlr-accent); }
+	.notice-dialog.warning { border-left-color: var(--dlr-warn); }
+	.notice-dialog.urgent { border-left-color: var(--dlr-error-border); }
+	.notice-dialog h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+	.notice-dialog.warning h2 i { color: var(--dlr-warn); }
+	.notice-dialog.urgent h2 i { color: var(--dlr-error); }
+	#notice-body { margin: 0 0 1.25rem; overflow-y: auto; }
+	#notice-body p { margin: 0 0 0.75rem; line-height: 1.4; }
+	#notice-body p:last-child { margin-bottom: 0; }
+	.notice-actions { display: flex; justify-content: flex-end; gap: 0.5rem; flex: none; align-items: center; }
+	.notice-ok, .notice-store {
+		padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;
+		font: inherit; border: 1px solid transparent; text-decoration: none;
+	}
+	.notice-ok { background: var(--dlr-accent); color: var(--dlr-accent-fg); }
+	.notice-ok:hover { background: #1d4ed8; }
+	.notice-store { background: transparent; border-color: var(--dlr-border-strong); color: inherit; }
+	.notice-store:hover { background: var(--dlr-surface-2); }
+</style>

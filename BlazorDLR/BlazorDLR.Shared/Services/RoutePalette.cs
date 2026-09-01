@@ -6,7 +6,7 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// <strong>Assigned by position, not stored.</strong> A colour the organiser picked would be one
 /// more thing to migrate, to validate and to get contrast-checked; a route's place in the list is
-/// already stable — it is ordered by when it was attached, which nothing reorders — so the same
+/// already stable - it is ordered by when it was attached, which nothing reorders - so the same
 /// route keeps the same colour for everybody without a column.
 /// </para>
 /// <para>

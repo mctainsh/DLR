@@ -7,7 +7,7 @@ namespace DLR.Server.Tests.Admin;
 /// Waiting on the log writer, for every test that reads back what it wrote (§14.6).
 /// <para>
 /// Shared because the writer drains on its own thread, so a test has to wait for a line rather
-/// than assume it — and a polling loop copied per test class is a loop that only some of the
+/// than assume it - and a polling loop copied per test class is a loop that only some of the
 /// copies get fixed when the reader's signature or the drain timing moves.
 /// </para>
 /// </summary>
@@ -20,7 +20,7 @@ internal static class LogFile
 
 	/// <summary>
 	/// Reads the day once <paramref name="expected"/> entries have arrived, or once patience runs
-	/// out — a line that never comes fails the assertion that follows rather than hanging.
+	/// out - a line that never comes fails the assertion that follows rather than hanging.
 	/// </summary>
 	/// <param name="reader">The reader under test.</param>
 	/// <param name="expected">How many entries to wait for.</param>

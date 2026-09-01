@@ -7,7 +7,7 @@ namespace DLR.UI.Tests.Diagnostics;
 /// <para>
 /// This used to be one line of type and message, and the failure that proved it insufficient was
 /// the map overlay's: the entire evidence a rider could send in was <em>"One or more errors
-/// occurred. (Object reference not set to an instance of an object.)"</em> — a wrapper quoting a
+/// occurred. (Object reference not set to an instance of an object.)"</em> - a wrapper quoting a
 /// null dereference, naming neither the component, the call nor the frame. The tests below pin the
 /// three properties that make an entry worth reading: the wrapper is unwrapped, every exception in
 /// the chain appears, and the stacks come with them.
@@ -21,7 +21,7 @@ namespace DLR.UI.Tests.Diagnostics;
 /// </summary>
 public sealed class DiagnosticLogErrorTests
 {
-	/// <summary>An exception with a real stack trace — one that was thrown, not one that was constructed.</summary>
+	/// <summary>An exception with a real stack trace - one that was thrown, not one that was constructed.</summary>
 	private static Exception Thrown(Func<Exception> build)
 	{
 		try
@@ -62,7 +62,7 @@ public sealed class DiagnosticLogErrorTests
 		entry.Contains("System.NullReferenceException", StringComparison.Ordinal).ShouldBeTrue(
 			"the type of what actually failed is the first thing a reader needs, and the wrapper does not carry it.");
 		entry.Contains("System.AggregateException", StringComparison.Ordinal).ShouldBeTrue(
-			"the wrapper is still named — it says how the failure travelled — but it is no longer the whole entry.");
+			"the wrapper is still named - it says how the failure travelled - but it is no longer the whole entry.");
 		entry.Contains("at DLR.UI.Tests.Diagnostics.DiagnosticLogErrorTests", StringComparison.Ordinal).ShouldBeTrue(
 			"and the stack, because 'which null?' is a question only frames answer.");
 	}
@@ -78,7 +78,7 @@ public sealed class DiagnosticLogErrorTests
 
 		entry.Contains("System.ApplicationException", StringComparison.Ordinal).ShouldBeTrue();
 		entry.Contains("System.InvalidOperationException", StringComparison.Ordinal).ShouldBeTrue(
-			"a chain is only useful end to end — the answer is usually in the last one.");
+			"a chain is only useful end to end - the answer is usually in the last one.");
 		entry.Contains("← caused by", StringComparison.Ordinal).ShouldBeTrue(
 			"and the entry has to read as a chain rather than as three unrelated exceptions.");
 	}

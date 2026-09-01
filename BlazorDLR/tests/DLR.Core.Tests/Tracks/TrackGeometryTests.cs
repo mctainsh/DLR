@@ -5,11 +5,11 @@ namespace DLR.Core.Tests.Tracks;
 /// <summary>
 /// §15.3's flat-list-with-segment-starts shape. The invariants that matter:
 /// <list type="bullet">
-///   <item>An implicit zero is added — a single-segment track can be built with an
+///   <item>An implicit zero is added - a single-segment track can be built with an
 ///     empty starts list.</item>
-///   <item>Out-of-range or duplicate starts are silently dropped rather than throwing —
+///   <item>Out-of-range or duplicate starts are silently dropped rather than throwing -
 ///     an imported GPX with a stray track break must not crash the recorder.</item>
-///   <item><c>Legs()</c> never yields a pair across a segment break — the whole reason
+///   <item><c>Legs()</c> never yields a pair across a segment break - the whole reason
 ///     the shape exists (§15.3).</item>
 /// </list>
 /// </summary>
@@ -23,7 +23,7 @@ public sealed class TrackGeometryTests
 		TrackGeometry g = new(new[] { P(0), P(1), P(2) });
 
 		g.SegmentStarts.Count.ShouldBe(1);
-		g.SegmentStarts[0].ShouldBe(0, "an implicit zero-index start is always added — a caller must not need to pass one.");
+		g.SegmentStarts[0].ShouldBe(0, "an implicit zero-index start is always added - a caller must not need to pass one.");
 		g.SegmentCount.ShouldBe(1);
 	}
 
@@ -54,7 +54,7 @@ public sealed class TrackGeometryTests
 	{
 		TrackGeometry g = new(new[] { P(0), P(1), P(2), P(3) }, segmentStarts: new[] { 2, 2, 2 });
 
-		g.SegmentCount.ShouldBe(2, "duplicate explicit starts collapse to one — a broken exporter must not create N segments per pause.");
+		g.SegmentCount.ShouldBe(2, "duplicate explicit starts collapse to one - a broken exporter must not create N segments per pause.");
 	}
 
 	[Fact]
@@ -74,7 +74,7 @@ public sealed class TrackGeometryTests
 		(TrackPoint From, TrackPoint To)[] legs = g.Legs().ToArray();
 
 		legs.Length.ShouldBe(2,
-			"§15.3: two legs — (0→1) inside segment 1, (2→3) inside segment 2. The pair (1→2) crosses the break and must not be yielded.");
+			"§15.3: two legs - (0→1) inside segment 1, (2→3) inside segment 2. The pair (1→2) crosses the break and must not be yielded.");
 		legs[0].From.Latitude.ShouldBe(0);
 		legs[0].To.Latitude.ShouldBe(1);
 		legs[1].From.Latitude.ShouldBe(2);
@@ -94,7 +94,7 @@ public sealed class TrackGeometryTests
 	{
 		TrackGeometry g = new(new[] { P(0) });
 
-		g.SegmentCount.ShouldBe(1, "one point is still one segment — the zero-index start is present.");
+		g.SegmentCount.ShouldBe(1, "one point is still one segment - the zero-index start is present.");
 		g.Legs().ShouldBeEmpty("no leg exists in a one-point segment.");
 	}
 }

@@ -45,7 +45,7 @@ public sealed class ConsentAskedStateTests
 
 		state.WasAsked(TheRide).ShouldBeTrue();
 		state.WasAsked(AnotherRide).ShouldBeFalse(
-			"§5.6: the decision is per adventure — answering for one says nothing about another.");
+			"§5.6: the decision is per adventure - answering for one says nothing about another.");
 	}
 
 	[Fact]

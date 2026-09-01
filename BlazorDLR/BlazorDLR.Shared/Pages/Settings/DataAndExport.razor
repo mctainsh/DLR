@@ -6,17 +6,17 @@
 @inject NavigationManager Nav
 @inject AuthState Auth
 
-<PageTitle>Data &amp; export — Dumb Luck Routes</PageTitle>
+<PageTitle>Data &amp; export - Dumb Luck Routes</PageTitle>
 
 @*
 	§6.3 and §10.2's store-compliance requirement: account deletion must be reachable from
 	inside the app, and data export is what "hand me my data" means in privacy terms.
 
 	Two flows on one page:
-	  1. Export — GET /api/v1/me/export returns a ZIP (§6.3, §16.6). The client triggers
+	  1. Export - GET /api/v1/me/export returns a ZIP (§6.3, §16.6). The client triggers
 		 a browser download; on the phone the BlazorWebView downloads to the platform's
 		 default share sheet handler.
-	  2. Delete — DELETE /api/v1/me takes the current password in the body (§6.3). Nothing
+	  2. Delete - DELETE /api/v1/me takes the current password in the body (§6.3). Nothing
 		 is recoverable, and the callout says so plainly.
 *@
 
@@ -125,7 +125,7 @@
 
 			// Stream to bytes, then hand the file to the host. The response carries a
 			// Content-Disposition attachment, but the browser is not the one that made the
-			// request — the app is — so somebody has to save it. That is not the same job on
+			// request - the app is - so somebody has to save it. That is not the same job on
 			// every host (an anchor click does nothing inside a WebView), which is what
 			// IFileSaver is for.
 			byte[] bytes = await response.Content.ReadAsByteArrayAsync();
@@ -169,7 +169,7 @@
 			await Api.DeleteAccountAsync(new DeleteAccountRequest(_password));
 
 			// Sign out locally and land on Welcome. The refresh token (mobile) or cookie (web)
-			// is now dead server-side, so subsequent requests would 401 anyway — clearing the
+			// is now dead server-side, so subsequent requests would 401 anyway - clearing the
 			// client state now avoids a flash of the empty signed-in shell.
 			await Auth.SignOutAsync();
 			Nav.NavigateTo("/welcome", forceLoad: true);

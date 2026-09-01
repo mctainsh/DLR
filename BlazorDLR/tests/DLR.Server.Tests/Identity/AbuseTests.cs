@@ -74,7 +74,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 	/// be ignored.
 	/// <para>
 	/// Honouring <c>X-Forwarded-For</c> from anyone lets a caller pick their own ladder bucket
-	/// and their own rate-limit partition by setting a header — which is worse than not reading
+	/// and their own rate-limit partition by setting a header - which is worse than not reading
 	/// it at all, because every limit then looks enforced and is optional. Every other test in
 	/// this class asserts the header <em>is</em> honoured, so an over-broad
 	/// <c>KnownProxies</c> would pass all of them.
@@ -103,7 +103,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 				.SingleAsync());
 
 		recorded.ShouldNotBe(IPAddress.Parse("198.51.100.7"),
-			"a claimed address from an untrusted hop must not become the address of record — " +
+			"a claimed address from an untrusted hop must not become the address of record - " +
 			"otherwise the ladder is opt-out by header");
 	}
 
@@ -126,7 +126,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 
 		fourth.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
-		// With an address it goes through — restricted, not refused. There is deliberately no
+		// With an address it goes through - restricted, not refused. There is deliberately no
 		// hard cap: carrier-grade NAT means one address can be a whole mobile network, and a
 		// flat block would refuse legitimate signups with no path forward.
 		using HttpResponseMessage withEmail =
@@ -348,7 +348,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 
 		throttled.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
 
-		// Same server, same username, different address — and unaffected. If this is a 429 the
+		// Same server, same username, different address - and unaffected. If this is a 429 the
 		// partition key is the socket rather than the forwarded address, and one busy mobile
 		// network would lock everybody behind it out.
 		using HttpResponseMessage elsewhere = await PostLoginAsync(quiet, "DaveSmith", "wrong-password");
@@ -446,7 +446,7 @@ public sealed class AbuseTests(PostgresFixture postgres)
 		app.Emails.To("dave@example.com").ShouldHaveSingleItem()
 			.Subject.ShouldContain("tried to register");
 
-		// The address is not attached to the new account — it is not theirs to attach.
+		// The address is not attached to the new account - it is not theirs to attach.
 		AppUser impostor = await app.WithDatabaseAsync(async database =>
 			await database.Users.SingleAsync(user => user.NormalizedUserName == "SOMEBODYELSE"));
 

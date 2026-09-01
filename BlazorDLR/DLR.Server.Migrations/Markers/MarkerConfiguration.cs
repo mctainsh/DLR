@@ -15,7 +15,7 @@ public sealed class MarkerConfiguration : IEntityTypeConfiguration<Marker>
 		builder.ToTable("marker", table =>
 
 			// The §16.1 exclusive arc, in the database rather than only in the endpoint. Every
-			// path that ever writes this table — an importer, a migration, a future bulk tool —
+			// path that ever writes this table - an importer, a migration, a future bulk tool -
 			// gets the invariant for free, and none of them has to remember it.
 			table.HasCheckConstraint(
 				OneParentConstraint,
@@ -40,7 +40,7 @@ public sealed class MarkerConfiguration : IEntityTypeConfiguration<Marker>
 			.OnDelete(DeleteBehavior.Cascade);
 
 		// The author's account going means their markers go with it (§10.1). Their *posts* stay
-		// when they merely leave a ride (§17.6) — deletion of the account is the different case.
+		// when they merely leave a ride (§17.6) - deletion of the account is the different case.
 		builder
 			.HasOne(marker => marker.CreatedBy)
 			.WithMany()

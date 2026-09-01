@@ -21,7 +21,7 @@ public enum CommentKindDto
 /// <param name="PhotoId">An uploaded image (§16.4), or null.</param>
 /// <param name="CreatedUtc">
 /// When the rider wrote it, if that is not now. <strong>Clamped server-side</strong> so it can
-/// never exceed receipt time — a client clock set to next year must not pin a comment to the top
+/// never exceed receipt time - a client clock set to next year must not pin a comment to the top
 /// of every thread forever (§17.3).
 /// </param>
 /// <param name="Poll">
@@ -49,18 +49,18 @@ public sealed record PinCommentRequest(bool Pinned);
 /// <param name="Id">Which comment.</param>
 /// <param name="GroupRideId">
 /// Which adventure's thread, or null when this post belongs to a shared route's thread instead.
-/// <strong>Exactly one of this and <paramref name="TrackId"/> is set</strong> — a comment hangs off
+/// <strong>Exactly one of this and <paramref name="TrackId"/> is set</strong> - a comment hangs off
 /// one subject (§17.2), and the two threads are the same conversation machinery pointed at a
 /// different one.
 /// </param>
 /// <param name="TrackId">Which shared route's thread, or null when it is an adventure's (§6.2).</param>
 /// <param name="AuthorId">Who wrote it.</param>
 /// <param name="AuthorUserName">
-/// Their handle. Denormalised safely because §7.2 makes it immutable — there is no invalidation
+/// Their handle. Denormalised safely because §7.2 makes it immutable - there is no invalidation
 /// to get wrong.
 /// </param>
 /// <param name="Kind">Text or poll.</param>
-/// <param name="Body">The text. <strong>Plain text</strong> — never HTML, never Markdown, never linkified.</param>
+/// <param name="Body">The text. <strong>Plain text</strong> - never HTML, never Markdown, never linkified.</param>
 /// <param name="PhotoId">The attached image, fetched separately.</param>
 /// <param name="IsPinned">Whether it sits at the top of the thread.</param>
 /// <param name="CreatedUtc">When the rider wrote it, clamped to receipt time.</param>
@@ -68,12 +68,12 @@ public sealed record PinCommentRequest(bool Pinned);
 /// <param name="EditedUtc">When it was last edited, or null.</param>
 /// <param name="AuthoredEarlier">
 /// Whether <paramref name="CreatedUtc"/> and <paramref name="PostedUtc"/> differ by more than
-/// <c>Comments:StaleAuthorMinutes</c>, so the UI can show both — <em>"14:32 — written 10:04"</em>.
+/// <c>Comments:StaleAuthorMinutes</c>, so the UI can show both - <em>"14:32 - written 10:04"</em>.
 /// The threshold is decided here rather than in each client, because it is configuration (§14.5)
 /// and three clients disagreeing about what counts as stale would be three different threads.
 /// </param>
 /// <param name="Reactions">
-/// Aggregate counts plus the caller's own (§17.4). Never a list of who — that is a separate
+/// Aggregate counts plus the caller's own (§17.4). Never a list of who - that is a separate
 /// question with its own answer, and carrying it on every post in a thread would be the bulk of
 /// the payload for something almost nothing renders.
 /// </param>
@@ -99,7 +99,7 @@ public sealed record CommentDto(
 /// One page of a thread (§17.8).
 /// <para>
 /// Pinned posts come back in their own list rather than merged into the page, because they render
-/// at the top <em>regardless of age</em> — a pinned post from three days ago belongs above today's
+/// at the top <em>regardless of age</em> - a pinned post from three days ago belongs above today's
 /// chatter, and a single ordered page cannot express that without re-sorting on the client.
 /// </para>
 /// </summary>

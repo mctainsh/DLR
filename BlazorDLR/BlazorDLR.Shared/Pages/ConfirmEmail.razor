@@ -4,7 +4,7 @@
 @inject IFormFactor FormFactor
 @inject NavigationManager Nav
 
-<PageTitle>Confirming your email — Dumb Luck Routes</PageTitle>
+<PageTitle>Confirming your email - Dumb Luck Routes</PageTitle>
 
 @*
 	Where the emailed confirmation link lands (§7.7, §7.14). `{BaseUrl}/confirm-email?userId=…&token=…`,
@@ -12,7 +12,7 @@
 
 	Anonymous, deliberately: the link is followed in whatever browser the mail was opened in,
 	which is very often not the one holding a session. The token is the proof, and the endpoint
-	answers with a fresh session — so confirming from a borrowed laptop signs that laptop in,
+	answers with a fresh session - so confirming from a borrowed laptop signs that laptop in,
 	which is the same thing the emailed link already implied.
 *@
 
@@ -57,19 +57,19 @@
 
 		@*
 			A link that was already used is the common case here, and it is not a failure worth
-			alarming anyone about — the address is confirmed either way. Both routes out are
+			alarming anyone about - the address is confirmed either way. Both routes out are
 			offered rather than guessed between, because this screen cannot tell which happened
 			without asking the server about an account it may not be signed in to.
 		*@
 		<p>
-			Already confirmed on another device? Nothing is wrong — just
+			Already confirmed on another device? Nothing is wrong - just
 			<a href="/welcome">sign in</a>. Otherwise ask for a new link from
 			<a href="/settings/account#email">Settings → Account</a>.
 		</p>
 	}
 </div>
 
-@* AGPL §13 source offer — every page, public and authed (§14.6.2). *@
+@* AGPL §13 source offer - every page, public and authed (§14.6.2). *@
 <BlazorDLR.Shared.Components.SourceOfferFooter />
 
 @code {

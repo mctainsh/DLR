@@ -13,7 +13,7 @@ namespace BlazorDLR.Shared.Services;
 /// </para>
 /// <para>
 /// <strong>Keyed on track id, not on position in the ride.</strong> Position is what
-/// <see cref="RoutePalette"/> already uses and it is stable within one ride — but the same GPX
+/// <see cref="RoutePalette"/> already uses and it is stable within one ride - but the same GPX
 /// attached to next month's ride would be a different position and would lose the colour, which
 /// is not what "make this route orange" means to the person who said it.
 /// </para>
@@ -27,7 +27,7 @@ public static class RouteColourMap
 	/// The map as one string for <see cref="IDeviceSettings"/>: a format version, then one
 	/// <c>id=#rrggbb</c> entry per pinned colour.
 	/// <para>
-	/// Same shape and same reasoning as <see cref="RouteStyle.Encode"/> — one key, one round
+	/// Same shape and same reasoning as <see cref="RouteStyle.Encode"/> - one key, one round
 	/// trip, and no reflection-based serialiser in an assembly that gets trimmed into a WASM
 	/// download.
 	/// </para>
@@ -47,8 +47,8 @@ public static class RouteColourMap
 	/// <summary>
 	/// Reads back what <see cref="Encode"/> wrote.
 	/// <para>
-	/// Entry by entry: one unparseable id or colour costs that route its pinned colour — which
-	/// falls back to the palette and looks stock — rather than costing every other route its
+	/// Entry by entry: one unparseable id or colour costs that route its pinned colour - which
+	/// falls back to the palette and looks stock - rather than costing every other route its
 	/// own. The value comes off a device we do not control.
 	/// </para>
 	/// </summary>

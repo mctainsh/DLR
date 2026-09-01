@@ -10,13 +10,13 @@
 @inject ConfirmService Confirm
 @inject NavigationManager Nav
 
-<PageTitle>Edit track — Dumb Luck Routes</PageTitle>
+<PageTitle>Edit track - Dumb Luck Routes</PageTitle>
 
 @*
 	The track editor (§15.5), on every host.
 
 	§6.1 and §13 Q15 originally made this web-only: trimming was judged a big-screen task
-	and the phone got a note pointing at a desktop browser. That gate is gone — the screen
+	and the phone got a note pointing at a desktop browser. That gate is gone - the screen
 	a rider has with them at the end of a ride is the phone, and "open a laptop to cut the
 	drive home off your track" is a worse answer than a cramped one.
 
@@ -27,7 +27,7 @@
 		 lands on a point of the RAW list from GET /tracks/{id}/points even though what
 		 the rider sees is the simplified line.
 	  2. Nothing goes to the server until Apply. Trims accumulate in a TrackTrimSession,
-		 undoable a step at a time back to the track as loaded — the rider can overshoot,
+		 undoable a step at a time back to the track as loaded - the rider can overshoot,
 		 look at it, and walk it back without a round trip. A trim takes the cursor point
 		 with it and leaves the cursor on the new edge, so holding a button chews along
 		 the track instead of biting the same span twice; undo puts the cursor back where
@@ -38,7 +38,7 @@
 		 after the point of no return is an undo button that will be trusted at the wrong
 		 moment. The confirm dialog is where that decision is made instead.
 	  4. Distance/duration/ascent are recomputed by the server, not adjusted (§15.7). The
-		 old and new numbers appear side by side after a commit — the number changing is
+		 old and new numbers appear side by side after a commit - the number changing is
 		 the whole point of trimming a lunch stop.
 *@
 
@@ -75,7 +75,7 @@
 		</p>
 
 		@*
-			The line under the cursor is the SIMPLIFIED shape of what survives — 43 000
+			The line under the cursor is the SIMPLIFIED shape of what survives - 43 000
 			segments repainted on every pan of a long tour is not a map (§15.5). The cursor
 			marker is drawn at the exact raw point it sits on, so what the rider is aiming
 			at is never the simplified approximation.
@@ -121,12 +121,12 @@
 		<div class="commit">
 			<button type="button" class="danger" disabled="@(_busy || !session.HasEdits)"
 					@onclick="ApplyAsync">
-				@(_busy ? "Applying…" : $"Apply — remove {session.StruckCount} point(s)")
+				@(_busy ? "Applying…" : $"Apply - remove {session.StruckCount} point(s)")
 			</button>
 		</div>
 
 		<p class="warning">
-			Nothing is sent until you hit Apply. Applying is permanent — the removed points
+			Nothing is sent until you hit Apply. Applying is permanent - the removed points
 			are gone from the app, from exports and from every share link at once.
 		</p>
 	}
@@ -190,7 +190,7 @@
 		_track = await Api.GetTrackAsync(TrackId);
 		_points = await Api.GetTrackPointsAsync(TrackId);
 
-		// The wire carries coordinates only — this page never needs elevation or time, and
+		// The wire carries coordinates only - this page never needs elevation or time, and
 		// asking PolylineCodec for the points it encoded is the one decode implementation.
 		_session = new TrackTrimSession(
 		[
@@ -199,7 +199,7 @@
 			.Select(point => new TrackPoint(point.Latitude, point.Longitude)),
 	]);
 
-		// Frame on the bounding box, as the ride page does — the box rather than a guessed zoom,
+		// Frame on the bounding box, as the ride page does - the box rather than a guessed zoom,
 		// so the whole line is on screen before the first tap goes looking for a point on it. A
 		// track with no bounds keeps the whole-world camera rather than claiming a position off
 		// the Gulf of Guinea.
@@ -316,7 +316,7 @@
 			_applied = new AppliedEdit(response.Track, before.DistanceM, before.PointCount);
 
 			// A fresh session over what the server now holds. The old history is deliberately
-			// not carried across — there is no undoing past this point.
+			// not carried across - there is no undoing past this point.
 			await LoadAsync();
 		}
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
@@ -333,7 +333,7 @@
 
 		_routes = line.Count > 1 ? [new RouteOverlay(PolylineCodec.EncodePoints(line))] : null;
 
-		// MarkerKind.Rider is the overlay's bare disc-and-label rendering — no icon at all
+		// MarkerKind.Rider is the overlay's bare disc-and-label rendering - no icon at all
 		// (§16.3). That is exactly what a cursor wants: every curated icon key means something
 		// about the world, and a hazard triangle sitting where the rider is about to cut would
 		// read as a hazard.
@@ -430,7 +430,7 @@
 	/*
 				Narrow screens. This is what replaced the note that used to send a phone away: the
 				composer stacks instead of hiding. Every control clears the 44 px touch target both
-				platform guidelines publish, which the 0.5 rem padding above does not — and the trim
+				platform guidelines publish, which the 0.5 rem padding above does not - and the trim
 				buttons in particular are the ones a thumb will be jabbing repeatedly.
 			*/
 	@@media (max-width: 40rem) {

@@ -56,7 +56,7 @@ public sealed class GpxMarkerTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// An external URL is not a photo attachment, and fetching one server-side would be an SSRF
-	/// hole — a file's author would get a request from this server to any address they chose
+	/// hole - a file's author would get a request from this server to any address they chose
 	/// (§16.6).
 	/// </summary>
 	[Fact]
@@ -75,7 +75,7 @@ public sealed class GpxMarkerTests(PostgresFixture postgres)
 		Marker marker = await app.WithDatabaseAsync(database =>
 			database.Set<Marker>().SingleAsync(row => row.TrackId == trackId));
 
-		// And the URL is nowhere in what was stored — not silently parked in the note, which
+		// And the URL is nowhere in what was stored - not silently parked in the note, which
 		// would put it back in front of a user as something to tap.
 		string stored = $"{marker.Title} {marker.Note} {marker.Icon}";
 
@@ -132,7 +132,7 @@ public sealed class GpxMarkerTests(PostgresFixture postgres)
 
 			copy.Icon.ShouldBe(
 				original.Icon,
-				$"'{original.Title}' lost its icon — including the one this version cannot draw");
+				$"'{original.Title}' lost its icon - including the one this version cannot draw");
 		}
 	}
 

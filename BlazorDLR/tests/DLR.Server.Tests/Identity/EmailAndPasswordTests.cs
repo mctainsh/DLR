@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DLR.Server.Tests.Identity;
 
 /// <summary>
-/// Confirmation, reset and change — and the two lifespans that cannot come from one setting
+/// Confirmation, reset and change - and the two lifespans that cannot come from one setting
 /// (§7.7, §7.12).
 /// </summary>
 public sealed class EmailAndPasswordTests(PostgresFixture postgres)
@@ -25,7 +25,7 @@ public sealed class EmailAndPasswordTests(PostgresFixture postgres)
 	private const string TokenUrl = "/api/v1/auth/token";
 
 	// Distinct from TestRegistration.ValidPassword and, like it, satisfying the composition rules
-	// the operator turned on in §7.2's revision — uppercase, lowercase, digit. None of the tests
+	// the operator turned on in §7.2's revision - uppercase, lowercase, digit. None of the tests
 	// below are about the policy (ChangePassword_NewPasswordBelowPolicy_IsRejected is); the
 	// password is fixture data, and it only has to be accepted so the reset and revocation
 	// assertions are the ones that can fail.
@@ -186,7 +186,7 @@ public sealed class EmailAndPasswordTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The trade-off §7.2 puts on the registration screen, made real: no address, no way back
-	/// in. Nothing here is a bug to be fixed later — it is the cost of an account that needs
+	/// in. Nothing here is a bug to be fixed later - it is the cost of an account that needs
 	/// nothing but a name and a password.
 	/// </summary>
 	[Fact]
@@ -204,7 +204,7 @@ public sealed class EmailAndPasswordTests(PostgresFixture postgres)
 			new ForgotPasswordRequest("ned@example.com"));
 
 		response.StatusCode.ShouldBe(HttpStatusCode.Accepted,
-			"202 whether or not the address exists — an address is a private identifier, " +
+			"202 whether or not the address exists - an address is a private identifier, " +
 			"unlike a username (§7.8)");
 
 		app.Emails.Sent.ShouldBeEmpty();
@@ -374,7 +374,7 @@ public sealed class EmailAndPasswordTests(PostgresFixture postgres)
 
 		stored.Email.ShouldBe("dave@example.com");
 		stored.EmailConfirmed.ShouldBeFalse(
-			"recovery is enabled by confirming, never by typing — otherwise somebody else's " +
+			"recovery is enabled by confirming, never by typing - otherwise somebody else's " +
 			"address becomes a path into this account");
 
 		app.Emails.To("dave@example.com").ShouldHaveSingleItem();
@@ -472,7 +472,7 @@ public sealed class EmailAndPasswordTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Pulled out of the link in the email rather than generated directly, so what is tested is
-	/// what a rider would actually click — including the URL encoding on the way through.
+	/// what a rider would actually click - including the URL encoding on the way through.
 	/// </summary>
 	private static string TokenFromLink(string body)
 	{

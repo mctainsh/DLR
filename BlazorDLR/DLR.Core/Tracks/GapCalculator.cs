@@ -39,7 +39,7 @@ public static class GapCalculator
 		}
 
 		// Cumulative arc-distance from the start of the route to each vertex. Precomputing
-		// spares one BetweenM call per segment on every projection — negligible for one
+		// spares one BetweenM call per segment on every projection - negligible for one
 		// rider, real for a 50-member ride with a 40 000-point route.
 		//
 		// Not cached across calls because callers own the route: passing an updated route
@@ -56,7 +56,7 @@ public static class GapCalculator
 			double legLength = Distance.BetweenM(a, b);
 
 			// Skip zero-length legs so the projection does not divide by zero. A route made
-			// of duplicated points is unusual but not impossible — an exporter can emit them.
+			// of duplicated points is unusual but not impossible - an exporter can emit them.
 			if (legLength <= 0)
 			{
 				continue;
@@ -66,7 +66,7 @@ public static class GapCalculator
 			// scale at the leg's mean latitude is accurate enough for legs a rider covers in
 			// seconds. Great-circle segment projection is a solved problem but it costs a
 			// couple of trig calls per leg and the difference is imperceptible below several
-			// kilometres per leg — which is the entire regime this operates in.
+			// kilometres per leg - which is the entire regime this operates in.
 			double meanLat = (a.Latitude + b.Latitude) * 0.5;
 			double metresPerDegLat = 111_132.0;
 			double metresPerDegLon = 111_320.0 * Math.Cos(meanLat * Math.PI / 180.0);
@@ -123,5 +123,5 @@ public static class GapCalculator
 
 /// <summary>The result of projecting a point onto a route (§5.4).</summary>
 /// <param name="AlongMetres">Arc-distance from the route's first vertex to the projected foot.</param>
-/// <param name="OffMetres">Shortest distance from the point to that foot — the "off-route" number.</param>
+/// <param name="OffMetres">Shortest distance from the point to that foot - the "off-route" number.</param>
 public readonly record struct RouteProjection(double AlongMetres, double OffMetres);

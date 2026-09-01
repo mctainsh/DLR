@@ -13,7 +13,7 @@ namespace DLR.Server.Tests.Rides;
 /// <summary>
 /// Joining a ride and agreeing to broadcast are two separate decisions (§5.6).
 /// <para>
-/// The load-bearing assertion in most of these is not that the flag changed — it is that the
+/// The load-bearing assertion in most of these is not that the flag changed - it is that the
 /// stored row is <em>gone</em>. Stopping the broadcast while leaving a last-known position at rest
 /// in the database is precisely what a rider turning sharing off is asking you not to do (§10.1).
 /// </para>
@@ -33,7 +33,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		RideDetail ride = await CreateRideAsync(organiser);
 
-		// Joining, and then doing nothing at all — which is what dismissing the prompt is.
+		// Joining, and then doing nothing at all - which is what dismissing the prompt is.
 		await JoinAsync(rider, ride.JoinCode!);
 
 		bool sharing = await app.WithDatabaseAsync(database =>
@@ -52,8 +52,8 @@ public sealed class SharingTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// A rider may be in a ride without sharing (§5.6). The alternative — making sharing the price
-	/// of seeing the map — is simpler and coercive.
+	/// A rider may be in a ride without sharing (§5.6). The alternative - making sharing the price
+	/// of seeing the map - is simpler and coercive.
 	/// </summary>
 	[Fact]
 	public async Task Join_SharingDeclined_MemberSeesOthersButPublishesNothing()
@@ -86,7 +86,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Consent is filtered on the <strong>write</strong> (§5.7). A rider not sharing is held
-	/// nowhere at all — not as a hidden pin. Broadcasting anyway and asking recipients to hide it
+	/// nowhere at all - not as a hidden pin. Broadcasting anyway and asking recipients to hide it
 	/// would leave the position in the cache and on the wire.
 	/// </summary>
 	[Fact]
@@ -135,7 +135,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 
 		CountPositions(app).ShouldBe(
 			0,
-			"stopping the broadcast alone would leave a last-known position at rest — exactly " +
+			"stopping the broadcast alone would leave a last-known position at rest - exactly " +
 			"what turning sharing off is asking you not to keep");
 	}
 
@@ -166,7 +166,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 		// somebody could delete. Routing answers 405 rather than 404 because the host also serves
 		// the Blazor app: MapStaticAssets registers a `{**path:file}` catch-all limited to
 		// GET/HEAD, which claims every otherwise-unmatched path and turns a non-GET into "method
-		// not allowed". Either code carries the assertion — the point is that no PUT handler
+		// not allowed". Either code carries the assertion - the point is that no PUT handler
 		// exists at this path, not which flavour of refusal the router reaches for.
 		using HttpResponseMessage byId = await organiser.PutAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/sharing/{riderId}",
@@ -264,7 +264,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The positive case the two §7.3 revocation tests are measured against — without it they
+	/// The positive case the two §7.3 revocation tests are measured against - without it they
 	/// would both pass against an endpoint that always returned nothing.
 	/// </summary>
 	[Fact]
@@ -388,7 +388,7 @@ public sealed class SharingTests(PostgresFixture postgres)
 	/// Read back through a mirror type, not <see cref="SharedProfile"/> itself.
 	/// <para>
 	/// <see cref="SharedProfile"/>'s properties are <c>private init</c> so that
-	/// <see cref="SharedProfile.For"/> is the only way to build one — which also means
+	/// <see cref="SharedProfile.For"/> is the only way to build one - which also means
 	/// <c>System.Text.Json</c> cannot rehydrate it and would hand every test a silently empty
 	/// object that passes any "is not visible" assertion. Asserting on the wire form is what the
 	/// rule is actually about.

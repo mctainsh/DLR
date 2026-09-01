@@ -12,7 +12,7 @@
 @inject IFormFactor FormFactor
 @implements IDisposable
 
-<PageTitle>Welcome — Dumb Luck Routes</PageTitle>
+<PageTitle>Welcome - Dumb Luck Routes</PageTitle>
 
 @*
 	The one screen an unauthenticated caller lands on (§7.9). Register or sign in.
@@ -33,7 +33,7 @@
 			if it cannot (a host that suppresses navigation during prerender).
 		*@
 		<div class="page page-form form-page welcome">
-			<p>Signed in as <strong>@context.User.Identity!.Name</strong> — taking you to your adventures…</p>
+			<p>Signed in as <strong>@context.User.Identity!.Name</strong> - taking you to your adventures…</p>
 			<button type="button" class="primary" @onclick="GoHome">Continue</button>
 		</div>
 	</Authorized>
@@ -88,7 +88,7 @@
 					</PasswordField>
 
 					<label>
-						Email (optional — see below)
+						Email (optional - see below)
 						<input @bind="_email" type="email" autocomplete="email" />
 					</label>
 
@@ -97,7 +97,7 @@
 						<div class="callout">
 							<strong>No email means no recovery and no warning.</strong>
 							If you forget your password or lose this device, this account and
-							everything in it is gone — a password cannot be reset without an email.
+							everything in it is gone - a password cannot be reset without an email.
 							An unused account holding no saved adventures is deleted after 6 months,
 							and with no email address we cannot warn you before it happens.
 							You can add one later in Settings.
@@ -128,7 +128,7 @@
 					@*
 						The only entry to recovery there is (§7.7). Sign-in is where somebody
 						discovers they have forgotten the password, so it is the one place the
-						link is worth anything — and without it the emailed reset flow has no
+						link is worth anything - and without it the emailed reset flow has no
 						way to start.
 					*@
 					<p class="forgot"><a href="/forgot-password">Forgotten your password?</a></p>
@@ -164,7 +164,7 @@
 							Sign in with @provider.Provider
 							@if (!provider.IsAvailable)
 							{
-								<span class="soon">— coming soon (probably not)</span>
+								<span class="soon">- coming soon (probably not)</span>
 							}
 						</button>
 					}
@@ -174,7 +174,7 @@
 	</NotAuthorized>
 </AuthorizeView>
 
-@* AGPL §13 source offer — every page, public and authed (§14.6.2). *@
+@* AGPL §13 source offer - every page, public and authed (§14.6.2). *@
 <BlazorDLR.Shared.Components.SourceOfferFooter />
 
 @code {
@@ -197,13 +197,13 @@
 	private bool _navigated;
 
 	/// <summary>
-	/// If already signed in jump straight to the home page — no button to push.
+	/// If already signed in jump straight to the home page - no button to push.
 	/// <para>
 	/// The arrival can be later than the first render: the session is restored
 	/// asynchronously, so a rider can land here anonymous and become authenticated a
 	/// moment later (a refresh in flight while <c>RedirectToWelcome</c> bounced them
 	/// here). That broadcast re-renders <c>AuthorizeView</c> but <em>not</em> this
-	/// page — the cascade is consumed by the child, not by us — which is why the check
+	/// page - the cascade is consumed by the child, not by us - which is why the check
 	/// has to hang off <see cref="AuthenticationStateProvider.AuthenticationStateChanged"/>
 	/// rather than off a render callback.
 	/// </para>
@@ -245,7 +245,7 @@
 		}
 		catch
 		{
-			// A network hiccup on the availability check is not a reason to gate the form —
+			// A network hiccup on the availability check is not a reason to gate the form -
 			// the register endpoint will answer with a clear error if the name is taken.
 			_availability = null;
 		}
@@ -271,7 +271,7 @@
 		}
 		catch (ApiException apiException)
 		{
-			// ApiException carries the server's ProblemDetails — the title and every
+			// ApiException carries the server's ProblemDetails - the title and every
 			// per-field error the register endpoint sent (§18.2). Rendered verbatim by
 			// the alert above.
 			_error = apiException.Error;
@@ -320,7 +320,7 @@
 		}
 	}
 
-	// Sign-in, register and the auth-state broadcast can all reach here for the one event —
+	// Sign-in, register and the auth-state broadcast can all reach here for the one event -
 	// ApplySessionAsync notifies before the calling flow navigates. Navigate once.
 	private void GoHome()
 	{
@@ -343,7 +343,7 @@
 				await Auth.ApplySessionAsync(session);
 				GoHome();
 			}
-			// If StartAsync returned null the user cancelled — no error, no navigation.
+			// If StartAsync returned null the user cancelled - no error, no navigation.
 		}
 		catch (Exception exception)
 		{

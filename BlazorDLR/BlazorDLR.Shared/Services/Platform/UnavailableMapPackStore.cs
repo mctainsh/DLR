@@ -6,7 +6,7 @@ namespace BlazorDLR.Shared.Services.Platform;
 /// A browser has nowhere to put a few hundred megabytes that survives a tab closing, and the web
 /// app is the big-screen surface for planning and reading rather than the thing clamped to a set
 /// of bars. So this holds nothing and says so, and <c>MapSourceState</c> resolves an offline
-/// source to OpenStreetMap here — a working map under the routes and pins, which is what the
+/// source to OpenStreetMap here - a working map under the routes and pins, which is what the
 /// screen is actually for.
 /// </para>
 /// </summary>

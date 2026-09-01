@@ -13,7 +13,7 @@ namespace DLR.UI.Tests.Components;
 /// The arrow carries two behaviours that must not collapse into one. It is a real anchor
 /// with a real href, because the SSR pass renders it before any JS exists and a rider may
 /// open it in a new tab. On an interactive render it prefers real in-app history, so going
-/// back returns the rider to the page they left — scroll position, map view and all —
+/// back returns the rider to the page they left - scroll position, map view and all -
 /// rather than to a freshly-loaded parent.
 /// </para>
 /// </summary>
@@ -33,7 +33,7 @@ public sealed class PageNavTests : PageTestContext
 		IRenderedComponent<PageNav> nav = RenderNav();
 
 		nav.Find("h1").TextContent.Trim().ShouldBe("Adventure thread",
-			"pages no longer carry their own heading — the bar's title is the document's h1, so what a " +
+			"pages no longer carry their own heading - the bar's title is the document's h1, so what a " +
 			"screen reader announces and what a traveller reads are the same string.");
 	}
 
@@ -88,7 +88,7 @@ public sealed class PageNavTests : PageTestContext
 
 	/// <summary>
 	/// The deep-link case: nothing behind this page, so the arrow follows the declared parent
-	/// rather than calling history.back() — which on the first entry of a tab either does
+	/// rather than calling history.back() - which on the first entry of a tab either does
 	/// nothing or leaves the app.
 	/// </summary>
 	[Fact]
@@ -104,13 +104,13 @@ public sealed class PageNavTests : PageTestContext
 		nav.Find("a.page-nav-back").Click();
 
 		navigation.Uri.EndsWith(Parent, StringComparison.Ordinal).ShouldBeTrue(
-			"a traveller who opened a shared link has no history to step into — the parent route is the answer.");
+			"a traveller who opened a shared link has no history to step into - the parent route is the answer.");
 		JSInterop.Invocations.ShouldBeEmpty("and history.back() must not be called when there is no history.");
 	}
 
 	/// <summary>
 	/// The walked-here case. The rider navigated in, so there is a real entry behind this
-	/// page — stepping into it returns them to that page as they left it, which re-navigating
+	/// page - stepping into it returns them to that page as they left it, which re-navigating
 	/// to the parent route would not.
 	/// </summary>
 	[Fact]
@@ -118,7 +118,7 @@ public sealed class PageNavTests : PageTestContext
 	{
 		JSInterop.SetupVoid("history.back");
 
-		// Resolve before navigating so the counter sees the move — the app's order too, since
+		// Resolve before navigating so the counter sees the move - the app's order too, since
 		// the previous page's own PageNav injected it.
 		NavigationHistory history = Services.GetRequiredService<NavigationHistory>();
 		NavigationManager navigation = Services.GetRequiredService<NavigationManager>();
@@ -130,7 +130,7 @@ public sealed class PageNavTests : PageTestContext
 
 		JSInterop.VerifyInvoke("history.back");
 		navigation.Uri.EndsWith(Child, StringComparison.Ordinal).ShouldBeTrue(
-			"the browser unwinds the stack — PageNav must not also navigate, or the traveller skips a page.");
+			"the browser unwinds the stack - PageNav must not also navigate, or the traveller skips a page.");
 
 		// The stubbed history.back() moves nothing, so stand in for the popstate a real one
 		// would raise. The counter must read that as unwinding: without it, using the arrow

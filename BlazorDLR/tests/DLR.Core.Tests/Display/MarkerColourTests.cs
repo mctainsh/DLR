@@ -6,7 +6,7 @@ namespace DLR.Core.Tests.Display;
 /// The rider-marker colour rules (§16.3): what counts as a colour, what an account that never
 /// chose gets, and which of black or white is drawn on top.
 /// <para>
-/// Tested here rather than through the map, because the map cannot be tested — <c>SkiaMapOverlay</c>
+/// Tested here rather than through the map, because the map cannot be tested - <c>SkiaMapOverlay</c>
 /// is browser-only. The half of "does the marker read" that is arithmetic lives in these two types,
 /// and this is the file that pins it.
 /// </para>
@@ -46,7 +46,7 @@ public sealed class MarkerColourTests
 	/// </summary>
 	[Theory]
 	[InlineData("#ffffff", "#000000")]
-	[InlineData("#facc15", "#000000")] // yellow — bright, wants black
+	[InlineData("#facc15", "#000000")] // yellow - bright, wants black
 	[InlineData("#84cc16", "#000000")] // lime
 	[InlineData("#111827", "#ffffff")] // near-black
 	[InlineData("#2563eb", "#ffffff")] // the accent blue
@@ -56,7 +56,7 @@ public sealed class MarkerColourTests
 
 	/// <summary>
 	/// Luminance is gamma-corrected, not a channel average. Pure green and pure blue have the same
-	/// average and wildly different brightness — an average would give one of them the wrong ink.
+	/// average and wildly different brightness - an average would give one of them the wrong ink.
 	/// </summary>
 	[Fact]
 	public void Foreground_GreenAndBlue_AreNotTreatedAsEquallyBright()
@@ -79,7 +79,7 @@ public sealed class MarkerColourTests
 	public void MarkerColour_BlankIsValidAndMeansNoChoice(string? colour)
 	{
 		MarkerColours.TryNormalise(colour, out string? normalised).ShouldBeTrue(
-			"blank is how a traveller goes back to the default — refusing it would make the setting one-way.");
+			"blank is how a traveller goes back to the default - refusing it would make the setting one-way.");
 
 		normalised.ShouldBeNull();
 	}

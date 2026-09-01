@@ -12,7 +12,7 @@ namespace DLR.Server.Data.Tracks;
 /// of what people currently think, not of every time anybody changed their mind.
 /// </para>
 /// <para>
-/// There is no row for "no opinion". Clearing a rating deletes it — a stored nought would average
+/// There is no row for "no opinion". Clearing a rating deletes it - a stored nought would average
 /// in as the worst possible score for every rider who tapped a star and thought better of it,
 /// which is the opposite of what they meant (<see cref="DLR.Core.Tracks.TrackRatings"/>).
 /// </para>
@@ -28,8 +28,8 @@ public sealed class TrackRating
 	/// <summary>
 	/// One to five, whole.
 	/// <para>
-	/// A <c>smallint</c> with a check constraint rather than an enum: the scale is arithmetic —
-	/// the only thing anybody ever does with the column is average it — and an enum stored as a
+	/// A <c>smallint</c> with a check constraint rather than an enum: the scale is arithmetic -
+	/// the only thing anybody ever does with the column is average it - and an enum stored as a
 	/// string, which is this project's convention for the ones that are labels, cannot be.
 	/// </para>
 	/// </summary>

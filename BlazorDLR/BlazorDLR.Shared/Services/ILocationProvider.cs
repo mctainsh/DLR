@@ -12,7 +12,7 @@ namespace BlazorDLR.Shared.Services;
 /// background, high-cadence fixes a live ride needs, and binding a "not supported" stub there
 /// only made every screen above it explain why it was doing nothing. Recording and publishing
 /// are mobile features (§18.6); receiving is not a GPS concern, so the web still draws every
-/// other rider from the hub as usual. Shared code that wants this — or anything built on it —
+/// other rider from the hub as usual. Shared code that wants this - or anything built on it -
 /// resolves it with <c>GetService</c> and treats <c>null</c> as "this host has no receiver".
 /// </para>
 /// </summary>
@@ -47,13 +47,13 @@ public enum LocationPermissionState
 	/// <summary>The caller may start watching.</summary>
 	Granted = 0,
 
-	/// <summary>Denied for now — the caller may prompt again.</summary>
+	/// <summary>Denied for now - the caller may prompt again.</summary>
 	Denied = 1,
 
-	/// <summary>Denied permanently — the caller must send the rider to system settings.</summary>
+	/// <summary>Denied permanently - the caller must send the rider to system settings.</summary>
 	DeniedPermanently = 2,
 
-	/// <summary>This host does not do GPS at all — the browser (§18.6).</summary>
+	/// <summary>This host does not do GPS at all - the browser (§18.6).</summary>
 	NotSupported = 3,
 }
 

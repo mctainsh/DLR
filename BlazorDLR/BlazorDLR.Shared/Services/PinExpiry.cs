@@ -8,7 +8,7 @@ namespace BlazorDLR.Shared.Services;
 /// <strong>The problem it answers.</strong> A position sits in the ride's cache until the rider
 /// stops sharing (§5.6), and it is rebroadcast every tick whether or not it has moved. So a phone
 /// that went flat, lost signal in a valley or was left in a jacket at the
-/// café leaves a pin on the map that looks exactly like a rider standing there — and the group
+/// café leaves a pin on the map that looks exactly like a rider standing there - and the group
 /// rides back for it. Past some age the honest answer is nothing at all: the map stops claiming to
 /// know where that rider is, and the member list, which says <em>when</em> each fix was taken, is
 /// where somebody goes to find out what happened to them.
@@ -18,11 +18,11 @@ namespace BlazorDLR.Shared.Services;
 /// same span, because it makes the stronger claim of the two: a pin at least sits where the rider
 /// was, and "300 m ahead" is about now and about a gap somebody is deciding whether to close. See
 /// <see cref="NeighbourList.Nearest"/>, which takes this as an argument like every other rule
-/// there. The reader's own row is not aged — it is the anchor the rest are measured from.
+/// there. The reader's own row is not aged - it is the anchor the rest are measured from.
 /// </para>
 /// <para>
 /// <strong>A device preference, like <see cref="RouteStyle"/>.</strong> Two riders on the same
-/// ride can hold different answers and neither is wrong — a commuter group crossing a city and a
+/// ride can hold different answers and neither is wrong - a commuter group crossing a city and a
 /// weekend run through a range disagree about how long a silent rider is still news. It is stored
 /// through <see cref="IDeviceSettings"/>, never sent to the server, and changes nothing about what
 /// the ride holds: the fix is still there, still in everybody else's batch, and still on the
@@ -30,13 +30,13 @@ namespace BlazorDLR.Shared.Services;
 /// </para>
 /// <para>
 /// <strong>Rider pins only.</strong> Markers a rider placed (§16.1) are authored things that stay
-/// until somebody deletes them — a blind crest is no less blind an hour later — and this rider's
+/// until somebody deletes them - a blind crest is no less blind an hour later - and this rider's
 /// own mark is drawn from the device's own receiver rather than from the ride, so neither is aged
 /// out here.
 /// </para>
 /// <para>
 /// Deliberately longer than <see cref="MemberRoster.StaleAfter"/> and independent of it. Ninety
-/// seconds is when a fix stops reading as <em>live</em> — the list greys the row and says how old
+/// seconds is when a fix stops reading as <em>live</em> - the list greys the row and says how old
 /// it is, with the pin still on the map where it was last seen, which is exactly what somebody
 /// waiting at a junction needs. This is the later, blunter question of when that last known point
 /// stops being worth drawing at all.
@@ -46,7 +46,7 @@ public static class PinExpiry
 {
 	/// <summary>
 	/// The <see cref="IDeviceSettings"/> key. Namespaced like <c>dlr.route-style</c>, and holding
-	/// whole minutes rather than an encoded record — one number needs no format version, because
+	/// whole minutes rather than an encoded record - one number needs no format version, because
 	/// there is no second field a later build could disagree about the order of.
 	/// </summary>
 	public const string StorageKey = "dlr.pin-expiry";
@@ -55,7 +55,7 @@ public static class PinExpiry
 	/// What the settings screen offers, shortest first (§4.5).
 	/// <para>
 	/// A fixed set rather than a free minutes box. Every value here is a judgement about how long a
-	/// silent rider is still news, and the two ends of a number field — a minute, a fortnight — are
+	/// silent rider is still news, and the two ends of a number field - a minute, a fortnight - are
 	/// a map that empties mid-ride and one that never forgets anything. Six answers span the ways a
 	/// group actually rides, and the list is short enough to read on a phone at the side of a road.
 	/// </para>
@@ -82,7 +82,7 @@ public static class PinExpiry
 	public static readonly TimeSpan Default = TimeSpan.FromMinutes(10);
 
 	/// <summary>
-	/// How the choice reads on the settings screen and nowhere else — the map draws no label for
+	/// How the choice reads on the settings screen and nowhere else - the map draws no label for
 	/// it, because a rider mid-ride should be reading the road rather than their own preferences.
 	/// </summary>
 	/// <param name="keepFor">One of <see cref="Options"/>, or any span.</param>
@@ -101,7 +101,7 @@ public static class PinExpiry
 
 	/// <summary>
 	/// Reads back what <see cref="Encode"/> wrote, or answers <see cref="Default"/> for a device
-	/// that has never chosen, one with storage blocked, and the prerender pass — which are the same
+	/// that has never chosen, one with storage blocked, and the prerender pass - which are the same
 	/// answer to a caller (see <see cref="IDeviceSettings"/>).
 	/// <para>
 	/// Snapped to <see cref="Options"/> rather than taken at face value. The stored value comes off
@@ -120,7 +120,7 @@ public static class PinExpiry
 	/// Whether a fix is too old to draw a pin from.
 	/// <para>
 	/// The clock arrives as an argument like everywhere else in this namespace, so a test states
-	/// "this fix is eleven minutes old" as a fact rather than by sleeping — and <c>ClockRules</c>
+	/// "this fix is eleven minutes old" as a fact rather than by sleeping - and <c>ClockRules</c>
 	/// requires it of every non-test assembly anyway.
 	/// </para>
 	/// <para>

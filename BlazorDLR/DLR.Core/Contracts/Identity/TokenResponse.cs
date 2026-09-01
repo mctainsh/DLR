@@ -5,13 +5,13 @@ namespace DLR.Core.Contracts.Identity;
 /// <param name="ExpiresIn">Seconds until <paramref name="AccessToken"/> is no longer valid.</param>
 /// <param name="RefreshToken">
 /// Opaque, 256 bits of randomness, and effectively permanent. Goes to <c>SecureStorage</c>;
-/// the server keeps only its SHA-256. Not a JWT on purpose — it has to be revocable, it is
+/// the server keeps only its SHA-256. Not a JWT on purpose - it has to be revocable, it is
 /// only ever presented to one endpoint, and a self-describing credential is a worse thing to
 /// find in a log.
 /// </param>
 /// <param name="User">Who the caller turned out to be.</param>
 /// <param name="DeviceId">
-/// The device this session belongs to — the same value as the access token's <c>dev</c> claim,
+/// The device this session belongs to - the same value as the access token's <c>dev</c> claim,
 /// handed back in the open so a client does not have to read its own JWT to find it.
 /// <para>
 /// A client stores this and sends it back on its next sign-in, which is the whole of what keeps
@@ -34,7 +34,7 @@ public sealed record TokenResponse(
 /// <param name="UserName">Permanent, and the map label (§7.2).</param>
 /// <param name="HasEmail">Whether a recovery address exists at all.</param>
 /// <param name="EmailConfirmed">
-/// Whether it has been confirmed. Never a gate on signing in — the only thing that reads it is
+/// Whether it has been confirmed. Never a gate on signing in - the only thing that reads it is
 /// §7.8's ladder.
 /// </param>
 public sealed record AuthenticatedUser(

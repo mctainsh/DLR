@@ -12,13 +12,13 @@ namespace BlazorDLR.Platforms.Apple.Location;
 /// <para>
 /// <strong>Three settings do the background work, and all three are load-bearing.</strong>
 /// <list type="bullet">
-///   <item><see cref="CLLocationManager.AllowsBackgroundLocationUpdates"/> — without it iOS stops
+///   <item><see cref="CLLocationManager.AllowsBackgroundLocationUpdates"/> - without it iOS stops
 ///     delivering the moment the app leaves the foreground. Setting it requires the
 ///     <c>location</c> background mode in Info.plist; without that entry it throws.</item>
-///   <item><c>PausesLocationUpdatesAutomatically = false</c> — the default is true, and iOS will
+///   <item><c>PausesLocationUpdatesAutomatically = false</c> - the default is true, and iOS will
 ///     helpfully decide a stationary rider no longer needs updates and stop. It does not restart
 ///     reliably, so a coffee stop can end a ride's tracking for good.</item>
-///   <item><c>ShowsBackgroundLocationIndicator = true</c> — the blue pill in the status bar. It is
+///   <item><c>ShowsBackgroundLocationIndicator = true</c> - the blue pill in the status bar. It is
 ///     not required for the API to work, and it is turned on deliberately: this app publishes a
 ///     rider's position to other people, and the platform's own "you are being located" signal is
 ///     the honest thing to leave switched on.</item>
@@ -33,7 +33,7 @@ namespace BlazorDLR.Platforms.Apple.Location;
 /// <para>
 /// <strong>Permission is two rungs, like Android's.</strong> <em>When in use</em> first, then
 /// <em>always</em>. iOS will only show the "always" prompt after the first has been granted, and
-/// it shows it once ever — a second request on a rider who chose "when in use" does nothing at all,
+/// it shows it once ever - a second request on a rider who chose "when in use" does nothing at all,
 /// which is why <see cref="EnsurePermissionsAsync"/> treats a when-in-use grant as success rather
 /// than blocking on an answer that will never come.
 /// </para>
@@ -41,7 +41,7 @@ namespace BlazorDLR.Platforms.Apple.Location;
 public sealed class AppleLocationProvider : ILocationProvider
 {
 	/// <summary>
-	/// How many fixes may queue for a consumer that is behind, dropping the oldest — the newest fix
+	/// How many fixes may queue for a consumer that is behind, dropping the oldest - the newest fix
 	/// is the one worth keeping. Matches the Android service's buffer.
 	/// <para>
 	/// This was ten, chosen when the consumer awaited a network round trip per fix. The publish has
@@ -88,7 +88,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 						CLAuthorizationStatus.AuthorizedAlways => LocationPermissionState.Granted,
 
 						// A rider who granted "when in use" gets a working app that stops
-						// publishing when the phone is pocketed. Degraded, not broken — and it is
+						// publishing when the phone is pocketed. Degraded, not broken - and it is
 						// their answer, so it is not re-asked.
 						CLAuthorizationStatus.AuthorizedWhenInUse => LocationPermissionState.Granted,
 
@@ -106,7 +106,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 				if (current != CLAuthorizationStatus.NotDetermined)
 				{
 					// Already answered once. iOS will not show either prompt again, so the stored
-					// answer is the answer — the way back is the Settings app.
+					// answer is the answer - the way back is the Settings app.
 					if (current == CLAuthorizationStatus.AuthorizedWhenInUse)
 					{
 						// Asking for "always" from "when in use" is the one upgrade iOS does allow,
@@ -120,7 +120,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 					return;
 				}
 
-				// First run. The delegate's callback is what carries the rider's answer — the
+				// First run. The delegate's callback is what carries the rider's answer - the
 				// request methods return immediately and the status is still NotDetermined when
 				// they do.
 				manager.AuthorizationChanged += OnChanged;
@@ -157,7 +157,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 	/// Starts the receiver and yields fixes until the caller stops enumerating.
 	/// <para>
 	/// The manager is started here and stopped in the <c>finally</c>, so the background-location
-	/// assertion — and the blue pill that goes with it — lasts exactly as long as the enumeration.
+	/// assertion - and the blue pill that goes with it - lasts exactly as long as the enumeration.
 	/// </para>
 	/// </summary>
 	/// <param name="rate">The rider's update rate (§4.2).</param>
@@ -185,7 +185,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 		void OnFailed(object? sender, NSErrorEventArgs args)
 		{
 			// kCLErrorDenied (1) is the only failure worth ending the stream for: everything else
-			// — a temporarily unavailable network fix, a heading failure — is transient, and iOS
+			// - a temporarily unavailable network fix, a heading failure - is transient, and iOS
 			// carries on delivering after it. Ending the stream on those would stop a ride
 			// because one fix failed.
 			if (args.Error?.Code == 1)
@@ -239,7 +239,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 			IsRecording = false;
 
 			// Fire-and-forget onto the main thread: this runs from the enumerator's disposal,
-			// which may itself be on the main thread — awaiting there would deadlock.
+			// which may itself be on the main thread - awaiting there would deadlock.
 			MainThread.BeginInvokeOnMainThread(() =>
 			{
 				manager.LocationsUpdated -= OnLocations;
@@ -247,7 +247,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 				manager.StopUpdatingLocation();
 
 				// Released explicitly. Left true, iOS keeps the app's background-location
-				// assertion — and the blue pill — alive after the ride has ended.
+				// assertion - and the blue pill - alive after the ride has ended.
 				manager.AllowsBackgroundLocationUpdates = false;
 			});
 		}
@@ -282,7 +282,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 	/// The smallest movement iOS reports, in metres: a fifth of the rider's update distance,
 	/// capped at ten, and off altogether when that fifth is under a metre.
 	/// <para>
-	/// Deliberately below the publish distance the gate enforces — the receiver has to see the
+	/// Deliberately below the publish distance the gate enforces - the receiver has to see the
 	/// rider stop, and a filter set at the publish distance would hide exactly that.
 	/// </para>
 	/// </summary>
@@ -293,7 +293,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 	/// <summary>
 	/// Maps a Core Location fix, keeping "iOS did not say" distinct from zero (§8).
 	/// <para>
-	/// Core Location reports the three optional measurements as negative when unavailable — a
+	/// Core Location reports the three optional measurements as negative when unavailable - a
 	/// convention that silently becomes a real value if it is not checked. A rider with no course
 	/// would arrive at the ride heading −1°.
 	/// </para>
@@ -304,7 +304,7 @@ public sealed class AppleLocationProvider : ILocationProvider
 		location.HorizontalAccuracy >= 0 ? location.HorizontalAccuracy : null,
 		location.Speed >= 0 ? location.Speed : null,
 		location.Course >= 0 ? location.Course : null,
-		// The receiver's own stamp, not this process's clock — which is the time the ride wants,
+		// The receiver's own stamp, not this process's clock - which is the time the ride wants,
 		// and is why there is no ambient clock read here (§10.4).
 		ToUtc(location.Timestamp));
 

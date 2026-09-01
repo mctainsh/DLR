@@ -8,7 +8,7 @@ namespace DLR.TestSupport.Hosting;
 /// Gives the test host a connection address, because <c>TestServer</c> does not have one.
 /// <para>
 /// Without this <c>HttpContext.Connection.RemoteIpAddress</c> is null, and
-/// <c>ForwardedHeadersMiddleware</c> then skips its <c>KnownProxies</c> check entirely — every
+/// <c>ForwardedHeadersMiddleware</c> then skips its <c>KnownProxies</c> check entirely - every
 /// <c>X-Forwarded-For</c> is honoured no matter what the configuration says. Every per-address
 /// test would still pass, including the ones asserting the header <em>is</em> read, so the
 /// suite would look like it covered §7.8's forwarded-header rule while covering only half of

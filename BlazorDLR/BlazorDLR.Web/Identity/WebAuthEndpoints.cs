@@ -33,8 +33,8 @@ public static class WebAuthEndpoints
 /// <strong>These exist because a cookie cannot be set from inside an already-running WASM client.</strong>
 /// §7.5 is explicit about it, and about how it fails: the sign-in appears to work and the next
 /// request is anonymous. So sign-in, sign-out and registration are ordinary endpoints the browser
-/// reaches directly — form posts from a static page, or <c>fetch</c> from a page that has not
-/// booted the client yet — and only the token exchange is called from running WASM.
+/// reaches directly - form posts from a static page, or <c>fetch</c> from a page that has not
+/// booted the client yet - and only the token exchange is called from running WASM.
 /// </para>
 /// <para>
 /// Everything else is §7.4 unchanged: same rotation, same reuse detection, same device list, same
@@ -58,7 +58,7 @@ public sealed class WebAuthController : ControllerBase
 	}
 
 	// Antiforgery is off on the login and register endpoints, deliberately, and §7.5 scopes it
-	// that way: the cost of choosing a cookie is "CSRF exposure on exactly one endpoint — the
+	// that way: the cost of choosing a cookie is "CSRF exposure on exactly one endpoint - the
 	// token endpoint". These two carry credentials in the body, so there is nothing to forge
 	// without already knowing the password; what is left is login-CSRF, which forces a victim
 	// into the *attacker's* account and is refused by the SameSite=Strict cookie in any case.
@@ -76,7 +76,7 @@ public sealed class WebAuthController : ControllerBase
 		[FromServices] RequestThrottle throttle,
 		[FromServices] IOptions<RateLimitOptions> limits)
 	{
-		// §7.8's two rows, unchanged. A browser is not a reason to relax either — non-short-
+		// §7.8's two rows, unchanged. A browser is not a reason to relax either - non-short-
 		// circuiting `&` so both counters record the attempt, exactly as the password grant does.
 		bool withinLimits =
 			throttle.TryAcquire(
@@ -230,7 +230,7 @@ public sealed class WebAuthController : ControllerBase
 		if (WebSessionCookie.Read(HttpContext.Request) is { } presented)
 		{
 			// Revoked server-side, not merely forgotten. Clearing the cookie alone would leave a
-			// working token in whatever else has a copy of it — which on a shared computer is the
+			// working token in whatever else has a copy of it - which on a shared computer is the
 			// only scenario that made web sessions expire in the first place (§18.5).
 			await refresh.RevokeByTokenAsync(presented, RevocationReasons.SignedOut);
 		}
@@ -245,7 +245,7 @@ public sealed class WebAuthController : ControllerBase
 		SessionFactory sessions,
 		WebSessionCookie cookie)
 	{
-		// DeviceKind.Web is decided here, by which endpoint was reached — never taken from the
+		// DeviceKind.Web is decided here, by which endpoint was reached - never taken from the
 		// request. A browser that could ask for a mobile session would have talked its way out of
 		// the thirty-day window this whole file exists to impose.
 		TokenResponse session = await sessions.BeginAsync(
@@ -263,7 +263,7 @@ public sealed class WebAuthController : ControllerBase
 	/// The response a browser gets: everything except the refresh token.
 	/// <para>
 	/// <strong>This is the test.</strong> A cookie the JavaScript cannot read is worth nothing if
-	/// the same value is also in the JSON body the client just parsed — the XSS that §7.5 is
+	/// the same value is also in the JSON body the client just parsed - the XSS that §7.5 is
 	/// guarding against would read it straight out of there.
 	/// </para>
 	/// </summary>
@@ -271,7 +271,7 @@ public sealed class WebAuthController : ControllerBase
 		session with { RefreshToken = string.Empty };
 
 	/// <summary>
-	/// A name the rider will recognise in the §7.10 session list. Coarse on purpose — the browser
+	/// A name the rider will recognise in the §7.10 session list. Coarse on purpose - the browser
 	/// family and nothing else; a full user-agent string is a fingerprint stored for no purpose.
 	/// </summary>
 	private static string BrowserName(HttpContext http)

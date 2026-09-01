@@ -18,7 +18,7 @@ namespace DLR.UI.Tests.Pages;
 /// The behaviour exists because nothing else takes one off. A position stays in the ride's cache
 /// until its owner stops sharing (§5.6) and is rebroadcast on every tick whether or not it has
 /// moved, so a phone that went flat, was left in a jacket or lost signal in a valley leaves a mark
-/// that reads exactly like somebody standing there — and a group rides back for it. How long that
+/// that reads exactly like somebody standing there - and a group rides back for it. How long that
 /// mark is worth drawing is the rider's own answer, chosen on Settings → Maps and held on this
 /// device.
 /// </para>
@@ -38,10 +38,10 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 
 	private readonly FakeMapInterop _map = new()
 	{
-		// RideMap's stated-error branch (§4.5), which keeps SkiaMapOverlay unmounted — its
+		// RideMap's stated-error branch (§4.5), which keeps SkiaMapOverlay unmounted - its
 		// SKCanvasView cannot render outside a browser. What is under test is the layer the page
 		// hands the map, not the pixels.
-		InitException = new InvalidOperationException("Test host — map interop is stubbed."),
+		InitException = new InvalidOperationException("Test host - map interop is stubbed."),
 	};
 
 	private readonly InMemoryDeviceSettings _settings = new();
@@ -113,7 +113,7 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 		Services.AddSingleton<PrivateAreaState>();
 		Services.AddSingleton<CurrentRideState>();
 
-		// The GPS seam (§4.3). Nothing here emits a fix — what matters is only that the host has a
+		// The GPS seam (§4.3). Nothing here emits a fix - what matters is only that the host has a
 		// receiver at all, which is what makes this rider's own pin the device's business and
 		// Alice's the ride's.
 		Services.AddSingleton<ILocationProvider, FakeLocationProvider>();
@@ -135,7 +135,7 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 		component.FindComponent<StubRideMap>().Instance.Markers?.ContainsKey(AliceId) == true;
 
 	/// <summary>
-	/// Waits for the page to be up and for the device store to have been read — the read is on
+	/// Waits for the page to be up and for the device store to have been read - the read is on
 	/// first render, so a test that asserts an absence without waiting would pass before the
 	/// setting had arrived and for the wrong reason.
 	/// </summary>
@@ -159,7 +159,7 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 	[Fact]
 	public async Task AFixOlderThanTheDefault_IsNotDrawnAtAll()
 	{
-		// Nothing stored, so this is PinExpiry.Default — ten minutes.
+		// Nothing stored, so this is PinExpiry.Default - ten minutes.
 		(_, Guid rideId) = await WireServicesAsync(AliceLastSeen(minutesAgo: 20));
 
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
@@ -168,7 +168,7 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 		component.WaitForAssertion(
 			() => AliceIsOnTheMap(component).ShouldBeFalse(
 				"a twenty-minute-old fix is rebroadcast every tick and looks exactly like a rider " +
-				"standing there — which is how a group ends up riding back for a flat phone."),
+				"standing there - which is how a group ends up riding back for a flat phone."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -195,7 +195,7 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 	/// <summary>
 	/// The case the whole thing is for: a pin that was fine when the map opened and is not fine
 	/// a quarter of an hour later. The batch carrying the same unchanged fix is what the server
-	/// really sends every tick — the position lives in its cache until sharing stops (§5.6) — so
+	/// really sends every tick - the position lives in its cache until sharing stops (§5.6) - so
 	/// this is the ordinary path rather than a contrived one.
 	/// </summary>
 	[Fact]
@@ -225,7 +225,7 @@ public sealed class GroupRideLivePinExpiryTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => AliceIsOnTheMap(component).ShouldBeFalse(
-				"the fix has not changed and the batch keeps arriving — the age is the only thing " +
+				"the fix has not changed and the batch keeps arriving - the age is the only thing " +
 				"that moved, and it is the whole of the rule."),
 			timeout: TimeSpan.FromSeconds(3));
 	}

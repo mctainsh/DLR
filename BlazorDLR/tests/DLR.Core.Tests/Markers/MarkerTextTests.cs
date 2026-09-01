@@ -7,7 +7,7 @@ namespace DLR.Core.Tests.Markers;
 /// <list type="bullet">
 ///   <item>Trim + NFC normalise so two spellings of an accented name compare the same.</item>
 ///   <item>Newlines and tabs survive in notes; every other control character (including
-///     bidirectional overrides) is stripped — those are the ones a title could smuggle
+///     bidirectional overrides) is stripped - those are the ones a title could smuggle
 ///     to render something other than what is stored.</item>
 ///   <item>Empty-after-cleaning returns null so the composer treats it as "no note".</item>
 ///   <item>Over-long GPX &lt;name&gt; is split at a word boundary near the limit, with
@@ -22,7 +22,7 @@ public sealed class MarkerTextTests
 		MarkerText.Clean(null).ShouldBeNull();
 		MarkerText.Clean("").ShouldBeNull();
 		MarkerText.Clean("   \t\n  ").ShouldBeNull(
-			"whitespace-only text is 'no note' — the composer treats null as absent.");
+			"whitespace-only text is 'no note' - the composer treats null as absent.");
 	}
 
 	[Fact]
@@ -36,17 +36,17 @@ public sealed class MarkerTextTests
 	{
 		string input = "line1\nline2\tstill line2";
 		MarkerText.Clean(input).ShouldBe(input,
-			"newlines and tabs survive in a note — an address on two lines is legitimate.");
+			"newlines and tabs survive in a note - an address on two lines is legitimate.");
 	}
 
 	[Fact]
 	public void Clean_StripsBidiOverrideCharacters()
 	{
-		// U+200E LEFT-TO-RIGHT MARK is a Format-category character — a title carrying one
+		// U+200E LEFT-TO-RIGHT MARK is a Format-category character - a title carrying one
 		// could render as something other than what is stored. The cleaner strips them.
 		string input = "abcdef‎ghi";
 		MarkerText.Clean(input).ShouldBe("abcdefghi",
-			"§16.2: bidirectional overrides let a title render as something other than what is stored — the cleaner strips them.");
+			"§16.2: bidirectional overrides let a title render as something other than what is stored - the cleaner strips them.");
 	}
 
 	[Fact]
@@ -85,9 +85,9 @@ public sealed class MarkerTextTests
 		(string title, string? overflow) = MarkerText.SplitTitle(longName, titleMaxChars: 40);
 
 		title.Length.ShouldBeLessThanOrEqualTo(40);
-		title.EndsWith(' ').ShouldBeFalse("the title is trimmed at the boundary — no trailing space.");
+		title.EndsWith(' ').ShouldBeFalse("the title is trimmed at the boundary - no trailing space.");
 		overflow.ShouldNotBeNull("§16.6: overflow is preserved rather than truncated.");
-		(title + " " + overflow).Length.ShouldBe(longName.Length, "the split is lossless — every character survives.");
+		(title + " " + overflow).Length.ShouldBe(longName.Length, "the split is lossless - every character survives.");
 	}
 
 	[Fact]

@@ -15,7 +15,7 @@ namespace DLR.Server.Tests.Identity;
 /// <para>
 /// One field is the account: <c>UserName</c> is the login identifier and the label other
 /// riders read, so every rule here is doing two jobs at once. That is why the casing, the
-/// character set and the reserved list get tests rather than a paragraph — each one is a way
+/// character set and the reserved list get tests rather than a paragraph - each one is a way
 /// for a stranger's pin to be mistaken for someone you know.
 /// </para>
 /// </summary>
@@ -46,7 +46,7 @@ public sealed class RegistrationTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// An account with no email address is not a lesser account. Nothing about it is pending,
-	/// restricted or awaiting a step — the address buys recovery (§7.7) and satisfies the IP
+	/// restricted or awaiting a step - the address buys recovery (§7.7) and satisfies the IP
 	/// ladder (§7.8), and it buys nothing else.
 	/// </summary>
 	[Fact]
@@ -166,7 +166,7 @@ public sealed class RegistrationTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// Nothing may pose as the service on somebody else's map — the same problem as a
+	/// Nothing may pose as the service on somebody else's map - the same problem as a
 	/// homoglyph, arriving by a different route.
 	/// </summary>
 	[Theory]
@@ -211,7 +211,7 @@ public sealed class RegistrationTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The reason <c>RequireUniqueEmail</c> has to stay off (§7.13). Identity's validator
-	/// rejects a null address when it is on, and an account without one is the normal case —
+	/// rejects a null address when it is on, and an account without one is the normal case -
 	/// so uniqueness is a partial index, over the rows that have something to be unique about.
 	/// </summary>
 	[Fact]
@@ -229,7 +229,7 @@ public sealed class RegistrationTests(PostgresFixture postgres)
 
 		withoutEmail.ShouldBe(3);
 
-		// Three nulls coexisting is not by itself evidence of a correct index — PostgreSQL
+		// Three nulls coexisting is not by itself evidence of a correct index - PostgreSQL
 		// treats NULLs as distinct even in an unfiltered unique index, and would allow all
 		// three if the constraint had never been created at all. So the index is asserted
 		// directly. What happens to a caller who submits an address someone else already

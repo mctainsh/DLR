@@ -10,7 +10,7 @@ namespace DLR.UI.Tests.Pages;
 /// §4.1's signed-in landing. Two things this file asserts:
 /// <list type="bullet">
 ///   <item>The four navigation cards (My rides / Group rides / Import / Settings) are
-///     all present — this is the sole path a signed-in user has into everything else.</item>
+///     all present - this is the sole path a signed-in user has into everything else.</item>
 ///   <item>The form factor label is what <see cref="IFormFactor"/> returned. A missing
 ///     label means the form-factor seam is broken; the shared UI relies on it for
 ///     web-only branches like TrackEditor.</item>

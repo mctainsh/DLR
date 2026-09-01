@@ -29,7 +29,7 @@ public static class ImageFixtures
 	public static readonly (uint Degrees, uint Minutes, uint Seconds) Longitude = (151, 12, 33);
 
 	/// <summary>
-	/// The camera make written into every EXIF fixture. Distinctive on purpose — a re-encode that
+	/// The camera make written into every EXIF fixture. Distinctive on purpose - a re-encode that
 	/// dropped GPS and kept the rest would still leak the device, and this is what catches that.
 	/// </summary>
 	public const string CameraMake = "DLR-TEST-CAMERA-SERIAL-7F3A";
@@ -37,17 +37,17 @@ public static class ImageFixtures
 	/// <summary>The capture timestamp written into every EXIF fixture.</summary>
 	public const string CapturedAt = "2019:07:04 06:12:44";
 
-	/// <summary>EXIF orientation 1 — stored the way it is displayed.</summary>
+	/// <summary>EXIF orientation 1 - stored the way it is displayed.</summary>
 	public const ushort OrientationNormal = 1;
 
 	/// <summary>
-	/// EXIF orientation 6 — the stored top-left belongs at the top-right, so a correct reader
+	/// EXIF orientation 6 - the stored top-left belongs at the top-right, so a correct reader
 	/// rotates 90° clockwise. This is what every phone held in portrait writes.
 	/// </summary>
 	public const ushort OrientationRotate90Cw = 6;
 
 	/// <summary>
-	/// The exact 24 bytes the GPS latitude occupies inside a fixture's EXIF — three rationals,
+	/// The exact 24 bytes the GPS latitude occupies inside a fixture's EXIF - three rationals,
 	/// little-endian.
 	/// <para>
 	/// This is what <c>Photo_ExifGpsTag_IsAbsentFromStoredImage</c> looks for. Asserting merely
@@ -100,12 +100,12 @@ public static class ImageFixtures
 	}
 
 	/// <summary>
-	/// A PNG whose <c>IHDR</c> claims an enormous canvas in a few hundred bytes — a decompression
+	/// A PNG whose <c>IHDR</c> claims an enormous canvas in a few hundred bytes - a decompression
 	/// bomb (§16.4).
 	/// <para>
 	/// <strong>Its image data is deliberately unusable.</strong> That is what makes the test able to
 	/// tell the two implementations apart: code that reads the header and refuses answers with the
-	/// pixel cap, and code that decodes first answers "not an image" — a different status and a
+	/// pixel cap, and code that decodes first answers "not an image" - a different status and a
 	/// different problem name. Without the broken stream, both orderings look identical from
 	/// outside.
 	/// </para>
@@ -212,7 +212,7 @@ public static class ImageFixtures
 	/// <para>
 	/// The layout is fixed rather than computed, because every offset in TIFF is absolute from the
 	/// start of the header and a builder that got one wrong would produce a file readers disagree
-	/// about — which is a fixture bug that looks exactly like the behaviour under test.
+	/// about - which is a fixture bug that looks exactly like the behaviour under test.
 	/// </para>
 	/// </summary>
 	private static byte[] Tiff(ushort orientation)

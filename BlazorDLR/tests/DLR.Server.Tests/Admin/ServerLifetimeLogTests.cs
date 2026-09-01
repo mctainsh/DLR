@@ -48,7 +48,7 @@ public sealed class ServerLifetimeLogTests : IDisposable
 	/// <para>
 	/// The build, the folders, the database and the roster are the block's, written before this
 	/// callback can run and asserted in <c>StartupBannerTests</c>. This line is the one that cannot
-	/// be in the block — the writer only discovers a directory it may not create once it has tried.
+	/// be in the block - the writer only discovers a directory it may not create once it has tried.
 	/// </para>
 	/// </summary>
 	[Fact]
@@ -113,7 +113,7 @@ public sealed class ServerLifetimeLogTests : IDisposable
 
 	/// <summary>
 	/// <see cref="UnhandledExceptionLogger"/> records and declines. Returning true would silently
-	/// take over the response for every caller — see the note on the type.
+	/// take over the response for every caller - see the note on the type.
 	/// </summary>
 	[Fact]
 	public async Task TheRequestHandler_RecordsTheFailureAndLeavesTheResponseAlone()

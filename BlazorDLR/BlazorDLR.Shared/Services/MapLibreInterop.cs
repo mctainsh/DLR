@@ -9,8 +9,8 @@ namespace BlazorDLR.Shared.Services;
 /// The base map, on every host: MapLibre GL JS over OpenStreetMap tiles (§4.5 v0.24, §18.3).
 /// <para>
 /// <strong>This class lives in the shared project, not in a host</strong>, and that is the
-/// whole of what v0.24 bought. The three predecessors — <c>AppleMapsInterop</c> (MapKit JS),
-/// <c>GoogleMapsInterop</c> and <c>OpenLayersInterop</c> — each carried a credential and a
+/// whole of what v0.24 bought. The three predecessors - <c>AppleMapsInterop</c> (MapKit JS),
+/// <c>GoogleMapsInterop</c> and <c>OpenLayersInterop</c> - each carried a credential and a
 /// per-host registration; between them they cost a <c>.p8</c> on the server, a browser API key
 /// in the app bundle, and a token endpoint that made the map a server dependency. MapLibre
 /// needs none of the three, so one registration answers for iOS, Android and the web.
@@ -45,7 +45,7 @@ public sealed class MapLibreInterop : IMapInterop
 
 	/// <summary>
 	/// Which source is currently under the map, and therefore whose credit is required. Follows
-	/// <see cref="SetSourceAsync"/> rather than being fixed at construction — the renderer is
+	/// <see cref="SetSourceAsync"/> rather than being fixed at construction - the renderer is
 	/// MapLibre either way, and the attribution is the part that moves (§4.5).
 	/// </summary>
 	public MapProvider Provider => _source.Provider;
@@ -107,7 +107,7 @@ public sealed class MapLibreInterop : IMapInterop
 			headingDeg = camera.HeadingDeg,
 
 			// Milliseconds because that is what the base map counts an animation in, and clamped at
-			// zero so a caller that worked out a negative gap — a fix that arrived late — gets the
+			// zero so a caller that worked out a negative gap - a fix that arrived late - gets the
 			// jump rather than an argument MapLibre would read as "no duration given" and replace
 			// with its own default of 500 ms.
 			durationMs = animation > TimeSpan.Zero ? animation.TotalMilliseconds : 0,
@@ -144,7 +144,7 @@ public sealed class MapLibreInterop : IMapInterop
 
 		if (_map is null)
 		{
-			// Not attached yet — InitAsync will carry it. A caller changing a device setting has no
+			// Not attached yet - InitAsync will carry it. A caller changing a device setting has no
 			// business knowing whether a map happens to be on screen.
 			return;
 		}
@@ -155,7 +155,7 @@ public sealed class MapLibreInterop : IMapInterop
 	/// <summary>
 	/// The source as the JS module needs it: a tile template or an archive URL, a credit, and how
 	/// deep it goes. The module never sees <see cref="MapSource"/> itself, for the same reason the
-	/// viewport is a contract rather than MapLibre's own type — the two halves are versioned
+	/// viewport is a contract rather than MapLibre's own type - the two halves are versioned
 	/// separately.
 	/// <para>
 	/// <strong>Asynchronous because of one field.</strong> An offline pack has no URL until the
@@ -164,7 +164,7 @@ public sealed class MapLibreInterop : IMapInterop
 	/// (see <see cref="IMapPackServer"/>).
 	/// </para>
 	/// <para>
-	/// A pack this device cannot serve — deleted since it was chosen, or a host that holds none —
+	/// A pack this device cannot serve - deleted since it was chosen, or a host that holds none -
 	/// falls back to the default here rather than being sent on as an offline source with nothing
 	/// behind it. The module performs the same fallback; both exist because the failure mode is a
 	/// blank map, and a rider in a dead zone reading a blank map cannot tell it from a broken app.
@@ -180,7 +180,7 @@ public sealed class MapLibreInterop : IMapInterop
 
 			// The one line that says which archive a map was told to read, and on which port.
 			// Without it the fallback below is silent, and a rider whose pack has gone sees a map
-			// that simply stopped being offline — while a rider whose pack is fine but whose
+			// that simply stopped being offline - while a rider whose pack is fine but whose
 			// server has moved sees the identical screen for the opposite reason.
 			DiagnosticLog.Write(archive is null
 				? $"Offline map pack '{packId}' could not be served on this device; the map falls back to OpenStreetMap."
@@ -199,7 +199,7 @@ public sealed class MapLibreInterop : IMapInterop
 			archiveUrl = archive?.ToString(),
 			attribution = usable.AttributionText,
 			maxZoom = usable.MaxZoom,
-			// Only the offline style reads this — the raster kinds arrive as finished images. It is
+			// Only the offline style reads this - the raster kinds arrive as finished images. It is
 			// sent unconditionally anyway so the module has one shape to destructure, and because a
 			// pack that fell back to OSM above has already had its theme normalised away with it.
 			theme = usable.Theme.ToString().ToLowerInvariant(),
@@ -233,7 +233,7 @@ public sealed class MapLibreInterop : IMapInterop
 		if (_map is null)
 		{
 			throw new InvalidOperationException(
-				$"MapLibre interop: {method} called before InitAsync — the host element is not attached yet.");
+				$"MapLibre interop: {method} called before InitAsync - the host element is not attached yet.");
 		}
 		await _map.InvokeVoidAsync(method, cancellationToken, argument);
 	}

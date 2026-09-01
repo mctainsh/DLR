@@ -13,21 +13,21 @@ namespace BlazorDLR.Platforms.Android.Location;
 /// <strong>The permission ladder is three separate asks, in order, and the order is not
 /// negotiable.</strong>
 /// <list type="number">
-///   <item><c>ACCESS_FINE_LOCATION</c> — the only one that can be requested alongside anything
+///   <item><c>ACCESS_FINE_LOCATION</c> - the only one that can be requested alongside anything
 ///     else. Since Android 12 the system dialog offers the rider "precise" or "approximate", and
 ///     approximate is a few hundred metres, which cannot place somebody on a road.</item>
-///   <item><c>ACCESS_BACKGROUND_LOCATION</c> — from Android 11 this <em>cannot</em> be bundled
+///   <item><c>ACCESS_BACKGROUND_LOCATION</c> - from Android 11 this <em>cannot</em> be bundled
 ///     with the first ask. Requesting it in the same call gets the whole request denied without a
 ///     dialog. It has to be a second request, after foreground permission is already granted, and
 ///     the system sends the rider to a settings page rather than showing a dialog.</item>
-///   <item><c>POST_NOTIFICATIONS</c> (Android 13+) — not needed to receive fixes, but the
+///   <item><c>POST_NOTIFICATIONS</c> (Android 13+) - not needed to receive fixes, but the
 ///     foreground service's notification is invisible without it, and an invisible ongoing
 ///     notification is exactly what Play's background-location policy is written against.</item>
 /// </list>
 /// </para>
 /// <para>
 /// <strong>Background permission is asked for but not required.</strong> Refusing it leaves an app
-/// that publishes while it is on screen and stops when the rider pockets the phone — degraded, but
+/// that publishes while it is on screen and stops when the rider pockets the phone - degraded, but
 /// working, and the honest thing to do with a rider who said no. Treating it as fatal would make
 /// the answer to a privacy question a broken app.
 /// </para>
@@ -45,12 +45,12 @@ public sealed class AndroidLocationProvider : ILocationProvider
 		CancellationToken cancellationToken = default)
 	{
 		// MAUI's Permissions API is used rather than raw ActivityCompat: it already knows which
-		// manifest entries each request maps to per API level, and it marshals to the activity —
+		// manifest entries each request maps to per API level, and it marshals to the activity -
 		// this is called from a background pump, and a permission request off the UI thread throws.
 		// Every rung of the ladder is written down, and this is the file where that pays: the three
 		// asks happen in a fixed order, each can be answered four ways, and the failures riders
-		// actually hit — a background ask that never appeared, a "never ask again" from months ago
-		// — are all invisible from inside the app afterwards. A log that says which rung was on
+		// actually hit - a background ask that never appeared, a "never ask again" from months ago
+		// - are all invisible from inside the app afterwards. A log that says which rung was on
 		// screen and what came back is the difference between diagnosing that and guessing at it.
 		DiagnosticLog.Write("GPS: checking foreground location permission.");
 
@@ -64,7 +64,7 @@ public sealed class AndroidLocationProvider : ILocationProvider
 			if (Permissions.ShouldShowRationale<Permissions.LocationWhenInUse>())
 			{
 				// The rider has refused once already. The ride screens carry the explanation
-				// (§4.3), so the ask itself is not dressed up here — asking again immediately with
+				// (§4.3), so the ask itself is not dressed up here - asking again immediately with
 				// no new information is how an app trains somebody to hit Deny.
 			}
 
@@ -85,12 +85,12 @@ public sealed class AndroidLocationProvider : ILocationProvider
 				? LocationPermissionState.Denied
 				: LocationPermissionState.DeniedPermanently;
 
-			DiagnosticLog.Write($"GPS: foreground location refused — {refused}. Nothing else is asked for.");
+			DiagnosticLog.Write($"GPS: foreground location refused - {refused}. Nothing else is asked for.");
 
 			return refused;
 		}
 
-		// Second rung, and only now — see the type's remarks on why this cannot be bundled.
+		// Second rung, and only now - see the type's remarks on why this cannot be bundled.
 		if (OperatingSystem.IsAndroidVersionAtLeast(29))
 		{
 			PermissionStatus always = await MainThread.InvokeOnMainThreadAsync(
@@ -111,7 +111,7 @@ public sealed class AndroidLocationProvider : ILocationProvider
 			}
 		}
 
-		// Third rung. A refused notification permission does not stop the service — it makes it
+		// Third rung. A refused notification permission does not stop the service - it makes it
 		// silent, which is worth knowing but not worth refusing to ride over.
 		if (OperatingSystem.IsAndroidVersionAtLeast(33))
 		{
@@ -138,7 +138,7 @@ public sealed class AndroidLocationProvider : ILocationProvider
 	/// enumerating.
 	/// <para>
 	/// The service is started here and stopped in the <c>finally</c>, so the receiver's lifetime is
-	/// exactly the lifetime of the enumeration — which is what makes
+	/// exactly the lifetime of the enumeration - which is what makes
 	/// <c>LocationBroadcastState.StopAsync</c> awaiting its pump the thing that takes the
 	/// notification down.
 	/// </para>
@@ -151,12 +151,12 @@ public sealed class AndroidLocationProvider : ILocationProvider
 	{
 		Context context = Application.Context;
 
-		DiagnosticLog.Write($"GPS: asking the OS to start the foreground service — {rate}.");
+		DiagnosticLog.Write($"GPS: asking the OS to start the foreground service - {rate}.");
 
 		LocationForegroundService.Start(context, rate);
 
 		// The gap between the service starting and the first fix arriving is the one a rider feels
-		// — a map with no dot on it — and it is the gap nothing else measures. One line, on the
+		// - a map with no dot on it - and it is the gap nothing else measures. One line, on the
 		// first fix only: the rest of a ride's fixes belong to the gate, not to this log.
 		bool first = true;
 
@@ -170,7 +170,7 @@ public sealed class AndroidLocationProvider : ILocationProvider
 				{
 					first = false;
 					DiagnosticLog.Write(
-						$"GPS: first fix — {fix.Latitude:F5},{fix.Longitude:F5}, " +
+						$"GPS: first fix - {fix.Latitude:F5},{fix.Longitude:F5}, " +
 						$"accuracy {fix.AccuracyM?.ToString("F0") ?? "unknown"} m.");
 				}
 
@@ -182,7 +182,7 @@ public sealed class AndroidLocationProvider : ILocationProvider
 			DiagnosticLog.Write("GPS: watch ended; stopping the foreground service.");
 
 			// Runs on cancellation and on the consumer simply walking away from the enumerator.
-			// An orphaned foreground service is a permanent notification and a permanent GPS —
+			// An orphaned foreground service is a permanent notification and a permanent GPS -
 			// the single worst bug this file could ship.
 			LocationForegroundService.Stop(context);
 		}

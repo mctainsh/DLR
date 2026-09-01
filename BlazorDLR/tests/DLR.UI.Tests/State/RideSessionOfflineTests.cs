@@ -15,7 +15,7 @@ namespace DLR.UI.Tests.State;
 /// The distinction is the whole test class. Both look like "the load failed" from the outside, and
 /// confusing them costs something real either way round: fall back on a 404 and a rider removed
 /// from a ride goes on opening it from a cache; refuse to fall back on a transport failure and a
-/// rider in a tunnel — the person this feature exists for — gets an error page.
+/// rider in a tunnel - the person this feature exists for - gets an error page.
 /// </para>
 /// </summary>
 public sealed class RideSessionOfflineTests
@@ -182,7 +182,7 @@ public sealed class RideSessionOfflineTests
 
 		await SessionOver(WorkingServer(), CacheOver(store)).LoadAsync(RideId);
 
-		// A 500 is the server answering, but not with a ride — and it says nothing about whether
+		// A 500 is the server answering, but not with a ride - and it says nothing about whether
 		// this rider is still on it. Same situation as a tunnel, so the same answer.
 		FakeApiClient broken = new()
 		{

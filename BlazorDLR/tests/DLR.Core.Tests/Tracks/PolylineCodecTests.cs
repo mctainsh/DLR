@@ -18,7 +18,7 @@ public sealed class PolylineCodecTests
 	{
 		// At precision 5 the reference output for these three points is "_p~iF~ps|U_ulLnnqC_mqNvxq`@".
 		// This codec runs at precision 6, so the check is the round trip plus the shape rather
-		// than that exact string — but a value encoded and decoded has to survive.
+		// than that exact string - but a value encoded and decoded has to survive.
 		string encoded = PolylineCodec.EncodePoints(
 		[
 			new TrackPoint(38.5, -120.2),
@@ -52,7 +52,7 @@ public sealed class PolylineCodecTests
 			// One unit in the sixth decimal place, which is what precision 6 guarantees: half
 			// of it is rounding and the rest is the double arithmetic on the way through.
 			// About a tenth of a metre, and nothing derived is ever computed from a decoded
-			// value anyway — the blob keeps the exact doubles.
+			// value anyway - the blob keeps the exact doubles.
 			decoded[index].Latitude.ShouldBe(
 				geometry.Points[index].Latitude,
 				tolerance: 0.000001,
@@ -107,7 +107,7 @@ public sealed class PolylineCodecTests
 	}
 
 	/// <summary>
-	/// Zero is a real height — every track at sea level would otherwise claim one (§15.1).
+	/// Zero is a real height - every track at sea level would otherwise claim one (§15.1).
 	/// </summary>
 	[Fact]
 	public void Elevations_MissingOnes_AreNotZero()

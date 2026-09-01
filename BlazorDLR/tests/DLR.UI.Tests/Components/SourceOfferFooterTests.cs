@@ -30,7 +30,7 @@ public sealed class SourceOfferFooterTests : BunitContext
 		};
 		Services.AddSingleton<IApiClient>(api);
 
-		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		// Cleared here, next to the render, and never in a constructor - see SourceOfferFooterCache.
 		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 
@@ -52,11 +52,11 @@ public sealed class SourceOfferFooterTests : BunitContext
 	public void PlaceholderCopyIsHonestBeforeTheApiAnswers()
 	{
 		// Even before the async About call resolves, the footer renders the licence as a
-		// placeholder — "© Dumb Luck Routes · AGPL-3.0-only" — because that line is true
+		// placeholder - "© Dumb Luck Routes · AGPL-3.0-only" - because that line is true
 		// regardless of whether the endpoint answered. The rest fills in later.
 		Services.AddSingleton<IApiClient>(new FakeApiClient());
 
-		// Cleared here, next to the render, and never in a constructor — see SourceOfferFooterCache.
+		// Cleared here, next to the render, and never in a constructor - see SourceOfferFooterCache.
 		SourceOfferFooterCache.Clear();
 		IRenderedComponent<SourceOfferFooter> component = Render<SourceOfferFooter>();
 

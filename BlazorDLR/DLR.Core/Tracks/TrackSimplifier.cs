@@ -4,7 +4,7 @@ namespace DLR.Core.Tracks;
 /// Ramer–Douglas–Peucker, for the copy that gets drawn (§4.2, §15.5).
 /// <para>
 /// The map draws a simplified polyline because a 12-hour tour at 1 Hz is ~43 000 points and no
-/// renderer wants all of them. The raw track is never replaced by this — the editor addresses
+/// renderer wants all of them. The raw track is never replaced by this - the editor addresses
 /// full-resolution indices throughout (§15.5), and a simplified copy that anything editable
 /// pointed at would delete the wrong points.
 /// </para>
@@ -15,7 +15,7 @@ public static class TrackSimplifier
 	/// How far a point may sit from the line before it has to be kept.
 	/// <para>
 	/// Five metres is below what a rider can distinguish on a map at any zoom that shows a whole
-	/// ride, and comfortably inside consumer GPS error — so the simplified line is not a
+	/// ride, and comfortably inside consumer GPS error - so the simplified line is not a
 	/// different shape, it is the same shape with the noise taken out. It is a display
 	/// tolerance and nothing derived is computed from the result: distance, ascent and duration
 	/// all come from the raw points (§15.7).
@@ -76,8 +76,8 @@ public static class TrackSimplifier
 		keep[0] = true;
 		keep[length - 1] = true;
 
-		// Iterative rather than recursive. A pathological track — 43 000 points along a curve
-		// that never straightens — recurses to a depth that overflows the stack on a phone,
+		// Iterative rather than recursive. A pathological track - 43 000 points along a curve
+		// that never straightens - recurses to a depth that overflows the stack on a phone,
 		// and the failure is a crash rather than a slow render.
 		Stack<(int First, int Last)> spans = new();
 
@@ -150,7 +150,7 @@ public static class TrackSimplifier
 
 		if (lengthSquared == 0)
 		{
-			// The line is a single place — a stationary rider. Distance to the point it is.
+			// The line is a single place - a stationary rider. Distance to the point it is.
 			return Math.Sqrt((px * px) + (py * py));
 		}
 

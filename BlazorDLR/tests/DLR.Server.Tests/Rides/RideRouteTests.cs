@@ -17,7 +17,7 @@ namespace DLR.Server.Tests.Rides;
 /// A ride's planned routes (§5.4).
 /// <para>
 /// The rule that shapes every test here is that a ride carries a <em>set</em>. The outline had
-/// one nullable route per ride, and a real day out is commonly two or three — so attaching is
+/// one nullable route per ride, and a real day out is commonly two or three - so attaching is
 /// additive, the list is ordered by when each was attached, and the oldest one is the line
 /// §5.4's gap list projects riders against.
 /// </para>
@@ -57,14 +57,14 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 		routes.Length.ShouldBe(2, "an adventure carries a set of routes, not one");
 
-		routes[0].TrackId.ShouldBe(first.Id, "oldest attachment first — §5.4's gap list is projected against it");
+		routes[0].TrackId.ShouldBe(first.Id, "oldest attachment first - §5.4's gap list is projected against it");
 		routes[1].TrackId.ShouldBe(second.Id);
 
 		routes[0].Name.ShouldBe("The long way");
 		routes[0].AddedByUserName.ShouldBe("DaveSmith");
 		routes[0].DistanceM.ShouldBeGreaterThan(0);
 
-		// The line travels encoded (§15.5) and decodes through the same codec the server used —
+		// The line travels encoded (§15.5) and decodes through the same codec the server used -
 		// a precision mismatch here is what once drew a Sydney ride off the Gulf of Guinea.
 		IReadOnlyList<(double Latitude, double Longitude)> line =
 			PolylineCodec.DecodePoints(routes[0].EncodedPolyline);
@@ -122,7 +122,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 		(await ListAsync(organiser, ride.Id)).ShouldBeEmpty();
 
-		// Detaching a route from a ride is not an instruction to destroy the owner's copy of it —
+		// Detaching a route from a ride is not an instruction to destroy the owner's copy of it -
 		// same rule as §5.8's switches, where revoking a permission deletes nothing.
 		using HttpResponseMessage stillThere = await organiser.GetAsync($"{TracksUrl}/{track.Id}");
 
@@ -152,7 +152,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 				"§5.4: the organiser decides which routes an adventure has");
 		}
 
-		// And somebody not in the ride gets a 404, not a 403 — a ride id is shareable, so a
+		// And somebody not in the ride gets a 404, not a 403 - a ride id is shareable, so a
 		// distinguishable refusal would make this an oracle for who is in which ride (§5.2).
 		using HttpResponseMessage unknown = await stranger.PostAsJsonAsync(
 			$"{RidesUrl}/{ride.Id}/routes",
@@ -168,8 +168,8 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// §15.4 draws this line for editing — "not the group-ride organiser, even for a route they
-	/// were handed" — and attaching is the same question asked the other way round. A rider hands
+	/// §15.4 draws this line for editing - "not the group-ride organiser, even for a route they
+	/// were handed" - and attaching is the same question asked the other way round. A rider hands
 	/// a route over by exporting the GPX; that round trip is the copy feature.
 	/// </summary>
 	[Fact]
@@ -198,7 +198,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 	/// <summary>
 	/// The §15.4 precondition, checkable now that a track can be a ride's route. Editing the
 	/// geometry of a line an adventure is running on silently moves every rider's place in §5.4's
-	/// gap list — nobody rode anywhere, and the list reorders.
+	/// gap list - nobody rode anywhere, and the list reorders.
 	/// </summary>
 	[Fact]
 	public async Task Routes_OfAnAdventure_CannotHaveTheirTrackEdited()
@@ -211,7 +211,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 		TrackSummary track = await UploadAsync(organiser, "Saturday loop", points: 60);
 
-		// Editable while it is nobody's route — the rule is about the attachment, not the track.
+		// Editable while it is nobody's route - the rule is about the attachment, not the track.
 		using (HttpResponseMessage allowed = await organiser.PostAsJsonAsync(
 			$"{TracksUrl}/{track.Id}/edit",
 			new EditTrackRequest(track.Version, [new IndexRange(0, 5)])))
@@ -309,7 +309,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// The lock v0.32 would otherwise have created. §15.4 refuses to edit or delete a track that is
-	/// any adventure's route, and the way through is to detach it — so a track owner who is not the
+	/// any adventure's route, and the way through is to detach it - so a track owner who is not the
 	/// organiser has to be able to, or the advice is unactionable and their own track is held for
 	/// ever. Same rule as §19.2's un-sharing: what happens to your own row is your call.
 	/// </summary>
@@ -325,7 +325,7 @@ public sealed class RideRouteTests(PostgresFixture postgres)
 
 		await JoinAsync(app, member, ride.Id);
 
-		// The member's own track, attached while they were a leader — the only way it gets on.
+		// The member's own track, attached while they were a leader - the only way it gets on.
 		TrackSummary track = await UploadAsync(member, "Sam's loop", points: 30);
 
 		await app.WithDatabaseAsync(async database =>

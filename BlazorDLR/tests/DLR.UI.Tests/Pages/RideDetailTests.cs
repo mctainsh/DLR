@@ -15,11 +15,11 @@ namespace DLR.UI.Tests.Pages;
 /// The signed-in track detail page. Two properties:
 /// <list type="bullet">
 ///   <item>The header exposes both the Edit link (route to <c>TrackEditor</c>) and the
-///     GPX download button — losing either would silently strand the two operations
+///     GPX download button - losing either would silently strand the two operations
 ///     the design outline names for a stored track (§15.5, §15.7).</item>
-///   <item>The stats row honours the null-vs-zero rule: a null ascent renders as "—",
+///   <item>The stats row honours the null-vs-zero rule: a null ascent renders as "-",
 ///     a zero-second duration renders as an em dash from the null formatter, and a
-///     zero-metre distance renders as "0.0 km" — because zero is a real number for
+///     zero-metre distance renders as "0.0 km" - because zero is a real number for
 ///     distance (§8).</item>
 /// </list>
 /// </summary>
@@ -58,7 +58,7 @@ public sealed class RideDetailTests : PageTestContext
 		Services.AddSingleton<IFileSaver>(Saver);
 		Services.AddSingleton<IMapInterop>(new FakeMapInterop
 		{
-			InitException = new InvalidOperationException("Test host — map interop is stubbed."),
+			InitException = new InvalidOperationException("Test host - map interop is stubbed."),
 		});
 
 		// The fake answers a rename out of the detail it is already holding, so the summary this
@@ -101,7 +101,7 @@ public sealed class RideDetailTests : PageTestContext
 			component.FindAll($"a[href='/rides/{id}/edit']").ShouldNotBeEmpty(
 				"§15.5: the Edit link routes to the composer. Missing it strands the trimming path.");
 			component.FindAll("button").Any(b => b.TextContent.Contains("Download GPX", StringComparison.Ordinal))
-				.ShouldBeTrue("§15.7: the raw GPX download button is on this page — the design outline names it.");
+				.ShouldBeTrue("§15.7: the raw GPX download button is on this page - the design outline names it.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -109,7 +109,7 @@ public sealed class RideDetailTests : PageTestContext
 	/// The map opens on the whole route, not at a fixed zoom over the middle of it.
 	/// <para>
 	/// Asserted on the parameter rather than on a resulting camera, because the zoom that fits a
-	/// box is a function of the canvas the box has to fit inside — the base map resolves it, and
+	/// box is a function of the canvas the box has to fit inside - the base map resolves it, and
 	/// a bUnit render has no canvas. What this page is responsible for is handing the box over;
 	/// <c>RideMapTests</c> covers the map acting on it.
 	/// </para>
@@ -131,7 +131,7 @@ public sealed class RideDetailTests : PageTestContext
 		component.WaitForAssertion(
 			() => component.FindComponent<BlazorDLR.Shared.Components.RideMap>().Instance.Bounds
 				.ShouldBe(bounds,
-					"a 40 km tour and a lap of the block were both framed at zoom 11 — one of the two was always wrong."),
+					"a 40 km tour and a lap of the block were both framed at zoom 11 - one of the two was always wrong."),
 			timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -140,7 +140,7 @@ public sealed class RideDetailTests : PageTestContext
 	/// <para>
 	/// It is reachable: <c>TrackBounds.Around</c> answers null for a track with no points, which
 	/// is what an import that decoded to nothing leaves behind. Fitting on a null box is the map's
-	/// no-op, and the whole-world camera the page opened with stands — a stated "we do not know
+	/// no-op, and the whole-world camera the page opened with stands - a stated "we do not know
 	/// where this is" rather than a claim.
 	/// </para>
 	/// </summary>
@@ -175,15 +175,15 @@ public sealed class RideDetailTests : PageTestContext
 
 		component.WaitForAssertion(() =>
 		{
-			component.Markup.Contains("—", StringComparison.Ordinal).ShouldBeTrue(
-				"§8: null ascent must render as '—'. Zero would be a real value (a flat coastal adventure) and must not collide with 'unknown'.");
-			// A dead flat ride would show "0 m", which contains "0" — assert with the unit to be specific.
+			component.Markup.Contains("-", StringComparison.Ordinal).ShouldBeTrue(
+				"§8: null ascent must render as '-'. Zero would be a real value (a flat coastal adventure) and must not collide with 'unknown'.");
+			// A dead flat ride would show "0 m", which contains "0" - assert with the unit to be specific.
 			component.Markup.Contains("0 m ascent", StringComparison.Ordinal).ShouldBeFalse();
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
-	/// §15.1: renaming works on this page for a recorded track and an imported one alike — they are
+	/// §15.1: renaming works on this page for a recorded track and an imported one alike - they are
 	/// the same entity, and a file a mate sent you is the one most likely to arrive called
 	/// "Course 3".
 	/// </summary>
@@ -206,7 +206,7 @@ public sealed class RideDetailTests : PageTestContext
 
 		await component.InvokeAsync(() => Button(component, "Rename")!.Click());
 
-		// The box opens on the name the track already has — a typo is a fix, not a retype.
+		// The box opens on the name the track already has - a typo is a fix, not a retype.
 		component.Find(".rename input").GetAttribute("value").ShouldBe("Course 3");
 
 		await component.InvokeAsync(() =>
@@ -370,7 +370,7 @@ public sealed class RideDetailTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.Markup.Contains("Not found", StringComparison.Ordinal).ShouldBeTrue(
-				"a page reached with a bad id must say so — silently rendering an empty shell would be a bug that looks like a bug.");
+				"a page reached with a bad id must say so - silently rendering an empty shell would be a bug that looks like a bug.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -500,7 +500,7 @@ public sealed class RideDetailTests : PageTestContext
 	/// Download GPX fetches the file and hands it to <see cref="IFileSaver"/>.
 	/// <para>
 	/// The regression this guards: the button used to build a <c>data:</c> anchor in JS and click
-	/// it. That works in a browser and does nothing at all inside the MAUI WebView — Android's
+	/// it. That works in a browser and does nothing at all inside the MAUI WebView - Android's
 	/// WebView never implemented the <c>download</c> attribute, so the click was swallowed with no
 	/// error and the rider saw a dead button. Routing through the seam is what lets the phone host
 	/// answer with a share sheet instead, so the assertion is that the page goes through it.
@@ -539,7 +539,7 @@ public sealed class RideDetailTests : PageTestContext
 
 	/// <summary>
 	/// A host that cannot save says so on the page. The old inline anchor had no failure path at
-	/// all — every outcome, including "nothing happened", looked identical to the rider.
+	/// all - every outcome, including "nothing happened", looked identical to the rider.
 	/// </summary>
 	[Fact]
 	public void Download_WhenTheHostCannotSave_SaysSoRatherThanFailingSilently()

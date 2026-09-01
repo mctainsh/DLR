@@ -15,7 +15,7 @@ namespace DLR.Architecture.Tests;
 /// </para>
 /// <para>
 /// Nothing else catches it. It compiles, the class is right there in the markup, bUnit
-/// asserts on markup and never evaluates CSS, and the page renders — just unstyled. The
+/// asserts on markup and never evaluates CSS, and the page renders - just unstyled. The
 /// nav rail shipped like that: the left rail looked correct by accident, because the
 /// column's own <c>align-items: center</c> did what the missing rules would have done.
 /// </para>
@@ -68,7 +68,7 @@ public sealed class ScopedCssRules
 				["A scoped rule that can never match is invisible: it compiles, the class is in the markup, "
 					+ "and the page just renders unstyled.",
 				 "Move the rule to the stylesheet of a component that owns a real element above it and reach "
-					+ "down with ::deep — see `.rail ::deep .rail-item` in MainLayout.razor.css.",
+					+ "down with ::deep - see `.rail ::deep .rail-item` in MainLayout.razor.css.",
 				 .. offences]));
 	}
 

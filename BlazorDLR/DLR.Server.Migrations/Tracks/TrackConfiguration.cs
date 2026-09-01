@@ -63,7 +63,7 @@ public sealed class TrackConfiguration : IEntityTypeConfiguration<Track>
 
 		// The duplicate check a route passes on its way onto the browse list (§6.2): does any
 		// other public route already follow these coordinates? Filtered on Public for the same
-		// reason the two below are — a private route is never a candidate, and private routes
+		// reason the two below are - a private route is never a candidate, and private routes
 		// are almost the whole table.
 		builder
 			.HasIndex(track => track.RouteHash)

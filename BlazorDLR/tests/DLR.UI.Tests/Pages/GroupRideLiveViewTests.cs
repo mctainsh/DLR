@@ -16,8 +16,8 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// Where the live ride map is pointing, and what keeps it there.
 /// <para>
-/// Three behaviours, one state. The map <em>opens</em> on the thing the adventure is about — its
-/// planned route, or where the traveller is standing when it has none — because the default
+/// Three behaviours, one state. The map <em>opens</em> on the thing the adventure is about - its
+/// planned route, or where the traveller is standing when it has none - because the default
 /// camera is a guess about one city and was wrong for everybody outside it. It <em>re-opens</em>
 /// on the ground it was left on, because leaving for the info page or the marker composer and
 /// coming straight back is the commonest thing a rider does mid-ride, and re-panning at the side
@@ -34,7 +34,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	private static readonly DateTimeOffset FixedInstant = new(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
 	private static readonly Guid MeId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-	/// <summary>Where a ride opens when the device has nothing stored — the page's own default.</summary>
+	/// <summary>Where a ride opens when the device has nothing stored - the page's own default.</summary>
 	private static readonly MapCamera DefaultCamera = new(-33.868, 151.209, 11);
 
 	private readonly FakeMapInterop _map = new();
@@ -113,7 +113,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		return (api, hub, rideId);
 	}
 
-	/// <summary>This test's device GPS — the same instance the page's broadcaster is watching.</summary>
+	/// <summary>This test's device GPS - the same instance the page's broadcaster is watching.</summary>
 	private FakeLocationProvider Gps => (FakeLocationProvider)Services.GetRequiredService<ILocationProvider>();
 
 	/// <summary>
@@ -127,7 +127,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	private Task WaitForReceiverAsync() =>
 		BackgroundWait.UntilAsync(
 			() => Gps.WatchCount == 1,
-			"the receiver to start — sharing is on and the adventure is Live, so the GPS runs",
+			"the receiver to start - sharing is on and the adventure is Live, so the GPS runs",
 			() => $"WatchCount={Gps.WatchCount}, Status={Services.GetRequiredService<LocationBroadcastState>().Status}.");
 
 	private static LocationFix DeviceFix(
@@ -138,14 +138,14 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		new(latitude, longitude, AccuracyM: 5, SpeedMps: speedMps, HeadingDeg: headingDeg, RecordedUtc: FixedInstant);
 
 	/// <summary>
-	/// Renders the ride and gets the device's receiver as far as one fix — which is where every
+	/// Renders the ride and gets the device's receiver as far as one fix - which is where every
 	/// follow-me test starts, because following aims at this phone's own reading and at nothing
 	/// else (§4.3). Returns once that fix is on the map <em>and</em> the map has opened on it, so a
 	/// test can act on both without racing the pump.
 	/// <para>
 	/// The two are not the same moment and the second is the one that matters here. A fix rebuilds
 	/// the marker layer and renders before the page decides where to point the map, so a wait that
-	/// stopped at the mark would return with the opening frame still to come — and every test that
+	/// stopped at the mark would return with the opening frame still to come - and every test that
 	/// counts camera moves from that point would be counting from a number that was about to
 	/// change under it. The adventures these tests wire have no route, so the frame is this fix:
 	/// there is always exactly one, and it has always happened by the time this returns.
@@ -172,7 +172,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		component.WaitForAssertion(
 			() => _map.Cameras.ShouldNotBeEmpty(
-				"an adventure with no route opens on this fix — see the remarks."),
+				"an adventure with no route opens on this fix - see the remarks."),
 			timeout: TimeSpan.FromSeconds(3));
 
 		return component;
@@ -211,7 +211,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>
 	/// Flips the map between north-up and heading-up the only way there is to: the button over the
 	/// map, beside the follow one. It lived under the rule in the menu until both camera modes were
-	/// pulled out into the same stack — both keep moving the map after the tap that set them, so
+	/// pulled out into the same stack - both keep moving the map after the tap that set them, so
 	/// both are changed while riding and neither is reachable from two places.
 	/// </summary>
 	private static async Task ChooseMapOrientationAsync(IRenderedComponent<GroupRideLive> component)
@@ -224,7 +224,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	}
 
 	/// <summary>
-	/// An element's attribute, or the empty string when it carries none — so a missing attribute
+	/// An element's attribute, or the empty string when it carries none - so a missing attribute
 	/// fails the assertion it was written for rather than the overload resolution around it.
 	/// </summary>
 	private static string AttributeOn(IRenderedComponent<GroupRideLive> component, string selector, string name) =>
@@ -304,7 +304,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	}
 
 	/// <summary>
-	/// No route, so there is no box — and the one thing worth opening on is where the traveller is
+	/// No route, so there is no box - and the one thing worth opening on is where the traveller is
 	/// standing. This is the meeting-point case: an adventure somebody has just joined, nothing
 	/// planned yet, and a map that ought to show the street they are on.
 	/// </summary>
@@ -325,7 +325,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// The opening frame is a frame, not a mode. It happens once and then the map belongs to the
-	/// traveller — a second fix from a moving bike must not drag the view back, which is what
+	/// traveller - a second fix from a moving bike must not drag the view back, which is what
 	/// "follow me" is for and what this deliberately is not.
 	/// </summary>
 	[Fact]
@@ -381,8 +381,8 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// takes over the instant it does.
 	/// <para>
 	/// Ordered this way rather than standing the frame down because following is on. A traveller
-	/// arrives at a new adventure with the mode already set — it carries across (see
-	/// <see cref="LiveMapView.FollowMe"/>) — and a GPS takes seconds to answer, sometimes never on
+	/// arrives at a new adventure with the mode already set - it carries across (see
+	/// <see cref="LiveMapView.FollowMe"/>) - and a GPS takes seconds to answer, sometimes never on
 	/// a laptop watching from home. Holding the default city for that whole time so as to avoid one
 	/// re-frame is the wrong trade.
 	/// </para>
@@ -419,7 +419,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		_map.Fits.Count.ShouldBe(1,
-			"the frame is an opening, not a mode — it does not fight the fixes that follow it.");
+			"the frame is an opening, not a mode - it does not fight the fixes that follow it.");
 	}
 
 	/// <summary>
@@ -440,7 +440,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			new LiveMapView(Guid.NewGuid(), -33.868, 151.209, 11, FollowMe: true).Encode());
 
 		// The broadcaster is scoped and outlives the page, so a fix taken before this map is
-		// rendered is one it finds already waiting — which is the mid-adventure case.
+		// rendered is one it finds already waiting - which is the mid-adventure case.
 		LocationBroadcastState broadcast = Services.GetRequiredService<LocationBroadcastState>();
 		await broadcast.ShareWithAsync(rideId);
 
@@ -465,7 +465,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		_map.Fits.ShouldBeEmpty(
-			"a route fitted here would be pulled off it on the same tick — two moves for one request.");
+			"a route fitted here would be pulled off it on the same tick - two moves for one request.");
 	}
 
 	// ---------- Re-opening on the ground it was left on ----------
@@ -508,7 +508,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		CamerasAskedFor().ShouldAllBe(
 			camera => Math.Abs(camera.Latitude - DefaultCamera.Latitude) < 1e-6,
-			"a stored view names one adventure — applying another's would open this adventure over the " +
+			"a stored view names one adventure - applying another's would open this adventure over the " +
 			"wrong city entirely.");
 	}
 
@@ -523,7 +523,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Past the throttle window that the base map's own opening frame has already used up —
+		// Past the throttle window that the base map's own opening frame has already used up -
 		// this is a rider panning some seconds into the ride, not part of the same drag.
 		_clock.Advance(TimeSpan.FromMinutes(1));
 
@@ -566,7 +566,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		await component.InvokeAsync(() => _map.RaiseViewport(new MapViewport(
 			-37.80, 144.95, -37.83, 144.98, 15, 0, 800, 600, 1)));
 
-		// A second pan a moment later — inside the throttle window, so it is held rather than
+		// A second pan a moment later - inside the throttle window, so it is held rather than
 		// written. Nothing has advanced the clock, which is exactly the "still dragging" case.
 		await component.InvokeAsync(() => _map.RaiseViewport(new MapViewport(
 			-27.45, 153.01, -27.48, 153.04, 16, 0, 800, 600, 1)));
@@ -617,7 +617,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		{
 			MapCamera latest = _map.Cameras[^1];
 			latest.Latitude.ShouldBe(-37.8136, tolerance: 1e-4,
-				customMessage: "switching it on has to act now — a traveller who has just panned away " +
+				customMessage: "switching it on has to act now - a traveller who has just panned away " +
 				"is asking to be brought back, not to wait for the next fix.");
 			latest.Longitude.ShouldBe(144.9631, tolerance: 1e-4);
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -675,7 +675,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>
 	/// The bug this pair exists for: a rider with a GPS lock, on an adventure the server has
 	/// nothing for them in yet, saw an empty map and a follow mode that silently did nothing.
-	/// Their pin is the far end of a round trip — a 5 s fan-out tick (§5.3) after a flush — and
+	/// Their pin is the far end of a round trip - a 5 s fan-out tick (§5.3) after a flush - and
 	/// none of that should stand between somebody and seeing where they are.
 	/// </summary>
 	[Fact]
@@ -706,7 +706,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 				"§4.3: the device's own read is drawn as itself, not as one of the adventure's traveller pins.");
 			self.Latitude.ShouldBe(-37.8136, tolerance: 1e-6);
 			self.Longitude.ShouldBe(144.9631, tolerance: 1e-6);
-			self.Title.ShouldBeEmpty("no label — a traveller does not need to be told their own name.");
+			self.Title.ShouldBeEmpty("no label - a traveller does not need to be told their own name.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -740,7 +740,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>
 	/// Reported from a ride: inside the rider's own private area the mark stopped moving, follow
 	/// had nothing to follow and heading-up stopped turning. The area is a rule about what leaves
-	/// the phone (§10.1) — it was never a reason to blank the map of the person standing in it,
+	/// the phone (§10.1) - it was never a reason to blank the map of the person standing in it,
 	/// who knows where they are.
 	/// </summary>
 	[Fact]
@@ -785,7 +785,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			"the follow camera to keep up across the private area",
 			() => $"last camera {_map.Cameras[^1].Latitude}");
 
-		// The map turned to the heading off the same suppressed fix — the third symptom in the
+		// The map turned to the heading off the same suppressed fix - the third symptom in the
 		// report, and the one with no other source: heading-up has nothing but the device's own fix.
 		_map.Cameras[^1].HeadingDeg.ShouldBe(0, tolerance: 0.001,
 			"following alone does not turn the map; the bearing is heading-up's, and it is off.");
@@ -797,7 +797,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>
 	/// The overlay picks the arrowhead over the green dot on <c>DirectionDeg</c> alone (see
 	/// <c>SkiaMapOverlay.DrawSelf</c>), so what matters on this side of the seam is that the
-	/// receiver's answer reaches it unchanged — including its <em>absence</em>. A heading quietly
+	/// receiver's answer reaches it unchanged - including its <em>absence</em>. A heading quietly
 	/// defaulted to zero here would point a rider due north for as long as they sat still, which is
 	/// the §8 mistake the whole null-versus-zero rule exists to stop.
 	/// </summary>
@@ -828,13 +828,13 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 			self.Kind.ShouldBe(MarkerKind.Self);
 			self.DirectionDeg.ShouldBe(headingDeg,
-				"null is 'the receiver did not say', which is what selects the dot — never zero, " +
+				"null is 'the receiver did not say', which is what selects the dot - never zero, " +
 				"which is due north (§8).");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
-	/// The server's copy of this rider is never drawn — not "unless the device has something
+	/// The server's copy of this rider is never drawn - not "unless the device has something
 	/// fresher", never. It is this phone's own fix after a round trip (§4.2, §5.3), so at best it
 	/// is a worse copy of the mark already on screen and at worst it is a second mark for one
 	/// person: at a standstill they sit on top of each other, and at speed they read as two riders
@@ -854,14 +854,14 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		mine.Kind.ShouldBe(MarkerKind.Self);
 		mine.Latitude.ShouldBe(-37.8136, tolerance: 1e-6,
-			"the device's fix is the current one — the adventure's copy is up to a fan-out tick behind.");
+			"the device's fix is the current one - the adventure's copy is up to a fan-out tick behind.");
 	}
 
 	/// <summary>
 	/// The exception, and the only one: a host with no receiver of its own (§18.6). In a browser
 	/// the server's copy is the only answer there has ever been, and refusing it would take a rider
 	/// who is sharing from their phone off the map they are watching on a laptop. It is drawn as an
-	/// ordinary rider pill, because that is honestly what it is — the same view of them everybody
+	/// ordinary rider pill, because that is honestly what it is - the same view of them everybody
 	/// else on the ride has.
 	/// </summary>
 	[Fact]
@@ -882,7 +882,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			MapMarker mine = drawn!.Values.ShouldHaveSingleItem();
 
 			mine.Kind.ShouldBe(MarkerKind.Rider,
-				"with no receiver there is nothing to draw a Self mark from — this is the server's " +
+				"with no receiver there is nothing to draw a Self mark from - this is the server's " +
 				"view of this traveller, and it is drawn as one.");
 			mine.Latitude.ShouldBe(-37.8136, tolerance: 1e-4);
 		}, timeout: TimeSpan.FromSeconds(3));
@@ -901,7 +901,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>
 	/// On a phone, still never drawn when there is nothing to replace it with. A receiver that is
 	/// off, still warming up, or suppressed by the private area (§10.1) does not currently know
-	/// where it is — which is a different thing from where it was when the server last heard, and
+	/// where it is - which is a different thing from where it was when the server last heard, and
 	/// the map must not answer the first question with the second.
 	/// </summary>
 	[Fact]
@@ -919,7 +919,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			() => component.FindAll("button.hamburger").ShouldNotBeEmpty(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// The other rider is what proves the snapshot landed — without them, an empty layer would
+		// The other rider is what proves the snapshot landed - without them, an empty layer would
 		// pass this test for the wrong reason.
 		component.WaitForAssertion(() =>
 		{
@@ -936,7 +936,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		drawn.Values.ShouldAllBe(marker => marker.Kind == MarkerKind.Rider);
 
 		_map.LastOptions!.ShowUserLocation.ShouldBeFalse(
-			"and the base map's blue dot is not asked for here either — inside a WebView it is a " +
+			"and the base map's blue dot is not asked for here either - inside a WebView it is a " +
 			"permission gate neither MAUI host grants, so it would answer nothing at all.");
 	}
 
@@ -958,7 +958,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		_map.Cameras.Count.ShouldBe(before,
-			"a map nobody asked to follow must not move under somebody reading it — the mark moves, " +
+			"a map nobody asked to follow must not move under somebody reading it - the mark moves, " +
 			"the camera does not.");
 	}
 
@@ -1035,7 +1035,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// Not sharing, or sharing with no fix yet, means the ride has no position for this rider.
-	/// The mode is still on — it simply has nothing to point at, and says so rather than looking
+	/// The mode is still on - it simply has nothing to point at, and says so rather than looking
 	/// broken.
 	/// </summary>
 	[Fact]
@@ -1084,7 +1084,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	}
 
 	/// <summary>
-	/// Pressing it again turns following off, and the map stops moving under the rider — which is
+	/// Pressing it again turns following off, and the map stops moving under the rider - which is
 	/// the whole of what "off" has to mean.
 	/// </summary>
 	[Fact]
@@ -1124,7 +1124,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>
 	/// The behaviour this whole gesture seam exists for. It used to be impossible: the viewport
 	/// event says where the map is, never who put it there, so following could not tell a rider's
-	/// drag from its own move and had to stay on — which meant a rider who panned away to look at
+	/// drag from its own move and had to stay on - which meant a rider who panned away to look at
 	/// a junction watched the map drag itself back a second later.
 	/// </summary>
 	[Fact]
@@ -1162,7 +1162,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// The cancellation is written to the device store at once rather than waiting on the throttled
-	/// view save — a rider who pans and then closes the app inside the window would otherwise open
+	/// view save - a rider who pans and then closes the app inside the window would otherwise open
 	/// the next ride with a mode they had already turned off.
 	/// </summary>
 	[Fact]
@@ -1247,7 +1247,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.FindAll("button.heading-up").Count.ShouldBe(1,
-				"one control for one mode — a mode with two is a mode a traveller has to check twice.");
+				"one control for one mode - a mode with two is a mode a traveller has to check twice.");
 			AttributeOn(component, "button.heading-up", "aria-pressed").ShouldBe("false",
 				"a toggle button and not a menu item, so the state a screen reader reads out is " +
 				"aria-pressed rather than aria-checked.");
@@ -1262,7 +1262,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// The hamburger carried a dot for whichever mode was still set from inside the menu. Nothing is
-	/// any more — both modes are lit buttons beside it — and a second indicator for a state a button
+	/// any more - both modes are lit buttons beside it - and a second indicator for a state a button
 	/// already shows is the one that goes stale.
 	/// </summary>
 	[Fact]
@@ -1295,7 +1295,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// Lit is the whole of the standing statement, so the button has to change with the mode. Colour
-	/// is not the only cue — the glyph swaps too, because colour alone is the first thing to go
+	/// is not the only cue - the glyph swaps too, because colour alone is the first thing to go
 	/// through a visor in daylight (§18.6).
 	/// </summary>
 	[Fact]
@@ -1333,7 +1333,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	{
 		(_, _, Guid rideId) = await WireServicesAsync();
 
-		// The helper's fix carries a heading of 90° at 8 m/s — moving, so the heading is a
+		// The helper's fix carries a heading of 90° at 8 m/s - moving, so the heading is a
 		// direction rather than the noise between two readings of a parked bike.
 		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
@@ -1348,7 +1348,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// A map rotating about a point the rider is not standing on swings the ground around nobody,
-	/// which is worse than north-up rather than better — so choosing heading-up brings following
+	/// which is worse than north-up rather than better - so choosing heading-up brings following
 	/// with it rather than handing over half a mode and a second control to find.
 	/// </summary>
 	[Fact]
@@ -1369,7 +1369,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			MapCamera latest = _map.Cameras[^1];
 			latest.HeadingDeg.ShouldBe(90, tolerance: 1e-6);
 			latest.Latitude.ShouldBe(-37.8136, tolerance: 1e-4,
-				"turned *and* centred, in the one camera — a traveller who chose this from off in a " +
+				"turned *and* centred, in the one camera - a traveller who chose this from off in a " +
 				"corner is asking to be brought back now, not at the next fix.");
 
 			ToastOn(component).ShouldContain("centred on you",
@@ -1389,7 +1389,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		IRenderedComponent<GroupRideLive> component = await RenderRideLocatedAtAsync(rideId, -37.8136, 144.9631);
 
-		// One tap sets both — see ChoosingHeadingUp_SwitchesFollowingOnWithIt.
+		// One tap sets both - see ChoosingHeadingUp_SwitchesFollowingOnWithIt.
 		await ChooseMapOrientationAsync(component);
 
 		component.WaitForAssertion(() =>
@@ -1437,12 +1437,12 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			timeout: TimeSpan.FromSeconds(3));
 
 		_map.Cameras.Count.ShouldBe(moves,
-			"stopping two modes moves nothing — neither of them is driving the camera any more.");
+			"stopping two modes moves nothing - neither of them is driving the camera any more.");
 	}
 
 	/// <summary>
 	/// Only on the way on, and only as a starting state. Turning heading-up back off is a statement
-	/// about the bearing and nothing else — a rider who wanted to stop being followed has a button
+	/// about the bearing and nothing else - a rider who wanted to stop being followed has a button
 	/// for it.
 	/// </summary>
 	[Fact]
@@ -1498,9 +1498,9 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	// ---------- How the map gets there ----------
 	//
 	// The two automatic modes re-aim on the traveller's fixes, which arrive about once a second.
-	// Sending each of those as a jump is a map that lurches — the ground holds still for a second
+	// Sending each of those as a jump is a map that lurches - the ground holds still for a second
 	// and then teleports a bike-length, and a corner arrives as the world snapping round in three
-	// or four steps — so a driven camera is given a duration to travel over. A camera the page is
+	// or four steps - so a driven camera is given a duration to travel over. A camera the page is
 	// *asserting* still jumps, and the distinction is what these three pin down.
 
 	[Fact]
@@ -1576,7 +1576,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// A GPS heading is derived from successive fixes, so at a standstill it is the noise between
-	/// two readings of a bike leaning against a fence — arriving once a second. Honouring it would
+	/// two readings of a bike leaning against a fence - arriving once a second. Honouring it would
 	/// spin the map under a rider stopped at a light, which is exactly when they are reading it.
 	/// </summary>
 	[Fact]
@@ -1594,7 +1594,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 		int turns = _map.Cameras.Count;
 
-		// Stopped, and the receiver still reporting a wildly different heading — which is the
+		// Stopped, and the receiver still reporting a wildly different heading - which is the
 		// steady state of a parked bike, not a rider who has turned around.
 		Gps.Emit(DeviceFix(-37.8136, 144.9631, speedMps: 0, headingDeg: 275));
 
@@ -1607,7 +1607,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 
 	/// <summary>
 	/// A turn is the rider stating which way up they want the map, and the base map's compass says
-	/// the same thing — MapLibre's NavigationControl resets north through the same gesture path, so
+	/// the same thing - MapLibre's NavigationControl resets north through the same gesture path, so
 	/// the two arrive here as one event and cancel the mode together.
 	/// </summary>
 	[Fact]
@@ -1629,8 +1629,8 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			() => ToastOn(component).ShouldContain("you turned the map yourself"),
 			timeout: TimeSpan.FromSeconds(3));
 
-		// Following is still on — choosing heading-up switched it on, and a turn is not a statement
-		// about it — so fixes go on moving the camera. What must stop is the *bearing* being driven.
+		// Following is still on - choosing heading-up switched it on, and a turn is not a statement
+		// about it - so fixes go on moving the camera. What must stop is the *bearing* being driven.
 		Gps.Emit(DeviceFix(-37.82, 144.97, headingDeg: 180));
 
 		component.WaitForAssertion(
@@ -1643,14 +1643,14 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			latest.Latitude.ShouldBe(-37.82, tolerance: 1e-4);
 			latest.HeadingDeg.ShouldBe(0, tolerance: 1e-6,
 				"a traveller who has just set the bearing by hand must not have it taken back off " +
-				"them — the camera carries the map's own bearing, it does not drive one.");
+				"them - the camera carries the map's own bearing, it does not drive one.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	/// <summary>
 	/// Cancelling by gesture does not straighten the map. The rider has just said where they want
-	/// the bearing — by twisting it there, or by tapping the compass, which has already turned the
-	/// map to north itself — and a camera move on top of that is the app arguing with them.
+	/// the bearing - by twisting it there, or by tapping the compass, which has already turned the
+	/// map to north itself - and a camera move on top of that is the app arguing with them.
 	/// </summary>
 	[Fact]
 	public async Task AGestureThatStopsHeadingUp_DoesNotMoveTheCameraItself()
@@ -1705,7 +1705,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// <summary>
 	/// The half of the asymmetry that leaves a mode standing. A twist says which way up the map
 	/// should be and nothing about where its centre is, so the rider goes on being carried along
-	/// with the group — a north-up map that keeps them on screen is an ordinary thing to want.
+	/// with the group - a north-up map that keeps them on screen is an ordinary thing to want.
 	/// </summary>
 	[Fact]
 	public async Task ATurnTakesTheBearingBackAndLeavesFollowingAlone()
@@ -1739,7 +1739,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			_map.Cameras[^1].Latitude.ShouldBe(-37.82, tolerance: 1e-4,
 				"following survived a gesture that was not about it.");
 			_map.Cameras[^1].HeadingDeg.ShouldBe(0, tolerance: 1e-6,
-				"and the bearing is the map's own now — carried from the viewport, not driven.");
+				"and the bearing is the map's own now - carried from the viewport, not driven.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -1747,7 +1747,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	/// The other half. A drag says where the centre of the screen is, and heading-up cannot survive
 	/// losing that: the map rotates about the centre, so a turning map the rider is no longer at
 	/// the middle of swings the ground around a point that is nobody. Both modes go, in one
-	/// sentence — the same fact that makes choosing heading-up switch following on, backwards.
+	/// sentence - the same fact that makes choosing heading-up switch following on, backwards.
 	/// </summary>
 	[Fact]
 	public async Task APanTakesBothModesOff_AndNamesThemBoth()
@@ -1773,7 +1773,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 			component.FindAll("button.heading-up.on").ShouldBeEmpty(
 				"a turning map the traveller is no longer the centre of is worse than a north-up one.");
 			ToastOn(component).ShouldContain("Following and heading up off",
-				customMessage: "two modes stopped on one gesture, so one sentence names both — a " +
+				customMessage: "two modes stopped on one gesture, so one sentence names both - a " +
 				"traveller who reads only half of it goes looking for a fault in the other half.");
 		}, timeout: TimeSpan.FromSeconds(3));
 
@@ -1791,7 +1791,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A pan with heading-up on but following already off — reachable from a device that stored
+	/// A pan with heading-up on but following already off - reachable from a device that stored
 	/// that pair, and from the follow button. The sentence has to name the one mode that stopped
 	/// rather than a rider's own following, which was never on.
 	/// </summary>
@@ -1817,7 +1817,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		component.WaitForAssertion(() =>
 		{
 			component.FindAll("button.heading-up.on").ShouldBeEmpty();
-			ToastOn(component).ShouldBe("Heading up off — you moved the map.");
+			ToastOn(component).ShouldBe("Heading up off - you moved the map.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
@@ -1859,7 +1859,7 @@ public sealed class GroupRideLiveViewTests : PageTestContext
 		}, timeout: TimeSpan.FromSeconds(3));
 
 		ToastOn(component).ShouldBeEmpty(
-			"restoring a mode the traveller set earlier is not a change of mind — a map that announced " +
+			"restoring a mode the traveller set earlier is not a change of mind - a map that announced " +
 			"its own settings on every open would be one more thing to dismiss per adventure.");
 	}
 }

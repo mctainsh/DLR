@@ -12,7 +12,7 @@ namespace DLR.Server.Diagnostics;
 /// worth stating: the alternative is a dependency whose licence has to be reconciled with the
 /// AGPL, whose configuration becomes a second place logging is described, and most of which is
 /// sinks this service will never use. What is actually needed is "append a line, roll at midnight,
-/// delete the old ones" — which is this file and one branch of the nightly job.
+/// delete the old ones" - which is this file and one branch of the nightly job.
 /// </para>
 /// <para>
 /// <strong>One background writer, never the calling thread.</strong> Logging happens on the
@@ -37,7 +37,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
 	/// UTF-8 with no byte-order mark.
 	/// <para>
 	/// <c>Encoding.UTF8</c> emits one, and it lands at the start of the <em>first</em> line of each
-	/// new day's file — where the reader is expecting a timestamp. The line then parses as
+	/// new day's file - where the reader is expecting a timestamp. The line then parses as
 	/// unrecognised and the first entry of every morning comes back as an undated blob. A log's
 	/// encoding is not in doubt; the mark buys nothing and costs that.
 	/// </para>
@@ -60,9 +60,9 @@ public sealed class FileLoggerProvider : ILoggerProvider
 	/// <summary>
 	/// Guards <see cref="Dispose"/> against its second call.
 	/// <para>
-	/// It gets one: the provider is registered twice on purpose — once as itself so the reader can
+	/// It gets one: the provider is registered twice on purpose - once as itself so the reader can
 	/// be handed the resolved directory, and once as <see cref="ILoggerProvider"/> so the logging
-	/// factory finds it — and both the factory and the container dispose what they own. Without
+	/// factory finds it - and both the factory and the container dispose what they own. Without
 	/// this the second call throws <see cref="ObjectDisposedException"/> out of host shutdown,
 	/// which surfaces as every integration test failing on the way out rather than on the way in.
 	/// </para>
@@ -70,14 +70,14 @@ public sealed class FileLoggerProvider : ILoggerProvider
 	private bool _disposed;
 
 	/// <summary>
-	/// Why the file is not being written, when it is not — or null while all is well.
+	/// Why the file is not being written, when it is not - or null while all is well.
 	/// <para>
 	/// Volatile because the writer thread sets it and the administration screen's request thread
 	/// reads it, and neither takes a lock for something that is only ever a whole reference.
 	/// </para>
 	/// <para>
-	/// This exists because the two failures that actually happen in a deployment — a directory the
-	/// service account may not create, and a disk that has filled — are both swallowed here on
+	/// This exists because the two failures that actually happen in a deployment - a directory the
+	/// service account may not create, and a disk that has filled - are both swallowed here on
 	/// purpose: a log that throws takes down the thing it is logging. Swallowed and *invisible* is
 	/// a different matter. Without this the screen can only report "no files", which reads as "you
 	/// forgot to switch it on" no matter what the configuration says, and sends an administrator to
@@ -112,13 +112,13 @@ public sealed class FileLoggerProvider : ILoggerProvider
 	/// <summary>
 	/// The directory in use, already resolved to an absolute path.
 	/// <para>
-	/// The reader is handed this and nothing else. No filename ever comes off the wire — see
+	/// The reader is handed this and nothing else. No filename ever comes off the wire - see
 	/// <see cref="ServerLogReader"/>, which builds every path it opens from a date.
 	/// </para>
 	/// </summary>
 	public string Directory { get; }
 
-	/// <summary>Whether a file was asked for at all — <c>FileLog:Enabled</c>, as bound.</summary>
+	/// <summary>Whether a file was asked for at all - <c>FileLog:Enabled</c>, as bound.</summary>
 	public bool Enabled => _settings.Enabled;
 
 	/// <summary>
@@ -128,17 +128,17 @@ public sealed class FileLoggerProvider : ILoggerProvider
 	public string? Problem => _problem;
 
 	/// <summary>
-	/// The block every file this provider opens is to begin with — or null, which is a provider
+	/// The block every file this provider opens is to begin with - or null, which is a provider
 	/// that simply appends.
 	/// <para>
 	/// Set by <c>Program</c> to <see cref="StartupBanner.Describe"/>, and the <em>only</em> way a
 	/// block reaches a file. The copy a deployment keeping no file at all still needs is written
-	/// straight to the console by <c>Program</c> — rather than logged, and then recognised and
+	/// straight to the console by <c>Program</c> - rather than logged, and then recognised and
 	/// discarded here, which is what a second producer would cost.
 	/// </para>
 	/// <para>
 	/// Every file and not only the first, because a server that stays up rolls a new file at each
-	/// midnight — and the day an administrator opens is far more often one of those than the day the
+	/// midnight - and the day an administrator opens is far more often one of those than the day the
 	/// process started on.
 	/// </para>
 	/// <para>
@@ -175,7 +175,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
 	/// <para>
 	/// For the one caller that has no later: a process about to die of an unhandled exception. The
 	/// queue exists so that logging never blocks a request, and the price of that is a line that is
-	/// still in memory when the process ends — which is exactly the line worth having. Everything
+	/// still in memory when the process ends - which is exactly the line worth having. Everything
 	/// else should keep using the queue and never call this.
 	/// </para>
 	/// <para>
@@ -239,7 +239,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
 	/// <remarks>
 	/// Holds the day's file open and drains in batches: <c>File.AppendAllText</c> per line would open,
 	/// encode, flush and close for every entry, which on a server that logs from the position path is
-	/// four syscalls per line forever. One handle per day and one flush per batch instead — and the
+	/// four syscalls per line forever. One handle per day and one flush per batch instead - and the
 	/// midnight roll stays free, because the day is part of the name and a new day simply swaps the
 	/// writer.
 	/// </remarks>
@@ -251,10 +251,10 @@ public sealed class FileLoggerProvider : ILoggerProvider
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
-			// Nowhere to write. The console provider beside this one still has everything — but
+			// Nowhere to write. The console provider beside this one still has everything - but
 			// under IIS in-process with stdout logging off that console goes nowhere at all, so
 			// record it where the administration screen can say so.
-			_problem = $"Could not create the log directory {Directory} — {exception.Message}";
+			_problem = $"Could not create the log directory {Directory} - {exception.Message}";
 
 			return;
 		}
@@ -309,9 +309,9 @@ public sealed class FileLoggerProvider : ILoggerProvider
 				catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 				{
 					// A log that throws takes down the thing it is logging. A full disk or a revoked
-					// permission is a reason to stop writing, not a reason to stop the server — and it
+					// permission is a reason to stop writing, not a reason to stop the server - and it
 					// is still visible in the console log this one sits beside, and on the screen.
-					_problem = $"Could not write to the log in {Directory} — {exception.Message}";
+					_problem = $"Could not write to the log in {Directory} - {exception.Message}";
 
 					try
 					{
@@ -345,7 +345,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
 	/// Writes one entry, having first made sure the file begins with the startup block.
 	/// <para>
 	/// Composed and written here rather than logged, because a queued header would land behind the
-	/// entry whose arrival opened the file — and a block that is not at the top is just another
+	/// entry whose arrival opened the file - and a block that is not at the top is just another
 	/// entry. This is the only producer of a block in a file, so no line has to be inspected on the
 	/// way past to see whether it is a second one.
 	/// </para>
@@ -381,7 +381,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
 		{
 			// Whatever the block reads, it reads it on the writer thread at midnight, and a server
 			// that has been up that long is exactly the one that must not fall over now.
-			return $"The startup block could not be built — {exception.GetType().Name}: {exception.Message}";
+			return $"The startup block could not be built - {exception.GetType().Name}: {exception.Message}";
 		}
 	}
 

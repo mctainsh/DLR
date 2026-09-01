@@ -5,20 +5,20 @@ using BlazorDLR.Shared.Services;
 namespace DLR.UI.Tests.Fakes;
 
 /// <summary>
-/// A GPS a test drives by hand — §4.3's "third implementation used by tests", standing in for the
+/// A GPS a test drives by hand - §4.3's "third implementation used by tests", standing in for the
 /// GPX replay harness the design names.
 /// <para>
 /// The platform providers cannot run here: one is a foreground service and the other is
 /// <c>CLLocationManager</c>, and both need a phone. What <em>can</em> be tested without one is
-/// everything above the seam — the private-area gate, the accuracy filter, the hub-then-REST
-/// fallback and the start/stop lifetime — which is the half where the privacy rules live.
+/// everything above the seam - the private-area gate, the accuracy filter, the hub-then-REST
+/// fallback and the start/stop lifetime - which is the half where the privacy rules live.
 /// </para>
 /// </summary>
 public sealed class FakeLocationProvider : ILocationProvider
 {
 	private readonly Channel<LocationFix> _fixes = Channel.CreateUnbounded<LocationFix>();
 
-	// Written on the pump's thread, read on the test's — see WatchCount.
+	// Written on the pump's thread, read on the test's - see WatchCount.
 	private int _watchCount;
 	private int _permissionAsks;
 	private bool _recording;
@@ -41,7 +41,7 @@ public sealed class FakeLocationProvider : ILocationProvider
 	public int PermissionAsks => Volatile.Read(ref _permissionAsks);
 
 	/// <summary>
-	/// How many times a watch has been started — the receiver's lifetime, counted.
+	/// How many times a watch has been started - the receiver's lifetime, counted.
 	/// <para>
 	/// Written by the broadcaster's pump, which is a thread-pool task, and read by the test that
 	/// is waiting for it. Interlocked and <see cref="Volatile"/> rather than a plain property for
@@ -54,7 +54,7 @@ public sealed class FakeLocationProvider : ILocationProvider
 	/// <summary>The rate the last watch was started with (§4.2).</summary>
 	public LocationUpdateRate? LastRate { get; private set; }
 
-	/// <summary>Whether the receiver was released — the foreground service taken down.</summary>
+	/// <summary>Whether the receiver was released - the foreground service taken down.</summary>
 	public bool Stopped => Volatile.Read(ref _stopped);
 
 	/// <inheritdoc />

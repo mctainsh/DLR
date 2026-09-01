@@ -1,15 +1,15 @@
 @*
 	The unread-mail dot: a small red circle carrying a number, sat on the thing it counts.
 
-	Its own component because it is drawn for one number in more than one place — the info
+	Its own component because it is drawn for one number in more than one place - the info
 	page's Join requests button, the live map's hamburger, and that menu's own Join requests
-	item — and a circle whose size and colour were typed out three times is a circle that ends
+	item - and a circle whose size and colour were typed out three times is a circle that ends
 	up three slightly different sizes.
 
 	It draws the pill and nothing else. **Where it sits is the caller's business**: in a line of
 	text it is an inline item, on the corner of a 48 px map control it is pinned and hanging
 	over the edge, and those are facts about those two screens rather than about a badge. The
-	one that hangs on a corner also has to restate the colours, because it is over a map — see
+	one that hangs on a corner also has to restate the colours, because it is over a map - see
 	GroupRideLive's `.chrome > button.hamburger .count-badge`.
 
 	Absent at zero rather than drawn as "0". A badge is a claim that something is waiting; one

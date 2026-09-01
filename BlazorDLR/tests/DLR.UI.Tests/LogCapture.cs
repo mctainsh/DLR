@@ -8,7 +8,7 @@ namespace DLR.UI.Tests;
 /// <para>
 /// <strong>Why not just call <c>DiagnosticLog.Snapshot()</c>.</strong> The log is a process-wide
 /// static with a bounded ring, and the suite runs its collections in parallel: by the time a test
-/// looks, another suite may have written past its entry — or called <c>Clear()</c> and dropped it
+/// looks, another suite may have written past its entry - or called <c>Clear()</c> and dropped it
 /// outright. Both are real; the second is a test suite of its own. Subscribing takes a copy as
 /// each line is written, which nothing afterwards can take away.
 /// </para>
@@ -25,7 +25,7 @@ internal sealed class LogCapture : IDisposable
 	public LogCapture() => DiagnosticLog.Changed += OnChanged;
 
 	/// <summary>Everything captured so far, newest last, one entry per line.</summary>
-	/// <remarks>An entry may itself run to several lines — an exception is written with its stacks.</remarks>
+	/// <remarks>An entry may itself run to several lines - an exception is written with its stacks.</remarks>
 	public string Text
 	{
 		get

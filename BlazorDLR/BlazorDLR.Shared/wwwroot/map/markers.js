@@ -4,11 +4,11 @@
 // confined to the photo-ingest path (§16.4, ImageRules), so nothing in BlazorDLR.Shared may
 // touch SKCodec. The browser already has an image decoder, so it decodes each icon once into
 // an offscreen canvas and hands back the raw RGBA buffer, which the C# side wraps as an
-// SKImage with SKImage.FromPixelCopy — a pixel copy, not a decode.
+// SKImage with SKImage.FromPixelCopy - a pixel copy, not a decode.
 //
 // That keeps §4.5's rule intact: one Skia canvas still draws every authored map element, and
-// there is exactly one drawing path across the three hosts. The alternative — DOM pins over
-// the map — would split marker rendering back into per-host code, which is the drift v0.13
+// there is exactly one drawing path across the three hosts. The alternative - DOM pins over
+// the map - would split marker rendering back into per-host code, which is the drift v0.13
 // warned about.
 //
 // The icons are our own artwork, so the same marker is the same picture on iOS, Android and
@@ -20,7 +20,7 @@
  * Rasterise one marker icon to a square RGBA buffer.
  *
  * @param {string} url Host-relative URL of the icon PNG.
- * @param {number} sizePx Bitmap edge length. Pass the artwork's native size — upsampling here
+ * @param {number} sizePx Bitmap edge length. Pass the artwork's native size - upsampling here
  *   only costs memory, since the overlay scales to the display anyway.
  * @returns {Promise<Uint8Array>} Unpremultiplied RGBA, sizePx × sizePx × 4 bytes. Empty if the
  *   host cannot draw or the icon will not load, which the caller treats as "no glyph".
@@ -49,7 +49,7 @@ export async function renderPixels(url, sizePx) {
     ctx.drawImage(image, 0, 0, size, size);
 
     // getImageData is unpremultiplied RGBA, which is what the overlay declares on its side.
-    // Same-origin throughout — the icons ship inside the app — so the canvas is never tainted
+    // Same-origin throughout - the icons ship inside the app - so the canvas is never tainted
     // and this never throws a SecurityError.
     return new Uint8Array(ctx.getImageData(0, 0, size, size).data.buffer);
 }

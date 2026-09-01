@@ -9,7 +9,7 @@ namespace BlazorDLR.Shared.State;
 /// <strong>Why the log needed counting rather than more events.</strong> A working broadcast is
 /// silent: <c>LocationBroadcastState.Set</c> is a no-op when the status does not move, so a run of
 /// fixes publishing normally and a receiver that has stopped delivering anything at all leave
-/// exactly the same log — nothing. That ambiguity cost a morning, and it is what these answer.
+/// exactly the same log - nothing. That ambiguity cost a morning, and it is what these answer.
 /// </para>
 /// <para>
 /// Written through <see cref="DiagnosticLog.WriteTransient"/>, so the whole of a ride's traffic
@@ -71,7 +71,7 @@ internal sealed class BroadcastCounters
 	public string Describe(TimeSpan? sinceLanded) =>
 		$"GPS totals: {Volatile.Read(ref _fixes)} fix, {Volatile.Read(ref _hidden)} hidden, " +
 		$"{Volatile.Read(ref _refused)} refused ({_reason}), {Volatile.Read(ref _keepalives)} keepalive, " +
-		$"{Volatile.Read(ref _sends)} sent — {Volatile.Read(ref _landed)} landed, " +
+		$"{Volatile.Read(ref _sends)} sent - {Volatile.Read(ref _landed)} landed, " +
 		$"{Volatile.Read(ref _superseded)} superseded, {Volatile.Read(ref _failed)} failed; " +
 		(sinceLanded is { } age
 			? $"last reached the adventure {Since(age)} ago."

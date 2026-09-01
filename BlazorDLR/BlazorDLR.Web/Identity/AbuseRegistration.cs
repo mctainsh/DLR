@@ -15,7 +15,7 @@ public sealed class RateLimitOptions
 	/// <summary>Password-grant attempts per hour, per username.</summary>
 	public int LoginPerHourPerUserName { get; set; } = 10;
 
-	/// <summary>Registrations per hour, per address — a ceiling above the ladder, not a substitute.</summary>
+	/// <summary>Registrations per hour, per address - a ceiling above the ladder, not a substitute.</summary>
 	public int RegisterPerHourPerAddress { get; set; } = 10;
 
 	/// <summary>Reset requests per hour, per address submitted.</summary>
@@ -38,7 +38,7 @@ public sealed class RateLimitOptions
 public static class AuthorizationPolicies
 {
 	/// <summary>
-	/// An account not held back by §7.8's ladder. Guards ride creation and joining — the
+	/// An account not held back by §7.8's ladder. Guards ride creation and joining - the
 	/// social surface, which is what abuse would be after. Recording a solo ride is not
 	/// guarded, because restricting that would punish the wrong people for nothing.
 	/// </summary>
@@ -79,7 +79,7 @@ public static class AbuseRegistration
 	/// <summary>
 	/// Trusts the reverse proxy, and only the reverse proxy.
 	/// <para>
-	/// This is the gotcha with teeth. Every per-address rule in §7.8 — the ladder above all —
+	/// This is the gotcha with teeth. Every per-address rule in §7.8 - the ladder above all -
 	/// reads <c>RemoteIpAddress</c>, and without this middleware every request appears to come
 	/// from Caddy. The ladder would then see <em>all</em> signups as one address and demand an
 	/// email from the fourth user the service ever had. It does not merely weaken rate
@@ -88,7 +88,7 @@ public static class AbuseRegistration
 	/// <para>
 	/// <c>KnownProxies</c> is the other half, and the reason this is not simply switched on.
 	/// Honouring <c>X-Forwarded-For</c> from anyone lets a caller choose their own bucket by
-	/// setting a header — which is worse than not reading it at all, because the limits then
+	/// setting a header - which is worse than not reading it at all, because the limits then
 	/// look enforced and are optional.
 	/// </para>
 	/// </summary>

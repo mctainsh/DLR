@@ -8,7 +8,7 @@ public sealed class PhotoOptions
 
 	/// <summary>
 	/// Request-level cap; anything larger is a <c>413</c>. Bounds the transfer, and bounds it
-	/// alone — a small file can still declare an enormous canvas, which is what
+	/// alone - a small file can still declare an enormous canvas, which is what
 	/// <see cref="MaxDecodedPixels"/> is for.
 	/// </summary>
 	public long MaxUploadBytes { get; set; } = 12 * 1024 * 1024;

@@ -45,7 +45,7 @@ public static class CommentEndpoints
 /// Threads (§17, §6.2).
 /// <para>
 /// <strong>Two subjects, one thread implementation.</strong> An adventure has a thread and so does
-/// a shared route, and below the question of who is allowed in they are the same conversation —
+/// a shared route, and below the question of who is allowed in they are the same conversation -
 /// the same plain text, the same photograph, the same six reactions, the same polls, the same
 /// fifteen-minute edit window, the same pinning cap, the same reporting and blocking. So there is
 /// one controller and one table, and the single thing that differs is resolved once by
@@ -54,7 +54,7 @@ public static class CommentEndpoints
 /// adding the second kind did not add a second set of bugs.
 /// </para>
 /// <para>
-/// Nothing in this file pushes anything — the notification half is a client task. Pinning lives
+/// Nothing in this file pushes anything - the notification half is a client task. Pinning lives
 /// here, and its cap is what keeps the noticeboard short (§17.6); it is no longer the one
 /// exception to a live-ride silence, because that silence has been removed. Comments still never
 /// reach a car screen (§4.6, §17.1), which is the safety rule that remains structural.
@@ -114,7 +114,7 @@ public sealed class CommentController : ControllerBase
 	/// One page of whichever thread the access object points at (§17.8).
 	/// <para>
 	/// The paging, the pinned section, the block filter and the cursor are identical for both
-	/// kinds and always were — only the "may they read it?" above differs, and that has already
+	/// kinds and always were - only the "may they read it?" above differs, and that has already
 	/// been answered by the time this runs.
 	/// </para>
 	/// </summary>
@@ -131,7 +131,7 @@ public sealed class CommentController : ControllerBase
 			return NotFound();
 		}
 
-		// Applied to the query, not to the rendered page — filtering after Take would return
+		// Applied to the query, not to the rendered page - filtering after Take would return
 		// short pages whose length leaked how many blocked authors were in the range (§17.7).
 		IReadOnlySet<Guid> hidden = await BlockList.HiddenFromAsync(database, userId);
 
@@ -160,7 +160,7 @@ public sealed class CommentController : ControllerBase
 		if (Cursor.TryParse(cursor, out DateTimeOffset before, out Guid beforeId))
 		{
 			// The tiebreak on Id is load-bearing. The fake clock does not tick unless a test moves
-			// it and a real one has finite resolution, so two comments can share a PostedUtc — and
+			// it and a real one has finite resolution, so two comments can share a PostedUtc - and
 			// a cursor keyed on time alone would either skip one or serve it twice.
 			page = page.Where(comment =>
 				comment.PostedUtc < before
@@ -226,7 +226,7 @@ public sealed class CommentController : ControllerBase
 	/// <para>
 	/// Same policy attribute as an adventure's, and that is the point: §7.8's ladder holds a
 	/// brand-new account back from every social surface at once, and a route's thread is the most
-	/// public one there is — it is read by every rider on the service rather than by the dozen an
+	/// public one there is - it is read by every rider on the service rather than by the dozen an
 	/// organiser admitted.
 	/// </para>
 	/// </summary>
@@ -261,9 +261,9 @@ public sealed class CommentController : ControllerBase
 	/// <summary>
 	/// Adds one post to whichever thread the access object points at (§17.2, §17.3).
 	/// <para>
-	/// Everything below the permission check was already thread-kind agnostic — the idempotency
+	/// Everything below the permission check was already thread-kind agnostic - the idempotency
 	/// key, the throttle, the caps, the clamped authoring time, the poll that rides along on the
-	/// same request — so the second kind of thread inherited all of it rather than getting a
+	/// same request - so the second kind of thread inherited all of it rather than getting a
 	/// second, slightly different copy.
 	/// </para>
 	/// </summary>
@@ -319,7 +319,7 @@ public sealed class CommentController : ControllerBase
 
 		if (request.PhotoId is { } photoId)
 		{
-			// Their own upload, not merely one that exists — otherwise a guessed identifier posts
+			// Their own upload, not merely one that exists - otherwise a guessed identifier posts
 			// somebody else's photograph into a thread they chose.
 			bool ownsIt = await database
 				.Set<Photo>()
@@ -346,7 +346,7 @@ public sealed class CommentController : ControllerBase
 		}
 
 		// Keyed on the thread rather than on the ride, so a rider's allowance in an adventure and
-		// their allowance on a route are separate buckets — thirty posts an hour is a limit on
+		// their allowance on a route are separate buckets - thirty posts an hour is a limit on
 		// flooding one conversation, and spending it on somebody's route should not silence you
 		// in the ride you are actually on.
 		if (!throttle.TryAcquire(
@@ -404,7 +404,7 @@ public sealed class CommentController : ControllerBase
 
 			// Clamped, never trusted. A client clock set to next year would otherwise pin this
 			// post above everything for as long as the ride exists (§17.3). Ordering does not
-			// depend on it — that is PostedUtc's job — but the "written at" line the UI shows does.
+			// depend on it - that is PostedUtc's job - but the "written at" line the UI shows does.
 			CreatedUtc = request.CreatedUtc is { } authored && authored < now ? authored : now,
 			PostedUtc = now,
 		};
@@ -480,7 +480,7 @@ public sealed class CommentController : ControllerBase
 		}
 
 		// Measured from when the server received it, not from when the rider claims to have
-		// written it — otherwise a post composed offline four hours ago arrives already
+		// written it - otherwise a post composed offline four hours ago arrives already
 		// un-editable, which is the opposite of what the window is for.
 		DateTimeOffset now = clock.GetUtcNow();
 		DateTimeOffset closes = comment.PostedUtc.AddMinutes(limits.EditWindowMinutes);
@@ -491,7 +491,7 @@ public sealed class CommentController : ControllerBase
 				statusCode: StatusCodes.Status409Conflict,
 				title: "Edit window has closed",
 				detail: $"A post can be edited for {limits.EditWindowMinutes} minutes. After that, delete " +
-				"and repost — a permanently editable thread lets somebody rewrite what a poll was " +
+				"and repost - a permanently editable thread lets somebody rewrite what a poll was " +
 				"asking after people have voted on it.");
 		}
 
@@ -545,7 +545,7 @@ public sealed class CommentController : ControllerBase
 			return NotFound();
 		}
 
-		// The author, or whoever runs the thread (§17.7) — the organiser and their leaders in an
+		// The author, or whoever runs the thread (§17.7) - the organiser and their leaders in an
 		// adventure, the owner of a shared route. Somebody who removed a person for abuse needs to
 		// be able to take the posts down too.
 		if (comment.AuthorId != userId && !access.CanModerate)
@@ -553,7 +553,7 @@ public sealed class CommentController : ControllerBase
 			return Problem(
 				statusCode: StatusCodes.Status403Forbidden,
 				title: "Not yours to delete",
-				detail: "A post is removed by its author, or by whoever runs the thread — the "
+				detail: "A post is removed by its author, or by whoever runs the thread - the "
 					+ "organiser of an adventure, the owner of a route.");
 		}
 
@@ -613,7 +613,7 @@ public sealed class CommentController : ControllerBase
 					title: "Too many pinned posts",
 					detail: $"A thread keeps at most {limits.MaxPinned} pinned posts. Pinning is the one thing " +
 					"that still reaches a phone mid-trip, so a noticeboard of twenty is not a " +
-					"noticeboard — unpin something first.");
+					"noticeboard - unpin something first.");
 			}
 		}
 
@@ -634,7 +634,7 @@ public sealed class CommentController : ControllerBase
 	/// Every post in one thread, whichever kind it is.
 	/// <para>
 	/// Written once so that "which thread?" has one answer in this file. Both columns are compared
-	/// even though one of them is always null — <c>track_id IS NULL</c> is what stops an
+	/// even though one of them is always null - <c>track_id IS NULL</c> is what stops an
 	/// adventure's thread from being the union of itself and every route comment ever written, and
 	/// leaving it out would be a filter that looked complete and was not.
 	/// </para>
@@ -727,7 +727,7 @@ public sealed class CommentController : ControllerBase
 	/// Two extra queries for the whole page rather than two per comment. A thread page is fifty
 	/// posts, and a hundred round trips to render one screen is the N+1 that makes a fast feature
 	/// feel broken. It is done after the projection rather than inside it because a tally is a
-	/// grouped aggregate and a poll is three joined tables — neither belongs in the translated
+	/// grouped aggregate and a poll is three joined tables - neither belongs in the translated
 	/// <c>Select</c> that builds the row.
 	/// </para>
 	/// </summary>
@@ -745,7 +745,7 @@ public sealed class CommentController : ControllerBase
 
 		// The reader's own block list, if the caller did not already have it to hand. Blocking
 		// hides a person's reactions and votes as well as their posts (§17.7), so the tally has to
-		// know about it too — a count that still included them would be the one place their
+		// know about it too - a count that still included them would be the one place their
 		// presence leaked through.
 		hidden ??= forUser is { } reader
 			? await BlockList.HiddenFromAsync(database, reader)
@@ -800,7 +800,7 @@ public sealed class CommentController : ControllerBase
 
 	/// <summary>
 	/// Trims and normalises empty to null. <strong>No sanitising, because nothing is rendered as
-	/// markup</strong> — the body is plain text end to end (§17.2), and a "sanitiser" here would
+	/// markup</strong> - the body is plain text end to end (§17.2), and a "sanitiser" here would
 	/// imply otherwise to the next person who reads it.
 	/// </summary>
 	private static string? Clean(string? body)
@@ -813,7 +813,7 @@ public sealed class CommentController : ControllerBase
 	/// <summary>
 	/// The thread cursor: a receipt instant and the id that breaks its tie.
 	/// <para>
-	/// Opaque to the caller on purpose — it is a position in a result set, not a filter, and a
+	/// Opaque to the caller on purpose - it is a position in a result set, not a filter, and a
 	/// client that took it apart would depend on the sort order never changing.
 	/// </para>
 	/// </summary>

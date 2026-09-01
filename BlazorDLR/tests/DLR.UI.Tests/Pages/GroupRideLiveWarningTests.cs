@@ -15,15 +15,15 @@ namespace DLR.UI.Tests.Pages;
 /// <summary>
 /// The permanent warnings over the live map: no network, GPS off, no fix (§4.3, §5.3).
 /// <para>
-/// All three are states rather than events — nothing takes them away but the state ending — and
+/// All three are states rather than events - nothing takes them away but the state ending - and
 /// all three describe the same failure from a rider's side: the group cannot see where they are,
 /// on a screen that looks exactly the same whether it can or not. A map whose hub died ten minutes
 /// ago is pixel-identical to a map where nobody has moved, which is why every one of these has to
 /// be said rather than left to be inferred.
 /// </para>
 /// <para>
-/// Phones only. Each is gated on the host having a receiver, so a browser — which has none
-/// (§18.6) — gets none of them; <see cref="HostWithoutGpsTests"/> holds that end down.
+/// Phones only. Each is gated on the host having a receiver, so a browser - which has none
+/// (§18.6) - gets none of them; <see cref="HostWithoutGpsTests"/> holds that end down.
 /// </para>
 /// </summary>
 public sealed class GroupRideLiveWarningTests : PageTestContext
@@ -34,7 +34,7 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 	private readonly InMemoryDeviceSettings _settings = new();
 
 	/// <summary>
-	/// A phone, on a Live adventure, with sharing already on — which is the only arrangement in
+	/// A phone, on a Live adventure, with sharing already on - which is the only arrangement in
 	/// which any of these warnings is a fair thing to show. A receiver that is off because nobody
 	/// asked it for anything is the correct resting state, and warning about that would be the app
 	/// complaining that the rider has not agreed to be tracked.
@@ -107,7 +107,7 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 		return (api, hub, rideId);
 	}
 
-	/// <summary>This test's device GPS — the same instance the page's broadcaster watches.</summary>
+	/// <summary>This test's device GPS - the same instance the page's broadcaster watches.</summary>
 	private FakeLocationProvider Gps => (FakeLocationProvider)Services.GetRequiredService<ILocationProvider>();
 
 	private IRenderedComponent<GroupRideLive> RenderRide(Guid rideId)
@@ -156,7 +156,7 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 	[Fact]
 	public async Task WhenTheHubComesBack_TheWarningGoes()
 	{
-		// A warning that outlives its state is the fastest way to teach a rider to ignore it —
+		// A warning that outlives its state is the fastest way to teach a rider to ignore it -
 		// and SignalR reconnects on its own, so this transition happens without anybody tapping.
 		(_, FakeRideHubClient hub, Guid rideId) = await WirePhoneAsync();
 
@@ -229,11 +229,11 @@ public sealed class GroupRideLiveWarningTests : PageTestContext
 
 		IRenderedComponent<GroupRideLive> component = RenderRide(rideId);
 
-		// Polled rather than waited on through the renderer — the watch starts after the last render
+		// Polled rather than waited on through the renderer - the watch starts after the last render
 		// the page has any reason to do. See BackgroundWait.
 		await BackgroundWait.UntilAsync(
 			() => Gps.WatchCount == 1,
-			"the receiver to start — sharing is on and the adventure is Live, so the GPS runs");
+			"the receiver to start - sharing is on and the adventure is Live, so the GPS runs");
 
 		Gps.Emit(new LocationFix(
 			Latitude: -33.868,

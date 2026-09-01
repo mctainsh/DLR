@@ -5,8 +5,8 @@ namespace DLR.Server.Positions;
 /// <summary>
 /// Which riders are currently inside their own private area (§10.1, §5.6).
 /// <para>
-/// <strong>The one bit a private area ever puts on the wire.</strong> The circle itself — where it
-/// is and how big it is — stays on the rider's profile and reaches no other rider; what a ride
+/// <strong>The one bit a private area ever puts on the wire.</strong> The circle itself - where it
+/// is and how big it is - stays on the rider's profile and reaches no other rider; what a ride
 /// learns is that somebody is somewhere they chose not to be observed, which is the difference
 /// between a group waiting at a junction for a rider who is in their kitchen and one that does not.
 /// Nothing here can be turned back into a coordinate, because nothing here holds one.
@@ -16,7 +16,7 @@ namespace DLR.Server.Positions;
 /// sense <see cref="RiderPositionCache"/>'s entries are, and it has a shorter life than they do: a
 /// rider is private for the ten minutes between their driveway and the main road. Persisting it
 /// would give the database a durable record of when each account was at home, which is a weaker
-/// version of the very thing the feature exists to withhold — so a process restart forgets, and the
+/// version of the very thing the feature exists to withhold - so a process restart forgets, and the
 /// next fix or the next entry into the area says it again.
 /// </para>
 /// <para>
@@ -41,7 +41,7 @@ public sealed class RiderPrivacyCache
 	/// <param name="userId">Which rider.</param>
 	/// <param name="isPrivate">True on the way in, false on the way out.</param>
 	/// <returns>
-	/// <c>true</c> when this actually changed something — which is what the caller announces on. A
+	/// <c>true</c> when this actually changed something - which is what the caller announces on. A
 	/// device re-stating what the server already believes (after a hub reconnect, say) must not put a
 	/// message on every member's connection for a fact none of them would redraw.
 	/// </returns>

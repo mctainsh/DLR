@@ -36,7 +36,7 @@ public static class CommentPolls
 	/// <param name="now">The server clock.</param>
 	/// <param name="hidden">
 	/// Accounts the reader has blocked. Their votes are dropped from the attributed list
-	/// <strong>and from the count</strong>, because §17.5 makes the two the same thing — a tally
+	/// <strong>and from the count</strong>, because §17.5 makes the two the same thing - a tally
 	/// that did not match the names beside it would read as a bug.
 	/// </param>
 	/// <param name="cancellationToken">Cancellation.</param>
@@ -105,7 +105,7 @@ public static class CommentPolls
 				poll.ClosedUtc,
 
 				// Computed here on every read, never stored. A background job flipping a flag
-				// would leave a window in which an elapsed poll still took votes — as wide as the
+				// would leave a window in which an elapsed poll still took votes - as wide as the
 				// job's interval, and widest exactly when the job is behind (§17.5).
 				poll.IsClosed(now),
 				options,

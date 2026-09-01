@@ -9,7 +9,7 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// Not <see cref="MapPackSummary"/> itself, because that is the publisher's claim and this is the
 /// subset that survived checking: the id is one the pack store will accept as a directory name, and
-/// the URL is absolute — resolved against the catalogue's own address when the entry gave a relative
+/// the URL is absolute - resolved against the catalogue's own address when the entry gave a relative
 /// one. A screen rendering this list does not have to re-ask either question.
 /// </para>
 /// </summary>
@@ -17,7 +17,7 @@ namespace BlazorDLR.Shared.Services;
 /// <param name="Name">What a rider reads.</param>
 /// <param name="Region">
 /// The country this pack belongs to, resolved. Never blank, unlike
-/// <see cref="MapPackSummary.Region"/> — the screen groups every offer under one of these, so an
+/// <see cref="MapPackSummary.Region"/> - the screen groups every offer under one of these, so an
 /// entry with nowhere to go would be an entry nobody can reach. See <see cref="RegionFor"/>.
 /// </param>
 /// <param name="Version">The catalogue's build number for this extract.</param>
@@ -25,12 +25,12 @@ namespace BlazorDLR.Shared.Services;
 /// <param name="Sha256">The published checksum, lowercase hex, or <c>null</c> when the entry carried none.</param>
 /// <param name="Url">Where to fetch it from, absolute.</param>
 /// <param name="Bounds">
-/// The ground the extract covers, when the entry published a box that makes sense — see
+/// The ground the extract covers, when the entry published a box that makes sense - see
 /// <see cref="TrackBounds.IsWellFormed"/>, which is what a claim has to survive to get here.
 /// <para>
 /// Null is ordinary rather than exceptional: the field is newer than the catalogue riders are
-/// fetching from today. What it costs is the map picker — an offer with no box cannot be drawn on
-/// a world map or found by pointing at one — and not the map, which is why the download form still
+/// fetching from today. What it costs is the map picker - an offer with no box cannot be drawn on
+/// a world map or found by pointing at one - and not the map, which is why the download form still
 /// lists every offer whether it has bounds or not.
 /// </para>
 /// </param>
@@ -45,7 +45,7 @@ public sealed record MapPackOffer(
 	TrackBounds? Bounds = null)
 {
 	// Deliberately no IsDownloadable here. It existed, the screen branched on it to draw a reason
-	// instead of a button, and the page guarded the click with it as well — which made the rule true
+	// instead of a button, and the page guarded the click with it as well - which made the rule true
 	// in three places and, when one of them changed, produced a button that did nothing at all.
 	// MapPackDownloader.IsFetchable is now the only statement of it, enforced where the transfer
 	// actually starts, and a refusal comes back through MapPackState.Status like every other one.
@@ -66,7 +66,7 @@ public sealed record MapPackCatalogueResult(IReadOnlyList<MapPackOffer> Packs, s
 /// <para>
 /// <strong>Why this replaced a text box.</strong> The Maps screen used to take any HTTPS link and a
 /// name to file it under, which was the only way to test the offline path before a catalogue
-/// existed. It asked a rider to know a URL, and to invent a name that the store might then refuse —
+/// existed. It asked a rider to know a URL, and to invent a name that the store might then refuse -
 /// two chances to get a 300 MB download wrong before it started. The catalogue answers both: the
 /// name and the id come from the publisher, and the only thing left to choose is which region.
 /// </para>
@@ -75,14 +75,14 @@ public sealed record MapPackCatalogueResult(IReadOnlyList<MapPackOffer> Packs, s
 /// does</strong> (§18.5). The registered client carries <c>BearerAuthHandler</c> and is pointed at
 /// the DLR API; this request goes to a static file host that is not the API, and attaching the
 /// rider's access token to it would hand their session to another server. One constructor, and the
-/// client is not optional — see <see cref="MapPackDownloader"/>'s remarks for the DI accident that
+/// client is not optional - see <see cref="MapPackDownloader"/>'s remarks for the DI accident that
 /// rule exists to prevent.
 /// </para>
 /// <para>
 /// <strong>Nothing here is trusted.</strong> The catalogue is a JSON file on a web host: an id
 /// becomes a directory name, so anything the store would refuse is dropped rather than sanitised,
 /// and a URL is resolved rather than concatenated. Whatever survives that is still only a claim
-/// about what is at the other end — the downloader checks the PMTiles magic on what arrives.
+/// about what is at the other end - the downloader checks the PMTiles magic on what arrives.
 /// </para>
 /// </summary>
 public sealed class MapPackCatalogue : IDisposable
@@ -94,7 +94,7 @@ public sealed class MapPackCatalogue : IDisposable
 	/// on 443 with a certificate for another domain, so HTTPS cannot be verified; the Android network
 	/// security config and the iOS ATS exceptions name this one host to let the fetch through, and
 	/// both carry the same note. The archives are served from the same host and are fetched the same
-	/// way — see <see cref="PermitsCleartext"/>, which is the whole of the exception and is scoped to
+	/// way - see <see cref="PermitsCleartext"/>, which is the whole of the exception and is scoped to
 	/// this host alone.
 	/// </para>
 	/// </summary>
@@ -104,7 +104,7 @@ public sealed class MapPackCatalogue : IDisposable
 	/// The one host this app may talk to in the clear, besides its own loopback.
 	/// <para>
 	/// <strong>This constant and the two platform configs are one decision written three times</strong>
-	/// — <c>Platforms/Android/Resources/xml/network_security_config.xml</c> and
+	/// - <c>Platforms/Android/Resources/xml/network_security_config.xml</c> and
 	/// <c>Platforms/iOS/Info.plist</c> are the other two, and all three carry the same note. They
 	/// have to agree: a host permitted here but not there fails inside the platform with an error no
 	/// rider could act on, and a host permitted there but not here is a button this app refuses to
@@ -129,8 +129,8 @@ public sealed class MapPackCatalogue : IDisposable
 	/// What to call a pack whose entry carries no region, keyed on the first segment of its id.
 	/// <para>
 	/// <strong>A fallback for old data, and not a second source of truth.</strong> The publisher
-	/// states the region — see <see cref="MapPackSummary.Region"/> for why it is published rather than
-	/// derived — but the catalogue on the host today predates the field, and that is the one riders
+	/// states the region - see <see cref="MapPackSummary.Region"/> for why it is published rather than
+	/// derived - but the catalogue on the host today predates the field, and that is the one riders
 	/// are fetching from until it is rebuilt. Without this every one of its two hundred entries lands
 	/// in a single group and the first dropdown is a control with one option in it.
 	/// </para>
@@ -168,7 +168,7 @@ public sealed class MapPackCatalogue : IDisposable
 	/// Creates a reader over an address and a client to fetch it with.
 	/// </summary>
 	/// <param name="http">
-	/// The client. Must carry no credentials — see the type's remarks;
+	/// The client. Must carry no credentials - see the type's remarks;
 	/// <see cref="CreateCredentialFreeClient"/> is what every host passes.
 	/// </param>
 	/// <param name="address">Where the catalogue is. <see cref="DefaultUrl"/> unless a host says otherwise.</param>
@@ -186,7 +186,7 @@ public sealed class MapPackCatalogue : IDisposable
 	/// about its id when it says nothing.
 	/// <para>
 	/// Never blank. The settings screen shows every offer under a region, so an entry with no region
-	/// is not a row without a heading — it is a row nobody can reach, which is worse than filing it
+	/// is not a row without a heading - it is a row nobody can reach, which is worse than filing it
 	/// under <see cref="UnknownRegion"/> and letting the search find it.
 	/// </para>
 	/// </summary>
@@ -203,13 +203,13 @@ public sealed class MapPackCatalogue : IDisposable
 	}
 
 	/// <summary>
-	/// Whether <paramref name="url"/> is cleartext this app is allowed to fetch — <c>http://</c> on
+	/// Whether <paramref name="url"/> is cleartext this app is allowed to fetch - <c>http://</c> on
 	/// <see cref="CleartextHost"/>, and nothing else.
 	/// <para>
 	/// <strong>Narrow on purpose, and temporary.</strong> The alternative considered was letting the
 	/// downloader take any <c>http://</c> now that the catalogue publishes them. That would have been
 	/// a rule the platform does not share: every other cleartext host is blocked below this code, so
-	/// the app would offer buttons that fail inside Android's network stack — and it would survive
+	/// the app would offer buttons that fail inside Android's network stack - and it would survive
 	/// the certificate being fixed, quietly, as a general permission nobody decided to grant.
 	/// </para>
 	/// <para>
@@ -243,7 +243,7 @@ public sealed class MapPackCatalogue : IDisposable
 	/// Fetches and reads the catalogue.
 	/// <para>
 	/// Does not throw. A host that is down, a body that is not JSON and a rider with no signal are
-	/// all a <see cref="MapPackCatalogueResult"/> with something to put on screen — the same posture
+	/// all a <see cref="MapPackCatalogueResult"/> with something to put on screen - the same posture
 	/// as the downloader, and for the same reason: a screen that has to catch exceptions to say a
 	/// list could not be loaded is a screen that will eventually forget to.
 	/// </para>
@@ -301,7 +301,7 @@ public sealed class MapPackCatalogue : IDisposable
 	/// Dropped rather than shown-and-refused: an id the store would reject is a publishing mistake
 	/// with nothing a rider can do about it, and a row explaining that would be noise on the one
 	/// screen where the list is the whole interface. What does get shown is an entry that is fine
-	/// except for its scheme — see <see cref="MapPackOffer.IsDownloadable"/> — because that one is
+	/// except for its scheme - see <see cref="MapPackOffer.IsDownloadable"/> - because that one is
 	/// legible and may be fixed by the time they look again.
 	/// </para>
 	/// </summary>
@@ -316,7 +316,7 @@ public sealed class MapPackCatalogue : IDisposable
 			{
 				// The id becomes a directory name on the phone. FileMapPackStore refuses anything that
 				// is not a plain slug rather than cleaning it up, so a `..` or a separator here never
-				// becomes a path — this is the same rule, applied before anything is offered.
+				// becomes a path - this is the same rule, applied before anything is offered.
 				continue;
 			}
 
@@ -339,7 +339,7 @@ public sealed class MapPackCatalogue : IDisposable
 				url,
 				// Dropped rather than repaired when it does not make sense. A box with its corners
 				// swapped, or a longitude of 1000, would be drawn across the whole world on the map
-				// picker and answer to a tap anywhere on it — which is worse than the offer simply
+				// picker and answer to a tap anywhere on it - which is worse than the offer simply
 				// not appearing there, since the dropdown still lists it either way.
 				entry.Bounds is { } bounds && bounds.IsWellFormed ? bounds : null));
 		}
@@ -349,7 +349,7 @@ public sealed class MapPackCatalogue : IDisposable
 		//
 		// Sorted here rather than on the screen because both dropdowns read from this one list, and a
 		// screen that re-sorts a copy for each of them is two orderings that can drift apart. What the
-		// screen does decide is where the leftovers go — see MapSettings' RegionsOnOffer.
+		// screen does decide is where the leftovers go - see MapSettings' RegionsOnOffer.
 		offers.Sort((left, right) =>
 		{
 			int byRegion = string.Compare(left.Region, right.Region, StringComparison.OrdinalIgnoreCase);
@@ -365,7 +365,7 @@ public sealed class MapPackCatalogue : IDisposable
 	/// Skips a UTF-8 byte order mark.
 	/// <para>
 	/// <c>Utf8JsonReader</c> treats one as a malformed first token rather than skipping it, and the
-	/// catalogue this ships pointed at has one — PowerShell's <c>Set-Content -Encoding utf8</c> writes
+	/// catalogue this ships pointed at has one - PowerShell's <c>Set-Content -Encoding utf8</c> writes
 	/// it. Three bytes here rather than an unreadable-catalogue message nobody could diagnose.
 	/// </para>
 	/// </summary>

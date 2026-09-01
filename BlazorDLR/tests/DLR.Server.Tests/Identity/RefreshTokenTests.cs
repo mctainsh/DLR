@@ -14,7 +14,7 @@ namespace DLR.Server.Tests.Identity;
 /// Rotation, reuse detection and the grace window (§7.4).
 /// <para>
 /// Sessions never expire, so the refresh chain is the entire reason "never sign in again" is
-/// true — and the entire way it can go wrong. Every test here is about one of the two failures
+/// true - and the entire way it can go wrong. Every test here is about one of the two failures
 /// that matter: a stolen token that keeps working, or a rider signed out for doing nothing
 /// wrong.
 /// </para>
@@ -55,7 +55,7 @@ public sealed class RefreshTokenTests(PostgresFixture postgres)
 	}
 
 	/// <summary>
-	/// The raw token exists in exactly one place — the client. A database copy would turn a
+	/// The raw token exists in exactly one place - the client. A database copy would turn a
 	/// backup, a dump or a stray query into a set of working credentials.
 	/// </summary>
 	[Fact]
@@ -118,7 +118,7 @@ public sealed class RefreshTokenTests(PostgresFixture postgres)
 	/// <para>
 	/// A client that fires two requests, takes two 401s and refreshes twice has done nothing
 	/// wrong. Without this, naive rotation reads that as theft and dumps the rider at a login
-	/// screen mid-ride — and with permanent sessions it is the single most likely way anyone
+	/// screen mid-ride - and with permanent sessions it is the single most likely way anyone
 	/// is ever signed out.
 	/// </para>
 	/// </summary>
@@ -137,7 +137,7 @@ public sealed class RefreshTokenTests(PostgresFixture postgres)
 		TokenResponse replayed = await RefreshAsync(client, first.RefreshToken);
 
 		replayed.RefreshToken.ShouldBe(second.RefreshToken,
-			"a second identical answer, not a second successor — otherwise the client stores " +
+			"a second identical answer, not a second successor - otherwise the client stores " +
 			"one token and the chain has forked");
 
 		IReadOnlyList<RefreshToken> chain = await ChainAsync(app);
@@ -230,7 +230,7 @@ public sealed class RefreshTokenTests(PostgresFixture postgres)
 
 	/// <summary>
 	/// Registering starts a session (§7.2), and a session needs somewhere to hang its token
-	/// family. A device id from another account is not an error to report — it simply does not
+	/// family. A device id from another account is not an error to report - it simply does not
 	/// match, and this installation gets one of its own.
 	/// </summary>
 	[Fact]
@@ -283,7 +283,7 @@ public sealed class RefreshTokenTests(PostgresFixture postgres)
 	/// <para>
 	/// Ordered by the links rather than by <c>issued_utc</c>, which is not a total order here.
 	/// The fake clock does not tick unless a test moves it, so a token and the token it
-	/// rotated into are issued at the same instant — and sorting on that leaves the tiebreak
+	/// rotated into are issued at the same instant - and sorting on that leaves the tiebreak
 	/// to a random primary key, which is a test that passes about half the time.
 	/// </para>
 	/// </summary>

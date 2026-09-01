@@ -7,21 +7,21 @@ using BlazorDLR.Shared.Services;
 namespace BlazorDLR.Platforms.Android.Notifications;
 
 /// <summary>
-/// The Android half of §17.6 — <c>NotificationManagerCompat</c>, and nothing else.
+/// The Android half of §17.6 - <c>NotificationManagerCompat</c>, and nothing else.
 /// <para>
 /// <strong>No Firebase, no sender key, no <c>google-services.json</c>.</strong> This posts a
 /// notification the app composed itself from a message that arrived on the hub it was already
 /// holding (§5.3). There is no cloud messaging dependency to add, no token to register with the
-/// server and nothing to keep in step when a device reinstalls — the entire feature is one call to
+/// server and nothing to keep in step when a device reinstalls - the entire feature is one call to
 /// <c>notify</c>.
 /// </para>
 /// <para>
 /// <strong>Importance is <c>High</c> as of v0.27, and the last of §17.1 that lived in code is
-/// gone.</strong> It read <c>Default</c> — sound and a card in the shade, but no heads-up banner —
+/// gone.</strong> It read <c>Default</c> - sound and a card in the shade, but no heads-up banner -
 /// on the argument that a banner slides over the live map a rider is navigating by. That argument
 /// has not changed; who answers it has. The app no longer holds anything back on the rider's
 /// behalf: it presents the notification, and a rider who wants less turns it down in the channel's
-/// own settings, in Do Not Disturb, or in a riding focus mode — the controls the phone already
+/// own settings, in Do Not Disturb, or in a riding focus mode - the controls the phone already
 /// applies to every other app on it (§17.6).
 /// </para>
 /// <para>
@@ -29,7 +29,7 @@ namespace BlazorDLR.Platforms.Android.Notifications;
 /// importance as the value it is <em>created</em> with and ignores every later create for the same
 /// id, precisely so an app cannot turn its own volume back up behind a rider's back. That is the
 /// right rule and it is also why raising this line alone would have changed nothing on any phone
-/// the app is already installed on — the <c>dlr.thread</c> channel would still be sitting there at
+/// the app is already installed on - the <c>dlr.thread</c> channel would still be sitting there at
 /// <c>Default</c>. The new id is a new channel, so the new importance actually lands, and the old
 /// one is deleted rather than left in the app's settings as a dead duplicate.
 /// </para>
@@ -39,11 +39,11 @@ public sealed class AndroidNotificationService : INotificationService
 	/// <summary>
 	/// The channel adventure-thread posts arrive on. Separate from <c>dlr.location</c> so a rider
 	/// can silence conversation without silencing the ongoing location notification, which must
-	/// stay visible for as long as the receiver runs (§4.3) — one channel for both would make those
+	/// stay visible for as long as the receiver runs (§4.3) - one channel for both would make those
 	/// two settings the same setting.
 	/// <para>
 	/// The <c>.v2</c> is what carries v0.27's importance change onto phones that already have the
-	/// app — see the type's remarks. A rider who had turned the old channel down has to turn this
+	/// app - see the type's remarks. A rider who had turned the old channel down has to turn this
 	/// one down as well, once; that is the cost of the change and it is stated rather than hidden.
 	/// </para>
 	/// </summary>
@@ -58,7 +58,7 @@ public sealed class AndroidNotificationService : INotificationService
 
 	/// <summary>
 	/// The notification id every thread post shares. The <em>tag</em> is what separates one
-	/// adventure from another — <c>notify(tag, id)</c> keys on the pair, so a constant id with a
+	/// adventure from another - <c>notify(tag, id)</c> keys on the pair, so a constant id with a
 	/// per-ride tag gives exactly one live card per adventure, replaced by its newest post.
 	/// </summary>
 	private const int NotificationId = 4302;
@@ -76,15 +76,15 @@ public sealed class AndroidNotificationService : INotificationService
 	/// The system's notification manager for this app.
 	/// <para>
 	/// AndroidX declares <c>From</c> as returning a nullable, the same way its builder setters return
-	/// a nullable self — see the note in <see cref="ShowAsync"/>. It is not known to answer null on
+	/// a nullable self - see the note in <see cref="ShowAsync"/>. It is not known to answer null on
 	/// any device, and there is no documented case where it would; the null is a gap in the binding's
 	/// annotations rather than a state worth designing around.
 	/// </para>
 	/// <para>
 	/// It is still handled at every call site rather than dismissed with a <c>!</c>, because the two
 	/// are not the same bet: every use of it here is inside a method that already swallows its own
-	/// failures — a notification that does not appear costs a card in the shade, and the post is in
-	/// the thread either way — so treating null as "no notification" costs nothing, while the <c>!</c>
+	/// failures - a notification that does not appear costs a card in the shade, and the post is in
+	/// the thread either way - so treating null as "no notification" costs nothing, while the <c>!</c>
 	/// would trade that for a crash on whichever phone eventually proves the annotation right.
 	/// </para>
 	/// </summary>
@@ -94,7 +94,7 @@ public sealed class AndroidNotificationService : INotificationService
 	/// <inheritdoc />
 	public async Task<bool> EnsurePermissionAsync(CancellationToken cancellationToken = default)
 	{
-		// Below Android 13 there is no runtime permission at all — notifications are granted at
+		// Below Android 13 there is no runtime permission at all - notifications are granted at
 		// install and the request API answers Granted without a dialog. Checked explicitly anyway
 		// so the intent is readable rather than resting on MAUI's shim behaving.
 		// False rather than true when there is no manager to ask: this answer is what decides whether
@@ -118,7 +118,7 @@ public sealed class AndroidNotificationService : INotificationService
 				DiagnosticLog.Write($"Notification permission answered: {status}.");
 			}
 
-			// Granted is not the same as visible — the channel carries its own importance, and a
+			// Granted is not the same as visible - the channel carries its own importance, and a
 			// rider who turned it down keeps that setting through every upgrade. Reported for the
 			// same reason iOS reports its alert style: authorised-and-silent is the failure that
 			// looks like a broken app from both sides.
@@ -135,8 +135,8 @@ public sealed class AndroidNotificationService : INotificationService
 		{
 			DiagnosticLog.WriteError("asking for the notification permission", exception);
 
-			// A permission request that throws — no activity attached because the app is being
-			// reclaimed, most likely — is not a rider-facing failure. It is one notification that
+			// A permission request that throws - no activity attached because the app is being
+			// reclaimed, most likely - is not a rider-facing failure. It is one notification that
 			// does not appear, and the post is in the thread either way.
 			return false;
 		}
@@ -159,7 +159,7 @@ public sealed class AndroidNotificationService : INotificationService
 
 			// The expanded form, for a post longer than the collapsed card's one line. Without it a
 			// two-sentence comment is truncated with no way to read the rest short of opening the
-			// app — which is the tap this notification is trying to save on a moving bike.
+			// app - which is the tap this notification is trying to save on a moving bike.
 			builder.SetStyle(new NotificationCompat.BigTextStyle().BigText(notification.Body));
 
 			builder.SetSmallIcon(global::BlazorDLR.Resource.Drawable.dlr_thread_notification);
@@ -173,7 +173,7 @@ public sealed class AndroidNotificationService : INotificationService
 			builder.SetAutoCancel(true);
 
 			// Public, matching the location notification, as of v0.27. Private hid the text on a
-			// locked phone — which is a sensible default for a message and is exactly the sort of
+			// locked phone - which is a sensible default for a message and is exactly the sort of
 			// call the app has stopped making for the rider: Android has a system-wide "show
 			// sensitive content on the lock screen" setting, and Public is what defers to it
 			// instead of overriding it in one direction for one app.
@@ -214,7 +214,7 @@ public sealed class AndroidNotificationService : INotificationService
 	/// The tap target: the app's launcher intent, carrying the route as an extra.
 	/// <para>
 	/// <c>SingleTop</c> plus <c>ClearTop</c> so a tap reuses the activity that is already there
-	/// rather than stacking a second copy of the app behind the first —
+	/// rather than stacking a second copy of the app behind the first -
 	/// <c>MainActivity.OnNewIntent</c> is what receives it in that case, which is the ordinary one
 	/// during a ride.
 	/// </para>
@@ -240,7 +240,7 @@ public sealed class AndroidNotificationService : INotificationService
 		return PendingIntent.GetActivity(
 			context,
 			// A request code per route, so two adventures' notifications do not share one
-			// PendingIntent and quietly overwrite each other's extras — UpdateCurrent keys on the
+			// PendingIntent and quietly overwrite each other's extras - UpdateCurrent keys on the
 			// intent's identity, and extras are not part of that identity.
 			route?.GetHashCode(StringComparison.Ordinal) ?? 0,
 			launch,
@@ -251,7 +251,7 @@ public sealed class AndroidNotificationService : INotificationService
 
 	/// <summary>
 	/// Creates the channel if it is not already there, and clears away the one it replaced.
-	/// Idempotent, and cheap — the platform ignores a create for an id it already knows, and
+	/// Idempotent, and cheap - the platform ignores a create for an id it already knows, and
 	/// deliberately ignores every property on it, so the importance chosen here is the
 	/// <em>initial</em> value and a rider's later change to it wins forever. That is the correct
 	/// behaviour and the reason this is not a setting in the app.

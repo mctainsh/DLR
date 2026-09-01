@@ -6,7 +6,7 @@ namespace BlazorDLR.Shared.Services;
 /// <summary>
 /// The base-map seam behind <c>RideMap.razor</c> (§4.5, §18.3, v0.24).
 /// <para>
-/// <strong>One JavaScript SDK on every surface</strong> — MapLibre GL JS over OpenStreetMap
+/// <strong>One JavaScript SDK on every surface</strong> - MapLibre GL JS over OpenStreetMap
 /// tiles, implemented once in <see cref="MapLibreInterop"/> and registered identically by
 /// all three hosts. The module handles pan / zoom / rotate / tiles / attribution, and emits
 /// a Web-Mercator <see cref="MapViewport"/> whenever the view moves. <strong>It does not
@@ -16,13 +16,13 @@ namespace BlazorDLR.Shared.Services;
 /// <para>
 /// <strong>The interface survives the consolidation on purpose.</strong> v0.24 removed the
 /// three providers this seam was built to abstract (§4.5), which is an argument for deleting
-/// it — but §13 Q26 moves the tile source to self-hosted PMTiles before public announcement,
+/// it - but §13 Q26 moves the tile source to self-hosted PMTiles before public announcement,
 /// and an offline-pack renderer is the case it would be needed for again. The cost of
 /// keeping it is one interface and one registration line per host.
 /// </para>
 /// <para>
 /// <strong>Failure branch is the shared component's, not the module's</strong> (§4.5). A map
-/// that cannot reach its tiles or its library shows a stated error, not a grey rectangle —
+/// that cannot reach its tiles or its library shows a stated error, not a grey rectangle -
 /// that decision lives in <c>RideMap.razor</c>, where it renders once.
 /// </para>
 /// </summary>
@@ -44,7 +44,7 @@ public interface IMapInterop
 	/// <para>
 	/// This is how the marker composer lets an author place a point by pointing at it
 	/// (§16.1) instead of typing two decimal numbers. Nothing consumes it during a live
-	/// ride — the overlay does not hit-test, and a stray tap on the live map is inert.
+	/// ride - the overlay does not hit-test, and a stray tap on the live map is inert.
 	/// </para>
 	/// </summary>
 	event Action<MapClick>? Clicked;
@@ -52,26 +52,26 @@ public interface IMapInterop
 	/// <summary>
 	/// Fired when the <em>user</em> moves the map, as distinct from the map being moved for them.
 	/// <para>
-	/// The live ride map has two modes that drive the camera on their own — following this rider
-	/// (§5.3) and turning the map to their heading — and each has to yield the moment a hand takes
+	/// The live ride map has two modes that drive the camera on their own - following this rider
+	/// (§5.3) and turning the map to their heading - and each has to yield the moment a hand takes
 	/// hold of the map. <see cref="ViewportChanged"/> cannot answer that: it says where the map now
 	/// is, never who put it there, so a mode that watched it would cancel itself on its own move.
 	/// </para>
 	/// <para>
-	/// Not every gesture is here. Zoom is deliberately absent — closing in on a rider being
+	/// Not every gesture is here. Zoom is deliberately absent - closing in on a rider being
 	/// followed is a request to see them better, not to stop following them.
 	/// </para>
 	/// </summary>
 	event Action<MapGesture>? Gestured;
 
 	/// <summary>
-	/// Fired when the base map reports a problem it did not throw for — a tile source it cannot
+	/// Fired when the base map reports a problem it did not throw for - a tile source it cannot
 	/// reach, a style it cannot parse, an archive it cannot read.
 	/// <para>
 	/// <strong>Distinct from <see cref="InitAsync"/> throwing.</strong> That means no map at all;
 	/// this means a map that exists and is drawing nothing, which is the failure a rider actually
-	/// meets and the one that used to be silent. Several can arrive for one cause — a broken source
-	/// raises once per tile — so a subscriber should show the first and not stack them.
+	/// meets and the one that used to be silent. Several can arrive for one cause - a broken source
+	/// raises once per tile - so a subscriber should show the first and not stack them.
 	/// </para>
 	/// </summary>
 	event Action<string>? ErrorOccurred;
@@ -81,7 +81,7 @@ public interface IMapInterop
 	/// canonical account of this failure; every other site refers back here.
 	/// <para>
 	/// <strong>Only an offline pack ever answers no.</strong> A pack holds one region and declares
-	/// its box, so MapLibre declines to request outside it — no error is raised, the map simply
+	/// its box, so MapLibre declines to request outside it - no error is raised, the map simply
 	/// draws coarse land and water with nothing on them. That is the failure this event exists for,
 	/// because it is the one that looks like success. An online source is asked for the world, and
 	/// a tile it refuses arrives as <see cref="ErrorOccurred"/> instead.
@@ -99,12 +99,12 @@ public interface IMapInterop
 	/// <summary>Move the camera.</summary>
 	/// <param name="camera">Where the map should be looking.</param>
 	/// <param name="animation">
-	/// How long to take getting there. <see cref="TimeSpan.Zero"/> — the default — puts the camera
+	/// How long to take getting there. <see cref="TimeSpan.Zero"/> - the default - puts the camera
 	/// there on the next frame, which is what a caller <em>asserting</em> a view wants: opening on a
 	/// stored camera, framing a ride, straightening after a restyle.
 	/// <para>
 	/// <strong>Anything above zero is for a camera being driven by something that keeps changing</strong>
-	/// — following a rider, or turning the map to their heading (§5.3). Those arrive about once a
+	/// - following a rider, or turning the map to their heading (§5.3). Those arrive about once a
 	/// second, and a fix-by-fix jump is a map that lurches: the ground holds still for a second and
 	/// then teleports a bike-length, and on a corner the whole world snaps round in steps. Spreading
 	/// each move across the gap to the next one is what turns that into travel. A duration a little
@@ -112,7 +112,7 @@ public interface IMapInterop
 	/// <em>was</em>.
 	/// </para>
 	/// <para>
-	/// It is a request, not a promise. A device set to reduce motion gets the jump — the base map
+	/// It is a request, not a promise. A device set to reduce motion gets the jump - the base map
 	/// honours that preference itself, and a rider who has asked their phone to stop animating things
 	/// has not made an exception for maps.
 	/// </para>
@@ -131,17 +131,17 @@ public interface IMapInterop
 	/// fits a box depends on the size of the canvas the box has to fit inside, and no caller knows
 	/// that: the map is a responsive element whose height is set by CSS and whose width is whatever
 	/// is left after the nav rail. A page picking a zoom is guessing, and the guess is wrong on
-	/// every screen but the one it was tuned on — which is what a fixed zoom level was.
+	/// every screen but the one it was tuned on - which is what a fixed zoom level was.
 	/// </para>
 	/// <para>
-	/// Instantaneous, always — unlike <see cref="SetCameraAsync"/>, which takes a duration for the
+	/// Instantaneous, always - unlike <see cref="SetCameraAsync"/>, which takes a duration for the
 	/// modes that drive a camera continuously. Nothing drives a fit continuously: it is a caller
 	/// stating what should be on screen, once, and a flight to it reads as the route sliding into
 	/// place rather than as a map opening on it.
 	/// </para>
 	/// <para>
 	/// A no-op on a map that has not attached, and on a box that is not well formed
-	/// (<see cref="TrackBounds.IsWellFormed"/>) — a track with one point, or none, has nothing to
+	/// (<see cref="TrackBounds.IsWellFormed"/>) - a track with one point, or none, has nothing to
 	/// frame, and a caller holding one should not have to know that.
 	/// </para>
 	/// </remarks>
@@ -152,8 +152,8 @@ public interface IMapInterop
 	/// nothing about.
 	/// </param>
 	/// <param name="maxZoomLevel">
-	/// How far in the fit may go. It only ever binds on a box smaller than the screen — a track
-	/// recorded round a car park, or one whose points all landed on the same fix — where the fit
+	/// How far in the fit may go. It only ever binds on a box smaller than the screen - a track
+	/// recorded round a car park, or one whose points all landed on the same fix - where the fit
 	/// would otherwise run to the deepest zoom the tiles have and show a rider a roof.
 	/// </param>
 	/// <param name="cancellationToken">Cancels the call.</param>
@@ -166,7 +166,7 @@ public interface IMapInterop
 	/// <summary>
 	/// Put different tiles under the map, without tearing it down (§4.5).
 	/// <para>
-	/// The camera, the bearing and the rider's place on screen all survive — this replaces the
+	/// The camera, the bearing and the rider's place on screen all survive - this replaces the
 	/// style, which is the layer the tiles live in, and MapLibre keeps the view across one. That
 	/// matters because the setting is changed on a screen showing a live preview, and a map that
 	/// jumped back to a default camera on every keystroke of a URL would be unusable.
@@ -212,20 +212,20 @@ public enum MapProvider
 /// <param name="AllowRotation">
 /// Whether the rider may turn the map off north, and therefore whether a compass is offered.
 /// <para>
-/// On by default, and off on the screens where a tap <em>places</em> something — the private-area
+/// On by default, and off on the screens where a tap <em>places</em> something - the private-area
 /// picker (§10.1) and the marker composer (§16.1). On those the map is a coordinate entry field:
 /// a rider who has rotated it and then taps is reasoning about a north-up mental image that is no
 /// longer on screen, and the point lands somewhere they did not mean.
 /// </para>
 /// <para>
 /// There is no matching option for pitch. Tilting is refused on every map, because the Skia
-/// overlay projects flat Web Mercator from a <see cref="MapViewport"/> that has no pitch term —
+/// overlay projects flat Web Mercator from a <see cref="MapViewport"/> that has no pitch term -
 /// a tilted base map would leave every pin, track and circle drawn for a view nobody is looking
 /// at. That is a constraint of the design, not a preference.
 /// </para>
 /// </param>
 /// <param name="Source">
-/// Which tiles go underneath (§4.5). <c>null</c> means <see cref="MapSource.Default"/> — OSM,
+/// Which tiles go underneath (§4.5). <c>null</c> means <see cref="MapSource.Default"/> - OSM,
 /// which is what every map drew before the setting existed, and the right answer for a caller
 /// that has no opinion.
 /// </param>
@@ -254,7 +254,7 @@ public enum MapGesture
 	Pan = 0,
 
 	/// <summary>
-	/// A turn — a two-finger twist, or the compass button, which are the same statement about
+	/// A turn - a two-finger twist, or the compass button, which are the same statement about
 	/// which way up the map should be. Cancels "heading up".
 	/// </summary>
 	Rotate = 1,
@@ -266,7 +266,7 @@ public enum MapGesture
 public readonly record struct MapClick(double Latitude, double Longitude);
 
 /// <summary>
-/// Whether the tiles under the map reach the ground it is looking at — see
+/// Whether the tiles under the map reach the ground it is looking at - see
 /// <see cref="IMapInterop.CoverageChanged"/>.
 /// </summary>
 /// <param name="HasTiles">Whether anything on screen is inside what the source holds.</param>
@@ -289,7 +289,7 @@ public sealed record MapCamera(double Latitude, double Longitude, double ZoomLev
 /// <para>
 /// The base-map module emits this exact shape on pan / zoom / rotate. The overlay
 /// projects lat / lon → pixels through Web Mercator, which is the projection MapLibre
-/// renders natively — so a pixel here lands on the corresponding tile pixel.
+/// renders natively - so a pixel here lands on the corresponding tile pixel.
 /// <para>
 /// The shape is still a contract rather than MapLibre's own types, because the overlay is
 /// the half of the map this project owns and it must not learn what is under it (§4.5 v0.21).
@@ -326,7 +326,7 @@ public readonly record struct MapViewport(
 	/// <summary>
 	/// Latitude at the centre of the view.
 	/// <para>
-	/// Latitude is <em>not</em> linear in Web Mercator — the midpoint of the two edge
+	/// Latitude is <em>not</em> linear in Web Mercator - the midpoint of the two edge
 	/// latitudes is not the middle of the screen, and the error grows with both zoom-out
 	/// and distance from the equator. Averaging in projected space and inverting is what
 	/// the base maps do themselves, so this agrees with the pixel the user is looking at.
@@ -346,12 +346,12 @@ public readonly record struct MapViewport(
 /// <param name="SpeedMps">
 /// How fast the fix said the rider was going (metres/second), when it said. Riders only: it is what decides
 /// between the heading arrow and the stopped dot (§16.3). Null means the fix carried no speed,
-/// which reads as stopped — an arrow is a claim about direction, and a fix with no speed is not
+/// which reads as stopped - an arrow is a claim about direction, and a fix with no speed is not
 /// evidence for one.
 /// </param>
 /// <param name="Colour">
 /// The label's background as <c>#rrggbb</c>, or null for <c>MarkerColours.Default</c>. Riders
-/// only — it is the rider's own choice from their profile (§7.14, §16.3), and the text and border
+/// only - it is the rider's own choice from their profile (§7.14, §16.3), and the text and border
 /// are drawn in whichever of black or white reads on it.
 /// </param>
 public sealed record MapMarker(
@@ -369,9 +369,9 @@ public sealed record MapMarker(
 /// Which of the overlay's two renderings a <see cref="MapMarker"/> gets (§16.3).
 /// <para>
 /// This is a separate field rather than a reserved <see cref="MapMarker.IconKey"/> value on
-/// purpose. Icon keys are forward-compatible by design — <c>MarkerIcons.ForSymbol</c> passes
+/// purpose. Icon keys are forward-compatible by design - <c>MarkerIcons.ForSymbol</c> passes
 /// any well-shaped GPX <c>&lt;sym&gt;</c> straight through so a newer client's key survives a
-/// round trip — so a sentinel key would collide with real authored data the moment someone
+/// round trip - so a sentinel key would collide with real authored data the moment someone
 /// imported a file containing it, and the server has no way to reserve one.
 /// </para>
 /// </summary>
@@ -381,14 +381,14 @@ public enum MarkerKind
 	Authored = 0,
 
 	/// <summary>
-	/// A live position: a heading arrow — or a dot when stopped — on the rounded end of a label
+	/// A live position: a heading arrow - or a dot when stopped - on the rounded end of a label
 	/// carrying the rider's name in their own colour (§5.3, §16.3). No icon: which of twenty
 	/// people this is, and which way they are going, is the whole of what a live position says.
 	/// </summary>
 	Rider = 1,
 
 	/// <summary>
-	/// <em>You</em> — this device's own fix, read straight from the platform receiver rather than
+	/// <em>You</em> - this device's own fix, read straight from the platform receiver rather than
 	/// from a published position (§4.3).
 	/// <para>
 	/// Drawn as a bare arrow or dot with no label, which is what tells it apart from
@@ -396,8 +396,8 @@ public enum MarkerKind
 	/// and the one without a name is the person holding the phone.
 	/// </para>
 	/// <para>
-	/// It exists because the rider pins are a round trip — the ride only carries positions once it
-	/// is <c>Live</c>, and the fan-out is on a 5 s tick (§5.3) — and none of that should stand
+	/// It exists because the rider pins are a round trip - the ride only carries positions once it
+	/// is <c>Live</c>, and the fan-out is on a 5 s tick (§5.3) - and none of that should stand
 	/// between somebody and seeing where they are. It replaces the base map's own "blue dot" on
 	/// the phone, which cannot work there: that one asks the WebView for <c>navigator.geolocation</c>,
 	/// a permission gate entirely separate from the one the app holds for
@@ -410,7 +410,7 @@ public enum MarkerKind
 /// <summary>
 /// A route drawn as a polyline overlay by the Skia layer.
 /// <para>
-/// <see cref="Colour"/> is what the <em>caller</em> asks for — the per-route palette entry
+/// <see cref="Colour"/> is what the <em>caller</em> asks for - the per-route palette entry
 /// (§5.4). It is not necessarily what gets drawn: the overlay resolves it against the device's
 /// own route-display preferences (§18.6), which can pin a colour to <see cref="TrackId"/> or
 /// paint every route the same. Resolving here rather than in each calling page keeps the answer
@@ -419,7 +419,7 @@ public enum MarkerKind
 /// </para>
 /// </summary>
 /// <param name="EncodedPolyline">Google-style encoded polyline; the overlay decodes it once.</param>
-/// <param name="Colour">Hex colour string — the palette's answer, before the device's preferences are applied.</param>
+/// <param name="Colour">Hex colour string - the palette's answer, before the device's preferences are applied.</param>
 /// <param name="TrackId">The track this line is, when it is one. <c>null</c> for the editor's unsaved working copy.</param>
 public sealed record RouteOverlay(string EncodedPolyline, string Colour = "#2563eb", Guid? TrackId = null);
 
@@ -428,7 +428,7 @@ public sealed record RouteOverlay(string EncodedPolyline, string Colour = "#2563
 /// on the middle so the centre is findable when the ring is off screen.
 /// <para>
 /// Metres rather than pixels because every circle this app draws is a statement about the
-/// ground — today the private area on the Location screen (§10.1), whose whole meaning is
+/// ground - today the private area on the Location screen (§10.1), whose whole meaning is
 /// "this far around here". A pixel radius would grow and shrink the protected area as the rider
 /// zoomed, which is exactly the wrong thing for a control someone is trying to reason about.
 /// </para>
@@ -440,7 +440,7 @@ public sealed record RouteOverlay(string EncodedPolyline, string Colour = "#2563
 public sealed record MapCircle(double Latitude, double Longitude, double RadiusM, string Colour = "#dc2626");
 
 /// <summary>
-/// A lat / lon rectangle drawn by the Skia overlay — an outline with a wash inside it.
+/// A lat / lon rectangle drawn by the Skia overlay - an outline with a wash inside it.
 /// <para>
 /// Its one caller is the map picker on the settings screen (§4.2), which draws the ground every
 /// offline pack covers so a rider can point at the one they want instead of hunting for its name
@@ -450,7 +450,7 @@ public sealed record MapCircle(double Latitude, double Longitude, double RadiusM
 /// find them marching round the edge of every region on offer.
 /// </para>
 /// <para>
-/// Edges are straight in Web Mercator — the projection the overlay draws in — so the four corners
+/// Edges are straight in Web Mercator - the projection the overlay draws in - so the four corners
 /// are the whole of the shape however far the box is from the equator. It is drawn as a
 /// quadrilateral rather than a screen-aligned rectangle so that it still sits over the ground it
 /// names on a map that has been turned.
@@ -459,7 +459,7 @@ public sealed record MapCircle(double Latitude, double Longitude, double RadiusM
 /// <param name="Bounds">The ground it covers.</param>
 /// <param name="Colour">Hex colour for the outline and the wash inside it.</param>
 /// <param name="Emphasised">
-/// Whether to draw it as the one being talked about — a heavier edge and a stronger wash. Set on
+/// Whether to draw it as the one being talked about - a heavier edge and a stronger wash. Set on
 /// the boxes a tap landed in while the rider is choosing between them, which is the only way to
 /// tell somebody <em>which</em> of two overlapping regions a name in a list refers to.
 /// </param>
