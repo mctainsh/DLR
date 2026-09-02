@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text.Json;
 using DLR.Core.Contracts.Identity;
 using DLR.Server.Data.Identity;
 using DLR.Server.Identity;
@@ -425,8 +426,13 @@ public sealed class AbuseTests(PostgresFixture postgres)
 		ladder.LadderWindow.ShouldBe(TimeSpan.FromHours(24));
 	}
 
+	/// <summary>
+	/// An address someone else holds is refused outright (§7.8), rather than silently dropped
+	/// from an account that gets created anyway. The account the caller is asking about already
+	/// exists, so the answer that helps is the recovery path to it.
+	/// </summary>
 	[Fact]
-	public async Task Register_DuplicateEmail_ReturnsGenericSuccessAndNotifiesOwner()
+	public async Task Register_DuplicateEmail_IsRefusedAndPointsAtRecovery()
 	{
 		await using DlrWebApplicationFactory app = await DlrWebApplicationFactory.CreateAsync(postgres);
 
@@ -437,22 +443,23 @@ public sealed class AbuseTests(PostgresFixture postgres)
 		app.Emails.Clear();
 
 		using HttpResponseMessage response =
-			await client.PostRegisterAsync("SomebodyElse", email: "dave@example.com");
+			await client.PostRegisterAsync("SomebodyElse", email: "DAVE@example.com");
 
-		response.StatusCode.ShouldBe(HttpStatusCode.Created,
-			"saying 'that address is taken' would make this an oracle for whether any given " +
-			"person has an account");
+		response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
-		app.Emails.To("dave@example.com").ShouldHaveSingleItem()
-			.Subject.ShouldContain("tried to register");
+		JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-		// The address is not attached to the new account - it is not theirs to attach.
-		AppUser impostor = await app.WithDatabaseAsync(async database =>
-			await database.Users.SingleAsync(user => user.NormalizedUserName == "SOMEBODYELSE"));
+		problem.GetProperty("errors").GetProperty(nameof(RegisterRequest.Email))
+			.EnumerateArray().ShouldHaveSingleItem()
+			.GetString()!.ShouldContain("forgot password");
 
-		impostor.Email.ShouldBeNull();
+		// No account, and nothing sent to an address the caller has not proved is theirs.
+		bool created = await app.WithDatabaseAsync(database =>
+			database.Users.AnyAsync(user => user.NormalizedUserName == "SOMEBODYELSE"));
 
-		// And the real owner is untouched.
+		created.ShouldBeFalse();
+		app.Emails.To("dave@example.com").ShouldBeEmpty();
+
 		AppUser real = await app.WithDatabaseAsync(async database =>
 			await database.Users.SingleAsync(user => user.Id == owner.User.Id));
 

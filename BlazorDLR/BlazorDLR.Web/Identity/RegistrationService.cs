@@ -12,8 +12,8 @@ namespace DLR.Server.Identity;
 /// <para>
 /// <strong>Extracted in SRV-34 because a browser registers too.</strong> The rules here are the
 /// ones it would be worst to have two copies of: the §7.8 per-address ladder, the rate limit above
-/// it, the duplicate-address answer that must not become an enumeration oracle, and the
-/// confirmation link a ladder-restricted account needs in order to stop being restricted. A second
+/// it, the refusal of an address somebody else already holds, and the confirmation link a
+/// ladder-restricted account needs in order to stop being restricted. A second
 /// copy on the web route is how one of them ends up subtly different - and the different one would
 /// be the route an abuser reaches with a browser.
 /// </para>
@@ -21,7 +21,7 @@ namespace DLR.Server.Identity;
 /// <param name="users">Identity.</param>
 /// <param name="ladder">§7.8's row-counting ladder.</param>
 /// <param name="throttle">§7.8's rate limits.</param>
-/// <param name="emails">The confirmation and the "somebody used your address" notice.</param>
+/// <param name="emails">The confirmation link.</param>
 /// <param name="limits">The thresholds.</param>
 /// <param name="clock">The project's clock (§10.4).</param>
 public sealed class RegistrationService(
@@ -72,6 +72,30 @@ public sealed class RegistrationService(
 				title: "Email address required"));
 		}
 
+		string? email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+
+		// An address somebody else already holds (§7.8). Registration used to succeed and
+		// silently drop the address, which left the caller signed into an account they did not
+		// mean to create and no closer to the one they had. Worse on the ladder path: created
+		// restricted, with no address to confirm and so no way to stop being restricted.
+		//
+		// The cost is that this endpoint now answers whether an address is registered. The
+		// caller is told to recover rather than retry, which is the only answer that resolves
+		// the situation they are actually in.
+		if (email is not null && await users.FindByEmailAsync(email) is not null)
+		{
+			return RegistrationOutcome.Refused(ValidationProblem(
+				new Dictionary<string, string[]>
+				{
+					[nameof(RegisterRequest.Email)] =
+					[
+						"That email address is already registered. Sign in with that account, " +
+						"or use forgot password to recover it.",
+					],
+				},
+				title: "Email address already registered"));
+		}
+
 		AppUser user = new()
 		{
 			UserName = request.UserName,
@@ -94,26 +118,8 @@ public sealed class RegistrationService(
 			// Empty is not a value. Identity normalises "" to "" and would then enforce
 			// uniqueness over it, so the second person to submit a blank email would be
 			// told the address was taken.
-			Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+			Email = email,
 		};
-
-		// An address somebody else already holds (§7.8).
-		//
-		// Saying "that email is taken" would make this an oracle for whether any given person
-		// has an account - a question worth refusing outright for a location-sharing app. The
-		// *username* is enumerable because it is a public handle drawn on a map; an address is
-		// not.
-		//
-		// So registration proceeds and the address is simply not attached: it is not this
-		// caller's to attach, and there is no way to tell them so without answering the
-		// question. Whoever does hold it gets told instead - and if that turns out to be the
-		// same person, that email is precisely the thing they needed to read.
-		AppUser? owner = user.Email is null ? null : await users.FindByEmailAsync(user.Email);
-
-		if (owner is not null)
-		{
-			user.Email = null;
-		}
 
 		IdentityResult result = await users.CreateAsync(user, request.Password);
 
@@ -122,11 +128,7 @@ public sealed class RegistrationService(
 			return RegistrationOutcome.Refused(ValidationProblem(AsProblems(result)));
 		}
 
-		if (owner is not null)
-		{
-			await emails.SendRegistrationAttemptAsync(owner);
-		}
-		else if (user.Email is not null)
+		if (user.Email is not null)
 		{
 			// §7.2's flow ends "if email supplied: send 24 h confirmation link". Load-bearing
 			// on the ladder path especially: an account created past the threshold is

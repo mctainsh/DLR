@@ -1224,7 +1224,7 @@ browser ask for the permanent session the whole feature exists to withhold. `Res
 requires the kind to *match* before adopting a claimed device id — otherwise a browser presenting a
 phone's id inherits that row and its lifetime.
 **`RegistrationService` extracted, because a browser registers too.** The §7.8 ladder, the rate limit
-above it, the duplicate-address answer that must not become an enumeration oracle, and the
+above it, the refusal of an address somebody else already holds, and the
 confirmation link a restricted account needs to stop being restricted — a second copy on the web
 route is how one of them ends up subtly different, and the different one is the route an abuser
 reaches with a browser.

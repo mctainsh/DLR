@@ -1459,14 +1459,16 @@ Note these tokens are **stateless** — validity derives from the security stamp
 
 ### 7.8 Abuse resistance
 
-**Enumeration.** Username enumeration is unavoidable (§7.2). Everything else stays closed:
+**Enumeration.** Username enumeration is unavoidable (§7.2), and registration also answers whether an address is registered — see the note under the table. Everything else stays closed:
 
 | Situation | Response |
 |---|---|
 | Register with a taken **username** | Explicit "that username is taken" — unavoidable, and a username is a public handle |
-| Register with an existing **email** | Generic success. Email the existing owner: "someone tried to register with your address" |
+| Register with an existing **email** | `400` on the email field: "That email address is already registered. Sign in with that account, or use forgot password to recover it." |
 | Login, unknown username | Generic "invalid username or password" — and still run a dummy password verification, so timing does not leak existence |
 | Forgot password, unknown email | `202`, no email sent |
+
+**The duplicate email answer is explicit** *(revised at operator request)*. It used to be generic success with the address silently dropped and a notice mailed to the owner — enumeration-resistant, but the caller ended up signed into a second account they did not mean to create and no closer to the one they had, and on the ladder path that account was created restricted with no address to confirm and so no way out. Registration now refuses and names the recovery path. The cost is a real one: this endpoint tells anyone whether a given address has an account here, which forgot-password (`202` either way) still does not.
 
 **The per-IP registration ladder.** Registrations from one IP address in a rolling 24 hours:
 

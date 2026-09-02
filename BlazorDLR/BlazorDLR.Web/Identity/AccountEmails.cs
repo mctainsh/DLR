@@ -91,35 +91,6 @@ public sealed class AccountEmails(IEmailSender email, IOptions<AccountLinkOption
 	}
 
 	/// <summary>
-	/// Tells the holder of an address that somebody tried to register with it (§7.8).
-	/// <para>
-	/// The counterpart to registration answering identically whether or not the address is
-	/// taken: the person who cannot be told is the one asking, and the person who can be told
-	/// is the one it actually concerns.
-	/// </para>
-	/// </summary>
-	/// <param name="owner">Whoever holds the address.</param>
-	/// <param name="cancellationToken">Cancellation.</param>
-	public Task SendRegistrationAttemptAsync(AppUser owner, CancellationToken cancellationToken = default) =>
-		email.SendAsync(
-			new EmailMessage(
-				owner.Email!,
-				"Someone tried to register with your email address",
-				$"""
-				Hello {owner.UserName},
-
-				Somebody just tried to create a Dumb Luck Routes account using this email
-				address. Your account has not changed and nobody has been given access to it.
-
-				If that was you, you already have an account - sign in as {owner.UserName}, or
-				reset your password if you have forgotten it.
-
-				If it was not you, there is nothing to do. We did not tell them whether this
-				address is registered.
-				""".ReplaceLineEndings("\n")),
-			cancellationToken);
-
-	/// <summary>
 	/// Tells a dormant account it is about to be deleted (§7.11).
 	/// <para>
 	/// The one email in this project that asks for nothing. It carries no link and no token, because
