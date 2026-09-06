@@ -249,8 +249,75 @@ export-compliance question. It is true as long as the app ships no cryptography 
 `BundleResource` item in the csproj. Required since 1 May 2024 — a build without one is rejected at
 processing, before review.
 
-Its `NSPrivacyCollectedDataTypes` must match the App Store Connect privacy answers exactly; they are
-written from the same table as the Play data safety form above.
+Its `NSPrivacyCollectedDataTypes` must match the App Store Connect privacy answers exactly. Take
+them from the table in the next section, **not** from the Play data safety form above - Play has
+no tracking question, and answering Apple's from that table is what caused the 5.1.2(i)
+rejection.
+
+### App privacy answers - and the 5.1.2(i) rejection
+
+**8.0.0 (28) was rejected here** (submission `101b1e53-4956-41b9-8007-654a4f0bb0bd`, 4 September
+2026): *"The app privacy information provided in App Store Connect indicates the app collects data
+in order to track the user, including User ID, Precise Location, and Coarse Location. However, the
+app does not use App Tracking Transparency."*
+
+**Nothing in the binary is wrong, and adding an ATT prompt is the wrong fix.** ATT asks permission
+for tracking this app does not do; a prompt the binary cannot justify is its own rejection, and
+answering yes to Apple's tracking question obliges a privacy policy that says the app tracks. The
+fix is the App Store Connect answers.
+
+Apple's *tracking* means linking this app's data to data gathered by other companies' apps or sites
+for advertising or measurement, or sharing it with a data broker. This app does neither: no
+advertising identifier (nothing in the tree references `AdSupport` or `AppTrackingTransparency`), no
+ad network, no analytics SDK, no data broker. Position and username go to this app's own server and
+to the members of an adventure the traveller chose to share with, and nowhere else. That is what
+`NSPrivacyTracking` being `false` in `PrivacyInfo.xcprivacy` asserts, and the label has to agree
+with it.
+
+**Showing a member's position and username to the other members is not tracking**, however much
+the plain English word fits. Other travellers are end users of this app, not third-party
+companies and not data brokers, and the data is never linked to anything gathered elsewhere. That
+sharing is disclosed by declaring Precise Location and User ID as *linked to the user* - which is
+the bucket below, and is the whole disclosure Apple asks for.
+
+**The answers.** App Store Connect -> App Privacy -> Data Types. Every type below is *linked to the
+user* and *not* used for tracking, so **Data Used to Track You must come out empty**.
+
+| Data type | Collected | Linked to user | Used to track | Purpose |
+|---|---|---|---|---|
+| Precise Location | Yes | Yes | **No** | App Functionality |
+| User ID | Yes | Yes | **No** | App Functionality |
+| Email Address | Yes | Yes | **No** | App Functionality |
+| Photos or Videos | Yes | Yes | **No** | App Functionality |
+| Other User Content | Yes | Yes | **No** | App Functionality |
+
+**Coarse Location is not collected and must not be declared.** `AppleLocationProvider.DesiredAccuracy`
+asks for `AccuracyBest` or `AccuracyNearestTenMeters`, and every fix published is full resolution -
+Apple's Coarse Location means a position deliberately reduced below three decimal places of
+latitude and longitude, which this app never produces. It was ticked in App Store Connect and has
+never been in `PrivacyInfo.xcprivacy`; that mismatch is a review finding on its own.
+
+**No new build is required.** The rejected 28 was rejected on its label, not its code. Save the
+corrected answers, reply in Resolution Center, and resubmit - the tree is already at 8.0.0 (30) if a
+fresh upload is preferred.
+
+**Reply to paste into Resolution Center**, after the answers are saved:
+
+> Dumb Luck Routes does not track users, and does not track on any other platform it ships to.
+>
+> The app contains no advertising identifier, no ad network, no analytics SDK and no third-party
+> tracking SDK, and it shares no data with data brokers. Its privacy manifest declares
+> NSPrivacyTracking = false.
+>
+> The App Store Connect privacy answers were entered incorrectly: User ID, Precise Location and
+> Coarse Location were marked as used to track. We have corrected them. User ID and Precise
+> Location are now declared as linked to the user and not used for tracking, and Coarse Location
+> has been removed entirely - the app only ever requests full-accuracy fixes and never a reduced
+> one. Data Used to Track You is now empty, which matches the binary.
+>
+> Location is used for two things only, both named in our own disclosure dialog shown before the
+> iOS permission prompt: showing a traveller to the other members of a group adventure they turned
+> sharing on for, and recording that traveller's own track. Both stay on our own server.
 
 ### Background location review
 
@@ -393,6 +460,9 @@ the test suite. Everything after that is still yours.
 - [ ] Verify on hardware, not an emulator: start an adventure, lock the phone, travel for a few minutes,
       confirm the position moves on a second device — see the hardware checklist below.
 - [ ] Upload the Android symbol file with the bundle so Play's crash reports are readable.
+- [ ] Confirm the App Store Connect privacy answers still match `PrivacyInfo.xcprivacy`, and that
+      **Data Used to Track You** is empty - a label that claims tracking is a 5.1.2(i) rejection
+      however clean the binary is.
 
 ## Hardware checklist for the location feature
 

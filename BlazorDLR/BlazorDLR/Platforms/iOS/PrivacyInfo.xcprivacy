@@ -26,6 +26,10 @@
 		This app tracks nobody: no advertising identifier, no data broker, no cross-app
 		linkage. Both of these being false is what keeps App Tracking Transparency out of the
 		app entirely - if either ever becomes true, the ATT prompt becomes mandatory.
+
+		The App Store Connect answers have to say the same thing: 8.0.0 (28) was rejected under
+		5.1.2(i) because the label there claimed tracking while this file denied it. Data Used to
+		Track You must be empty (Documentation/store-release.md).
 	-->
 	<key>NSPrivacyTracking</key>
 	<false/>
