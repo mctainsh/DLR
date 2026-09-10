@@ -291,6 +291,13 @@ user* and *not* used for tracking, so **Data Used to Track You must come out emp
 | Photos or Videos | Yes | Yes | **No** | App Functionality |
 | Other User Content | Yes | Yes | **No** | App Functionality |
 
+**"Data is not collected from this app" is the same mistake pointing the other way.** It is the
+tempting answer once a tracking claim has just been rejected, and it is false - positions, accounts
+and photos are all stored on the server, which is Apple's definition of collected. It also
+contradicts the five `NSPrivacyCollectedDataTypes` entries in the manifest, and the label is checked
+against those. *Collect* and *track* are separate questions: yes to the first for all five types
+above, no to the second for all five.
+
 **Coarse Location is not collected and must not be declared.** `AppleLocationProvider.DesiredAccuracy`
 asks for `AccuracyBest` or `AccuracyNearestTenMeters`, and every fix published is full resolution -
 Apple's Coarse Location means a position deliberately reduced below three decimal places of
@@ -462,7 +469,8 @@ the test suite. Everything after that is still yours.
 - [ ] Upload the Android symbol file with the bundle so Play's crash reports are readable.
 - [ ] Confirm the App Store Connect privacy answers still match `PrivacyInfo.xcprivacy`, and that
       **Data Used to Track You** is empty - a label that claims tracking is a 5.1.2(i) rejection
-      however clean the binary is.
+      however clean the binary is, and one that claims nothing is collected contradicts the
+      manifest just as badly. Check the edit is published, not left as a draft.
 
 ## Hardware checklist for the location feature
 
