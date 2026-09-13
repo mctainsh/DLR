@@ -67,6 +67,23 @@ public enum MemberPresence
 	/// </para>
 	/// </summary>
 	Private = 3,
+
+	/// <summary>
+	/// The reader has blocked them, or they have blocked the reader (§16.5, §17.7).
+	/// <para>
+	/// The fifth reason a pin is missing, and the only one that is about the reader rather than
+	/// about the member - two people looking at the same adventure see this on different rows. It
+	/// is also the only one the reader can undo, which is why it gets a word of its own instead of
+	/// being folded into <see cref="NotSharing"/>: "they are not sharing" would blame somebody else
+	/// for a decision the reader made.
+	/// </para>
+	/// <para>
+	/// The block is symmetric on the map, so this covers the half the reader was never told about.
+	/// The list does not distinguish the two directions and must not: saying "they blocked you"
+	/// would announce a block, which is the thing §16.5 keeps quiet.
+	/// </para>
+	/// </summary>
+	Blocked = 4,
 }
 
 /// <summary>One rider, as the live rider list draws them.</summary>
@@ -300,6 +317,16 @@ public static class MemberRoster
 		bool havePositions,
 		bool ownReading)
 	{
+		if (member.Blocked)
+		{
+			// First of all, because it is the only one of the five that is true of the reader rather
+			// than of the member - and because no fix for a blocked traveller reaches this client on
+			// any channel, so every state below it would be inferred from a silence with a different
+			// cause. A blocked member who is also not sharing still reads as blocked: that is the
+			// fact the reader can act on.
+			return MemberPresence.Blocked;
+		}
+
 		if (!member.Sharing)
 		{
 			return MemberPresence.NotSharing;
@@ -465,6 +492,7 @@ public static class MemberRoster
 		MemberPresence.NotSharing => "not sharing",
 		MemberPresence.NoSignal => "no signal",
 		MemberPresence.Private => "private",
+		MemberPresence.Blocked => "blocked",
 		_ => "sharing",
 	};
 
@@ -483,6 +511,7 @@ public static class MemberRoster
 		MemberPresence.NotSharing => "they have sharing turned off, so nothing of theirs is on the map.",
 		MemberPresence.NoSignal => "sharing, but nothing recent has arrived. Their last point is still on the map and it is not moving.",
 		MemberPresence.Private => "inside their own private area - at home, most likely. Their position comes back when they ride out of it.",
+		MemberPresence.Blocked => "blocked. You cannot see them on the map and they cannot see you. Unblock them in Settings to undo it.",
 		_ => "their position is arriving, and it is fresh enough to ride on.",
 	};
 }

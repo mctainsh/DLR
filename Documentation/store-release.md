@@ -326,6 +326,104 @@ fresh upload is preferred.
 > iOS permission prompt: showing a traveller to the other members of a group adventure they turned
 > sharing on for, and recording that traveller's own track. Both stay on our own server.
 
+### The 5.1.2(i) rejection - location shown to other users
+
+**8.0.0 (31) was rejected here** (13 September 2026): *"The app enables the display of nearby
+users' locations on a map, but does not have the required privacy precautions in place."* Apple
+asked for four things. Three are done in the build; the fourth is a deliberate product decision and
+is described honestly below rather than claimed.
+
+**1. Age rating 18+.** App Store Connect only - no build change. **App Store Connect -> your app ->
+Age Rating -> Edit.** If no content descriptor applies, use **Override to a Higher Age Rating** and
+set **18+**. Do this before resubmitting; it is the item most likely to be checked first because it
+costs the reviewer one click to verify.
+
+Keep it in step with Google Play, whose content rating questionnaire asks about location sharing
+separately. The two stores do not read each other's answers.
+
+**2. A way to block other users.** Closed in this release. `LiveMemberList` now carries a block
+control on every row but the reader's own, reachable in two taps from the live map (**nav rail ->
+Live members -> the block icon beside a name**). It confirms first, because the block is symmetric
+and the undo lives on another screen.
+
+The block is **symmetric on the map and one-directional for content**, which is not an
+inconsistency:
+
+- Content (`BlockList`): blocking hides *their* posts from *you*. Hiding yours from them would
+  announce the block, which section 16.5 is written to avoid.
+- Position (`BlockCache`): blocking takes *both* pins off *both* maps. A one-way block here would
+  leave the person you blocked still watching where you are, which is the whole case a block on a
+  live map exists for.
+
+Filtered on the server, on both channels - `PositionStore.SnapshotAsync` for the load and
+`RideBroadcastService.SendAsync` for the five-second batch. A blocked traveller's coordinates never
+reach the other party's device at all; nothing relies on the client agreeing to hide a pin.
+
+**3. Permission to be displayed, with the option to decline.** `ConsentPrompt` asks per adventure
+and its second button is *Not now*; dismissing counts as no (`ConsentAskedState`).
+
+This prompt existed before the rejection and **was unreachable for anybody who joined by code**:
+`JoinRide.ShareByDefaultAsync` set the sharing flag at join, and `GroupRideLive` only raises the
+prompt while sharing is off. That call is gone. Joining now lands a traveller on the map screen not
+sharing, and the ride asks.
+
+**4. Manual check-in each time, with no automatic check-in. Not implemented, by decision.**
+
+Sharing remains a durable per-adventure flag that resumes from saved state: `LaunchRestore` brings
+the receiver back up at app start for an adventure whose flag still stands, and
+`RideSession.LoadAsync` does the same whenever the ride screen loads. A traveller taps once, ever,
+per adventure.
+
+This is the item Apple named most concretely, so expect it to be raised again. What the build can
+honestly say for itself, and what the Resolution Center reply below says:
+
+- Nothing is shown to *nearby* users. A position reaches the members of one group adventure the
+  traveller joined by code and turned sharing on for, and nobody else. There is no proximity
+  discovery, no public map, and no way to see a stranger.
+- Sharing is off until turned on, per adventure, and off again in one tap from the map's menu.
+- The map states in red, continuously, whenever sharing is off.
+- A private area (**Settings -> Location**) suppresses transmission entirely inside a circle around
+  home.
+
+If Review holds the line, the smallest change that satisfies it without losing the saved state is to
+keep `LaunchRestore`'s memory of the adventure and put a one-tap confirmation in front of the
+receiver start - *"You were sharing with Sunday Run. Resume?"* - instead of starting it silently.
+That is one prompt in one file; it is not done here because it was declined, not because it is hard.
+
+**Reply to paste into Resolution Center**, once the age rating is set:
+
+> Thank you - we have made the following changes.
+>
+> **Age rating.** We have used Override to a Higher Age Rating to set the app to 18+.
+>
+> **Blocking.** Any member can now block any other member from the Live members list of an
+> adventure (nav rail -> Live members -> the block icon beside a name). Blocking is mutual on the
+> map: neither person can see the other's position afterwards. It also hides the blocked member's
+> comments, reactions, markers and poll votes. Blocks are managed at Settings -> Blocked travellers.
+> Filtering is applied on our server, so a blocked member's coordinates are never sent to the other
+> person's device.
+>
+> **Permission to be displayed.** Each adventure asks before the member's location is shown to
+> anyone on it, with Share and Not now, and dismissing the prompt counts as declining. Our own
+> disclosure dialog naming what is collected and why is shown before the iOS location prompt.
+> Joining an adventure no longer turns sharing on by itself - a member who joins arrives not
+> sharing and is asked.
+>
+> **On check-ins.** We would like to clarify what the app does, as we think "nearby users" may
+> describe a different app from ours. Dumb Luck Routes has no proximity discovery and no public
+> map. A member's position is visible only to the other members of a specific private group
+> adventure that they joined using a code given to them by its organiser, and that they then
+> explicitly turned sharing on for. There is no way for a member to see, or be seen by, a stranger
+> or a nearby user.
+>
+> Sharing is off by default, is per adventure rather than account-wide, is turned on by an explicit
+> tap after the consent prompt above, and is turned off in one tap from the map. While it is off the
+> map displays a persistent red indicator. Members can also set a private area around their home
+> inside which no position is transmitted at all.
+>
+> If, given that this is closed-group sharing rather than nearby-user discovery, you still require a
+> per-session check-in, please let us know and we will add a confirmation step on each app launch.
+
 ### Background location review
 
 Apple's guideline 2.5.4: an app may only declare the `location` background mode if the feature
@@ -359,7 +457,10 @@ submitting, because a reviewer following a path that does not exist is worse tha
 > 1. Sign in with the account above.
 > 2. **Group adventures →** tap the one the account is already in. The live map opens; other members
 >    appear as coloured markers with their names and their distance along the route.
-> 3. The nav rail's **Live members** shows the same people as a sortable list.
+> 3. The nav rail's **Live members** shows the same people as a sortable list, and carries the
+>    **block** control beside each name.
+> 3a. Opening an adventure the account is not yet sharing with puts up the sharing consent prompt
+>    — *Share* / *Not now*. Declining is remembered; the map then states in red that sharing is off.
 > 4. Hamburger menu (top of the map) **→ Info → My sharing**. Turning that switch on shows our own
 >    disclosure dialog ("Dumb Luck Routes collects location data") *before* the iOS permission
 >    prompt. It names both things a fix is used for — showing you to the other members, and
@@ -393,9 +494,12 @@ submitting, because a reviewer following a path that does not exist is worse tha
 >
 > - **Report**: the flag control on any comment in an **Adventure thread**. Reports go to the organiser
 >   and to us.
-> - **Block**: an organiser can decline and block a join request at **Group adventures →
->   [adventure] → Requests**. Blocked accounts are listed and can be unblocked at
->   **Settings → Blocked travellers**.
+> - **Block**: any member can block any other member of an adventure from the nav rail's
+>   **Live members** list — the block icon beside a name. Blocking is mutual on the map: neither
+>   person can see the other's position afterwards, and the blocked member's comments, reactions,
+>   markers and poll votes are hidden as well. An organiser can also decline and block a join
+>   request at **Group adventures → [adventure] → Requests**. Blocked accounts are listed and can
+>   be unblocked at **Settings → Blocked travellers**.
 > - **Delete your account and everything in it**: **Settings → Data & export**. The same screen
 >   exports the account's data.
 > - Moderation contact: «SUPPORT_EMAIL».
@@ -410,27 +514,18 @@ submitting, because a reviewer following a path that does not exist is worse tha
 > - The app supports iPhone and iPad.
 > - Encryption: HTTPS and the platform keychain only; no proprietary cryptography.
 
-### ⚠ Two 1.2 gaps the notes are worded around
-
-Both of these are endpoints that exist with no UI on top of them, so both are small to close — and
-both are cheaper to close now than to answer a rejection about.
+### ⚠ One 1.2 gap the notes are worded around
 
 **Markers cannot be reported.** `ReportMarkerAsync` is on `IApiClient` and
 `POST /api/v1/markers/{id}/report` is live, but `MarkerDetails.razor` offers only a delete. A photo
 attached to a marker is user-generated content a member can see and cannot report — only comments
 carry the flag control. The notes above therefore claim reporting for comments only.
 
-**Blocking is organiser-only.** Guideline 1.2 wants "the ability to block abusive users", and what
-the app has is narrower:
-
-- `POST /api/v1/blocks` exists, and `IApiClient.BlockUserAsync` is wired to it — but **no screen
-  calls it**. The only path that blocks is `RideRequests.razor`'s *Decline & block*, which goes
-  through `DecideJoinRequestAsync`, and only an organiser deciding a join request can reach it.
-- `Settings → Blocked travellers` lists blocks and unblocks them. It cannot create one.
-
-So an ordinary member who is harassed in a thread has *report*, but no way to block the person
-themselves. A "Block this person" action on a thread comment or in the members list, calling the
-endpoint that already exists, closes it.
+**Blocking was organiser-only and is not any more.** It is recorded here because the previous state
+of it was half of what 8.0.0 (31) was rejected for — see the 5.1.2(i) section below. `Live members
+→ the ⊘ beside a name` now calls the endpoint that always existed, and a block takes both parties
+off each other's live map as well as hiding the blocked party's posts, reactions, markers and poll
+votes. `Settings → Blocked travellers` still lists and unblocks.
 
 ### A demo account
 

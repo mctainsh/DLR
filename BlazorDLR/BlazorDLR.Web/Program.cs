@@ -106,6 +106,11 @@ try
 	// live state - and the only way an ended membership can reach a connection that is already in
 	// a ride's group, since JoinRide's check runs once and nothing re-runs it (§5.2).
 	builder.Services.AddSingleton<RideConnections>();
+
+	// Who may not see whom on a map (§16.5). A singleton because the five-second broadcast filters
+	// on it and that path takes no query - see BlockCache. Warmed from the table after Build,
+	// below, so the first batch out of the door is already filtered.
+	builder.Services.AddSingleton<BlockCache>();
 	builder.Services.AddSingletonHostedService<RideBroadcastService>();
 	builder.Services.Configure<TrackEditOptions>(builder.Configuration.GetSection(TrackEditOptions.Section));
 	builder.Services.Configure<MarkerOptions>(builder.Configuration.GetSection(MarkerOptions.Section));
@@ -415,6 +420,16 @@ try
 	// whether the rider is still on the bike. The client's AccessTokenProvider supplies a fresh token
 	// on *reconnect*, which is where rotation belongs. Written out so nobody later "fixes" it.
 	app.MapHub<RideHub>(RideHub.Path);
+
+	// Before the first position batch can go out, so no map ever draws a pin a block should have
+	// taken off it (§16.5). One query over a table that holds one row per block ever made; if it
+	// ever stops being small, it stops being a cache rather than stops being loaded here.
+	using (IServiceScope warmUp = app.Services.CreateScope())
+	{
+		await app.Services
+			.GetRequiredService<BlockCache>()
+			.LoadAsync(warmUp.ServiceProvider.GetRequiredService<DlrDbContext>());
+	}
 
 	app.MapStaticAssets();
 

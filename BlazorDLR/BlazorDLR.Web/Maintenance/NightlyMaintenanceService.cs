@@ -38,6 +38,7 @@ public sealed class NightlyMaintenanceService(
 	TimeProvider clock,
 	IOptions<MaintenanceOptions> options,
 	IOptions<ModerationOptions> moderation,
+	BlockCache blocks,
 	ILogger<NightlyMaintenanceService> logger) : BackgroundService
 {
 	/// <inheritdoc />
@@ -293,6 +294,11 @@ public sealed class NightlyMaintenanceService(
 			.Set<UserBlock>()
 			.Where(block => ids.Contains(block.BlockedId))
 			.ExecuteDeleteAsync(cancellationToken);
+
+		// The rows above are gone from the table but not from the map's in-memory copy of them,
+		// which no cascade reaches (§16.5).
+		foreach (Guid id in ids)
+			blocks.Forget(id);
 
 		// Hard delete. Every other table reaches asp_net_users through ON DELETE CASCADE, and
 		// §7.11's criteria are what make that safe - an eligible account has never joined a ride,

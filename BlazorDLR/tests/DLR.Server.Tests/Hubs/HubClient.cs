@@ -108,4 +108,32 @@ public static class HubClient
 
 		return received.Task;
 	}
+
+	/// <summary>
+	/// Waits for the next <see cref="IRideClient.MemberBlockedChanged"/> about a ride (§16.5).
+	/// <para>
+	/// Beside <see cref="NextBatchAsync"/> rather than private to the one test file that wants it,
+	/// so the next hub event has somewhere obvious to add its own. The two do not share an
+	/// implementation and cannot: this message is three arguments and that one is a single payload,
+	/// which are different <c>On</c> overloads on the connection.
+	/// </para>
+	/// </summary>
+	/// <param name="connection">The connection to listen on.</param>
+	/// <param name="rideId">Which ride's message is wanted.</param>
+	/// <returns>The other party, and whether they are now hidden.</returns>
+	public static Task<(Guid Member, bool Blocked)> NextBlockAsync(HubConnection connection, Guid rideId)
+	{
+		TaskCompletionSource<(Guid, bool)> received =
+			new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		connection.On<Guid, Guid, bool>(nameof(IRideClient.MemberBlockedChanged), (ride, member, blocked) =>
+		{
+			if (ride == rideId)
+			{
+				received.TrySetResult((member, blocked));
+			}
+		});
+
+		return received.Task;
+	}
 }

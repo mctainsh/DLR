@@ -119,7 +119,7 @@ public sealed class PositionController : ControllerBase
 			.AnyAsync(member => member.GroupRideId == id && member.UserId == userId);
 
 		return isMember
-			? Ok(await positions.SnapshotAsync(id))
+			? Ok(await positions.SnapshotAsync(id, userId))
 			: NotFound();
 	}
 }

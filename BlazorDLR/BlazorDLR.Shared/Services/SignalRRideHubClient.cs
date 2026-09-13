@@ -104,6 +104,9 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
 	/// <inheritdoc />
 	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
+
+	/// <inheritdoc />
+	public event Action<Guid, Guid, bool>? MemberBlockedChanged;
 	/// <inheritdoc />
 	public event Action? ConnectionChanged;
 
@@ -146,6 +149,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.On<Guid, RidePermissions>("RidePermissionsChanged", (r, p) => PermissionsChanged?.Invoke(r, p));
 		connection.On<Guid, Guid, bool>("MemberSharingChanged", (r, u, s) => MemberSharingChanged?.Invoke(r, u, s));
 		connection.On<Guid, Guid, bool>("MemberPrivacyChanged", (r, u, p) => MemberPrivacyChanged?.Invoke(r, u, p));
+		connection.On<Guid, Guid, bool>("MemberBlockedChanged", (r, u, b) => MemberBlockedChanged?.Invoke(r, u, b));
 
 		connection.Reconnected += async _ =>
 		{

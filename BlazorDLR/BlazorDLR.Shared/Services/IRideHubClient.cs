@@ -150,6 +150,17 @@ public interface IRideHubClient : IAsyncDisposable
 	event Action<Guid, Guid, bool>? MemberPrivacyChanged;
 
 	/// <summary>
+	/// The reader and another member can no longer see each other on a ride's map, or can again
+	/// (§16.5). Ride, the other party, and whether the block is on.
+	/// <para>
+	/// Raised on the two accounts involved and on no other connection. The position has to be
+	/// dropped on receipt: a batch only ever lists riders the server has a fix for, so nothing else
+	/// arriving would ever say the pin should go.
+	/// </para>
+	/// </summary>
+	event Action<Guid, Guid, bool>? MemberBlockedChanged;
+
+	/// <summary>
 	/// A message from whoever runs this server arrived (§20.3).
 	/// <para>
 	/// The only event here that belongs to no ride and no route, so it is raised on every

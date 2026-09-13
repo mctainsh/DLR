@@ -1,6 +1,7 @@
 using DLR.Core.Contracts.Rides;
 using DLR.Server.Data;
 using DLR.Server.Data.Rides;
+using DLR.Server.Moderation;
 using Microsoft.EntityFrameworkCore;
 
 namespace DLR.Server.Positions;
@@ -43,10 +44,12 @@ public sealed record PositionPublication(IReadOnlyList<Guid> RideIds, bool LeftP
 /// <param name="database">The one context - read for membership and names, never for positions.</param>
 /// <param name="cache">Where every live position is.</param>
 /// <param name="privacy">Who is inside their own private area right now (§10.1).</param>
+/// <param name="blocks">Who may not see whom on a map (§16.5).</param>
 public sealed class PositionStore(
 	DlrDbContext database,
 	RiderPositionCache cache,
 	RiderPrivacyCache privacy,
+	BlockCache blocks,
 	PositionActivityMeter meter)
 {
 	/// <summary>
@@ -135,6 +138,11 @@ public sealed class PositionStore(
 	/// <returns>The riders inside their own private area.</returns>
 	public IReadOnlySet<Guid> PrivateRiders() => privacy.Everyone();
 
+	/// <summary>Who this viewer may not see on a map, either way round (§16.5).</summary>
+	/// <param name="viewerId">The reader.</param>
+	/// <returns>The accounts hidden from them.</returns>
+	public IReadOnlySet<Guid> HiddenFrom(Guid viewerId) => blocks.HiddenFrom(viewerId);
+
 	/// <summary>The rides a fix from this rider would currently land in (§5.7).</summary>
 	private async Task<IReadOnlyList<Guid>> SharedRideIdsAsync(Guid userId) =>
 		await database
@@ -172,18 +180,39 @@ public sealed class PositionStore(
 
 	/// <summary>The snapshot a reconnecting client fetches instead of replaying history (§5.3).</summary>
 	/// <param name="rideId">Which ride.</param>
-	/// <returns>Everyone currently sharing, with a position.</returns>
+	/// <param name="viewerId">Who is asking - whose block list the answer is filtered against (§16.5).</param>
+	/// <returns>Everyone currently sharing, with a position, that the viewer may see.</returns>
 	/// <remarks>
 	/// Served from the cache, which is the only place a position is (§5.5). There is nothing to
 	/// wait for: an empty answer means the ride is empty, not that a warm-up is still running.
+	/// <para>
+	/// The viewer is a parameter rather than something this reads off the request, because the
+	/// live path (<see cref="Hubs.RideBroadcastService"/>) has no request to read it off and the two
+	/// must not answer differently - a pin the snapshot hands over is a pin on the map until the
+	/// next batch takes it away, which is long enough to matter.
+	/// </para>
 	/// </remarks>
-	public async Task<IReadOnlyList<RiderPositionDto>> SnapshotAsync(Guid rideId)
+	public async Task<IReadOnlyList<RiderPositionDto>> SnapshotAsync(Guid rideId, Guid viewerId)
 	{
 		IReadOnlyDictionary<Guid, PositionEntry> held = cache.ForRide(rideId);
 
 		if (held.Count == 0)
 		{
 			return [];
+		}
+
+		IReadOnlySet<Guid> hidden = blocks.HiddenFrom(viewerId);
+
+		if (hidden.Count > 0)
+		{
+			held = held
+				.Where(rider => !hidden.Contains(rider.Key))
+				.ToDictionary(rider => rider.Key, rider => rider.Value);
+
+			if (held.Count == 0)
+			{
+				return [];
+			}
 		}
 
 		// Names come from the database because the cache holds positions, not people. Denormalised
@@ -212,6 +241,14 @@ public sealed class PositionStore(
 
 	/// <summary>Who has a position, for the member list's <em>no signal</em> state (§5.6).</summary>
 	/// <param name="rideId">Which ride.</param>
-	/// <returns>The riders currently located.</returns>
-	public IReadOnlySet<Guid> Located(Guid rideId) => cache.RiderIds(rideId).ToHashSet();
+	/// <param name="hidden">
+	/// Accounts this reader may not see (§16.5), from <see cref="HiddenFrom"/>. Taken as an argument
+	/// rather than looked up here because the caller needs the same set to mark the rows themselves,
+	/// and <see cref="BlockCache.HiddenFrom"/> builds a fresh one on every call.
+	/// </param>
+	/// <returns>The riders currently located that this reader may see.</returns>
+	public IReadOnlySet<Guid> Located(Guid rideId, IReadOnlySet<Guid>? hidden = null) =>
+		hidden is not { Count: > 0 }
+			? cache.RiderIds(rideId).ToHashSet()
+			: cache.RiderIds(rideId).Where(rider => !hidden.Contains(rider)).ToHashSet();
 }

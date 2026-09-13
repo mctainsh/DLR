@@ -265,6 +265,41 @@ public sealed class RideMembersLiveTests : PageTestContext
 	}
 
 	[Fact]
+	public async Task MemberBlockedChanged_DropsThePin_RatherThanLeavingItFrozen()
+	{
+		// The one a block must not get wrong (§16.5). A batch lists the riders the server has a fix
+		// for and never says "and this one is gone", so a client that only took the flag would keep
+		// drawing the other party's last position for the rest of the adventure. This arrives on
+		// *both* sides - including the one who never pressed anything - which is why the pin has to
+		// go on the message rather than on the tap that caused it.
+		Guid bob = Guid.NewGuid();
+		(FakeApiClient api, FakeRideHubClient hub, Guid rideId) = WireServices(members:
+		[
+			new RideMemberSummary(bob, "Bob", "Rider", FixedInstant, Sharing: true, HasPosition: true),
+		]);
+
+		api.PositionsResult = [Fix(bob, "Bob", BaseLat, BaseLon)];
+
+		IRenderedComponent<RideMembersLive> component = RenderMembers(rideId);
+
+		component.WaitForAssertion(
+			() => component.Find(".live-members .state").TextContent.Trim().ShouldBe("sharing"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		await component.InvokeAsync(() => hub.RaiseMemberBlockedChanged(rideId, bob, blocked: true));
+
+		component.WaitForAssertion(() =>
+		{
+			component.Find(".live-members .state").TextContent.Trim().ShouldBe("blocked");
+
+			// The figures go with the position, on the private row's reasoning - and the age in
+			// particular, because an age still counting is the frozen pin saying so out loud.
+			component.FindAll(".live-members .range").ShouldBeEmpty();
+			component.FindAll(".live-members .age").ShouldBeEmpty();
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
 	public async Task MemberPrivacyChanged_LeavesThemOnTheList_AndTakesTheirFiguresAway()
 	{
 		// §10.1 as the rest of the ride sees it. They are still on the adventure - the row stays -

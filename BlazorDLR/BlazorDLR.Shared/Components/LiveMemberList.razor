@@ -124,6 +124,26 @@
 					</span>
 
 					@*
+						Blocking, from the list where the reader is actually looking at the person
+						(§16.5, §17.7). The App Store requires a way to block another traveller on any
+						screen that shows where people are, and a control that only exists in Settings
+						is one the rider has to already know about - so it lives on the row.
+
+						Only where the parent bound a handler: the same list renders on hosts that
+						have no business offering it, and an unbound callback drawing a dead button
+						is worse than no button. Never on the reader's own row - blocking yourself is
+						refused by the server, and offering it here would be offering a mistake.
+					*@
+					@if (OnBlock.HasDelegate && !row.IsSelf && row.Presence != MemberPresence.Blocked)
+					{
+						<button type="button" class="icon-button block" title="Block @row.UserName"
+								@onclick="() => OnBlock.InvokeAsync(row)">
+							<i class="fa fa-ban" aria-hidden="true"></i>
+							<span class="visually-hidden">Block @row.UserName</span>
+						</button>
+					}
+
+					@*
 						The four figures, each labelled. A bare row of numbers is unreadable on a
 						screen this narrow - "340 m" and "4.2 km" are different measurements of
 						different things, and which is which cannot be inferred from the order they
@@ -136,7 +156,21 @@
 						the whole answer. Off-route goes with them: a rider who is at home is not off route,
 						they are somewhere this ride has agreed not to measure.
 					*@
-					@if (row.Presence == MemberPresence.Private)
+					@if (row.Presence == MemberPresence.Blocked)
+					{
+						@*
+							No columns of dashes, on the private row's reasoning: every figure is
+							derived from a position that never arrives for a blocked traveller. The
+							note says where to undo it, because Settings is the only place that can -
+							unblocking from here would put the undo behind the same one tap that did
+							it, which is how a mis-tap becomes a silent no-op.
+						*@
+						<p class="hidden-note">
+							Blocked. You cannot see each other on the map.
+							<a href="/settings/blocks">Manage blocked travellers</a>
+						</p>
+					}
+					else if (row.Presence == MemberPresence.Private)
 					{
 						<p class="hidden-note">Position hidden while they are in their private area.</p>
 					}
@@ -246,15 +280,33 @@
 	/// <summary>Raised when the rider picks a different order, so the page can hold the choice.</summary>
 	[Parameter] public EventCallback<MemberSort> SortChanged { get; set; }
 
+	/// <summary>
+	/// Raised when the reader asks to block a traveller (§16.5). Unbound on a host that cannot act
+	/// on it, and the button is absent rather than inert when it is.
+	/// <para>
+	/// The confirmation and the call belong to the page, not to this component: this is layout, and
+	/// a component that reached for <c>IApiClient</c> itself would be a second place a block is made
+	/// from - see the note at the top of the file.
+	/// </para>
+	/// </summary>
+	[Parameter] public EventCallback<MemberRow> OnBlock { get; set; }
+
 	private static readonly MemberSort[] AllSorts =
 		[MemberSort.LastActive, MemberSort.Name, MemberSort.AlongRoute, MemberSort.Range];
 
 	/// <summary>
-	/// The four states, in the order the key lists them: the two that mean a position is arriving
-	/// or has stopped arriving first, then the two that mean there was never going to be one.
+	/// The five states, in the order the key lists them: the two that mean a position is arriving
+	/// or has stopped arriving first, then the three that mean there was never going to be one -
+	/// the reader's own block last, because it is the only one they can undo.
 	/// </summary>
 	private static readonly MemberPresence[] AllPresences =
-		[MemberPresence.Sharing, MemberPresence.NoSignal, MemberPresence.NotSharing, MemberPresence.Private];
+	[
+		MemberPresence.Sharing,
+		MemberPresence.NoSignal,
+		MemberPresence.NotSharing,
+		MemberPresence.Private,
+		MemberPresence.Blocked,
+	];
 
 	private bool HasRoute => Route is { Count: >= 2 };
 
@@ -299,6 +351,7 @@
 		MemberPresence.NotSharing => "not-sharing",
 		MemberPresence.NoSignal => "no-signal",
 		MemberPresence.Private => "private",
+		MemberPresence.Blocked => "blocked",
 		_ => "sharing",
 	};
 
@@ -313,6 +366,7 @@
 		MemberPresence.NotSharing => "fa-eye-slash",
 		MemberPresence.NoSignal => "fa-triangle-exclamation",
 		MemberPresence.Private => "fa-house-lock",
+		MemberPresence.Blocked => "fa-ban",
 		_ => "fa-satellite-dish",
 	};
 }
@@ -424,6 +478,25 @@
 	/* The one of the four with no token behind it - a private area is not a state anything else in
 	   the app paints, so a --dlr-* entry would have exactly one reader. */
 	.live-members .presence.private { color: #7c3aed; }
+	.live-members .presence.blocked { color: var(--dlr-fg-muted); }
+
+	/* Quiet until it is reached for. A block is rare, irreversible-feeling and not something the
+	   list should be inviting on every row, so it sits at the muted weight the role chip does and
+	   takes its colour only under a finger. 44 px, like every other target on this screen. */
+	.live-members .icon-button.block {
+		flex: 0 0 auto;
+		margin-top: 0.2rem;
+		min-width: 44px;
+		min-height: 44px;
+		background: none;
+		border: none;
+		color: var(--dlr-fg-muted);
+	}
+
+		.live-members .icon-button.block:hover,
+		.live-members .icon-button.block:focus-visible {
+			color: var(--dlr-error);
+		}
 
 	/* The key. Quiet and small: it is read once, by somebody who has just met the glyphs, and
 	   then never again by that rider - so it must not compete with the rows above it. */

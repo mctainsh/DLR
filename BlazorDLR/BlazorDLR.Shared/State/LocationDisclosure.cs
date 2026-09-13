@@ -68,12 +68,12 @@ public sealed class LocationDisclosure(IDeviceSettings settings, ConfirmService 
 		+ "never used for advertising, and never given to a data broker or an analytics service.\n"
 		+ "Your track is written to this phone. It stays there until you save it, and saving offers to "
 		+ "cut out the private area you can set around home first.\n"
-		// "Off until you turn it on" was true until joining on a phone started turning it on
-		// (JoinRide.ShareByDefaultAsync). A disclosure that describes a default the app no longer has
-		// is the one sentence here a reviewer can catch it out on.
-		+ "Sharing is per adventure. It starts on for an adventure you join on this phone, the map says "
-		+ "so in red whenever it is off, and you can turn it off at any time. Nothing is sent from "
-		+ "inside your private area.";
+		// "Off until you turn it on" is true again: joining stopped turning it on when App Review
+		// read the previous wording and 5.1.2(i) said what it thought of it. This sentence and
+		// JoinRide have to agree - it is the one line here a reviewer can catch the app out on.
+		+ "Sharing is per adventure and off until you turn it on. Each adventure asks you first and "
+		+ "you can say no, the map says so in red whenever it is off, and you can turn it off again "
+		+ "at any time. Nothing is sent from inside your private area.";
 
 	/// <summary>
 	/// Shows the disclosure if this device has not already accepted it, and answers whether the app

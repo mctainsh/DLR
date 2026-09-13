@@ -38,8 +38,9 @@ public sealed class LiveMemberListTests : BunitContext
 		bool sharing = true,
 		bool hasPosition = true,
 		string role = "Rider",
-		string? colour = null) =>
-		new(id, name, role, FixedInstant, sharing, hasPosition, colour);
+		string? colour = null,
+		bool blocked = false) =>
+		new(id, name, role, FixedInstant, sharing, hasPosition, colour, Private: false, Blocked: blocked);
 
 	private static RiderPositionDto Fix(Guid id, string name, double lat, double lon, DateTimeOffset? recordedUtc = null) =>
 		new(id, name, PositionScale.FromDegrees(lat), PositionScale.FromDegrees(lon), null, null,
@@ -106,9 +107,9 @@ public sealed class LiveMemberListTests : BunitContext
 		icon.ClassList.Single(name => name.StartsWith("fa-", StringComparison.Ordinal) && name != "fa-fw");
 
 	[Fact]
-	public void TheKey_NamesAllFourGlyphs_WhicheverStatesAreOnScreen()
+	public void TheKey_NamesEveryGlyph_WhicheverStatesAreOnScreen()
 	{
-		// The rider on screen is sharing, and the key still has to carry the other three: the
+		// The rider on screen is sharing, and the key still has to carry the other four: the
 		// question it answers is nearly always asked about somebody who is *not* doing what was
 		// expected, so a key trimmed to what is showing drops the entry being looked up.
 		IRenderedComponent<LiveMemberList> component = Render<LiveMemberList>(parameters => parameters
@@ -127,6 +128,7 @@ public sealed class LiveMemberListTests : BunitContext
 			MemberRoster.Label(MemberPresence.NoSignal),
 			MemberRoster.Label(MemberPresence.NotSharing),
 			MemberRoster.Label(MemberPresence.Private),
+			MemberRoster.Label(MemberPresence.Blocked),
 		]);
 
 		// And each entry is the glyph the rows are drawn with, not a second set that would have to
@@ -286,6 +288,77 @@ public sealed class LiveMemberListTests : BunitContext
 		// §5.4: being off the line is not a fifth measurement, it is a thing that has gone wrong,
 		// so it gets a line of its own rather than a column.
 		component.Find(".live-members .off").TextContent.ShouldContain("Off route");
+	}
+
+	[Fact]
+	public void ABlockedTraveller_ReadsAsBlocked_NotAsNotSharing()
+	{
+		// §16.5: the reader made this decision, so the row must not blame the other party for it.
+		// "Not sharing" is what a rider says about somebody who turned their own switch off, and
+		// telling the two apart is the whole of §5.6.
+		IRenderedComponent<LiveMemberList> component = Render<LiveMemberList>(parameters => parameters
+			.Add(p => p.Members, [Member(Guid.NewGuid(), "Gone", sharing: true, hasPosition: false, blocked: true)]));
+
+		component.Find(".live-members .state .word").TextContent.Trim().ShouldBe("blocked");
+		component.Find(".live-members .hidden-note").TextContent.ShouldContain("cannot see each other");
+
+		// No columns of dashes: every figure is derived from a position that never arrives.
+		component.FindAll(".live-members .stats").ShouldBeEmpty();
+	}
+
+	[Fact]
+	public void BlockedBeatsNotSharing_BecauseItIsTheFactTheReaderCanActOn()
+	{
+		// A blocked traveller who has also turned sharing off still reads as blocked. Either word
+		// explains the empty row; only one of them is something the reader can undo.
+		IRenderedComponent<LiveMemberList> component = Render<LiveMemberList>(parameters => parameters
+			.Add(p => p.Members, [Member(Guid.NewGuid(), "Both", sharing: false, hasPosition: false, blocked: true)]));
+
+		component.Find(".live-members .state .word").TextContent.Trim().ShouldBe("blocked");
+	}
+
+	[Fact]
+	public async Task TheBlockButton_RaisesTheCallback_ForTheRowItSitsOn()
+	{
+		Guid other = Guid.NewGuid();
+		MemberRow? asked = null;
+
+		IRenderedComponent<LiveMemberList> component = Render<LiveMemberList>(parameters => parameters
+			.Add(p => p.Members, [Member(other, "Nuisance")])
+			.Add(p => p.OnBlock, (MemberRow row) => asked = row));
+
+		await component.Find(".live-members .icon-button.block").ClickAsync(new());
+
+		asked.ShouldNotBeNull();
+		asked!.Value.UserId.ShouldBe(other);
+	}
+
+	[Fact]
+	public void TheBlockButton_IsAbsentOnTheReadersOwnRow_AndOnAlreadyBlockedRows()
+	{
+		Guid me = Guid.NewGuid();
+
+		IRenderedComponent<LiveMemberList> component = Render<LiveMemberList>(parameters => parameters
+			.Add(p => p.Members,
+			[
+				Member(me, "Me"),
+				Member(Guid.NewGuid(), "Already", blocked: true),
+				Member(Guid.NewGuid(), "Other"),
+			])
+			.Add(p => p.SelfUserId, me)
+			.Add(p => p.OnBlock, (MemberRow _) => { }));
+
+		// Exactly one offer, on the one row where blocking is a thing that can be done.
+		component.FindAll(".live-members .icon-button.block").Count.ShouldBe(1);
+	}
+
+	[Fact]
+	public void WithNoHandlerBound_NoBlockButtonIsDrawn_RatherThanADeadOne()
+	{
+		IRenderedComponent<LiveMemberList> component = Render<LiveMemberList>(parameters => parameters
+			.Add(p => p.Members, [Member(Guid.NewGuid(), "Other")]));
+
+		component.FindAll(".live-members .icon-button.block").ShouldBeEmpty();
 	}
 
 	[Fact]

@@ -51,6 +51,33 @@ public interface IRideClient
 	Task MemberPrivacyChanged(Guid rideId, Guid memberId, bool isPrivate);
 
 	/// <summary>
+	/// The reader and another member can no longer see each other on this ride's map (§16.5).
+	/// <para>
+	/// <strong>Sent to the two people involved and to nobody else</strong>, unlike every other
+	/// message on this interface, which goes to a ride's group. A block is between two accounts and
+	/// the other forty-eight members have no business being told it happened.
+	/// </para>
+	/// <para>
+	/// <strong>It exists because the batch cannot say "and this one is gone".</strong> A batch
+	/// carries the riders the server has a fix for, and the client upserts from it - so a client
+	/// that was merely stopped from receiving somebody would keep drawing their last pin until the
+	/// ride ended. That is <see cref="MemberPrivacyChanged"/>'s frozen-pin problem exactly, reached
+	/// by a different road, and it is worse here: the pin left behind belongs to the person the
+	/// reader has just been separated from.
+	/// </para>
+	/// <para>
+	/// <strong>Neutral on purpose, and it names no direction.</strong> Both parties receive the
+	/// same message about the other, so it says "you two cannot see each other" and never "they
+	/// blocked you" - which is as much of §16.5's quiet as a symmetric block can keep. Who started
+	/// it is not on the wire.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="memberId">The other party.</param>
+	/// <param name="blocked">True on a block, false when it is lifted.</param>
+	Task MemberBlockedChanged(Guid rideId, Guid memberId, bool blocked);
+
+	/// <summary>
 	/// Somebody is now on the ride (§5.2, §5.3).
 	/// <para>
 	/// The whole member row rather than a nudge to refetch, unlike <see cref="RideRoutesChanged"/>:
@@ -286,6 +313,10 @@ public sealed class RideHub(
 
 		await Groups.AddToGroupAsync(Context.ConnectionId, Group(rideId));
 
+		// Recorded beside the group, never instead of it: the group is still how a batch reaches
+		// everybody, and this is only what lets one viewer's copy leave a blocked rider out (§16.5).
+		connections.Watch(rideId, userId, Context.ConnectionId);
+
 		// A second group for the people who decide who is on the ride (§5.2), so that a join
 		// request can be announced live without being announced to the fifty people it is not
 		// about. Mirrors RideController.CanDecideAsync exactly - if that ever admits a fourth
@@ -298,7 +329,12 @@ public sealed class RideHub(
 
 	/// <summary>Unsubscribes.</summary>
 	/// <param name="rideId">Which ride.</param>
-	public Task LeaveRide(Guid rideId) => LeaveGroupsAsync(Groups, Context.ConnectionId, rideId);
+	public Task LeaveRide(Guid rideId)
+	{
+		connections.Unwatch(rideId, Context.ConnectionId);
+
+		return LeaveGroupsAsync(Groups, Context.ConnectionId, rideId);
+	}
 
 	/// <summary>
 	/// Subscribes to a shared route's thread (§6.2).
@@ -519,6 +555,69 @@ public static class RidePrivacyBroadcast
 		foreach (Guid rideId in rideIds)
 		{
 			await hub.Clients.Group(RideHub.Group(rideId)).MemberPrivacyChanged(rideId, userId, isPrivate);
+		}
+	}
+}
+
+/// <summary>
+/// Telling the two people a block is between, and nobody else (§16.5).
+/// </summary>
+public static class RideBlockBroadcast
+{
+	/// <summary>
+	/// Sends <see cref="IRideClient.MemberBlockedChanged"/> to both parties, in every ride they
+	/// share, naming the <em>other</em> one.
+	/// <para>
+	/// <strong>Addressed to connections, not to a group.</strong> Every other broadcast in this
+	/// server goes to a ride's group; this one must not, because the other members of the adventure
+	/// have no business learning that two of them have fallen out. <see cref="RideConnections"/>
+	/// already tracks who is watching which ride, which is what makes a connection addressable
+	/// without leaking the message to the rest of the group.
+	/// </para>
+	/// <para>
+	/// Failures are swallowed. The block itself is committed by the time this runs; a client that
+	/// missed the message drops the pin on its next load, which is the same repair a dropped batch
+	/// gets.
+	/// </para>
+	/// </summary>
+	/// <param name="hub">The connections.</param>
+	/// <param name="connections">Who is watching what.</param>
+	/// <param name="rideIds">The rides both accounts are on.</param>
+	/// <param name="first">One party.</param>
+	/// <param name="second">The other.</param>
+	/// <param name="blocked">True on a block, false when it is lifted.</param>
+	public static async Task AnnounceBlockAsync(
+		this IHubContext<RideHub, IRideClient> hub,
+		RideConnections connections,
+		IReadOnlyList<Guid> rideIds,
+		Guid first,
+		Guid second,
+		bool blocked)
+	{
+		foreach (Guid rideId in rideIds)
+		{
+			foreach (RideWatcher watcher in connections.WatchersIn(rideId))
+			{
+				// Each side is told about the other, so neither message names who started it.
+				Guid other =
+					watcher.UserId == first ? second
+					: watcher.UserId == second ? first
+					: Guid.Empty;
+
+				if (other == Guid.Empty)
+				{
+					continue;
+				}
+
+				try
+				{
+					await hub.Clients.Client(watcher.ConnectionId).MemberBlockedChanged(rideId, other, blocked);
+				}
+				catch (Exception exception) when (exception is not OperationCanceledException)
+				{
+					// See the remarks - the next load repairs it.
+				}
+			}
 		}
 	}
 }

@@ -2,9 +2,23 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace DLR.Server.Hubs;
 
+/// <summary>One connection watching one ride, and the account behind it (§5.3, §16.5).</summary>
+/// <param name="UserId">Whose connection.</param>
+/// <param name="ConnectionId">Which connection.</param>
+public readonly record struct RideWatcher(Guid UserId, string ConnectionId);
+
 /// <summary>
-/// Which connections each account is holding, so that taking somebody off an adventure also takes
-/// them off its live feed (§5.2, §5.3).
+/// Which connections each account is holding, and which of them are watching each adventure
+/// (§5.2, §5.3, §16.5).
+/// <para>
+/// <strong>Two jobs, because they need the same bookkeeping.</strong> The first is eviction: taking
+/// somebody off an adventure has to take them off its live feed too. The second is addressing: a
+/// position batch that has to leave one rider out for one viewer (§16.5) needs that viewer's
+/// connections by name, and SignalR groups are write-only - a connection can be added to one or
+/// removed from one, never enumerated. Both answers come from knowing which connection belongs to
+/// which account on which ride, so they live together rather than in two classes indexing the same
+/// churn twice.
+/// </para>
 /// <para>
 /// <strong><see cref="RideHub.JoinRide"/> is a gate, not a standing subscription.</strong> It runs
 /// once, at the moment a connection asks to be added to the group, and nothing re-runs it - while
@@ -31,6 +45,12 @@ public sealed class RideConnections(IHubContext<RideHub, IRideClient> hub)
 
 	private readonly Dictionary<Guid, HashSet<string>> _byUser = [];
 
+	// Who is watching each ride, and which rides each connection watches. The second is only there
+	// so a disconnect can undo the first without sweeping every ride - a phone dropping its
+	// connection is the common case, not a rare one.
+	private readonly Dictionary<Guid, Dictionary<string, Guid>> _watchers = [];
+	private readonly Dictionary<string, HashSet<Guid>> _watching = new(StringComparer.Ordinal);
+
 	/// <summary>Records a connection.</summary>
 	/// <param name="userId">Whose.</param>
 	/// <param name="connectionId">Which connection.</param>
@@ -45,7 +65,7 @@ public sealed class RideConnections(IHubContext<RideHub, IRideClient> hub)
 		}
 	}
 
-	/// <summary>Forgets one.</summary>
+	/// <summary>Forgets one, and every ride it was watching.</summary>
 	/// <param name="userId">Whose.</param>
 	/// <param name="connectionId">Which connection.</param>
 	public void Remove(Guid userId, string connectionId)
@@ -58,6 +78,84 @@ public sealed class RideConnections(IHubContext<RideHub, IRideClient> hub)
 			{
 				_byUser.Remove(userId);
 			}
+
+			if (_watching.Remove(connectionId, out HashSet<Guid>? rides))
+			{
+				foreach (Guid rideId in rides)
+					DropWatcher(rideId, connectionId);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Records that a connection is now receiving a ride's position batches (§5.3).
+	/// <para>
+	/// SignalR can name a group but never enumerate one, and a batch that has to leave out one
+	/// rider's pin for one viewer has to be addressed to that viewer's connections by hand
+	/// (<see cref="RideBroadcastService"/>). This is the list that makes that addressable - and it
+	/// carries the account behind each connection, because the question asked of it is "who is
+	/// watching", not "what is connected".
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">Which ride's group the connection just entered.</param>
+	/// <param name="userId">Whose connection.</param>
+	/// <param name="connectionId">Which connection.</param>
+	public void Watch(Guid rideId, Guid userId, string connectionId)
+	{
+		lock (_gate)
+		{
+			if (!_watchers.TryGetValue(rideId, out Dictionary<string, Guid>? held))
+				_watchers[rideId] = held = new Dictionary<string, Guid>(StringComparer.Ordinal);
+
+			held[connectionId] = userId;
+
+			if (!_watching.TryGetValue(connectionId, out HashSet<Guid>? rides))
+				_watching[connectionId] = rides = [];
+
+			rides.Add(rideId);
+		}
+	}
+
+	/// <summary>Forgets one connection's interest in one ride.</summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <param name="connectionId">Which connection.</param>
+	public void Unwatch(Guid rideId, string connectionId)
+	{
+		lock (_gate)
+		{
+			DropWatcher(rideId, connectionId);
+
+			if (_watching.TryGetValue(connectionId, out HashSet<Guid>? rides)
+				&& rides.Remove(rideId)
+				&& rides.Count == 0)
+			{
+				_watching.Remove(connectionId);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Every connection currently receiving a ride's batches, with the account behind it.
+	/// </summary>
+	/// <param name="rideId">Which ride.</param>
+	/// <returns>A snapshot, safe to iterate while connections churn.</returns>
+	public IReadOnlyList<RideWatcher> WatchersIn(Guid rideId)
+	{
+		lock (_gate)
+		{
+			return _watchers.TryGetValue(rideId, out Dictionary<string, Guid>? held)
+				? [.. held.Select(watcher => new RideWatcher(watcher.Value, watcher.Key))]
+				: [];
+		}
+	}
+
+	private void DropWatcher(Guid rideId, string connectionId)
+	{
+		if (_watchers.TryGetValue(rideId, out Dictionary<string, Guid>? held)
+			&& held.Remove(connectionId)
+			&& held.Count == 0)
+		{
+			_watchers.Remove(rideId);
 		}
 	}
 
@@ -85,6 +183,8 @@ public sealed class RideConnections(IHubContext<RideHub, IRideClient> hub)
 
 		foreach (string connectionId in held)
 		{
+			Unwatch(rideId, connectionId);
+
 			await RideHub.LeaveGroupsAsync(hub.Groups, connectionId, rideId, cancellationToken);
 		}
 	}

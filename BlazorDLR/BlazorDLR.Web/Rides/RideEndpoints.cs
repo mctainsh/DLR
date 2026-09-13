@@ -671,9 +671,14 @@ public sealed class RideController : ControllerBase
 
 		bool isOrganiser = ride.OwnerId == callerId;
 
-		// Who actually has a fix. Kept apart from the sharing flag because "not sharing" and
-		// "no signal" mean different things to somebody waiting at a junction (§5.6).
-		IReadOnlySet<Guid> located = positions.Located(rideId);
+		// Once, and used twice below: it decides both which pins this caller may see and which rows
+		// say so (§16.5). BlockCache.HiddenFrom builds a fresh set per call, so asking it again for
+		// the second answer would be the same lock and the same allocation for the same fact.
+		IReadOnlySet<Guid> blocked = positions.HiddenFrom(callerId);
+
+		// Who actually has a fix this caller may see. Kept apart from the sharing flag because
+		// "not sharing" and "no signal" mean different things to somebody waiting at a junction (§5.6).
+		IReadOnlySet<Guid> located = positions.Located(rideId, blocked);
 
 		// The third reason a member can have no pin (§10.1). Read here rather than inferred from the
 		// empty position, because "at home and has said so" is a different fact from "in a tunnel" and
@@ -714,7 +719,8 @@ public sealed class RideController : ControllerBase
 					// member rather than with their position: the position batch goes out every
 					// tick and this changes about as often as a username does.
 					member.User.MarkerColour,
-					hidden.Contains(member.UserId)))]);
+					hidden.Contains(member.UserId),
+					blocked.Contains(member.UserId)))]);
 	}
 }
 
@@ -774,7 +780,14 @@ public sealed class RideMembers(
 				// The one flag that is neither on the membership row nor false by construction: a
 				// private area is a property of the rider, not of this ride, so somebody can join
 				// from their own kitchen and be hidden from the first moment (§10.1).
-				positions.PrivateRiders().Contains(member.UserId)),
+				positions.PrivateRiders().Contains(member.UserId),
+
+				// Left false, and it is the only field here that is not the truth for somebody. A
+				// block is per reader (§16.5) and this row goes to the whole group, so there is no
+				// value that is right for everybody - a reader who has blocked the joiner sees the
+				// row read "no signal" until their next load says "blocked". Nothing leaks by it:
+				// the joiner's position is filtered on every channel regardless of what this says.
+				Blocked: false),
 			logger);
 	}
 }

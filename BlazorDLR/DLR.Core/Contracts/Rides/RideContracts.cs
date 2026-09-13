@@ -152,6 +152,21 @@ public sealed record RidePermissions(
 /// construction rather than by a client agreeing to hide it.
 /// </para>
 /// </param>
+/// <param name="Blocked">
+/// Whether the reader has blocked this traveller, or been blocked by them (§16.5, §17.7).
+/// <para>
+/// <strong>The fourth reason a pin can be missing, and the only one that is about the reader
+/// rather than about the member.</strong> It is computed per reader, so two members of the same
+/// adventure receive different values on the same row - which is why it is on the summary at all
+/// rather than derived on the client from the reader's own block list: a block is symmetric on the
+/// map, and the half where somebody blocked <em>you</em> is not a list you are given.
+/// </para>
+/// <para>
+/// Set implies <paramref name="HasPosition"/> is false and no fix for this member reaches the
+/// reader on any channel. The member list says so in words beside the name, because "I blocked
+/// them" is the one reason for a missing pin that the reader can undo.
+/// </para>
+/// </param>
 public sealed record RideMemberSummary(
 	Guid UserId,
 	string UserName,
@@ -160,7 +175,8 @@ public sealed record RideMemberSummary(
 	bool Sharing = false,
 	bool HasPosition = false,
 	string? MarkerColour = null,
-	bool Private = false);
+	bool Private = false,
+	bool Blocked = false);
 
 /// <summary>
 /// One row of the "my rides" landing (§5.2). A summary rather than a full <see cref="RideDetail"/>

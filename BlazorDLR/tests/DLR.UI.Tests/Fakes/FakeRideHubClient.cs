@@ -40,6 +40,8 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<Guid, RidePermissions>? PermissionsChanged;
 	public event Action<Guid, Guid, bool>? MemberSharingChanged;
 	public event Action<Guid, Guid, bool>? MemberPrivacyChanged;
+
+	public event Action<Guid, Guid, bool>? MemberBlockedChanged;
 	public event Action<AnnouncementDto>? AnnouncementPosted;
 #pragma warning restore CS0067
 
@@ -168,6 +170,8 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public void RaiseMemberLeft(Guid rideId, Guid userId) => MemberLeft?.Invoke(rideId, userId);
 	public void RaiseMemberSharingChanged(Guid rideId, Guid userId, bool sharing) => MemberSharingChanged?.Invoke(rideId, userId, sharing);
 	public void RaiseMemberPrivacyChanged(Guid rideId, Guid userId, bool isPrivate) => MemberPrivacyChanged?.Invoke(rideId, userId, isPrivate);
+
+	public void RaiseMemberBlockedChanged(Guid rideId, Guid userId, bool blocked) => MemberBlockedChanged?.Invoke(rideId, userId, blocked);
 	public void RaiseMarkerAdded(Guid rideId, MarkerDto marker) => MarkerAdded?.Invoke(rideId, marker);
 	public void RaiseMarkerRemoved(Guid rideId, Guid markerId) => MarkerRemoved?.Invoke(rideId, markerId);
 	public void RaisePositionsUpdated(PositionBatch batch) => PositionsUpdated?.Invoke(batch);

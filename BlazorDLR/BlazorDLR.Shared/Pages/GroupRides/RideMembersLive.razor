@@ -1,6 +1,7 @@
 @page "/group-rides/members/{RideId:guid}"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
+@using DLR.Core.Contracts.Moderation
 @using DLR.Core.Contracts.Rides
 @using DLR.Core.Tracks
 @inject IApiClient Api
@@ -9,6 +10,7 @@
 @inject IServiceProvider Services
 @inject RideSnapshotCache Cache
 @inject RouteStyleState RouteStyles
+@inject ConfirmService Confirm
 @inject TimeProvider Clock
 @implements IAsyncDisposable
 
@@ -81,7 +83,13 @@
 						From="MyPoint"
 						SelfUserId="Auth.UserId"
 						OwnFix="@(HasOwnReceiver ? _broadcast?.OwnFix : null)"
+						OnBlock="BlockAsync"
 						@bind-Sort="_sort" />
+
+		@if (_blockError is not null)
+		{
+			<p class="error" role="alert">@_blockError</p>
+		}
 
 		@if (MyPoint is null)
 		{
@@ -126,6 +134,9 @@
 	/// not a preference worth outliving the app.
 	/// </summary>
 	private MemberSort _sort = MemberSort.LastActive;
+
+	private string? _blockError;
+	private bool _blocking;
 
 	/// <summary>
 	/// Redraws the ages between fixes. Started after first render - there is no clock worth
@@ -221,6 +232,58 @@
 				{ TotalDays: < 1 } => $"{(int)age.TotalHours} h ago",
 				_ => $"{(int)age.TotalDays} d ago",
 			};
+		}
+	}
+
+	/// <summary>
+	/// Blocks a traveller from this list, after asking (§16.5, §17.7).
+	/// <para>
+	/// <strong>Confirmed, because it is not symmetrical to undo.</strong> Blocking takes both pins
+	/// off both maps at once and the other party is told nothing; unblocking is three taps away in
+	/// Settings and the rider has to remember they did it. A one-tap block on a list read through a
+	/// visor at the side of a road would be a mis-tap somebody has to go looking for.
+	/// </para>
+	/// <para>
+	/// The ride is refetched rather than patched: the member row that says who is blocked is built
+	/// per reader on the server (<c>RideMemberSummary.Blocked</c>), and a client that edited its own
+	/// copy would be deciding a thing the server decides - the one shape §5.6 keeps insisting stays
+	/// on the side that cannot get it wrong.
+	/// </para>
+	/// </summary>
+	/// <param name="row">The traveller to block.</param>
+	private async Task BlockAsync(MemberRow row)
+	{
+		if (_blocking) return;
+
+		bool ok = await Confirm.AskAsync(
+			$"Block {row.UserName}?",
+			$"You will not see {row.UserName} on the map, and they will not see you. Their posts, "
+			+ "reactions, markers and poll votes are hidden from you too.\n"
+			+ "They are not told. You can undo this in Settings → Blocked travellers.",
+			confirmText: "Block",
+			danger: true);
+
+		if (!ok) return;
+
+		_blocking = true;
+		_blockError = null;
+
+		try
+		{
+			await Api.BlockUserAsync(new BlockUserRequest(row.UserId));
+			await _session.LoadAsync(RideId);
+		}
+		catch (ApiException refused)
+		{
+			_blockError = refused.Error.Title;
+		}
+		catch (Exception failure)
+		{
+			_blockError = failure.Message;
+		}
+		finally
+		{
+			_blocking = false;
 		}
 	}
 

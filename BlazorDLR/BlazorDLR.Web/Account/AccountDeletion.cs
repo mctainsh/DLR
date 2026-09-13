@@ -3,6 +3,7 @@ using DLR.Server.Data.Identity;
 using DLR.Server.Data.Moderation;
 using DLR.Server.Data.Rides;
 using DLR.Server.Hubs;
+using DLR.Server.Moderation;
 using DLR.Server.Tracks;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,11 +23,13 @@ namespace DLR.Server.Account;
 /// <param name="database">The one context.</param>
 /// <param name="blobs">Where the files are.</param>
 /// <param name="connections">The live connections this account still holds.</param>
+/// <param name="blocks">The map's block cache, which no cascade reaches (§16.5).</param>
 /// <param name="logger">Where a blob that would not delete is recorded.</param>
 public sealed class AccountDeletion(
 	DlrDbContext database,
 	IBlobStore blobs,
 	RideConnections connections,
+	BlockCache blocks,
 	ILogger<AccountDeletion> logger)
 {
 	/// <summary>Deletes the account's rows, evicts its connections, then deletes its blobs.</summary>
@@ -66,6 +69,11 @@ public sealed class AccountDeletion(
 		{
 			await connections.EvictAsync(rideId, userId, cancellationToken);
 		}
+
+		// The cache the live map filters on is memory, so the cascade above does not reach it. A
+		// stale entry would go on hiding a guid nobody holds any more - harmless until the day it
+		// is reissued, which is the kind of harmless worth one line here.
+		blocks.Forget(userId);
 
 		// Rows first, blobs second, and a failure here is logged rather than thrown. The account is
 		// already gone; answering 500 would say the deletion failed when it did not, and the §7.11

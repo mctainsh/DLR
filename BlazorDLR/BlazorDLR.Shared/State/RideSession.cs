@@ -672,6 +672,7 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MemberLeft += OnMemberLeft;
 		_hub.MemberSharingChanged += OnMemberSharing;
 		_hub.MemberPrivacyChanged += OnMemberPrivacy;
+		_hub.MemberBlockedChanged += OnMemberBlocked;
 		_hub.MarkerAdded += OnMarkerUpserted;
 		_hub.MarkerUpdated += OnMarkerUpserted; // same treatment - upsert
 		_hub.MarkerRemoved += OnMarkerRemoved;
@@ -689,6 +690,7 @@ public sealed class RideSession : IAsyncDisposable
 		_hub.MemberLeft -= OnMemberLeft;
 		_hub.MemberSharingChanged -= OnMemberSharing;
 		_hub.MemberPrivacyChanged -= OnMemberPrivacy;
+		_hub.MemberBlockedChanged -= OnMemberBlocked;
 		_hub.MarkerAdded -= OnMarkerUpserted;
 		_hub.MarkerUpdated -= OnMarkerUpserted;
 		_hub.MarkerRemoved -= OnMarkerRemoved;
@@ -822,6 +824,38 @@ public sealed class RideSession : IAsyncDisposable
 		};
 
 		if (isPrivate)
+		{
+			_positions.Remove(userId);
+		}
+
+		Raise();
+	}
+
+	/// <summary>
+	/// This reader and one other member were just separated, or put back together (§16.5).
+	/// <para>
+	/// The position goes with the flag, for <see cref="OnMemberPrivacy"/>'s reason and with a
+	/// sharper edge: a batch only ever lists the riders the server has a fix for, so a client left
+	/// to work it out from the batches would go on drawing the other party's last pin for the rest
+	/// of the adventure. The one pin a block must not leave on screen is that one.
+	/// </para>
+	/// <para>
+	/// Lifting a block restores nothing here. There is nothing to restore - the position was
+	/// dropped, not withheld - and the next batch is five seconds away (§5.3).
+	/// </para>
+	/// </summary>
+	private void OnMemberBlocked(Guid rideId, Guid userId, bool blocked)
+	{
+		if (rideId != _rideId || Ride is null) return;
+
+		Ride = Ride with
+		{
+			Members = Ride.Members
+				.Select(member => member.UserId == userId ? member with { Blocked = blocked } : member)
+				.ToList(),
+		};
+
+		if (blocked)
 		{
 			_positions.Remove(userId);
 		}

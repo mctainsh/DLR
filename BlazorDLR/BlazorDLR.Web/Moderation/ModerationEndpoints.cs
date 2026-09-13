@@ -7,9 +7,11 @@ using DLR.Server.Data.Identity;
 using DLR.Server.Data.Markers;
 using DLR.Server.Data.Moderation;
 using DLR.Server.Data.Rides;
+using DLR.Server.Hubs;
 using DLR.Server.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace DLR.Server.Moderation;
@@ -226,6 +228,9 @@ public sealed class ModerationController : ControllerBase
 		[FromBody] BlockUserRequest request,
 		[FromServices] DlrDbContext database,
 		[FromServices] TimeProvider clock,
+		[FromServices] BlockCache blocks,
+		[FromServices] IHubContext<RideHub, IRideClient> hub,
+		[FromServices] RideConnections connections,
 		CancellationToken cancellationToken)
 	{
 		if (User.UserId() is not { } userId)
@@ -268,7 +273,23 @@ public sealed class ModerationController : ControllerBase
 			await database.SaveChangesAsync(cancellationToken);
 		}
 
-		// No content, and nothing is sent to the person blocked. A block that announced itself
+		// After the commit, never before. This cache is what the live map filters on (§16.5), and a
+		// block recorded there that then failed to save would hide a traveller until the next
+		// restart with nothing in the table to explain it. Idempotent, so the already-blocked path
+		// falls through to it too - which is the repair for an entry a restart lost.
+		blocks.Block(userId, request.UserId);
+
+		// The two of them, and nobody else on the adventure. Without this the other party's client
+		// keeps drawing this caller's last pin for the rest of the ride - a batch lists the riders
+		// the server has a fix for and never says "and this one is gone" (see MemberBlockedChanged).
+		await hub.AnnounceBlockAsync(
+			connections,
+			await SharedMembershipRideIdsAsync(database, userId, request.UserId, cancellationToken),
+			userId,
+			request.UserId,
+			blocked: true);
+
+		// No content, and the person blocked is not told who did it. A block that announced itself
 		// would turn a quiet decision into the confrontation it exists to avoid (§16.5).
 		return NoContent();
 	}
@@ -278,6 +299,9 @@ public sealed class ModerationController : ControllerBase
 	public async Task<IActionResult> UnblockAsync(
 		[FromRoute] Guid userId,
 		[FromServices] DlrDbContext database,
+		[FromServices] BlockCache blocks,
+		[FromServices] IHubContext<RideHub, IRideClient> hub,
+		[FromServices] RideConnections connections,
 		CancellationToken cancellationToken)
 	{
 		if (User.UserId() is not { } blockerId)
@@ -297,6 +321,21 @@ public sealed class ModerationController : ControllerBase
 
 			await database.SaveChangesAsync(cancellationToken);
 		}
+
+		// Only this direction. If the other party blocked back, their block stands and the two stay
+		// invisible to each other - see BlockCache.Unblock.
+		blocks.Unblock(blockerId, userId);
+
+		// Asked after the removal, so a surviving block back is reported as the block it still is
+		// rather than as the one that was just lifted.
+		bool stillHidden = blocks.HiddenFrom(blockerId).Contains(userId);
+
+		await hub.AnnounceBlockAsync(
+			connections,
+			await SharedMembershipRideIdsAsync(database, blockerId, userId, cancellationToken),
+			blockerId,
+			userId,
+			blocked: stillHidden);
 
 		return NoContent();
 	}
@@ -325,6 +364,27 @@ public sealed class ModerationController : ControllerBase
 
 		return Ok(blocked);
 	}
+
+	/// <summary>
+	/// The adventures both accounts are on - the only ones where a block changes what either of
+	/// them can see (§16.5).
+	/// </summary>
+	private static async Task<IReadOnlyList<Guid>> SharedMembershipRideIdsAsync(
+		DlrDbContext database,
+		Guid first,
+		Guid second,
+		CancellationToken cancellationToken) =>
+		await database
+			.Set<GroupRideMember>()
+			.AsNoTracking()
+			.Where(member => member.UserId == first)
+			.Select(member => member.GroupRideId)
+			.Intersect(database
+				.Set<GroupRideMember>()
+				.AsNoTracking()
+				.Where(member => member.UserId == second)
+				.Select(member => member.GroupRideId))
+			.ToListAsync(cancellationToken);
 
 	private static Task<bool> IsMemberAsync(
 		DlrDbContext database,

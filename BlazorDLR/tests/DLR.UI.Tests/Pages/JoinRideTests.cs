@@ -119,34 +119,37 @@ public sealed class JoinRideTests : PageTestContext
 	}
 
 	[Fact]
-	public async Task Joining_OnAPhone_StartsSharingWithTheAdventure()
+	public async Task Joining_OnAPhone_DoesNotStartSharing_BecauseNobodyHasBeenAskedYet()
 	{
-		// §5.6's default was "off, and ask on the map". What that produced in the field was a
-		// rider who had joined, believed they were on the map, and was not - the group finds out
-		// by ringing to ask where they got to. Typing an organiser's code into your own phone is
-		// the decision; the switch on the info page and the red strip on the map are how it is
-		// unmade.
-		Guid rideId = Guid.NewGuid();
+		// This used to turn sharing on, on the argument that typing in an organiser's code is
+		// itself the decision. App Review rejected 8.0.0 under guideline 5.1.2(i) for it: a
+		// traveller has to be asked before their location is shown to other people, and has to be
+		// able to say no. A default is not an ask.
+		//
+		// It also silently disabled the ask. GroupRideLive raises the §5.6 consent prompt only
+		// while sharing is off, so a joiner arriving with the flag already set was never shown it.
+		// The ride screen is where the question is put; this page's job is to get them there.
 		FakeApiClient api = WirePhone();
-		api.JoinResult = new JoinResult(rideId, Joined: true, RequestId: null);
+		api.JoinResult = new JoinResult(Guid.NewGuid(), Joined: true, RequestId: null);
 
 		IRenderedComponent<JoinRide> component = Render<JoinRide>();
 		await JoinAsync(component);
 
 		component.WaitForAssertion(
-			() => api.SetSharingRequests.ShouldNotBeEmpty(),
+			() => api.LastJoinRideByCodeRequest.ShouldNotBeNull(),
 			timeout: TimeSpan.FromSeconds(3));
 
-		(Guid SharedRide, SetSharingRequest Request) sent = api.SetSharingRequests.ShouldHaveSingleItem();
-		sent.SharedRide.ShouldBe(rideId, "the flag is per adventure - this one, not the last one opened.");
-		sent.Request.Share.ShouldBeTrue();
+		api.SetSharingRequests.ShouldBeEmpty(
+			"joining is not consent to be shown on a map - the ride screen asks, and takes no for an answer.");
 	}
 
 	[Fact]
 	public async Task Joining_InABrowser_DoesNotTouchSharing()
 	{
-		// §18.6: no receiver here, so the flag would be a consent record no fix will ever follow -
-		// and a traveller watching from a laptop has not agreed to anything by typing a code.
+		// The same answer as the phone above, reached by a second route: §18.6 says there is no
+		// receiver here at all, so the flag would be a consent record no fix could ever follow.
+		// Kept as its own test because the two reasons are independent - if joining ever starts
+		// setting the flag again, this is the one that still has to hold.
 		FakeApiClient api = WireServices();
 		api.JoinResult = new JoinResult(Guid.NewGuid(), Joined: true, RequestId: null);
 
