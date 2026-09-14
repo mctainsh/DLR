@@ -474,11 +474,12 @@ public sealed class MapSettingsTests : PageTestContext
 	}
 
 	/// <summary>
-	/// A download does not select what it fetched. A rider adding Victoria while riding on the New
-	/// South Wales pack should keep drawing the map in front of them.
+	/// A download selects what it fetched, over whatever pack was drawing before it. Nobody waits
+	/// out several hundred megabytes for a map they did not mean to use, and the earlier rule -
+	/// fetch it, list it, leave it - made the transfer look like it had done nothing.
 	/// </summary>
 	[Fact]
-	public async Task DownloadingAPack_DoesNotSwitchTheMapToIt()
+	public async Task DownloadingAPack_SwitchesTheMapToIt()
 	{
 		MapSourceState state = Wire();
 		_packs.Add("au-tas", [1, 2, 3, 4]);
@@ -492,10 +493,35 @@ public sealed class MapSettingsTests : PageTestContext
 		await page.InvokeAsync(() => page.Find("button.download").Click());
 
 		page.WaitForAssertion(
-			() => page.FindAll("select.offers option")[1].TextContent.ShouldContain("(on this phone)"),
+			() => page.Find("ul.packs li.chosen .name").TextContent.ShouldContain("New South Wales"),
 			timeout: TimeSpan.FromSeconds(3));
 
-		state.Chosen.PackId.ShouldBe("au-tas", "switching is a separate, deliberate tap.");
+		state.Chosen.PackId.ShouldBe("au-nsw", "the list has to agree with what is being drawn.");
+	}
+
+	/// <summary>
+	/// A download that failed leaves the rider on the map they had. Selecting the id anyway would
+	/// point the source at an archive that is not there, which falls back to a blank map.
+	/// </summary>
+	[Fact]
+	public async Task ADownloadThatFails_LeavesTheSelectedPackAlone()
+	{
+		_archive.Status = HttpStatusCode.NotFound;
+		MapSourceState state = Wire();
+		_packs.Add("au-tas", [1, 2, 3, 4]);
+
+		IRenderedComponent<Maps> page = RenderPage();
+		await ChooseOfflineAsync(page);
+
+		WaitForCatalogue(page);
+		await ChoosePackToDownloadAsync(page, "au-nsw");
+		await page.InvokeAsync(() => page.Find("button.download").Click());
+
+		page.WaitForAssertion(
+			() => page.Find("fieldset.catalogue .status").TextContent.ShouldContain("404"),
+			timeout: TimeSpan.FromSeconds(3));
+
+		state.Chosen.PackId.ShouldBe("au-tas");
 	}
 
 	/// <summary>

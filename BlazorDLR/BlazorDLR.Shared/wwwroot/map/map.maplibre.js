@@ -527,6 +527,14 @@ function addCompass(maplibregl, map, hostElement) {
     sync();
 }
 
+// How long one kind of base-map failure stays quiet after it has been reported once. An
+// unreachable source raises an error per tile, per glyph range and per sprite, and again on every
+// camera move - each one used to cross the bridge SkiaMapOverlay blits its frames over.
+const ERROR_REPEAT_MS = 2000;
+
+// A style whose every request fails with its own status would otherwise grow this map all ride.
+const ERROR_KINDS_TRACKED = 32;
+
 export async function createMap(hostElement, options, callbacks) {
     if (!hostElement) {
         throw new Error("map.maplibre.js: hostElement is required.");
@@ -707,10 +715,32 @@ export async function createMap(hostElement, options, callbacks) {
     // Offline packs made this urgent: a pack served over the wrong scheme, an archive the WebView
     // will not fetch, a style whose glyphs 404, all look identical from the outside.
     //
-    // Deliberately not filtered here. What is worth showing a rider is a decision for the shared
-    // component, which can see whether the map ever drew anything; this end just reports.
+    // Coalesced by kind - see ERROR_REPEAT_MS. Which of them is worth showing a rider is still the
+    // shared component's decision; this end only stops saying the same thing per tile.
+    const errorReports = new Map();
+
     map.on("error", (event) => {
         const error = event?.error;
+
+        // Keyed on what does not vary per tile, and built before anything else so a suppressed
+        // error costs this and a lookup. Not the message: it carries the failing tile's own URL,
+        // so keying on it would coalesce nothing. The source is absent because setSource clears.
+        const kind = `${error?.name ?? "Error"}|${error?.status ?? ""}|${event?.sourceId ?? ""}`;
+
+        const now = Date.now();
+        const seen = errorReports.get(kind);
+
+        if (seen && now - seen.at < ERROR_REPEAT_MS) {
+            seen.suppressed++;
+            return;
+        }
+
+        // Oldest out rather than a clear: dropping every window at once would let all 32 kinds
+        // report in full again on their next tile, which is the burst this exists to prevent.
+        if (!seen && errorReports.size >= ERROR_KINDS_TRACKED) errorReports.delete(errorReports.keys().next().value);
+
+        // A fresh record, so `seen` below still carries the count this report is standing for.
+        errorReports.set(kind, { at: now, suppressed: 0 });
 
         // The URL and status matter more than the message. MapLibre parses tiles AND glyphs with
         // the same protobuf decoder, so a failed glyph fetch and a failed tile fetch produce the
@@ -733,10 +763,20 @@ export async function createMap(hostElement, options, callbacks) {
         // pack from the OSM fallback.
         parts.push(`using: ${describeSource(currentSource)}`);
 
-        // Console too: on a phone this is what a remote debugger shows, and it carries the whole
-        // object rather than the one line that fits on screen.
-        console.error("[dlr-map]", error ?? event, event);
-        dispatch(callbacks?.onMapError, "OnMapError", parts.join(" - "));
+        // How hard it is failing, which is what the one-per-tile flood used to convey.
+        if (seen?.suppressed) parts.push(`${seen.suppressed} more since`);
+
+        const message = parts.join(" - ");
+
+        // The whole object only the first time a kind is seen - a repeat is the same graph again,
+        // and dumping it per tile was most of what this handler cost.
+        if (seen) {
+            console.warn(`[dlr-map] still failing - ${message}`);
+        } else {
+            console.error("[dlr-map]", error ?? event, event);
+        }
+
+        dispatch(callbacks?.onMapError, "OnMapError", message);
     });
 
     // The rider taking the map back off an automatic mode (§5.3).
@@ -895,6 +935,7 @@ export async function createMap(hostElement, options, callbacks) {
             // first one about this pack. C# clears its side on the same event.
             packSourceName = packSourceNameOf(restyled);
             lastCoverageKey = null;
+            errorReports.clear();
 
             map.setStyle(restyled, { diff: false });
 

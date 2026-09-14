@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	Auto Backup, API 23-30 (§4.5). Android 12 and above reads data_extraction_rules.xml beside
+	this instead, and both have to say the same thing.
+
+	Downloaded map packs are excluded. Auto Backup allows 25 MB per app and a pack is several
+	hundred, so including them does not preserve a rider's map - it fails the whole backup, taking
+	the settings and the ride cache that would otherwise have been restored. The archives are
+	re-fetchable from the catalogue; nothing else here is.
+-->
+<full-backup-content>
+	<exclude domain="file" path="mappacks" />
+</full-backup-content>

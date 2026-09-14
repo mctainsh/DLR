@@ -1016,14 +1016,6 @@
 	}
 
 	/// <summary>
-	/// Fetches one of the packs on offer, filing it under the catalogue's id.
-	/// <para>
-	/// Nothing is selected as a result. A rider adding Victoria while riding on the New South Wales
-	/// pack should keep drawing the map they are looking at - the new one appears in the list above
-	/// and switching to it is a separate, deliberate tap.
-	/// </para>
-	/// </summary>
-	/// <summary>
 	/// Fetches whatever the dropdown is showing. The button is disabled with nothing picked, so this
 	/// is a guard against a programmatic caller rather than a path a rider can take.
 	/// </summary>
@@ -1035,6 +1027,15 @@
 		}
 	}
 
+	/// <summary>
+	/// Fetches one of the packs on offer, filing it under the catalogue's id, and draws with it.
+	/// <para>
+	/// A pack that arrives is selected. Fetching one is several hundred megabytes and a wait, and
+	/// nobody spends that on a map they did not want to use; leaving it listed but unselected meant
+	/// the download appeared to have done nothing until a second tap in a list the rider had no
+	/// reason to look at again.
+	/// </para>
+	/// </summary>
 	/// <param name="offer">Which pack.</param>
 	private async Task DownloadAsync(MapPackOffer offer)
 	{
@@ -1050,7 +1051,10 @@
 		if (Packs.IsDownloading)
 			return;
 
-		await Packs.DownloadAsync(offer);
+		if (await Packs.DownloadAsync(offer))
+		{
+			await ChoosePackAsync(offer.Id);
+		}
 	}
 
 	/// <summary>

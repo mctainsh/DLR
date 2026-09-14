@@ -180,7 +180,8 @@ public sealed class MapPackState
 	/// <c>MapSource</c> stores, so two devices holding New South Wales agree on what it is called.
 	/// </summary>
 	/// <param name="offer">Which pack from the catalogue.</param>
-	public Task DownloadAsync(MapPackOffer offer) => DownloadAsync(offer.Id, offer.Url);
+	/// <returns>Whether the archive landed on this device.</returns>
+	public Task<bool> DownloadAsync(MapPackOffer offer) => DownloadAsync(offer.Id, offer.Url);
 
 	/// <summary>Whether this device already holds a pack, and what it knows about it.</summary>
 	/// <param name="packId">Which pack - a catalogue id.</param>
@@ -198,10 +199,11 @@ public sealed class MapPackState
 	/// </summary>
 	/// <param name="packId">What to call it here.</param>
 	/// <param name="url">Where to fetch it from.</param>
-	public async Task DownloadAsync(string packId, Uri url)
+	/// <returns>Whether the archive landed on this device - what the settings screen selects on.</returns>
+	public async Task<bool> DownloadAsync(string packId, Uri url)
 	{
 		if (IsDownloading)
-			return;
+			return false;
 
 		using CancellationTokenSource cancelling = new();
 		_cancelling = cancelling;
@@ -223,6 +225,7 @@ public sealed class MapPackState
 				cancelling.Token);
 
 			Status = result.Message;
+			return result.Succeeded;
 		}
 		finally
 		{

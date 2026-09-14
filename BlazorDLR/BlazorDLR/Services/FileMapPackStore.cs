@@ -14,6 +14,14 @@ namespace BlazorDLR.Services;
 /// the feature rather than a nicety.
 /// </para>
 /// <para>
+/// <strong>Kept out of backups.</strong> On Apple platforms the root carries
+/// <c>NSURLIsExcludedFromBackupKey</c> (see <see cref="ExcludeFromBackup"/>); on Android the
+/// equivalent is <c>Platforms/Android/Resources/xml/backup_rules.xml</c> and its Android 12+ twin.
+/// A pack is several hundred megabytes of content the catalogue will hand back for nothing, and
+/// both platforms treat copying that to a cloud as a fault - Apple rejects builds for it, and
+/// Android's 25 MB quota means the pack does not go without taking the rest of the backup with it.
+/// </para>
+/// <para>
 /// <strong>One directory per pack: <c>mappacks/{packId}/v{version}.pmtiles</c>.</strong> The
 /// obvious flat layout - <c>{packId}.v{version}.pmtiles</c> - cannot be parsed back reliably,
 /// because a catalogue id is free to contain a dot and the version then stops being findable.
@@ -47,6 +55,10 @@ public sealed class FileMapPackStore : IMapPackStore
 		{
 			if (Directory.Exists(Root))
 			{
+				// Here as well as after a download: a pack fetched by a build that predates the flag
+				// is only ever seen again through this method.
+				ExcludeFromBackup();
+
 				foreach (string directory in Directory.EnumerateDirectories(Root))
 				{
 					cancellationToken.ThrowIfCancellationRequested();
@@ -74,6 +86,10 @@ public sealed class FileMapPackStore : IMapPackStore
 		{
 			return ValueTask.FromResult<Stream?>(null);
 		}
+
+		// The one path a rider takes without opening the settings screen, so it is what marks a
+		// pack downloaded before this flag existed.
+		ExcludeFromBackup();
 
 		try
 		{
@@ -144,6 +160,7 @@ public sealed class FileMapPackStore : IMapPackStore
 		try
 		{
 			Directory.CreateDirectory(folder);
+			ExcludeFromBackup();
 
 			string path = PartialPathFor(folder, version);
 
@@ -265,6 +282,46 @@ public sealed class FileMapPackStore : IMapPackStore
 	}
 
 	private static string Root => Path.Combine(FileSystem.AppDataDirectory, FolderName);
+
+#if IOS || MACCATALYST
+	/// <summary>Whether the flag has been set this run. It persists on the folder; setting it again is only waste.</summary>
+	private static bool _excluded;
+#endif
+
+	/// <summary>
+	/// Marks the pack folder as not-for-backup on Apple platforms, where that is an attribute on the
+	/// folder rather than a manifest rule (Android's equivalent is <c>backup_rules.xml</c> and its
+	/// Android 12+ twin).
+	/// <para>
+	/// Set on the root, which covers every archive written under it, now or later. Apple's storage
+	/// guidelines are explicit that re-downloadable content must stay out of iCloud, and it is a
+	/// rejection reason rather than advice - several hundred megabytes of map per pack is exactly
+	/// what they mean by it.
+	/// </para>
+	/// <para>
+	/// Failure is ignored. A pack that is backed up costs a rider iCloud quota rather than the map,
+	/// and there is nothing this store could usefully say about it.
+	/// </para>
+	/// </summary>
+	private static void ExcludeFromBackup()
+	{
+#if IOS || MACCATALYST
+		if (_excluded)
+			return;
+
+		_excluded = true;
+
+		try
+		{
+			using Foundation.NSUrl url = Foundation.NSUrl.FromFilename(Root);
+			url.SetResource(Foundation.NSUrl.IsExcludedFromBackupKey, Foundation.NSNumber.FromBoolean(true));
+		}
+		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+		{
+			// See the summary: nothing to recover, and nothing to tell the rider.
+		}
+#endif
+	}
 
 	/// <summary>
 	/// Where a pack's archives live, or <c>null</c> for an id this store refuses.

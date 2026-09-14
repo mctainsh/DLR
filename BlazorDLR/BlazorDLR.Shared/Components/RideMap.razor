@@ -304,21 +304,22 @@ else if (_tileError is not null)
 	/// <summary>
 	/// The first thing the base map said it could not do, or null while it is drawing fine.
 	/// <para>
-	/// <strong>First only.</strong> One unreachable source raises an error per tile, so keeping the
-	/// latest would flicker a different message several times a second, and keeping all of them
-	/// would bury the one that mattered under its own repetitions.
+	/// <strong>First only.</strong> Several kinds of failure can be live at once - a tile source
+	/// and the glyphs it needs - so keeping the latest would swap the banner between them, and
+	/// keeping all of them would bury the one that mattered.
 	/// </para>
 	/// </summary>
 	private string? _tileError;
 
 	/// <summary>
-	/// How many errors the base map has raised over this component's life. Shown nowhere - it is
+	/// How many reports the base map has sent over this component's life. Shown nowhere - it is
 	/// the log's, and it is what separates one bad glyph from a source that cannot be read at all.
+	/// <para>
+	/// Reports, not errors: <c>map.maplibre.js</c> coalesces a failing source to one report per
+	/// kind per <c>ERROR_REPEAT_MS</c> and carries the errors it swallowed in the message text.
+	/// </para>
 	/// </summary>
 	private int _mapErrors;
-
-	/// <summary>How often a continuing failure repeats itself in the log. See <see cref="OnMapError"/>.</summary>
-	private const int MapErrorLogEvery = 50;
 
 	/// <summary>
 	/// When <see cref="RetryOfflineSourceAsync"/> last re-resolved, on the monotonic tick count, or
@@ -564,25 +565,19 @@ else if (_tileError is not null)
 	/// <see cref="_tileError"/> - and told to the caller on the same terms.
 	/// <para>
 	/// <strong>Logged on different terms from the ones it is shown on.</strong> The screen keeps
-	/// the first message because a source that cannot be read raises one per tile and a flickering
-	/// banner helps nobody. The log wants the opposite: whether a map failed once on a bad glyph or
-	/// is failing continuously is most of the diagnosis, and it is invisible on screen. So the
-	/// first is written in full and the count is written every so often after it - which is how a
-	/// rider's log says "this map never drew a tile" rather than "something went wrong once".
+	/// the first message because a flickering banner helps nobody. The log wants the opposite:
+	/// whether a map failed once on a bad glyph or is failing continuously is most of the
+	/// diagnosis, and it is invisible on screen. Every report is written, because the module on
+	/// the other side has already coalesced them - see <see cref="_mapErrors"/>.
 	/// </para>
 	/// </summary>
 	private void OnMapError(string message)
 	{
 		_mapErrors++;
 
-		if (_mapErrors == 1)
-		{
-			DiagnosticLog.Write($"Base map error, drawing {_appliedSource?.Kind.ToString() ?? "nothing yet"}: {message}");
-		}
-		else if (_mapErrors % MapErrorLogEvery == 0)
-		{
-			DiagnosticLog.Write($"Base map error #{_mapErrors} (still failing): {message}");
-		}
+		DiagnosticLog.Write(_mapErrors == 1
+			? $"Base map error, drawing {_appliedSource?.Kind.ToString() ?? "nothing yet"}: {message}"
+			: $"Base map error #{_mapErrors} (still failing): {message}");
 
 		if (_tileError is not null)
 		{

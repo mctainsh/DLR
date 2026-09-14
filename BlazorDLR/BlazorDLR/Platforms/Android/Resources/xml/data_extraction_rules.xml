@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	Android 12+ (§4.5). The API 23-30 form of the same rule is backup_rules.xml beside this.
+
+	<cloud-backup> excludes downloaded map packs, for the reason given there: a pack is several
+	hundred megabytes against a 25 MB quota, and a backup that overruns takes the small things
+	with it.
+
+	<device-transfer> deliberately does NOT exclude them. Moving to a new phone has no quota and
+	no upload behind it, and a pack that comes across is a map the rider does not have to find
+	Wi-Fi to fetch again - which is the whole point of having downloaded it.
+-->
+<data-extraction-rules>
+	<cloud-backup>
+		<exclude domain="file" path="mappacks" />
+	</cloud-backup>
+</data-extraction-rules>
