@@ -45,5 +45,18 @@ internal static class MapTestHelpers
 		services.AddScoped<IMapPackStore, UnavailableMapPackStore>();
 		services.AddScoped<MapSourceState>();
 		services.AddScoped<RouteStyleState>();
+
+		// The map offers a pack for the ground it is on (§4.2), so this resolves wherever a map
+		// renders. Nothing here reaches the network by default: the pack store above is the
+		// browser's, which makes OfflineMapOfferState.IsSupported false, and that is the first
+		// test in every method on it - so the catalogue client is constructed and never used.
+		services.AddScoped(sp => new MapPackDownloader(
+			sp.GetRequiredService<IMapPackStore>(),
+			MapPackDownloader.CreateCredentialFreeClient()));
+		services.AddScoped(_ => new MapPackCatalogue(
+			MapPackCatalogue.CreateCredentialFreeClient(),
+			new Uri(MapPackCatalogue.DefaultUrl)));
+		services.AddScoped<MapPackState>();
+		services.AddScoped<OfflineMapOfferState>();
 	}
 }

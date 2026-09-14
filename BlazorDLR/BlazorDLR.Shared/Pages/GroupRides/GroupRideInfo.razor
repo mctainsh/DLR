@@ -1,6 +1,7 @@
 @page "/group-rides/{RideId:guid}/info"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Components
+@using BlazorDLR.Shared.Diagnostics
 @using DLR.Core.Contracts.Rides
 @using DLR.Core.Contracts.Tracks
 @using DLR.Core.Tracks
@@ -13,6 +14,7 @@
 @inject NavigationManager Nav
 @inject RideSnapshotCache Cache
 @inject RouteStyleState RouteStyles
+@inject OfflineMapOfferState Offers
 @implements IAsyncDisposable
 
 @*
@@ -225,6 +227,25 @@
 					}
 				}
 			</div>
+
+			@*
+				Whether this adventure's ground is on the phone (§4.2). A fact about the ride rather
+				than a prompt, which is why it carries no "Not now" - and planning is the one moment
+				a several-hundred-megabyte download over wifi is a reasonable thing to ask for.
+			*@
+			@if (_offlineOffer is { } pack)
+			{
+				<div class="offline-map">
+					<h3>Offline map</h3>
+					<OfflineMapOffer Suggestion="pack"
+									 ShowDismiss="false"
+									 Headline="@(pack.IsOnDevice
+										 ? "You already have a map for this ground"
+										 : "There is an offline map for this ground")"
+									 Detail="@($"{pack.Offer.Name} covers this adventure's routes and works with no signal.")"
+									 OnTaken="OnOfflineOfferTaken" />
+				</div>
+			}
 
 			@*
 				How this device draws those routes (§18.6). It sits directly under the route
@@ -698,7 +719,46 @@
 
 	private static string FormatKm(double metres) => $"{metres / 1000:0.0} km";
 
-	private void OnSessionChanged() => _ = InvokeAsync(StateHasChanged);
+	private void OnSessionChanged() => _ = InvokeAsync(async () =>
+	{
+		StateHasChanged();
+		await RefreshOfflineOfferAsync();
+	});
+
+	/// <summary>The pack covering this adventure's routes, or null when there is nothing to say.</summary>
+	private OfflineMapSuggestion? _offlineOffer;
+
+	/// <summary>Looks for a pack covering every route on the adventure (§5.4).</summary>
+	private async Task RefreshOfflineOfferAsync()
+	{
+		if (!Offers.IsSupported)
+			return;
+
+		// A ride with no route yet is a ride with no ground to cover. The box is RideSession's, and
+		// derived once per route list - this runs on every hub delta and every GPS fix.
+		if (_session.RoutesBounds is not { } box)
+		{
+			_offlineOffer = null;
+			return;
+		}
+
+		try
+		{
+			_offlineOffer = await Offers.SuggestAsync(box);
+		}
+		catch (Exception exception)
+		{
+			// The catalogue lives on a host that is not the API. This page is about the adventure,
+			// and a rider who cannot reach that host is told nothing rather than told about it.
+			DiagnosticLog.WriteError("looking for a map pack covering this adventure", exception);
+			return;
+		}
+
+		StateHasChanged();
+	}
+
+	/// <summary>The pack is here and every map is drawing with it, so the row has nothing left to offer.</summary>
+	private void OnOfflineOfferTaken() => _offlineOffer = null;
 
 	private Task ToggleSharingAsync(ChangeEventArgs args) =>
 		_session.SetSharingAsync(args.Value is bool wants && wants);

@@ -156,6 +156,20 @@ public sealed class RideSession : IAsyncDisposable
 	public IReadOnlyList<RideRoute> Routes { get; private set; } = [];
 
 	/// <summary>
+	/// The ground every route covers, or null when the ride has none that published a usable box.
+	/// <para>
+	/// Every route, not the first: §5.4 lets a ride hold the short option and the long one, and a
+	/// box round one of them leaves the other outside it. Ill-formed boxes are dropped rather than
+	/// merged - one corner at a longitude of 1000 would cover the whole world.
+	/// </para>
+	/// <para>
+	/// Derived once per route list rather than per read: the callers are a map framing itself and
+	/// a page that re-renders on every hub delta and every GPS fix.
+	/// </para>
+	/// </summary>
+	public TrackBounds? RoutesBounds { get; private set; }
+
+	/// <summary>
 	/// The points §5.4's gap list projects riders against, or null when the ride has no routes.
 	/// <para>
 	/// <strong>The first route, when there are several.</strong> "Distance along the route" needs
@@ -906,6 +920,11 @@ public sealed class RideSession : IAsyncDisposable
 	private void ApplyRoutes(IReadOnlyList<RideRoute> routes)
 	{
 		Routes = routes;
+
+		RoutesBounds = TrackBounds.Around([.. routes
+			.Select(route => route.Bounds)
+			.OfType<TrackBounds>()
+			.Where(box => box.IsWellFormed)]);
 
 		// The first route, and only the first. "Distance along the route" needs one line to be
 		// along; the oldest attachment is the one that does not move when the organiser adds

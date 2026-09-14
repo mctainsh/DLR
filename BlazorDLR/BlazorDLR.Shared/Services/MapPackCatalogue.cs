@@ -62,6 +62,41 @@ public sealed record MapPackCatalogueResult(IReadOnlyList<MapPackOffer> Packs, s
 }
 
 /// <summary>
+/// Which published extracts cover some ground (§4.2).
+/// <para>
+/// Smallest first, because the most specific area containing a point is the one somebody pointing
+/// at it means, and it is the smaller download of the two. An offer that published no box cannot
+/// answer for any ground, so it is never returned.
+/// </para>
+/// </summary>
+public static class MapPackCoverage
+{
+	/// <summary>The offers covering a point, smallest first.</summary>
+	/// <param name="offers">What the catalogue published.</param>
+	/// <param name="latitudeDeg">Decimal degrees.</param>
+	/// <param name="longitudeDeg">Decimal degrees.</param>
+	public static IEnumerable<MapPackOffer> Covering(
+		this IEnumerable<MapPackOffer> offers,
+		double latitudeDeg,
+		double longitudeDeg) =>
+		offers
+			.Where(offer => offer.Bounds is { } box && box.Contains(latitudeDeg, longitudeDeg))
+			.OrderBy(offer => offer.Bounds!.Value.SpanDeg2);
+
+	/// <summary>The offers covering every corner of a box, smallest first.</summary>
+	/// <param name="offers">What the catalogue published.</param>
+	/// <param name="bounds">The ground to cover.</param>
+	public static IEnumerable<MapPackOffer> Covering(
+		this IEnumerable<MapPackOffer> offers,
+		TrackBounds bounds) =>
+		offers
+			.Where(offer => offer.Bounds is { } box
+				&& box.Contains(bounds.MinLatitude, bounds.MinLongitude)
+				&& box.Contains(bounds.MaxLatitude, bounds.MaxLongitude))
+			.OrderBy(offer => offer.Bounds!.Value.SpanDeg2);
+}
+
+/// <summary>
 /// Reads the list of offline map packs on offer (§4.2).
 /// <para>
 /// <strong>Why this replaced a text box.</strong> The Maps screen used to take any HTTPS link and a

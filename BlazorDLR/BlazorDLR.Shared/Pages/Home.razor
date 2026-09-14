@@ -4,6 +4,8 @@
 @inject IFormFactor FormFactor
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
+@inject OfflineMapOfferState Offers
+@implements IDisposable
 
 <PageTitle>Home - Dumb Luck Routes</PageTitle>
 
@@ -15,6 +17,19 @@
 
 <div class="page">
 	<h1><i class="fa fa-fw fa-house" aria-hidden="true"></i> Home</h1>
+
+	@*
+		The deferred offer (§4.2), looked for by MainLayout's launch ladder. Here rather than on the
+		map because a phone in a dead zone cannot download 300 MB - the screen that discovers the
+		problem is the worst place to offer the fix.
+	*@
+	@if (Offers.Missed is { } missed)
+	{
+		<OfflineMapOffer Suggestion="missed"
+						 Class="home-offline-offer"
+						 Headline="Your map went blank last ride"
+						 Detail="@($"{missed.Offer.Name} covers where that happened, and needs no signal.")" />
+	}
 
 	<div class="grid">
 		<a class="card" href="/rides">
@@ -36,3 +51,19 @@
 	</div>
 
 </div>
+
+@code {
+	protected override void OnInitialized() => Offers.Changed += OnOffersChanged;
+
+	/// <summary>
+	/// The launch ladder found one, or the rider took or dismissed the one on screen. Either way
+	/// what this page draws has moved.
+	/// </summary>
+	private void OnOffersChanged() => _ = InvokeAsync(StateHasChanged);
+
+	public void Dispose() => Offers.Changed -= OnOffersChanged;
+}
+
+<style>
+	.home-offline-offer { margin-bottom: 1rem; }
+</style>

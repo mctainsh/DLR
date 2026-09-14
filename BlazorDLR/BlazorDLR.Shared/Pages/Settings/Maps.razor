@@ -6,6 +6,7 @@
 @using DLR.Core.Tracks
 @inject MapSourceState MapSources
 @inject MapPackState Packs
+@inject OfflineMapOfferState Offers
 @inject IDeviceSettings Settings
 @inject ConfirmService Confirm
 @implements IDisposable
@@ -398,8 +399,9 @@
 			the detail you travel at - it opens on the whole world, or on the ground a map pack covers.
 		</p>
 		<div class="preview-map">
+			@* OfferOfflineMaps: this screen is the offer. See RideMap's parameter. *@
 			<RideMap Camera="WorldView" Bounds="PreviewFrame" AllowRotation="false"
-					 ShowPickingCursor="false" />
+					 ShowPickingCursor="false" OfferOfflineMaps="false" />
 		</div>
 	</section>
 
@@ -954,10 +956,15 @@
 	/// <summary>Selects a downloaded pack, which is also what turns the offline source on.</summary>
 	private async Task ChoosePackAsync(string packId)
 	{
+		// Through OfflineMapOfferState so selecting a pack means the same thing here as it does from
+		// a banner, including clearing a dead zone this pack now answers. The theme is this screen's
+		// own: one picked before any pack was selected is remembered here rather than stored, so
+		// MapSourceState does not yet know about it.
+		if (!await Offers.SelectAsync(packId, _theme))
+			return;
+
 		_kind = MapSourceKind.Offline;
 		_packId = packId;
-
-		await MapSources.SetAsync(MapSource.OfflinePack(packId, _theme));
 		_status = $"Using {packId}. This map works with no signal.";
 	}
 
@@ -1051,9 +1058,11 @@
 		if (Packs.IsDownloading)
 			return;
 
-		if (await Packs.DownloadAsync(offer))
+		if (await Offers.TakeAsync(new OfflineMapSuggestion(offer, IsOnDevice: false), _theme))
 		{
-			await ChoosePackAsync(offer.Id);
+			_kind = MapSourceKind.Offline;
+			_packId = offer.Id;
+			_status = $"Using {offer.Id}. This map works with no signal.";
 		}
 	}
 

@@ -215,11 +215,8 @@
 	/// <param name="click">Where they pointed.</param>
 	private async Task OnMapTappedAsync(MapClick click)
 	{
-		// Smallest first: the most specific area containing a point is the one somebody pointing at
-		// it means, and it is also the smaller download of the two.
-		List<MapPackOffer> hits = [.. Offers
-			.Where(offer => offer.Bounds is { } bounds && bounds.Contains(click.Latitude, click.Longitude))
-			.OrderBy(offer => offer.Bounds!.Value.SpanDeg2)];
+		// Smallest first - see MapPackCoverage, which is also what the offer banners select with.
+		List<MapPackOffer> hits = [.. Offers.Covering(click.Latitude, click.Longitude)];
 
 		if (hits.Count == 0)
 		{

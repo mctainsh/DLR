@@ -712,6 +712,21 @@ button.primary:disabled,
     border-radius: 4px;
 }
 
+/* The amber notice palette, in one place. Worn by the banners drawn over a map (RideMap) and by
+   the offline-pack offer, which also renders on screens that have no map on them - so it cannot
+   live in either component's own <style>. Placement stays with whoever draws it. */
+.dlr-notice {
+    padding: 0.6rem 0.85rem;
+    background: #fff3cd;
+    color: #4a3c00;
+    border: 1px solid #ffe69c;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.dlr-notice strong { display: block; margin-bottom: 0.2rem; }
+.dlr-notice p { margin: 0; }
+
 /* "You gave up account recovery" - a warning the user must read, not an error. */
 .callout {
     margin: 0.75rem 0;

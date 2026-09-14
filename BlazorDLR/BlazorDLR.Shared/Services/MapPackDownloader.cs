@@ -29,6 +29,14 @@ public readonly record struct MapPackProgress(string PackId, long BytesReceived,
 {
 	/// <summary>0–1, or <c>null</c> when the total is unknown and only a byte count can be shown.</summary>
 	public double? Fraction => TotalBytes is > 0 ? Math.Clamp((double)BytesReceived / TotalBytes.Value, 0, 1) : null;
+
+	/// <summary>
+	/// How far it has got, as a rider reads it. Falls back to a bare byte count when the host sent
+	/// no length - some do not, and a bar that cannot fill beats a number that never appears.
+	/// </summary>
+	public string Describe() => TotalBytes is { } total
+		? $"{MapPackDownloader.Describe(BytesReceived)} of {MapPackDownloader.Describe(total)}"
+		: MapPackDownloader.Describe(BytesReceived);
 }
 
 /// <summary>

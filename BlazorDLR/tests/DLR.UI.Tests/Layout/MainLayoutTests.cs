@@ -87,6 +87,20 @@ public sealed class MainLayoutTests : BunitContext
 		// no page renders inside. The fake answers the check with a throw unless a test wires
 		// StartupResult, which reads as "no server to ask".
 		Services.AddSingleton<IFormFactor>(new FakeFormFactor());
+
+		// The launch ladder's offline-map rung (§4.2). Singletons like everything else in this
+		// suite, and over the browser's pack store (§18.6) - so the rung returns before any I/O,
+		// which is what every test here wants since none of them is about map packs.
+		Services.AddSingleton<IMapPackStore, UnavailableMapPackStore>();
+		Services.AddSingleton<MapSourceState>();
+		Services.AddSingleton(sp => new MapPackDownloader(
+			sp.GetRequiredService<IMapPackStore>(),
+			MapPackDownloader.CreateCredentialFreeClient()));
+		Services.AddSingleton(_ => new MapPackCatalogue(
+			MapPackCatalogue.CreateCredentialFreeClient(),
+			new Uri(MapPackCatalogue.DefaultUrl)));
+		Services.AddSingleton<MapPackState>();
+		Services.AddSingleton<OfflineMapOfferState>();
 		Services.AddSingleton<StartupCheckState>();
 		Services.AddSingleton<AnnouncementNotifier>();
 

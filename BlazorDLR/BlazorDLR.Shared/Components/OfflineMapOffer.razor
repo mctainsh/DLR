@@ -1,0 +1,164 @@
+@using BlazorDLR.Shared.Services
+@using BlazorDLR.Shared.State
+@inject MapPackState Packs
+@inject OfflineMapOfferState Offers
+@implements IDisposable
+
+@*
+	One offer of an offline map pack, wherever the app makes one (§4.2). Four surfaces render it -
+	the banner on a map, the strip on Home, the row on an adventure - differing only in their words
+	and where they sit, both parameters.
+
+	The button is one tap for the whole thing: fetch the archive if it is not here, then point every
+	map in the app at it. Progress arrives by event because the transfer outlives the screen that
+	started it (MapPackState), so navigating away and back finds the bar where it was left.
+*@
+
+<div class="dlr-notice dlr-offline-offer @Class" role="status">
+	<strong>@Headline</strong>
+
+	@if (Detail is { } detail)
+	{
+		<p class="dlr-offline-offer-detail">@detail</p>
+	}
+
+	@*
+		Only a transfer this component started. MapPackState reports on the last one to run
+		anywhere, and a banner narrating a download the rider began on Settings is noise.
+	*@
+	@if (_started && Packs.IsDownloading)
+	{
+		<div class="dlr-offline-offer-progress">
+			<progress value="@(Packs.Progress?.Fraction ?? 0)" max="1"></progress>
+			<span>@(Packs.Progress?.Describe() ?? "Starting…")</span>
+		</div>
+
+		<div class="dlr-offline-offer-actions">
+			<button type="button" class="dlr-offline-offer-quiet" @onclick="Packs.Cancel">Stop</button>
+		</div>
+	}
+	else
+	{
+		<div class="dlr-offline-offer-actions">
+			<button type="button" class="dlr-offline-offer-take" @onclick="TakeAsync" disabled="@Packs.IsDownloading">
+				@Suggestion.ActionText
+			</button>
+
+			@if (ShowDismiss)
+			{
+				@*
+					"Not now" rather than a close cross: a swipe-away is not an answer, and this one is
+					remembered - declining a pack silences every other surface that would name it.
+				*@
+				<button type="button" class="dlr-offline-offer-quiet" @onclick="DismissAsync">Not now</button>
+			}
+		</div>
+	}
+
+	@if (_started && Packs.Status is { } status)
+	{
+		<p class="dlr-offline-offer-status">@status</p>
+	}
+</div>
+
+@code {
+	/// <summary>Which pack, and whether taking it costs a download.</summary>
+	[Parameter, EditorRequired] public OfflineMapSuggestion Suggestion { get; set; } = default!;
+
+	/// <summary>The line in bold - what the surface is telling the rider.</summary>
+	[Parameter, EditorRequired] public string Headline { get; set; } = string.Empty;
+
+	/// <summary>The sentence under it, or null where the headline says the whole of it.</summary>
+	[Parameter] public string? Detail { get; set; }
+
+	/// <summary>Extra classes, which is how each surface positions its own copy.</summary>
+	[Parameter] public string? Class { get; set; }
+
+	/// <summary>
+	/// Whether to offer "Not now". False on the adventure's info page, where this is a row of ride
+	/// details rather than an interruption - dismissing it would take a fact about the ride away.
+	/// </summary>
+	[Parameter] public bool ShowDismiss { get; set; } = true;
+
+	/// <summary>Fired once the map is drawing with the pack.</summary>
+	[Parameter] public EventCallback OnTaken { get; set; }
+
+	/// <summary>Fired when the rider says not now, after the decline is stored.</summary>
+	[Parameter] public EventCallback OnDismissed { get; set; }
+
+	/// <summary>Whether the transfer on screen is one this component started - see the markup.</summary>
+	private bool _started;
+
+	protected override void OnInitialized() => Packs.Changed += OnPacksChanged;
+
+	private void OnPacksChanged() => _ = InvokeAsync(StateHasChanged);
+
+	private async Task TakeAsync()
+	{
+		_started = true;
+
+		if (await Offers.TakeAsync(Suggestion) && OnTaken.HasDelegate)
+		{
+			await OnTaken.InvokeAsync();
+		}
+	}
+
+	private async Task DismissAsync()
+	{
+		await Offers.DeclineAsync(Suggestion.Offer.Id);
+
+		// The recorded dead zone goes with it, or the Home strip would find the miss again next
+		// launch, find the pack declined, and show nothing - a point that can never produce an offer.
+		await Offers.ForgetMissAsync();
+
+		if (OnDismissed.HasDelegate)
+		{
+			await OnDismissed.InvokeAsync();
+		}
+	}
+
+	public void Dispose() => Packs.Changed -= OnPacksChanged;
+}
+
+<style>
+	/* The amber is `.dlr-notice` in app.css - this is only what the offer adds to it. */
+	.dlr-offline-offer-detail { margin: 0; font-size: 0.78rem; opacity: 0.85; }
+	.dlr-offline-offer-status { margin: 0.4rem 0 0; font-size: 0.78rem; opacity: 0.85; }
+
+	.dlr-offline-offer-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin-top: 0.5rem;
+	}
+	.dlr-offline-offer-actions button {
+		font: inherit;
+		padding: 0.35rem 0.7rem;
+		border-radius: 4px;
+		cursor: pointer;
+	}
+	.dlr-offline-offer-take {
+		background: #4a3c00;
+		color: #fff3cd;
+		border: 1px solid #4a3c00;
+	}
+	.dlr-offline-offer-quiet {
+		background: transparent;
+		color: #4a3c00;
+		border: 1px solid #d6bf6a;
+	}
+
+	.dlr-offline-offer-progress {
+		display: grid;
+		margin-top: 0.5rem;
+	}
+	/* Bar and count in one cell, so a narrow banner on a phone does not put the number on its own
+	   line under a bar that is already the width of the screen. */
+	.dlr-offline-offer-progress > * { grid-area: 1 / 1; }
+	.dlr-offline-offer-progress progress { width: 100%; height: 1.4rem; }
+	.dlr-offline-offer-progress span {
+		justify-self: center;
+		align-self: center;
+		font-size: 0.75rem;
+	}
+</style>

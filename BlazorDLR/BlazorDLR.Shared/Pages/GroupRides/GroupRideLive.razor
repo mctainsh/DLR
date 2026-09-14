@@ -2195,14 +2195,7 @@
 			return;
 		}
 
-		// Every route the ride carries, not the first: §5.4 lets a ride hold the short option and
-		// the long one, and framing on one of them puts the other off the screen. Ill-formed boxes
-		// are dropped rather than merged - one corner at a longitude of 1000 would frame the map
-		// on the whole world and hide the routes that were fine.
-		if (TrackBounds.Around([.. _session.Routes
-			.Select(route => route.Bounds)
-			.OfType<TrackBounds>()
-			.Where(box => box.IsWellFormed)]) is { } routes)
+		if (_session.RoutesBounds is { } routes)
 		{
 			_framed = true;
 			_openingBounds = routes;

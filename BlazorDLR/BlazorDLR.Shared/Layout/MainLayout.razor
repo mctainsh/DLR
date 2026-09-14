@@ -11,6 +11,7 @@
 @inject LaunchRestore Restore
 @inject StartupCheckState Startup
 @inject AnnouncementNotifier Announcements
+@inject OfflineMapOfferState Offers
 @implements IDisposable
 
 @*
@@ -182,6 +183,11 @@
 			// And last, because it is the weakest claim on the screen of the three: a launch the
 			// introduction or a notification has already aimed somewhere keeps that destination.
 			await StepAsync("adventure", ReopenLastAdventureAsync);
+
+			// Whether last ride left a dead zone worth answering (§4.2). A rung rather than a screen's
+			// own lifecycle so the surfaces that show it only render; a device that has never lost its
+			// map returns before any I/O, so an ordinary launch pays nothing for it.
+			await StepAsync("offline map", () => Offers.PrimeMissedAsync());
 		}
 	}
 

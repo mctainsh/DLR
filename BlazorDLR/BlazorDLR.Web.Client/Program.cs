@@ -162,6 +162,10 @@ internal class Program
 		// this host has no pack store (§18.6), which MapSourceState reads off IOfflineStore.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
+		// And the offers of one (§4.2), which answer nothing here for the same reason: a tab that
+		// cannot store 300 MB is not a tab to suggest downloading it to.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.OfflineMapOfferState>();
+
 		// The ride the nav rail's globe leads back to (§18.6), kept in localStorage so a
 		// reloaded tab still knows which ride this browser is on.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.CurrentRideState>();

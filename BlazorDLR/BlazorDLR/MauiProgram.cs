@@ -254,6 +254,11 @@ public static class MauiProgram
 		// RideMap listens to the same instance the settings page writes.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
+		// Whether to offer a rider an offline pack for the ground they are on (§4.2). This is the
+		// host it exists for: the phone is the only one that can hold an archive, so the browser
+		// hosts register it to resolve the seam and it answers "nothing to offer" there.
+		builder.Services.AddScoped<BlazorDLR.Shared.State.OfflineMapOfferState>();
+
 		// The private area (§10.1). This is the host that records and publishes fixes, so this
 		// is the host where the gate matters: every fix goes through
 		// PrivateAreaState.HidesLocation before it is stored or sent, and the state answers

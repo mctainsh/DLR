@@ -5,6 +5,7 @@
 @using DLR.Core.Tracks
 @inject IMapInterop Map
 @inject MapSourceState MapSources
+@inject OfflineMapOfferState Offers
 @implements IAsyncDisposable
 
 @*
@@ -70,7 +71,7 @@
 					point of the screen, so a rider has to be told rather than left reading an
 					empty map as "nobody is moving" (§5.3, §16.3).
 				*@
-				<div class="dlr-map-banner dlr-map-overlay-error" role="alert">
+				<div class="dlr-notice dlr-map-banner dlr-map-overlay-error" role="alert">
 					<strong>Map markers unavailable</strong>
 					<p>The base map is working, but pins, tracks and traveller positions cannot be drawn on this device.</p>
 					@*
@@ -94,10 +95,23 @@
 	*@
 	@if (ShowNoTilesWarning)
 	{
-		<div class="dlr-map-banner dlr-map-no-tiles" role="status">
+		<div class="dlr-notice dlr-map-banner dlr-map-no-tiles" role="status">
 			<strong>No offline tiles in this area at zoom @TileZoomText</strong>
 			<p>The downloaded pack does not reach here. Pan back, or choose another map in Settings → Maps.</p>
 		</div>
+	}
+
+	@*
+		The offer (§4.2). One banner for all three reasons a map is worth replacing - see
+		OfferReason, which is also what decides whether there is one.
+	*@
+	@if (_offer is { } offer)
+	{
+		<OfflineMapOffer Suggestion="offer"
+						 Class="dlr-map-offline-offer"
+						 Headline="@OfferReason"
+						 Detail="@OfferDetail(offer)"
+						 OnTaken="OnOfferTakenAsync" />
 	}
 </div>
 
@@ -234,6 +248,13 @@ else if (_tileError is not null)
 	/// </summary>
 	[Parameter] public EventCallback<string> OnTileError { get; set; }
 
+	/// <summary>
+	/// Whether this map may offer the rider a pack covering the ground it is on (§4.2). Off on the
+	/// Settings → Maps preview, which already carries the catalogue, the download button and the
+	/// progress bar. A map holding its own <see cref="Source"/> is silent without being asked.
+	/// </summary>
+	[Parameter] public bool OfferOfflineMaps { get; set; } = true;
+
 	/// <summary>Fired once the base map has attached and reported a viewport.</summary>
 	[Parameter] public EventCallback OnReady { get; set; }
 
@@ -347,6 +368,12 @@ else if (_tileError is not null)
 	/// </summary>
 	private MapCoverage? _coverage;
 
+	/// <summary>
+	/// The pack worth offering for the ground on screen, or null when there is nothing to say -
+	/// which is most maps, most of the time. See <see cref="OfferReason"/>.
+	/// </summary>
+	private OfflineMapSuggestion? _offer;
+
 	protected override void OnInitialized()
 	{
 		Map.ViewportChanged += OnViewportChanged;
@@ -354,6 +381,10 @@ else if (_tileError is not null)
 		Map.ErrorOccurred += OnMapError;
 		Map.Gestured += OnMapGesture;
 		Map.CoverageChanged += OnCoverageChanged;
+
+		// A pack declined on another surface is declined here. Nothing else in the app can change
+		// what this map should be offering while it is on screen.
+		Offers.Changed += OnOffersChanged;
 
 		// The tile source is a device setting (§4.5) and it is scoped, so the settings screen and
 		// this map are looking at the same instance. Subscribing means a change made while a map is
@@ -453,6 +484,8 @@ else if (_tileError is not null)
 			{
 				await OnViewportReported.InvokeAsync(viewport);
 			}
+
+			await RefreshOfferAsync();
 		});
 	}
 
@@ -521,6 +554,10 @@ else if (_tileError is not null)
 			// exactly like a setting that did not take.
 			DiagnosticLog.WriteError($"restyling the map to {wanted.Kind}", exception);
 		}
+
+		// New tiles, new answer: a rider who has just turned a pack on has nothing left to be
+		// offered, and one who has turned it off has.
+		await RefreshOfferAsync();
 	}
 
 	/// <summary>
@@ -595,6 +632,11 @@ else if (_tileError is not null)
 			}
 
 			await RetryOfflineSourceAsync();
+
+			// After the retry, not before it: a pack whose loopback URL had simply gone stale is
+			// drawing again by now, and that is not a dead zone worth remembering (§4.2).
+			await RememberIfBlankAsync();
+			await RefreshOfferAsync();
 		});
 	}
 
@@ -660,8 +702,106 @@ else if (_tileError is not null)
 		_coverage = coverage;
 
 		// Arrives on whichever thread the JS interop callback landed on, like every other one here.
-		_ = InvokeAsync(StateHasChanged);
+		_ = InvokeAsync(async () =>
+		{
+			StateHasChanged();
+			await RememberIfBlankAsync();
+			await RefreshOfferAsync();
+		});
 	}
+
+	/// <summary>
+	/// Whether this map may make the offer at all. A caller holding <see cref="Source"/> has decided
+	/// what this particular map draws for a reason of its own - the map-pack picker's world view,
+	/// the settings screen's preview - and changing the rider's map from underneath one of those
+	/// answers a question nobody asked.
+	/// </summary>
+	private bool OffersAllowed => OfferOfflineMaps && Source is null && Offers.IsSupported;
+
+	/// <summary>
+	/// Why a pack is worth offering here, in the words the banner leads with, or null when none is.
+	/// One classification of the map's state, so the banner, the suppression and the dead-zone
+	/// recorder below cannot disagree about which of the three it is in.
+	/// </summary>
+	private string? OfferReason =>
+		_error is not null ? null
+		: _tileError is not null ? "This map cannot load its tiles"
+		: _coverage is { HasTiles: false } ? "Your offline map does not reach here"
+		: Wanted.Kind == MapSourceKind.Osm ? "This map needs a signal"
+		: null;
+
+	/// <summary>Whether the map is drawing nothing at all, as opposed to drawing OSM well enough for now.</summary>
+	private bool IsBlank => _error is null && (_tileError is not null || _coverage is { HasTiles: false });
+
+	/// <summary>
+	/// The sentence under the headline. "Already on this phone" is the one case where the whole of
+	/// the fix is a tap, and it is worth saying so.
+	/// </summary>
+	private static string OfferDetail(OfflineMapSuggestion offer) => offer.IsOnDevice
+		? $"{offer.Offer.Name} is already on this phone and covers this ground."
+		: $"{offer.Offer.Name} covers this ground and works with no signal.";
+
+	/// <summary>
+	/// Works out what to offer for the ground on screen, and redraws if it has changed. Safe to call
+	/// per viewport event: <c>OfflineMapOfferState</c> caches its answer against the ground it was
+	/// given for, so a pan re-asks only once it leaves that ground.
+	/// </summary>
+	private async Task RefreshOfferAsync()
+	{
+		if (!OffersAllowed || OfferReason is null || _viewport is not { } view)
+		{
+			if (_offer is not null)
+			{
+				_offer = null;
+				StateHasChanged();
+			}
+
+			return;
+		}
+
+		OfflineMapSuggestion? found;
+
+		try
+		{
+			found = await Offers.SuggestAsync(view.CentreLatitude, view.CentreLongitude);
+		}
+		catch (Exception exception)
+		{
+			// The catalogue is a request to a host that is not the API, and a map is not a screen
+			// about map packs. A rider who cannot reach it is told nothing rather than told about a
+			// failure in a feature they never asked for.
+			DiagnosticLog.WriteError("looking for a map pack covering this ground", exception);
+			return;
+		}
+
+		if (found == _offer)
+			return;
+
+		_offer = found;
+		StateHasChanged();
+	}
+
+	/// <summary>
+	/// Files the ground the map could not draw, so the offer can be made again somewhere it can be
+	/// acted on (<see cref="OfflineMapOfferState.RecordMissAsync"/>). The phone that most needs a
+	/// pack is the one that cannot download one right now.
+	/// </summary>
+	private async Task RememberIfBlankAsync()
+	{
+		if (!OffersAllowed || !IsBlank || _viewport is not { } view)
+			return;
+
+		await Offers.RecordMissAsync(view.CentreLatitude, view.CentreLongitude);
+	}
+
+	/// <summary>A pack was declined or taken somewhere else in the app while this map was open.</summary>
+	private void OnOffersChanged() => _ = InvokeAsync(RefreshOfferAsync);
+
+	/// <summary>
+	/// The rider took the offer. The restyle is <c>MapSourceState</c>'s to broadcast - this map is
+	/// subscribed to it like any other - so all that is left here is to stop offering.
+	/// </summary>
+	private Task OnOfferTakenAsync() => RefreshOfferAsync();
 
 	/// <summary>
 	/// Whether to tell the rider the map has nothing under it here. Silent while either error
@@ -724,6 +864,7 @@ else if (_tileError is not null)
 		Map.Gestured -= OnMapGesture;
 		Map.CoverageChanged -= OnCoverageChanged;
 		MapSources.Changed -= OnMapSourceChanged;
+		Offers.Changed -= OnOffersChanged;
 		if (_initialised)
 		{
 			await Map.DisposeAsync();
@@ -832,18 +973,11 @@ else if (_tileError is not null)
 	/* The two banners that sit over the base map rather than under it: the map still works, and
 	   the point is that what is *missing* from it is not obvious by looking. One look, two
 	   placements - the palette lived in three near-identical copies before. */
+	/* Placement only - the look is `.dlr-notice` in app.css, worn by everything that draws one. */
 	.dlr-map-banner {
 		position: absolute;
 		z-index: 2;
-		padding: 0.6rem 0.85rem;
-		background: #fff3cd;
-		color: #4a3c00;
-		border: 1px solid #ffe69c;
-		border-radius: 4px;
-		font-size: 0.85rem;
 	}
-	.dlr-map-banner strong { display: block; margin-bottom: 0.2rem; }
-	.dlr-map-banner p { margin: 0; }
 
 	.dlr-map-overlay-error {
 		left: 0.5rem;
@@ -867,4 +1001,15 @@ else if (_tileError is not null)
 		pointer-events: none;
 	}
 	.dlr-map-no-tiles p { font-size: 0.78rem; opacity: 0.85; }
+
+	/* Along the bottom: the compass owns the top left, the live ride's hamburger the top right,
+	   and the no-tiles warning the space between them. Capped so it does not run a laptop's width. */
+	.dlr-map-offline-offer {
+		position: absolute;
+		z-index: 2;
+		left: 50%;
+		transform: translateX(-50%);
+		bottom: 0.5rem;
+		width: min(26rem, calc(100% - 1rem));
+	}
 </style>

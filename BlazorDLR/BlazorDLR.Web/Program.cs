@@ -235,6 +235,11 @@ try
 	// OpenStreetMap - the same map the client re-resolves to once it reads localStorage.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.MapSourceState>();
 
+	// Offers of an offline pack (§4.2). RideMap and Home inject it, so it has to resolve here or
+	// the prerender throws before WASM can boot. It offers nothing on a host with no pack store,
+	// which means no catalogue request is made from the SSR pass.
+	builder.Services.AddScoped<BlazorDLR.Shared.State.OfflineMapOfferState>();
+
 	// The ride the nav rail's globe leads back to (§18.6). NavMenu renders in the SSR pass, so
 	// this has to resolve here or the prerender throws before WASM can boot. The in-memory store
 	// answers "no ride", which is the list - the honest destination for a render that cannot see
