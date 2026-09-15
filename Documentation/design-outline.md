@@ -3187,14 +3187,27 @@ The rest of the paragraph was simply accurate. *"Adding a `TrackId` parent later
 
 | Field | Rules |
 |---|---|
-| **Body** | Up to `Comments:MaxChars` (default 2000). **Plain text** — never rendered as HTML or Markdown, exactly as for marker notes (§16.2) |
+| **Body** | Up to `Comments:MaxChars` (default 2000). **Plain text** — never rendered as HTML or Markdown. Bare URLs in it are linkified at render (below); marker notes (§16.2) are not |
 | **Photo** | One, optional, and it is the **same `Photo` resource as §16.4** — same ingest, same re-encode, same EXIF destruction, same quotas. Nothing new to secure |
 | **Author** | An admitted member, or — on a route's thread — any signed-in rider (§19.2). Their immutable username (§7.2) labels the post, and because it is immutable it can be denormalised into a cached thread with no invalidation |
 | **Kind** | `Text` or `Poll` (§17.5) |
 
 **A comment with a photo and no text is legitimate** — most post-ride posts are exactly that — so the validation is "body or photo, at least one", not "body required".
 
-**URLs are not linkified, and no link preview is ever fetched.** Rendering a tapable link inside a trusted ride thread is a phishing surface, and fetching a preview server-side is the same SSRF hole §16.6 refused for GPX `<link>` elements. Plain text is the whole feature.
+**Bare URLs are linkified at render. No link preview is ever fetched.** A body is still stored and transported as plain text - there is no markup, no Markdown, and above all no label syntax, so nothing a rider can type produces a link whose visible text differs from where it goes. The shared `LinkedText` component splits the stored string into text runs and URL runs and emits a real anchor per URL run, which is why "never rendered as HTML" above is unchanged: no stored string is ever injected as markup.
+
+That answers most of what this section used to refuse links over. `LinkScanner` closes the rest:
+
+- `http` and `https` only, so `javascript:`, `data:`, `file:` and Android's `intent:` stay text.
+- A URL carrying userinfo - `https://dlr.example.org@evil.example/x` - stays text. It is the one spelling where a bare URL still reads as a host it will not visit, and the whole safety argument above rests on that not being possible.
+- A dotless host (`https://example`) stays text. It is a typo far more often than it is somebody linking an intranet box from a ride thread.
+- The visible text is what the rider typed; the `href` is the parsed absolute URI.
+
+**Fetching a preview server-side is still refused**, for the SSRF reason §16.6 refused GPX `<link>` elements. The app never dereferences a URL a rider typed.
+
+A tap **leaves the app**, and one markup does that on every host: `target="_blank" rel="noopener noreferrer nofollow ugc"`. MAUI's `BlazorWebView` opens such an anchor in the system browser without even raising `UrlLoading`, which is how the store and AGPL-source links have always worked. No per-host seam is needed, and one would only reproduce a framework default.
+
+**Full-length rider prose goes through `LinkedText`; a truncated blurb does not.** `MyRides` cuts a description to a line for its browse list, and a cut can land mid-URL - which would show a fragment of one host and link to another, the exact thing the rules above exist to prevent. A list row is also its own tap target, so a link inside it competes with opening the route.
 
 **Editing** is allowed by the author within `Comments:EditWindowMinutes` (default 15) and sets `EditedUtc`, which the UI shows. After that, delete and repost. A permanently editable thread lets someone rewrite what a poll was actually asking after people have voted on it.
 
@@ -3398,7 +3411,7 @@ Indexes:
 Comment_ByNonMember_Returns403
 Comment_WithNeitherBodyNorPhoto_Returns400
 Comment_BodyIsNeverRenderedAsHtml
-Comment_UrlInBody_IsNotLinkifiedAndFetchesNothing
+Comment_UrlInBody_LinksOnlyHttpSchemesAndFetchesNothing
 Comment_EditAfterWindow_Returns409
 Comment_EditByOtherMember_Returns403
 Comment_DeleteByOrganiser_Succeeds

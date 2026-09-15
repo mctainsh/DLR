@@ -1,0 +1,51 @@
+﻿@using DLR.Core.Display
+
+@*
+	Plain text, with the URLs in it tapable (§17.2).
+
+	Every body and description in the app is stored and transported as plain text, and this is
+	the one component allowed to disagree - by splitting the string into runs and emitting an
+	anchor per URL run, never by injecting markup. There is no MarkupString here and there must
+	not be one: the moment a stored string is rendered as HTML, "never rendered as HTML" stops
+	being true for every screen that draws rider text.
+
+	Whitespace is emitted exactly as it arrived, so a caller with white-space: pre-wrap keeps
+	the paragraphs the rider typed.
+
+	target="_blank" is all it takes to leave the app on every host: MAUI's BlazorWebView opens
+	such an anchor in the system browser without even raising UrlLoading, which is also how the
+	store and AGPL-source links already work (SourceOfferFooter, ClientOutOfDate).
+*@
+
+@foreach (TextRun run in _runs)
+{
+	@if (run.Url is { } url)
+	{
+		<a class="linked" href="@url" target="_blank" rel="noopener noreferrer nofollow ugc">@run.Text</a>
+	}
+	else
+	{
+		@run.Text
+	}
+}
+
+@code {
+	/// <summary>The text to draw. Null or empty draws nothing.</summary>
+	[Parameter]
+	public string? Text { get; set; }
+
+	private TextRun[] _runs = [];
+	private string? _scanned;
+
+	// Scanned on the way in rather than in the render body: a thread re-renders on every
+	// keystroke in its composer and every reaction that arrives, and each of those would
+	// otherwise re-scan every comment on screen to reach the same answer.
+	protected override void OnParametersSet()
+	{
+		if (string.Equals(Text, _scanned, StringComparison.Ordinal))
+			return;
+
+		_scanned = Text;
+		_runs = [.. LinkScanner.Scan(Text)];
+	}
+}

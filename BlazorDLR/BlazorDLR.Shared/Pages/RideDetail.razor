@@ -177,8 +177,8 @@
 		{
 			@* white-space: pre-wrap in the stylesheet below, because TrackDescription keeps the
 			   newlines the rider typed and collapsing them here would throw away the paragraphs
-			   they wrote. Razor escapes the text either way. *@
-			<p class="description">@description</p>
+			   they wrote. LinkedText emits text nodes, so they survive it too. *@
+			<p class="description"><LinkedText Text="@description" /></p>
 		}
 
 		<dl class="stats">

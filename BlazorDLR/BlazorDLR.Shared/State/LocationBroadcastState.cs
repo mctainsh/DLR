@@ -123,7 +123,7 @@ public sealed class LocationBroadcastState : IAsyncDisposable, IDisposable
 	/// Guards <see cref="Status"/>, <see cref="Detail"/> and <see cref="LastPublishedUtc"/>, which
 	/// the fix pump and the sender both write since the publish moved off the pump.
 	/// </summary>
-	private readonly object _statusGate = new();
+	private readonly Lock _statusGate = new();
 
 	/// <summary>
 	/// True while the rider's own fixes say they are inside their private area, so a send that was

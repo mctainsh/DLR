@@ -49,7 +49,7 @@
 	else
 	{
 		<p class="lead">
-			@(ride.Description ?? "")
+			<LinkedText Text="@ride.Description" />
 		</p>
 
 		@if (_session.Error is { } problem)

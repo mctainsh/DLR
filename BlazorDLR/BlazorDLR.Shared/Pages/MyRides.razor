@@ -479,6 +479,10 @@
 	private static string FormatDegrees(double degrees) => $"{degrees:0.000}°";
 
 	/// <summary>The first line or so of a description, for a row that has one line to spend on it.</summary>
+	/// <remarks>
+	/// Deliberately not run through <c>LinkedText</c> (§17.2): a cut can land mid-URL, which would
+	/// show a fragment of one host and link to another - and the row is already its own tap target.
+	/// </remarks>
 	private static string Summarise(string description)
 	{
 		const int limit = 160;

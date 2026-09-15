@@ -1,0 +1,9 @@
+a.linked {
+	color: var(--dlr-accent);
+	text-decoration: underline;
+	text-underline-offset: 0.15em;
+
+	/* A URL is one long unbreakable token, so without this a single link sets the minimum
+	   width of the thread and every comment beside it scrolls sideways. */
+	overflow-wrap: anywhere;
+}

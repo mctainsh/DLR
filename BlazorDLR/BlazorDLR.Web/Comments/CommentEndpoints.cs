@@ -801,7 +801,8 @@ public sealed class CommentController : ControllerBase
 	/// <summary>
 	/// Trims and normalises empty to null. <strong>No sanitising, because nothing is rendered as
 	/// markup</strong> - the body is plain text end to end (§17.2), and a "sanitiser" here would
-	/// imply otherwise to the next person who reads it.
+	/// imply otherwise to the next person who reads it - <c>LinkedText</c> linkifies the URLs in
+	/// it by splitting the string into runs, never by rendering it.
 	/// </summary>
 	private static string? Clean(string? body)
 	{
