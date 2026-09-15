@@ -59,7 +59,7 @@
 
 	<!-- Versions -->
 	<ApplicationDisplayVersion>8.0.0</ApplicationDisplayVersion>
-	<ApplicationVersion>32</ApplicationVersion>
+	<ApplicationVersion>33</ApplicationVersion>
 
 	<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 	<WindowsPackageType>None</WindowsPackageType>
@@ -159,6 +159,19 @@
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
     <BundleResource Include="Platforms\iOS\PrivacyInfo.xcprivacy" LogicalName="PrivacyInfo.xcprivacy" />
   </ItemGroup>
+
+	<!--
+		MAUI writes UILaunchStoryboardName into Info.plist from a partial manifest, but the target that
+		compiles the storyboard into the bundle is stamp-gated - an incremental Release build can keep
+		the key and drop the file, leaving the app with no splash. UIRequiresFullScreen is what keeps
+		that off the upload path (error 90476), so this warns rather than fails.
+	-->
+	<Target Name="_DlrVerifyLaunchStoryboard"
+			Condition="'$(Configuration)'=='Release' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' and '$(IsMacEnabled)' == 'true'"
+			AfterTargets="_CopyResourcesToBundle">
+		<Warning Condition="!Exists('$(AppBundleDir)/MauiSplash.storyboardc') and !Exists('$(AppBundleDir)/MauiSplash.storyboard')"
+				 Text="MauiSplash.storyboardc is missing from $(AppBundleDir) while Info.plist declares UILaunchStoryboardName - this build launches with no splash screen. Delete BlazorDLR/obj and BlazorDLR/bin and publish again." />
+	</Target>
 
   <!--
     Play Services pulls in AndroidX packages with tighter version constraints than the ones

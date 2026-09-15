@@ -243,6 +243,43 @@ archive cannot pick it up silently.
 `ITSAppUsesNonExemptEncryption=false` is already in `Info.plist`, so uploads will not stop on the
 export-compliance question. It is true as long as the app ships no cryptography of its own.
 
+### The launch storyboard, and why iPad multitasking is off (error 90476)
+
+**8.0.0 (32) failed upload here**: *"Invalid bundle. Because your app supports Multitasking on
+iPad, you need to include the MauiSplash launch storyboard file in your au.com.securehub.dlr.v2
+bundle."*
+
+Both halves of the splash come from one MAUI target, `ProcessMauiSplashScreens`, and that target is
+stamp-gated (`obj/<config>/net10.0-ios/<rid>/mauisplash.stamp`). It generates
+`MauiSplash.storyboard`, hands it to `ibtool` as an `InterfaceDefinition`, and feeds
+`MauiInfo.plist` (`UILaunchStoryboardName=MauiSplash`) into `PartialAppManifest`. When it is skipped
+as up to date on an incremental build and `_CompileAppManifest` reuses its own cached `Info.plist`,
+the bundle keeps the key and loses the compiled `MauiSplash.storyboardc`. Apple then checks for a
+file that is not there, because the app declared iPad multitasking by not opting out of it.
+
+`UIRequiresFullScreen=true` in `Platforms/iOS/Info.plist` is the opt-out, and it takes the check off
+the upload path entirely: Apple only demands `UILaunchStoryboardName` of an app that can share the
+screen. Two things about it:
+
+- **iPadOS 26 ignores the key at runtime** for anything built against the iOS 26 SDK, which this is
+  (`Microsoft.iOS.Sdk.net10.0_26.5`). The app is still resizable on iPadOS 26 under the new
+  windowing system, so the checklist item below about every screen working at iPad width and in all
+  four orientations stands. The key is a submission gate, not a behaviour switch, and if Apple ever
+  updates the validator to match the runtime, the fix reverts to the clean publish below.
+- It does **not** bring the splash back. A bundle missing `MauiSplash.storyboardc` launches on a
+  blank screen. `_DlrVerifyLaunchStoryboard` in the csproj warns on a Release iOS build when the
+  storyboard is not in the bundle - it is a warning, not an error, because the upload no longer
+  depends on it.
+
+To get the splash back, publish the iOS head from a clean tree:
+
+```bash
+# macOS
+rm -rf BlazorDLR/obj BlazorDLR/bin
+dotnet publish BlazorDLR/BlazorDLR.csproj -f net10.0-ios -c Release
+find BlazorDLR/bin/Release/net10.0-ios -name MauiSplash.storyboardc   # must be in the .app
+```
+
 ### Privacy manifest
 
 `Platforms/iOS/PrivacyInfo.xcprivacy` exists and is bundled at the root of the `.app` by the
@@ -589,6 +626,10 @@ none shows a reviewer an empty app, which is a rejection for "incomplete functio
 
 **iPad is supported** — `UIDeviceFamily` in `Info.plist` is `[1, 2]` and stays that way, so the app
 has to work there and the listing has to show it.
+
+`UIRequiresFullScreen=true` sits alongside it, which opts the app out of Split View and Slide Over
+(see the launch-storyboard section above) and is ignored on iPadOS 26 - full-size iPad support is
+unaffected either way.
 
 Screenshots: one 6.9" iPhone set and one 13" iPad set. App Store Connect scales those down for the
 smaller sizes, so the older 6.7"/6.5" sets are no longer required. Also needed: a support URL, the

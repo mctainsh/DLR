@@ -9,6 +9,15 @@
         <integer>1</integer>
         <integer>2</integer>
     </array>
+
+    <!--
+        Opts out of iPad multitasking, which is what lifts the launch-storyboard requirement
+        (upload error 90476, 8.0.0 (32)) - Apple only demands UILaunchStoryboardName of an app that
+        can share the screen. iPadOS 26 ignores the key at runtime, so this is a submission gate
+        rather than a behaviour switch. Documentation/store-release.md.
+    -->
+    <key>UIRequiresFullScreen</key>
+    <true/>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
         <string>arm64</string>
@@ -108,7 +117,7 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 	<key>CFBundleVersion</key>
-	<string>32</string>
+	<string>33</string>
 
 	<!--
 		Purpose strings. App Review reads these, and 5.1.1 rejections for location are almost
