@@ -55,6 +55,7 @@ public sealed class ModerationController : ControllerBase
 		[FromBody] ReportContentRequest request,
 		[FromServices] DlrDbContext database,
 		[FromServices] TimeProvider clock,
+		[FromServices] IHubContext<RideHub, IRideClient> hub,
 		CancellationToken cancellationToken)
 	{
 		if (User.UserId() is not { } userId)
@@ -70,18 +71,21 @@ public sealed class ModerationController : ControllerBase
 				detail: "Say what is wrong with it - an empty report cannot be acted on.");
 		}
 
-		RideComment? comment = await database
-			.Set<RideComment>()
-			.AsNoTracking()
-			.Include(row => row.Author)
-			.SingleOrDefaultAsync(row => row.Id == id, cancellationToken);
-
 		// Reachable, not merely in a ride. A shared route's thread is open to every signed-in rider
 		// (§6.2), so "are you a member?" is the wrong question there and would leave the most
 		// public thread on the service as the one thing nobody could report - which is precisely
 		// the review requirement this file exists to satisfy.
-		if (comment is null
-			|| !(await CommentThreadAccess.ForCommentAsync(database, id, userId, cancellationToken)).Access.Exists)
+		//
+		// ForReportAsync rather than ForCommentAsync: this is the one path that must see a post
+		// that is already held - somebody else reporting it first must not stop a second report -
+		// and it is the one that needs the author, for the snapshot below.
+		(RideComment? comment, ThreadAccess access) = await CommentThreadAccess.ForReportAsync(
+			database,
+			id,
+			userId,
+			cancellationToken);
+
+		if (comment is null || !access.Exists)
 		{
 			return NotFound();
 		}
@@ -97,7 +101,7 @@ public sealed class ModerationController : ControllerBase
 			postedUtc = comment.PostedUtc,
 		});
 
-		return await FileAsync(
+		IActionResult filed = await FileAsync(
 			database,
 			clock,
 			ReportTargetKind.Comment,
@@ -113,6 +117,16 @@ public sealed class ModerationController : ControllerBase
 			reason,
 			snapshot,
 			cancellationToken);
+
+		// Off every open thread, not just the reporter's. A report holds the post from every read
+		// (see ReportHold), so a client that had already fetched it is the only thing still drawing
+		// it - and "removed from the feed instantly" is the requirement, not "removed on reload".
+		//
+		// The same message an ordinary delete sends, deliberately: the author sees their post go,
+		// which is what a delete looks like too, and nothing tells them who reported it.
+		await hub.Clients.Group(access.HubGroup).CommentRemoved(id);
+
+		return filed;
 	}
 
 	[HttpPost("/api/v1/markers/{id:guid}/report", Name = ModerationEndpoints.ReportMarkerRouteName)]
@@ -122,6 +136,7 @@ public sealed class ModerationController : ControllerBase
 		[FromBody] ReportContentRequest request,
 		[FromServices] DlrDbContext database,
 		[FromServices] TimeProvider clock,
+		[FromServices] IHubContext<RideHub, IRideClient> hub,
 		CancellationToken cancellationToken)
 	{
 		if (User.UserId() is not { } userId)
@@ -162,7 +177,7 @@ public sealed class ModerationController : ControllerBase
 			marker.Lon,
 		});
 
-		return await FileAsync(
+		IActionResult filed = await FileAsync(
 			database,
 			clock,
 			ReportTargetKind.Marker,
@@ -173,6 +188,12 @@ public sealed class ModerationController : ControllerBase
 			reason,
 			snapshot,
 			cancellationToken);
+
+		// Off every open map, for the reasons the comment path gives. Same message an ordinary
+		// delete sends.
+		await hub.Clients.Group(RideHub.Group(rideId)).MarkerRemoved(rideId, id);
+
+		return filed;
 	}
 
 	private async Task<IActionResult> FileAsync(

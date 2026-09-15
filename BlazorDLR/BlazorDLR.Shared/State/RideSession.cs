@@ -1,6 +1,7 @@
 using System.Net;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Markers;
+using DLR.Core.Contracts.Moderation;
 using DLR.Core.Contracts.Rides;
 using DLR.Core.Tracks;
 
@@ -237,6 +238,15 @@ public sealed class RideSession : IAsyncDisposable
 	/// </summary>
 	public bool CanDelete(MarkerDto marker) =>
 		marker.CreatedByUserId == _auth.UserId || IsOrganiser;
+
+	/// <summary>
+	/// Who may report a marker: anybody but the rider who placed it (§10.2, §16.5). An organiser
+	/// keeps the report as well as the delete - deleting it themselves ends it for the adventure
+	/// but tells the operator nothing, and whether the account behind it should still exist is not
+	/// an organiser's call to make.
+	/// </summary>
+	public bool CanReport(MarkerDto marker) =>
+		marker.CreatedByUserId != _auth.UserId;
 
 	/// <summary>
 	/// Oldest first, which is the order the list endpoint returns (§16.5). Sorting on read rather
@@ -608,6 +618,33 @@ public sealed class RideSession : IAsyncDisposable
 		try
 		{
 			await _api.DeleteMarkerAsync(markerId);
+			_markers.Remove(markerId);
+		}
+		catch (ApiException apiException)
+		{
+			Error = apiException.Error.Title;
+		}
+
+		Raise();
+	}
+
+	/// <summary>
+	/// Reports a marker to the operator and takes it off this device's map (§10.2, §16.5).
+	/// <para>
+	/// The local remove is not optimism about the request - it runs after it. A reported marker is
+	/// held from every read until the operator has reviewed it, and the server broadcasts the same
+	/// <c>MarkerRemoved</c> an ordinary delete sends, so every open map drops it. This drops our own
+	/// copy for the reason <see cref="DeleteMarkerAsync"/> does: the broadcast only reaches a client
+	/// whose hub connection came up.
+	/// </para>
+	/// </summary>
+	/// <param name="markerId">Which marker.</param>
+	/// <param name="reason">What the reporter says is wrong with it.</param>
+	public async Task ReportMarkerAsync(Guid markerId, string reason)
+	{
+		try
+		{
+			await _api.ReportMarkerAsync(markerId, new ReportContentRequest(reason));
 			_markers.Remove(markerId);
 		}
 		catch (ApiException apiException)

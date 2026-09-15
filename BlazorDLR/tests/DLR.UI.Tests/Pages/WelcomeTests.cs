@@ -1,5 +1,6 @@
 using BlazorDLR.Shared.Pages;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.Services.Platform;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.UI.Tests.Components;
@@ -42,6 +43,12 @@ public sealed class WelcomeTests : PageTestContext
 		Services.AddSingleton(auth);
 		Services.AddSingleton<AuthenticationStateProvider>(auth);
 		Services.AddSingleton<IEnumerable<IExternalSignInProvider>>(Array.Empty<IExternalSignInProvider>());
+
+		// The terms gate stands in front of both forms until this device has agreed (§10.2).
+		// Registered against an in-memory store, so each test starts with a device that has not.
+		Services.AddSingleton<IDeviceSettings>(new InMemoryDeviceSettings());
+		Services.AddSingleton(serviceProvider =>
+			new TermsAcceptanceState(serviceProvider.GetRequiredService<IDeviceSettings>()));
 		Services.AddRealAuthorizationPipeline();
 		this.CascadeAuthenticationState(auth);
 		return api;
@@ -61,6 +68,14 @@ public sealed class WelcomeTests : PageTestContext
 			registerTab.Click();
 		});
 	}
+
+	/// <summary>
+	/// Ticks the terms gate, which stands in front of both forms until this device has agreed
+	/// (§10.2). Every test that submits has to pass it, because a rider does.
+	/// </summary>
+	private static Task AcceptTermsAsync(IRenderedComponent<Welcome> component) =>
+		component.InvokeAsync(() =>
+			component.Find(".terms-gate input[type=checkbox]").Change(true));
 
 	[Fact]
 	public async Task PasswordCompositionCopy_IsPresent_AndMentionsNoSpecialChar()
@@ -129,6 +144,8 @@ public sealed class WelcomeTests : PageTestContext
 			AngleSharp.Dom.IElement password = component.FindAll("input[type=password]").First();
 			password.Change("weak");
 		});
+		await AcceptTermsAsync(component);
+
 		await component.InvokeAsync(() =>
 		{
 			AngleSharp.Dom.IElement form = component.Find("form");

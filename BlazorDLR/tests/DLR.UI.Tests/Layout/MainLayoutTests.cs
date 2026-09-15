@@ -67,6 +67,12 @@ public sealed class MainLayoutTests : BunitContext
 		// FirstRun_OpensTheIntroduction below.
 		Services.AddSingleton<IntroTourState>();
 
+		// And the terms re-ask beside it (§10.2), for the same reason: the layout is the only place
+		// above both Home and Welcome, so it is the only one that can put a version bump in front of
+		// a rider who is already signed in. In-memory, which reads as "has agreed to nothing" - the
+		// gate then turns on whether there is a session, and these tests are anonymous.
+		Services.AddSingleton<TermsAcceptanceState>();
+
 		// And where the last launch's adventure and GPS are put back (§5.7, §18.6). Resolvable here
 		// for the same reason as the two above: the layout injects it, so a layout that cannot
 		// build it is a layout no page renders inside. Nothing is stored, so it finds no adventure.
@@ -150,6 +156,12 @@ public sealed class MainLayoutTests : BunitContext
 			User: new AuthenticatedUser(Rider, "DaveSmith", HasEmail: true, EmailConfirmed: true)));
 
 		await Services.GetRequiredService<IntroTourState>().MarkSeenAsync();
+
+		// And agreed to the terms, for the same reason the deck is marked seen: this helper is a
+		// rider who has used the app before, and both gates stand in front of the adventure restore
+		// on purpose (§10.2). A rider who has genuinely not agreed is Terms_AsGate's case.
+		await Services.GetRequiredService<TermsAcceptanceState>().AcceptAsync();
+
 		await settings.SetAsync(CurrentRideState.StorageKey, Ride.ToString("N"));
 
 		return Services.GetRequiredService<NavigationManager>() as BunitNavigationManager

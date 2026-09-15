@@ -153,6 +153,9 @@ public sealed class InProcessAboutApiClient : IApiClient
 	public Task BlockUserAsync(BlockUserRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task UnblockUserAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<IReadOnlyList<BlockedRider>> ListBlocksAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<IReadOnlyList<OpenReport>> ListOpenReportsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<ReportResolved> RestoreReportedAsync(Guid reportId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
+	public Task<ReportResolved> RemoveReportedAsync(Guid reportId, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<HttpResponseMessage> ExportAccountAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task DeleteAccountAsync(DeleteAccountRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);
 	public Task<IReadOnlyList<AdminUserRow>> AdminUsersAsync(string? search = null, int skip = 0, int take = 50, CancellationToken cancellationToken = default) => throw new NotImplementedException(SsrGuard);

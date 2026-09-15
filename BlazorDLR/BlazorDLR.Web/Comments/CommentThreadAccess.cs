@@ -188,23 +188,99 @@ public static class CommentThreadAccess
 	/// with the answer so the caller does not read the row twice.
 	/// </para>
 	/// </summary>
+	/// <para>
+	/// <strong>A held post is not there.</strong> Reported content is hidden from every read until
+	/// an operator has judged it (§17.7), and this is the chokepoint every write path already goes
+	/// through - so the hold belongs here rather than being remembered at each of them. It was not,
+	/// briefly, and react, vote and close-poll all let a hidden post be acted on and broadcast.
+	/// </para>
+	/// <para>
+	/// <strong>What the hold stops is content coming <em>back</em>.</strong> Editing, pinning,
+	/// reacting and voting all put a hidden post in front of somebody again; deleting it does not,
+	/// and an organiser removing an abusive comment is exactly what should happen while the report
+	/// sits in the queue - see <c>ContentReport</c>, whose snapshot exists so that deletion does not
+	/// destroy the evidence. <see cref="ForDeletionAsync"/> and <see cref="ForReportAsync"/> are the
+	/// two callers that see past the hold, for that reason and for reporting twice.
+	/// </para>
+	/// </summary>
 	/// <param name="database">The one context.</param>
 	/// <param name="commentId">Which comment.</param>
 	/// <param name="userId">Who is asking.</param>
 	/// <param name="cancellationToken">Cancellation.</param>
 	/// <returns>
 	/// The comment and what the caller may do in its thread. The comment is null - and the access
-	/// is <see cref="ThreadAccess.None"/> - when it does not exist or when the caller may not know
-	/// that it does, which are deliberately the same answer.
+	/// is <see cref="ThreadAccess.None"/> - when it does not exist, when it is held, or when the
+	/// caller may not know that it does, which are deliberately the same answer.
 	/// </returns>
-	public static async Task<(RideComment? Comment, ThreadAccess Access)> ForCommentAsync(
+	public static Task<(RideComment? Comment, ThreadAccess Access)> ForCommentAsync(
 		DlrDbContext database,
 		Guid commentId,
 		Guid userId,
-		CancellationToken cancellationToken = default)
+		CancellationToken cancellationToken = default) =>
+		ResolveAsync(database, commentId, userId, includeAuthor: false, seesHeld: false, cancellationToken);
+
+	/// <summary>
+	/// The same resolution for the one path that files a report (§17.7).
+	/// <para>
+	/// Two things differ and both are peculiar to reporting: it must see a post that is already
+	/// held - somebody else reporting it first must not stop a second report - and it needs the
+	/// author, because it snapshots the username. A named method rather than two flags on
+	/// <see cref="ForCommentAsync"/>: the exception is one caller, and a boolean on the shared
+	/// helper is a thing every other caller has to read past.
+	/// </para>
+	/// </summary>
+	/// <param name="database">The one context.</param>
+	/// <param name="commentId">Which comment.</param>
+	/// <param name="userId">Who is asking.</param>
+	/// <param name="cancellationToken">Cancellation.</param>
+	public static Task<(RideComment? Comment, ThreadAccess Access)> ForReportAsync(
+		DlrDbContext database,
+		Guid commentId,
+		Guid userId,
+		CancellationToken cancellationToken = default) =>
+		ResolveAsync(database, commentId, userId, includeAuthor: true, seesHeld: true, cancellationToken);
+
+	/// <summary>
+	/// The same resolution for deleting a post (§17.7).
+	/// <para>
+	/// Sees held content, because removing it is the outcome the hold is waiting for rather than
+	/// something it should prevent. The organiser is the fastest moderator a thread has, and a
+	/// delete that answered 404 because somebody else had already reported it would take that away
+	/// at the one moment it matters.
+	/// </para>
+	/// </summary>
+	/// <param name="database">The one context.</param>
+	/// <param name="commentId">Which comment.</param>
+	/// <param name="userId">Who is asking.</param>
+	/// <param name="cancellationToken">Cancellation.</param>
+	public static Task<(RideComment? Comment, ThreadAccess Access)> ForDeletionAsync(
+		DlrDbContext database,
+		Guid commentId,
+		Guid userId,
+		CancellationToken cancellationToken = default) =>
+		ResolveAsync(database, commentId, userId, includeAuthor: false, seesHeld: true, cancellationToken);
+
+	private static async Task<(RideComment? Comment, ThreadAccess Access)> ResolveAsync(
+		DlrDbContext database,
+		Guid commentId,
+		Guid userId,
+		bool includeAuthor,
+		bool seesHeld,
+		CancellationToken cancellationToken)
 	{
-		RideComment? comment = await database
-			.Set<RideComment>()
+		IQueryable<RideComment> comments = database.Set<RideComment>();
+
+		if (includeAuthor)
+		{
+			comments = comments.Include(row => row.Author);
+		}
+
+		if (!seesHeld)
+		{
+			comments = ReportHold.Unheld(database, comments);
+		}
+
+		RideComment? comment = await comments
 			.SingleOrDefaultAsync(row => row.Id == commentId, cancellationToken);
 
 		if (comment is null)

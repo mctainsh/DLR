@@ -101,7 +101,7 @@ public sealed class MembershipController : ControllerBase
 
 		RidePermissions permissions = MembershipEndpoints.Describe(ride);
 
-		await hub.Clients.Group(RideHub.Group(id)).RidePermissionsChanged(permissions);
+		await hub.Clients.Group(RideHub.Group(id)).RidePermissionsChanged(id, permissions);
 
 		return Ok(permissions);
 	}

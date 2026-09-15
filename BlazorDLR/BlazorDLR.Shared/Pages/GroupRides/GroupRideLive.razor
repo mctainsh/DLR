@@ -554,7 +554,10 @@
 									{
 										<MarkerDetails Marker="marker" CanDelete="_session.CanDelete(marker)"
 													   Deleting="_deletingMarkerId == marker.Id"
-													   OnDelete="DeleteMarkerAsync" />
+													   OnDelete="DeleteMarkerAsync"
+													   CanReport="_session.CanReport(marker)"
+													   Reporting="_reportingMarkerId == marker.Id"
+													   OnReport="ReportMarkerAsync" />
 									}
 								</li>
 							}
@@ -594,7 +597,10 @@
 
 							<MarkerDetails Marker="marker" CanDelete="_session.CanDelete(marker)"
 										   Deleting="_deletingMarkerId == marker.Id"
-										   OnDelete="DeleteMarkerAsync" />
+										   OnDelete="DeleteMarkerAsync"
+										   CanReport="_session.CanReport(marker)"
+										   Reporting="_reportingMarkerId == marker.Id"
+										   OnReport="ReportMarkerAsync" />
 						</section>
 					}
 				</div>
@@ -938,6 +944,13 @@
 	/// page, and none of those have anything to do with removing a pin.
 	/// </summary>
 	private Guid? _deletingMarkerId;
+
+	/// <summary>
+	/// The marker whose report is in flight. Separate from <see cref="_deletingMarkerId"/> because
+	/// an organiser can do either to the same pin, and one spinner on both would say the wrong
+	/// thing about whichever they did not press.
+	/// </summary>
+	private Guid? _reportingMarkerId;
 
 	private string Title => _session?.Ride?.Name ?? "Adventure";
 
@@ -2572,6 +2585,44 @@
 
 	// -- Markers ------------------------------------------------------------------------------
 
+	/// <summary>
+	/// Reports a marker to the operator (§10.2, §16.5).
+	/// <para>
+	/// The confirmation states that the pin goes off everybody's map straight away, because it
+	/// does - a reported marker is held until it has been reviewed - and a reader who expected
+	/// only to flag it should know that before they press it rather than after.
+	/// </para>
+	/// </summary>
+	private async Task ReportMarkerAsync(MarkerDto marker)
+	{
+		bool ok = await Confirm.AskAsync(
+			ReportPrompt.Title("marker"),
+			ReportPrompt.Body($"“{MarkerIconGlyphs.Name(marker.Title, marker.Icon)}”"),
+			confirmText: "Report");
+
+		if (!ok) return;
+
+		_reportingMarkerId = marker.Id;
+
+		// Explicit, because this is set after an await: ComponentBase renders when a handler
+		// yields and again when it finishes, and both of those have the flag null. Without this
+		// the button never shows that it was pressed.
+		StateHasChanged();
+
+		try
+		{
+			await _session.ReportMarkerAsync(marker.Id, "Reported by a member");
+
+			// The pin has gone from the session, so a detail panel still standing over it is
+			// describing something this screen can no longer draw.
+			if (_openMarkerId == marker.Id)
+			{
+				_openMarkerId = null;
+			}
+		}
+		finally { _reportingMarkerId = null; }
+	}
+
 	private async Task DeleteMarkerAsync(MarkerDto marker)
 	{
 		bool ok = await Confirm.AskAsync(
@@ -2584,6 +2635,8 @@
 		if (!ok) return;
 
 		_deletingMarkerId = marker.Id;
+		StateHasChanged();
+
 		try
 		{
 			await _session.DeleteMarkerAsync(marker.Id);
@@ -3210,6 +3263,37 @@
 			border-radius: 4px;
 			margin-bottom: 0.5rem;
 		}
+
+		/* Report and delete on one row, the flag first and quiet. `icon-button` is styled by
+		   whoever owns the screen rather than globally - the thread has its own copy of this rule
+		   for the same control on a post. */
+		.live .marker-body .marker-actions {
+			display: flex;
+			gap: 0.5rem;
+			align-items: center;
+		}
+
+		.live .marker-body .icon-button.report {
+			padding: 0.3rem 0.45rem;
+			font-size: 1rem;
+			line-height: 1;
+			background: transparent;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			opacity: 0.45;
+		}
+
+			.live .marker-body .icon-button.report:hover,
+			.live .marker-body .icon-button.report:focus-visible {
+				opacity: 1;
+				background: #fff2;
+			}
+
+			.live .marker-body .icon-button.report:disabled {
+				opacity: 0.25;
+				cursor: default;
+			}
 
 		.live .marker-body .danger {
 			padding: 0.35rem 0.7rem;

@@ -85,6 +85,9 @@ public sealed class SignalRRideHubClient : IRideHubClient
 	public event Action<Guid, Guid>? MarkerRemoved;
 	/// <inheritdoc />
 	public event Action<CommentDto>? CommentPosted;
+
+	/// <inheritdoc />
+	public event Action<CommentDto>? CommentRestored;
 	/// <inheritdoc />
 	public event Action<CommentDto>? CommentEdited;
 	/// <inheritdoc />
@@ -140,6 +143,7 @@ public sealed class SignalRRideHubClient : IRideHubClient
 		connection.On<Guid, MarkerDto>("MarkerUpdated", (r, m) => MarkerUpdated?.Invoke(r, m));
 		connection.On<Guid, Guid>("MarkerRemoved", (r, m) => MarkerRemoved?.Invoke(r, m));
 		connection.On<CommentDto>("CommentPosted", c => CommentPosted?.Invoke(c));
+		connection.On<CommentDto>("CommentRestored", c => CommentRestored?.Invoke(c));
 		connection.On<CommentDto>("CommentEdited", c => CommentEdited?.Invoke(c));
 		connection.On<Guid>("CommentRemoved", c => CommentRemoved?.Invoke(c));
 		connection.On<Guid, bool>("CommentPinChanged", (c, p) => CommentPinChanged?.Invoke(c, p));

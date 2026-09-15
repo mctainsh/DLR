@@ -20,6 +20,20 @@ namespace DLR.Server.Hubs;
 /// well; those arrive with SRV-26 and Milestone F, and declaring them now would be a contract
 /// nothing on either side implements.
 /// </para>
+/// <para>
+/// <strong>A ride-scoped message leads with its ride id; a thread-scoped one does not.</strong> A
+/// client holds one session per adventure and drops anything for a ride it is not showing, so a
+/// message about a ride has to say which. Comment, reaction and poll messages carry the post,
+/// which already names its thread.
+/// </para>
+/// <para>
+/// <strong>These signatures are half a contract.</strong> The other half is
+/// <c>SignalRRideHubClient</c>'s <c>connection.On</c> registrations, in another assembly, joined to
+/// this one by a string and an argument count - and SignalR dispatches on both, so a pair that
+/// disagrees is delivered nowhere at all, in silence. That is what happened to all three marker
+/// messages until v0.35. <c>HubContractRules</c> is what now keeps the two sides honest; change one
+/// and it will tell you about the other.
+/// </para>
 /// </summary>
 public interface IRideClient
 {
@@ -28,9 +42,10 @@ public interface IRideClient
 	Task PositionsUpdated(PositionBatch batch);
 
 	/// <summary>A rider turned sharing on or off (§5.6).</summary>
+	/// <param name="rideId">Which adventure.</param>
 	/// <param name="memberId">Which rider.</param>
 	/// <param name="sharing">Their new state.</param>
-	Task MemberSharingChanged(Guid memberId, bool sharing);
+	Task MemberSharingChanged(Guid rideId, Guid memberId, bool sharing);
 
 	/// <summary>
 	/// A rider entered or left their own private area (§10.1, §5.6).
@@ -41,8 +56,6 @@ public interface IRideClient
 	/// reason a pin can be missing. Where the circle is stays on the rider's own profile.
 	/// </para>
 	/// <para>
-	/// The ride id rides along, unlike <see cref="MemberSharingChanged"/>'s, because a client holds
-	/// one session per ride and process-wide events have to be able to say which one they are about.
 	/// </para>
 	/// </summary>
 	/// <param name="rideId">Which ride.</param>
@@ -154,16 +167,19 @@ public interface IRideClient
 	Task JoinRequestWithdrawn(Guid rideId, Guid requestId);
 
 	/// <summary>Somebody placed a marker (§16.6).</summary>
+	/// <param name="rideId">Which adventure.</param>
 	/// <param name="marker">The marker.</param>
-	Task MarkerAdded(MarkerDto marker);
+	Task MarkerAdded(Guid rideId, MarkerDto marker);
 
 	/// <summary>A marker was edited.</summary>
+	/// <param name="rideId">Which adventure.</param>
 	/// <param name="marker">The marker as it now is.</param>
-	Task MarkerUpdated(MarkerDto marker);
+	Task MarkerUpdated(Guid rideId, MarkerDto marker);
 
 	/// <summary>A marker was removed.</summary>
+	/// <param name="rideId">Which adventure.</param>
 	/// <param name="markerId">Which one.</param>
-	Task MarkerRemoved(Guid markerId);
+	Task MarkerRemoved(Guid rideId, Guid markerId);
 
 	/// <summary>
 	/// The organiser changed what members may add (§5.8).
@@ -173,8 +189,9 @@ public interface IRideClient
 	/// it true; this only makes it visible.
 	/// </para>
 	/// </summary>
+	/// <param name="rideId">Which adventure.</param>
 	/// <param name="permissions">The switches as they now stand.</param>
-	Task RidePermissionsChanged(RidePermissions permissions);
+	Task RidePermissionsChanged(Guid rideId, RidePermissions permissions);
 
 	/// <summary>
 	/// Somebody posted to a thread - an adventure's or a shared route's (§17.8, §6.2).
@@ -194,6 +211,19 @@ public interface IRideClient
 	/// <summary>A post was removed.</summary>
 	/// <param name="commentId">Which one.</param>
 	Task CommentRemoved(Guid commentId);
+
+	/// <summary>
+	/// A post that was held on a report has been cleared and is readable again (§17.7).
+	/// <para>
+	/// <strong>Not <see cref="CommentPosted"/>, though the payload is the same.</strong> That one
+	/// is what raises a notification on every member's phone, and a post coming back from the
+	/// operator's queue is not news the way a new post is - reusing it would buzz an adventure for
+	/// something written yesterday. This is the inverse of the <see cref="CommentRemoved"/> a
+	/// report sends, and nothing more.
+	/// </para>
+	/// </summary>
+	/// <param name="comment">The post, as it reads now.</param>
+	Task CommentRestored(CommentDto comment);
 
 	/// <summary>A post was pinned or unpinned (§17.6).</summary>
 	/// <param name="commentId">Which one.</param>

@@ -1,0 +1,133 @@
+@page "/terms"
+@using BlazorDLR.Shared.Legal
+@inject TermsAcceptanceState Acceptance
+@inject NavigationManager Nav
+
+<PageTitle>Terms of Use - Dumb Luck Routes</PageTitle>
+
+@*
+	The terms every account agrees to before it exists (§10.2).
+
+	NOT [Authorize], and that is the whole point of it. Guideline 1.2 asks for terms presented
+	"before registering or logging in", so the one caller who must be able to read this page in
+	full is the one who has no account yet - the same reason Intro and the recovery pages are
+	open. The back arrow therefore has to lead somewhere that exists for an anonymous caller.
+
+	Two ways in, and `?accept=1` is what tells them apart. Plain, it is a reference: Settings'
+	card, or the link beside the welcome gate. With `accept=1`, it is a gate - MainLayout sends a
+	signed-in rider here when the edition they agreed to is no longer the one shipping, and the
+	agreement control at the foot is the only way past it. `return` carries where they were going,
+	filtered by SafeReturn because it arrives off the query string.
+
+	The words are not here. TermsOfUse.Clauses holds them, so the text a rider agreed to is the
+	text in the build, and so the "no tolerance" sentence a reviewer looks for has one home
+	rather than being duplicated into whatever screen quotes it next.
+*@
+
+<div class="page page-medium terms">
+	@if (MustAccept)
+	{
+		@* No back arrow while this is a gate: there is nothing behind it to go back to. *@
+		<PageNav Title="Terms of Use" />
+
+		<div class="callout">
+			<strong>These terms have changed since you agreed to them.</strong>
+			Read them and agree to carry on using the app.
+		</div>
+	}
+	else
+	{
+		<AuthorizeView>
+			<Authorized>
+				<PageNav Title="Terms of Use" BackHref="/settings" BackLabel="Back to settings" />
+			</Authorized>
+			<NotAuthorized>
+				<PageNav Title="Terms of Use" BackHref="/welcome" BackLabel="Back to sign in" />
+			</NotAuthorized>
+		</AuthorizeView>
+	}
+
+	<p class="lead">
+		These terms apply to everybody who uses Dumb Luck Routes. Version @TermsOfUse.Version.
+	</p>
+
+	@foreach (TermsClause clause in TermsOfUse.Clauses)
+	{
+		<section class="clause">
+			<h2>@clause.Title</h2>
+			@foreach (string paragraph in clause.Paragraphs)
+			{
+				<p>@paragraph</p>
+			}
+		</section>
+	}
+
+	@if (MustAccept)
+	{
+		<div class="accept">
+			<TermsGate Show="true" @bind-Accepted="_agreed" />
+
+			<button type="button" class="primary" disabled="@(!_agreed)" @onclick="AgreeAsync">
+				Agree and carry on
+			</button>
+		</div>
+	}
+</div>
+
+<BlazorDLR.Shared.Components.SourceOfferFooter />
+
+@code {
+	/// <summary>
+	/// Set by <c>MainLayout</c> when it is sending a rider here to agree again, rather than when
+	/// they opened the terms to read them.
+	/// </summary>
+	[SupplyParameterFromQuery(Name = "accept")]
+	public string? Accept { get; set; }
+
+	/// <summary>Where they were going before the gate stopped them. Absent means home.</summary>
+	[SupplyParameterFromQuery(Name = "return")]
+	public string? ReturnTo { get; set; }
+
+	private bool _agreed;
+
+	/// <summary>Whether this visit is the gate rather than the reference copy.</summary>
+	private bool MustAccept => Accept == "1";
+
+	private async Task AgreeAsync()
+	{
+		if (!_agreed) return;
+
+		await Acceptance.AcceptAsync();
+
+		Nav.NavigateTo(SafeReturn.Or(ReturnTo));
+	}
+}
+
+<style>
+	.terms .clause {
+		margin-top: 1.5rem;
+	}
+
+		.terms .clause h2 {
+			font-size: 1.05rem;
+			margin-bottom: 0.4rem;
+		}
+
+		.terms .clause p {
+			margin: 0 0 0.6rem;
+			line-height: 1.5;
+		}
+
+	/* The gate's own controls sit at the foot, after the text they are about - a rider should
+	   have scrolled past what they are agreeing to before they can agree to it. */
+	.terms .accept {
+		margin-top: 2rem;
+		padding-top: 1rem;
+		border-top: 1px solid #ffffff2a;
+	}
+
+		.terms .accept button {
+			width: 100%;
+			margin-top: 0.5rem;
+		}
+</style>

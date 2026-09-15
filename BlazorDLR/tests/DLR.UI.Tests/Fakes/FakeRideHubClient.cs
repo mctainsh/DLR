@@ -32,6 +32,7 @@ public sealed class FakeRideHubClient : IRideHubClient
 	public event Action<Guid, MarkerDto>? MarkerUpdated;
 	public event Action<Guid, Guid>? MarkerRemoved;
 	public event Action<CommentDto>? CommentPosted;
+	public event Action<CommentDto>? CommentRestored;
 	public event Action<CommentDto>? CommentEdited;
 	public event Action<Guid>? CommentRemoved;
 	public event Action<Guid, bool>? CommentPinChanged;
@@ -159,6 +160,8 @@ public sealed class FakeRideHubClient : IRideHubClient
 	// Test-raise helpers. Kept on the fake rather than on the interface, because a component
 	// listening on the interface has no reason to be able to raise its own events.
 	public void RaiseCommentPosted(CommentDto comment) => CommentPosted?.Invoke(comment);
+
+	public void RaiseCommentRestored(CommentDto comment) => CommentRestored?.Invoke(comment);
 	public void RaiseReactionsUpdated(Guid commentId, ReactionCounts counts) => ReactionsUpdated?.Invoke(commentId, counts);
 	public void RaisePermissionsChanged(Guid rideId, RidePermissions permissions) => PermissionsChanged?.Invoke(rideId, permissions);
 	public void RaiseRoutesChanged(Guid rideId) => RoutesChanged?.Invoke(rideId);

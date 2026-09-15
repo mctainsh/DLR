@@ -1,0 +1,239 @@
+@page "/admin/reports"
+@attribute [Authorize]
+@using System.Text.Json
+@using DLR.Core.Contracts.Moderation
+@inject IApiClient Api
+@inject ConfirmService Confirm
+
+@*
+	Reported content waiting to be judged (§17.7, §10.2).
+
+	**This screen is the other half of a promise.** A single report hides a post or a marker from
+	everybody the moment it is filed, which is what App Store guideline 1.2 asks for and is also a
+	way for one account to silence another. The terms say we review within 24 hours and restore what
+	should not have gone down; this is where that happens, and an empty queue is the normal state.
+
+	Oldest first, because the oldest is the one the 24 hours is closest to expiring on.
+
+	**The snapshot is what is judged, not the live row.** By the time an operator reads this, an
+	organiser may already have deleted the comment - the report has to be closable either way, and
+	the snapshot taken at report time is the only copy of what was actually objected to.
+*@
+
+<PageTitle>Reports - Administration - Dumb Luck Routes</PageTitle>
+
+<div class="page page-medium admin-reports">
+	<PageNav Title="Reports" BackHref="/" BackLabel="Back to home" />
+
+	<p class="lead">
+		Reported content is hidden from the app until it is judged here. <strong>Restore</strong>
+		puts it back and closes the report; <strong>Remove</strong> deletes it for good.
+	</p>
+
+	@if (_error is { } problem)
+	{
+		<p class="error" role="alert">@problem</p>
+	}
+
+	@if (_reports is null)
+	{
+		<p class="empty">Loading…</p>
+	}
+	else if (_reports.Count == 0)
+	{
+		<p class="empty">Nothing is waiting. Every report has been dealt with.</p>
+	}
+	else
+	{
+		@foreach (OpenReport report in _reports)
+		{
+			<article class="report">
+				<header>
+					<strong>@report.TargetKind</strong>
+					<span class="by">by @(report.AuthorUserName ?? "a deleted account")</span>
+					<span class="when">reported @report.CreatedUtc.ToLocalTime().ToString("d MMM yyyy HH:mm")</span>
+				</header>
+
+				<p class="reason">
+					<span class="who">@report.ReportedByUserName said:</span> @report.Reason
+					@if (report.ReportsOnTarget > 1)
+					{
+						<span class="pile">and @(report.ReportsOnTarget - 1) other report(s) on this</span>
+					}
+				</p>
+
+				@*
+					The snapshot as stored, pretty-printed when it parses and verbatim when it does
+					not. An operator judging content must see what was stored rather than this
+					screen's idea of it - a render that silently dropped a field it did not know
+					about would be hiding evidence from the person deciding.
+				*@
+				<pre class="snapshot">@_readable[report.ReportId]</pre>
+
+				<div class="actions">
+					<button type="button" class="primary" disabled="@_busy"
+							@onclick="() => RestoreAsync(report)">
+						Restore
+					</button>
+					<button type="button" class="danger" disabled="@_busy"
+							@onclick="() => RemoveAsync(report)">
+						Remove
+					</button>
+				</div>
+			</article>
+		}
+	}
+</div>
+
+@code {
+	/// <summary>
+	/// One instance, not one per row. A fresh <c>JsonSerializerOptions</c> builds its own converter
+	/// cache, so allocating one inside a render loop throws that cache away every time (CA1869).
+	/// </summary>
+	private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
+
+	private IReadOnlyList<OpenReport>? _reports;
+
+	/// <summary>
+	/// Each snapshot pretty-printed once, keyed by report. Formatting from the render tree would
+	/// re-parse and re-serialise every row on every render, and this screen re-renders on each
+	/// confirm dialog and each busy toggle.
+	/// </summary>
+	private Dictionary<Guid, string> _readable = [];
+
+	private string? _error;
+	private bool _busy;
+
+	protected override async Task OnInitializedAsync() => await LoadAsync();
+
+	private async Task LoadAsync()
+	{
+		try
+		{
+			_reports = await Api.ListOpenReportsAsync();
+			_readable = _reports.ToDictionary(
+				report => report.ReportId,
+				report => Readable(report.ContentSnapshot));
+			_error = null;
+		}
+		catch (ApiException failure) { _error = failure.Error.Title; }
+	}
+
+	private async Task RestoreAsync(OpenReport report)
+	{
+		bool ok = await Confirm.AskAsync(
+			"Restore this content?",
+			"It goes back where it was and the report is closed. Do this when the report was wrong.",
+			confirmText: "Restore");
+		if (!ok) return;
+
+		await ActAsync(() => Api.RestoreReportedAsync(report.ReportId));
+	}
+
+	private async Task RemoveAsync(OpenReport report)
+	{
+		bool ok = await Confirm.AskAsync(
+			"Remove this content?",
+			"It is deleted for good. The report and its snapshot are kept until the nightly sweep "
+			+ "purges them, so there is still a record of what was removed and why.",
+			confirmText: "Remove",
+			danger: true);
+		if (!ok) return;
+
+		await ActAsync(() => Api.RemoveReportedAsync(report.ReportId));
+	}
+
+	/// <summary>
+	/// Runs one decision and reloads. Reloading rather than dropping the row locally: judging one
+	/// report closes every open report on the same content, so more than one row can disappear and
+	/// the server is the only thing that knows which.
+	/// </summary>
+	private async Task ActAsync(Func<Task> decision)
+	{
+		if (_busy) return;
+		_busy = true;
+		try
+		{
+			await decision();
+			await LoadAsync();
+		}
+		catch (ApiException failure) { _error = failure.Error.Title; }
+		finally { _busy = false; }
+	}
+
+	/// <summary>The stored snapshot, indented when it is the JSON it is meant to be.</summary>
+	private static string Readable(string snapshot)
+	{
+		try
+		{
+			using JsonDocument parsed = JsonDocument.Parse(snapshot);
+			return JsonSerializer.Serialize(parsed, Indented);
+		}
+		catch (JsonException)
+		{
+			return snapshot;
+		}
+	}
+}
+
+<style>
+	.admin-reports .report {
+		background: #fff2;
+		border-radius: 4px;
+		padding: 0.75rem;
+		margin: 0.75rem 0;
+	}
+
+		.admin-reports .report header {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+			align-items: baseline;
+			margin-bottom: 0.4rem;
+		}
+
+		.admin-reports .report .by,
+		.admin-reports .report .when {
+			font-size: 0.85rem;
+			opacity: 0.7;
+		}
+
+		.admin-reports .report .when {
+			margin-left: auto;
+		}
+
+		.admin-reports .report .reason {
+			margin: 0 0 0.5rem;
+		}
+
+			.admin-reports .report .who {
+				font-weight: 600;
+			}
+
+			.admin-reports .report .pile {
+				display: block;
+				font-size: 0.85rem;
+				opacity: 0.7;
+			}
+
+		/* The one thing on this screen allowed to be wider than the column - it is evidence, and
+		   wrapping JSON to fit makes it harder to read rather than easier. */
+		.admin-reports .report .snapshot {
+			overflow-x: auto;
+			font-size: 0.8rem;
+			background: #0001;
+			padding: 0.5rem;
+			border-radius: 3px;
+			margin: 0 0 0.6rem;
+		}
+
+		.admin-reports .report .actions {
+			display: flex;
+			gap: 0.5rem;
+		}
+
+			.admin-reports .report .actions button {
+				padding: 0.3rem 0.8rem;
+				font-size: 0.85rem;
+			}
+</style>

@@ -1,7 +1,6 @@
-﻿@page "/settings"
+@page "/settings"
 @attribute [Authorize]
 @inject IServiceProvider Services
-@inject AdminAccess Admin
 
 <PageTitle>Settings - Dumb Luck Routes</PageTitle>
 
@@ -11,7 +10,7 @@
 	<div class="cards">
 		<a class="card" href="/settings/profile">
 			<h2><i class="fa fa-fw fa-id-card" aria-hidden="true"></i> Profile</h2>
-			<p>Display name, phone number, email - and who sees what.</p>
+			<p>Display name, phone number, email, and who sees what.</p>
 		</a>
 		@*
 			Only on a host with a GPS to configure (§18.6). Every control behind this card -
@@ -29,11 +28,11 @@
 		}
 		<a class="card" href="/settings/maps">
 			<h2><i class="fa fa-fw fa-map" aria-hidden="true"></i> Maps</h2>
-			<p>Which tiles go under your maps - OpenStreetMap, or a tile server of your own.</p>
+			<p>Which tiles go under your maps, either OpenStreetMap, or a tile server of your own.</p>
 		</a>
 		<a class="card" href="/settings/devices">
 			<h2><i class="fa fa-fw fa-mobile-screen" aria-hidden="true"></i> Signed-in devices</h2>
-			<p>Every device this account is signed in on - revoke the ones you no longer have.</p>
+			<p>Every device this account is signed in on. Revoke the ones you no longer have.</p>
 		</a>
 		<a class="card" href="/settings/blocks">
 			<h2><i class="fa fa-fw fa-user-slash" aria-hidden="true"></i> Blocked travellers</h2>
@@ -58,7 +57,17 @@
 		*@
 		<a class="card" href="/intro">
 			<h2><i class="fa fa-fw fa-circle-info" aria-hidden="true"></i> How this works</h2>
-			<p>The quick introduction to the app, again - what an adventure is, and what it shares.</p>
+			<p>The quick introduction to the app. What an adventure is, and what it shares.</p>
+		</a>
+
+		@*
+			Reachable after the fact as well as before registering (§10.2). The one screen where
+			a rider goes looking for "what did I agree to" is this one, and the copy the welcome
+			gate summarises in a sentence is only readable in full here.
+		*@
+		<a class="card" href="/terms">
+			<h2><i class="fa fa-fw fa-file-contract" aria-hidden="true"></i> Terms of Use</h2>
+			<p>What you agreed to, including what happens to objectionable content and abusive accounts.</p>
 		</a>
 
 		@*
@@ -71,22 +80,6 @@
 			<p>What the app has been doing on this device. For working out why something did not happen.</p>
 		</a>
 
-		@*
-			The administration screens (§14.6), and the only link to them anywhere in the app.
-
-			Offered on a roster the server keeps, not on anything this account can set - see
-			AdminAccess. It renders once the answer is back rather than reserving a space for it,
-			because for nearly every account the answer is "no" and a card that appeared a moment
-			after the page did would be the only thing on this screen that moved.
-		*@
-		@if (_isAdmin)
-		{
-			<a class="card" href="/admin">
-				<h2><i class="fa fa-fw fa-screwdriver-wrench" aria-hidden="true"></i> Administration</h2>
-				<p>Travellers, server statistics and the server's log. Only for this server's administrators.</p>
-			</a>
-		}
-
 		<div>Version : @typeof(BlazorDLR.Shared.Components.SourceOfferFooter).Assembly.GetName().Version</div>
 	</div>
 </div>
@@ -98,12 +91,4 @@
 	/// the service <em>is</em> the answer rather than something to ask a seam about.
 	/// </summary>
 	private bool HasReceiver => Services.GetService<LocationBroadcastState>() is not null;
-
-	/// <summary>
-	/// Whether to offer the administration card. False until the server has answered, so the
-	/// overwhelmingly common case - an account that is not an administrator - never sees it flicker.
-	/// </summary>
-	private bool _isAdmin;
-
-	protected override async Task OnInitializedAsync() => _isAdmin = await Admin.IsAdminAsync();
 }

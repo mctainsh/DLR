@@ -256,10 +256,8 @@
 		if (_blocking) return;
 
 		bool ok = await Confirm.AskAsync(
-			$"Block {row.UserName}?",
-			$"You will not see {row.UserName} on the map, and they will not see you. Their posts, "
-			+ "reactions, markers and poll votes are hidden from you too.\n"
-			+ "They are not told. You can undo this in Settings → Blocked travellers.",
+			BlockPrompt.Title(row.UserName),
+			BlockPrompt.Body(row.UserName),
 			confirmText: "Block",
 			danger: true);
 

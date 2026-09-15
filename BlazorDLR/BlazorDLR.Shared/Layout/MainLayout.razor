@@ -8,6 +8,7 @@
 @inject NotificationRouting Routing
 @inject NavigationManager Nav
 @inject IntroTourState Tour
+@inject TermsAcceptanceState Terms
 @inject LaunchRestore Restore
 @inject StartupCheckState Startup
 @inject AnnouncementNotifier Announcements
@@ -175,6 +176,10 @@
 				return;
 			}
 
+			// Before the introduction, because agreeing to the terms is the one thing on this list
+			// a rider cannot decline and keep using the app.
+			await StepAsync("terms", ReAskTermsIfBumpedAsync);
+
 			// After the session, because a rider who is already signed in on this device has run
 			// the app before and the introduction has nothing to tell them - the read below is the
 			// one that decides, and putting it first would race the restore for the navigation.
@@ -293,6 +298,39 @@
 
 		string target = here is "/" ? "/intro" : $"/intro?return={Uri.EscapeDataString(here)}";
 		Nav.NavigateTo(target);
+	}
+
+	/// <summary>
+	/// Puts the terms in front of a rider who is already signed in when the edition they agreed to
+	/// is no longer the one shipping (§10.2).
+	/// <para>
+	/// <strong>This is what makes <c>TermsOfUse.Version</c> mean anything.</strong> The gate on
+	/// Welcome covers registering and signing in, which is what App Store guideline 1.2 asks for -
+	/// but Welcome sends a signed-in rider straight home, so on its own a bump would re-ask nobody
+	/// in the installed base. Clause 1 of the shipped terms promises we will ask again when what
+	/// they require changes, and without this the promise has no mechanism behind it.
+	/// </para>
+	/// <para>
+	/// Only for a rider with a session. Anonymous is Welcome's case, and bouncing a first run here
+	/// would put two gates in front of somebody who has not reached the first one yet.
+	/// </para>
+	/// </summary>
+	private async Task ReAskTermsIfBumpedAsync()
+	{
+		if (Auth.UserId is null)
+			return;
+
+		string here = Path(Nav.Uri);
+
+		if (here.StartsWith("/terms", StringComparison.OrdinalIgnoreCase))
+			return;
+
+		if (!await Terms.MustAskAsync())
+			return;
+
+		DiagnosticLog.Write("Startup: the terms have changed since this device agreed; asking again.");
+
+		Nav.NavigateTo($"/terms?accept=1&return={Uri.EscapeDataString(here)}");
 	}
 
 	/// <summary>

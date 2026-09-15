@@ -226,8 +226,8 @@ try
 	builder.Services.AddScoped<IDeviceSettings, InMemoryDeviceSettings>();
 	builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
-	// Whether to offer the administration card on Settings (§14.6). The server decides - this only
-	// caches the answer so the menu does not ask again on every visit.
+	// Whether to offer the administration section on Home (§14.6). The server decides - this
+	// only caches the answer so every visit to the landing does not ask again.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.AdminAccess>();
 
 	// Which tiles go under the map (§4.5). RideMap injects it, so it has to resolve here or the
@@ -259,6 +259,7 @@ try
 	// reaches, so this host cannot bounce anybody into the deck. The client re-resolves against
 	// localStorage the moment it takes over, and that is the answer that decides.
 	builder.Services.AddScoped<BlazorDLR.Shared.State.IntroTourState>();
+	builder.Services.AddScoped<BlazorDLR.Shared.State.TermsAcceptanceState>();
 
 	// Puts the adventure and the GPS back the way the last launch left them (§5.7, §18.6).
 	// MainLayout injects it, so it has to resolve here, and it restores nothing at all in this

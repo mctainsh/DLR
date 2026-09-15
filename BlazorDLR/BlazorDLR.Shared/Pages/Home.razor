@@ -1,6 +1,7 @@
 @page "/"
 @attribute [Authorize]
 @using BlazorDLR.Shared.Services
+@inject AdminAccess Admin
 @inject IFormFactor FormFactor
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
@@ -50,10 +51,70 @@
 		</a>
 	</div>
 
+	@*
+		The administration screens (§14.6), on the landing rather than behind a front door of their
+		own. There is no /admin page any more: it was five cards and a gate, and the gate is the
+		only part that was doing anything - so the cards moved here and the page went.
+
+		**Offered on a roster the server keeps, not on anything this account can set** - see
+		AdminAccess. It renders once the answer is back rather than reserving a space for it,
+		because for nearly every account the answer is "no" and a section that appeared a moment
+		after the page did would be the only thing on this screen that moved.
+
+		The gate is a courtesy, not the control. It stops an administrator's browser offering five
+		screens that would only ever answer 403, and every one of them is checked again against the
+		server's own roster, per request.
+	*@
+	@if (_isAdmin)
+	{
+		<section class="admin">
+			<h2><i class="fa fa-fw fa-screwdriver-wrench" aria-hidden="true"></i> Administration</h2>
+
+			<div class="grid">
+				<a class="card" href="/admin/users">
+					<h2><i class="fa fa-fw fa-users" aria-hidden="true"></i> Travellers</h2>
+					<p>Every account, when it was last heard from, and what it has put into the service.</p>
+				</a>
+
+				<a class="card" href="/admin/stats">
+					<h2><i class="fa fa-fw fa-chart-line" aria-hidden="true"></i> Statistics</h2>
+					<p>Who is active, what is live right now, and GPS fixes per minute over the day.</p>
+				</a>
+
+				@*
+					The queue reported content waits in (§17.7). A report hides it from the app
+					straight away, so this is not a backlog somebody gets to - the terms promise it
+					is read within 24 hours, and until it is, somebody's post is down.
+				*@
+				<a class="card" href="/admin/reports">
+					<h2><i class="fa fa-fw fa-flag" aria-hidden="true"></i> Reports</h2>
+					<p>Content that has been reported and hidden, waiting to be restored or removed.</p>
+				</a>
+
+				<a class="card" href="/admin/notices">
+					<h2><i class="fa fa-fw fa-bullhorn" aria-hidden="true"></i> Notices</h2>
+					<p>What every rider sees when the app is open. Live, and at their next launch.</p>
+				</a>
+
+				<a class="card" href="/admin/logs">
+					<h2><i class="fa fa-fw fa-file-lines" aria-hidden="true"></i> Server log</h2>
+					<p>What the server has been doing. Not this device's log - that one is under Settings.</p>
+				</a>
+			</div>
+		</section>
+	}
 </div>
 
 @code {
-	protected override void OnInitialized() => Offers.Changed += OnOffersChanged;
+	/// <summary>Whether to offer the administration section. See the markup for why it starts false.</summary>
+	private bool _isAdmin;
+
+	protected override async Task OnInitializedAsync()
+	{
+		Offers.Changed += OnOffersChanged;
+
+		_isAdmin = await Admin.IsAdminAsync();
+	}
 
 	/// <summary>
 	/// The launch ladder found one, or the rider took or dismissed the one on screen. Either way
@@ -66,4 +127,18 @@
 
 <style>
 	.home-offline-offer { margin-bottom: 1rem; }
+
+	/* Set apart from the rider's own destinations above it, because it is a different job on the
+	   same screen - and most accounts never see this rule apply to anything. */
+	.page .admin {
+		margin-top: 2rem;
+		padding-top: 1rem;
+		border-top: 1px solid #ffffff2a;
+	}
+
+		.page .admin > h2 {
+			font-size: 1rem;
+			opacity: 0.75;
+			margin-bottom: 0.75rem;
+		}
 </style>

@@ -377,6 +377,22 @@ public interface IApiClient
 	/// <summary><c>GET /api/v1/blocks</c> - the caller's own list.</summary>
 	Task<IReadOnlyList<BlockedRider>> ListBlocksAsync(CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// <c>GET /api/v1/admin/reports</c> - reported content waiting to be reviewed (§17.7).
+	/// Administrators only; anybody else gets a 403.
+	/// </summary>
+	Task<IReadOnlyList<OpenReport>> ListOpenReportsAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>POST /api/v1/admin/reports/{id}/restore</c> - the report was wrong, put the content back.
+	/// </summary>
+	Task<ReportResolved> RestoreReportedAsync(Guid reportId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// <c>POST /api/v1/admin/reports/{id}/remove</c> - the report was right, delete the content.
+	/// </summary>
+	Task<ReportResolved> RemoveReportedAsync(Guid reportId, CancellationToken cancellationToken = default);
+
 	// -- Account (§6.3, §10.1) ------------------------------------------------------------
 
 	/// <summary>

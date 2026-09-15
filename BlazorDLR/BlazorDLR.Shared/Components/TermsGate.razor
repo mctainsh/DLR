@@ -1,0 +1,38 @@
+@using BlazorDLR.Shared.Legal
+
+@*
+	The "I agree to the Terms of Use" control that stands in front of registering and signing in
+	(§10.2).
+
+	A component rather than markup repeated in each form. Welcome has two forms and the gate has to
+	read identically in both - two copies is how one of them ends up with the older sentence, and
+	the sentence is the part App Store review reads.
+
+	It renders nothing at all when the device has already agreed. The caller owns that decision
+	(see TermsAcceptanceState) because the caller is what has to disable its submit button.
+*@
+
+@if (Show)
+{
+	<div class="terms-gate">
+		<label class="agree">
+			<input type="checkbox" checked="@Accepted" @onchange="OnToggledAsync" />
+			<span>@TermsOfUse.AcceptanceSummary</span>
+		</label>
+		<p class="read"><a href="/terms">Read the Terms of Use</a></p>
+	</div>
+}
+
+@code {
+	/// <summary>Whether the gate applies at all. False once this device has agreed.</summary>
+	[Parameter] public bool Show { get; set; }
+
+	/// <summary>Whether the box is ticked.</summary>
+	[Parameter] public bool Accepted { get; set; }
+
+	/// <summary>Raised when the box is ticked or cleared, so the caller can enable its submit.</summary>
+	[Parameter] public EventCallback<bool> AcceptedChanged { get; set; }
+
+	private Task OnToggledAsync(ChangeEventArgs args) =>
+		AcceptedChanged.InvokeAsync((bool?)args.Value ?? false);
+}

@@ -2124,6 +2124,16 @@ This is a stronger statement than v0.4's email gate. Confirming an email only ev
 - **Google Play:** background-location declaration plus prominent in-app disclosure *before* the permission prompt; a demo video is typically required. **The disclosure must name every use the data is put to** *(learned the expensive way in v0.34 — 8.0.0.28 was rejected for naming live sharing and not the recorded track)*, and it must sit in front of **every** route to the permission dialog, including the ones that only want a single fix. The **Data Safety form must declare that location is stored, not merely transmitted** (§5.5). It must also now declare **name, email address and phone number as collected-but-optional**, and — because §7.3 lets riders show them to each other — that some personal information is **visible to other users**, which is a distinct disclosure from sharing with third parties (which the app does not do). Note that Play and Apple both ask whether optional data is *required* to use the app; here the honest answer is no, which is worth stating precisely rather than approximately.
 - **The home private area is itself stored location** *(new in v0.28)*, and the forms have to say so. It is not a fix — it is a point the rider typed — but it is a coordinate held on the server against an account, it is *precise*, and on both forms it belongs under location as collected and stored rather than being tacitly covered by the position rows. It is **not** visible to other users, which is the distinct disclosure the profile fields needed, so that box stays unticked for it (§10.1).
 - **Apple:** `PrivacyInfo.xcprivacy` privacy manifest, clear purpose strings, App Privacy details covering location **collection and storage**. Background-location apps get extra scrutiny, so the ride-sharing purpose must be visible in the UI.
+- **UGC review wants three things, and the one that is not code is the one that failed.** 8.0.0 (31)
+  was rejected under guideline 1.2 *after* report and block both shipped, because the third
+  requirement — **terms the user agrees to before registering or logging in, stating there is no
+  tolerance for objectionable content or abusive users** — had never been built at all. The terms
+  live in the app (`BlazorDLR.Shared/Legal/TermsOfUse.cs`) rather than behind a URL, so they read on
+  a first run with no signal and before an account exists; acceptance is device-local for the same
+  reason. Reporting also **removes the content immediately** rather than queueing it, which is what
+  "remove it from the user's feed instantly" means — and that only works because the operator has a
+  restore path (§17.7). Blocking has to be reachable **from the content**, not only from a members
+  list inside an adventure: the reviewer reads a thread, and that is where they look.
 - **User-generated content changes what review asks for** *(new in v0.13, and larger in v0.14)*. Marker photos, titles and notes (§16.5) — and now a full comment thread with photos, reactions and polls (§17) — are visible to other riders, which puts the app under Apple's UGC rules and Play's equivalent: a way to **report objectionable content**, a way to **block a user**, and a stated commitment to act on reports. Small audiences do not exempt you — reviewers check that the mechanisms exist. Build them with the feature, not after a rejection.
 - The Data Safety and App Privacy forms must also declare **photos and in-app messages** as collected, stored, and **visible to other users** — the same distinct disclosure the profile fields needed, for the same reason. "Messages" is its own category on both forms and is not covered by declaring photos.
 - **A messaging surface raises the age-rating question.** Unmoderated user communication pushes the rating up on both stores; declare it accurately rather than discovering it at submission (§17.7).
@@ -3187,7 +3197,7 @@ The rest of the paragraph was simply accurate. *"Adding a `TrackId` parent later
 
 | Field | Rules |
 |---|---|
-| **Body** | Up to `Comments:MaxChars` (default 2000). **Plain text** — never rendered as HTML or Markdown. Bare URLs in it are linkified at render (below); marker notes (§16.2) are not |
+| **Body** | Up to `Comments:MaxChars` (default 2000). **Plain text** — never rendered as HTML or Markdown. Bare URLs in it are linkified at render (below), as they are in marker notes (§16.2), ride and route descriptions |
 | **Photo** | One, optional, and it is the **same `Photo` resource as §16.4** — same ingest, same re-encode, same EXIF destruction, same quotas. Nothing new to secure |
 | **Author** | An admitted member, or — on a route's thread — any signed-in rider (§19.2). Their immutable username (§7.2) labels the post, and because it is immutable it can be denormalised into a cached thread with no invalidation |
 | **Kind** | `Text` or `Poll` (§17.5) |
@@ -3206,6 +3216,12 @@ That answers most of what this section used to refuse links over. `LinkScanner` 
 **Fetching a preview server-side is still refused**, for the SSRF reason §16.6 refused GPX `<link>` elements. The app never dereferences a URL a rider typed.
 
 A tap **leaves the app**, and one markup does that on every host: `target="_blank" rel="noopener noreferrer nofollow ugc"`. MAUI's `BlazorWebView` opens such an anchor in the system browser without even raising `UrlLoading`, which is how the store and AGPL-source links have always worked. No per-host seam is needed, and one would only reproduce a framework default.
+
+**Marker notes were excluded from this and are not any more** *(v0.35)*. The exclusion was
+recorded without a reason and the note rendered as dead text, which is wrong for the case that
+actually comes up - a marker on a meeting point whose note says "details at <url>". Nothing about
+the safety argument changes: `LinkedText` is the same component doing the same run-splitting, and
+`LinkScanner`'s rules above are what make it safe wherever it is used.
 
 **Full-length rider prose goes through `LinkedText`; a truncated blurb does not.** `MyRides` cuts a description to a line for its browse list, and a cut can land mid-URL - which would show a fragment of one host and link to another, the exact thing the rules above exist to prevent. A list row is also its own tap target, so a link inside it competes with opening the route.
 

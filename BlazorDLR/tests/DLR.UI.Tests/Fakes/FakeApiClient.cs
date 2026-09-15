@@ -59,6 +59,9 @@ public sealed class FakeApiClient : IApiClient
 	public TrackDetail? TrackDetailResult { get; set; }
 	public IReadOnlyList<DeviceSession> SessionsResult { get; set; } = Array.Empty<DeviceSession>();
 	public IReadOnlyList<BlockedRider> BlocksResult { get; set; } = Array.Empty<BlockedRider>();
+
+	/// <summary>What <see cref="ListOpenReportsAsync"/> answers with.</summary>
+	public IReadOnlyList<OpenReport> OpenReportsResult { get; set; } = Array.Empty<OpenReport>();
 	public RideDetail? RideResult { get; set; }
 	public IReadOnlyList<RiderPositionDto> PositionsResult { get; set; } = Array.Empty<RiderPositionDto>();
 	public IReadOnlyList<MarkerDto> MarkersResult { get; set; } = Array.Empty<MarkerDto>();
@@ -1035,9 +1038,36 @@ public sealed class FakeApiClient : IApiClient
 		return Task.CompletedTask;
 	}
 
-	public Task<ContentReported> ReportCommentAsync(Guid commentId, ReportContentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-	public Task<ContentReported> ReportMarkerAsync(Guid markerId, ReportContentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-	public Task BlockUserAsync(BlockUserRequest request, CancellationToken cancellationToken = default) { Record(nameof(BlockUserAsync)); return Task.CompletedTask; }
+	/// <summary>Comments that were reported, in the order they were reported.</summary>
+	public List<Guid> ReportedComments { get; } = new();
+
+	/// <summary>Markers that were reported.</summary>
+	public List<Guid> ReportedMarkers { get; } = new();
+
+	/// <summary>Accounts that were blocked.</summary>
+	public List<Guid> BlockedUsers { get; } = new();
+
+	public Task<ContentReported> ReportCommentAsync(Guid commentId, ReportContentRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ReportCommentAsync));
+		ReportedComments.Add(commentId);
+		return Task.FromResult(new ContentReported(Guid.NewGuid(), DateTimeOffset.UnixEpoch));
+	}
+
+	public Task<ContentReported> ReportMarkerAsync(Guid markerId, ReportContentRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ReportMarkerAsync));
+		ReportedMarkers.Add(markerId);
+		return Task.FromResult(new ContentReported(Guid.NewGuid(), DateTimeOffset.UnixEpoch));
+	}
+
+	public Task BlockUserAsync(BlockUserRequest request, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(BlockUserAsync));
+		BlockedUsers.Add(request.UserId);
+		return Task.CompletedTask;
+	}
+
 	public List<Guid> UnblockedUsers { get; } = new();
 
 	public Task UnblockUserAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -1047,6 +1077,29 @@ public sealed class FakeApiClient : IApiClient
 		return Task.CompletedTask;
 	}
 	public Task<IReadOnlyList<BlockedRider>> ListBlocksAsync(CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListBlocksAsync), BlocksResult));
+
+	/// <summary>Reports the operator restored.</summary>
+	public List<Guid> RestoredReports { get; } = new();
+
+	/// <summary>Reports the operator acted on by deleting the content.</summary>
+	public List<Guid> RemovedReports { get; } = new();
+
+	public Task<IReadOnlyList<OpenReport>> ListOpenReportsAsync(CancellationToken cancellationToken = default) =>
+		Task.FromResult(Recorded(nameof(ListOpenReportsAsync), OpenReportsResult));
+
+	public Task<ReportResolved> RestoreReportedAsync(Guid reportId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(RestoreReportedAsync));
+		RestoredReports.Add(reportId);
+		return Task.FromResult(new ReportResolved(1, false));
+	}
+
+	public Task<ReportResolved> RemoveReportedAsync(Guid reportId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(RemoveReportedAsync));
+		RemovedReports.Add(reportId);
+		return Task.FromResult(new ReportResolved(1, true));
+	}
 
 	/// <summary>The last DeleteAccount request, for §6.3 assertions.</summary>
 	public DeleteAccountRequest? LastDeleteAccountRequest { get; private set; }

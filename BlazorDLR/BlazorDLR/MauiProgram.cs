@@ -245,8 +245,8 @@ public static class MauiProgram
 		builder.Services.AddScoped<BlazorDLR.Shared.Services.IDeviceSettings, PreferencesDeviceSettings>();
 		builder.Services.AddScoped<BlazorDLR.Shared.State.RouteStyleState>();
 
-		// Whether to offer the administration card on Settings (§14.6). The server decides - this
-		// only caches the answer so the menu does not ask again on every visit.
+		// Whether to offer the administration section on Home (§14.6). The server decides - this
+		// only caches the answer so every visit to the landing does not ask again.
 		builder.Services.AddScoped<BlazorDLR.Shared.State.AdminAccess>();
 
 		// Which tiles go under the map (§4.5). Scoped like every other device preference, and
@@ -284,6 +284,7 @@ public static class MauiProgram
 		// the host it was written for: a phone is where the app is met for the first time, and the
 		// deck is what stands between "installed" and "what is this".
 		builder.Services.AddScoped<BlazorDLR.Shared.State.IntroTourState>();
+		builder.Services.AddScoped<BlazorDLR.Shared.State.TermsAcceptanceState>();
 
 		// Puts the adventure and the GPS back the way the app left them (§5.7, §18.6). The host it
 		// was written for, and on Android and iOS the only host it acts on: an app the OS reclaims

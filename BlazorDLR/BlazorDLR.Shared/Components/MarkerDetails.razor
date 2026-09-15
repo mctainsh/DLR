@@ -19,8 +19,18 @@
 
 	@if (!string.IsNullOrWhiteSpace(Marker.Note))
 	{
-		@* Plain text, never HTML or Markdown (§16.2). *@
-		<p class="note">@Marker.Note</p>
+		@*
+			Plain text, never HTML or Markdown (§16.2) - LinkedText is the one component allowed to
+			disagree, and it does so by emitting an anchor per URL run rather than by injecting
+			markup, so the rule above is unchanged.
+
+			§17.2 used to exclude marker notes from linkifying and gave no reason for it. The two
+			exclusions that do have reasons are about truncated blurbs - a cut can land mid-URL, and
+			a list row is its own tap target. Neither is true here: this is full-length prose in a
+			panel that already carries its own buttons. A note saying "details at <url>" is the
+			normal case for a meeting point.
+		*@
+		<p class="note"><LinkedText Text="@Marker.Note" /></p>
 	}
 	else
 	{
@@ -36,12 +46,35 @@
 					 Alt="@MarkerIconGlyphs.Name(Marker.Title, Marker.Icon)" Class="marker-photo" />
 	}
 
-	@if (CanDelete)
-	{
-		<button type="button" class="danger" disabled="@Deleting" @onclick="() => OnDelete.InvokeAsync(Marker)">
-			@(Deleting ? "Deleting…" : "Delete marker")
-		</button>
-	}
+	@*
+		Reporting a pin, not only a post (§10.2, §16.5). A marker's title, note and photograph are
+		user-generated content that every member of the adventure can see, so App Store guideline
+		1.2 wants the same flag control the thread carries. Never on the reader's own marker -
+		reporting yourself is not a thing, and they have the delete instead.
+	*@
+	@*
+		The flag alone, no caption. It sits beside a red "Delete marker", and two captioned buttons
+		on one row read as two equal choices - which they are not: deleting is the organiser's
+		routine housekeeping, reporting is rare and goes to the operator. The glyph is the same one
+		the thread uses on a post, so it means the same thing in both places.
+	*@
+	<div class="marker-actions">
+		@if (CanReport)
+		{
+			<button type="button" class="icon-button report" disabled="@Reporting"
+					title="Report marker" @onclick="() => OnReport.InvokeAsync(Marker)">
+				<span aria-hidden="true">🚩</span>
+				<span class="visually-hidden">Report marker</span>
+			</button>
+		}
+
+		@if (CanDelete)
+		{
+			<button type="button" class="danger" disabled="@Deleting" @onclick="() => OnDelete.InvokeAsync(Marker)">
+				@(Deleting ? "Deleting…" : "Delete marker")
+			</button>
+		}
+	</div>
 </div>
 
 @code {
@@ -59,4 +92,17 @@
 
 	/// <summary>Raised when the delete is pressed. Confirmation is the caller's business.</summary>
 	[Parameter] public EventCallback<MarkerDto> OnDelete { get; set; }
+
+	/// <summary>
+	/// Whether to offer the report. The caller decides, for the same reason <see cref="CanDelete"/>
+	/// is the caller's: this component has no view of who is signed in, and the server checks the
+	/// membership again regardless (§16.5).
+	/// </summary>
+	[Parameter] public bool CanReport { get; set; }
+
+	/// <summary>Whether this marker's report is already in flight.</summary>
+	[Parameter] public bool Reporting { get; set; }
+
+	/// <summary>Raised when the report is pressed. Confirmation is the caller's business.</summary>
+	[Parameter] public EventCallback<MarkerDto> OnReport { get; set; }
 }

@@ -2,6 +2,7 @@ using System.Globalization;
 using DLR.Core.Contracts.Comments;
 using DLR.Server.Data;
 using DLR.Server.Data.Comments;
+using DLR.Server.Data.Moderation;
 using DLR.Server.Data.Photos;
 using DLR.Server.Data.Rides;
 using DLR.Server.Hubs;
@@ -144,7 +145,8 @@ public sealed class CommentController : ControllerBase
 		List<CommentDto> pinned = firstPage
 			? await HydrateAsync(
 				database,
-				await Project(InThread(database, access)
+				await Project(ReportHold
+						.Unheld(database, InThread(database, access))
 						.Where(comment => comment.IsPinned)
 						.OrderByDescending(comment => comment.PinnedUtc),
 					limits)
@@ -154,7 +156,10 @@ public sealed class CommentController : ControllerBase
 				hidden)
 			: [];
 
-		IQueryable<RideComment> page = InThread(database, access)
+		// Reported and not yet reviewed, which is hidden from everybody rather than from this reader
+		// (§17.7). Composed into the query beside the block filter, and for the same reason.
+		IQueryable<RideComment> page = ReportHold
+			.Unheld(database, InThread(database, access))
 			.Where(comment => !hidden.Contains(comment.AuthorId));
 
 		if (Cursor.TryParse(cursor, out DateTimeOffset before, out Guid beforeId))
@@ -537,8 +542,10 @@ public sealed class CommentController : ControllerBase
 			return Unauthorized();
 		}
 
+		// ForDeletionAsync, so a post already held on somebody's report can still be taken down -
+		// removing it is what the hold is waiting for, not something it should prevent.
 		(RideComment? comment, ThreadAccess access) =
-			await CommentThreadAccess.ForCommentAsync(database, id, userId);
+			await CommentThreadAccess.ForDeletionAsync(database, id, userId);
 
 		if (comment is null)
 		{
@@ -777,6 +784,21 @@ public sealed class CommentController : ControllerBase
 
 		return comments;
 	}
+
+	/// <summary>
+	/// One post as the thread sees it, without its reactions or poll - the caller that needs those
+	/// hydrates. Internal for the reason <c>MarkerEndpoints.DescribeAsync</c> is: the moderation
+	/// queue re-projects a post it is putting back (§17.7).
+	/// </summary>
+	/// <param name="database">The context.</param>
+	/// <param name="limits">Thread options, for the stale-author window.</param>
+	/// <param name="commentId">Which post.</param>
+	internal static async Task<CommentDto> DescribeAsync(
+		DlrDbContext database,
+		CommentOptions limits,
+		Guid commentId) =>
+		await Project(database.Set<RideComment>().Where(comment => comment.Id == commentId), limits)
+			.SingleAsync();
 
 	private static IQueryable<CommentDto> Project(IQueryable<RideComment> comments, CommentOptions limits) =>
 		comments.AsNoTracking().Select(comment => new CommentDto(

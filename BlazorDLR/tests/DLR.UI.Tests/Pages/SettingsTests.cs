@@ -46,9 +46,9 @@ public sealed class SettingsTests : PageTestContext
 			serviceProvider.GetRequiredService<TimeProvider>()));
 		Services.AddSingleton<IDeviceSettings, InMemoryDeviceSettings>();
 
-		// The Settings landing asks whether to offer the administration card (§14.6). The fake
-		// client answers a profile with IsAdmin false, so the card stays off unless a test says
-		// otherwise - which is the state nearly every account is in.
+		// Not for Settings itself any more - the administration section moved to Home (§14.6) -
+		// but Blocks and the other sub-pages under here still resolve it through the shared
+		// container, so it has to be buildable.
 		Services.AddSingleton<AdminAccess>();
 		return api;
 	}
@@ -572,8 +572,8 @@ public sealed class SettingsTests : PageTestContext
 	[Fact]
 	public void SettingsLanding_LinksToAllFiveSubpages()
 	{
-		// The landing injects AdminAccess for the administration card (§14.6), so it needs the
-		// common wiring the other tests in this file use rather than a bare render.
+		// The common wiring the other tests in this file use, rather than a bare render: the
+		// landing resolves the same services they do.
 		WireCommon();
 
 		IRenderedComponent<Settings> component = Render<Settings>();

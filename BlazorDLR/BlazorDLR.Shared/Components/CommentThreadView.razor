@@ -225,6 +225,7 @@
 	protected override void OnInitialized()
 	{
 		Hub.CommentPosted += OnCommentPosted;
+		Hub.CommentRestored += OnCommentPosted;
 		Hub.CommentEdited += OnCommentEdited;
 		Hub.CommentRemoved += OnCommentRemoved;
 		Hub.CommentPinChanged += OnCommentPinChanged;
@@ -417,6 +418,11 @@
 	private bool Mine(CommentDto comment) =>
 		RideId is { } rideId ? comment.GroupRideId == rideId : comment.TrackId == TrackId;
 
+	/// <summary>
+	/// A post arriving on the hub - newly written, or cleared by the operator after a report
+	/// (§17.7). Both are the same insert here; only the notifier tells them apart, and it listens
+	/// to the "posted" one alone so a restore does not buzz an adventure for yesterday's post.
+	/// </summary>
 	private void OnCommentPosted(CommentDto comment)
 	{
 		if (!Mine(comment)) return;
@@ -451,9 +457,8 @@
 	private void OnCommentRemoved(Guid commentId)
 	{
 		// No Mine() check: a removal carries an id and nothing else, and an id this thread does
-		// not hold removes nothing. Both RemoveAll calls are no-ops for another thread's post.
-		_pinned.RemoveAll(c => c.Id == commentId);
-		_comments.RemoveAll(c => c.Id == commentId);
+		// not hold removes nothing. Drop is a no-op for another thread's post.
+		Drop(post => post.Id == commentId);
 		_ = InvokeAsync(StateHasChanged);
 	}
 
@@ -463,8 +468,7 @@
 		CommentDto? found = _pinned.FirstOrDefault(c => c.Id == commentId)
 			?? _comments.FirstOrDefault(c => c.Id == commentId);
 		if (found is null) return;
-		_pinned.RemoveAll(c => c.Id == commentId);
-		_comments.RemoveAll(c => c.Id == commentId);
+		Drop(post => post.Id == commentId);
 		CommentDto updated = found with { IsPinned = pinned };
 		if (pinned) _pinned.Insert(0, updated); else _comments.Insert(0, updated);
 		_ = InvokeAsync(StateHasChanged);
@@ -557,19 +561,71 @@
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
 	}
 
+	/// <summary>
+	/// Reports a post to the operator (§10.2, §17.7).
+	/// <para>
+	/// The confirmation says the post goes down straight away, because it does - reported content
+	/// is held from every read until it has been reviewed (§17.7). A reader who thought they were
+	/// only flagging it should be told that before they press it.
+	/// </para>
+	/// </summary>
 	private async Task ReportAsync(CommentDto comment)
 	{
 		bool ok = await Confirm.AskAsync(
-			"Report comment?",
-			"The operator will see this report, and so will the organiser of an adventure.",
+			ReportPrompt.Title("comment"),
+			ReportPrompt.Body("It"),
 			confirmText: "Report");
 		if (!ok) return;
 		try
 		{
 			await Api.ReportCommentAsync(comment.Id, new ReportContentRequest("Reported by a reader"));
-			_error = "Reported. The operator will see it.";
+
+			// The hub's CommentRemoved does this for every open client, including this one - but
+			// only for a client whose connection came up, so drop our own copy too. Both paths are
+			// one RemoveAll and are happy to run one after the other.
+			Drop(post => post.Id == comment.Id);
+			_error = "Reported and hidden. The operator will see it.";
 		}
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
+	}
+
+	/// <summary>
+	/// Blocks a post's author (§16.5, §17.7).
+	/// <para>
+	/// Here as well as in the Live members list because this is where a reader meets the person
+	/// they want rid of. Live members only exists inside an adventure both parties are on, which
+	/// leaves the reader of a shared route's thread - the most open surface on the service - with
+	/// nowhere to block from.
+	/// </para>
+	/// </summary>
+	private async Task BlockAsync(CommentDto comment)
+	{
+		bool ok = await Confirm.AskAsync(
+			BlockPrompt.Title(comment.AuthorUserName),
+			BlockPrompt.Body(comment.AuthorUserName),
+			confirmText: "Block",
+			danger: true);
+		if (!ok) return;
+		try
+		{
+			await Api.BlockUserAsync(new BlockUserRequest(comment.AuthorId));
+
+			// Every post of theirs, not only the one that was pressed. Leaving the rest standing
+			// until a reload is the block visibly not working.
+			Drop(post => post.AuthorId == comment.AuthorId);
+			_error = "Blocked. You will not see their posts.";
+		}
+		catch (ApiException apiException) { _error = apiException.Error.Title; }
+	}
+
+	/// <summary>
+	/// Takes whatever matches out of both lists. Every removal has to touch the pinned section as
+	/// well as the body, because a post can be in either.
+	/// </summary>
+	private void Drop(Predicate<CommentDto> match)
+	{
+		_pinned.RemoveAll(match);
+		_comments.RemoveAll(match);
 	}
 
 	private RenderFragment RenderComment(CommentDto comment, bool pinned) => builder =>
@@ -687,32 +743,45 @@
 			builder.AddAttribute(44, "onclick", EventCallback.Factory.Create(this, () => ReportAsync(reportCapture)));
 			builder.AddContent(45, "🚩");
 			builder.CloseElement();
+
+			// Block, beside Report and never on the reader's own post. This is the surface where a
+			// reader meets the person they want rid of, and until it was here the only way to block
+			// was the Live members list of an adventure both parties are on - which a shared
+			// route's thread does not have.
+			builder.OpenElement(46, "button");
+			builder.AddAttribute(47, "type", "button");
+			builder.AddAttribute(48, "class", "icon-button block");
+			builder.AddAttribute(49, "title", "Block @" + comment.AuthorUserName);
+			CommentDto blockCapture = comment;
+			builder.AddAttribute(50, "onclick", EventCallback.Factory.Create(this, () => BlockAsync(blockCapture)));
+			builder.AddContent(51, "🚫");
+			builder.CloseElement();
 		}
 		builder.CloseElement();
 
 		// Right group - Pin, Delete.
-		builder.OpenElement(46, "div");
-		builder.AddAttribute(47, "class", "actions-right");
+		builder.OpenElement(52, "div");
+		builder.AddAttribute(53, "class", "actions-right");
 		if (CanModerate)
-		{
-			builder.OpenElement(48, "button");
-			builder.AddAttribute(49, "type", "button");
-			builder.AddAttribute(50, "class", "icon-button");
-			builder.AddAttribute(51, "title", pinned ? "Unpin" : "Pin");
-			CommentDto pinCapture = comment;
-			builder.AddAttribute(52, "onclick", EventCallback.Factory.Create(this, () => PinAsync(pinCapture)));
-			builder.AddContent(53, "📌");
-			builder.CloseElement();
-		}
-		if (CanModerate || comment.AuthorId == Auth.UserId)
 		{
 			builder.OpenElement(54, "button");
 			builder.AddAttribute(55, "type", "button");
 			builder.AddAttribute(56, "class", "icon-button");
-			builder.AddAttribute(57, "title", "Delete");
+			builder.AddAttribute(57, "title", pinned ? "Unpin" : "Pin");
+			CommentDto pinCapture = comment;
+			builder.AddAttribute(58, "onclick", EventCallback.Factory.Create(this, () => PinAsync(pinCapture)));
+			builder.AddContent(59, "📌");
+			builder.CloseElement();
+		}
+		if (CanModerate || comment.AuthorId == Auth.UserId)
+		{
+			builder.OpenElement(60, "button");
+			builder.AddAttribute(61, "type", "button");
+			builder.AddAttribute(62, "class", "icon-button");
+			builder.AddAttribute(63, "title", "Delete");
 			CommentDto delCapture = comment;
-			builder.AddAttribute(58, "onclick", EventCallback.Factory.Create(this, () => DeleteAsync(delCapture)));
-			builder.AddContent(59, "🗑️");
+			builder.AddAttribute(64, "onclick", EventCallback.Factory.Create(this, () => DeleteAsync(delCapture)));
+			builder.AddContent(65, "🗑️");
 			builder.CloseElement();
 		}
 		builder.CloseElement();
@@ -743,6 +812,7 @@
 	public async ValueTask DisposeAsync()
 	{
 		Hub.CommentPosted -= OnCommentPosted;
+		Hub.CommentRestored -= OnCommentPosted;
 		Hub.CommentEdited -= OnCommentEdited;
 		Hub.CommentRemoved -= OnCommentRemoved;
 		Hub.CommentPinChanged -= OnCommentPinChanged;
@@ -798,6 +868,9 @@
 	}
 	.thread .actions .icon-button:hover { background: #fff2; }
 	.thread .more { display: block; margin: 1rem auto; padding: 0.5rem 1rem; }
+	.thread .icon-button.block { opacity: 0.45; }
+	.thread .icon-button.block:hover,
+	.thread .icon-button.block:focus-visible { opacity: 1; }
 	.thread .composer { margin-top: 1rem; padding: 0.75rem; background: #fff2; border-radius: 6px; }
 	.thread .composer textarea { width: 100%; padding: 0.5rem; font-size: 1rem; }
 	.thread .composer-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }

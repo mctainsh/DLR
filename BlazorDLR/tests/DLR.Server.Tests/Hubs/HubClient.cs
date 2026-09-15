@@ -1,4 +1,6 @@
+using DLR.Core.Contracts.Comments;
 using DLR.Core.Contracts.Identity;
+using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
 using DLR.Server.Hubs;
 using DLR.TestSupport.Hosting;
@@ -133,6 +135,61 @@ public static class HubClient
 				received.TrySetResult((member, blocked));
 			}
 		});
+
+		return received.Task;
+	}
+
+	/// <summary>
+	/// The next marker placed on, or restored to, a ride. Beside <see cref="NextBlockAsync"/> for
+	/// the reason that one gives: the next hub event wants somewhere obvious to go.
+	/// </summary>
+	/// <param name="connection">The connection to listen on.</param>
+	/// <param name="rideId">Which ride's message is wanted.</param>
+	public static Task<MarkerDto> NextMarkerAsync(HubConnection connection, Guid rideId)
+	{
+		TaskCompletionSource<MarkerDto> received =
+			new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		connection.On<Guid, MarkerDto>(nameof(IRideClient.MarkerAdded), (ride, marker) =>
+		{
+			if (ride == rideId)
+			{
+				received.TrySetResult(marker);
+			}
+		});
+
+		return received.Task;
+	}
+
+	/// <summary>The next marker taken off a ride - deleted, or held on a report (§17.7).</summary>
+	/// <param name="connection">The connection to listen on.</param>
+	/// <param name="rideId">Which ride's message is wanted.</param>
+	public static Task<Guid> NextMarkerRemovalAsync(HubConnection connection, Guid rideId)
+	{
+		TaskCompletionSource<Guid> received =
+			new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		connection.On<Guid, Guid>(nameof(IRideClient.MarkerRemoved), (ride, markerId) =>
+		{
+			if (ride == rideId)
+			{
+				received.TrySetResult(markerId);
+			}
+		});
+
+		return received.Task;
+	}
+
+	/// <summary>The next post cleared by the operator and put back (§17.7).</summary>
+	/// <param name="connection">The connection to listen on.</param>
+	public static Task<CommentDto> NextRestoreAsync(HubConnection connection)
+	{
+		TaskCompletionSource<CommentDto> received =
+			new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		connection.On<CommentDto>(
+			nameof(IRideClient.CommentRestored),
+			comment => received.TrySetResult(comment));
 
 		return received.Task;
 	}

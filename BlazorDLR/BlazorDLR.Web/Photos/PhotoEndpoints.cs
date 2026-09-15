@@ -3,6 +3,7 @@ using DLR.Core.Contracts.Photos;
 using DLR.Server.Data;
 using DLR.Server.Data.Photos;
 using DLR.Server.Identity;
+using DLR.Server.Moderation;
 using DLR.Server.Tracks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -189,12 +190,29 @@ public sealed class PhotoController : ControllerBase
 			return Unauthorized();
 		}
 
-		Photo? photo = await database
+		// One round trip, not three. This serves every avatar, ride cover, comment photograph and
+		// marker photograph in the app, so the hold rides along with the row rather than costing two
+		// queries of its own after it (§17.7, ReportHold.IsAttachedToHeldContent).
+		//
+		// A photograph attached to held content is the thing that was reported: holding the comment
+		// or the marker removes every reference to it, which is not the same as removing it - an id
+		// noted before the report would otherwise still fetch the bytes.
+		//
+		// This is not a general visibility rule for photographs. There is none, and a blocked
+		// author's pictures remain fetchable by id; this closes the one case moderation depends on.
+		var photo = await database
 			.Set<Photo>()
 			.AsNoTracking()
-			.SingleOrDefaultAsync(row => row.Id == id, cancellationToken);
+			.Where(row => row.Id == id)
+			.Select(row => new
+			{
+				row.BlobRef,
+				row.ThumbBlobRef,
+				Held = ReportHold.HeldPhotoIds(database).Contains(row.Id),
+			})
+			.SingleOrDefaultAsync(cancellationToken);
 
-		if (photo is null)
+		if (photo is null || photo.Held)
 		{
 			return NotFound();
 		}

@@ -40,6 +40,7 @@ public sealed class ThrowingRideHubClient : IRideHubClient
 	public event Action<Guid, MarkerDto>? MarkerUpdated;
 	public event Action<Guid, Guid>? MarkerRemoved;
 	public event Action<CommentDto>? CommentPosted;
+	public event Action<CommentDto>? CommentRestored;
 	public event Action<CommentDto>? CommentEdited;
 	public event Action<Guid>? CommentRemoved;
 	public event Action<Guid, bool>? CommentPinChanged;

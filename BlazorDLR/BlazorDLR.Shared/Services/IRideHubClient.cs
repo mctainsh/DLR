@@ -122,6 +122,13 @@ public interface IRideHubClient : IAsyncDisposable
 	/// used to leave subscribers silent because SignalR could not bind the incoming payload.
 	/// </remarks>
 	event Action<CommentDto>? CommentPosted;
+
+	/// <summary>
+	/// A held post was cleared by the operator and is readable again (§17.7). Carries the same
+	/// payload as <see cref="CommentPosted"/> and deliberately does not notify - see
+	/// <c>IRideClient.CommentRestored</c>.
+	/// </summary>
+	event Action<CommentDto>? CommentRestored;
 	event Action<CommentDto>? CommentEdited;
 	event Action<Guid>? CommentRemoved;
 	event Action<Guid, bool>? CommentPinChanged;

@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @inject IApiClient Api
 @inject AuthState Auth
+@inject TermsAcceptanceState Terms
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject IEnumerable<IExternalSignInProvider> ExternalProviders
@@ -104,7 +105,9 @@
 						</div>
 					}
 
-					<button type="submit" class="primary" disabled="@_busy">
+					<TermsGate Show="_mustAgree" @bind-Accepted="_agreed" />
+
+					<button type="submit" class="primary" disabled="@(_busy || !CanSubmit)">
 						@(_busy ? "Registering…" : "Create account")
 					</button>
 				</form>
@@ -121,7 +124,10 @@
 								   Label="Password"
 								   @bind-Value="_password"
 								   Autocomplete="current-password" />
-					<button type="submit" class="primary" disabled="@_busy">
+
+					<TermsGate Show="_mustAgree" @bind-Accepted="_agreed" />
+
+					<button type="submit" class="primary" disabled="@(_busy || !CanSubmit)">
 						@(_busy ? "Signing in…" : "Sign in")
 					</button>
 
@@ -197,6 +203,23 @@
 	private bool _navigated;
 
 	/// <summary>
+	/// Whether this device still has to agree to the terms (§10.2). True until the device store
+	/// has been read, so the gate is drawn on the prerender and on a host with no storage at all -
+	/// the direction to be wrong in is the one that asks somebody who had already agreed.
+	/// </summary>
+	private bool _mustAgree = true;
+
+	/// <summary>Whether the box has been ticked this visit.</summary>
+	private bool _agreed;
+
+	/// <summary>
+	/// Whether either form may be submitted. The gate stands in front of sign-in as well as
+	/// register: guideline 1.2 asks for terms "before registering or logging in", and an existing
+	/// account on a new phone has agreed to nothing this device can see.
+	/// </summary>
+	private bool CanSubmit => !_mustAgree || _agreed;
+
+	/// <summary>
 	/// If already signed in jump straight to the home page - no button to push.
 	/// <para>
 	/// The arrival can be later than the first render: the session is restored
@@ -225,6 +248,25 @@
 			GoHome();
 	}
 
+	/// <summary>
+	/// Reads whether this device has already agreed to the terms.
+	/// <para>
+	/// After first render, not in <c>OnInitializedAsync</c>: the web hosts reach their device
+	/// store through JS interop, which does not exist during the prerender pass.
+	/// </para>
+	/// </summary>
+	override protected async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender) return;
+
+		bool mustAgree = await Terms.MustAskAsync();
+
+		if (mustAgree == _mustAgree) return;
+
+		_mustAgree = mustAgree;
+		StateHasChanged();
+	}
+
 	public void Dispose() => AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
 
 	private async Task CheckAvailabilityAsync()
@@ -251,11 +293,29 @@
 		}
 	}
 
+	/// <summary>
+	/// Records the agreement on this device.
+	/// <para>
+	/// Called on the way into the attempt rather than after it succeeds: re-showing the box after
+	/// every mistyped password teaches people to tick it without looking, and the rider has
+	/// already agreed by the time the credentials go anywhere.
+	/// </para>
+	/// </summary>
+	private async Task AgreeAsync()
+	{
+		if (!_mustAgree) return;
+
+		await Terms.AcceptAsync();
+		_mustAgree = false;
+	}
+
 	private async Task RegisterAsync()
 	{
-		if (_busy) return;
+		if (_busy || !CanSubmit) return;
 		_busy = true;
 		_error = null;
+
+		await AgreeAsync();
 
 		try
 		{
@@ -288,9 +348,11 @@
 
 	private async Task SignInAsync()
 	{
-		if (_busy) return;
+		if (_busy || !CanSubmit) return;
 		_busy = true;
 		_error = null;
+
+		await AgreeAsync();
 
 		try
 		{
@@ -332,9 +394,12 @@
 
 	private async Task SignInWithAsync(IExternalSignInProvider provider)
 	{
-		if (_busy || !provider.IsAvailable) return;
+		if (_busy || !provider.IsAvailable || !CanSubmit) return;
 		_busy = true;
 		_error = null;
+
+		await AgreeAsync();
+
 		try
 		{
 			TokenResponse? session = await provider.StartAsync();
@@ -392,6 +457,32 @@
 			margin-top: 0.75rem;
 			font-size: 0.9rem;
 		}
+
+		/* The gate stands between a rider and the app, so it is quiet but not hidden: the tick
+		   target is the whole line, which is what a thumb reaches for. */
+		.welcome .terms-gate {
+			margin: 1rem 0;
+			font-size: 0.9rem;
+		}
+
+			.welcome .terms-gate .agree {
+				display: flex;
+				gap: 0.6rem;
+				align-items: flex-start;
+				cursor: pointer;
+				line-height: 1.4;
+			}
+
+				.welcome .terms-gate .agree input {
+					flex: none;
+					margin-top: 0.15rem;
+					width: 1.1rem;
+					height: 1.1rem;
+				}
+
+			.welcome .terms-gate .read {
+				margin: 0.4rem 0 0 1.7rem;
+			}
 
 		.welcome .hint.good {
 			color: #196c2e;

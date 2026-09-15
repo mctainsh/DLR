@@ -492,17 +492,41 @@ submitting, because a reviewer following a path that does not exist is worse tha
 > Members can post comments in an adventure's thread and attach photos and notes to map markers,
 > visible only to the other members of that adventure.
 >
-> - **Report**: the flag control on any comment in an **Adventure thread**. Reports go to the organiser
->   and to us.
-> - **Block**: any member can block any other member of an adventure from the nav rail's
->   **Live members** list — the block icon beside a name. Blocking is mutual on the map: neither
->   person can see the other's position afterwards, and the blocked member's comments, reactions,
->   markers and poll votes are hidden as well. An organiser can also decline and block a join
->   request at **Group adventures → [adventure] → Requests**. Blocked accounts are listed and can
->   be unblocked at **Settings → Blocked travellers**.
+> - **Terms of use (EULA)**: presented **before registering or signing in**. The welcome screen
+>   carries a required agreement control on *both* the Register and the Sign in form, reading
+>   "I agree to the Terms of Use, and I understand there is no tolerance for objectionable content
+>   or abusive behaviour." Neither form can be submitted until it is ticked. **Read the Terms of
+>   Use** beside it opens the full text, which is readable without an account and states that we
+>   have no tolerance for objectionable content or abusive users, that we remove such content and
+>   suspend or close the accounts that post it, and how to report and block. It is also at
+>   **Settings → Terms of Use** afterwards, and if we change what the terms require, existing
+>   members are asked to agree again at their next launch.
+> - **Report**: the flag control on any comment in an **Adventure thread**, and **Report marker**
+>   on any map marker placed by somebody else. **Reported content is hidden from the app
+>   immediately** — it disappears from every member's thread or map at once, before anybody has
+>   reviewed it, including any photograph attached to it — and stays hidden until we judge it. We review within 24 hours: content that
+>   breaks the terms stays down, content that does not is restored.
+> - **Block**: any member can block any other member from the ⊘ control **beside their post in an
+>   adventure thread**, or from the nav rail's **Live members** list. Blocking takes effect
+>   instantly: their comments, reactions, markers and poll votes stop being shown to the blocker,
+>   and the two come off each other's live maps — filtered on our server, so a blocked member's
+>   coordinates are never sent. An organiser can also decline and block a join request at
+>   **Group adventures → [adventure] → Requests**. Blocked accounts are listed and can be
+>   unblocked at **Settings → Blocked travellers**.
 > - **Delete your account and everything in it**: **Settings → Data & export**. The same screen
 >   exports the account's data.
 > - Moderation contact: «SUPPORT_EMAIL».
+>
+> **The 1.2 screen recording, in order**
+>
+> 1. Fresh install, first launch. The welcome screen shows the agreement control under the form
+>    with the "no tolerance" sentence; the submit button is disabled. Tap **Read the Terms of Use**
+>    and scroll clause 3, then come back and tick the box — the button enables. Sign in.
+> 2. **Group adventures →** the adventure → hamburger → **Adventure thread**. On somebody else's
+>    post, tap ⚑ **Report**, confirm, and the post disappears from the thread on the spot.
+> 3. On another of their posts, tap ⊘ **Block**, confirm. Every post of theirs goes. Show
+>    **Settings → Blocked travellers** listing them, with **Unblock**.
+> 4. Back on the map, open a marker somebody else placed and show **Report marker**.
 >
 > **Other things you may notice**
 >
@@ -514,18 +538,46 @@ submitting, because a reviewer following a path that does not exist is worse tha
 > - The app supports iPhone and iPad.
 > - Encryption: HTTPS and the platform keychain only; no proprietary cryptography.
 
-### ⚠ One 1.2 gap the notes are worded around
+### The 1.2 rejection — what was missing and what closed it
 
-**Markers cannot be reported.** `ReportMarkerAsync` is on `IApiClient` and
-`POST /api/v1/markers/{id}/report` is live, but `MarkerDetails.razor` offers only a delete. A photo
-attached to a marker is user-generated content a member can see and cannot report — only comments
-carry the flag control. The notes above therefore claim reporting for comments only.
+8.0.0 (31) was rejected under guideline 1.2 for user-generated content without the required
+precautions. Three things were asked for; the app had one and a half of them.
 
-**Blocking was organiser-only and is not any more.** It is recorded here because the previous state
-of it was half of what 8.0.0 (31) was rejected for — see the 5.1.2(i) section below. `Live members
-→ the ⊘ beside a name` now calls the endpoint that always existed, and a block takes both parties
-off each other's live map as well as hiding the blocked party's posts, reactions, markers and poll
-votes. `Settings → Blocked travellers` still lists and unblocks.
+**1. Terms of use presented before registering or logging in. There were none at all.** This was the
+outright failure — no terms screen, no agreement control, no link to one. Closed by
+`BlazorDLR.Shared/Legal/TermsOfUse.cs` (the text, versioned), `TermsAcceptanceState` (device-local,
+because the gate has to stand in front of *registering*, which is before there is an account to hang
+an acceptance off, and has to work on a first run with no signal), the `TermsGate` control on both
+of Welcome's forms, and `/terms`, which is reachable with no account. **Do not soften clause 3** —
+"no tolerance for objectionable content or abusive users" is the sentence a reviewer looks for, and
+`StoreReviewSurfacesTests` fails if it goes.
+
+**2. A mechanism to flag objectionable content. Markers could not be reported.** The endpoint had
+always been live and `MarkerDetails.razor` offered only a delete, so a photo attached to a marker
+was content a member could see and could not report. `MarkerDetails` now carries **Report marker**
+on anybody else's pin.
+
+**3. A mechanism to block abusive users, which must also notify us and remove the content
+instantly.** Blocking existed but was only reachable from **Live members**, which exists only inside
+an adventure both parties are on — so a reviewer reading a thread had no way to block the author of
+what they were reading. `CommentThreadView` now carries ⊘ beside ⚑ on every post but the reader's
+own. The "notify the developer and remove it instantly" half is `ReportHold`: a report files to the
+operator's queue **and hides the content from every read at once**, with the same `CommentRemoved` /
+`MarkerRemoved` broadcast an ordinary delete sends, so it leaves open clients too.
+
+**The cost of holding on one report, and what pays for it.** One account can hide any post by
+tapping the flag. That is deliberate — 1.2 asks for instant removal, not for a queue — and what
+makes it defensible is that clearing a bad report is one tap at **Administration → Reports**
+(`AdminModerationController`) and the terms commit to doing it within 24 hours. Judging one report
+resolves every open report on the same content, or the content would stay held by a sibling, and a
+restore broadcasts `CommentRestored` / `MarkerAdded` so it reaches sessions that already dropped it.
+`ReportHoldTests` covers both directions.
+
+**Three places the hold has to hold, which a read-path filter alone would miss.** Editing or
+attaching a photo to held content broadcasts an update that clients upsert, so the write paths check
+it too (`MarkerController.CanReadAsync`, `CommentController.EditAsync`/`PinAsync`). And a photograph
+is fetched by id with no visibility rule of its own, so `PhotoController` asks the hold as well -
+otherwise hiding a reported picture would hide only the pin pointing at it.
 
 ### A demo account
 

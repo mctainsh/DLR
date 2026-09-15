@@ -45,6 +45,12 @@ public sealed class OfflineMapOfferPageTests : PageTestContext
 	{
 		WireAPhone();
 		Services.AddSingleton<IFormFactor>(new FakeFormFactor { FormFactor = "Phone", Platform = "Android" });
+
+		// Home offers the administration section on the server's roster (§14.6). The fake answers a
+		// profile with IsAdmin false, so the section stays off - which is the state every account
+		// but a handful is in, and the one these tests are about.
+		Services.AddSingleton<IApiClient>(new FakeApiClient());
+		Services.AddSingleton<AdminAccess>();
 	}
 
 	/// <summary>

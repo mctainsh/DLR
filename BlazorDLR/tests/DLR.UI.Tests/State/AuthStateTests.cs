@@ -277,6 +277,9 @@ public sealed class AuthStateTests
 		public Task BlockUserAsync(DLR.Core.Contracts.Moderation.BlockUserRequest r, CancellationToken ct = default) => inner.BlockUserAsync(r, ct);
 		public Task UnblockUserAsync(Guid u, CancellationToken ct = default) => inner.UnblockUserAsync(u, ct);
 		public Task<IReadOnlyList<DLR.Core.Contracts.Moderation.BlockedRider>> ListBlocksAsync(CancellationToken ct = default) => inner.ListBlocksAsync(ct);
+		public Task<IReadOnlyList<DLR.Core.Contracts.Moderation.OpenReport>> ListOpenReportsAsync(CancellationToken ct = default) => inner.ListOpenReportsAsync(ct);
+		public Task<DLR.Core.Contracts.Moderation.ReportResolved> RestoreReportedAsync(Guid r, CancellationToken ct = default) => inner.RestoreReportedAsync(r, ct);
+		public Task<DLR.Core.Contracts.Moderation.ReportResolved> RemoveReportedAsync(Guid r, CancellationToken ct = default) => inner.RemoveReportedAsync(r, ct);
 		public Task<HttpResponseMessage> ExportAccountAsync(CancellationToken ct = default) => inner.ExportAccountAsync(ct);
 		public Task DeleteAccountAsync(DLR.Core.Contracts.Account.DeleteAccountRequest r, CancellationToken ct = default) => inner.DeleteAccountAsync(r, ct);
 		public Task<IReadOnlyList<DLR.Core.Contracts.Admin.AdminUserRow>> AdminUsersAsync(string? search = null, int skip = 0, int take = 50, CancellationToken ct = default) => inner.AdminUsersAsync(search, skip, take, ct);

@@ -564,6 +564,18 @@ public sealed class HttpApiClient : IApiClient
 	public async Task<IReadOnlyList<BlockedRider>> ListBlocksAsync(CancellationToken cancellationToken = default) =>
 		await GetAsync<List<BlockedRider>>("/api/v1/blocks", cancellationToken);
 
+	/// <inheritdoc />
+	public async Task<IReadOnlyList<OpenReport>> ListOpenReportsAsync(CancellationToken cancellationToken = default) =>
+		await GetAsync<List<OpenReport>>("/api/v1/admin/reports", cancellationToken);
+
+	/// <inheritdoc />
+	public Task<ReportResolved> RestoreReportedAsync(Guid reportId, CancellationToken cancellationToken = default) =>
+		PostAsync<object, ReportResolved>($"/api/v1/admin/reports/{reportId}/restore", new { }, cancellationToken);
+
+	/// <inheritdoc />
+	public Task<ReportResolved> RemoveReportedAsync(Guid reportId, CancellationToken cancellationToken = default) =>
+		PostAsync<object, ReportResolved>($"/api/v1/admin/reports/{reportId}/remove", new { }, cancellationToken);
+
 	// -- Account --
 
 	/// <inheritdoc />

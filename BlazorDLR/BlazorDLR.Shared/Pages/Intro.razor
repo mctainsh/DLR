@@ -117,18 +117,10 @@
 	private bool IsLast => _index == Slides.Count - 1;
 
 	/// <summary>
-	/// Where <see cref="FinishAsync"/> navigates: the requested route, or home.
-	/// <para>
-	/// Only a path is honoured - one leading slash, and not two. <c>ReturnTo</c> arrives off the
-	/// query string, so it is whatever was in the URL that opened this screen; an absolute or
-	/// protocol-relative value there would make the last button of the app's welcome mat an
-	/// open redirect to somebody else's site.
-	/// </para>
+	/// Where <see cref="FinishAsync"/> navigates: the requested route, or home. The rule that
+	/// decides which is <see cref="SafeReturn"/>, shared with the terms gate.
 	/// </summary>
-	private string Destination =>
-		ReturnTo is { Length: > 1 } target && target[0] == '/' && target[1] != '/'
-			? target
-			: "/";
+	private string Destination => SafeReturn.Or(ReturnTo);
 
 	/// <summary>
 	/// Takes the focus so the arrow keys work without a click first. The surface carries

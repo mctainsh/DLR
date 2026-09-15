@@ -3,6 +3,7 @@ using DLR.Core.Contracts.Photos;
 using DLR.Core.Markers;
 using DLR.Server.Data;
 using DLR.Server.Data.Markers;
+using DLR.Server.Data.Moderation;
 using DLR.Server.Data.Photos;
 using DLR.Server.Data.Rides;
 using DLR.Server.Data.Tracks;
@@ -125,7 +126,7 @@ public sealed class MarkerController : ControllerBase
 		// rather than a skipped frame (§16.6).
 		if (marker.GroupRideId is { } broadcastTo)
 		{
-			await hub.Clients.Group(RideHub.Group(broadcastTo)).MarkerAdded(dto);
+			await hub.Clients.Group(RideHub.Group(broadcastTo)).MarkerAdded(broadcastTo, dto);
 		}
 
 		return Created($"/api/v1/markers/{marker.Id}", dto);
@@ -157,8 +158,10 @@ public sealed class MarkerController : ControllerBase
 
 		// Ordered before projecting, not after: ordering the DTO makes the translator carry the
 		// author join through a sort over a constructed type, which it declines to do.
-		List<MarkerDto> markers = await Project(database
-				.Set<Marker>()
+		// Reported and not yet reviewed (§17.7). A marker's note and photograph are content a member
+		// can see, so a report holds the pin exactly as it holds a post.
+		List<MarkerDto> markers = await Project(ReportHold
+				.Unheld(database, database.Set<Marker>())
 				.Where(marker => marker.GroupRideId == id && !hidden.Contains(marker.CreatedByUserId))
 				.OrderBy(marker => marker.CreatedUtc))
 			.ToListAsync();
@@ -220,7 +223,7 @@ public sealed class MarkerController : ControllerBase
 
 		if (marker.GroupRideId is { } broadcastTo)
 		{
-			await hub.Clients.Group(RideHub.Group(broadcastTo)).MarkerUpdated(dto);
+			await hub.Clients.Group(RideHub.Group(broadcastTo)).MarkerUpdated(broadcastTo, dto);
 		}
 
 		return Ok(dto);
@@ -240,7 +243,7 @@ public sealed class MarkerController : ControllerBase
 
 		Marker? marker = await database.Set<Marker>().SingleOrDefaultAsync(row => row.Id == id);
 
-		if (marker is null || !await CanReadAsync(database, marker, userId))
+		if (marker is null || !await CanReadAsync(database, marker, userId, seesHeld: true))
 		{
 			return NotFound();
 		}
@@ -261,7 +264,7 @@ public sealed class MarkerController : ControllerBase
 
 		if (rideId is { } broadcastTo)
 		{
-			await hub.Clients.Group(RideHub.Group(broadcastTo)).MarkerRemoved(id);
+			await hub.Clients.Group(RideHub.Group(broadcastTo)).MarkerRemoved(broadcastTo, id);
 		}
 
 		return NoContent();
@@ -335,7 +338,7 @@ public sealed class MarkerController : ControllerBase
 
 		if (marker.GroupRideId is { } broadcastTo)
 		{
-			await hub.Clients.Group(RideHub.Group(broadcastTo)).MarkerUpdated(dto);
+			await hub.Clients.Group(RideHub.Group(broadcastTo)).MarkerUpdated(broadcastTo, dto);
 		}
 
 		return Ok(dto);
@@ -432,14 +435,35 @@ public sealed class MarkerController : ControllerBase
 			.Include(member => member.Ride)
 			.SingleOrDefaultAsync(member => member.GroupRideId == rideId && member.UserId == userId);
 
-	private static async Task<bool> CanReadAsync(DlrDbContext database, Marker marker, Guid userId) =>
-		marker.GroupRideId is { } rideId
+	/// <param name="seesHeld">
+	/// Whether a marker held on a report is still visible to this caller. Only the delete path says
+	/// yes: removing held content is the outcome the hold waits for, and an organiser whose delete
+	/// answered 404 because somebody else reported it first would lose the fastest moderation a
+	/// ride has (§17.7).
+	/// </param>
+	private static async Task<bool> CanReadAsync(
+		DlrDbContext database,
+		Marker marker,
+		Guid userId,
+		bool seesHeld = false)
+	{
+		// A held marker is not there for anybody, and that has to include the paths that put it
+		// back. Editing one or attaching a photograph to it broadcasts MarkerUpdated, which every
+		// client upserts - so without this the author of a reported pin restores it to every map in
+		// the adventure, with fresh content, by saving it again.
+		if (!seesHeld && await ReportHold.IsHeldAsync(database, ReportTargetKind.Marker, marker.Id))
+		{
+			return false;
+		}
+
+		return marker.GroupRideId is { } rideId
 			? await database
 				.Set<GroupRideMember>()
 				.AnyAsync(member => member.GroupRideId == rideId && member.UserId == userId)
 			: await database
 				.Set<Track>()
 				.AnyAsync(track => track.Id == marker.TrackId && track.OwnerId == userId);
+	}
 
 	/// <summary>The author, or the organiser (§16.5).</summary>
 	private static async Task<bool> CanWriteAsync(DlrDbContext database, Marker marker, Guid userId)
@@ -509,7 +533,14 @@ public sealed class MarkerController : ControllerBase
 			: null;
 	}
 
-	private static async Task<MarkerDto> DescribeAsync(DlrDbContext database, Guid markerId) =>
+	/// <summary>
+	/// One marker as the map sees it. Internal rather than private because the moderation queue
+	/// re-projects a marker it is putting back (§17.7), and a second copy of this projection is a
+	/// second thing to forget when <c>MarkerDto</c> grows a field.
+	/// </summary>
+	/// <param name="database">The context.</param>
+	/// <param name="markerId">Which marker.</param>
+	internal static async Task<MarkerDto> DescribeAsync(DlrDbContext database, Guid markerId) =>
 		await Project(database.Set<Marker>().Where(marker => marker.Id == markerId)).SingleAsync();
 
 	private static IQueryable<MarkerDto> Project(IQueryable<Marker> markers) =>
