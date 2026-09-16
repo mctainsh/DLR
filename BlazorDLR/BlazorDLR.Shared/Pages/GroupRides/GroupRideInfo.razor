@@ -575,6 +575,9 @@
 		_tracksError = null;
 
 		await _session.LoadAsync(RideId);
+
+		if (_session.RideUnavailable)
+			await CurrentRide.HandOverToListAsync(RideId, Nav);
 	}
 
 	/// <summary>

@@ -1,4 +1,3 @@
-using System.Net;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Moderation;
@@ -362,8 +361,7 @@ public sealed class RideSession : IAsyncDisposable
 			// already been handed - a 404 from the marker list is a missing endpoint, not a
 			// missing ride - but they cannot 404 for a member anyway, and the first call is the
 			// one that fails when the ride is gone.
-			RideUnavailable = apiException.Error.StatusCode
-				is HttpStatusCode.NotFound or HttpStatusCode.Forbidden or HttpStatusCode.Gone;
+			RideUnavailable = apiException.Error.MeansRideGone;
 
 			if (RideUnavailable)
 			{

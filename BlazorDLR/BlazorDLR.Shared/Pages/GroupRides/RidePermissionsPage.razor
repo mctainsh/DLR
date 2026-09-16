@@ -3,6 +3,7 @@
 @using DLR.Core.Contracts.Rides
 @inject IApiClient Api
 @inject NavigationManager Nav
+@inject CurrentRideState CurrentRide
 
 <PageTitle>Adventure permissions - Dumb Luck Routes</PageTitle>
 
@@ -91,6 +92,13 @@
 				AllowMemberComments = _ride.Permissions.AllowMemberComments,
 				AllowMemberPhotos = _ride.Permissions.AllowMemberPhotos,
 			};
+		}
+		// Otherwise the page keeps "Loading…" on screen for ever. §5.2 answers "not yours" with the
+		// same 404 as "no such ride", so a caller who is not the organiser is handed over too -
+		// saying anything more specific would confirm the adventure exists.
+		catch (ApiException gone) when (gone.Error.MeansRideGone)
+		{
+			await CurrentRide.HandOverToListAsync(RideId, Nav);
 		}
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
 	}

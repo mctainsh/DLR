@@ -109,7 +109,22 @@ public static class ProblemDetailsReader
 public sealed record ApiError(
 	System.Net.HttpStatusCode StatusCode,
 	string Title,
-	IReadOnlyList<string> Messages);
+	IReadOnlyList<string> Messages)
+{
+	/// <summary>
+	/// Whether the server's answer means "that ride is not yours to look at" - deleted, or one the
+	/// caller was never on or has been taken off (§5.2).
+	/// <para>
+	/// One predicate rather than the triple spelled at each call site, because §5.2's rule is that
+	/// a non-member gets the same 404 a stranger does: which statuses carry that is a server policy,
+	/// and a copy that misses one puts a rider back on a dead end.
+	/// </para>
+	/// </summary>
+	public bool MeansRideGone => StatusCode
+		is System.Net.HttpStatusCode.NotFound
+		or System.Net.HttpStatusCode.Forbidden
+		or System.Net.HttpStatusCode.Gone;
+}
 
 /// <summary>
 /// Thrown by <see cref="HttpApiClient"/> when the server answered non-success and returned a

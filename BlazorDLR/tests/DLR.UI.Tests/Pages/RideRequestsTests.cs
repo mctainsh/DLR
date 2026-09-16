@@ -1,8 +1,11 @@
+using System.Net;
 using BlazorDLR.Shared.Pages.GroupRides;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -112,5 +115,25 @@ public sealed class RideRequestsTests : PageTestContext
 			component.Markup.Contains("I ride Sunday with the same club", StringComparison.Ordinal).ShouldBeTrue(
 				"§5.2: the joiner's message is what the organiser reads before deciding - it must render.");
 		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void ARideThatIsGone_HandsTheRiderToTheList()
+	{
+		// Left to itself this page keeps "Loading…" on screen for ever, under a back link to the
+		// adventure that is gone. The endpoint answers a non-organiser the same 404 (§5.2), so both
+		// callers land on the list rather than on a page that can only say "no".
+		FakeApiClient api = WireServices(Array.Empty<JoinRequestSummary>());
+		api.JoinRequestsException = new ApiException(new ApiError(
+			HttpStatusCode.NotFound, "That adventure no longer exists.", Array.Empty<string>()));
+
+		NavigationManager nav = Services.GetRequiredService<NavigationManager>();
+
+		IRenderedComponent<RideRequests> component = Render<RideRequests>(parameters => parameters
+			.Add(p => p.RideId, Guid.NewGuid()));
+
+		component.WaitForAssertion(
+			() => nav.Uri.ShouldEndWith(CurrentRideState.MissingRideHref),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 }

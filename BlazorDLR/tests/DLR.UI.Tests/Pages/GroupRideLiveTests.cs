@@ -8,6 +8,7 @@ using DLR.Core.Contracts.Identity;
 using DLR.Core.Contracts.Markers;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -142,11 +143,12 @@ public sealed class GroupRideLiveTests : PageTestContext
 	}
 
 	[Fact]
-	public void ARideThatIsGone_IsForgotten()
+	public void ARideThatIsGone_HandsTheRiderToTheList_AndIsForgotten()
 	{
 		// A ride that was deleted, or one this rider has been removed from - §5.2 makes both a 404,
-		// because a non-member's answer must not say whether the ride exists. Either way the globe
-		// must stop leading to a page that can only answer "no such adventure".
+		// because a non-member's answer must not say whether the ride exists. Nothing on this page
+		// draws without a ride, so a rider who jumped straight here - a stale link, an old
+		// notification, the rail's globe - must be handed somewhere they can act.
 		(FakeApiClient api, _, Guid rideId) = WireServices();
 		api.RideException = new ApiException(new ApiError(
 			StatusCode: System.Net.HttpStatusCode.NotFound,
@@ -154,16 +156,14 @@ public sealed class GroupRideLiveTests : PageTestContext
 			Messages: Array.Empty<string>()));
 
 		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		NavigationManager nav = Services.GetRequiredService<NavigationManager>();
 
 		IRenderedComponent<GroupRideLive> component = Render<GroupRideLive>(parameters => parameters
 			.Add(p => p.RideId, rideId));
 
-		component.WaitForAssertion(
-			() => component.Find(".error").TextContent.ShouldContain("no longer exists"),
-			timeout: TimeSpan.FromSeconds(3));
-
 		component.WaitForAssertion(() =>
 		{
+			nav.Uri.ShouldEndWith(CurrentRideState.MissingRideHref);
 			current.RideId.ShouldBeNull();
 			current.Href.ShouldBe("group-rides", "with nothing to go back to, the globe means \"pick one\".");
 		}, timeout: TimeSpan.FromSeconds(3));

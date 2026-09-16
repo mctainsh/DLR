@@ -677,7 +677,20 @@ public sealed class FakeApiClient : IApiClient
 		return Task.FromResult(JoinResult ?? new JoinResult(Guid.NewGuid(), Joined: true, RequestId: null));
 	}
 
-	public Task<IReadOnlyList<JoinRequestSummary>> ListJoinRequestsAsync(Guid rideId, CancellationToken cancellationToken = default) => Task.FromResult(Recorded(nameof(ListJoinRequestsAsync), JoinRequestsResult));
+	/// <summary>
+	/// What <see cref="ListJoinRequestsAsync"/> throws instead of answering. The endpoint gives a
+	/// non-organiser the same 404 it gives for a deleted ride (§5.2), so this covers both.
+	/// </summary>
+	public ApiException? JoinRequestsException { get; set; }
+
+	public Task<IReadOnlyList<JoinRequestSummary>> ListJoinRequestsAsync(Guid rideId, CancellationToken cancellationToken = default)
+	{
+		Record(nameof(ListJoinRequestsAsync));
+
+		return JoinRequestsException is not null
+			? Task.FromException<IReadOnlyList<JoinRequestSummary>>(JoinRequestsException)
+			: Task.FromResult(JoinRequestsResult);
+	}
 
 	/// <summary>Every request handed to <see cref="WithdrawJoinRequestAsync"/>, in order.</summary>
 	public List<(Guid RideId, Guid RequestId)> WithdrawnRequests { get; } = new();

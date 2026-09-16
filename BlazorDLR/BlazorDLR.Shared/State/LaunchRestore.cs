@@ -1,4 +1,3 @@
-using System.Net;
 using BlazorDLR.Shared.Diagnostics;
 using BlazorDLR.Shared.Services;
 using DLR.Core.Contracts.Rides;
@@ -49,7 +48,10 @@ public sealed class LaunchRestore
 	/// </para>
 	/// </summary>
 	/// <param name="cancellationToken">Abandons the restore.</param>
-	/// <returns>The route to the adventure that is underway, or <c>null</c>.</returns>
+	/// <returns>
+	/// The route to the adventure that is underway, the adventures list when the remembered one
+	/// turned out to be gone, or <c>null</c> when there is nothing to reopen.
+	/// </returns>
 	public async Task<string?> RestoreAsync(CancellationToken cancellationToken = default)
 	{
 		if (_ran)
@@ -86,13 +88,14 @@ public sealed class LaunchRestore
 		{
 			ride = await _api.GetRideAsync(rideId, cancellationToken);
 		}
-		catch (ApiException refused) when (refused.Error.StatusCode
-			is HttpStatusCode.NotFound or HttpStatusCode.Forbidden or HttpStatusCode.Gone)
+		catch (ApiException refused) when (refused.Error.MeansRideGone)
 		{
-			// Deleted, or this rider is off it. Same answer as a load that 404s on the ride screen.
-			DiagnosticLog.Write("Startup: the last adventure is gone; forgetting it.");
+			// Deleted, or this rider is off it. Same answer as a load that 404s on the ride screen -
+			// and the same hand-over, because a rider whose phone died mid-ride is the likeliest one
+			// to meet this and the least able to guess why they woke up on Home.
+			DiagnosticLog.Write("Startup: the last adventure is gone; forgetting it and opening the list.");
 			await _currentRide.ForgetAsync(rideId, cancellationToken);
-			return null;
+			return CurrentRideState.MissingRideHref;
 		}
 		catch (Exception failure)
 		{

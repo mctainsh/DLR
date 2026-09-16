@@ -183,13 +183,15 @@ public sealed class LaunchRestoreTests
 	}
 
 	[Fact]
-	public async Task AdventureThatIsGone_IsForgotten()
+	public async Task AdventureThatIsGone_IsForgotten_AndTheLaunchSaysSo()
 	{
 		Harness harness = await new Harness().BuildAsync(Ride);
 		harness.Api.RideException = new ApiException(
 			new ApiError(HttpStatusCode.NotFound, "Not found", []));
 
-		(await harness.Restore.RestoreAsync()).ShouldBeNull();
+		(await harness.Restore.RestoreAsync()).ShouldBe(CurrentRideState.MissingRideHref,
+			"a rider whose phone died mid-ride wakes up on Home with no idea the adventure was "
+			+ "deleted - the list is where they can act, and it says why they are there.");
 
 		harness.CurrentRide.RideId.ShouldBeNull(
 			"§5.2: the server saying the ride is not this rider's is the one answer that clears the "

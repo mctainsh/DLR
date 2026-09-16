@@ -56,6 +56,15 @@
 		<p class="error">@_error</p>
 	}
 
+	@* Not an error: nothing failed, and the lists below are the answer. *@
+	@if (Gone)
+	{
+		<p class="status" role="status">
+			That adventure is not there any more. It may have been deleted, or you may have been
+			taken off it. Pick another below.
+		</p>
+	}
+
 	@if (_rides is null)
 	{
 		@if (_error is null)
@@ -237,6 +246,12 @@
 </div>
 
 @code {
+	/// <summary>
+	/// Set by <see cref="CurrentRideState.HandOverToListAsync"/>, which is how a ride screen that
+	/// found its adventure gone sends the rider here. Nobody types it.
+	/// </summary>
+	[SupplyParameterFromQuery(Name = "gone")] public bool Gone { get; set; }
+
 	private MyRides? _rides;
 	private string? _error;
 

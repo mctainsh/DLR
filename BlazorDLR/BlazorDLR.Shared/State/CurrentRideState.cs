@@ -1,4 +1,5 @@
 using BlazorDLR.Shared.Services;
+using Microsoft.AspNetCore.Components;
 
 namespace BlazorDLR.Shared.State;
 
@@ -57,6 +58,12 @@ public sealed class CurrentRideState
 	/// from <c>&lt;base href="/"&gt;</c>.
 	/// </summary>
 	public const string PickRideHref = "group-rides";
+
+	/// <summary>
+	/// Where <see cref="HandOverToListAsync"/> sends the rider, and the flag that lets the list say
+	/// why they arrived rather than looking like a page they asked for. Relative, like the rest.
+	/// </summary>
+	public const string MissingRideHref = $"{PickRideHref}?gone=true";
 
 	private readonly IDeviceSettings _settings;
 	private Guid? _rideId;
@@ -227,6 +234,28 @@ public sealed class CurrentRideState
 		{
 			await ClearAsync(cancellationToken);
 		}
+	}
+
+	/// <summary>
+	/// What a ride-scoped screen does when the server says the adventure is not this rider's:
+	/// forgets it and sends them to the list, which says why they arrived (§5.2).
+	/// <para>
+	/// One move rather than two, because the order is the invariant - a screen that navigated
+	/// without forgetting would leave the rail's globe leading straight back to the same answer.
+	/// </para>
+	/// </summary>
+	/// <param name="rideId">The ride that turned out not to be there.</param>
+	/// <param name="nav">The caller's navigation manager - this is not a DI-registered concern.</param>
+	/// <param name="cancellationToken">Cancels the forget.</param>
+	public async Task HandOverToListAsync(
+		Guid rideId,
+		NavigationManager nav,
+		CancellationToken cancellationToken = default)
+	{
+		await ForgetAsync(rideId, cancellationToken);
+
+		// Replaced, so the back button does not lead into the dead ride the rider just left.
+		nav.NavigateTo(MissingRideHref, replace: true);
 	}
 
 	/// <summary>

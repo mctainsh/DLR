@@ -1,9 +1,11 @@
+using System.Net;
 using BlazorDLR.Shared.Pages.GroupRides;
 using BlazorDLR.Shared.Services;
 using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -168,6 +170,34 @@ public sealed class RideThreadTests : PageTestContext
 		{
 			component.FindAll("form.composer").Count.ShouldBe(1,
 				"the default permissions leave the composer available to every member.");
+		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ARideThatIsGone_HandsTheRiderToTheList_AndIsForgotten()
+	{
+		// The rail's chat icon leads straight here, so a ride that has been deleted - or one this
+		// rider has been taken off (§5.2) - lands on a thread they may not read. "Not Found" with no
+		// way on is not an answer; the adventures list is.
+		FakeApiClient api = WireServices(this, permissions: new RidePermissions(), isOrganiser: false);
+
+		Guid rideId = api.RideResult!.Id;
+		api.RideException = new ApiException(new ApiError(
+			StatusCode: HttpStatusCode.NotFound,
+			Title: "That adventure no longer exists.",
+			Messages: Array.Empty<string>()));
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		NavigationManager nav = Services.GetRequiredService<NavigationManager>();
+		await current.SetAsync(rideId);
+
+		IRenderedComponent<RideThread> component = Render<RideThread>(parameters => parameters
+			.Add(p => p.RideId, rideId));
+
+		component.WaitForAssertion(() =>
+		{
+			nav.Uri.ShouldEndWith(CurrentRideState.MissingRideHref);
+			current.RideId.ShouldBeNull("the rail's chat icon must stop leading back to the same answer.");
 		}, timeout: TimeSpan.FromSeconds(3));
 	}
 }

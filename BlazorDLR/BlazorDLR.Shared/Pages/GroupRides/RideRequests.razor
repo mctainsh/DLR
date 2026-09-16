@@ -3,6 +3,8 @@
 @using DLR.Core.Contracts.Rides
 @inject IApiClient Api
 @inject TimeProvider Clock
+@inject NavigationManager Nav
+@inject CurrentRideState CurrentRide
 
 <PageTitle>Adventure requests - Dumb Luck Routes</PageTitle>
 
@@ -76,6 +78,13 @@
 		try
 		{
 			_requests = await Api.ListJoinRequestsAsync(RideId);
+		}
+		// Otherwise the page keeps "Loading…" on screen for ever, under a back link to the adventure
+		// that is gone. The endpoint answers a non-organiser the same 404 (§5.2), so they are handed
+		// over too rather than told the adventure exists.
+		catch (ApiException gone) when (gone.Error.MeansRideGone)
+		{
+			await CurrentRide.HandOverToListAsync(RideId, Nav);
 		}
 		catch (ApiException apiException)
 		{

@@ -5,7 +5,7 @@ namespace DLR.Architecture.Tests;
 /// <summary>
 /// Raw SQL lives in three folders and nowhere else (§10.4).
 /// <para>
-/// The position writer's <c>UNNEST</c> upsert earns its exemption — one command for every
+/// The position writer's <c>UNNEST</c> upsert earns its exemption - one command for every
 /// dirty rider, with a <c>WHERE</c> guard that will not overwrite a newer row (§5.5). The
 /// identity and maintenance folders earn theirs for the registration ladder's row count
 /// and the nightly sweep's set-based deletes. Everywhere else, a hand-written query is a
@@ -23,7 +23,7 @@ public sealed class SqlRules
 
 	/// <summary>
 	/// Ways of executing SQL that was not built by the query translator. Schema
-	/// declarations — a filtered index, a check constraint, a migration's own DDL — are
+	/// declarations - a filtered index, a check constraint, a migration's own DDL - are
 	/// deliberately not on this list: they describe the database rather than query it,
 	/// and EF Core has no non-string way to express them.
 	/// </summary>
@@ -41,7 +41,7 @@ public sealed class SqlRules
 	/// <summary>
 	/// The rule governs production code. A test harness that has to <c>CREATE DATABASE</c>
 	/// before EF Core has anything to connect to is doing something EF Core cannot express,
-	/// and constraining it buys nothing — §10.4 names three folders, all of them under
+	/// and constraining it buys nothing - §10.4 names three folders, all of them under
 	/// <c>src/</c>.
 	/// </summary>
 	[Fact]
@@ -54,6 +54,6 @@ public sealed class SqlRules
 
 		offenders.ShouldBeEmpty(
 			$"Raw SQL belongs in {string.Join(", ", PermittedFolders)} and nowhere else. " +
-			"If a query genuinely needs it, move the query — do not widen the rule.");
+			"If a query genuinely needs it, move the query - do not widen the rule.");
 	}
 }

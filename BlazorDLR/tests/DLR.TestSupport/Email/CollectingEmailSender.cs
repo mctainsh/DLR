@@ -6,7 +6,7 @@ namespace DLR.TestSupport.Email;
 /// <summary>
 /// The fake <see cref="IEmailSender"/> every server test asserts against (§10.4).
 /// Nothing leaves the process, so the whole suite runs with no credentials and no
-/// outbound network — which is what lets an outside contributor run it (§14.4).
+/// outbound network - which is what lets an outside contributor run it (§14.4).
 /// </summary>
 public sealed class CollectingEmailSender : IEmailSender
 {

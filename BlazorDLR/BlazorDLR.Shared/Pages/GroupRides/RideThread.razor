@@ -3,6 +3,8 @@
 @using BlazorDLR.Shared.Components
 @using DLR.Core.Contracts.Rides
 @inject IApiClient Api
+@inject NavigationManager Nav
+@inject CurrentRideState CurrentRide
 
 <PageTitle>Adventure thread - Dumb Luck Routes</PageTitle>
 
@@ -51,6 +53,10 @@
 		{
 			_ride = await Api.GetRideAsync(RideId);
 			_canPost = _ride.Permissions.AllowMemberComments || _ride.IsOrganiser;
+		}
+		catch (ApiException gone) when (gone.Error.MeansRideGone)
+		{
+			await CurrentRide.HandOverToListAsync(RideId, Nav);
 		}
 		catch (ApiException apiException) { _error = apiException.Error.Title; }
 		catch (Exception exception) { _error = exception.Message; }

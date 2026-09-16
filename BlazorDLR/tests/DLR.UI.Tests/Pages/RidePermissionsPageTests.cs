@@ -1,8 +1,11 @@
+using System.Net;
 using BlazorDLR.Shared.Pages.GroupRides;
 using BlazorDLR.Shared.Services;
+using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DLR.UI.Tests.Pages;
@@ -93,5 +96,24 @@ public sealed class RidePermissionsPageTests : PageTestContext
 		sent.AllowMemberMarkers.ShouldBeTrue("markers were left on - the switch is independent.");
 		sent.AllowMemberComments.ShouldBeTrue("comments were left on - turning off photos does not silence conversation.");
 		sent.AllowMemberPhotos.ShouldBeFalse("photos is its own switch, not a consequence of comments.");
+	}
+
+	[Fact]
+	public void ARideThatIsGone_HandsTheRiderToTheList()
+	{
+		// Left to itself this page keeps "Loading…" on screen for ever, under a back link to the
+		// adventure that is gone - a worse dead end than the "Not Found" banner.
+		FakeApiClient api = WireServices(isOrganiser: true);
+		api.RideException = new ApiException(new ApiError(
+			HttpStatusCode.NotFound, "That adventure no longer exists.", Array.Empty<string>()));
+
+		NavigationManager nav = Services.GetRequiredService<NavigationManager>();
+
+		IRenderedComponent<RidePermissionsPage> component = Render<RidePermissionsPage>(parameters => parameters
+			.Add(p => p.RideId, api.RideResult!.Id));
+
+		component.WaitForAssertion(
+			() => nav.Uri.ShouldEndWith(CurrentRideState.MissingRideHref),
+			timeout: TimeSpan.FromSeconds(3));
 	}
 }

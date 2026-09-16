@@ -12,6 +12,8 @@
 @inject RouteStyleState RouteStyles
 @inject ConfirmService Confirm
 @inject TimeProvider Clock
+@inject NavigationManager Nav
+@inject CurrentRideState CurrentRide
 @implements IAsyncDisposable
 
 @*
@@ -332,6 +334,9 @@
 		}
 
 		await _session.LoadAsync(RideId);
+
+		if (_session.RideUnavailable)
+			await CurrentRide.HandOverToListAsync(RideId, Nav);
 	}
 
 	private void OnSessionChanged() => _ = InvokeAsync(StateHasChanged);

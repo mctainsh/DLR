@@ -84,6 +84,10 @@ public abstract class PageTestContext : BunitContext
 		Services.AddScoped<UnreadThreadState>();
 		Services.AddScoped<ConsentAskedState>();
 
+		// Where the rail's globe points, and what the four ride screens forget when the server says
+		// the adventure is not this rider's. NavMenu injects it, so every routable page has one.
+		Services.AddScoped<CurrentRideState>();
+
 		// The launch hook MainLayout runs after first render (§18.6). Page-wide because the layout
 		// injects it, so every routable page has one above it. Harmless by default: the fake API
 		// client and an empty device store between them answer "no adventure to go back to".

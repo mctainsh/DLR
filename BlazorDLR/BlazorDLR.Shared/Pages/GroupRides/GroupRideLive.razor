@@ -1539,15 +1539,15 @@
 		else if (_session.RideUnavailable)
 		{
 			// The server said this ride is not there for this rider - deleted, or they have been
-			// removed from it (§5.2). Forgotten, so the globe stops leading to a page that can only
-			// answer "no such ride". Only this ride: see CurrentRideState.ForgetAsync.
+			// removed from it (§5.2). Nothing on this page draws without a ride, so it hands over.
 			//
 			// A load that failed any other way keeps its place. A tunnel is not a reason to forget
 			// which ride somebody is on, and the rider who most needs the globe is the one whose
 			// phone has just lost signal in the middle of a ride.
 			_forgotten = true;
-			await CurrentRide.ForgetAsync(RideId);
 			await ConsentAsked.ForgetAsync(RideId);
+			await CurrentRide.HandOverToListAsync(RideId, Nav);
+			return;
 		}
 
 		// The ride's routes are in, which is the frame this page prefers. A no-op on the very
@@ -1573,9 +1573,10 @@
 		{
 			StateHasChanged();
 
-			// A removal can land while the map is open, not only between loads (§5.2). Same answer
-			// as the load that 404s, and once: the session goes on raising for everything else, and
-			// forgetting a ride is not something to re-decide on every frame.
+			// A removal can land while the map is open, not only between loads (§5.2). Forgotten but
+			// not handed over, unlike the load above: a map already drawn with riders on it is not a
+			// page to pull away mid-ride, so the stated error stands over what is on screen. Once -
+			// the session goes on raising for everything else.
 			if (_session.RideUnavailable && !_forgotten)
 			{
 				_forgotten = true;

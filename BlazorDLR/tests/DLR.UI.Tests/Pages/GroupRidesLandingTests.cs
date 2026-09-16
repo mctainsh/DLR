@@ -5,6 +5,7 @@ using BlazorDLR.Shared.State;
 using Bunit;
 using DLR.Core.Contracts.Rides;
 using DLR.UI.Tests.Fakes;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DLR.UI.Tests.Pages;
@@ -623,5 +624,31 @@ public sealed class GroupRidesLandingTests : PageTestContext
 			component.Markup.ShouldContain("The long way round",
 				customMessage: "a refused withdrawal leaves them waiting, which is the truth.");
 		}, timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void ArrivingFromAnAdventureThatIsGone_SaysWhy()
+	{
+		// A ride screen that found its adventure deleted sends the rider here rather than leaving
+		// them on "Not Found" (CurrentRideState.MissingRideHref). Without the line they arrive on a
+		// page they did not ask for with nothing to explain it.
+		WireServices();
+		Services.GetRequiredService<NavigationManager>().NavigateTo(CurrentRideState.MissingRideHref);
+
+		IRenderedComponent<GroupRides> component = Render<GroupRides>();
+
+		component.WaitForAssertion(
+			() => component.Find(".status").TextContent.ShouldContain("not there any more"),
+			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public void ArrivingAtTheListOnPurpose_SaysNothingAboutAMissingAdventure()
+	{
+		WireServices();
+
+		IRenderedComponent<GroupRides> component = Render<GroupRides>();
+
+		component.Markup.ShouldNotContain("not there any more");
 	}
 }

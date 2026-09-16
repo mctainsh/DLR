@@ -7,6 +7,7 @@ using DLR.Core.Contracts.Rides;
 using DLR.Core.Contracts.Tracks;
 using DLR.Core.Tracks;
 using DLR.UI.Tests.Fakes;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -129,6 +130,33 @@ public sealed class RideMembersLiveTests : PageTestContext
 		component.WaitForAssertion(
 			() => component.Find(".page-nav-back").GetAttribute("href").ShouldBe($"/group-rides/live/{rideId}"),
 			timeout: TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task ARideThatIsGone_HandsTheRiderToTheList_AndIsForgotten()
+	{
+		// Deleted, or this rider has been taken off it - §5.2 makes both a 404. The whole page is
+		// this ride's members, so there is nothing here to leave them looking at.
+		(FakeApiClient api, _, Guid rideId) = WireServices();
+		api.RideException = new ApiException(new ApiError(
+			StatusCode: System.Net.HttpStatusCode.NotFound,
+			Title: "That adventure no longer exists.",
+			Messages: Array.Empty<string>()));
+
+		CurrentRideState current = Services.GetRequiredService<CurrentRideState>();
+		NavigationManager nav = Services.GetRequiredService<NavigationManager>();
+
+		// This is where the rail's globe points, which is how a rider reaches a ride that has since
+		// gone in the first place.
+		await current.SetAsync(rideId);
+
+		IRenderedComponent<RideMembersLive> component = RenderMembers(rideId);
+
+		component.WaitForAssertion(() =>
+		{
+			nav.Uri.ShouldEndWith(CurrentRideState.MissingRideHref);
+			current.RideId.ShouldBeNull("the globe must stop leading back to the same answer.");
+		}, timeout: TimeSpan.FromSeconds(3));
 	}
 
 	[Fact]
