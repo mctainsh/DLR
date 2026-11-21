@@ -2721,6 +2721,12 @@
 		min-height: 0;
 	}
 
+	/* Over the neighbour panel (16), which shares its corner and is only a read-out; the offer
+	   carries buttons. Still under the strips (18) and the menu backdrop (19). */
+	.live .dlr-map-offline-offer {
+		z-index: 17;
+	}
+
 	/*
 		The hamburger and its menu. `position: absolute` inside .page-full rather than fixed,
 		so the whole assembly lands inside the content area on both rail placements without
